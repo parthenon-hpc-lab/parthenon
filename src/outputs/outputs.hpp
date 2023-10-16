@@ -222,9 +222,12 @@ class PHDF5Output : public OutputType {
 //  \brief derived OutputType class for histograms
 
 namespace HistUtil {
+
+enum class VarType { X1, X2, X3, R, Var, Unused };
 struct Histogram {
   int ndim;                             // 1D or 2D histogram
   std::string x_var_name, y_var_name;   // variable(s) for bins
+  VarType x_var_type, y_var_type;       // type, e.g., coord related or actual field
   int x_var_component, y_var_component; // components of bin variables (vector)
   ParArray1D<Real> x_edges, y_edges;
   std::string binned_var_name; // variable name of variable to be binned

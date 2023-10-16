@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -67,11 +68,25 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   PARTHENON_REQUIRE_THROWS(ndim == 1 || ndim == 2, "Histogram dim must be '1' or '2'");
 
   x_var_name = pin->GetString(block_name, prefix + "x_variable");
-
-  x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
-  // would add additional logic to pick it from a pack...
-  PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
-                           "Negative component indices are not supported");
+  x_var_component = -1;
+  if (x_var_name == "COORD_X1") {
+    x_var_type = VarType::X1;
+  } else if (x_var_name == "COORD_X2") {
+    x_var_type = VarType::X2;
+  } else if (x_var_name == "COORD_X3") {
+    x_var_type = VarType::X3;
+  } else if (x_var_name == "COORD_R") {
+    PARTHENON_REQUIRE_THROWS(
+        typeid(Coordinates_t) == typeid(UniformCartesian),
+        "Radial coordinate currently only works for uniform Cartesian coordinates.");
+    x_var_type = VarType::R;
+  } else {
+    x_var_type = VarType::Var;
+    x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
+                             "Negative component indices are not supported");
+  }
 
   const auto x_edges_in = pin->GetVector<Real>(block_name, prefix + "x_edges");
   //  required by binning index function
@@ -89,14 +104,28 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   // For 1D profile default initalize y variables
   y_var_name = "";
   y_var_component = -1;
+  y_var_type = VarType::Unused;
   // and for 2D profile check if they're explicitly set (not default value)
   if (ndim == 2) {
     y_var_name = pin->GetString(block_name, prefix + "y_variable");
-
-    y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
-    // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
-                             "Negative component indices are not supported");
+    if (y_var_name == "COORD_X1") {
+      y_var_type = VarType::X1;
+    } else if (y_var_name == "COORD_X2") {
+      y_var_type = VarType::X2;
+    } else if (y_var_name == "COORD_X3") {
+      y_var_type = VarType::X3;
+    } else if (y_var_name == "COORD_R") {
+      PARTHENON_REQUIRE_THROWS(
+          typeid(Coordinates_t) == typeid(UniformCartesian),
+          "Radial coordinate currently only works for uniform Cartesian coordinates.");
+      y_var_type = VarType::R;
+    } else {
+      y_var_type = VarType::Var;
+      y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
+      // would add additional logic to pick it from a pack...
+      PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
+                               "Negative component indices are not supported");
+    }
 
     const auto y_edges_in = pin->GetVector<Real>(block_name, prefix + "y_edges");
     //  required by binning index function
@@ -136,6 +165,8 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   const auto x_var_component = hist.x_var_component;
   const auto y_var_component = hist.y_var_component;
   const auto binned_var_component = hist.binned_var_component;
+  const auto x_var_type = hist.x_var_type;
+  const auto y_var_type = hist.y_var_type;
   const auto x_edges = hist.x_edges;
   const auto y_edges = hist.y_edges;
   const auto hist_ndim = hist.ndim;
@@ -154,8 +185,14 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   for (int p = 0; p < num_partitions; p++) {
     auto &md = pm->mesh_data.GetOrAdd("base", p);
 
-    const auto x_var = md->PackVariables(std::vector<std::string>{hist.x_var_name});
-    const auto y_var = md->PackVariables(std::vector<std::string>{hist.y_var_name});
+    const auto x_var_pack_string = x_var_type == VarType::Var
+                                       ? std::vector<std::string>{hist.x_var_name}
+                                       : std::vector<std::string>{};
+    const auto x_var = md->PackVariables(x_var_pack_string);
+    const auto y_var_pack_string = y_var_type == VarType::Var
+                                       ? std::vector<std::string>{hist.y_var_name}
+                                       : std::vector<std::string>{};
+    const auto y_var = md->PackVariables(y_var_pack_string);
     const auto binned_var =
         md->PackVariables(std::vector<std::string>{hist.binned_var_name});
     const auto ib = md->GetBoundsI(IndexDomain::interior);
@@ -163,10 +200,23 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
     const auto kb = md->GetBoundsK(IndexDomain::interior);
 
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "CalcHist", DevExecSpace(), 0, x_var.GetDim(5) - 1, kb.s,
+        DEFAULT_LOOP_PATTERN, "CalcHist", DevExecSpace(), 0, md->NumBlocks() - 1, kb.s,
         kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto &x_val = x_var(b, x_var_component, k, j, i);
+          auto &coords = x_var.GetCoords(b);
+          auto x_val = std::numeric_limits<Real>::quiet_NaN();
+          if (x_var_type == VarType::X1) {
+            x_val = coords.Xc<1>(k, j, i);
+          } else if (x_var_type == VarType::X2) {
+            x_val = coords.Xc<2>(k, j, i);
+          } else if (x_var_type == VarType::X3) {
+            x_val = coords.Xc<3>(k, j, i);
+          } else if (x_var_type == VarType::R) {
+            x_val = Kokkos::sqrt(SQR(coords.Xc<1>(k, j, i)) + SQR(coords.Xc<2>(k, j, i)) +
+                                 SQR(coords.Xc<3>(k, j, i)));
+          } else {
+            x_val = x_var(b, x_var_component, k, j, i);
+          }
           if (x_val < x_edges(0) || x_val > x_edges(x_edges.extent_int(0) - 1)) {
             return;
           }
@@ -178,14 +228,28 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
 
           int y_bin = 0;
           if (hist_ndim == 2) {
-            const auto &y_val = y_var(b, y_var_component, k, j, i);
+            auto y_val = std::numeric_limits<Real>::quiet_NaN();
+            if (y_var_type == VarType::X1) {
+              y_val = coords.Xc<1>(k, j, i);
+            } else if (y_var_type == VarType::X2) {
+              y_val = coords.Xc<2>(k, j, i);
+            } else if (y_var_type == VarType::X3) {
+              y_val = coords.Xc<3>(k, j, i);
+            } else if (y_var_type == VarType::R) {
+              y_val =
+                  Kokkos::sqrt(SQR(coords.Xc<1>(k, j, i)) + SQR(coords.Xc<2>(k, j, i)) +
+                               SQR(coords.Xc<3>(k, j, i)));
+            } else {
+              y_val = y_var(b, y_var_component, k, j, i);
+            }
+
             if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
               return;
             }
             // if we're on the rightmost edge, directly set last bin, otherwise search
-            const auto y_bin = y_val == y_edges(y_edges.extent_int(0) - 1)
-                                   ? y_edges.extent_int(0) - 2
-                                   : upper_bound(y_edges, y_val) - 1;
+            y_bin = y_val == y_edges(y_edges.extent_int(0) - 1)
+                        ? y_edges.extent_int(0) - 2
+                        : upper_bound(y_edges, y_val) - 1;
           }
           auto res = scatter.access();
           res(y_bin, x_bin) += binned_var(b, binned_var_component, k, j, i);
@@ -256,7 +320,6 @@ std::string HistogramOutput::GenerateFilename_(ParameterInput *pin, SimTime *tm,
 //  \brief  Calculate histograms
 void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                       const SignalHandler::OutputSignal signal) {
-
   Kokkos::Profiling::pushRegion("Calculate all histograms");
   for (auto &hist : histograms_) {
     CalcHist(pm, hist);

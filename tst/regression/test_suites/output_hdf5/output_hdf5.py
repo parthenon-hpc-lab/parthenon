@@ -170,6 +170,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         # Checking Parthenon histograms versus numpy ones
         for dim in [2, 3]:
+            # 1D histogram with binning of a variable with bins defined by a var
             data = phdf.phdf(f"advection_{dim}d.out0.final.phdf")
             advected = data.Get("advected")
             hist_np1d = np.histogram(
@@ -184,11 +185,13 @@ class TestCase(utils.test_case.TestCaseAbs):
                     print(f"1D hist for {dim}D setup don't match")
                     analyze_status = False
 
+            # 2D histogram with binning of a variable with bins defined by one var and one coord
             omadvected = data.Get("one_minus_advected_sq")
+            z, y, x = data.GetVolumeLocations()
             hist_np2d = np.histogram2d(
-                advected.flatten(),
+                x.flatten(),
                 omadvected.flatten(),
-                [[1e-9, 1e-4, 1e-1, 2e-1, 5e-1, 1e0], [0, 0.5, 1]],
+                [[-0.5, -0.25, 0, 0.25, 0.5], [0, 0.5, 1]],
                 weights=advected.flatten(),
             )
             with h5py.File(

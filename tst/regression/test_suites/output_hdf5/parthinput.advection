@@ -84,9 +84,8 @@ hist0_binned_variable = advected
 hist0_binned_variable_component = 0
 
 hist1_ndim = 2
-hist1_x_variable = advected
-hist1_x_variable_component = 0
-hist1_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.00
+hist1_x_variable = COORD_X1
+hist1_x_edges = -0.5, -0.25, 0.0, 0.25, 0.5
 hist1_y_variable = one_minus_advected_sq
 hist1_y_variable_component = 0
 hist1_y_edges = 0, 0.5, 1.0
