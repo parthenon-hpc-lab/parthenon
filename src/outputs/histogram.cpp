@@ -159,6 +159,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
 
   result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
   scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
+
+  weight_by_vol = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
 }
 
 // Computes a 1D or 2D histogram with inclusive lower edges and inclusive rightmost edges.
@@ -174,6 +176,7 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   const auto x_edges = hist.x_edges;
   const auto y_edges = hist.y_edges;
   const auto hist_ndim = hist.ndim;
+  const auto weight_by_vol = hist.weight_by_vol;
   auto result = hist.result;
   auto scatter = hist.scatter_result;
 
@@ -261,10 +264,11 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
                         : upper_bound(y_edges, y_val) - 1;
           }
           auto res = scatter.access();
-          const auto to_add = binned_var_component == -1
-                                  ? 1
-                                  : binned_var(b, binned_var_component, k, j, i);
-          res(y_bin, x_bin) += to_add;
+          const auto val_to_add = binned_var_component == -1
+                                      ? 1
+                                      : binned_var(b, binned_var_component, k, j, i);
+          const auto weight = weight_by_vol ? coords.CellVolume(k, j, i) : 1.0;
+          res(y_bin, x_bin) += val_to_add * weight;
         });
     // "reduce" results from scatter view to original view. May be a no-op depending on
     // backend.

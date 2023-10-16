@@ -216,4 +216,27 @@ class TestCase(utils.test_case.TestCaseAbs):
                     print(f"1D sampling-based hist for {dim}D setup don't match")
                     analyze_status = False
 
+            # 2D histogram with volume weighted binning of a variable with bins defined by coords
+            vols = np.einsum(
+                "ai,aj,ak->aijk", np.diff(data.zf), np.diff(data.yf), np.diff(data.xf)
+            )
+            hist_np2d = np.histogram2d(
+                x.flatten(),
+                y.flatten(),
+                [[-0.5, -0.25, 0, 0.25, 0.5], [-0.5, -0.1, 0, 0.1, 0.5]],
+                weights=advected.flatten() * vols.flatten(),
+            )
+            with h5py.File(
+                f"advection_{dim}d.out2.histograms.final.hdf", "r"
+            ) as infile:
+                hist_parth = infile["3/data"][:]
+                # testing slices separately to ensure matching numpy convention
+                all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
+                all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])
+                all_close &= np.allclose(hist_parth[:, 2], hist_np2d[0][:, 2])
+                all_close &= np.allclose(hist_parth[:, 3], hist_np2d[0][:, 3])
+                if not all_close:
+                    print(f"2D vol-weighted hist for {dim}D setup don't match")
+                    analyze_status = False
+
         return analyze_status
