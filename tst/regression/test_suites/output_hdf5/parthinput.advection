@@ -80,17 +80,20 @@ num_histograms = 4
 hist0_ndim = 1
 hist0_x_variable = advected
 hist0_x_variable_component = 0
-hist0_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
+hist0_x_edges_type = list
+hist0_x_edges_list = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
 hist0_binned_variable = advected
 hist0_binned_variable_component = 0
 
 # 2D histogram of a variable, binned by a coordinate and a different variable
 hist1_ndim = 2
 hist1_x_variable = HIST_COORD_X1
-hist1_x_edges = -0.5, -0.25, 0.0, 0.25, 0.5
+hist1_x_edges_type = list
+hist1_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.5
 hist1_y_variable = one_minus_advected_sq
 hist1_y_variable_component = 0
-hist1_y_edges = 0, 0.5, 1.0
+hist1_y_edges_type = list
+hist1_y_edges_list = 0, 0.5, 1.0
 hist1_binned_variable = advected
 hist1_binned_variable_component = 0
 
@@ -98,15 +101,18 @@ hist1_binned_variable_component = 0
 hist2_ndim = 1
 hist2_x_variable = advected
 hist2_x_variable_component = 0
-hist2_x_edges = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
+hist2_x_edges_type = list
+hist2_x_edges_list = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
 hist2_binned_variable = HIST_ONES
 
 # 2D histogram of volume weighted variable according to two coordinates
 hist3_ndim = 2
 hist3_x_variable = HIST_COORD_X1
-hist3_x_edges = -0.5, -0.25, 0.0, 0.25, 0.5
+hist3_x_edges_type = list
+hist3_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.5
 hist3_y_variable = HIST_COORD_X2
-hist3_y_edges = -0.5, -0.1, 0.0, 0.1, 0.5
+hist3_y_edges_type = list
+hist3_y_edges_list = -0.5, -0.1, 0.0, 0.1, 0.5
 hist3_binned_variable = advected
 hist3_binned_variable_component = 0
 hist3_weight_by_volume = true
