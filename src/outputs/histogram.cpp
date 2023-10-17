@@ -62,6 +62,62 @@ using namespace OutputUtils;
 
 namespace HistUtil {
 
+ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
+                          const std::string &prefix) {
+  std::vector<Real> edges_in;
+
+  const auto edge_type_str = pin->GetString(block_name, prefix + "type");
+  if (edge_type_str == "lin" || edge_type_str == "log") {
+    const auto edge_min = pin->GetReal(block_name, prefix + "min");
+    const auto edge_max = pin->GetReal(block_name, prefix + "max");
+    PARTHENON_REQUIRE_THROWS(edge_max > edge_min,
+                             "Histogram max needs to be larger than min.")
+
+    const auto edge_num_bins = pin->GetReal(block_name, prefix + "num_bins");
+    PARTHENON_REQUIRE_THROWS(edge_num_bins >= 1, "Need at least one bin for histogram.");
+
+    if (edge_type_str == "lin") {
+      auto dbin = (edge_max - edge_min) / (edge_num_bins);
+      for (int i = 0; i < edge_num_bins; i++) {
+        edges_in.emplace_back(edge_min + i * dbin);
+      }
+      edges_in.emplace_back(edge_max);
+    } else if (edge_type_str == "log") {
+      PARTHENON_REQUIRE_THROWS(
+          edge_min > 0.0 && edge_max > 0.0,
+          "Log binning for negative values not implemented. However, you can specify "
+          "arbitrary bin edges through the 'list' edge type.")
+
+      auto dbin = (std::log10(edge_max) - std::log10(edge_min)) / (edge_num_bins);
+      for (int i = 0; i < edge_num_bins; i++) {
+        edges_in.emplace_back(std::pow(10., std::log10(edge_min) + i * dbin));
+      }
+      edges_in.emplace_back(edge_max);
+    } else {
+      PARTHENON_FAIL("Not sure how I got here...")
+    }
+
+  } else if (edge_type_str == "list") {
+    edges_in = pin->GetVector<Real>(block_name, prefix + "list");
+    //  required by binning index function
+    PARTHENON_REQUIRE_THROWS(std::is_sorted(edges_in.begin(), edges_in.end()),
+                             "Bin edges must be in order.");
+    PARTHENON_REQUIRE_THROWS(edges_in.size() >= 2,
+                             "Need at least one bin, i.e., two edges.");
+
+  } else {
+    PARTHENON_THROW(
+        "Unknown edge type for histogram. Supported types are lin, log, and list.")
+  }
+  auto edges = ParArray1D<Real>(prefix, edges_in.size());
+  auto edges_h = edges.GetHostMirror();
+  for (int i = 0; i < edges_in.size(); i++) {
+    edges_h(i) = edges_in[i];
+  }
+  Kokkos::deep_copy(edges, edges_h);
+  return edges;
+}
+
 Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
                      const std::string &prefix) {
   ndim = pin->GetInteger(block_name, prefix + "ndim");
@@ -88,18 +144,7 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
                              "Negative component indices are not supported");
   }
 
-  const auto x_edges_in = pin->GetVector<Real>(block_name, prefix + "x_edges");
-  //  required by binning index function
-  PARTHENON_REQUIRE_THROWS(std::is_sorted(x_edges_in.begin(), x_edges_in.end()),
-                           "Bin edges must be in order.");
-  PARTHENON_REQUIRE_THROWS(x_edges_in.size() >= 2,
-                           "Need at least one bin, i.e., two edges.");
-  x_edges = ParArray1D<Real>(prefix + "x_edges", x_edges_in.size());
-  auto x_edges_h = x_edges.GetHostMirror();
-  for (int i = 0; i < x_edges_in.size(); i++) {
-    x_edges_h(i) = x_edges_in[i];
-  }
-  Kokkos::deep_copy(x_edges, x_edges_h);
+  x_edges = GetEdges(pin, block_name, prefix + "x_edges_");
 
   // For 1D profile default initalize y variables
   y_var_name = "";
@@ -127,18 +172,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
                                "Negative component indices are not supported");
     }
 
-    const auto y_edges_in = pin->GetVector<Real>(block_name, prefix + "y_edges");
-    //  required by binning index function
-    PARTHENON_REQUIRE_THROWS(std::is_sorted(y_edges_in.begin(), y_edges_in.end()),
-                             "Bin edges must be in order.");
-    PARTHENON_REQUIRE_THROWS(y_edges_in.size() >= 2,
-                             "Need at least one bin, i.e., two edges.");
-    y_edges = ParArray1D<Real>(prefix + "y_edges", y_edges_in.size());
-    auto y_edges_h = y_edges.GetHostMirror();
-    for (int i = 0; i < y_edges_in.size(); i++) {
-      y_edges_h(i) = y_edges_in[i];
-    }
-    Kokkos::deep_copy(y_edges, y_edges_h);
+    y_edges = GetEdges(pin, block_name, prefix + "y_edges_");
+
   } else {
     y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
   }
@@ -158,7 +193,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
 
   result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
-  scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
+  scatter_result =
+      Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result.KokkosView());
 
   weight_by_vol = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
 }
