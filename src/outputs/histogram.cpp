@@ -64,13 +64,38 @@ namespace HistUtil {
 
 ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
                           const std::string &prefix) {
-
   std::vector<Real> edges_in;
 
   const auto edge_type_str = pin->GetString(block_name, prefix + "type");
-  if (edge_type_str == "lin") {
+  if (edge_type_str == "lin" || edge_type_str == "log") {
+    const auto edge_min = pin->GetReal(block_name, prefix + "min");
+    const auto edge_max = pin->GetReal(block_name, prefix + "max");
+    PARTHENON_REQUIRE_THROWS(edge_max > edge_min,
+                             "Histogram max needs to be larger than min.")
 
-  } else if (edge_type_str == "log") {
+    const auto edge_num_bins = pin->GetReal(block_name, prefix + "num_bins");
+    PARTHENON_REQUIRE_THROWS(edge_num_bins >= 1, "Need at least one bin for histogram.");
+
+    if (edge_type_str == "lin") {
+      auto dbin = (edge_max - edge_min) / (edge_num_bins);
+      for (int i = 0; i < edge_num_bins; i++) {
+        edges_in.emplace_back(edge_min + i * dbin);
+      }
+      edges_in.emplace_back(edge_max);
+    } else if (edge_type_str == "log") {
+      PARTHENON_REQUIRE_THROWS(
+          edge_min > 0.0 && edge_max > 0.0,
+          "Log binning for negative values not implemented. However, you can specify "
+          "arbitrary bin edges through the 'list' edge type.")
+
+      auto dbin = (std::log10(edge_max) - std::log10(edge_min)) / (edge_num_bins);
+      for (int i = 0; i < edge_num_bins; i++) {
+        edges_in.emplace_back(std::pow(10., std::log10(edge_min) + i * dbin));
+      }
+      edges_in.emplace_back(edge_max);
+    } else {
+      PARTHENON_FAIL("Not sure how I got here...")
+    }
 
   } else if (edge_type_str == "list") {
     edges_in = pin->GetVector<Real>(block_name, prefix + "list");
