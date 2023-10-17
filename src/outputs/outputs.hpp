@@ -31,6 +31,7 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -239,7 +240,7 @@ struct Histogram {
 
   // temp view for histogram reduction for better performance (switches
   // between atomics and data duplication depending on the platform)
-  Kokkos::Experimental::ScatterView<Real **> scatter_result;
+  Kokkos::Experimental::ScatterView<Real **, LayoutWrapper> scatter_result;
   Histogram(ParameterInput *pin, const std::string &block_name,
             const std::string &prefix);
 };

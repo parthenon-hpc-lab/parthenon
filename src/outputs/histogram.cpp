@@ -158,7 +158,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
 
   result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
-  scatter_result = Kokkos::Experimental::ScatterView<Real **>(result.KokkosView());
+  scatter_result =
+      Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result.KokkosView());
 
   weight_by_vol = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
 }
