@@ -125,8 +125,9 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
-
-  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  if (signal != OutputSignal::analysis) {
+    pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  }
   PostExecute(status);
   return status;
 }
