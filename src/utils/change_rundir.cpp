@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,6 +27,8 @@
 #include <stdexcept>
 
 #include "defs.hpp"
+#include "globals.hpp"
+#include "parthenon_mpi.hpp"
 #include "utils/error_checking.hpp"
 
 namespace fs = FS_NAMESPACE;
@@ -42,18 +44,24 @@ void ChangeRunDir(const char *pdir) {
 
   if (pdir == nullptr || *pdir == '\0') return;
 
-  if (!fs::exists(pdir)) {
-    if (!fs::create_directories(pdir)) {
-      msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
-          << "Cannot create directory '" << pdir << "'";
-      PARTHENON_THROW(msg);
-    }
+  if (parthenon::Globals::my_rank == 0) {
+    if (!fs::exists(pdir)) {
+      if (!fs::create_directories(pdir)) {
+        msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
+            << "Cannot create directory '" << pdir << "'";
+        PARTHENON_THROW(msg);
+      }
 
-    // in POSIX, this is 0755 permission, rwxr-xr-x
-    auto perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
-                 fs::perms::others_read | fs::perms::others_exec;
-    fs::permissions(pdir, perms);
+      // in POSIX, this is 0755 permission, rwxr-xr-x
+      auto perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
+                   fs::perms::others_read | fs::perms::others_exec;
+      fs::permissions(pdir, perms);
+    }
   }
+
+#ifdef MPI_PARALLEL
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
   if (chdir(pdir)) {
     msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
