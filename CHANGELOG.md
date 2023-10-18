@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor
 - [[PR 932]](https://github.com/parthenon-hpc-lab/parthenon/pull/932) Add GetOrAddFlag to metadata
 - [[PR 931]](https://github.com/parthenon-hpc-lab/parthenon/pull/931) Allow SparsePacks with subsets of blocks
 - [[PR 921]](https://github.com/parthenon-hpc-lab/parthenon/pull/921) Add more flexible ways of adding and using MeshData/MeshBlockData objects to DataCollections
