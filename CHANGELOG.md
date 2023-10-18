@@ -26,15 +26,20 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 955]](https://github.com/parthenon-hpc-lab/parthenon/pull/955) Only permit rank0 to mkdir when -d flag specified
+- [[PR 952]](https://github.com/parthenon-hpc-lab/parthenon/pull/954) Fix format string in sparse advection example
+- [[PR 947]](https://github.com/parthenon-hpc-lab/parthenon/pull/947) Add missing ForceRemeshComm dependencies
+- [[PR 928]](https://github.com/parthenon-hpc-lab/parthenon/pull/928) Fix boundary comms during refinement next to refined blocks
 - [[PR 937]](https://github.com/parthenon-hpc-lab/parthenon/pull/937) Fix multiple line continuations
 - [[PR 933]](https://github.com/parthenon-hpc-lab/parthenon/pull/933) Remove extraneous debug check
 - [[PR 917]](https://github.com/parthenon-hpc-lab/parthenon/pull/917) Update Iterative Tasking Infrastructure
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 938]](https://github.com/parthenon-hpc-lab/parthenon/pull/938) Restructure buffer packing/unpacking kernel hierarchical parallelism
 - [[PR 944]](https://github.com/parthenon-hpc-lab/parthenon/pull/944) Move sparse pack identifier creation to descriptor
 - [[PR 904]](https://github.com/parthenon-hpc-lab/parthenon/pull/904) Move to prolongation/restriction in one for AMR and communicate non-cell centered fields
-- [[PR 918]](https://github.com/parthenon-hpc-lab/parthenon/pull/918) Refactor RegionSize 
+- [[PR 918]](https://github.com/parthenon-hpc-lab/parthenon/pull/918) Refactor RegionSize
 - [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
