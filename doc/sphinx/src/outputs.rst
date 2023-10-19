@@ -10,7 +10,7 @@ To disable an output block without removing it from the intput file set
 the block's ``dt < 0.0``.
 
 In addition to time base outputs, two additional options to trigger
-outputs (applies to HDF5 and restart outputs) exist.
+outputs (applies to HDF5, restart and histogram outputs) exist.
 
 -  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which
    is often sent by schedulers such as Slurm to signal a job of
@@ -28,7 +28,10 @@ outputs (applies to HDF5 and restart outputs) exist.
 
 Note, in both cases the original numbering of the output will be
 unaffected and the ``final`` and ``now`` files will be overwritten each
-time without warning. ## HDF5
+time without warning.
+
+HDF5
+----
 
 Parthenon allows users to select which fields are captured in the HDF5
 (``.phdf``) dumps at runtime. In the input file, include a
@@ -157,6 +160,134 @@ block might look like
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
 enrolled by a specific package, see :ref:`state history output`.
+
+Histograms
+----------
+
+Parthenon supports calculating flexible 1D and 2D histograms in-situ that
+are written to disk in HDF5 format.
+Currently supported are
+
+- 1D and 2D histograms
+- binning by variable or coordinate (x1, x2, x3 and radial distance)
+- counting samples and or summing a variable  
+- weighting by volume and/or variable
+
+The output format follows ``numpy`` convention, so that plotting data
+with Python based machinery should be straightfoward (see example below).
+In general, histograms are calculated using inclusive left bin edges and
+data equal to the rightmost edge is also included in the last bin.
+
+A ``<parthenon/output*>`` block containing one simple and one complex
+example might look like::
+
+   <parthenon/output8>
+   file_type = histogram # required, sets the output type
+   dt = 1.0              # required, sets the output interval
+   num_histograms = 2    # required, specifies how many histograms are defined in this block
+
+   # 1D histogram ("standard", i.e., counting occurance in bin)
+   hist0_ndim = 1
+   hist0_x_variable = advected
+   hist0_x_variable_component = 0
+   hist0_x_edges_type = log
+   hist0_x_edges_num_bins = 10
+   hist0_x_edges_min = 1e-9
+   hist0_x_edges_max = 1e0
+   hist0_binned_variable = HIST_ONES
+
+   # 2D histogram of volume weighted variable according to two coordinates
+   hist1_ndim = 2
+   hist1_x_variable = HIST_COORD_X1
+   hist1_x_edges_type = list
+   hist1_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.5
+   hist1_y_variable = HIST_COORD_X2
+   hist1_y_edges_type = list
+   hist1_y_edges_list = -0.5, -0.1, 0.0, 0.1, 0.5
+   hist1_binned_variable = advected
+   hist1_binned_variable_component = 0
+   hist1_weight_by_volume = true
+   hist1_weight_variable = one_minus_advected_sq
+   hist1_weight_variable_component = 0
+
+with the following parameters
+
+- ``num_histograms=INT``
+   The number of histograms defined in this block.
+   All histogram definitions need to be prefix with ``hist#_`` where ``#`` is the
+   histogram number starting to count from ``0``.
+   All histograms will be written to the same output file with the "group" in the
+   output corresponding to the histogram number.
+- ``hist#_ndim=INT`` (either ``1`` or ``2``)
+   Dimensionality of the histogram.
+- ``hist#_x_variable=STRING`` (variable name or special coordinate string ``HIST_COORD_X1``, ``HIST_COORD_X2``, ``HIST_COORD_X3`` or ``HIST_COORD_R``)
+   Variable to be used as bin. If a variable name is given a component has to be specified, too,
+   see next parameter.
+   For a scalar variable, the component needs to be specified as ``0`` anyway.
+   If binning should be done by coordinate the special strings allow to bin by either one
+   of the three dimensions or by radial distance from the origin.
+- ``hist#_x_variable_component=INT``
+   Component index of the binning variable.
+   Used/required only if a non-coordinate variable is used for binning.
+- ``hist#_x_edges_type=STRING`` (``lin``, ``log``, or ``list``)
+   How the bin edges are defined in the first dimension.
+   For ``lin`` and ``log`` direct indexing is used to determine the bin, which is significantly
+   faster than specifying the edges via a ``list`` as the latter requires a binary search.
+- ``hist#_x_edges_min=FLOAT``
+   Minimum value (inclusive) of the bins in the first dim.
+   Used/required only for ``lin`` and ``log`` edge type.
+- ``hist#_x_edges_max=FLOAT``
+   Maximum value (inclusive) of the bins in the first dim.
+   Used/required only for ``lin`` and ``log`` edge type.
+- ``hist#_x_edges_num_bins=INT`` (must be ``>=1``)
+   Number of equally spaced bins between min and max value in the first dim.
+   Used/required only for ``lin`` and ``log`` edge type.
+- ``hist#_x_edges_list=FLOAT,FLOAT,FLOAT,...`` (comma separated list of increasing values)
+   Arbitrary definition of edge values.
+   Used/required only for ``list`` edge type.
+- ``hist#_y_edges...``
+   Same as the ``hist#_x_edges...`` parameters except for being used in the second
+   dimension for ``ndim=2`` histograms.
+- ``hist#_binned_variable=STRING`` (variable name or ``HIST_ONES``)
+   Variable to be binned. If a variable name is given a component has to be specified, too,
+   see next parameter.
+   For a scalar variable, the component needs to be specified as ``0`` anyway.
+   If sampling (i.e., counting the number of value inside a bin) is to be used the special
+   string ``HIST_ONES`` can be set.
+- ``hist#_binned_variable_component=INT``
+   Component index of the variable to be binned.
+   Used/required only if a variable is binned and not ``HIST_ONES``.
+- ``hist#_weight_by_volume=BOOL`` (``true`` or ``false``)
+   Apply volume weighting to the binned variable. Can be used simultaneously with binning
+   by a different variable.
+- ``hist#_weight_variable=STRING``
+   Variable to be used as weight.
+   Can be used together with volume weighting.
+   For a scalar variable, the component needs to be specified as ``0`` anyway.
+- ``hist#_weight_variable_component=INT``
+   Component index of the variable to be used as weight.
+
+Note, weighting by volume and variable simultaneously might seem counterintuitive, but
+easily allows for, e.g., mass-weighted profiles, by enabling weighting by volume and
+using a mass density field as additional weight variable.
+
+The following is a minimal example to plot a 1D and 2D histogram from the output file:
+
+.. code:: python
+
+   with h5py.File("parthenon.out8.histograms.00040.hdf", "r") as infile:
+     # 1D histogram
+      x = infile["0/x_edges"][:]
+      y = infile["0/data"][:]
+      plt.plot(x, y)
+      plt.show()
+
+      # 2D histogram
+      x = infile["1/x_edges"][:]
+      y = infile["1/y_edges"][:]
+      z = infile["1/data"][:].T   # note the transpose here (so that the data matches the axis for the pcolormesh)
+      plt.pcolormesh(x,y,z,)
+      plt.show()   
 
 Ascent (optional)
 -----------------
