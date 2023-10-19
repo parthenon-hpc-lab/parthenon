@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor
 - [[PR 932]](https://github.com/parthenon-hpc-lab/parthenon/pull/932) Add GetOrAddFlag to metadata
 - [[PR 931]](https://github.com/parthenon-hpc-lab/parthenon/pull/931) Allow SparsePacks with subsets of blocks
 - [[PR 921]](https://github.com/parthenon-hpc-lab/parthenon/pull/921) Add more flexible ways of adding and using MeshData/MeshBlockData objects to DataCollections
@@ -25,6 +26,7 @@
 - [[PR 885]](https://github.com/parthenon-hpc-lab/parthenon/pull/885) Expose PackDescriptor and use uids in SparsePacks
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 955]](https://github.com/parthenon-hpc-lab/parthenon/pull/955) Only permit rank0 to mkdir when -d flag specified
 - [[PR 952]](https://github.com/parthenon-hpc-lab/parthenon/pull/954) Fix format string in sparse advection example
 - [[PR 947]](https://github.com/parthenon-hpc-lab/parthenon/pull/947) Add missing ForceRemeshComm dependencies
 - [[PR 928]](https://github.com/parthenon-hpc-lab/parthenon/pull/928) Fix boundary comms during refinement next to refined blocks
