@@ -108,6 +108,9 @@ class StateDescriptor {
     }
   }
 
+  // Virtual destructor for subclassing
+  virtual ~StateDescriptor() = default;
+
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
 
@@ -429,7 +432,7 @@ class StateDescriptor {
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
- private:
+ protected:
   void InvertControllerMap();
 
   Params params_;
