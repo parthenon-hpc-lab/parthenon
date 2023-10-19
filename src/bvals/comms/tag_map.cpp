@@ -46,6 +46,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
 
 void TagMap::ResolveMap() {
   #ifdef MPI_PARALLEL
+  int flag;
   void *max_tag; // largest supported MPI tag value
   MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
   #endif
