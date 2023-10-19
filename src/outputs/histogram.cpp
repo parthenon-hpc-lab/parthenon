@@ -326,7 +326,9 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
           }
           PARTHENON_DEBUG_REQUIRE(x_bin >= 0, "Bin not found");
 
-          int y_bin = -1;
+          // needs to be zero as for the 1D histogram we need 0 as first index of the 2D
+          // result array
+          int y_bin = 0;
           if (hist_ndim == 2) {
             auto y_val = std::numeric_limits<Real>::quiet_NaN();
             if (y_var_type == VarType::X1) {
@@ -346,6 +348,8 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
             if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
               return;
             }
+
+            y_bin = -1; // reset to impossible value
             // if we're on the rightmost edge, directly set last bin
             if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
               y_bin = y_edges.extent_int(0) - 2;

@@ -206,7 +206,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                     analyze_status = False
 
             # 1D histogram (simple sampling) with bins defined by a var
-            hist_np1d = np.histogram(advected, [1e-9, 1e-4, 1e-1, 2e-1, 5e-1, 1e0])
+            hist_np1d = np.histogram(advected, np.logspace(-9, 0, 11, endpoint=True))
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:

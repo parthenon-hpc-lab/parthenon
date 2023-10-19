@@ -103,8 +103,10 @@ hist1_binned_variable_component = 0
 hist2_ndim = 1
 hist2_x_variable = advected
 hist2_x_variable_component = 0
-hist2_x_edges_type = list
-hist2_x_edges_list = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
+hist2_x_edges_type = log
+hist2_x_edges_num_bins = 10
+hist2_x_edges_min = 1e-9
+hist2_x_edges_max = 1e0
 hist2_binned_variable = HIST_ONES
 
 # A second output block with different dt for histograms
