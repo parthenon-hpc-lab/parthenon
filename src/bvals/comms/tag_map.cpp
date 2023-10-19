@@ -50,8 +50,10 @@ void TagMap::ResolveMap() {
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
+    #ifdef MPI_PARALLEL
     if (idx > 32767)
       PARTHENON_FAIL("Number of tags exceeds the maximum allowed by the MPI standard.");
+    #endif
   }
 }
 
