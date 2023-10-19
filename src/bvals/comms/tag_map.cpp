@@ -45,14 +45,18 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 void TagMap::ResolveMap() {
+  #ifdef MPI_PARALLEL
+  void *max_tag; // largest supported MPI tag value
+  MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+  #endif
   for (auto it = map_.begin(); it != map_.end(); ++it) {
     auto &pair_map = it->second;
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
     #ifdef MPI_PARALLEL
-    if (idx > 32767)
-      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by the MPI standard.");
+    if (idx > (*(int*)max_tag))
+      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by this MPI version.");
     #endif
   }
 }
