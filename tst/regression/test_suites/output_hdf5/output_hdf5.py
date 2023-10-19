@@ -224,12 +224,12 @@ class TestCase(utils.test_case.TestCaseAbs):
                 x.flatten(),
                 y.flatten(),
                 [[-0.5, -0.25, 0, 0.25, 0.5], [-0.5, -0.1, 0, 0.1, 0.5]],
-                weights=advected.flatten() * vols.flatten(),
+                weights=advected.flatten() * vols.flatten() * omadvected.flatten(),
             )
             with h5py.File(
-                f"advection_{dim}d.out2.histograms.final.hdf", "r"
+                f"advection_{dim}d.out3.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["3/data"][:]
+                hist_parth = infile["0/data"][:]
                 # testing slices separately to ensure matching numpy convention
                 all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])

@@ -197,6 +197,17 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
       Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result.KokkosView());
 
   weight_by_vol = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
+
+  weight_var_name =
+      pin->GetOrAddString(block_name, prefix + "weight_variable", "HIST_ONES");
+  weight_var_component = -1; // implies that weighting is not applied
+  if (weight_var_name != "HIST_ONES") {
+    weight_var_component =
+        pin->GetInteger(block_name, prefix + "weight_variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(weight_var_component >= 0,
+                             "Negative component indices are not supported");
+  }
 }
 
 // Computes a 1D or 2D histogram with inclusive lower edges and inclusive rightmost edges.
@@ -207,6 +218,7 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   const auto x_var_component = hist.x_var_component;
   const auto y_var_component = hist.y_var_component;
   const auto binned_var_component = hist.binned_var_component;
+  const auto weight_var_component = hist.weight_var_component;
   const auto x_var_type = hist.x_var_type;
   const auto y_var_type = hist.y_var_type;
   const auto x_edges = hist.x_edges;
@@ -242,6 +254,11 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
         binned_var_component == -1 ? std::vector<std::string>{}
                                    : std::vector<std::string>{hist.binned_var_name};
     const auto binned_var = md->PackVariables(binned_var_pack_string);
+
+    const auto weight_var_pack_string =
+        weight_var_component == -1 ? std::vector<std::string>{}
+                                   : std::vector<std::string>{hist.weight_var_name};
+    const auto weight_var = md->PackVariables(weight_var_pack_string);
 
     const auto ib = md->GetBoundsI(IndexDomain::interior);
     const auto jb = md->GetBoundsJ(IndexDomain::interior);
@@ -303,7 +320,10 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
           const auto val_to_add = binned_var_component == -1
                                       ? 1
                                       : binned_var(b, binned_var_component, k, j, i);
-          const auto weight = weight_by_vol ? coords.CellVolume(k, j, i) : 1.0;
+          auto weight = weight_by_vol ? coords.CellVolume(k, j, i) : 1.0;
+          weight *= weight_var_component == -1
+                        ? 1.0
+                        : weight_var(b, weight_var_component, k, j, i);
           res(y_bin, x_bin) += val_to_add * weight;
         });
     // "reduce" results from scatter view to original view. May be a no-op depending on

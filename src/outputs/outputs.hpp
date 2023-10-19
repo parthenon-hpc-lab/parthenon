@@ -235,7 +235,10 @@ struct Histogram {
   // component of variable to be binned. If -1 means no variable is binned but the
   // histgram is a sample count.
   int binned_var_component;
-  bool weight_by_vol;      // use volume weighting
+  bool weight_by_vol;          // use volume weighting
+  std::string weight_var_name; // variable name of variable used as weight
+  // component of variable to be used as weight. If -1 means no weighting
+  int weight_var_component;
   ParArray2D<Real> result; // resulting histogram
 
   // temp view for histogram reduction for better performance (switches
