@@ -418,9 +418,9 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
       auto &hist = histograms_[h];
       const H5G hist_group = MakeGroup(file, "/" + std::to_string(h));
       HDF5WriteAttribute("ndim", hist.ndim, hist_group);
-      HDF5WriteAttribute("x_var_name", hist.x_var_name, hist_group);
+      HDF5WriteAttribute("x_var_name", hist.x_var_name.c_str(), hist_group);
       HDF5WriteAttribute("x_var_component", hist.x_var_component, hist_group);
-      HDF5WriteAttribute("binned_var_name", hist.binned_var_name, hist_group);
+      HDF5WriteAttribute("binned_var_name", hist.binned_var_name.c_str(), hist_group);
       HDF5WriteAttribute("binned_var_component", hist.binned_var_component, hist_group);
 
       const auto x_edges_h = hist.x_edges.GetHostMirrorAndCopy();
@@ -429,7 +429,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
                   local_count.data(), global_count.data(), pl_xfer);
 
       if (hist.ndim == 2) {
-        HDF5WriteAttribute("y_var_name", hist.y_var_name, hist_group);
+        HDF5WriteAttribute("y_var_name", hist.y_var_name.c_str(), hist_group);
         HDF5WriteAttribute("y_var_component", hist.y_var_component, hist_group);
 
         const auto y_edges_h = hist.y_edges.GetHostMirrorAndCopy();
