@@ -62,13 +62,19 @@ using namespace OutputUtils;
 
 namespace HistUtil {
 
-ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
-                          const std::string &prefix) {
+// Parse edges from input parameters. Returns the edges themselves (to be used as list for
+// arbitrary bins) as well as min and step sizes (potentially in log space) for direct
+// indexing.
+std::tuple<ParArray1D<Real>, EdgeType, Real, Real>
+GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &prefix) {
   std::vector<Real> edges_in;
+  auto edge_type = EdgeType::Undefined;
+  auto edge_min = std::numeric_limits<Real>::quiet_NaN();
+  auto edge_dbin = std::numeric_limits<Real>::quiet_NaN();
 
   const auto edge_type_str = pin->GetString(block_name, prefix + "type");
   if (edge_type_str == "lin" || edge_type_str == "log") {
-    const auto edge_min = pin->GetReal(block_name, prefix + "min");
+    edge_min = pin->GetReal(block_name, prefix + "min");
     const auto edge_max = pin->GetReal(block_name, prefix + "max");
     PARTHENON_REQUIRE_THROWS(edge_max > edge_min,
                              "Histogram max needs to be larger than min.")
@@ -77,20 +83,24 @@ ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
     PARTHENON_REQUIRE_THROWS(edge_num_bins >= 1, "Need at least one bin for histogram.");
 
     if (edge_type_str == "lin") {
-      auto dbin = (edge_max - edge_min) / (edge_num_bins);
+      edge_type = EdgeType::Lin;
+      edge_dbin = (edge_max - edge_min) / (edge_num_bins);
       for (int i = 0; i < edge_num_bins; i++) {
-        edges_in.emplace_back(edge_min + i * dbin);
+        edges_in.emplace_back(edge_min + i * edge_dbin);
       }
       edges_in.emplace_back(edge_max);
     } else if (edge_type_str == "log") {
+      edge_type = EdgeType::Log;
       PARTHENON_REQUIRE_THROWS(
           edge_min > 0.0 && edge_max > 0.0,
           "Log binning for negative values not implemented. However, you can specify "
           "arbitrary bin edges through the 'list' edge type.")
 
-      auto dbin = (std::log10(edge_max) - std::log10(edge_min)) / (edge_num_bins);
+      // override start with log value for direct indexing in histogram kernel
+      edge_min = std::log10(edge_min);
+      edge_dbin = (std::log10(edge_max) - edge_min) / (edge_num_bins);
       for (int i = 0; i < edge_num_bins; i++) {
-        edges_in.emplace_back(std::pow(10., std::log10(edge_min) + i * dbin));
+        edges_in.emplace_back(std::pow(10., edge_min + i * edge_dbin));
       }
       edges_in.emplace_back(edge_max);
     } else {
@@ -98,6 +108,7 @@ ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
     }
 
   } else if (edge_type_str == "list") {
+    edge_type = EdgeType::List;
     edges_in = pin->GetVector<Real>(block_name, prefix + "list");
     //  required by binning index function
     PARTHENON_REQUIRE_THROWS(std::is_sorted(edges_in.begin(), edges_in.end()),
@@ -115,7 +126,11 @@ ParArray1D<Real> GetEdges(ParameterInput *pin, const std::string &block_name,
     edges_h(i) = edges_in[i];
   }
   Kokkos::deep_copy(edges, edges_h);
-  return edges;
+
+  PARTHENON_REQUIRE_THROWS(
+      edge_type != EdgeType::Undefined,
+      "Edge type not set and it's unclear how this code was triggered...");
+  return {edges, edge_type, edge_min, edge_dbin};
 }
 
 Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
@@ -144,7 +159,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
                              "Negative component indices are not supported");
   }
 
-  x_edges = GetEdges(pin, block_name, prefix + "x_edges_");
+  std::tie(x_edges, x_edges_type, x_edge_min, x_edge_dbin) =
+      GetEdges(pin, block_name, prefix + "x_edges_");
 
   // For 1D profile default initalize y variables
   y_var_name = "";
@@ -172,7 +188,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
                                "Negative component indices are not supported");
     }
 
-    y_edges = GetEdges(pin, block_name, prefix + "y_edges_");
+    std::tie(y_edges, y_edges_type, y_edge_min, y_edge_dbin) =
+        GetEdges(pin, block_name, prefix + "y_edges_");
 
   } else {
     y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
@@ -223,6 +240,12 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
   const auto y_var_type = hist.y_var_type;
   const auto x_edges = hist.x_edges;
   const auto y_edges = hist.y_edges;
+  const auto x_edges_type = hist.x_edges_type;
+  const auto y_edges_type = hist.y_edges_type;
+  const auto x_edge_min = hist.x_edge_min;
+  const auto x_edge_dbin = hist.x_edge_dbin;
+  const auto y_edge_min = hist.y_edge_min;
+  const auto y_edge_dbin = hist.y_edge_dbin;
   const auto hist_ndim = hist.ndim;
   const auto weight_by_vol = hist.weight_by_vol;
   auto result = hist.result;
@@ -286,12 +309,24 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
             return;
           }
 
-          // if we're on the rightmost edge, directly set last bin, otherwise search
-          const auto x_bin = x_val == x_edges(x_edges.extent_int(0) - 1)
-                                 ? x_edges.extent_int(0) - 2
-                                 : upper_bound(x_edges, x_val) - 1;
+          int x_bin = -1;
+          // if we're on the rightmost edge, directly set last bin
+          if (x_val == x_edges(x_edges.extent_int(0) - 1)) {
+            x_bin = x_edges.extent_int(0) - 2;
+          } else {
+            // for lin and log directly pick index
+            if (x_edges_type == EdgeType::Lin) {
+              x_bin = static_cast<int>((x_val - x_edge_min) / x_edge_dbin);
+            } else if (x_edges_type == EdgeType::Log) {
+              x_bin = static_cast<int>((Kokkos::log10(x_val) - x_edge_min) / x_edge_dbin);
+              // otherwise search
+            } else {
+              x_bin = upper_bound(x_edges, x_val) - 1;
+            }
+          }
+          PARTHENON_DEBUG_REQUIRE(x_bin >= 0, "Bin not found");
 
-          int y_bin = 0;
+          int y_bin = -1;
           if (hist_ndim == 2) {
             auto y_val = std::numeric_limits<Real>::quiet_NaN();
             if (y_var_type == VarType::X1) {
@@ -311,10 +346,22 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
             if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
               return;
             }
-            // if we're on the rightmost edge, directly set last bin, otherwise search
-            y_bin = y_val == y_edges(y_edges.extent_int(0) - 1)
-                        ? y_edges.extent_int(0) - 2
-                        : upper_bound(y_edges, y_val) - 1;
+            // if we're on the rightmost edge, directly set last bin
+            if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
+              y_bin = y_edges.extent_int(0) - 2;
+            } else {
+              // for lin and log directly pick index
+              if (y_edges_type == EdgeType::Lin) {
+                y_bin = static_cast<int>((y_val - y_edge_min) / y_edge_dbin);
+              } else if (y_edges_type == EdgeType::Log) {
+                y_bin =
+                    static_cast<int>((Kokkos::log10(y_val) - y_edge_min) / y_edge_dbin);
+                // otherwise search
+              } else {
+                y_bin = upper_bound(y_edges, y_val) - 1;
+              }
+            }
+            PARTHENON_DEBUG_REQUIRE(y_bin >= 0, "Bin not found");
           }
           auto res = scatter.access();
           const auto val_to_add = binned_var_component == -1

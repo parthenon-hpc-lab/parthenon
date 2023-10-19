@@ -225,12 +225,19 @@ class PHDF5Output : public OutputType {
 namespace HistUtil {
 
 enum class VarType { X1, X2, X3, R, Var, Unused };
+enum class EdgeType { Lin, Log, List, Undefined };
+
 struct Histogram {
   int ndim;                             // 1D or 2D histogram
   std::string x_var_name, y_var_name;   // variable(s) for bins
   VarType x_var_type, y_var_type;       // type, e.g., coord related or actual field
   int x_var_component, y_var_component; // components of bin variables (vector)
   ParArray1D<Real> x_edges, y_edges;
+  EdgeType x_edges_type, y_edges_type;
+  // Lowest edge and difference between edges.
+  // Internally used to speed up lookup for log (and lin) bins as otherwise
+  // two more log10 calls would be required per index.
+  Real x_edge_min, x_edge_dbin, y_edge_min, y_edge_dbin;
   std::string binned_var_name; // variable name of variable to be binned
   // component of variable to be binned. If -1 means no variable is binned but the
   // histgram is a sample count.
