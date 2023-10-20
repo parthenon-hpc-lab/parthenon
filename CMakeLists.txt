@@ -353,6 +353,10 @@ if (PARTHENON_ENABLE_ASCENT)
   find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
 
+# Installation configuration
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(benchmarks)
