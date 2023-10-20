@@ -295,7 +295,6 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
                                std::string &value, std::string &comment) {
   std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
   bool continuation = false;
-  printf("line: %s\n", line.c_str());
 
   hash_char = line.find_first_of("#"); // find "#" (optional)
   comment = "";
@@ -316,7 +315,7 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     name.assign(line, first_char, len);
     last_char = name.find_last_not_of(" ");
     name.erase(last_char + 1, std::string::npos);
-    line.erase(0, equal_char+1);
+    line.erase(0, equal_char + 1);
   }
 
   cont_char = line.find_first_of("&"); // find "&" continuation character
