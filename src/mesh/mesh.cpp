@@ -1232,9 +1232,8 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || 
-        metadata.IsSet(Metadata::WithFluxes) ||
-        metadata.IsSet(Metadata::ForceRemeshComm) || 
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+        metadata.IsSet(Metadata::ForceRemeshComm) ||
         metadata.IsSet(Metadata::GMGProlongate) ||
         metadata.IsSet(Metadata::GMGRestrict)) {
       MPI_Comm mpi_comm;

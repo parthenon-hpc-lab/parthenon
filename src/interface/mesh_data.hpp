@@ -231,7 +231,7 @@ class MeshData {
       return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
     return IndexRange{-1, -2};
   }
-  
+
   template <class... Ts>
   IndexRange GetBoundsK(Ts &&...args) const {
     if (block_data_.size() > 0)
