@@ -217,7 +217,7 @@ TaskID PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, TaskList &tl,
   auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
                                                             pre_stages, multilevel, md);
   // If we are finer than the coarsest level:
-  auto post_smooth = none;
+  auto post_smooth = pre_smooth;
   if (level > min_level) {
     // 3. Communicate same level boundaries so that u is up to date everywhere
     auto comm_u =
