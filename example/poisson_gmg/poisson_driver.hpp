@@ -39,7 +39,7 @@ class PoissonDriver : public Driver {
 
   DriverStatus Execute() override;
 
-  void AddMultiGridTasksLevel(TaskRegion &region, int level, int min_level, int max_level,
+  TaskID AddMultiGridTasksLevel(TaskList &tl, TaskID dependency, int partition, int level, int min_level, int max_level,
                               bool final);
   void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
                                        int max_level);
