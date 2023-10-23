@@ -155,8 +155,6 @@ TaskID PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, TaskList &tl,
                                              int max_level) {
   using namespace parthenon;
   using namespace poisson_package;
-  TaskID none(0);
-  // const int num_partitions = pmesh->DefaultNumPartitions();
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto damping = pkg->Param<Real>("jacobi_damping");
