@@ -220,15 +220,23 @@ class MeshData {
 
   template <class... Ts>
   IndexRange GetBoundsI(Ts &&...args) const {
-    return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
+
   template <class... Ts>
   IndexRange GetBoundsJ(Ts &&...args) const {
-    return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
+
   template <class... Ts>
   IndexRange GetBoundsK(Ts &&...args) const {
-    return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
 
   template <class... Args>
@@ -238,10 +246,10 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks) {
+  void Set(BlockList_t blocks, Mesh *pmesh) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
-    SetMeshPointer(blocks[0]->pmy_mesh);
+    SetMeshPointer(pmesh);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }

@@ -1105,7 +1105,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list);
+  mesh_data.Get()->Set(block_list, this);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
@@ -1233,7 +1233,9 @@ void Mesh::SetupMPIComms() {
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
     if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
-        metadata.IsSet(Metadata::ForceRemeshComm)) {
+        metadata.IsSet(Metadata::ForceRemeshComm) ||
+        metadata.IsSet(Metadata::GMGProlongate) ||
+        metadata.IsSet(Metadata::GMGRestrict)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
