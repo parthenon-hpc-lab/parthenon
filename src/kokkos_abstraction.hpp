@@ -707,7 +707,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
 
 // Inner parallel loop using TeamThreadRange
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void
+KOKKOS_FORCEINLINE_FUNCTION void
 par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ll, const int lu,
               const int ml, const int mu, const int nl, const int nu, const int kl,
               const int ku, const int jl, const int ju, const int il, const int iu,
@@ -741,7 +741,7 @@ par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ll, const i
       });
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void
+KOKKOS_FORCEINLINE_FUNCTION void
 par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ml, const int mu,
               const int nl, const int nu, const int kl, const int ku, const int jl,
               const int ju, const int il, const int iu, const Function &function) {
@@ -770,7 +770,7 @@ par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ml, const i
                        });
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void
+KOKKOS_FORCEINLINE_FUNCTION void
 par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int nl, const int nu,
               const int kl, const int ku, const int jl, const int ju, const int il,
               const int iu, const Function &function) {
@@ -795,10 +795,10 @@ par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int nl, const i
                        });
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
-                                          const int kl, const int ku, const int jl,
-                                          const int ju, const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void
+par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int kl, const int ku,
+              const int jl, const int ju, const int il, const int iu,
+              const Function &function) {
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
@@ -815,9 +815,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_m
   });
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
-                                          const int jl, const int ju, const int il,
-                                          const int iu, const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void
+par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int jl, const int ju,
+              const int il, const int iu, const Function &function) {
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NjNi = Nj * Ni;
@@ -828,22 +828,22 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_m
   });
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member,
-                                          const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR,
+                                               team_mbr_t team_member, const int il,
+                                               const int iu, const Function &function) {
   Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, il, iu + 1), function);
 }
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
-                                          const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR,
+                                               team_mbr_t team_member, const int il,
+                                               const int iu, const Function &function) {
   Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
 }
 
 // Inner parallel loop using FOR SIMD
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void
+KOKKOS_FORCEINLINE_FUNCTION void
 par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, const int nu,
               const int kl, const int ku, const int jl, const int ju, const int il,
               const int iu, const Function &function) {
@@ -859,10 +859,10 @@ par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, con
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int kl, const int ku, const int jl,
-                                          const int ju, const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int kl, const int ku,
+              const int jl, const int ju, const int il, const int iu,
+              const Function &function) {
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
@@ -873,9 +873,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t te
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int jl, const int ju, const int il,
-                                          const int iu, const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void
+par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int jl, const int ju,
+              const int il, const int iu, const Function &function) {
   for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
     for (int i = il; i <= iu; i++) {
@@ -884,9 +884,9 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t te
   }
 }
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
-                                          const int il, const int iu,
-                                          const Function &function) {
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
+                                               team_mbr_t team_member, const int il,
+                                               const int iu, const Function &function) {
 #pragma omp simd
   for (int i = il; i <= iu; i++) {
     function(i);
