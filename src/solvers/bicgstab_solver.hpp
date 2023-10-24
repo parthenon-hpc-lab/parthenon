@@ -71,7 +71,6 @@ class BiCGSTABSolver {
 
   TaskID AddTasks(TaskList &tl, IterativeTasks &itl, TaskID dependence, int i,
                   Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
-    TaskID none(0);
     using namespace utils;
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     iter_counter = 0;
@@ -79,13 +78,13 @@ class BiCGSTABSolver {
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
     // TODO(LFR): Fix this to calculate the actual residual
-    auto zero_x = tl.AddTask(none, SetToZero<x>, md);
-    auto zero_u_init = tl.AddTask(none, SetToZero<u>, md);
-    auto copy_r = tl.AddTask(none, CopyData<rhs, r>, md);
-    auto copy_p = tl.AddTask(none, CopyData<rhs, p>, md);
-    auto copy_rhat0 = tl.AddTask(none, CopyData<rhs, rhat0>, md);
+    auto zero_x = tl.AddTask(dependence, SetToZero<x>, md);
+    auto zero_u_init = tl.AddTask(dependence, SetToZero<u>, md);
+    auto copy_r = tl.AddTask(dependence, CopyData<rhs, r>, md);
+    auto copy_p = tl.AddTask(dependence, CopyData<rhs, p>, md);
+    auto copy_rhat0 = tl.AddTask(dependence, CopyData<rhs, rhat0>, md);
     auto get_rhat0r_init =
-        DotProduct<rhat0, r>(none, region, tl, i, reg_dep_id, &rhat0r, md);
+        DotProduct<rhat0, r>(dependence, region, tl, i, reg_dep_id, &rhat0r, md);
     auto initialize = tl.AddTask(
         zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init,
         [](BiCGSTABSolver *solver, int partition) {
@@ -102,7 +101,7 @@ class BiCGSTABSolver {
     region.AddRegionalDependencies(reg_dep_id, i, initialize);
     reg_dep_id++;
     if (i == 0) {
-      tl.AddTask(none, [&]() {
+      tl.AddTask(dependence, [&]() {
         printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
         return TaskStatus::complete;
       });

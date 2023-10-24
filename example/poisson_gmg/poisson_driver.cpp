@@ -82,26 +82,24 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   int reg_dep_id = 0;
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
-    auto &itl = tl.AddIteration("Solver");
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-
+  
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     auto get_rhs = none;
     if (use_exact_rhs) {
-      auto copy_exact = tl.AddTask(none, solvers::utils::CopyData<exact, u>, md);
+      auto copy_exact = tl.AddTask(get_rhs, solvers::utils::CopyData<exact, u>, md);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
       PoissonEquation eqs;
       eqs.do_flux_cor = flux_correct;
-      auto get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
+      get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
     }
-
+    
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
-
-    // Add actual tasks for solving our matrix equation, depending on the solver
-    // type requested. Note that the added tasks are iterative.
+ 
     auto solve = zero_u;
+    auto &itl = tl.AddIteration("Solver");
     if (solver == "BiCGSTAB") {
       solve = bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {

@@ -66,7 +66,6 @@ class MGSolver {
 
   TaskID AddTasks(TaskList & /*tl*/, IterativeTasks &itl, TaskID dependence,
                   int partition, Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
-    TaskID none(0);
     using namespace utils;
     iter_counter = 0;
     itl.AddTask(
@@ -109,7 +108,6 @@ class MGSolver {
 
   template <class TL_t>
   TaskID AddLinearOperatorTasks(TaskRegion &region, TL_t &tl, TaskID dependence, int partition, int &reg_dep_id, Mesh *pmesh) {
-    TaskID none(0);
     using namespace utils;
     iter_counter = 0;
 
@@ -181,7 +179,6 @@ class MGSolver {
   TaskID AddJacobiIteration(TL_t &tl, TaskID depends_on, bool multilevel, Real omega,
                             std::shared_ptr<MeshData<Real>> &md) {
     using namespace utils;
-    TaskID none(0);
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
