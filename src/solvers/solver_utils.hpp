@@ -234,9 +234,9 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
   auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
   auto pack = desc.GetPack(md.get());
