@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 911]](https://github.com/parthenon-hpc-lab/parthenon/pull/911) Add infrastructure for geometric multi-grid
+- [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor
 - [[PR 932]](https://github.com/parthenon-hpc-lab/parthenon/pull/932) Add GetOrAddFlag to metadata
 - [[PR 931]](https://github.com/parthenon-hpc-lab/parthenon/pull/931) Allow SparsePacks with subsets of blocks
 - [[PR 921]](https://github.com/parthenon-hpc-lab/parthenon/pull/921) Add more flexible ways of adding and using MeshData/MeshBlockData objects to DataCollections
@@ -36,6 +37,7 @@
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 967]](https://github.com/parthenon-hpc-lab/parthenon/pull/967) Change INLINE to FORCEINLINE on par_for_inner overloads
 - [[PR 938]](https://github.com/parthenon-hpc-lab/parthenon/pull/938) Restructure buffer packing/unpacking kernel hierarchical parallelism
 - [[PR 944]](https://github.com/parthenon-hpc-lab/parthenon/pull/944) Move sparse pack identifier creation to descriptor
 - [[PR 904]](https://github.com/parthenon-hpc-lab/parthenon/pull/904) Move to prolongation/restriction in one for AMR and communicate non-cell centered fields
