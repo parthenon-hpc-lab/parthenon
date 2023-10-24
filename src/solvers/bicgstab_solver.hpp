@@ -115,7 +115,7 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon1, CopyData<p, rhs>, md);
       auto zero_u = itl.AddTask(precon1, SetToZero<u>, md);
-      precon1 = preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, i, pmesh);
+      precon1 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i, reg_dep_id, pmesh);
     } else {
       precon1 = itl.AddTask(initialize, CopyData<p, u>, md);
     }
@@ -164,7 +164,7 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon2, CopyData<s, rhs>, md);
       auto zero_u = itl.AddTask(precon2, SetToZero<u>, md);
-      precon2 = preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, i, pmesh);
+      precon2 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i, reg_dep_id, pmesh);
     } else {
       precon2 = itl.AddTask(precon2, CopyData<s, u>, md);
     }

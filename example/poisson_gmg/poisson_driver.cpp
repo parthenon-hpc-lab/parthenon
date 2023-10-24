@@ -123,7 +123,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
             if (partition != 0) return TaskStatus::complete;
             driver->final_rms_error =
                 std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
-            printf("Final rms error: %e\n", driver->final_rms_error);
+            if (Globals::my_rank == 0) printf("Final rms error: %e\n", driver->final_rms_error);
             return TaskStatus::complete;
           },
           this, i);
