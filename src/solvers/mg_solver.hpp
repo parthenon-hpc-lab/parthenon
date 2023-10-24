@@ -89,7 +89,7 @@ class MGSolver {
     auto check = itl.SetCompletionTask(
         get_res,
         [](MGSolver *solver, int part, Mesh *pmesh) {
-          if (part != 0) TaskStatus::complete;
+          if (part != 0) return TaskStatus::complete;
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           printf("%i %e\n", solver->iter_counter, rms_res);
@@ -119,9 +119,9 @@ class MGSolver {
 
     for (int level = max_level - 1; level >= min_level; --level)
       AddMultiGridTasksPartitionLevel(tl, none, partition, level, min_level, max_level,
-                                      level == min_level, pmesh);
+                                      pmesh);
     return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
-                                           min_level, max_level, false, pmesh);
+                                           min_level, max_level, pmesh);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
@@ -230,7 +230,7 @@ class MGSolver {
   template <class TL_t>
   TaskID AddMultiGridTasksPartitionLevel(TL_t &tl, TaskID dependence, int partition,
                                          int level, int min_level, int max_level,
-                                         bool final, Mesh *pmesh) {
+                                         Mesh *pmesh) {
     using namespace utils;
     auto smoother = params_.smoother;
     bool do_FAS = params_.do_FAS;

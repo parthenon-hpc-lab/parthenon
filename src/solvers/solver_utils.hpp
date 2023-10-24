@@ -150,10 +150,9 @@ template <class in, class out, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
   auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
   auto pack = desc.GetPack(md.get(), {}, only_fine_on_composite);
@@ -172,11 +171,10 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
                                            bool only_interior = false) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
-
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
+  
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   if (only_interior) {
@@ -236,10 +234,9 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
   auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
   auto pack = desc.GetPack(md.get());
