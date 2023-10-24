@@ -83,7 +83,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-  
+
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     auto get_rhs = none;
@@ -94,10 +94,10 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       eqs.do_flux_cor = flux_correct;
       get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
     }
-    
+
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
- 
+
     auto solve = zero_u;
     auto &itl = tl.AddIteration("Solver");
     if (solver == "BiCGSTAB") {
@@ -121,7 +121,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
             if (partition != 0) return TaskStatus::complete;
             driver->final_rms_error =
                 std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
-            if (Globals::my_rank == 0) printf("Final rms error: %e\n", driver->final_rms_error);
+            if (Globals::my_rank == 0)
+              printf("Final rms error: %e\n", driver->final_rms_error);
             return TaskStatus::complete;
           },
           this, i);

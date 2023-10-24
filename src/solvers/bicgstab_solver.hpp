@@ -102,7 +102,8 @@ class BiCGSTABSolver {
     reg_dep_id++;
     if (i == 0) {
       tl.AddTask(dependence, [&]() {
-        if (Globals::my_rank == 0) printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+        if (Globals::my_rank == 0)
+          printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
         return TaskStatus::complete;
       });
     }
@@ -114,7 +115,8 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon1, CopyData<p, rhs>, md);
       auto zero_u = itl.AddTask(precon1, SetToZero<u>, md);
-      precon1 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i, reg_dep_id, pmesh);
+      precon1 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i,
+                                                      reg_dep_id, pmesh);
     } else {
       precon1 = itl.AddTask(initialize, CopyData<p, u>, md);
     }
@@ -153,7 +155,8 @@ class BiCGSTABSolver {
         [&](BiCGSTABSolver *solver, Mesh *pmesh, int partition) {
           if (partition != 0) return TaskStatus::complete;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
+          if (Globals::my_rank == 0)
+            printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
           return TaskStatus::complete;
         },
         this, pmesh, i);
@@ -163,7 +166,8 @@ class BiCGSTABSolver {
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon2, CopyData<s, rhs>, md);
       auto zero_u = itl.AddTask(precon2, SetToZero<u>, md);
-      precon2 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i, reg_dep_id, pmesh);
+      precon2 = preconditioner.AddLinearOperatorTasks(region, itl, set_rhs | zero_u, i,
+                                                      reg_dep_id, pmesh);
     } else {
       precon2 = itl.AddTask(precon2, CopyData<s, u>, md);
     }
@@ -203,7 +207,8 @@ class BiCGSTABSolver {
           get_res2,
           [&](BiCGSTABSolver *solver, Mesh *pmesh) {
             Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-            if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
+            if (Globals::my_rank == 0)
+              printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
             return TaskStatus::complete;
           },
           this, pmesh);

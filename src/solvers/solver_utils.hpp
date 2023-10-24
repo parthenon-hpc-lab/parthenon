@@ -174,7 +174,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
-  
+
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   if (only_interior) {
