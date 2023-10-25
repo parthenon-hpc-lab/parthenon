@@ -25,6 +25,7 @@
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "utils/block_timer.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock_pack.hpp"
