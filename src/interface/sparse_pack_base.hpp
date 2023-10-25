@@ -55,6 +55,7 @@ class SparsePackBase {
   friend class SparsePackCache;
 
   using alloc_t = std::vector<int>;
+  using include_t = std::vector<bool>;
   using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename ParArray3D<int>::HostMirror;
@@ -123,9 +124,8 @@ class SparsePackCache {
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
                               const std::vector<bool> &include_block);
 
-  std::string GetIdentifier(const impl::PackDescriptor &desc,
-                            const std::vector<bool> &include_block) const;
-  std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
+  std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t,
+                                             SparsePackBase::include_t>>
       pack_map;
 
   friend class SparsePackBase;
@@ -164,7 +164,6 @@ struct PackDescriptor {
   const bool flat;
   const std::string identifier;
 
-
  private:
   std::string GetIdentifier() {
     std::string ident("");
@@ -179,7 +178,6 @@ struct PackDescriptor {
     ident += std::to_string(flat);
     return ident;
   }
-
   template <class FUNC_t>
   std::vector<PackDescriptor::VariableGroup_t>
   BuildUids(int nvgs, const StateDescriptor *const psd, const FUNC_t &selector) {

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -37,7 +37,6 @@ enum class ParthenonStatus { ok, complete, error };
 class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
-  ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
   void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();
@@ -57,6 +56,8 @@ class ParthenonManager {
 
  private:
   ArgParse arg;
+  bool called_init_env_ = false;
+  bool called_init_packages_and_mesh_ = false;
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,

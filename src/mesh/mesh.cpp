@@ -463,11 +463,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 #endif
 
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -730,11 +725,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   block_cost.resize(block_list.size());
 #endif
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -1276,7 +1266,8 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+        metadata.IsSet(Metadata::ForceRemeshComm)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
