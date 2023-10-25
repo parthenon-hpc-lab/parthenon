@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "utils/concepts_lite.hpp"
