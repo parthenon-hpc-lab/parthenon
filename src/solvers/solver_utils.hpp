@@ -160,7 +160,9 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, out(), k, j, i) = pack(b, te, in(), k, j, i);
+        const int nvars = pack.GetUpperBound(b, in()) - pack.GetLowerBound(b, in()) + 1;
+        for (int c = 0; c < nvars; ++c) 
+          pack(b, te, out(c), k, j, i) = pack(b, te, in(c), k, j, i);
       });
   return TaskStatus::complete;
 }
@@ -189,8 +191,11 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, out(), k, j, i) =
-            wa * pack(b, te, a_t(), k, j, i) + wb * pack(b, te, b_t(), k, j, i);
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        for (int c = 0; c < nvars; ++c) {
+          pack(b, te, out(c), k, j, i) =
+              wa * pack(b, te, a_t(c), k, j, i) + wb * pack(b, te, b_t(c), k, j, i);
+        }
       });
   return TaskStatus::complete;
 }
@@ -224,7 +229,11 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
         parthenon::par_for_inner(
             parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
-            ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, var(), k, j, i) = 0.0; });
+            ib.s, ib.e, [&](int k, int j, int i) { 
+                const int nvars = pack.GetUpperBound(b, var()) - pack.GetLowerBound(b, var()) + 1;
+                for (int c = 0; c < nvars; ++c) 
+                  pack(b, te, var(c), k, j, i) = 0.0; 
+              });
       });
   return TaskStatus::complete;
 }
@@ -245,7 +254,9 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        lsum += pack(b, te, a_t(), k, j, i) * pack(b, te, b_t(), k, j, i);
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        for (int c = 0; c < nvars; ++c) 
+          lsum += pack(b, te, a_t(c), k, j, i) * pack(b, te, b_t(c), k, j, i);
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;

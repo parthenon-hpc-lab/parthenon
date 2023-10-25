@@ -45,21 +45,21 @@ class MGSolver {
   INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
   INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
 
-  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations())
+  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(), std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
     auto mres_err =
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                  Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy});
+                  Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy}, shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
     auto mtemp = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                           Metadata::WithFluxes, Metadata::OneCopy});
+                           Metadata::WithFluxes, Metadata::OneCopy}, shape);
     mtemp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(temp::name(), mtemp);
 
-    auto mu0 = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+    auto mu0 = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
     pkg->AddField(u0::name(), mu0);
     pkg->AddField(D::name(), mu0);
   }
@@ -165,16 +165,19 @@ class MGSolver {
           const auto &coords = pack.GetCoordinates(b);
           if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
           if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
+          
+          const int nvars = pack.GetUpperBound(b, D_t()) - pack.GetLowerBound(b, D_t()) + 1;
+          for (int c = 0; c < nvars; ++c) {
+            Real diag_elem = pack(b, te, D_t(c), k, j, i);
 
-          Real diag_elem = pack(b, te, D_t(), k, j, i);
+            // Get the off-diagonal contribution to Ax = (D + L + U)x = y
+            Real off_diag = pack(b, te, Axold_t(c), k, j, i) -
+                            diag_elem * pack(b, te, xold_t(c), k, j, i);
 
-          // Get the off-diagonal contribution to Ax = (D + L + U)x = y
-          Real off_diag = pack(b, te, Axold_t(), k, j, i) -
-                          diag_elem * pack(b, te, xold_t(), k, j, i);
-
-          Real val = pack(b, te, rhs_t(), k, j, i) - off_diag;
-          pack(b, te, xnew_t(), k, j, i) =
-              weight * val / diag_elem + (1.0 - weight) * pack(b, te, xold_t(), k, j, i);
+            Real val = pack(b, te, rhs_t(c), k, j, i) - off_diag;
+            pack(b, te, xnew_t(c), k, j, i) =
+                weight * val / diag_elem + (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
+          }
         });
     return TaskStatus::complete;
   }
