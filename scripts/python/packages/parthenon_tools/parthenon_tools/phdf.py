@@ -180,14 +180,6 @@ class phdf:
         else:
             self.Params = None
 
-        # If strings are converted to numpy arrays of ASCII values, convert back to
-        # strings
-        for key in self.Params.keys():
-            val = self.Params[key]
-            if type(val) is type(np.zeros(0)):
-                val_str = "".join([chr(c) for c in val])
-                self.Params[key] = val_str
-
         # Read in coordinates
         def load_coord(coord_i):
             coord_name = ["x", "y", "z"][coord_i]
