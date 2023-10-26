@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include <bvals/boundary_conditions_generic.hpp>
 #include <coordinates/coordinates.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -34,8 +35,46 @@ using namespace parthenon::package::prelude;
 using parthenon::HostArray1D;
 namespace poisson_package {
 
+using namespace parthenon;
+using namespace parthenon::BoundaryFunction;
+// We need to register FixedFace boundary conditions by hand since they can't
+// be chosen in the parameter input file. FixedFace boundary conditions assume
+// Dirichlet booundary conditions on the face of the domain and linearly extrapolate
+// into the ghosts to ensure the linear reconstruction on the block face obeys the
+// chosen boundary condition. Just setting the ghost zones of CC variables to a fixed
+// value results in poor MG convergence because the effective BC at the face
+// changes with MG level.
+
+// Build type that selects only variables within the poisson namespace. Internal solver
+// variables have the namespace of input variables prepended, so they will also be
+// selected by this type.
+struct any_poisson : public parthenon::variable_names::base_t<true> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION any_poisson(Ts &&...args)
+      : base_t<true>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "poisson[.].*"; }
+};
+
+template <CoordinateDirection DIR, BCSide SIDE>
+auto GetBC() {
+  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
+    using namespace parthenon;
+    using namespace parthenon::BoundaryFunction;
+    GenericBC<DIR, SIDE, BCType::FixedFace, any_poisson>(rc, coarse, 0.0);
+  };
+}
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
+
+  // Set boundary conditions for Poisson variables
+  using BF = parthenon::BoundaryFace;
+  pkg->UserBoundaryFunctions[BF::inner_x1].push_back(GetBC<X1DIR, BCSide::Inner>());
+  pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetBC<X2DIR, BCSide::Inner>());
+  pkg->UserBoundaryFunctions[BF::inner_x3].push_back(GetBC<X3DIR, BCSide::Inner>());
+  pkg->UserBoundaryFunctions[BF::outer_x1].push_back(GetBC<X1DIR, BCSide::Outer>());
+  pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
+  pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
 
   int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
   pkg->AddParam<>("max_iterations", max_poisson_iterations);
