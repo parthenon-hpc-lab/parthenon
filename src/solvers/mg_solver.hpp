@@ -152,9 +152,6 @@ class MGSolver {
     IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
     IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-    auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
-    const auto alpha = pkg->Param<Real>("diagonal_alpha");
-
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
 
