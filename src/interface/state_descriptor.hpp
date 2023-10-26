@@ -431,7 +431,7 @@ class StateDescriptor {
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
-  std::array<std::vector<BValFunc>, 6> UserBoundaryFunctions;
+  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
  private:
   void InvertControllerMap();
