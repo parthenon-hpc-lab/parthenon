@@ -52,13 +52,15 @@ class BiCGSTABSolver {
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
-      : preconditioner(pkg, MGParams(), eq_in, shape), params_(params_in), iter_counter(0),
-        eqs_(eq_in) {
+      : preconditioner(pkg, MGParams(), eq_in, shape), params_(params_in),
+        iter_counter(0), eqs_(eq_in) {
     using namespace refinement_ops;
     auto mu = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                        Metadata::WithFluxes, Metadata::GMGRestrict}, shape);
+                        Metadata::WithFluxes, Metadata::GMGRestrict},
+                       shape);
     mu.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-    auto m_no_ghost = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
+    auto m_no_ghost =
+        Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
     pkg->AddField(u::name(), mu);
     pkg->AddField(rhat0::name(), m_no_ghost);
     pkg->AddField(v::name(), m_no_ghost);

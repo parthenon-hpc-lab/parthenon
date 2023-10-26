@@ -161,7 +161,7 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int nvars = pack.GetUpperBound(b, in()) - pack.GetLowerBound(b, in()) + 1;
-        for (int c = 0; c < nvars; ++c) 
+        for (int c = 0; c < nvars; ++c)
           pack(b, te, out(c), k, j, i) = pack(b, te, in(c), k, j, i);
       });
   return TaskStatus::complete;
@@ -227,13 +227,13 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        parthenon::par_for_inner(
-            parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
-            ib.s, ib.e, [&](int k, int j, int i) { 
-                const int nvars = pack.GetUpperBound(b, var()) - pack.GetLowerBound(b, var()) + 1;
-                for (int c = 0; c < nvars; ++c) 
-                  pack(b, te, var(c), k, j, i) = 0.0; 
-              });
+        parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, member, kb.s,
+                                 kb.e, jb.s, jb.e, ib.s, ib.e, [&](int k, int j, int i) {
+                                   const int nvars = pack.GetUpperBound(b, var()) -
+                                                     pack.GetLowerBound(b, var()) + 1;
+                                   for (int c = 0; c < nvars; ++c)
+                                     pack(b, te, var(c), k, j, i) = 0.0;
+                                 });
       });
   return TaskStatus::complete;
 }
@@ -255,7 +255,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
         const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
-        for (int c = 0; c < nvars; ++c) 
+        for (int c = 0; c < nvars; ++c)
           lsum += pack(b, te, a_t(c), k, j, i) * pack(b, te, b_t(c), k, j, i);
       },
       Kokkos::Sum<Real>(gsum));

@@ -45,17 +45,20 @@ class MGSolver {
   INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
   INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
 
-  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(), std::vector<int> shape = {})
+  MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
+           std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
     auto mres_err =
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                  Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy}, shape);
+                  Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy},
+                 shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
     auto mtemp = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                           Metadata::WithFluxes, Metadata::OneCopy}, shape);
+                           Metadata::WithFluxes, Metadata::OneCopy},
+                          shape);
     mtemp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(temp::name(), mtemp);
 
@@ -165,8 +168,9 @@ class MGSolver {
           const auto &coords = pack.GetCoordinates(b);
           if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
           if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
-          
-          const int nvars = pack.GetUpperBound(b, D_t()) - pack.GetLowerBound(b, D_t()) + 1;
+
+          const int nvars =
+              pack.GetUpperBound(b, D_t()) - pack.GetLowerBound(b, D_t()) + 1;
           for (int c = 0; c < nvars; ++c) {
             Real diag_elem = pack(b, te, D_t(c), k, j, i);
 
@@ -176,7 +180,8 @@ class MGSolver {
 
             Real val = pack(b, te, rhs_t(c), k, j, i) - off_diag;
             pack(b, te, xnew_t(c), k, j, i) =
-                weight * val / diag_elem + (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
+                weight * val / diag_elem +
+                (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
           }
         });
     return TaskStatus::complete;
