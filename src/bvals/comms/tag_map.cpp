@@ -56,7 +56,7 @@ void TagMap::ResolveMap() {
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
     #ifdef MPI_PARALLEL
-    if (idx > (*(int*)max_tag))
+    if (idx > (*reinterpret_cast<int*>(max_tag)) && it->first != Globals::my_rank)
       PARTHENON_FAIL("Number of tags exceeds the maximum allowed by this MPI version.");
     #endif
   }
