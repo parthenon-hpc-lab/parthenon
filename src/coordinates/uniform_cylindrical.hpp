@@ -332,7 +332,7 @@ class UniformCylindrical {
       case X3DIR:
         return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
     }
-
+    return NAN; //To appease compiler
   }
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real FaceAreaFA(const int dir, const int k, const int j, const int i) const {
@@ -345,6 +345,7 @@ class UniformCylindrical {
       case X3DIR:
         return Coord_vol_i_(i)*dx_[1]; //d(r^2/2)*dphi
     }
+    return NAN; //To appease compiler
   }
 
   //----------------------------------------
@@ -459,6 +460,35 @@ class UniformCylindrical {
       : istart_[2];
   }
 
+  //----------------------------------------
+  // Terms for Source Terms
+  //----------------------------------------
+
+  KOKKOS_INLINE_FUNCTION Real Coord_vol_i_(const int i) const {
+      const Real rm = xmin_[0] + i * dx_[0];
+      const Real rp = xmin_[0] + (i+1) * dx_[0];
+      return 0.5*(rp*rp - rm*rm);
+  }
+
+  KOKKOS_INLINE_FUNCTION Real CoordSrc1i(const int i) const {
+    return Dxf<1,1>(i)/Coord_vol_i_(i);
+  }
+  KOKKOS_INLINE_FUNCTION Real CoordSrc2i(const int i) const {
+    const Real rm = xmin_[0] + i * dx_[0];
+    const Real rp = xmin_[0] + (i+1) * dx_[0];
+    return Dxf<1,1>(i)/( (rm + rp)*Coord_vol_i_(i));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real PhySrc1i(const int i) const {
+    return 1./( Xc<1>(i)*Xf<1>(i) );
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  Real PhySrc2i(const int i) const {
+    return 1./( Xc<1>(i)*Xf<1>(i+1) );
+  }
+
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
@@ -476,11 +506,6 @@ class UniformCylindrical {
       const Real rm = xmin_[0] + i * dx_[0];
       const Real rp = xmin_[0] + (i+1) * dx_[0];
       return TWO_3RD*(rp*rp*rp - rm*rm*rm)/(SQR(rp) - SQR(rm));
-  }
-  KOKKOS_INLINE_FUNCTION Real Coord_vol_i_(const int i) const {
-      const Real rm = xmin_[0] + i * dx_[0];
-      const Real rp = xmin_[0] + (i+1) * dx_[0];
-      return 0.5*(rp*rp - rm*rm);
   }
   KOKKOS_INLINE_FUNCTION Real Cos_phi_c_(const int j) const {
       const Real Phi = xmin_[1] + (j + 0.5) * dx_[1];
