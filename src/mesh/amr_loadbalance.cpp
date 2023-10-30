@@ -964,6 +964,11 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(nbe - nbs + 1);
+#else
+  block_cost.resize(nbe - nbs + 1);
+#endif
 
   // A block newly refined and prolongated may have neighbors which were
   // already refined to the new level.
@@ -999,12 +1004,6 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
   
   Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
-
-#ifdef ENABLE_LB_TIMERS
-  block_cost.Realloc(nbe - nbs + 1);
-#else
-  block_cost.resize(nbe - nbs + 1);
-#endif
 
   ResetLoadBalanceVariables();
 
