@@ -35,6 +35,7 @@ struct MGParams {
   Real residual_tolerance = 1.e-12;
   bool do_FAS = true;
   std::string smoother = "SRJ2";
+  bool two_by_two_diagonal = false;
 };
 
 template <class u, class rhs, class equations>
@@ -64,7 +65,12 @@ class MGSolver {
 
     auto mu0 = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
     pkg->AddField(u0::name(), mu0);
-    pkg->AddField(D::name(), mu0);
+    auto Dshape = shape;
+    if (params_.two_by_two_diagonal) { 
+       Dshape = std::vector<int>{4};
+    }
+    auto mD = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, Dshape);
+    pkg->AddField(D::name(), mD);
   }
 
   TaskID AddTasks(TaskList & /*tl*/, IterativeTasks &itl, TaskID dependence,
@@ -142,7 +148,7 @@ class MGSolver {
   enum class GSType { all, red, black };
 
   template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t>
-  static TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
+  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
                            GSType gs_type = GSType::all) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
@@ -158,29 +164,64 @@ class MGSolver {
     auto desc =
         parthenon::MakePackDescriptor<xold_t, xnew_t, Axold_t, rhs_t, D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto &coords = pack.GetCoordinates(b);
-          if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
-          if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
+    if (params_.two_by_two_diagonal) {
+      parthenon::par_for(
+          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const auto &coords = pack.GetCoordinates(b);
+            if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
+            if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
 
-          const int nvars =
-              pack.GetUpperBound(b, D_t()) - pack.GetLowerBound(b, D_t()) + 1;
-          for (int c = 0; c < nvars; ++c) {
-            Real diag_elem = pack(b, te, D_t(c), k, j, i);
+            const int nvars =
+                pack.GetUpperBound(b, xnew_t()) - pack.GetLowerBound(b, xnew_t()) + 1;
+            
+            const Real D11 = pack(b, te, D_t(0), k, j, i); 
+            const Real D22 = pack(b, te, D_t(1), k, j, i); 
+            const Real D12 = pack(b, te, D_t(2), k, j, i); 
+            const Real D21 = pack(b, te, D_t(3), k, j, i); 
+            const Real det = D11 * D22 - D12 * D21;
+            
+            const Real Du0 = D11 * pack(b, te, xold_t(0), k, j, i)
+                           + D12 * pack(b, te, xold_t(1), k, j, i);
+            const Real Du1 = D21 * pack(b, te, xold_t(0), k, j, i)
+                           + D22 * pack(b, te, xold_t(1), k, j, i);
 
-            // Get the off-diagonal contribution to Ax = (D + L + U)x = y
-            Real off_diag = pack(b, te, Axold_t(c), k, j, i) -
-                            diag_elem * pack(b, te, xold_t(c), k, j, i);
+            const Real t0 = pack(b, te, rhs_t(0), k, j, i) - pack(b, te, Axold_t(0), k, j, i) + Du0;  
+            const Real t1 = pack(b, te, rhs_t(1), k, j, i) - pack(b, te, Axold_t(1), k, j, i) + Du1;
+            
+            const Real v0 = (D22 * t0 - D12 * t1) / det;
+            const Real v1 = (-D21 * t0 + D11 * t1) / det;
+            
+            pack(b, te, xnew_t(0), k, j, i) = weight * v0 + (1.0 - weight) * pack(b, te, xold_t(0), k, j, i); 
+            pack(b, te, xnew_t(1), k, j, i) = weight * v1 + (1.0 - weight) * pack(b, te, xold_t(1), k, j, i); 
+          });
+     } else { 
+      parthenon::par_for(
+          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const auto &coords = pack.GetCoordinates(b);
+            if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
+            if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
 
-            Real val = pack(b, te, rhs_t(c), k, j, i) - off_diag;
-            pack(b, te, xnew_t(c), k, j, i) =
-                weight * val / diag_elem +
-                (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
-          }
-        });
+            const int nvars =
+                pack.GetUpperBound(b, xnew_t()) - pack.GetLowerBound(b, xnew_t()) + 1;
+
+            for (int c = 0; c < nvars; ++c) {
+              Real diag_elem = pack(b, te, D_t(c), k, j, i);
+
+              // Get the off-diagonal contribution to Ax = (D + L + U)x = y
+              Real off_diag = pack(b, te, Axold_t(c), k, j, i) -
+                              diag_elem * pack(b, te, xold_t(c), k, j, i);
+
+              Real val = pack(b, te, rhs_t(c), k, j, i) - off_diag;
+              pack(b, te, xnew_t(c), k, j, i) =
+                  weight * val / diag_elem +
+                  (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
+            }
+          }); 
+      }
     return TaskStatus::complete;
   }
 
@@ -191,7 +232,7 @@ class MGSolver {
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
-    return tl.AddTask(mat_mult, Jacobi<rhs, out_t, D, in_t, out_t>, md, omega,
+    return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md, omega,
                       GSType::all);
   }
 

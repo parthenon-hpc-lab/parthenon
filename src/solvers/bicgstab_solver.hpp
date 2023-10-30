@@ -32,6 +32,7 @@ namespace parthenon {
 namespace solvers {
 
 struct BiCGSTABParams {
+  MGParams mg_params;
   int max_iters = 10;
   Real residual_tolerance = 1.e-12;
   Real restart_threshold = -1.0;
@@ -52,7 +53,7 @@ class BiCGSTABSolver {
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
-      : preconditioner(pkg, MGParams(), eq_in, shape), params_(params_in),
+      : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
         iter_counter(0), eqs_(eq_in) {
     using namespace refinement_ops;
     auto mu = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
