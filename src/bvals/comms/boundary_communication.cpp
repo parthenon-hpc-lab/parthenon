@@ -46,7 +46,7 @@ using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
@@ -59,11 +59,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
   if (nbound == 0) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::complete;
   }
   if (other_communication_unfinished) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::incomplete;
   }
 
@@ -144,7 +142,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       buf.SendNull();
   }
 
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
   return TaskStatus::complete;
 }
 
@@ -155,7 +152,7 @@ SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
@@ -165,7 +162,6 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion(); // Task_StartReceiveBoundBufs
   return TaskStatus::complete;
 }
 
@@ -178,7 +174,7 @@ StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &)
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -209,7 +205,6 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           ++ibound;
         });
   }
-  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
@@ -223,7 +218,7 @@ ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -294,7 +289,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
                          pmb->c_cellbounds);
   }
-  Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
 }
 
@@ -304,7 +298,7 @@ template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<R
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -323,7 +317,6 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
     refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
                                    pmb->c_cellbounds);
   }
-  Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
 }
 

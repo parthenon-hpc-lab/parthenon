@@ -182,7 +182,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   using parthenon::MetadataFlag;
 
-  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
+  PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -257,7 +257,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   PARTHENON_REQUIRE_THROWS(pmb->pmy_mesh->ndim == 2,
                            "Sparse Advection example must be 2D");
 
-  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

@@ -140,11 +140,10 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
 }
 
 TaskStatus SparseDealloc(MeshData<Real> *md) {
+  PARTHENON_INSTRUMENT
   if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
     return TaskStatus::complete;
   }
-
-  Kokkos::Profiling::pushRegion("Task_SparseDealloc");
 
   const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
@@ -219,7 +218,6 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SparseDealloc
   return TaskStatus::complete;
 }
 

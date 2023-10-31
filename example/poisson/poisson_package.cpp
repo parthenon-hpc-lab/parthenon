@@ -207,7 +207,7 @@ TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
 template <typename T>
 TaskStatus UpdatePhi(T *u, T *du) {
   using Stencil_t = parthenon::solvers::Stencil<Real>;
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
+  PARTHENON_INSTRUMENT
   auto pm = u->GetParentPointer();
 
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
@@ -274,13 +274,12 @@ TaskStatus UpdatePhi(T *u, T *du) {
         v(b, iphi, k, j, i) += dv(b, idphi, k, j, i);
       });
 
-  Kokkos::Profiling::popRegion(); // Task_Poisson_UpdatePhi
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus CheckConvergence(T *u, T *du) {
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
+  PARTHENON_INSTRUMENT
   auto pm = u->GetParentPointer();
 
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
@@ -311,7 +310,6 @@ TaskStatus CheckConvergence(T *u, T *du) {
 
   auto status = (max_err < err_tol ? TaskStatus::complete : TaskStatus::iterate);
 
-  Kokkos::Profiling::popRegion(); // Task_Poisson_CheckConvergence
   return status;
 }
 

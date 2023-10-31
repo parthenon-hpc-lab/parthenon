@@ -245,11 +245,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 // randomly sample an interation number for each cell from the discrete power-law
 // distribution
 TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages) {
-  Kokkos::Profiling::pushRegion("Task_ComputeNumIter");
+  PARTHENON_INSTRUMENT
 
-  Kokkos::Profiling::pushRegion("Task_ComputeNumIter_pack");
   auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
-  Kokkos::Profiling::popRegion();
 
   auto pkg = packages.Get("stochastic_subgrid_package");
   const auto &pool =
@@ -276,7 +274,6 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
         pack(b, v, k, j, i) = num_iter;
       });
 
-  Kokkos::Profiling::popRegion(); // Task_ComputeNumIter
   return TaskStatus::complete;
 }
 
@@ -364,7 +361,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
+  PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
   const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -467,7 +464,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

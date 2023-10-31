@@ -127,7 +127,7 @@ void CalculateDerived(MeshData<Real> *md) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepMesh(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Task_burgers_EstimateTimestepMesh");
+  PARTHENON_INSTRUMENT
   auto pm = md->GetParentPointer();
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
@@ -155,14 +155,13 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
       },
       Kokkos::Min<Real>(min_dt));
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_EstimateTimestepMesh
   return cfl * min_dt;
 }
 
 TaskStatus CalculateFluxes(MeshData<Real> *md) {
   using parthenon::ScratchPad1D;
   using parthenon::team_mbr_t;
-  Kokkos::Profiling::pushRegion("Task_burgers_CalculateFluxes");
+  PARTHENON_INSTRUMENT
 
   auto pm = md->GetParentPointer();
   const int ndim = pm->ndim;
@@ -360,7 +359,6 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
         }
       });
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_CalculateFluxes
   return TaskStatus::complete;
 }
 
