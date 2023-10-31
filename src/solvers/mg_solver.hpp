@@ -147,11 +147,9 @@ class MGSolver {
   // These functions apparently have to be public to compile with cuda since
   // they contain device side lambdas
  public:
-  enum class GSType { all, red, black };
 
   template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t>
-  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight,
-                           GSType gs_type = GSType::all) {
+  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;
@@ -172,12 +170,7 @@ class MGSolver {
           kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
-            if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
-            if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
 
-            const int nvars =
-                pack.GetUpperBound(b, xnew_t()) - pack.GetLowerBound(b, xnew_t()) + 1;
-            
             const Real D11 = pack(b, te, D_t(0), k, j, i); 
             const Real D22 = pack(b, te, D_t(1), k, j, i); 
             const Real D12 = pack(b, te, D_t(2), k, j, i); 
@@ -204,8 +197,6 @@ class MGSolver {
           kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
-            if ((i + j + k) % 2 == 1 && gs_type == GSType::red) return;
-            if ((i + j + k) % 2 == 0 && gs_type == GSType::black) return;
 
             const int nvars =
                 pack.GetUpperBound(b, xnew_t()) - pack.GetLowerBound(b, xnew_t()) + 1;
@@ -234,8 +225,7 @@ class MGSolver {
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
-    return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md, omega,
-                      GSType::all);
+    return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md, omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
