@@ -18,6 +18,8 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -34,6 +36,31 @@ namespace BoundaryFunction {
 enum class BCSide { Inner, Outer };
 enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
 
+namespace impl {
+using desc_key_t = std::tuple<bool, TopologicalType>;
+template <class... var_ts>
+using map_bc_pack_descriptor_t = std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor, tuple_hash<desc_key_t>>;
+
+template <class... var_ts> 
+map_bc_pack_descriptor_t<var_ts...>
+GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  std::vector<std::pair<TopologicalType, MetadataFlag>> elements
+                                                       {{TopologicalType::Cell, Metadata::Cell}, 
+                                                        {TopologicalType::Face, Metadata::Face},
+                                                        {TopologicalType::Edge, Metadata::Edge},
+                                                        {TopologicalType::Node, Metadata::Node}};
+  map_bc_pack_descriptor_t<var_ts...> my_map;
+  for (auto [tt, md] : elements) {
+    std::vector<MetadataFlag> flags{Metadata::FillGhost};
+    flags.push_back(md);
+    std::set<PDOpt> opts{PDOpt::Coarse};
+    my_map.emplace(std::make_pair(desc_key_t{true, tt}, MakePackDescriptor<var_ts...>(rc.get(), flags, opts))); 
+    my_map.emplace(std::make_pair(desc_key_t{false, tt}, MakePackDescriptor<var_ts...>(rc.get(), flags))); 
+  }
+  return my_map;
+}
+} // namespace impl
+
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                TopologicalElement el, Real val) {
@@ -46,17 +73,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
-  std::vector<MetadataFlag> flags{Metadata::FillGhost};
-  if (GetTopologicalType(el) == TopologicalType::Cell) flags.push_back(Metadata::Cell);
-  if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
-  if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
-  if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
-
-  std::set<PDOpt> opts;
-  if (coarse) opts = {PDOpt::Coarse};
-  auto desc = MakePackDescriptor<var_ts...>(
-      rc->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, opts);
-  auto q = desc.GetPack(rc.get());
+  static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
+  auto q = descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
   const int b = 0;
   const int lstart = q.GetLowerBoundHost(b);
   const int lend = q.GetUpperBoundHost(b);
