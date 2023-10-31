@@ -50,6 +50,7 @@ class BiCGSTABSolver {
   INTERNALSOLVERVARIABLE(x, r);
   INTERNALSOLVERVARIABLE(x, p);
   INTERNALSOLVERVARIABLE(x, u);
+    }
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})

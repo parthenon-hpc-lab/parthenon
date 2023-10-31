@@ -45,7 +45,9 @@ class MGSolver {
   INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
   INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
   INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
-
+  std::vector<std::string> GetInternalVariableNames() const { 
+    return {res_err::name(), temp::name(), u0::name(), D::name()};
+  }
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
            std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
