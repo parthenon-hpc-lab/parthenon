@@ -37,6 +37,7 @@ struct BiCGSTABParams {
   Real residual_tolerance = 1.e-12;
   Real restart_threshold = -1.0;
   bool precondition = true;
+  bool print_per_step = false;
 };
 
 template <class x, class rhs, class equations>
@@ -119,7 +120,7 @@ class BiCGSTABSolver {
         this, i);
     region.AddRegionalDependencies(reg_dep_id, i, initialize);
     reg_dep_id++;
-    if (i == 0) {
+    if (i == 0 && params_.print_per_step) {
       tl.AddTask(dependence, [&]() {
         if (Globals::my_rank == 0)
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
@@ -174,7 +175,7 @@ class BiCGSTABSolver {
         [&](BiCGSTABSolver *solver, Mesh *pmesh, int partition) {
           if (partition != 0) return TaskStatus::complete;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0)
+          if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
           return TaskStatus::complete;
         },
@@ -226,7 +227,7 @@ class BiCGSTABSolver {
           get_res2,
           [&](BiCGSTABSolver *solver, Mesh *pmesh) {
             Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-            if (Globals::my_rank == 0)
+            if (Globals::my_rank == 0 && solver->params_.print_per_step)
               printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
             return TaskStatus::complete;
           },
@@ -285,7 +286,10 @@ class BiCGSTABSolver {
 
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
-
+  
+  void UpdateResidualTolerance(Real tol) { 
+    params_.residual_tolerance = tol;
+  }
  protected:
   MGSolver<u, rhs, equations> preconditioner;
   BiCGSTABParams params_;
