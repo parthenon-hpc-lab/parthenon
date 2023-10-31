@@ -76,7 +76,7 @@ DriverStatus EvolutionDriver::Execute() {
   DumpInputParameters();
 
   { // Main t < tmax loop region
-    PARTHENON_INSTRUMENT_REGION("evolution_loop")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     while (tm.KeepGoing()) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 

@@ -82,7 +82,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
 
   Kokkos::parallel_for(
-      "SendBoundBufs",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
@@ -231,7 +231,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
-      "SetBoundaryBuffers",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();

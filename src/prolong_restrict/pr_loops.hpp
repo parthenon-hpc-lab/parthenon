@@ -123,8 +123,8 @@ ProlongationRestrictionLoop(const ProResInfoArr_t &info, const Idx_t &buffer_idx
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   size_t scratch_size_in_bytes = 1;
   par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues",
-      DevExecSpace(), scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int sub_idx) {
         const std::size_t buf = buffer_idxs(sub_idx);
         if (DoRefinementOp(info(buf), op)) {
@@ -157,8 +157,8 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const ProResInfoArrHost_t 
   auto coarse = info(buf).coarse;
   auto fine = info(buf).fine;
   par_for(
-      DEFAULT_LOOP_PATTERN, "ProlongateOrRestrictCellCenteredValues", DevExecSpace(), 0,
-      0, 0, 0, 0, idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, 0, 0, 0, 0,
+      idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
         if (idxer.IsActive(k, j, i)) {
           Stencil::template Do<DIM, FEL, CEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,

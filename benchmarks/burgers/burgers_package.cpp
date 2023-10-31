@@ -110,7 +110,7 @@ void CalculateDerived(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "CalculateDerived", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e, jb.s, jb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k, const int j) {
         Real *out = &v(b, 0, k, j, 0);
@@ -193,7 +193,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
@@ -264,7 +264,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // now we'll solve the Riemann problems to get fluxes
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);

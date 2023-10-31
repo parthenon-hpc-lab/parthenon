@@ -113,9 +113,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
   H5G info_group;
-  { // write attributes
-    PARTHENON_INSTRUMENT_REGION("write_attributes") {
-      PARTHENON_INSTRUMENT_REGION("write_input")
+  {                                                     // write attributes
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL) { // Input section
+      PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       // write input key-value pairs
       std::ostringstream oss;
       pin->ParameterDump(oss);
@@ -129,7 +129,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // we'll need this again at the end
     info_group = MakeGroup(file, "/Info");
     {
-      PARTHENON_INSTRUMENT_REGION("write_info")
+      PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
       if (tm != nullptr) {
@@ -190,7 +190,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // write Params
     {
-      PARTHENON_INSTRUMENT_REGION("write_params")
+      PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       const H5G params_group = MakeGroup(file, "/Params");
 
       for (const auto &package : pm->packages.AllPackages()) {
@@ -236,7 +236,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // write Blocks metadata
   {
-    PARTHENON_INSTRUMENT_REGION("write_block_metadata")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     const H5G gBlocks = MakeGroup(file, "/Blocks");
 
     // write Xmin[ndim] for blocks
@@ -270,7 +270,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // Write mesh coordinates to file
   { // write mesh coords
-    PARTHENON_INSTRUMENT_REGION("write_mesh_coords");
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (const bool face : {true, false}) {
       const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
 
@@ -298,7 +298,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
   {
-    PARTHENON_INSTRUMENT_REGION("write_levels_and_locations")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     const auto &loclist = pm->GetLocList();
 
     std::vector<std::int64_t> levels;
@@ -335,7 +335,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   hsize_t num_sparse;
   std::unique_ptr<hbool_t[]> sparse_allocated;
   { // write all variable data
-    PARTHENON_INSTRUMENT_REGION("write_all_variable_data")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
 
     // All blocks have the same list of variable metadata that exist in the entire
     // simulation, but not all variables may be allocated on all blocks
@@ -410,7 +410,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // for each variable we write
     for (auto &vinfo : all_vars_info) {
-      PARTHENON_INSTRUMENT_REGION("write_variable_loop")
+      PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       // not really necessary, but doesn't hurt
       memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
@@ -480,7 +480,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       hsize_t index = 0;
 
       { // fill host output buffer
-        PARTHENON_INSTRUMENT_REGION("fill_host_output_buffer")
+        PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
         // for each local mesh block
         for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
           const auto &pmb = pm->block_list[b_idx];
@@ -553,7 +553,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       } // fill host output buffer
 
       { // write variable data
-        PARTHENON_INSTRUMENT_REGION("write_variable_data")
+        PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
         // write data to file
         HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
                     p_glob_cnt, pl_xfer, pl_dcreate);
@@ -592,7 +592,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    PARTHENON_INSTRUMENT_REGION("write_sparse_info")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     local_count[1] = global_count[1] = num_sparse;
 
     HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
@@ -613,7 +613,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
   { // write particle data
-    PARTHENON_INSTRUMENT_REGION("write_particle_data")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (auto &[swname, swinfo] : swarm_info.all_info) {
       const H5G g_swm = MakeGroup(file, swname);
       // offsets/counts are NOT the same here vs the grid data
@@ -676,7 +676,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } // write particle data
 
   { // generate xdmf
-    PARTHENON_INSTRUMENT_REGION("genXDMF")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     // generate XDMF companion file
     XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
   } // generate xdmf

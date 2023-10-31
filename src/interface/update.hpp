@@ -75,7 +75,7 @@ TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const 
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         // TOOD(someone) This is potentially dangerous and/or not intended behavior
@@ -98,7 +98,7 @@ TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
   PARTHENON_INSTRUMENT
   const auto &x = data->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetDataToConstant", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (x.IsAllocated(b, l)) {
@@ -161,7 +161,7 @@ TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
   Real gam0 = pint->gam0[stage - 1];
   Real gam1 = pint->gam1[stage - 1];
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "2S_Update", DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
       s0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (s0.IsAllocated(b, l) && s1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
@@ -199,7 +199,7 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
   const IndexRange jb = out_data->GetBoundsJ(interior);
   const IndexRange kb = out_data->GetBoundsK(interior);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "ButcherSumInit", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1, 0,
       out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
@@ -210,8 +210,8 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
     Real a = pint->a[stage - 1][prev];
     const auto &in = stage_data[stage]->PackVariables(flags);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "ButcherSum", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
-        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1,
+        0, out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
           if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
             out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
@@ -247,8 +247,8 @@ TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_d
     const Real butcher_b = pint->b[stage];
     const auto &in = stage_data[stage]->PackVariables(flags);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "ButcherUpdate", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
-        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1,
+        0, out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
           if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
             out(b, l, k, j, i) += dt * b * in(b, l, k, j, i);
@@ -292,19 +292,19 @@ TaskStatus FillDerived(T *rc) {
   PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   { // PreFillDerived region
-    PARTHENON_INSTRUMENT_REGION("PreFillDerived")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->PreFillDerived(rc);
     }
   } // PreFillDerived region
   { // FillDerived region
-    PARTHENON_INSTRUMENT_REGION("FillDerived");
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->FillDerived(rc);
     }
   } // FillDerived region
   { // PostFillDerived region
-    PARTHENON_INSTRUMENT_REGION("PostFillDerived");
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->PostFillDerived(rc);
     }
@@ -334,7 +334,7 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     auto v = desc.GetPack(rc);
 
     Kokkos::parallel_for(
-        "Set newly allocated interior to default",
+        PARTHENON_AUTO_LABEL,
         Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
         KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
           const int b = team_member.league_rank();

@@ -143,7 +143,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 
   // Randomly mark some fraction of particles each timestep for removal
   pmb->par_for(
-      "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
           if (rng_gen.drand() > 1.0 - destroy_particles_frac) {
@@ -201,13 +201,13 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   if (deposition_method == DepositionMethod::per_particle) {
     // Reset particle count
     pmb->par_for(
-        "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           particle_dep(k, j, i) = 0.;
         });
 
     pmb->par_for(
-        "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
             int j = 0;
@@ -227,7 +227,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         });
   } else if (deposition_method == DepositionMethod::per_cell) {
     pmb->par_for(
-        "DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           particle_dep(k, j, i) = 0.;
           for (int n = 0; n < swarm_d.GetParticleCountPerCell(k, j, i); n++) {
@@ -278,8 +278,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
   if (orbiting_particles) {
     pmb->par_for(
-        "CreateSomeOrbitingParticles", 0, swarm->GetMaxActiveIndex(),
-        KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -323,7 +322,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   } else {
     pmb->par_for(
-        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -393,7 +392,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   if (orbiting_particles) {
     // Particles orbit the origin
     pmb->par_for(
-        "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             PARTHENON_DEBUG_REQUIRE(vel > 0., "Speed must be > 0!");
@@ -446,7 +445,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   } else {
     // Particles move in straight lines
     pmb->par_for(
-        "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             PARTHENON_DEBUG_REQUIRE(vel > 0., "vel must be > 0 for division!");

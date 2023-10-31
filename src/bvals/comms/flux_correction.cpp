@@ -67,7 +67,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   Kokkos::parallel_for(
-      "SendFluxCorrectionBufs",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         auto &binfo = bnd_info(team_member.league_rank());
@@ -163,7 +163,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
-      "SetFluxCorBuffers",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();

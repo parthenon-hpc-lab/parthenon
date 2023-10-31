@@ -18,24 +18,37 @@
 #include <Kokkos_Core.hpp>
 
 #define PARTHENON_INSTRUMENT KokkosTimer internal_inst_(__FILE__, __LINE__, __func__);
-#define PARTHENON_INSTRUMENT_REGION(name)                                                \
-  KokkosTimer internal_inst_reg____LINE__(__FILE__, __LINE__, name);
+#define PARTHENON_INSTRUMENT_REGION(name) KokkosTimer internal_inst_reg_(name);
+#define PARTHENON_AUTO_LABEL parthenon::build_auto_label(__FILE__, __LINE__, __func__)
 
 namespace parthenon {
+namespace detail {
+inline std::string strip_full_path(const std::string &full_path) {
+  std::string label;
+  auto npos = full_path.rfind('/');
+  if (npos == std::string::npos) {
+    label = full_path;
+  } else {
+    label = full_path.substr(npos + 1);
+  }
+  return label;
+}
+} // namespace detail
+
+inline std::string build_auto_label(const std::string &file, const int line,
+                                    const std::string &name) {
+  return detail::strip_full_path(file) + "::" + std::to_string(line) + "::" + name;
+}
 
 struct KokkosTimer {
   KokkosTimer(const std::string &file, const int line, const std::string &name) {
-    std::string label;
-    auto npos = file.rfind('/');
-    if (npos == std::string::npos) {
-      label = file;
-    } else {
-      label = file.substr(npos + 1);
-    }
-    label += "::" + std::to_string(line) + "::" + name;
-    Kokkos::Profiling::pushRegion(label);
+    Push(build_auto_label(file, line, name));
   }
+  KokkosTimer(const std::string &name) { Push(name); }
   ~KokkosTimer() { Kokkos::Profiling::popRegion(); }
+
+ private:
+  void Push(const std::string &name) { Kokkos::Profiling::pushRegion(name); }
 };
 
 } // namespace parthenon

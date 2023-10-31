@@ -126,8 +126,8 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu,
-            0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
+            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
@@ -219,8 +219,8 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu,
-            0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
+            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
@@ -682,7 +682,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 
   { // Construct new list region
-    PARTHENON_INSTRUMENT_REGION("Construct_new_list")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
 
     // create a list mapping the previous gid to the current one
@@ -759,7 +759,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Send data from old to new blocks
   std::vector<MPI_Request> send_reqs;
   { // AMR Send region
-    PARTHENON_INSTRUMENT_REGION("AMR_Send")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     for (int n = onbs; n <= onbe; n++) {
       int nn = oldtonew[n];
       LogicalLocation &oloc = loclist[n];
@@ -791,7 +791,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Construct a new MeshBlock list (moving the data within the MPI rank)
   BlockList_t new_block_list(nbe - nbs + 1);
   { // AMR Construct new MeshBlockList region
-    PARTHENON_INSTRUMENT_REGION("AMR_Construct_new_list")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     RegionSize block_size = GetBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
@@ -831,7 +831,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // Receive the data and load into MeshBlocks
   { // AMR Recv and unpack data
-    PARTHENON_INSTRUMENT_REGION("AMR_Recv_unpack")
+    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     bool all_received;
     int niter = 0;
     if (block_list.size() > 0) {
