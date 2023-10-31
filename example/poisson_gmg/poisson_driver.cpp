@@ -182,7 +182,7 @@ TaskID PoissonDriver::AddMultiGridTasksLevel(TaskRegion &region, TaskList &tl,
   bool multilevel = (level != min_level);
 
   auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
-  // 0. Receive residual from coarser level if there is one
+  // 0. Receive residual from finer level if there is one
   auto set_from_finer = dependency;
   if (level < max_level) {
     // Fill fields with restricted values
