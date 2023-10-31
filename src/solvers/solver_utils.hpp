@@ -154,8 +154,8 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
-  auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
-  auto pack = desc.GetPack(md.get(), {}, only_fine_on_composite);
+  static auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
+  auto pack = desc.GetPack(md.get(), only_fine_on_composite);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -170,7 +170,7 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
 template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
-                                           bool only_interior = false) {
+                                           bool only_interior_blocks = false) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
@@ -179,13 +179,13 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
 
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
-  if (only_interior) {
+  if (only_interior_blocks) {
     // The neighbors array will only be set for a block if its a leaf block
     for (int b = 0; b < nblocks; ++b)
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
 
-  auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
+  static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
   auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
@@ -212,9 +212,8 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  std::vector<bool> include_block(nblocks, true);
-  auto desc = parthenon::MakePackDescriptor<var>(md.get());
-  auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
+  static auto desc = parthenon::MakePackDescriptor<var>(md.get());
+  auto pack = desc.GetPack(md.get(), only_fine_on_composite);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
@@ -224,9 +223,9 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0), ng);
         const auto &coords = pack.GetCoordinates(b);
-        IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
+        IndexRange ib = cb.GetBoundsI(IndexDomain::entire, te);
+        IndexRange jb = cb.GetBoundsJ(IndexDomain::entire, te);
+        IndexRange kb = cb.GetBoundsK(IndexDomain::entire, te);
         parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, member, kb.s,
                                  kb.e, jb.s, jb.e, ib.s, ib.e, [&](int k, int j, int i) {
                                    const int nvars = pack.GetUpperBound(b, var()) -
@@ -247,7 +246,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-  auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
+  static auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
   auto pack = desc.GetPack(md.get());
   Real gsum(0);
   parthenon::par_reduce(
