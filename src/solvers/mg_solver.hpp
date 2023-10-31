@@ -264,6 +264,7 @@ class MGSolver {
     auto copy1 = tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
     if (stages < 2) return copy1; 
     auto jacobi2 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy1, multilevel,
+                                                              omega[ndim - 1][1], md);
     auto copy2 = tl.AddTask(jacobi2, CopyData<temp, u, true>, md);
     if (stages < 3) return copy2;
     auto jacobi3 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy2, multilevel,
