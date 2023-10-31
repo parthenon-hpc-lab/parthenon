@@ -53,14 +53,13 @@ class MGSolver {
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
     auto mres_err =
-        Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
+        Metadata({Metadata::Cell, Metadata::Independent,
                   Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
-    auto mtemp = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                           Metadata::WithFluxes, Metadata::OneCopy},
+    auto mtemp = Metadata({Metadata::Cell, Metadata::Independent, Metadata::OneCopy},
                           shape);
     mtemp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(temp::name(), mtemp);
@@ -91,7 +90,8 @@ class MGSolver {
     auto mg_finest =
         AddLinearOperatorTasks(region, itl, dependence, partition, reg_dep_id, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, mg_finest, md);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md, true);
+    auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
     calc_pointwise_res = itl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
         1.0, -1.0, false);
@@ -163,7 +163,7 @@ class MGSolver {
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
 
-    auto desc =
+    static auto desc =
         parthenon::MakePackDescriptor<xold_t, xnew_t, Axold_t, rhs_t, D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
     if (params_.two_by_two_diagonal) {
@@ -261,13 +261,12 @@ class MGSolver {
     depends_on = tl.AddTask(depends_on, CopyData<u, temp, false>, md);
     auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
                                                               omega[ndim - 1][0], md);
-    if (stages < 2) {
-      return tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
-    }
-    auto jacobi2 = AddJacobiIteration<comm_boundary, temp, u>(tl, jacobi1, multilevel,
-                                                              omega[ndim - 1][1], md);
-    if (stages < 3) return jacobi2;
-    auto jacobi3 = AddJacobiIteration<comm_boundary, u, temp>(tl, jacobi2, multilevel,
+    auto copy1 = tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
+    if (stages < 2) return copy1; 
+    auto jacobi2 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy1, multilevel,
+    auto copy2 = tl.AddTask(jacobi2, CopyData<temp, u, true>, md);
+    if (stages < 3) return copy2;
+    auto jacobi3 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy2, multilevel,
                                                               omega[ndim - 1][2], md);
     return tl.AddTask(jacobi3, CopyData<temp, u, true>, md);
   }
@@ -312,14 +311,18 @@ class MGSolver {
       reg_dep_id++;
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
-      auto copy_u = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
       if (!do_FAS) {
-        auto zero_u = tl.AddTask(copy_u, SetToZero<u, true>, md);
+        auto zero_u = tl.AddTask(set_from_finer, SetToZero<u, true>, md);
         auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs, true>, md);
-        set_from_finer = zero_u | copy_u | copy_rhs;
+        set_from_finer = zero_u | copy_rhs;
       } else {
+        // TODO(LFR): Determine if this boundary exchange task is required, I think it is 
+        // to make sure that the boundaries of the restricted u are up to date before 
+        // calling Ax. That being said, at least in one case commenting this line out 
+        // didn't seem to impact the solution. 
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
             set_from_finer, tl, md, multilevel);
+        set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
@@ -327,7 +330,6 @@ class MGSolver {
         set_from_finer = tl.AddTask(
             set_from_finer, AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>, md,
             1.0, 1.0, true);
-        set_from_finer = set_from_finer | copy_u;
       }
     } else {
       set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
@@ -383,7 +385,7 @@ class MGSolver {
 
     // 9. Send communication field to next finer level (should be error field for that
     // level)
-    TaskID last_task;
+    TaskID last_task = post_smooth;
     if (level < max_level) {
       auto copy_over = post_smooth;
       if (!do_FAS) {
@@ -393,14 +395,15 @@ class MGSolver {
                                    md, 1.0, -1.0);
         copy_over = calc_err;
       }
+      // This is required to make sure boundaries of res_err are up to date before prolongation
+      copy_over = tl.AddTask(copy_over, CopyData<res_err, u, true>, md);
       auto boundary =
           AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
+      auto copy_back = tl.AddTask(boundary, CopyData<u, res_err, true>, md);
       last_task =
-          tl.AddTask(boundary, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
-    } else {
-      last_task = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(post_smooth, tl, md,
-                                                                   multilevel);
+          tl.AddTask(copy_back, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     }
+    // The boundaries are not up to date on return
     return last_task;
   }
 };
