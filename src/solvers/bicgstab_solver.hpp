@@ -50,7 +50,22 @@ class BiCGSTABSolver {
   INTERNALSOLVERVARIABLE(x, r);
   INTERNALSOLVERVARIABLE(x, p);
   INTERNALSOLVERVARIABLE(x, u);
+  
+  std::vector<std::string> GetInternalVariableNames() const { 
+    std::vector<std::string> names{rhat0::name(), 
+                                   v::name(), 
+                                   h::name(), 
+                                   s::name(), 
+                                   t::name(), 
+                                   r::name(), 
+                                   p::name(), 
+                                   u::name()};
+    if (params_.precondition) { 
+      auto pre_names = preconditioner.GetInternalVariableNames();
+      names.insert(names.end(), pre_names.begin(), pre_names.end());
     }
+    return names;
+  }
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
