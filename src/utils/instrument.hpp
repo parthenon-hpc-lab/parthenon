@@ -24,8 +24,6 @@
 #define PARTHENON_INSTRUMENT_REGION(name)                                                \
   KokkosTimer __UNIQUE_INST_VAR(internal_inst_reg, __LINE__)(name);
 #define PARTHENON_AUTO_LABEL parthenon::build_auto_label(__FILE__, __LINE__, __func__)
-//#undef UNIQUE_VAR
-//#undef UNIQUE_VAR2
 
 namespace parthenon {
 namespace detail {

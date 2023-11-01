@@ -292,19 +292,19 @@ TaskStatus FillDerived(T *rc) {
   PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   { // PreFillDerived region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->PreFillDerived(rc);
     }
   } // PreFillDerived region
   { // FillDerived region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->FillDerived(rc);
     }
   } // FillDerived region
   { // PostFillDerived region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
       pkg.second->PostFillDerived(rc);
     }

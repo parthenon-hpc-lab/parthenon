@@ -682,7 +682,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 
   { // Construct new list region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
 
     // create a list mapping the previous gid to the current one
@@ -759,7 +759,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Send data from old to new blocks
   std::vector<MPI_Request> send_reqs;
   { // AMR Send region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     for (int n = onbs; n <= onbe; n++) {
       int nn = oldtonew[n];
       LogicalLocation &oloc = loclist[n];
@@ -791,7 +791,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Construct a new MeshBlock list (moving the data within the MPI rank)
   BlockList_t new_block_list(nbe - nbs + 1);
   { // AMR Construct new MeshBlockList region
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     RegionSize block_size = GetBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
@@ -831,7 +831,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // Receive the data and load into MeshBlocks
   { // AMR Recv and unpack data
-    PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
+    PARTHENON_INSTRUMENT
     bool all_received;
     int niter = 0;
     if (block_list.size() > 0) {
