@@ -304,7 +304,7 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
 void BoundaryBase::SearchAndSetNeighbors(
     MeshBlockTree &tree, int *ranklist, int *nslist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
-  Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
+  PARTHENON_INSTRUMENT
   MeshBlockTree *neibt;
   int myox1, myox2 = 0, myox3 = 0, myfx1, myfx2, myfx3;
   myfx1 = ((loc.lx1() & 1LL) == 1LL);
@@ -371,7 +371,6 @@ void BoundaryBase::SearchAndSetNeighbors(
   }
   if (block_size_.nx(X2DIR) == 1) {
     SetNeighborOwnership(newly_refined);
-    Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
 
@@ -506,7 +505,6 @@ void BoundaryBase::SearchAndSetNeighbors(
 
   if (block_size_.nx(X3DIR) == 1) {
     SetNeighborOwnership(newly_refined);
-    Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
     return;
   }
 
@@ -629,7 +627,6 @@ void BoundaryBase::SearchAndSetNeighbors(
   }
 
   SetNeighborOwnership(newly_refined);
-  Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
 void BoundaryBase::SetNeighborOwnership(

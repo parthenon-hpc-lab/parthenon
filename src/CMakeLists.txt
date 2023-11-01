@@ -232,6 +232,7 @@ add_library(parthenon
   utils/error_checking.cpp
   utils/hash.hpp
   utils/indexer.hpp
+  utils/instrument.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
   utils/mpi_types.hpp

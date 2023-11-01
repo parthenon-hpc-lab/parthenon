@@ -63,12 +63,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                       const SignalHandler::OutputSignal signal) {
   using namespace HDF5;
   using namespace OutputUtils;
-
-  if constexpr (WRITE_SINGLE_PRECISION) {
-    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileSinglePrec");
-  } else {
-    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
-  }
+  PARTHENON_INSTRUMENT
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -116,96 +111,93 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
-  Kokkos::Profiling::pushRegion("write Attributes");
-  {
-    Kokkos::Profiling::pushRegion("write input");
-    // write input key-value pairs
-    std::ostringstream oss;
-    pin->ParameterDump(oss);
+  H5G info_group;
+  {                        // write attributes
+    PARTHENON_INSTRUMENT { // Input section
+      PARTHENON_INSTRUMENT
+      // write input key-value pairs
+      std::ostringstream oss;
+      pin->ParameterDump(oss);
 
-    // Mesh information
-    const H5G input_group = MakeGroup(file, "/Input");
+      // Mesh information
+      const H5G input_group = MakeGroup(file, "/Input");
 
-    HDF5WriteAttribute("File", oss.str().c_str(), input_group);
-    Kokkos::Profiling::popRegion(); // write input
-  }                                 // Input section
+      HDF5WriteAttribute("File", oss.str().c_str(), input_group);
+    } // Input section
 
-  // we'll need this again at the end
-  const H5G info_group = MakeGroup(file, "/Info");
-  {
-    Kokkos::Profiling::pushRegion("write Info");
-    HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
+    // we'll need this again at the end
+    info_group = MakeGroup(file, "/Info");
+    { // write info
+      PARTHENON_INSTRUMENT
+      HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
-    if (tm != nullptr) {
-      HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
-      HDF5WriteAttribute("Time", tm->time, info_group);
-      HDF5WriteAttribute("dt", tm->dt, info_group);
-    }
+      if (tm != nullptr) {
+        HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
+        HDF5WriteAttribute("Time", tm->time, info_group);
+        HDF5WriteAttribute("dt", tm->dt, info_group);
+      }
 
-    HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
-    HDF5WriteAttribute("NumDims", pm->ndim, info_group);
-    HDF5WriteAttribute("NumMeshBlocks", pm->nbtotal, info_group);
-    HDF5WriteAttribute("MaxLevel", max_level, info_group);
-    // write whether we include ghost cells or not
-    HDF5WriteAttribute("IncludesGhost", output_params.include_ghost_zones ? 1 : 0,
-                       info_group);
-    // write number of ghost cells in simulation
-    HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
-    auto coords = Coordinates_t();
-    HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(),
-                       info_group);
+      HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
+      HDF5WriteAttribute("NumDims", pm->ndim, info_group);
+      HDF5WriteAttribute("NumMeshBlocks", pm->nbtotal, info_group);
+      HDF5WriteAttribute("MaxLevel", max_level, info_group);
+      // write whether we include ghost cells or not
+      HDF5WriteAttribute("IncludesGhost", output_params.include_ghost_zones ? 1 : 0,
+                         info_group);
+      // write number of ghost cells in simulation
+      HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
+      HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(),
+                         info_group);
 
-    // restart info, write always
-    HDF5WriteAttribute("NBNew", pm->nbnew, info_group);
-    HDF5WriteAttribute("NBDel", pm->nbdel, info_group);
-    HDF5WriteAttribute("RootLevel", rootLevel, info_group);
-    HDF5WriteAttribute("Refine", pm->adaptive ? 1 : 0, info_group);
-    HDF5WriteAttribute("Multilevel", pm->multilevel ? 1 : 0, info_group);
+      // restart info, write always
+      HDF5WriteAttribute("NBNew", pm->nbnew, info_group);
+      HDF5WriteAttribute("NBDel", pm->nbdel, info_group);
+      HDF5WriteAttribute("RootLevel", rootLevel, info_group);
+      HDF5WriteAttribute("Refine", pm->adaptive ? 1 : 0, info_group);
+      HDF5WriteAttribute("Multilevel", pm->multilevel ? 1 : 0, info_group);
 
-    HDF5WriteAttribute("BlocksPerPE", nblist, info_group);
+      HDF5WriteAttribute("BlocksPerPE", nblist, info_group);
 
-    // Mesh block size
-    HDF5WriteAttribute("MeshBlockSize", std::vector<int>{nx1, nx2, nx3}, info_group);
+      // Mesh block size
+      HDF5WriteAttribute("MeshBlockSize", std::vector<int>{nx1, nx2, nx3}, info_group);
 
-    // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
-    HDF5WriteAttribute(
-        "RootGridDomain",
-        std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR),
-                          pm->mesh_size.xrat(X1DIR), pm->mesh_size.xmin(X2DIR),
-                          pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
-                          pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR),
-                          pm->mesh_size.xrat(X3DIR)},
-        info_group);
+      // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
+      HDF5WriteAttribute(
+          "RootGridDomain",
+          std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR),
+                            pm->mesh_size.xrat(X1DIR), pm->mesh_size.xmin(X2DIR),
+                            pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
+                            pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR),
+                            pm->mesh_size.xrat(X3DIR)},
+          info_group);
 
-    // Root grid size (number of cells at root level)
-    HDF5WriteAttribute("RootGridSize",
-                       std::vector<int>{pm->mesh_size.nx(X1DIR), pm->mesh_size.nx(X2DIR),
-                                        pm->mesh_size.nx(X3DIR)},
-                       info_group);
+      // Root grid size (number of cells at root level)
+      HDF5WriteAttribute("RootGridSize",
+                         std::vector<int>{pm->mesh_size.nx(X1DIR),
+                                          pm->mesh_size.nx(X2DIR),
+                                          pm->mesh_size.nx(X3DIR)},
+                         info_group);
 
-    // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
+      // Boundary conditions
+      std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
+      for (size_t i = 0; i < boundary_condition_str.size(); i++) {
+        boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
+      }
 
-    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-    Kokkos::Profiling::popRegion(); // write Info
-  }                                 // Info section
+      HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+    } // write info
 
-  // write Params
-  {
-    Kokkos::Profiling::pushRegion("behold: write Params");
-    const H5G params_group = MakeGroup(file, "/Params");
+    { // write params
+      PARTHENON_INSTRUMENT
+      const H5G params_group = MakeGroup(file, "/Params");
 
-    for (const auto &package : pm->packages.AllPackages()) {
-      const auto state = package.second;
-      // Write all params that can be written as HDF5 attributes
-      state->AllParams().WriteAllToHDF5(state->label(), params_group);
-    }
-    Kokkos::Profiling::popRegion(); // behold: write Params
-  }                                 // Params section
-  Kokkos::Profiling::popRegion();   // write Attributes
+      for (const auto &package : pm->packages.AllPackages()) {
+        const auto state = package.second;
+        // Write all params that can be written as HDF5 attributes
+        state->AllParams().WriteAllToHDF5(state->label(), params_group);
+      }
+    } // write params
+  }   // write attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -240,9 +232,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
-  // write Blocks metadata
-  {
-    Kokkos::Profiling::pushRegion("write block metadata");
+  { // write Blocks metadata
+    PARTHENON_INSTRUMENT
     const H5G gBlocks = MakeGroup(file, "/Blocks");
 
     // write Xmin[ndim] for blocks
@@ -272,39 +263,39 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
                   p_loc_cnt, p_glob_cnt, pl_xfer);
     }
-    Kokkos::Profiling::popRegion(); // write block metadata
-  }                                 // Block section
+  } // write Blocks metadata
 
   // Write mesh coordinates to file
-  Kokkos::Profiling::pushRegion("write mesh coords");
-  for (const bool face : {true, false}) {
-    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
+  { // write mesh coords
+    PARTHENON_INSTRUMENT
+    for (const bool face : {true, false}) {
+      const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
 
-    // write X coordinates
-    std::vector<Real> loc_x((nx1 + face) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + face) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + face) * num_blocks_local);
+      // write X coordinates
+      std::vector<Real> loc_x((nx1 + face) * num_blocks_local);
+      std::vector<Real> loc_y((nx2 + face) * num_blocks_local);
+      std::vector<Real> loc_z((nx3 + face) * num_blocks_local);
 
-    ComputeCoords_(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
+      ComputeCoords_(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
 
-    local_count[1] = global_count[1] = nx1 + face;
-    HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
+      local_count[1] = global_count[1] = nx1 + face;
+      HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
+                  pl_xfer);
 
-    local_count[1] = global_count[1] = nx2 + face;
-    HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
+      local_count[1] = global_count[1] = nx2 + face;
+      HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
+                  pl_xfer);
 
-    local_count[1] = global_count[1] = nx3 + face;
-    HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-  }
-  Kokkos::Profiling::popRegion(); // write mesh coords
+      local_count[1] = global_count[1] = nx3 + face;
+      HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
+                  pl_xfer);
+    }
+  } // write mesh coords
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
-  {
-    Kokkos::Profiling::pushRegion("write levels and locations");
+  { // write levels + log locs
+    PARTHENON_INSTRUMENT
     const auto &loclist = pm->GetLocList();
 
     std::vector<std::int64_t> levels;
@@ -331,238 +322,243 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // reset for collective output
     local_count[0] = num_blocks_local;
-    Kokkos::Profiling::popRegion(); // write levels and locations
-  }
+  } // write levels + log locs
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
-  Kokkos::Profiling::pushRegion("write all variable data");
-
-  // All blocks have the same list of variable metadata that exist in the entire
-  // simulation, but not all variables may be allocated on all blocks
-
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
-    if (restart_) {
-      // get all vars with flag Independent OR restart
-      return GetAnyVariables(
-          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else {
-      return GetAnyVariables(var_vec, output_params.variables);
-    }
-  };
-
-  // get list of all vars, just use the first block since the list is the same for all
-  // blocks
   std::vector<VarInfo> all_vars_info;
-  const auto vars = (pm->block_list.size() > 0) 
-                    ? get_vars(pm->block_list.front())
-                    : VariableVector<Real>();
-  for (auto &v : vars) {
-    all_vars_info.emplace_back(v);
-  }
-
-  // sort alphabetically
-  std::sort(all_vars_info.begin(), all_vars_info.end(),
-            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
-
-  // We need to add information about the sparse variables to the HDF5 file, namely:
-  // 1) Which variables are sparse
-  // 2) Is a sparse id of a particular sparse variable allocated on a given block
-  //
-  // This information is stored in the dataset called "SparseInfo". The data set
-  // contains an attribute "SparseFields" that is a vector of strings with the names
-  // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
-  // "foo_145"). The field names are in alphabetical order, which is the same order
-  // they show up in all_unique_vars (because it's a sorted set).
-  //
-  // The dataset SparseInfo itself is a 2D array of bools. The first index is the
-  // global block index and the second index is the sparse field (same order as the
-  // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
-  // v is allocated on the block with index b, otherwise the value is false
-
   std::vector<std::string> sparse_names;
-  std::unordered_map<std::string, size_t> sparse_field_idx;
-  for (auto &vinfo : all_vars_info) {
-    if (vinfo.is_sparse) {
-      sparse_field_idx.insert({vinfo.label, sparse_names.size()});
-      sparse_names.push_back(vinfo.label);
-    }
-  }
+  hsize_t num_sparse;
+  std::unique_ptr<hbool_t[]> sparse_allocated;
+  { // write all variable data
+    PARTHENON_INSTRUMENT
 
-  hsize_t num_sparse = sparse_names.size();
-  // can't use std::vector here because std::vector<hbool_t> is the same as
-  // std::vector<bool> and it doesn't have .data() member
-  std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
+    // All blocks have the same list of variable metadata that exist in the entire
+    // simulation, but not all variables may be allocated on all blocks
 
-  // allocate space for largest size variable
-  int varSize_max = 0;
-  for (auto &vinfo : all_vars_info) {
-    const int varSize =
-        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
-    varSize_max = std::max(varSize_max, varSize);
-  }
-
-  using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmpData(varSize_max * num_blocks_local);
-
-  // create persistent spaces
-  local_count[0] = num_blocks_local;
-  global_count[0] = max_blocks_global;
-  local_count[4] = global_count[4] = nx3;
-  local_count[5] = global_count[5] = nx2;
-  local_count[6] = global_count[6] = nx1;
-
-  // for each variable we write
-  for (auto &vinfo : all_vars_info) {
-    Kokkos::Profiling::pushRegion("write variable loop");
-    // not really necessary, but doesn't hurt
-    memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
-
-    const std::string var_name = vinfo.label;
-    const hsize_t nx6 = vinfo.nx6;
-    const hsize_t nx5 = vinfo.nx5;
-    const hsize_t nx4 = vinfo.nx4;
-
-    local_count[1] = global_count[1] = nx6;
-    local_count[2] = global_count[2] = nx5;
-    local_count[3] = global_count[3] = nx4;
-
-    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
-                                  static_cast<hsize_t>(vinfo.nx2),
-                                  static_cast<hsize_t>(vinfo.nx1)});
-
-    int ndim = -1;
-#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-    // we need chunks to enable compression
-    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
-#endif
-    if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-      ndim = 3 + vinfo.tensor_rank + 1;
-      for (int i = 0; i < vinfo.tensor_rank; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+    auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+      auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+      if (restart_) {
+        // get all vars with flag Independent OR restart
+        return GetAnyVariables(
+            var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+      } else {
+        return GetAnyVariables(var_vec, output_params.variables);
       }
-      local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3;
-      local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2;
-      local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1;
+    };
 
+    // get list of all vars, just use the first block since the list is the same for all
+    // blocks
+    const auto vars = (pm->block_list.size() > 0) 
+                      ? get_vars(pm->block_list.front())
+                      : VariableVector<Real>();
+    for (auto &v : vars) {
+      all_vars_info.emplace_back(v);
+    }
+
+    // sort alphabetically
+    std::sort(all_vars_info.begin(), all_vars_info.end(),
+              [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+
+    // We need to add information about the sparse variables to the HDF5 file, namely:
+    // 1) Which variables are sparse
+    // 2) Is a sparse id of a particular sparse variable allocated on a given block
+    //
+    // This information is stored in the dataset called "SparseInfo". The data set
+    // contains an attribute "SparseFields" that is a vector of strings with the names
+    // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
+    // "foo_145"). The field names are in alphabetical order, which is the same order
+    // they show up in all_unique_vars (because it's a sorted set).
+    //
+    // The dataset SparseInfo itself is a 2D array of bools. The first index is the
+    // global block index and the second index is the sparse field (same order as the
+    // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
+    // v is allocated on the block with index b, otherwise the value is false
+
+    std::unordered_map<std::string, size_t> sparse_field_idx;
+    for (auto &vinfo : all_vars_info) {
+      if (vinfo.is_sparse) {
+        sparse_field_idx.insert({vinfo.label, sparse_names.size()});
+        sparse_names.push_back(vinfo.label);
+      }
+    }
+
+    num_sparse = sparse_names.size();
+    // can't use std::vector here because std::vector<hbool_t> is the same as
+    // std::vector<bool> and it doesn't have .data() member
+    sparse_allocated = std::make_unique<hbool_t[]>(num_blocks_local * num_sparse);
+
+    // allocate space for largest size variable
+    int varSize_max = 0;
+    for (auto &vinfo : all_vars_info) {
+      const int varSize =
+          vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+      varSize_max = std::max(varSize_max, varSize);
+    }
+
+    using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
+    std::vector<OutT> tmpData(varSize_max * num_blocks_local);
+
+    // create persistent spaces
+    local_count[0] = num_blocks_local;
+    global_count[0] = max_blocks_global;
+    local_count[4] = global_count[4] = nx3;
+    local_count[5] = global_count[5] = nx2;
+    local_count[6] = global_count[6] = nx1;
+
+    // for each variable we write
+    for (auto &vinfo : all_vars_info) {
+      PARTHENON_INSTRUMENT
+      // not really necessary, but doesn't hurt
+      memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
+
+      const std::string var_name = vinfo.label;
+      const hsize_t nx6 = vinfo.nx6;
+      const hsize_t nx5 = vinfo.nx5;
+      const hsize_t nx4 = vinfo.nx4;
+
+      local_count[1] = global_count[1] = nx6;
+      local_count[2] = global_count[2] = nx5;
+      local_count[3] = global_count[3] = nx4;
+
+      std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
+                                    static_cast<hsize_t>(vinfo.nx2),
+                                    static_cast<hsize_t>(vinfo.nx1)});
+
+      int ndim = -1;
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-      if (output_params.hdf5_compression_level > 0) {
-        for (int i = ndim - 3; i < ndim; i++) {
-          chunk_size[i] = local_count[i];
+      // we need chunks to enable compression
+      std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+#endif
+      if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+        ndim = 3 + vinfo.tensor_rank + 1;
+        for (int i = 0; i < vinfo.tensor_rank; i++) {
+          local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
         }
-      }
-#endif
-    } else if (vinfo.where == MetadataFlag(Metadata::None)) {
-      ndim = vinfo.tensor_rank + 1;
-      for (int i = 0; i < vinfo.tensor_rank; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.tensor_rank + i];
-      }
+        local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3;
+        local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2;
+        local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1;
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-      if (output_params.hdf5_compression_level > 0) {
-        int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
-        for (int i = ndim - nchunk_indices; i < ndim; i++) {
-          chunk_size[i] = alldims[6 - nchunk_indices + i];
+        if (output_params.hdf5_compression_level > 0) {
+          for (int i = ndim - 3; i < ndim; i++) {
+            chunk_size[i] = local_count[i];
+          }
         }
-      }
 #endif
-    } else {
-      PARTHENON_THROW("Only Cell and None locations supported!");
-    }
+      } else if (vinfo.where == MetadataFlag(Metadata::None)) {
+        ndim = vinfo.tensor_rank + 1;
+        for (int i = 0; i < vinfo.tensor_rank; i++) {
+          local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.tensor_rank + i];
+        }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-    // Do not run the pipeline if compression is soft disabled.
-    // By default data would still be passed, which may result in slower output.
-    if (output_params.hdf5_compression_level > 0) {
-      PARTHENON_HDF5_CHECK(
-          H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
-    }
+        if (output_params.hdf5_compression_level > 0) {
+          int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
+          for (int i = ndim - nchunk_indices; i < ndim; i++) {
+            chunk_size[i] = alldims[6 - nchunk_indices + i];
+          }
+        }
+#endif
+      } else {
+        PARTHENON_THROW("Only Cell and None locations supported!");
+      }
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
+      // Do not run the pipeline if compression is soft disabled.
+      // By default data would still be passed, which may result in slower output.
+      if (output_params.hdf5_compression_level > 0) {
+        PARTHENON_HDF5_CHECK(H5Pset_deflate(
+            pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+      }
 #endif
 
-    // load up data
-    hsize_t index = 0;
+      // load up data
+      hsize_t index = 0;
 
-    Kokkos::Profiling::pushRegion("fill host output buffer");
-    // for each local mesh block
-    for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
-      const auto &pmb = pm->block_list[b_idx];
-      bool is_allocated = false;
+      { // fill host output buffer
+        PARTHENON_INSTRUMENT
+        // for each local mesh block
+        for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
+          const auto &pmb = pm->block_list[b_idx];
+          bool is_allocated = false;
 
-      // for each variable that this local meshblock actually has
-      const auto vars = get_vars(pmb);
-      for (auto &v : vars) {
-        // For reference, if we update the logic here, there's also
-        // a similar block in parthenon_manager.cpp
-        if (v->IsAllocated() && (var_name == v->label())) {
-          auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+          // for each variable that this local meshblock actually has
+          const auto vars = get_vars(pmb);
+          for (auto &v : vars) {
+            // For reference, if we update the logic here, there's also
+            // a similar block in parthenon_manager.cpp
+            if (v->IsAllocated() && (var_name == v->label())) {
+              auto v_h = v->data.GetHostMirrorAndCopy();
+              for (int t = 0; t < nx6; ++t) {
+                for (int u = 0; u < nx5; ++u) {
+                  for (int v = 0; v < nx4; ++v) {
+                    if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+                      for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                        for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                          for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                            tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                          }
+                        }
                       }
-                    }
-                  }
-                } else {
-                  for (int k = 0; k < vinfo.nx3; ++k) {
-                    for (int j = 0; j < vinfo.nx2; ++j) {
-                      for (int i = 0; i < vinfo.nx1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                    } else {
+                      for (int k = 0; k < vinfo.nx3; ++k) {
+                        for (int j = 0; j < vinfo.nx2; ++j) {
+                          for (int i = 0; i < vinfo.nx1; ++i) {
+                            tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                          }
+                        }
                       }
                     }
                   }
                 }
               }
+
+              is_allocated = true;
+              break;
             }
           }
 
-          is_allocated = true;
-          break;
-        }
-      }
-
-      if (vinfo.is_sparse) {
-        size_t sparse_idx = sparse_field_idx.at(vinfo.label);
-        sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
-      }
-
-      if (!is_allocated) {
-        if (vinfo.is_sparse) {
-          hsize_t varSize{};
-          if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-            varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
-                      (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
-          } else {
-            varSize =
-                vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+          if (vinfo.is_sparse) {
+            size_t sparse_idx = sparse_field_idx.at(vinfo.label);
+            sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
           }
-          auto fill_val =
-              output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;
-          std::fill(tmpData.data() + index, tmpData.data() + index + varSize, fill_val);
-          index += varSize;
-        } else {
-          std::stringstream msg;
-          msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-    }
-    Kokkos::Profiling::popRegion(); // fill host output buffer
 
-    Kokkos::Profiling::pushRegion("write variable data");
-    // write data to file
-    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer, pl_dcreate);
-    Kokkos::Profiling::popRegion(); // write variable data
-    Kokkos::Profiling::popRegion(); // write variable loop
-  }
-  Kokkos::Profiling::popRegion(); // write all variable data
+          if (!is_allocated) {
+            if (vinfo.is_sparse) {
+              hsize_t varSize{};
+              if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+                varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
+                          (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
+              } else {
+                varSize =
+                    vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+              }
+              auto fill_val = output_params.sparse_seed_nans
+                                  ? std::numeric_limits<OutT>::quiet_NaN()
+                                  : 0;
+              std::fill(tmpData.data() + index, tmpData.data() + index + varSize,
+                        fill_val);
+              index += varSize;
+            } else {
+              std::stringstream msg;
+              msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
+              PARTHENON_FAIL(msg);
+            }
+          }
+        }
+      } // fill host output buffer
+
+      { // write variable data
+        PARTHENON_INSTRUMENT
+        // write data to file
+        HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
+                    p_glob_cnt, pl_xfer, pl_dcreate);
+      } // write variable data
+    }   // for each variable
+  }     // write all variable data
 
   // names of variables
   std::vector<std::string> var_names;
@@ -595,7 +591,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    Kokkos::Profiling::pushRegion("write sparse info");
+    PARTHENON_INSTRUMENT
     local_count[1] = global_count[1] = num_sparse;
 
     HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
@@ -608,82 +604,81 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
     HDF5WriteAttribute("SparseFields", names, dset);
-    Kokkos::Profiling::popRegion(); // write sparse info
-  }                                 // SparseInfo and SparseFields sections
+  } // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
 
-  Kokkos::Profiling::pushRegion("write particle data");
   AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
-  for (auto &[swname, swinfo] : swarm_info.all_info) {
-    const H5G g_swm = MakeGroup(file, swname);
-    // offsets/counts are NOT the same here vs the grid data
-    hsize_t local_offset[6] = {static_cast<hsize_t>(my_offset), 0, 0, 0, 0, 0};
-    hsize_t local_count[6] = {static_cast<hsize_t>(num_blocks_local), 0, 0, 0, 0, 0};
-    hsize_t global_count[6] = {static_cast<hsize_t>(max_blocks_global), 0, 0, 0, 0, 0};
-    // These indicate particles/meshblock and location in global index
-    // space where each meshblock starts
-    HDF5Write1D(g_swm, "counts", swinfo.counts.data(), local_offset, local_count,
-                global_count, pl_xfer);
-    HDF5Write1D(g_swm, "offsets", swinfo.offsets.data(), local_offset, local_count,
-                global_count, pl_xfer);
+  { // write particle data
+    PARTHENON_INSTRUMENT
+    for (auto &[swname, swinfo] : swarm_info.all_info) {
+      const H5G g_swm = MakeGroup(file, swname);
+      // offsets/counts are NOT the same here vs the grid data
+      hsize_t local_offset[6] = {static_cast<hsize_t>(my_offset), 0, 0, 0, 0, 0};
+      hsize_t local_count[6] = {static_cast<hsize_t>(num_blocks_local), 0, 0, 0, 0, 0};
+      hsize_t global_count[6] = {static_cast<hsize_t>(max_blocks_global), 0, 0, 0, 0, 0};
+      // These indicate particles/meshblock and location in global index
+      // space where each meshblock starts
+      HDF5Write1D(g_swm, "counts", swinfo.counts.data(), local_offset, local_count,
+                  global_count, pl_xfer);
+      HDF5Write1D(g_swm, "offsets", swinfo.offsets.data(), local_offset, local_count,
+                  global_count, pl_xfer);
 
-    const H5G g_var = MakeGroup(g_swm, "SwarmVars");
-    if (swinfo.global_count == 0) {
-      continue;
-    }
-    auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
-      const int rank = vinfo.tensor_rank;
-      for (int i = 0; i < 6; ++i) {
-        local_offset[i] = 0; // reset everything
-        local_count[i] = 0;
-        global_count[i] = 0;
+      const H5G g_var = MakeGroup(g_swm, "SwarmVars");
+      if (swinfo.global_count == 0) {
+        continue;
       }
-      for (int i = 0; i < rank; ++i) {
-        local_count[i] = global_count[i] = vinfo.GetN(rank + 1 - i);
+      auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
+        const int rank = vinfo.tensor_rank;
+        for (int i = 0; i < 6; ++i) {
+          local_offset[i] = 0; // reset everything
+          local_count[i] = 0;
+          global_count[i] = 0;
+        }
+        for (int i = 0; i < rank; ++i) {
+          local_count[i] = global_count[i] = vinfo.GetN(rank + 1 - i);
+        }
+        local_offset[rank] = swinfo.global_offset;
+        local_count[rank] = swinfo.count_on_rank;
+        global_count[rank] = swinfo.global_count;
+      };
+      auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
+      for (auto &[vname, swmvarvec] : int_vars) {
+        const auto &vinfo = swinfo.var_info.at(vname);
+        auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+        SetCounts(swinfo, vinfo);
+        HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
+                    local_count, global_count, pl_xfer, H5P_DEFAULT);
       }
-      local_offset[rank] = swinfo.global_offset;
-      local_count[rank] = swinfo.count_on_rank;
-      global_count[rank] = swinfo.global_count;
-    };
-    auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
-    for (auto &[vname, swmvarvec] : int_vars) {
-      const auto &vinfo = swinfo.var_info.at(vname);
-      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
-      SetCounts(swinfo, vinfo);
-      HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
-                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+      auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
+      for (auto &[vname, swmvarvec] : rvars) {
+        const auto &vinfo = swinfo.var_info.at(vname);
+        auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+        SetCounts(swinfo, vinfo);
+        HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
+                    local_count, global_count, pl_xfer, H5P_DEFAULT);
+      }
+      // If swarm does not contain an "id" object, generate a sequential
+      // one for vis.
+      if (swinfo.var_info.count("id") == 0) {
+        std::vector<int> ids(swinfo.global_count);
+        std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
+        local_offset[0] = swinfo.global_offset;
+        local_count[0] = swinfo.count_on_rank;
+        global_count[0] = swinfo.global_count;
+        HDF5Write1D(g_var, "id", ids.data(), local_offset, local_count, global_count,
+                    pl_xfer);
+      }
     }
-    auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
-    for (auto &[vname, swmvarvec] : rvars) {
-      const auto &vinfo = swinfo.var_info.at(vname);
-      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
-      SetCounts(swinfo, vinfo);
-      HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
-                  local_count, global_count, pl_xfer, H5P_DEFAULT);
-    }
-    // If swarm does not contain an "id" object, generate a sequential
-    // one for vis.
-    if (swinfo.var_info.count("id") == 0) {
-      std::vector<int> ids(swinfo.global_count);
-      std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
-      local_offset[0] = swinfo.global_offset;
-      local_count[0] = swinfo.count_on_rank;
-      global_count[0] = swinfo.global_count;
-      HDF5Write1D(g_var, "id", ids.data(), local_offset, local_count, global_count,
-                  pl_xfer);
-    }
-  }
-  Kokkos::Profiling::popRegion(); // write particle data
+  } // write particle data
 
-  Kokkos::Profiling::pushRegion("genXDMF");
-  // generate XDMF companion file
-  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
-  Kokkos::Profiling::popRegion(); // genXDMF
-
-  Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
+  { // generate xdmf
+    PARTHENON_INSTRUMENT
+    // generate XDMF companion file
+    XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
+  } // generate xdmf
 }
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
@@ -822,7 +817,7 @@ HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
 // template specializations for std::string and bool
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location) {
-  HDF5WriteAttribute(name, value.size(), value.c_str(), location);
+  HDF5WriteAttribute(name, value.c_str(), location);
 }
 
 template <>
