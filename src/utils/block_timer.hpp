@@ -76,7 +76,7 @@ class BlockTimer {
   }
  private:
   const team_mbr_t *member_;
-  const T &pack_;
+  T &pack_;
   const int b_;
   const uint64_t start_;
 #else // no timers, so just stub this out
