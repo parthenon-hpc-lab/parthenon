@@ -1005,7 +1005,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
     int total_sent_particles = 0;
     pmb->par_reduce(
-        "total sent particles", 0, max_active_index_,
+        PARTHENON_AUTO_LABEL, 0, max_active_index_,
         KOKKOS_LAMBDA(int n, int &total_sent_particles) {
           if (swarm_d.IsActive(n)) {
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
