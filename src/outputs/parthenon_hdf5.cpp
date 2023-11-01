@@ -146,6 +146,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                          info_group);
       // write number of ghost cells in simulation
       HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
+      auto coords = Coordinates_t();
       HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(),
                          info_group);
 

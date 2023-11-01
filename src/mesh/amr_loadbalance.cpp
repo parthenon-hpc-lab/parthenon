@@ -712,11 +712,7 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   std::vector<double> newcost(ntot);
   std::vector<int> newtoold(ntot);
   std::vector<int> oldtonew(nbtotal);
-  int nbtold = nbtotal;
   std::unordered_set<LogicalLocation> newly_refined;
-  // store old nbstart and nbend before load balancing.
-  int onbs = nslist[Globals::my_rank];
-  int onbe = onbs + nblist[Globals::my_rank] - 1;
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
