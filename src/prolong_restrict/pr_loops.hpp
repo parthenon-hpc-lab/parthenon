@@ -64,7 +64,6 @@ KOKKOS_INLINE_FUNCTION void InnerProlongationRestrictionLoop(
     team_mbr_t &team_member, std::size_t buf, const ProResInfoArr_t &info,
     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib) {
-  PARTHENON_INSTRUMENT
   const auto &idxer = info(buf).idxer[static_cast<int>(CEL)];
   par_for_inner(
       inner_loop_pattern_tvr_tag, team_member, 0, idxer.size() - 1, [&](const int ii) {
