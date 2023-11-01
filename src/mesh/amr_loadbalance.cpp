@@ -961,7 +961,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (auto &pmb : block_list) {
       pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
     }
-
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

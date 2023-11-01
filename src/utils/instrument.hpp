@@ -44,7 +44,7 @@ struct KokkosTimer {
   KokkosTimer(const std::string &file, const int line, const std::string &name) {
     Push(build_auto_label(file, line, name));
   }
-  KokkosTimer(const std::string &name) { Push(name); }
+  explicit KokkosTimer(const std::string &name) { Push(name); }
   ~KokkosTimer() { Kokkos::Profiling::popRegion(); }
 
  private:
@@ -53,4 +53,4 @@ struct KokkosTimer {
 
 } // namespace parthenon
 
-#endif
+#endif // UTILS_INSTRUMENT_HPP_

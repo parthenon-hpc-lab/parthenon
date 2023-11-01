@@ -128,7 +128,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // we'll need this again at the end
     info_group = MakeGroup(file, "/Info");
-    {
+    { // write info
       PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
@@ -186,10 +186,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 
       HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-    } // Info section
+    } // write info
 
-    // write Params
-    {
+    { // write params
       PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
       const H5G params_group = MakeGroup(file, "/Params");
 
@@ -198,7 +197,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // Write all params that can be written as HDF5 attributes
         state->AllParams().WriteAllToHDF5(state->label(), params_group);
       }
-    } // Params section
+    } // write params
   }   // write attributes
 
   // -------------------------------------------------------------------------------- //
@@ -234,8 +233,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
-  // write Blocks metadata
-  {
+  { // write Blocks metadata
     PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     const H5G gBlocks = MakeGroup(file, "/Blocks");
 
@@ -266,7 +264,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
                   p_loc_cnt, p_glob_cnt, pl_xfer);
     }
-  } // Block section
+  } // write Blocks metadata
 
   // Write mesh coordinates to file
   { // write mesh coords
@@ -297,7 +295,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
-  {
+  { // write levels + log locs
     PARTHENON_INSTRUMENT_REGION(PARTHENON_AUTO_LABEL)
     const auto &loclist = pm->GetLocList();
 
@@ -325,7 +323,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // reset for collective output
     local_count[0] = num_blocks_local;
-  }
+  } // write levels + log locs
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
@@ -558,8 +556,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
                     p_glob_cnt, pl_xfer, pl_dcreate);
       } // write variable data
-    }
-  } // write all variable data
+    }   // for each variable
+  }     // write all variable data
 
   // names of variables
   std::vector<std::string> var_names;
