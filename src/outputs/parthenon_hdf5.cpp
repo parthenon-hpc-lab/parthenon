@@ -816,7 +816,7 @@ HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
 // template specializations for std::string and bool
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location) {
-  HDF5WriteAttribute(name, value.size(), value.c_str(), location);
+  HDF5WriteAttribute(name, value.c_str(), location);
 }
 
 template <>
