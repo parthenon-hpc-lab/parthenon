@@ -71,7 +71,7 @@ class BiCGSTABSolver {
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
       : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
-        iter_counter(0), eqs_(eq_in) {
+        iter_counter(0), eqs_(eq_in), presidual_tolerance(&params_in.residual_tolerance) {
     using namespace refinement_ops;
     auto mu = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                         Metadata::WithFluxes, Metadata::GMGRestrict},
@@ -257,11 +257,11 @@ class BiCGSTABSolver {
     auto check = itl.SetCompletionTask(
         update_p | correct_x,
         [](BiCGSTABSolver *solver, Mesh *pmesh, int partition, int max_iter,
-           Real res_tol) {
+           Real *res_tol) {
           if (partition != 0) return TaskStatus::complete;
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (rms_res < res_tol || solver->iter_counter >= max_iter) {
+          if (rms_res < *res_tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
             solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
@@ -274,7 +274,7 @@ class BiCGSTABSolver {
           solver->residual.val = 0.0;
           return TaskStatus::iterate;
         },
-        this, pmesh, i, params_.max_iters, params_.residual_tolerance);
+        this, pmesh, i, params_.max_iters, presidual_tolerance);
     region.AddGlobalDependencies(reg_dep_id, i, check);
     reg_dep_id++;
 
@@ -287,8 +287,8 @@ class BiCGSTABSolver {
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
   
-  void UpdateResidualTolerance(Real tol) { 
-    params_.residual_tolerance = tol;
+  void UpdateResidualTolerance(Real *ptol) { 
+    presidual_tolerance = ptol;
   }
  protected:
   MGSolver<u, rhs, equations> preconditioner;
@@ -299,6 +299,7 @@ class BiCGSTABSolver {
   equations eqs_;
   Real final_residual;
   int final_iteration;
+  Real *presidual_tolerance;
 };
 
 } // namespace solvers
