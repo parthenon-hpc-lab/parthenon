@@ -26,27 +26,28 @@
 
 namespace parthenon {
 
-template <typename T = void>
 class BlockTimer {
 #ifdef ENABLE_LB_TIMERS
  public:
   BlockTimer() = delete;
   // constructor for team policies when there is no pack
   KOKKOS_INLINE_FUNCTION
-  BlockTimer(team_mbr_t &member, T cost)
-    : member_(&member), pack_(cost), b_(0), start_(Kokkos::Impl::clock_tic()) {}
+  BlockTimer(team_mbr_t &member, double *cost)
+    : member_(&member), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for non-team policies when there is no pack
   KOKKOS_INLINE_FUNCTION
-  explicit BlockTimer(T cost)
-    : member_(nullptr), pack_(cost), b_(0), start_(Kokkos::Impl::clock_tic()) {}
+  explicit BlockTimer(double *cost)
+    : member_(nullptr), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for team policies and packs
+  template <typename T>
   KOKKOS_INLINE_FUNCTION
   BlockTimer(team_mbr_t &member, const T &pack, const int b)
-    : member_(&member), pack_(pack), b_(b), start_(Kokkos::Impl::clock_tic()) {}
+    : member_(&member), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for non-team policies and packs
+  template <typename T>
   KOKKOS_INLINE_FUNCTION
   BlockTimer(const T &pack, const int b)
-    : member_(nullptr), pack_(pack), b_(b), start_(Kokkos::Impl::clock_tic()) {}
+    : member_(nullptr), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for team policies without a block index
   KOKKOS_INLINE_FUNCTION
   ~BlockTimer() {
@@ -57,27 +58,16 @@ class BlockTimer {
                     + static_cast<double>(stop) :
                   static_cast<double>(stop - start_));
     if (member_ == nullptr) {
-      if constexpr (std::is_same<T, double *>::value) {
-        Kokkos::atomic_add(pack_, diff);
-      } else {
-        Kokkos::atomic_add(&(pack_.GetCost(b_)), diff);
-      }
+      Kokkos::atomic_add(cost_, diff);
     } else {
-      if constexpr (std::is_same<T, double *>::value) {
-        Kokkos::single(Kokkos::PerTeam(*member_), [&] () {
-          Kokkos::atomic_add(pack_, diff);
-        });
-      } else {
-        Kokkos::single(Kokkos::PerTeam(*member_), [&] () {
-          Kokkos::atomic_add(&(pack_.GetCost(b_)), diff);
-        });
-      }
+      Kokkos::single(Kokkos::PerTeam(*member_), [&] () {
+        Kokkos::atomic_add(cost_, diff);
+      });
     }
   }
  private:
   const team_mbr_t *member_;
-  T &pack_;
-  const int b_;
+  double *cost_;
   const uint64_t start_;
 #else // no timers, so just stub this out
  public:
