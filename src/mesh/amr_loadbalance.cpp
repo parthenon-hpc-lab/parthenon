@@ -638,7 +638,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 // \brief collect the cost from MeshBlocks and check the load balance
 
 void Mesh::GatherCostList() {
-  Kokkos::Profiling::pushRegion("GatherCostList");
+  PARTHENON_INSTRUMENT
   if (lb_automatic_) {
 #ifdef ENABLE_LB_TIMERS
     auto cost_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), block_cost);
@@ -656,7 +656,6 @@ void Mesh::GatherCostList() {
                                        nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
   }
-  Kokkos::Profiling::popRegion();
   return;
 }
 
@@ -679,7 +678,7 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // The mesh hasn't actually changed.  Let's just check the load balancing
     // and only move things around if needed
     if (lb_automatic_ || lb_manual_) {
-      Kokkos::Profiling::pushRegion("Reloadbalance");
+      PARTHENON_INSTRUMENT
       auto [avg_cost, max_block_cost, max_rank_cost] =
           BlockCostInfo(costlist, nslist, nblist);
       std::vector<int> start_trial(Globals::nranks);
