@@ -81,15 +81,15 @@ class BlockTimerHost {
   BlockTimerHost(const std::vector<double> &cost, const int bs, const int be)
       : cost_(cost), bs_(bs), be_(be), start_(Kokkos::Impl::clock_tic()) {}
   void Stop() const {
-    auto stop = Kokkos::Impl::clock_tick();
+    auto stop = Kokkos::Impl::clock_tic();
     // deal with overflow of clock
     auto diff =
         (stop < start_
              ? static_cast<double>(std::numeric_limits<uint64_t>::max() - start_) +
                    static_cast<double>(stop)
              : static_cast<double>(stop - start_));
-    auto cost_per_block = diff / (be - bs + 1);
-    for (int b = bs; b <= be; b++)
+    auto cost_per_block = diff / (be_ - bs_ + 1);
+    for (int b = bs_; b <= be_; b++)
       cost_[b] += cost_per_block;
   }
 
