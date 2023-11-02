@@ -482,10 +482,12 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &cost, std::vector<int
 void Mesh::ResetLoadBalanceVariables() {
   if (lb_automatic_) {
 #ifdef ENABLE_LB_TIMERS
+    // make a local copy to make CUDA happy
+    auto bcost = block_cost;
     parthenon::par_for(
         loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0,
         block_list.size() - 1,
-        KOKKOS_LAMBDA(const int b) { block_cost(b) = TINY_NUMBER; });
+        KOKKOS_LAMBDA(const int b) { bcost(b) = TINY_NUMBER; });
 #endif
   } else if (lb_manual_) {
     for (int b = 0; b < block_list.size(); b++) {
