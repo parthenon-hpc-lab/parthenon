@@ -78,7 +78,7 @@ class BlockTimer {
 class BlockTimerHost {
 #ifdef ENABLE_LB_TIMERS
  public:
-  BlockTimerHost(const std::vector<double> &cost, const int bs, const int be)
+  BlockTimerHost(std::vector<double> &cost, const int bs, const int be)
       : cost_(cost), bs_(bs), be_(be), start_(Kokkos::Impl::clock_tic()) {}
   void Stop() const {
     auto stop = Kokkos::Impl::clock_tic();
@@ -94,7 +94,7 @@ class BlockTimerHost {
   }
 
  private:
-  const std::vector<double> &cost_;
+  std::vector<double> &cost_;
   const int bs_, be_;
   const uint64_t start_;
 #else // stub out
