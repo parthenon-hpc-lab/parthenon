@@ -232,6 +232,8 @@ class Mesh {
     return std::make_pair(cb(1), cb(2));
   }
 
+  void ResetLoadBalanceVariables();
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -278,8 +280,6 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-
-  void ResetLoadBalanceVariables();
 
   void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb);
   void CalculateLoadBalance(std::vector<double> const &cost, std::vector<int> &rank,
