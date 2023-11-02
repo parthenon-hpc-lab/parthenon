@@ -51,6 +51,14 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &block_cost = pmesh->GetBlockCost();
+  int min_lid = 9999999;
+  int max_lid = 0;
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    int lid = md->GetBlockData(b)->GetBlockPointer()->lid;
+    min_lid = lid < min_lid ? lid : min_lid;
+    max_lid = lid > max_lid ? lid : max_lid;
+  }
+  BlockTimerHost host_timer(pmesh->block_cost_host, min_lid, max_lid);
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0)
@@ -82,6 +90,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
+
+  host_timer.Stop();
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
@@ -131,6 +141,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         });
       });
 
+  BlockTimerHost host_timer2(pmesh->block_cost_host, min_lid, max_lid);
   // Send buffers
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
@@ -146,6 +157,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     else
       buf.SendNull();
   }
+  host_timer2.Stop();
 
   return TaskStatus::complete;
 }
