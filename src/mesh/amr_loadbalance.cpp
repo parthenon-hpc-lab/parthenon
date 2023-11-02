@@ -688,7 +688,6 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       std::vector<int> nb_trial(Globals::nranks);
       double new_max =
           CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
-      Kokkos::Profiling::popRegion();
       // if the improvement isn't large enough, just return because we're done
       if ((max_rank_cost - new_max) / max_rank_cost < lb_tolerance_) return false;
       newrank.resize(ntot);
