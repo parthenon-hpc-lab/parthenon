@@ -108,10 +108,12 @@ class Mesh {
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
+  std::vector<double> block_cost_host;
 #ifdef ENABLE_LB_TIMERS
   ParArray1D<double> block_cost;
+  auto &GetBlockCost() const { return block_cost; }
 #else
-  std::vector<double> block_cost;
+  auto &GetBlockCost() const { return block_cost_host; }
 #endif
 
   DataCollection<MeshData<Real>> mesh_data;

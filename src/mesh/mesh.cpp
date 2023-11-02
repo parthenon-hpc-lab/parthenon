@@ -458,9 +458,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 #ifdef ENABLE_LB_TIMERS
   block_cost.Realloc(block_list.size());
-#else
-  block_cost.resize(block_list.size());
 #endif
+  block_cost_host.resize(block_list.size());
 
   ResetLoadBalanceVariables();
 }
@@ -721,9 +720,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
 #ifdef ENABLE_LB_TIMERS
   block_cost.Realloc(block_list.size());
-#else
-  block_cost.resize(block_list.size());
 #endif
+  block_cost_host.resize(block_list.size());
+
   ResetLoadBalanceVariables();
 }
 

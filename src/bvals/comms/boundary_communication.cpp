@@ -50,7 +50,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
-  auto &block_cost = pmesh->block_cost;
+  auto &block_cost = pmesh->GetBlockCost();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0)
@@ -226,7 +226,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
-  auto &block_cost = pmesh->block_cost;
+  auto &block_cost = pmesh->GetBlockCost();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);

@@ -486,12 +486,13 @@ void Mesh::ResetLoadBalanceVariables() {
     auto bcost = block_cost;
     parthenon::par_for(
         loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0,
-        block_list.size() - 1,
-        KOKKOS_LAMBDA(const int b) { bcost(b) = TINY_NUMBER; });
+        block_list.size() - 1, KOKKOS_LAMBDA(const int b) { bcost(b) = TINY_NUMBER; });
+    for (int b = 0; b < block_list.size(); b++)
+      block_cost_host[b] = TINY_NUMBER;
 #endif
   } else if (lb_manual_) {
     for (int b = 0; b < block_list.size(); b++) {
-      block_cost[b] = TINY_NUMBER;
+      block_cost_host[b] = TINY_NUMBER;
     }
   }
   step_since_lb = 0;
@@ -642,6 +643,8 @@ void Mesh::GatherCostList() {
   if (lb_automatic_) {
 #ifdef ENABLE_LB_TIMERS
     auto cost_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), block_cost);
+    for (int b = 0; b < block_cost_host.size(); b++)
+      cost_h(b) += block_cost_host[b];
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Allgatherv(cost_h.data(), nblist[Globals::my_rank],
                                        MPI_DOUBLE, costlist.data(), nblist.data(),
@@ -651,7 +654,7 @@ void Mesh::GatherCostList() {
   }
   if (lb_manual_) {
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(block_cost.data(), nblist[Globals::my_rank],
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(block_cost_host.data(), nblist[Globals::my_rank],
                                        MPI_DOUBLE, costlist.data(), nblist.data(),
                                        nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
@@ -767,9 +770,8 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
 #ifdef ENABLE_LB_TIMERS
   block_cost.Realloc(nbe - nbs + 1);
-#else
-  block_cost.resize(nbe - nbs + 1);
 #endif
+  block_cost_host.resize(nbe - nbs + 1);
 
   // Restrict fine to coarse buffers
   ProResCache_t restriction_cache;

@@ -27,6 +27,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "utils/block_timer.hpp"
 
 namespace parthenon {
 namespace BoundaryFunction {
@@ -39,6 +40,10 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                TopologicalElement el, Real val) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto &block_cost_host = pmb->pmy_mesh->block_cost_host;
+  BlockTimerHost host_timer(block_cost_host, pmb->lid, pmb->lid);
 
   // convenient shorthands
   constexpr bool X1 = (DIR == X1DIR);
@@ -63,7 +68,6 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   if (lend < lstart) return;
   auto nb = IndexRange{lstart, lend};
 
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
   const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
@@ -87,6 +91,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   // used for derivatives
   const int offsetin = INNER;
   const int offsetout = !INNER;
+  // stop timing on the host
+  host_timer.Stop();
   pmb->par_for_bndry(
       PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
