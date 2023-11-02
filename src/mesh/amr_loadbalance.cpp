@@ -347,13 +347,13 @@ Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
     start[rank] = last;
     Real rank_cost = cost[last];
     nleft--;
-    while (nleft > ranks_left && rank_cost + cost[last+1] < target_max) {
+    while (nleft > ranks_left && rank_cost + cost[last + 1] < target_max) {
       last += 1;
       rank_cost += cost[last];
       nleft--;
     }
     last++;
-    if (rank == nranks-1) {
+    if (rank == nranks - 1) {
       for (int n = last; n < nblocks; n++) {
         rank_cost += cost[n];
       }
@@ -365,8 +365,9 @@ Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
   return trial_max;
 }
 
-double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &start, std::vector<int> &nb,
-                           const double avg_cost, const double max_block_cost) {
+double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &start,
+                           std::vector<int> &nb, const double avg_cost,
+                           const double max_block_cost) {
   const int nblocks = cost.size();
   const int max_rank = std::min(nblocks, Globals::nranks);
 
@@ -377,7 +378,7 @@ double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &st
 
   // set the bounds for the search
   double a = avg_cost;
-  double b = std::max(2.0*avg_cost, 1.01*max_block_cost);
+  double b = std::max(2.0 * avg_cost, 1.01 * max_block_cost);
   double h = b - a;
   constexpr double invphi = 0.618033988749894848204586834366;
   constexpr double invphi2 = 0.38196601125010515179541316563436188228;
@@ -407,7 +408,8 @@ double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &st
   return yc;
 }
 
-void AssignBlocks(const std::vector<int> &start, const std::vector<int> &nb, std::vector<int> &rank) {
+void AssignBlocks(const std::vector<int> &start, const std::vector<int> &nb,
+                  std::vector<int> &rank) {
   const int nblocks = rank.size();
   for (int i = 0; i < std::min(nblocks, Globals::nranks); i++) {
     for (int n = start[i]; n < start[i] + nb[i]; n++) {
@@ -439,15 +441,16 @@ std::tuple<double, double, double> BlockCostInfo(std::vector<double> const &cost
 
 } // namespace
 
-void Mesh::SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb) {
+void Mesh::SetSimpleBalance(const int nblocks, std::vector<int> &start,
+                            std::vector<int> &nb) {
   const int max_rank = std::min(nblocks, Globals::nranks);
-  int nassign = nblocks/max_rank;
+  int nassign = nblocks / max_rank;
   start[0] = 0;
   nb[0] = nassign;
   int nassigned = nassign;
   for (int i = 1; i < max_rank; i++) {
-    nassign = (nblocks - nassigned)/(max_rank - i);
-    start[i] = start[i-1] + nb[i-1];
+    nassign = (nblocks - nassigned) / (max_rank - i);
+    start[i] = start[i - 1] + nb[i - 1];
     nb[i] = nassign;
     nassigned += nassign;
   }
@@ -457,9 +460,8 @@ void Mesh::SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vec
   }
 }
 
-void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
-                                std::vector<int> &rank, std::vector<int> &start,
-                                std::vector<int> &nb) {
+void Mesh::CalculateLoadBalance(std::vector<double> const &cost, std::vector<int> &rank,
+                                std::vector<int> &start, std::vector<int> &nb) {
   PARTHENON_INSTRUMENT
   if ((lb_automatic_ || lb_manual_)) {
     SetSimpleBalance(cost.size(), start, nb);
@@ -480,10 +482,10 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &cost,
 void Mesh::ResetLoadBalanceVariables() {
   if (lb_automatic_) {
 #ifdef ENABLE_LB_TIMERS
-    parthenon::par_for(loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0, block_list.size()-1,
-        KOKKOS_LAMBDA(const int b) {
-          block_cost(b) = TINY_NUMBER;
-        });
+    parthenon::par_for(
+        loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0,
+        block_list.size() - 1,
+        KOKKOS_LAMBDA(const int b) { block_cost(b) = TINY_NUMBER; });
 #endif
   } else if (lb_manual_) {
     for (int b = 0; b < block_list.size(); b++) {
@@ -639,23 +641,22 @@ void Mesh::GatherCostList() {
 #ifdef ENABLE_LB_TIMERS
     auto cost_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), block_cost);
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(cost_h.data(), nblist[Globals::my_rank], MPI_DOUBLE,
-                                       costlist.data(), nblist.data(), nslist.data(),
-                                       MPI_DOUBLE, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(cost_h.data(), nblist[Globals::my_rank],
+                                       MPI_DOUBLE, costlist.data(), nblist.data(),
+                                       nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
 #endif
   }
   if (lb_manual_) {
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(block_cost.data(), nblist[Globals::my_rank], MPI_DOUBLE,
-                                       costlist.data(), nblist.data(), nslist.data(),
-                                       MPI_DOUBLE, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(block_cost.data(), nblist[Globals::my_rank],
+                                       MPI_DOUBLE, costlist.data(), nblist.data(),
+                                       nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
   }
   Kokkos::Profiling::popRegion();
   return;
 }
-
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
@@ -664,7 +665,7 @@ void Mesh::GatherCostList() {
 bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot, bool modified) {
   PARTHENON_INSTRUMENT
-  
+
   GatherCostList();
   // store old things
   const int onbs = nslist[Globals::my_rank];
@@ -677,13 +678,15 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // and only move things around if needed
     if (lb_automatic_ || lb_manual_) {
       Kokkos::Profiling::pushRegion("Reloadbalance");
-      auto [avg_cost, max_block_cost, max_rank_cost] = BlockCostInfo(costlist, nslist, nblist);
+      auto [avg_cost, max_block_cost, max_rank_cost] =
+          BlockCostInfo(costlist, nslist, nblist);
       std::vector<int> start_trial(Globals::nranks);
       std::vector<int> nb_trial(Globals::nranks);
-      double new_max = CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
+      double new_max =
+          CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
       Kokkos::Profiling::popRegion();
       // if the improvement isn't large enough, just return because we're done
-      if ((max_rank_cost - new_max)/max_rank_cost < lb_tolerance_) return false;
+      if ((max_rank_cost - new_max) / max_rank_cost < lb_tolerance_) return false;
       newrank.resize(ntot);
       AssignBlocks(start_trial, nb_trial, newrank);
       nslist = std::move(start_trial);
@@ -790,8 +793,8 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
   restriction_cache.CopyToDevice();
   auto [cellbounds, c_cellbounds] = GetCellBounds();
-  refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       cellbounds, c_cellbounds);
+  refinement::Restrict(resolved_packages.get(), restriction_cache, cellbounds,
+                       c_cellbounds);
 
   Kokkos::fence();
 

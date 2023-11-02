@@ -147,8 +147,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // write number of ghost cells in simulation
       HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
       auto coords = Coordinates_t();
-      HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(),
-                         info_group);
+      HDF5WriteAttribute("Coordinates", std::string(coords.Name()).c_str(), info_group);
 
       // restart info, write always
       HDF5WriteAttribute("NBNew", pm->nbnew, info_group);
@@ -351,9 +350,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // get list of all vars, just use the first block since the list is the same for all
     // blocks
-    const auto vars = (pm->block_list.size() > 0) 
-                      ? get_vars(pm->block_list.front())
-                      : VariableVector<Real>();
+    const auto vars = (pm->block_list.size() > 0) ? get_vars(pm->block_list.front())
+                                                  : VariableVector<Real>();
     for (auto &v : vars) {
       all_vars_info.emplace_back(v);
     }

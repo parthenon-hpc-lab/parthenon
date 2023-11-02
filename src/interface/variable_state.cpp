@@ -28,7 +28,6 @@ VariableState::VariableState(const Metadata &md, int sparse_id,
   tensor_shape[2] = dims[5];
   tensor_components = tensor_shape[0] * tensor_shape[1] * tensor_shape[2];
   topological_type = GetTopologicalType(md);
-
 }
 
 } // namespace parthenon

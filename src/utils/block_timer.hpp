@@ -33,38 +33,37 @@ class BlockTimer {
   // constructor for team policies when there is no pack
   KOKKOS_INLINE_FUNCTION
   BlockTimer(team_mbr_t &member, double *cost)
-    : member_(&member), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
+      : member_(&member), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for non-team policies when there is no pack
   KOKKOS_INLINE_FUNCTION
   explicit BlockTimer(double *cost)
-    : member_(nullptr), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
+      : member_(nullptr), cost_(cost), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for team policies and packs
   template <typename T>
-  KOKKOS_INLINE_FUNCTION
-  BlockTimer(team_mbr_t &member, const T &pack, const int b)
-    : member_(&member), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
+  KOKKOS_INLINE_FUNCTION BlockTimer(team_mbr_t &member, const T &pack, const int b)
+      : member_(&member), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for non-team policies and packs
   template <typename T>
-  KOKKOS_INLINE_FUNCTION
-  BlockTimer(const T &pack, const int b)
-    : member_(nullptr), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
+  KOKKOS_INLINE_FUNCTION BlockTimer(const T &pack, const int b)
+      : member_(nullptr), cost_(&pack.GetCost(b)), start_(Kokkos::Impl::clock_tic()) {}
   // constructor for team policies without a block index
   KOKKOS_INLINE_FUNCTION
   ~BlockTimer() {
     auto stop = Kokkos::Impl::clock_tic();
     // deal with overflow of clock
-    auto diff = (stop < start_ ?
-                  static_cast<double>(std::numeric_limits<uint64_t>::max() - start_)
-                    + static_cast<double>(stop) :
-                  static_cast<double>(stop - start_));
+    auto diff =
+        (stop < start_
+             ? static_cast<double>(std::numeric_limits<uint64_t>::max() - start_) +
+                   static_cast<double>(stop)
+             : static_cast<double>(stop - start_));
     if (member_ == nullptr) {
       Kokkos::atomic_add(cost_, diff);
     } else {
-      Kokkos::single(Kokkos::PerTeam(*member_), [&] () {
-        Kokkos::atomic_add(cost_, diff);
-      });
+      Kokkos::single(Kokkos::PerTeam(*member_),
+                     [&]() { Kokkos::atomic_add(cost_, diff); });
     }
   }
+
  private:
   const team_mbr_t *member_;
   double *cost_;
@@ -72,8 +71,7 @@ class BlockTimer {
 #else // no timers, so just stub this out
  public:
   template <typename... Args>
-  KOKKOS_INLINE_FUNCTION
-  BlockTimer(Args &&... args) {}
+  KOKKOS_INLINE_FUNCTION BlockTimer(Args &&...args) {}
 #endif
 };
 

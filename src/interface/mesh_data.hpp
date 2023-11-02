@@ -234,11 +234,8 @@ class MeshData {
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }
-
   }
-  void Set(BlockList_t blocks) {
-    Set(blocks, blocks[0]->pmy_mesh);
-  }
+  void Set(BlockList_t blocks) { Set(blocks, blocks[0]->pmy_mesh); }
 
   void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
                   const bool shallow);

@@ -225,9 +225,9 @@ class Mesh {
   std::pair<IndexShape, IndexShape> GetCellBounds() const {
     auto cb = [&](const int rfact) {
       int include_ghosts = (rfact == 1 || multilevel);
-      return IndexShape((ndim > 2) * block_size.nx(X3DIR)/rfact,
-                        (ndim > 1) * block_size.nx(X2DIR)/rfact,
-                        block_size.nx(X1DIR)/rfact, include_ghosts*Globals::nghost);
+      return IndexShape((ndim > 2) * block_size.nx(X3DIR) / rfact,
+                        (ndim > 1) * block_size.nx(X2DIR) / rfact,
+                        block_size.nx(X1DIR) / rfact, include_ghosts * Globals::nghost);
     };
     return std::make_pair(cb(1), cb(2));
   }
@@ -282,9 +282,8 @@ class Mesh {
   void ResetLoadBalanceVariables();
 
   void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb);
-  void CalculateLoadBalance(std::vector<double> const &cost,
-                            std::vector<int> &rank, std::vector<int> &start,
-                            std::vector<int> &nb);
+  void CalculateLoadBalance(std::vector<double> const &cost, std::vector<int> &rank,
+                            std::vector<int> &start, std::vector<int> &nb);
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
   void UpdateMeshBlockTree(int &nnew, int &ndel);
   void GatherCostList();

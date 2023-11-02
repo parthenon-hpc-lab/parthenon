@@ -197,9 +197,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       // packs.
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
     }
-  #ifdef ENABLE_LB_TIMERS
+#ifdef ENABLE_LB_TIMERS
     lid_h(blidx) = pmbd->GetBlockPointer()->lid;
-  #endif
+#endif
 
     for (int i = 0; i < nvar; ++i) {
       pack.bounds_h_(0, blidx, i) = idx;
