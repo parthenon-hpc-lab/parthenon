@@ -963,8 +963,8 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
     prolongation_cache.CopyToDevice();
 
-    refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+    refinement::ProlongateShared(resolved_packages.get(), prolongation_cache, cellbounds,
+                                 c_cellbounds);
 
     // update the lists
     loclist = std::move(newloc);
@@ -996,8 +996,7 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // Internal refinement relies on the fine shared values, which are only consistent
     // after being updated with any previously fine versions
     refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                   block_list[0]->cellbounds,
-                                   block_list[0]->c_cellbounds);
+                                   cellbounds, c_cellbounds);
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
