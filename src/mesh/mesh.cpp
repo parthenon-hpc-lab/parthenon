@@ -1143,13 +1143,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // caching nbtotal the private variable my be updated in the following function
       const int nb_before_loadbalance = nbtotal;
       // don't trust costs during problem initialization
-      for (int i = 0; i < nmb; ++i)
-        block_cost_host[i] = 1.0;
-#ifdef ENABLE_LB_TIMERS
-      parthenon::par_for(
-          loop_pattern_flatrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nmb - 1,
-          KOKKOS_LAMBDA(const int b) { block_cost(b) = 1.0; });
-#endif
+      ResetLoadBalanceVariables();
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == nb_before_loadbalance) {
         init_done = true;

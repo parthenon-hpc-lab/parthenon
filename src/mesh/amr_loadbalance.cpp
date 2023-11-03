@@ -486,7 +486,7 @@ void Mesh::ResetLoadBalanceVariables() {
     // make a local copy to make CUDA happy
     auto bcost = block_cost;
     parthenon::par_for(
-        loop_pattern_flatrange_tag, "reset cost_d", DevExecSpace(), 0,
+        loop_pattern_flatrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
         block_list.size() - 1, KOKKOS_LAMBDA(const int b) { bcost(b) = TINY_NUMBER; });
     for (int b = 0; b < block_list.size(); b++)
       block_cost_host[b] = TINY_NUMBER;
