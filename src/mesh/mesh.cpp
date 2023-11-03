@@ -1147,7 +1147,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         block_cost_host[i] = 1.0;
 #ifdef ENABLE_LB_TIMERS
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nmb - 1,
+          loop_pattern_flatrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nmb - 1,
           KOKKOS_LAMBDA(const int b) { block_cost(b) = 1.0; });
 #endif
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);

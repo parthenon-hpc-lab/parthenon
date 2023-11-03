@@ -368,6 +368,7 @@ Real DistributeTrial(std::vector<Real> const &cost, std::vector<int> &start,
 double CalculateNewBalance(std::vector<double> const &cost, std::vector<int> &start,
                            std::vector<int> &nb, const double avg_cost,
                            const double max_block_cost) {
+  PARTHENON_INSTRUMENT
   const int nblocks = cost.size();
   const int max_rank = std::min(nblocks, Globals::nranks);
 
@@ -689,7 +690,10 @@ bool Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       double new_max =
           CalculateNewBalance(costlist, start_trial, nb_trial, avg_cost, max_block_cost);
       // if the improvement isn't large enough, just return because we're done
-      if ((max_rank_cost - new_max) / max_rank_cost < lb_tolerance_) return false;
+      if ((max_rank_cost - new_max) / max_rank_cost < lb_tolerance_) {
+        ResetLoadBalanceVariables();
+        return false;
+      }
       newrank.resize(ntot);
       AssignBlocks(start_trial, nb_trial, newrank);
       nslist = std::move(start_trial);
