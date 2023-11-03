@@ -29,6 +29,7 @@
 
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/instrument.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -47,6 +48,7 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
 using MemUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+using Atomic = Kokkos::MemoryTraits<Kokkos::Atomic>;
 
 #if defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
 #if defined(KOKKOS_ENABLE_CUDA)
@@ -110,6 +112,10 @@ template <typename T>
 using HostArray6D = typename ParArray6D<T>::HostMirror;
 template <typename T>
 using HostArray7D = typename ParArray7D<T>::HostMirror;
+
+// Atomic arrays
+template <typename T>
+using AtomicParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace, Atomic>;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
@@ -334,13 +340,12 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
                          DevExecSpace exec_space, const int &kl, const int &ku,
                          const int &jl, const int &ju, const int &il, const int &iu,
                          const Function &function) {
-  Kokkos::Profiling::pushRegion(name);
+  PARTHENON_INSTRUMENT_REGION(name)
   for (auto k = kl; k <= ku; k++)
     for (auto j = jl; j <= ju; j++)
 #pragma omp simd
       for (auto i = il; i <= iu; i++)
         function(k, j, i);
-  Kokkos::Profiling::popRegion();
 }
 
 // 4D loop using Kokkos 1D Range
@@ -468,14 +473,13 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
                          DevExecSpace exec_space, const int nl, const int nu,
                          const int kl, const int ku, const int jl, const int ju,
                          const int il, const int iu, const Function &function) {
-  Kokkos::Profiling::pushRegion(name);
+  PARTHENON_INSTRUMENT_REGION(name)
   for (auto n = nl; n <= nu; n++)
     for (auto k = kl; k <= ku; k++)
       for (auto j = jl; j <= ju; j++)
 #pragma omp simd
         for (auto i = il; i <= iu; i++)
           function(n, k, j, i);
-  Kokkos::Profiling::popRegion();
 }
 
 // 5D loop using MDRange loops
@@ -536,7 +540,7 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
                          const int nl, const int nu, const int kl, const int ku,
                          const int jl, const int ju, const int il, const int iu,
                          const Function &function) {
-  Kokkos::Profiling::pushRegion(name);
+  PARTHENON_INSTRUMENT_REGION(name)
   for (auto b = bl; b <= bu; b++)
     for (auto n = nl; n <= nu; n++)
       for (auto k = kl; k <= ku; k++)
@@ -544,7 +548,6 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 #pragma omp simd
           for (auto i = il; i <= iu; i++)
             function(b, n, k, j, i);
-  Kokkos::Profiling::popRegion();
 }
 
 // 6D loop using MDRange loops
@@ -609,7 +612,7 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
                          const int ml, const int mu, const int nl, const int nu,
                          const int kl, const int ku, const int jl, const int ju,
                          const int il, const int iu, const Function &function) {
-  Kokkos::Profiling::pushRegion(name);
+  PARTHENON_INSTRUMENT_REGION(name)
   for (auto l = ll; l <= lu; l++)
     for (auto m = ml; m <= mu; m++)
       for (auto n = nl; n <= nu; n++)
@@ -618,7 +621,6 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 #pragma omp simd
             for (auto i = il; i <= iu; i++)
               function(l, m, n, k, j, i);
-  Kokkos::Profiling::popRegion();
 }
 
 template <class... Args>

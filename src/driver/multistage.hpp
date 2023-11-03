@@ -37,7 +37,7 @@ class MultiStageDriverGeneric : public EvolutionDriver {
   // the dependencies that must be executed.
   virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
   virtual TaskListStatus Step() {
-    Kokkos::Profiling::pushRegion("MultiStage_Step");
+    PARTHENON_INSTRUMENT
     using DriverUtils::ConstructAndExecuteTaskLists;
     TaskListStatus status;
     integrator->dt = tm.dt;
@@ -49,7 +49,6 @@ class MultiStageDriverGeneric : public EvolutionDriver {
       status = ConstructAndExecuteTaskLists<>(this, stage);
       if (status != TaskListStatus::complete) break;
     }
-    Kokkos::Profiling::popRegion(); // MultiStage_Step
     return status;
   }
 
@@ -66,7 +65,7 @@ class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrat
       : MultiStageDriverGeneric<Integrator>(pin, app_in, pm) {}
   virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
   virtual TaskListStatus Step() {
-    Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
+    PARTHENON_INSTRUMENT
     using DriverUtils::ConstructAndExecuteBlockTasks;
     TaskListStatus status;
     Integrator *integrator = (this->integrator).get();
@@ -76,7 +75,6 @@ class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrat
       status = ConstructAndExecuteBlockTasks<>(this, stage);
       if (status != TaskListStatus::complete) break;
     }
-    Kokkos::Profiling::popRegion(); // MultiStageBlockTask_Step
     return status;
   }
 

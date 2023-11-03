@@ -44,6 +44,7 @@ struct BndInfo {
   int ntopological_elements = 1;
   SpatiallyMaskedIndexer6D idxer[3];
 
+  int block_lid;
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
@@ -77,6 +78,7 @@ struct ProResInfo {
   // conversion of TopologicalElements
   SpatiallyMaskedIndexer6D idxer[10];
 
+  int block_lid;
   CoordinateDirection dir;
   bool allocated = true;
   RefinementOp_t refinement_op = RefinementOp_t::None;

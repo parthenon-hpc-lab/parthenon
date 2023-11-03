@@ -103,7 +103,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                                     UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
 
@@ -408,22 +407,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
 
-#ifdef MPI_PARALLEL
-  // check if there are sufficient blocks
-  if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
-    }
-  }
-#endif
-
   ranklist = std::vector<int>(nbtotal);
 
   nslist = std::vector<int>(Globals::nranks);
@@ -473,6 +456,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(block_list.size());
+#endif
+  block_cost_host.resize(block_list.size());
 
   ResetLoadBalanceVariables();
 }
@@ -524,7 +511,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                                                     UniformMeshGenerator<X3DIR>},
       MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
   // mesh test
@@ -732,6 +718,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
+#ifdef ENABLE_LB_TIMERS
+  block_cost.Realloc(block_list.size());
+#endif
+  block_cost_host.resize(block_list.size());
+
   ResetLoadBalanceVariables();
 }
 
@@ -754,7 +745,6 @@ Mesh::~Mesh() {
 
 void Mesh::OutputMeshStructure(const int ndim,
                                const bool dump_mesh_structure /*= true*/) {
-  RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
   // Write overall Mesh structure to stdout and file
@@ -987,7 +977,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
-  Kokkos::Profiling::pushRegion("Mesh::Initialize");
+  PARTHENON_INSTRUMENT
   bool init_done = true;
   const int nb_initial = nbtotal;
   do {
@@ -1004,7 +994,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
-          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          !(ProblemGenerator != nullptr && app_in->ProblemGenerator != nullptr),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
@@ -1152,6 +1142,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
       const int nb_before_loadbalance = nbtotal;
+      // don't trust costs during problem initialization
+      ResetLoadBalanceVariables();
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == nb_before_loadbalance) {
         init_done = true;
@@ -1172,10 +1164,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
-  // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list);
+  if (Globals::my_rank == 0 && nbtotal < Globals::nranks) {
+    PARTHENON_WARN("Fewer meshblocks than ranks.  Some ranks will be idle.");
+  }
 
-  Kokkos::Profiling::popRegion(); // Mesh::Initialize
+  // Initialize the "base" MeshData object
+  mesh_data.Get()->Set(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.
@@ -1231,15 +1225,13 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
 }
-const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
+const RegionSize &Mesh::GetBlockSize() const { return block_size; }
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
@@ -1247,12 +1239,13 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
   const std::string balancer =
       pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
                           std::vector<std::string>{"default", "automatic", "manual"});
+#ifndef ENABLE_LB_TIMERS
   if (balancer == "automatic") {
-    // JMM: I am disabling timing based load balancing, as it's not
-    // threaded through the infrastructure. I think some thought needs
-    // to go into doing this right with loops over meshdata rather
-    // than loops over data on a single meshblock.
-    PARTHENON_FAIL("Timing based load balancing is currently unavailable.");
+    PARTHENON_FAIL("Cannot use automatic load balancing without enabling timers. "
+                   "Rebuild with -DPARTHENON_ENABLE_LB_TIMERS=ON or change balancer");
+  }
+#endif
+  if (balancer == "automatic") {
     lb_automatic_ = true;
   } else if (balancer == "manual") {
     lb_manual_ = true;

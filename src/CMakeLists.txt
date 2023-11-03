@@ -221,6 +221,7 @@ add_library(parthenon
   utils/alias_method.cpp
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
+  utils/block_timer.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
@@ -231,6 +232,7 @@ add_library(parthenon
   utils/error_checking.cpp
   utils/hash.hpp
   utils/indexer.hpp
+  utils/instrument.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
   utils/mpi_types.hpp

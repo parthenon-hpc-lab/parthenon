@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -59,6 +60,8 @@ class SparsePackBase {
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename ParArray3D<int>::HostMirror;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
+  using lid_t = ParArray1D<int>;
+  using cost_t = ParArray1D<double>;
 
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
@@ -89,6 +92,10 @@ class SparsePackBase {
   bounds_t bounds_;
   bounds_h_t bounds_h_;
   coords_t coords_;
+#ifdef ENABLE_LB_TIMERS
+  lid_t lid_;
+  cost_t cost_;
+#endif
 
   bool with_fluxes_;
   bool coarse_;

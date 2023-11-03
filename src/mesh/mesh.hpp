@@ -95,6 +95,7 @@ class Mesh {
   // data
   bool modified;
   RegionSize mesh_size;
+  RegionSize block_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
@@ -107,6 +108,13 @@ class Mesh {
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
+  std::vector<double> block_cost_host;
+#ifdef ENABLE_LB_TIMERS
+  ParArray1D<double> block_cost;
+  auto &GetBlockCost() const { return block_cost; }
+#else
+  auto &GetBlockCost() const { return block_cost_host; }
+#endif
 
   DataCollection<MeshData<Real>> mesh_data;
 
@@ -118,7 +126,8 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+    int nb = block_list.size();
+    return default_pack_size_ < 1 ? std::max(nb, 1) : default_pack_size_;
   }
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
@@ -215,6 +224,18 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  std::pair<IndexShape, IndexShape> GetCellBounds() const {
+    auto cb = [&](const int rfact) {
+      int include_ghosts = (rfact == 1 || multilevel);
+      return IndexShape((ndim > 2) * block_size.nx(X3DIR) / rfact,
+                        (ndim > 1) * block_size.nx(X2DIR) / rfact,
+                        block_size.nx(X1DIR) / rfact, include_ghosts * Globals::nghost);
+    };
+    return std::make_pair(cb(1), cb(2));
+  }
+
+  void ResetLoadBalanceVariables();
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -262,17 +283,14 @@ class Mesh {
   // functions
   MeshGenFunc MeshGenerator_[4];
 
-  void CalculateLoadBalance(std::vector<double> const &costlist,
-                            std::vector<int> &ranklist, std::vector<int> &nslist,
-                            std::vector<int> &nblist);
-  void ResetLoadBalanceVariables();
-
+  void SetSimpleBalance(const int nblocks, std::vector<int> &start, std::vector<int> &nb);
+  void CalculateLoadBalance(std::vector<double> const &cost, std::vector<int> &rank,
+                            std::vector<int> &start, std::vector<int> &nb);
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
-  void UpdateCostList();
   void UpdateMeshBlockTree(int &nnew, int &ndel);
-  bool GatherCostListAndCheckBalance();
-  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
-                                       int ntot);
+  void GatherCostList();
+  bool RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
+                                       int ntot, bool modified);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);

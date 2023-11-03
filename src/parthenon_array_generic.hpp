@@ -170,6 +170,11 @@ class ParArrayGeneric : public State {
   void Resize(Args... args) {
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
+  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
+  void Realloc(Args... args) {
+    Realloc(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
+  }
 
   template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
             REQUIRES(Data::rank - sizeof...(Args) >= 0)>
@@ -288,6 +293,10 @@ class ParArrayGeneric : public State {
   template <class... Args, std::size_t... I>
   void Resize(std::index_sequence<I...>, Args... args) {
     Kokkos::resize(data_, ((void)I, 1)..., args...);
+  }
+  template <class... Args, std::size_t... I>
+  void Realloc(std::index_sequence<I...>, Args... args) {
+    Kokkos::realloc(data_, ((void)I, 1)..., args...);
   }
 
   template <class... Args, std::size_t... I>

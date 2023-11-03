@@ -36,6 +36,7 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "tasks/task_id.hpp"
 #include "tasks/task_list.hpp"
+#include "utils/block_timer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -46,9 +47,18 @@ using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendBoundBufs");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
+  auto &block_cost = pmesh->GetBlockCost();
+  int min_lid = 9999999;
+  int max_lid = 0;
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    int lid = md->GetBlockData(b)->GetBlockPointer()->lid;
+    min_lid = lid < min_lid ? lid : min_lid;
+    max_lid = lid > max_lid ? lid : max_lid;
+  }
+  BlockTimerHost host_timer(pmesh->block_cost_host, min_lid, max_lid);
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0)
@@ -59,11 +69,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
   if (nbound == 0) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::complete;
   }
   if (other_communication_unfinished) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::incomplete;
   }
 
@@ -83,11 +91,16 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
 
+  host_timer.Stop();
+
   Kokkos::parallel_for(
-      "SendBoundBufs",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
+#ifdef ENABLE_LB_TIMERS
+        BlockTimer timer(team_member, &block_cost(bnd_info(b).block_lid));
+#endif
 
         if (!bnd_info(b).allocated) {
           Kokkos::single(Kokkos::PerTeam(team_member),
@@ -128,6 +141,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         });
       });
 
+  BlockTimerHost host_timer2(pmesh->block_cost_host, min_lid, max_lid);
   // Send buffers
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
@@ -143,8 +157,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     else
       buf.SendNull();
   }
+  host_timer2.Stop();
 
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
   return TaskStatus::complete;
 }
 
@@ -155,7 +169,7 @@ SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiveBoundBufs");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
@@ -165,7 +179,6 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion(); // Task_StartReceiveBoundBufs
   return TaskStatus::complete;
 }
 
@@ -178,7 +191,7 @@ StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &)
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -209,7 +222,6 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           ++ibound;
         });
   }
-  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundBufs
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
@@ -223,9 +235,10 @@ ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
+  auto &block_cost = pmesh->GetBlockCost();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
@@ -236,10 +249,13 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
-      "SetBoundaryBuffers",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
+#ifdef ENABLE_LB_TIMERS
+        BlockTimer timer(team_member, &block_cost(bnd_info(b).block_lid));
+#endif
         int idx_offset = 0;
         for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
           auto &idxer = bnd_info(b).idxer[iel];
@@ -294,7 +310,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
                          pmb->c_cellbounds);
   }
-  Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
   return TaskStatus::complete;
 }
 
@@ -304,7 +319,7 @@ template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<R
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -323,7 +338,6 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
     refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
                                    pmb->c_cellbounds);
   }
-  Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
 }
 

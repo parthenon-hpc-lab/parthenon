@@ -227,14 +227,15 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks) {
+  void Set(BlockList_t blocks, Mesh *pm) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
-    SetMeshPointer(blocks[0]->pmy_mesh);
+    SetMeshPointer(pm);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }
   }
+  void Set(BlockList_t blocks) { Set(blocks, blocks[0]->pmy_mesh); }
 
   void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
                   const bool shallow);

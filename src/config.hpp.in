@@ -51,6 +51,9 @@
 // define ENABLE_SPARSE or not at all
 #cmakedefine ENABLE_SPARSE
 
+// define ENABLE_LB_TIMERS or not at all
+#cmakedefine ENABLE_LB_TIMERS
+
 // define PARTHENON_ENABLE_ASCENT or not at all
 #cmakedefine PARTHENON_ENABLE_ASCENT
 
