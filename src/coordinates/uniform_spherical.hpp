@@ -519,6 +519,27 @@ class UniformSpherical {
       : istart_[2];
   }
 
+  //----------------------------------------
+  // Terms for Source Terms
+  //----------------------------------------
+
+  KOKKOS_INLINE_FUNCTION Real Coord_vol_i_(const int i) const {
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return ONE_3RD*( std::pow(rp,3) - std::pow(rm,3));
+  }
+
+  KOKKOS_INLINE_FUNCTION Real CoordSrc1i(const int i) const {
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return 0.5*(SQR(rp) - SQR(rm))/Coord_vol_i_(i);
+  }
+  KOKKOS_INLINE_FUNCTION Real CoordSrc2i(const int i) const {
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return Dxf<X1DIR,X1DIR>(i)/( (rm + rp)*Coord_vol_i_(i));
+  }
+
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
@@ -545,25 +566,6 @@ class UniformSpherical {
       const Real rm = xmin_[0] + i * dx_[0];
       const Real rp = rm + dx_[0];
       return TWO_3RD*(std::pow(rp,3) - std::pow(rm,3))/(SQR(rp) - SQR(rm));
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real Coord_vol_i_(const int i) const {
-      const Real rm = xmin_[0] + i * dx_[0];
-      const Real rp = rm + dx_[0];
-      return  (ONE_3RD)*(rp*rp*rp - rm*rm*rm);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real Coord_area2_i_(const int i) const {
-      const Real rm = xmin_[0] + i * dx_[0];
-      const Real rp = rm + dx_[0];
-      return  (ONE_3RD)*(rp*rp*rp - rm*rm*rm);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  Real Coord_area1_j_(const int j) const {
-       return std::abs( Cos_theta_f_(j) - Cos_theta_f_(j+1));
   }
 
   KOKKOS_INLINE_FUNCTION
