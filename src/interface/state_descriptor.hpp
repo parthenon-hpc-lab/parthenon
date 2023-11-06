@@ -217,18 +217,17 @@ class StateDescriptor {
   // one can pass in a reference to a SparsePool or arguments that match one of the
   // SparsePool constructors
   template <typename... Args>
-  bool AddSparsePool(Args &&... args) {
+  bool AddSparsePool(Args &&...args) {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
   }
   template <typename... Args>
-  bool AddSparsePool(const std::string &base_name, const Metadata &m_in,
-                     Args &&... args) {
+  bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&...args) {
     Metadata m = m_in; // so we can modify it
     if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
   }
   template <typename T, typename... Args>
-  bool AddSparsePool(const Metadata &m_in, Args &&... args) {
+  bool AddSparsePool(const Metadata &m_in, Args &&...args) {
     return AddSparsePool(T::name(), m_in, std::forward<Args>(args)...);
   }
 

@@ -221,11 +221,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, SimTime &tm) {
-  if (GLobals::my_rank == 0) {
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
+  if (parthenon::Globals::my_rank == 0) {
     std::cout << "Hello from the advection package in the advection example!\n"
-	      << "This run is a restart: " << pmesh->is_restart
-	      << std::endl;
+              << "This run is a restart: " << pmesh->is_restart << std::endl;
   }
 }
 
