@@ -75,6 +75,16 @@ DriverStatus EvolutionDriver::Execute() {
   // Defaults must be set across all ranks
   DumpInputParameters();
 
+  // Before loop do work
+  // App input version
+  if (app_input->UserWorkBeforeLoop != nullptr) {
+    app_input->UserWorkBeforeLoop(pmesh, pinput, tm);
+  }
+  // packages version
+  for (auto &[name, pkg] : pmesh->packages.AllPackages()) {
+    pkg->UserWorkBeforeLoop(pmesh, pinput, tm);
+  }
+
   Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();

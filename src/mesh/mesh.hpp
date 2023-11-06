@@ -94,6 +94,7 @@ class Mesh {
 
   // data
   bool modified;
+  const bool is_restart;
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions

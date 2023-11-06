@@ -21,6 +21,7 @@ namespace advection_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+  void AdvectionGreetings(Mesh *pmes, ParameterInput *pin, SimTime &tm);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 void PreFill(MeshBlockData<Real> *rc);
 void SquareIt(MeshBlockData<Real> *rc);

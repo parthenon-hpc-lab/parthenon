@@ -13,12 +13,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <coordinates/coordinates.hpp>
+#include <globals.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
@@ -217,6 +219,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
+}
+
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, SimTime &tm) {
+  if (GLobals::my_rank == 0) {
+    std::cout << "Hello from the advection package in the advection example!\n"
+	      << "This run is a restart: " << pmesh->is_restart
+	      << std::endl;
+  }
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
