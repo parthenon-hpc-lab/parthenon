@@ -113,8 +113,8 @@ GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &
     //  required by binning index function
     PARTHENON_REQUIRE_THROWS(std::is_sorted(edges_in.begin(), edges_in.end()),
                              "Bin edges must be in order.");
-    PARTHENON_REQUIRE_THROWS(edges_in.size() >= 2,
-                             "Need at least one bin, i.e., two edges.");
+    PARTHENON_REQUIRE_THROWS(edges_in.size() >= 2 && edges_in[1] > edges_in[0],
+                             "Need at least one bin, i.e., two distinct edges.");
 
   } else {
     PARTHENON_THROW(
