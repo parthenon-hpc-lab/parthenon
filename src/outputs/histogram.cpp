@@ -38,6 +38,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 // Parthenon headers
@@ -60,11 +61,40 @@ using namespace OutputUtils;
 
 namespace HistUtil {
 
+// Parse input for x and y vars from input
+// std::tuple<std::string, int, VarType>
+auto ProcessVarInput(ParameterInput *pin, const std::string &block_name,
+                     const std::string &prefix) {
+  auto var_name = pin->GetString(block_name, prefix + "variable");
+  int var_component = -1;
+  VarType var_type;
+  if (var_name == "HIST_COORD_X1") {
+    var_type = VarType::X1;
+  } else if (var_name == "HIST_COORD_X2") {
+    var_type = VarType::X2;
+  } else if (var_name == "HIST_COORD_X3") {
+    var_type = VarType::X3;
+  } else if (var_name == "HIST_COORD_R") {
+    PARTHENON_REQUIRE_THROWS(
+        typeid(Coordinates_t) == typeid(UniformCartesian),
+        "Radial coordinate currently only works for uniform Cartesian coordinates.");
+    var_type = VarType::R;
+  } else {
+    var_type = VarType::Var;
+    var_component = pin->GetInteger(block_name, prefix + "variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(var_component >= 0,
+                             "Negative component indices are not supported");
+  }
+
+  return std::make_tuple(var_name, var_component, var_type);
+}
+
 // Parse edges from input parameters. Returns the edges themselves (to be used as list for
 // arbitrary bins) as well as min and step sizes (potentially in log space) for direct
 // indexing.
-std::tuple<ParArray1D<Real>, EdgeType, Real, Real>
-GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &prefix) {
+auto GetEdges(ParameterInput *pin, const std::string &block_name,
+              const std::string &prefix) {
   std::vector<Real> edges_in;
   auto edge_type = EdgeType::Undefined;
   auto edge_min = std::numeric_limits<Real>::quiet_NaN();
@@ -128,7 +158,7 @@ GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &
   PARTHENON_REQUIRE_THROWS(
       edge_type != EdgeType::Undefined,
       "Edge type not set and it's unclear how this code was triggered...");
-  return {edges, edge_type, edge_min, edge_dbin};
+  return std::make_tuple(edges, edge_type, edge_min, edge_dbin);
 }
 
 Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
@@ -136,26 +166,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   ndim = pin->GetInteger(block_name, prefix + "ndim");
   PARTHENON_REQUIRE_THROWS(ndim == 1 || ndim == 2, "Histogram dim must be '1' or '2'");
 
-  x_var_name = pin->GetString(block_name, prefix + "x_variable");
-  x_var_component = -1;
-  if (x_var_name == "HIST_COORD_X1") {
-    x_var_type = VarType::X1;
-  } else if (x_var_name == "HIST_COORD_X2") {
-    x_var_type = VarType::X2;
-  } else if (x_var_name == "HIST_COORD_X3") {
-    x_var_type = VarType::X3;
-  } else if (x_var_name == "HIST_COORD_R") {
-    PARTHENON_REQUIRE_THROWS(
-        typeid(Coordinates_t) == typeid(UniformCartesian),
-        "Radial coordinate currently only works for uniform Cartesian coordinates.");
-    x_var_type = VarType::R;
-  } else {
-    x_var_type = VarType::Var;
-    x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
-    // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
-                             "Negative component indices are not supported");
-  }
+  std::tie(x_var_name, x_var_component, x_var_type) =
+      ProcessVarInput(pin, block_name, prefix + "x_");
 
   std::tie(x_edges, x_edges_type, x_edge_min, x_edge_dbin) =
       GetEdges(pin, block_name, prefix + "x_edges_");
@@ -166,25 +178,8 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   y_var_type = VarType::Unused;
   // and for 2D profile check if they're explicitly set (not default value)
   if (ndim == 2) {
-    y_var_name = pin->GetString(block_name, prefix + "y_variable");
-    if (y_var_name == "HIST_COORD_X1") {
-      y_var_type = VarType::X1;
-    } else if (y_var_name == "HIST_COORD_X2") {
-      y_var_type = VarType::X2;
-    } else if (y_var_name == "HIST_COORD_X3") {
-      y_var_type = VarType::X3;
-    } else if (y_var_name == "HIST_COORD_R") {
-      PARTHENON_REQUIRE_THROWS(
-          typeid(Coordinates_t) == typeid(UniformCartesian),
-          "Radial coordinate currently only works for uniform Cartesian coordinates.");
-      y_var_type = VarType::R;
-    } else {
-      y_var_type = VarType::Var;
-      y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
-      // would add additional logic to pick it from a pack...
-      PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
-                               "Negative component indices are not supported");
-    }
+    std::tie(y_var_name, y_var_component, y_var_type) =
+        ProcessVarInput(pin, block_name, prefix + "y_");
 
     std::tie(y_edges, y_edges_type, y_edge_min, y_edge_dbin) =
         GetEdges(pin, block_name, prefix + "y_edges_");
