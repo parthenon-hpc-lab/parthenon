@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -89,13 +89,19 @@ struct ProResInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
+  static ProResInfo GetNull(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                            std::shared_ptr<Variable<Real>> v) {
+    return ProResInfo();
+  }
   static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                          const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                        const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
 };
 

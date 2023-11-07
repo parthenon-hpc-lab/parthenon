@@ -1,0 +1,86 @@
+# ========================================================================================
+#  Parthenon performance portable AMR framework
+#  Copyright(C) 2020-2023 The Parthenon collaboration
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = poisson
+
+<parthenon/mesh>
+refinement = static
+multigrid = true 
+
+nx1 = 64
+x1min = -1.0
+x1max = 1.0
+ix1_bc = user
+ox1_bc = user
+
+nx2 = 64
+x2min = -1.0
+x2max = 1.0
+ix2_bc = user
+ox2_bc = user
+
+nx3 = 1
+x3min = 0.0
+x3max = 1.0
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 32
+nx2 = 32
+nx3 = 1
+
+<parthenon/time>
+#nlim = -1
+#tlim = 1.0
+#integrator = rk2
+#ncycle_out_mesh = -10000
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = poisson.res_err, poisson.u, poisson.x, poisson.r, poisson.rhs, poisson.p, poisson.s, poisson.t, poisson.v, poisson.exact
+ghost_zones = true 
+
+<parthenon/static_refinement0> 
+x1min = -1.0
+x1max = -0.75
+x2min = -1.0
+x2max = -0.75
+level = 3
+
+<poisson>
+solver = BiCGSTAB
+precondition = true
+precondition_vcycles = 1
+restart_threshold = 0.0
+flux_correct = true
+smoother = SRJ2
+do_FAS = true
+diagonal_alpha = 0.0
+max_iterations = 15
+pre_smooth_iterations = 2
+post_smooth_iterations = 2
+jacobi_damping = 0.0
+
+x0 = 0.0
+y0 = 0.0
+z0 = 0.0
+radius = 0.5
+interior_D = 100.0
+exterior_D = 1.0
