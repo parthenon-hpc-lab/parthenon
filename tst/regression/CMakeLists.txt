@@ -127,7 +127,6 @@ endif()
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
 # list variable, before including TestSetup.cmake.
 list(APPEND REQUIRED_PYTHON_MODULES numpy)
-list(APPEND REQUIRED_PYTHON_MODULES h5py)
 list(APPEND DESIRED_PYTHON_MODULES matplotlib)
 
 # Include test setup functions, and check for python interpreter and modules

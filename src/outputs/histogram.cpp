@@ -24,7 +24,6 @@
 #include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
-#include "utils/error_checking.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
@@ -44,7 +43,6 @@
 // Parthenon headers
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
-#include "globals.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/output_utils.hpp"

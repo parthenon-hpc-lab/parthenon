@@ -14,7 +14,6 @@
 
 TEST_CASE("upper_bound", "[between][out of bounds][on edges]") {
   GIVEN("A sorted list") {
-
     const std::vector<double> data{-1, 0, 1e-2, 5, 10};
 
     Kokkos::View<double *, Kokkos::DefaultExecutionSpace> arr("arr", data.size());
