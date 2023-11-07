@@ -121,12 +121,16 @@ num_histograms = 1
 hist0_ndim = 2
 hist0_x_variable = HIST_COORD_X1
 hist0_x_edges_type = list
-hist0_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.5
+# Note that the coordinate edges are smaller than the domain extents on purpose
+# to test the accumulation feature (as the reference histogram in the test calculated
+# with numpy goes all the way out to the domain edges).
+hist0_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.35
 hist0_y_variable = HIST_COORD_X2
 hist0_y_edges_type = list
-hist0_y_edges_list = -0.5, -0.1, 0.0, 0.1, 0.5
+hist0_y_edges_list = -0.25, -0.1, 0.0, 0.1, 0.5
 hist0_binned_variable = advected
 hist0_binned_variable_component = 0
 hist0_weight_by_volume = true
 hist0_weight_variable = one_minus_advected_sq
 hist0_weight_variable_component = 0
+hist0_accumulate = true

@@ -238,6 +238,7 @@ struct Histogram {
   // Internally used to speed up lookup for log (and lin) bins as otherwise
   // two more log10 calls would be required per index.
   Real x_edge_min_, x_edge_dbin_, y_edge_min_, y_edge_dbin_;
+  bool accumulate_;             // accumulate data outside binning range in outermost bins
   std::string binned_var_name_; // variable name of variable to be binned
   // component of variable to be binned. If -1 means no variable is binned but the
   // histgram is a sample count.

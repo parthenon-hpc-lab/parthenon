@@ -250,6 +250,8 @@ with the following parameters
 - ``hist#_y_edges...``
    Same as the ``hist#_x_edges...`` parameters except for being used in the second
    dimension for ``ndim=2`` histograms.
+- ``hist#_accumulate=BOOL`` (``true`` or ``false`` default)
+   Accumulate data that is outside the binning range in the outermost bins.
 - ``hist#_binned_variable=STRING`` (variable name or ``HIST_ONES``)
    Variable to be binned. If a variable name is given a component has to be specified, too,
    see next parameter.

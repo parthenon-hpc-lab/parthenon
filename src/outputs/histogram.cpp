@@ -207,6 +207,7 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   scatter_result =
       Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result_.KokkosView());
 
+  accumulate_ = pin->GetOrAddBoolean(block_name, prefix + "accumulate", false);
   weight_by_vol_ = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
 
   weight_var_name_ =
@@ -242,6 +243,7 @@ void Histogram::CalcHist(Mesh *pm) {
   const auto y_edge_dbin = y_edge_dbin_;
   const auto hist_ndim = ndim_;
   const auto weight_by_vol = weight_by_vol_;
+  const auto accumulate = accumulate_;
   auto result = result_;
   auto scatter = scatter_result;
 
@@ -299,13 +301,23 @@ void Histogram::CalcHist(Mesh *pm) {
           } else {
             x_val = x_var(b, x_var_component, k, j, i);
           }
-          if (x_val < x_edges(0) || x_val > x_edges(x_edges.extent_int(0) - 1)) {
-            return;
-          }
 
           int x_bin = -1;
-          // if we're on the rightmost edge, directly set last bin
-          if (x_val == x_edges(x_edges.extent_int(0) - 1)) {
+          // First handle edge cases explicitly
+          if (x_val < x_edges(0)) {
+            if (accumulate) {
+              x_bin = 0;
+            } else {
+              return;
+            }
+          } else if (x_val > x_edges(x_edges.extent_int(0) - 1)) {
+            if (accumulate) {
+              x_bin = x_edges.extent_int(0) - 2;
+            } else {
+              return;
+            }
+            // if we're on the rightmost edge, directly set last bin
+          } else if (x_val == x_edges(x_edges.extent_int(0) - 1)) {
             x_bin = x_edges.extent_int(0) - 2;
           } else {
             // for lin and log directly pick index
@@ -339,13 +351,22 @@ void Histogram::CalcHist(Mesh *pm) {
               y_val = y_var(b, y_var_component, k, j, i);
             }
 
-            if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
-              return;
-            }
-
             y_bin = -1; // reset to impossible value
-            // if we're on the rightmost edge, directly set last bin
-            if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
+            // First handle edge cases explicitly
+            if (y_val < y_edges(0)) {
+              if (accumulate) {
+                y_bin = 0;
+              } else {
+                return;
+              }
+            } else if (y_val > y_edges(y_edges.extent_int(0) - 1)) {
+              if (accumulate) {
+                y_bin = y_edges.extent_int(0) - 2;
+              } else {
+                return;
+              }
+              // if we're on the rightmost edge, directly set last bin
+            } else if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
               y_bin = y_edges.extent_int(0) - 2;
             } else {
               // for lin and log directly pick index
