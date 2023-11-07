@@ -10,26 +10,27 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
-#define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
+#include "mesh_data.hpp"
 
-#include <memory>
+#include "mesh/mesh.hpp"
 
-#include <parthenon/package.hpp>
+namespace parthenon {
 
-namespace advection_package {
-using namespace parthenon::package::prelude;
-
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm);
-AmrTag CheckRefinement(MeshBlockData<Real> *rc);
-void PreFill(MeshBlockData<Real> *rc);
-void SquareIt(MeshBlockData<Real> *rc);
-void PostFill(MeshBlockData<Real> *rc);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
-TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 template <typename T>
-Real AdvectionHst(MeshData<Real> *md);
-} // namespace advection_package
+void MeshData<T>::Initialize(const MeshData<T> *src,
+                             const std::vector<std::string> &names, const bool shallow) {
+  if (src == nullptr) {
+    PARTHENON_THROW("src points at null");
+  }
+  pmy_mesh_ = src->GetParentPointer();
+  const int nblocks = src->NumBlocks();
+  block_data_.resize(nblocks);
+  for (int i = 0; i < nblocks; i++) {
+    block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
+        stage_name_, src->GetBlockData(i), names, shallow);
+  }
+}
 
-#endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
+template class MeshData<Real>;
+
+} // namespace parthenon

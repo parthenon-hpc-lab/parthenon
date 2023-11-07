@@ -185,45 +185,22 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   return std::make_tuple(rebuild, nbound);
 }
 
-template <BoundaryType BOUND_TYPE, bool SENDER>
-inline auto CheckNoCommCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
-  using namespace loops;
-  using namespace loops::shorthands;
-  BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
-
-  bool rebuild = false;
-  int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(
-      md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-        if (nbound < cache.idx_vec.size()) {
-          const std::size_t ibuf = cache.idx_vec[nbound];
-          if (ibuf < cache.bnd_info_h.size()) {
-            if (cache.bnd_info_h(ibuf).allocated != (v->IsAllocated())) {
-              rebuild = true;
-            }
-          } else {
-            rebuild = true;
-          }
-        } else {
-          rebuild = true;
-        }
-        ++nbound;
-      });
-  rebuild = rebuild || (nbound == 0) || (nbound != cache.idx_vec.size());
-  return std::make_tuple(rebuild, nbound);
-}
-
 using F_BND_INFO = std::function<BndInfo(
     std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
     std::shared_ptr<Variable<Real>> v, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
+using F_PRORES_INFO =
+    std::function<ProResInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                             std::shared_ptr<Variable<Real>> v)>;
+
 template <BoundaryType BOUND_TYPE, bool SENDER>
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
-                               F_BND_INFO BndInfoCreator) {
+                               F_BND_INFO BndInfoCreator,
+                               F_PRORES_INFO ProResInfoCreator) {
   using namespace loops;
   using namespace loops::shorthands;
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
-  cache.bnd_info = BufferCache_t("bnd_info", nbound);
+  cache.bnd_info = BndInfoArr_t("bnd_info", nbound);
   cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
   // prolongation/restriction sub-sets
@@ -234,14 +211,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
   if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                   (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-    int nref_funcs = pkg->NumRefinementFuncs();
-    // Note that assignment of Kokkos views resets them, but
-    // buffer_subset_sizes is a std::vector. It must be cleared, then
-    // re-filled.
-    cache.buffer_subset_sizes.clear();
-    cache.buffer_subset_sizes.resize(nref_funcs, 0);
-    cache.buffer_subsets = ParArray2D<std::size_t>("buffer_subsets", nref_funcs, nbound);
-    cache.buffer_subsets_h = Kokkos::create_mirror_view(cache.buffer_subsets);
+    cache.prores_cache.Initialize(nbound, pkg);
   }
 
   int ibound = 0;
@@ -256,15 +226,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
         // only one ParArray2D needed.
         if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                         (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-          // var must be registered for refinement
-          // note this condition means that each subset contains
-          // both prolongation and restriction conditions. The
-          // `RefinementOp_t` in `BndInfo` is assumed to
-          // differentiate.
-          if (v->IsRefined()) {
-            std::size_t rfid = pkg->RefinementFuncID((v->GetRefinementFunctions()));
-            cache.buffer_subsets_h(rfid, cache.buffer_subset_sizes[rfid]++) = ibuf;
-          }
+          cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v),
+                                                v.get(), pkg);
         }
 
         ++ibound;
@@ -272,7 +235,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
                   (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-    Kokkos::deep_copy(cache.buffer_subsets, cache.buffer_subsets_h);
+    cache.prores_cache.CopyToDevice();
   }
 }
 

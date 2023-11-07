@@ -63,7 +63,7 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : // public members:
-      modified(true),
+      modified(true), is_restart(false),
       // aggregate initialization of RegionSize struct:
       mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
                  pin->GetReal("parthenon/mesh", "x2min"),
@@ -475,11 +475,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -489,7 +484,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
-      modified(true),
+      modified(true), is_restart(true),
       // aggregate initialization of RegionSize struct:
       mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
                  pin->GetReal("parthenon/mesh", "x2min"),
@@ -738,11 +733,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   ResetLoadBalanceVariables();
-
-  // Output variables in use in this run
-  if (Globals::my_rank == 0) {
-    std::cout << "#Variables in use:\n" << *(resolved_packages) << std::endl;
-  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -1183,7 +1173,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list, "base");
+  mesh_data.Get()->Set(block_list);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
@@ -1282,7 +1272,8 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes)) {
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+        metadata.IsSet(Metadata::ForceRemeshComm)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});

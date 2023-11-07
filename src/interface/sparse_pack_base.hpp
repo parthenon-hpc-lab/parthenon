@@ -54,6 +54,7 @@ class SparsePackBase {
   friend class SparsePackCache;
 
   using alloc_t = std::vector<int>;
+  using include_t = std::vector<bool>;
   using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename ParArray3D<int>::HostMirror;
@@ -62,9 +63,10 @@ class SparsePackBase {
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
-  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc) {
+  static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block) {
     auto &cache = pmd->GetSparsePackCache();
-    return cache.Get(pmd, desc);
+    return cache.Get(pmd, desc, include_block);
   }
 
   // Return a map from variable names to pack variable indices
@@ -73,13 +75,15 @@ class SparsePackBase {
   // Get a list of booleans of the allocation status of every variable in pmd matching the
   // PackDescriptor desc
   template <class T>
-  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc);
+  static alloc_t GetAllocStatus(T *pmd, const impl::PackDescriptor &desc,
+                                const std::vector<bool> &include_block);
 
   // Actually build a `SparsePackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class T>
-  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc);
+  static SparsePackBase Build(T *pmd, const impl::PackDescriptor &desc,
+                              const std::vector<bool> &include_block);
 
   pack_t pack_;
   bounds_t bounds_;
@@ -106,14 +110,15 @@ class SparsePackCache {
 
  protected:
   template <class T>
-  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc);
+  SparsePackBase &Get(T *pmd, const impl::PackDescriptor &desc,
+                      const std::vector<bool> &include_block);
 
   template <class T>
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
-                              const std::string &ident);
+                              const std::vector<bool> &include_block);
 
-  std::string GetIdentifier(const impl::PackDescriptor &desc) const;
-  std::unordered_map<std::string, std::pair<SparsePackBase, SparsePackBase::alloc_t>>
+  std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t,
+                                             SparsePackBase::include_t>>
       pack_map;
 
   friend class SparsePackBase;
@@ -130,7 +135,7 @@ struct PackDescriptor {
   // default constructor needed for certain use cases
   PackDescriptor()
       : nvar_groups(0), var_group_names({}), var_groups({}), with_fluxes(false),
-        coarse(false), flat(false) {}
+        coarse(false), flat(false), identifier("") {}
 
   template <class GROUP_t, class SELECTOR_t>
   PackDescriptor(StateDescriptor *psd, const std::vector<GROUP_t> &var_groups_in,
@@ -138,7 +143,8 @@ struct PackDescriptor {
       : nvar_groups(var_groups_in.size()), var_group_names(MakeGroupNames(var_groups_in)),
         var_groups(BuildUids(var_groups_in.size(), psd, selector)),
         with_fluxes(options.count(PDOpt::WithFluxes)),
-        coarse(options.count(PDOpt::Coarse)), flat(options.count(PDOpt::Flatten)) {
+        coarse(options.count(PDOpt::Coarse)), flat(options.count(PDOpt::Flatten)),
+        identifier(GetIdentifier()) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
@@ -149,8 +155,22 @@ struct PackDescriptor {
   const bool with_fluxes;
   const bool coarse;
   const bool flat;
+  const std::string identifier;
 
  private:
+  std::string GetIdentifier() {
+    std::string ident("");
+    for (const auto &vgroup : var_groups) {
+      for (const auto &[vid, uid] : vgroup) {
+        ident += std::to_string(uid) + "_";
+      }
+      ident += "|";
+    }
+    ident += std::to_string(with_fluxes);
+    ident += std::to_string(coarse);
+    ident += std::to_string(flat);
+    return ident;
+  }
   template <class FUNC_t>
   std::vector<PackDescriptor::VariableGroup_t>
   BuildUids(int nvgs, const StateDescriptor *const psd, const FUNC_t &selector) {

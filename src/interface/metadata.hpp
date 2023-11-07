@@ -109,7 +109,9 @@
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
-  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
+  /** the variable must always be allocated for new blocks **/                           \
+  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
 namespace parthenon {
 
 namespace internal {
@@ -333,6 +335,9 @@ class Metadata {
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
+  static MetadataFlag GetOrAddFlag(const std::string &name) {
+    return FlagNameExists(name) ? GetUserFlag(name) : AddUserFlag(name);
+  }
   static int num_flags;
 
   // Sparse threshold routines
@@ -541,13 +546,15 @@ class Metadata {
     PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
-  template <class ProlongationOp, class RestrictionOp>
+  template <class ProlongationOp, class RestrictionOp,
+            class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
         IsRefined(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
-        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
+        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                       InternalProlongationOp>();
   }
 
   // Operators
