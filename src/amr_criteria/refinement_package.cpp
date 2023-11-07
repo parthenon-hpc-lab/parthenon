@@ -156,6 +156,7 @@ void SetRefinement_(MeshBlockData<Real> *rc) {
 
 template <>
 TaskStatus Tag(MeshBlockData<Real> *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   SetRefinement_(rc);
   return TaskStatus::complete;
@@ -163,6 +164,7 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   for (int i = 0; i < rc->NumBlocks(); i++) {
     SetRefinement_(rc->GetBlockData(i).get());

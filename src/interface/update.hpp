@@ -70,6 +70,7 @@ TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
 template <typename F, typename T>
 TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
                            T *out) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
@@ -95,6 +96,7 @@ TaskStatus CopyData(const F &flags, T *in, T *out) {
 
 template <typename F, typename T>
 TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   const auto &x = data->PackVariables(flags);
   parthenon::par_for(
@@ -146,6 +148,7 @@ template <typename F, typename T>
 TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
                     const LowStorageIntegrator *pint, Real dt, int stage,
                     bool update_s1) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   const auto &s0 = s0_data->PackVariables(flags);
   const auto &s1 = s1_data->PackVariables(flags);
@@ -191,6 +194,7 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
                       std::vector<std::shared_ptr<T>> stage_data,
                       std::shared_ptr<T> out_data, const ButcherIntegrator *pint, Real dt,
                       int stage) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   const auto &out = out_data->PackVariables(flags);
   const auto &in = base_data->PackVariables(flags);
@@ -234,6 +238,7 @@ template <typename F, typename T>
 TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_data,
                          std::shared_ptr<T> out_data, const ButcherIntegrator *pint,
                          Real dt) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
 
   const auto &out = out_data->PackVariables(flags);
@@ -267,6 +272,7 @@ TaskStatus UpdateButcherIndependent(std::vector<std::shared_ptr<T>> stage_data,
 
 template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
   for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
@@ -279,6 +285,7 @@ TaskStatus EstimateTimestep(T *rc) {
 
 template <typename T>
 TaskStatus PreCommFillDerived(T *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
@@ -289,6 +296,7 @@ TaskStatus PreCommFillDerived(T *rc) {
 
 template <typename T>
 TaskStatus FillDerived(T *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   { // PreFillDerived region
@@ -314,6 +322,7 @@ TaskStatus FillDerived(T *rc) {
 
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   if (!rc->AllVariablesInitialized()) {
     const IndexDomain interior = IndexDomain::interior;

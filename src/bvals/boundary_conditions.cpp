@@ -58,6 +58,7 @@ TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd) {
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
                                                    bool coarse) {
+  PARTHENON_TRACE
   for (int b = 0; b < pmd->NumBlocks(); ++b)
     ApplyBoundaryConditionsOnCoarseOrFine(pmd->GetBlockData(b), coarse);
   return TaskStatus::complete;

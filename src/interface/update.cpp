@@ -36,6 +36,8 @@ namespace Update {
 
 template <>
 TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_cont) {
+  PARTHENON_TRACE
+  PARTHENON_INSTRUMENT
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -61,6 +63,8 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
 
 template <>
 TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
+  PARTHENON_TRACE
+  PARTHENON_INSTRUMENT
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
@@ -88,6 +92,8 @@ template <>
 TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
                                     MeshBlockData<Real> *u1_data, const Real gam0,
                                     const Real gam1, const Real beta_dt) {
+  PARTHENON_TRACE
+  PARTHENON_INSTRUMENT
   std::shared_ptr<MeshBlock> pmb = u0_data->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -116,6 +122,8 @@ template <>
 TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_data,
                                     const Real gam0, const Real gam1,
                                     const Real beta_dt) {
+  PARTHENON_TRACE
+  PARTHENON_INSTRUMENT
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
@@ -141,6 +149,7 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
 }
 
 TaskStatus SparseDealloc(MeshData<Real> *md) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
     return TaskStatus::complete;

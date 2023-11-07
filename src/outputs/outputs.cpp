@@ -402,6 +402,7 @@ void OutputType::ClearOutputData() {
 
 void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
                           const SignalHandler::OutputSignal signal) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   bool first = true;
   OutputType *ptype = pfirst_type_;

@@ -78,6 +78,7 @@ DriverStatus EvolutionDriver::Execute() {
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
     while (tm.KeepGoing()) {
+      PARTHENON_TRACE_REGION("StepTimer")
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
       pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
@@ -160,6 +161,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 }
 
 void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
+  PARTHENON_TRACE
   // calculate the first time step using Block function
   for (auto &pmb : pmesh->block_list) {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
@@ -180,6 +182,7 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
+  PARTHENON_TRACE
   // don't allow dt to grow by more than 2x
   // consider making this configurable in the input
   if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {

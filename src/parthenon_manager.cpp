@@ -36,6 +36,7 @@
 #include "outputs/output_utils.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/instrument.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -74,6 +75,13 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
+
+#ifdef ENABLE_TRACE
+#ifdef MPI_PARALLEL
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  Trace::Initialize();
+#endif
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
@@ -199,6 +207,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
   Kokkos::finalize();
+#ifdef ENABLE_TRACE
+  Trace::Report();
+#endif
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif

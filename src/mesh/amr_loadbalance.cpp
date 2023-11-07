@@ -317,6 +317,7 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
 
 void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                                   ApplicationInput *app_in) {
+  PARTHENON_TRACE
   PARTHENON_INSTRUMENT
   int nnew = 0, ndel = 0;
 
