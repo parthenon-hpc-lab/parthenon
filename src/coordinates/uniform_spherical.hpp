@@ -309,7 +309,7 @@ class UniformSpherical {
       case X2DIR:
         return Xc<1>(k,j,i)*Dxf<2>(k,j,i);//r*dphi;
       case X3DIR:
-        return Xc<1>(k,j,i)*sintht_c_(j)*Dxf<3>(k,j,i); //r*sin(th)*dphi
+        return Xc<1>(k,j,i)*Sin_theta_c_(j)*Dxf<3>(k,j,i); //r*sin(th)*dphi
       default:
         PARTHENON_FAIL("Unknown dir");
         return 0; // To appease compiler
@@ -336,7 +336,7 @@ class UniformSpherical {
       case X2DIR:
         return Xf<1>(k,j,i)*Dxf<2>(k,j,i);//r*dphi;
       case X3DIR:
-        return Xf<1>(k,j,i)*sintht_f_(j)*Dxf<3>(k,j,i); //r*sin(th)*dphi
+        return Xf<1>(k,j,i)*Sin_theta_f_(j)*Dxf<3>(k,j,i); //r*sin(th)*dphi
       default:
         PARTHENON_FAIL("Unknown dir");
         return 0; // To appease compiler
@@ -366,11 +366,11 @@ class UniformSpherical {
     assert(dir > 0 && dir < 4);
     switch(dir) {
       case X1DIR:
-        return (Xf<1>(i)*Xf<1>(i)*(costht_f_(j)-costht_f_(j+1))*dx_[2]); //r^2*d[-cos(tht)]*dph
+        return (Xf<1>(i)*Xf<1>(i)*(Cos_theta_f_(j)-Cos_theta_f_(j+1))*dx_[2]); //r^2*d[-cos(tht)]*dph
       case X2DIR:
-        return (coord_area2_i_(i)*sintht_f_(j)*dx_[2]);//rdr*sin(th)*dph
+        return (Coord_area2_i_(i)*Sin_theta_f_(j)*dx_[2]);//rdr*sin(th)*dph
       case X3DIR:
-        return (coord_area2_i_(i)*dx_[1]); //d(r^2/2)*dtheta;
+        return (Coord_area2_i_(i)*dx_[1]); //d(r^2/2)*dtheta;
     }
 
   }
@@ -394,7 +394,7 @@ class UniformSpherical {
   //----------------------------------------
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
-    return (coord_vol_i_(i)*coord_area1_j_(j)*dx_[2]);
+    return (Coord_vol_i_(i)*Coord_area1_j_(j)*dx_[2]);
   }
 
   //----------------------------------------
@@ -476,16 +476,16 @@ class UniformSpherical {
   Real dh31fd1(const int i) const { return 1.0; };
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real h32v(const int j) const { return sintht_c_(j); }
+  Real h32v(const int j) const { return Sin_theta_c_(j); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real h32f(const int j) const { return sintht_f_(j); }
+  Real h32f(const int j) const { return Sin_theta_f_(j); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real dh32vd2(const int j) const { return costht_c_(j); }
+  Real dh32vd2(const int j) const { return Cos_theta_c_(j); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real dh32fd2(const int j) const { return costht_f_(j); }
+  Real dh32fd2(const int j) const { return Cos_theta_f_(j); }
 
   //What is this?
   KOKKOS_FORCEINLINE_FUNCTION
@@ -493,11 +493,11 @@ class UniformSpherical {
 	      const Real &cosphip, const Real &sinphip, const Real &zp,
 	      Real &acc1, Real &acc2, Real &acc3) const
   {
-    const Real cosdphi = cosphi_c_(j)*cosphip - sinphi_c_(j)*sinphip; //cos(x3v(k)-phip)
-    const Real sindphi = sinphi_c_(j)*cosphip - cosphi_c_(j)*sinphip; //sin(x3v(k)-phip)
+    const Real cosdphi = Cos_phi_c_(j)*cosphip - Sin_phi_c_(j)*sinphip; //cos(x3v(k)-phip)
+    const Real sindphi = Sin_phi_c_(j)*cosphip - Cos_phi_c_(j)*sinphip; //sin(x3v(k)-phip)
     //Psi = - 1.0/sqrt(r0^2 + rp^2 - 2r0*rp*sin(tht)cos(phi-phip) + zp^2- 2*r0*cos(tht)*zp
-    acc1 = (R_c_(i) - rp*sintht_c_(j)*cosdphi - costht_c_(j)*zp); //dPsi/dr0
-    acc2 = (-rp*costht_c_(j)*cosdphi + sintht_c_(j)*zp); //dPsi/(r0*dtht)
+    acc1 = (R_c_(i) - rp*Sin_theta_c_(j)*cosdphi - Cos_theta_c_(j)*zp); //dPsi/dr0
+    acc2 = (-rp*Cos_theta_c_(j)*cosdphi + Sin_theta_c_(j)*zp); //dPsi/(r0*dtht)
     acc3 = (rp*sindphi);  //dPsi/(r0*sintht*dphi)
   }
 
@@ -547,68 +547,79 @@ class UniformSpherical {
  //private:
   std::array<int, 3> istart_, nx_;
   std::array<Real, 3> xmin_, dx_, area_;
-  constexpr static const char *name_ = "UniformCylindrical";
+  constexpr static const char *name_ = "UniformSpherical";
 
   const std::array<Real, 3> &Dx_() const { return dx_; }
 
-  ParArrayND<Real> r_c_, theta_c_, x1s2_, coord_vol_i_, coord_area2_i_, costht_f_, sintht_f_, sintht_c_, costht_c_, coord_area1_j_, cosphi_c_, sinphi_c_;
+  //ParArrayND<Real> r_c_, theta_c_, x1s2_, coord_vol_i_, coord_area2_i_, Cos_theta_f_, Sin_theta_f_, Sin_theta_c_, Cos_theta_c_, coord_area1_j_, Cos_phi_c_, Sin_phi_c_;
 
   KOKKOS_INLINE_FUNCTION
   Real R_c_(const int i) const {
-      const Real rm = xmin_[0] + i * dx_[0];
-      const Real rp = rm + dx_[0];
-      return 0.75*(std::pow(rp, 4) - std::pow(rm, 4)) /
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return 0.75*(std::pow(rp, 4) - std::pow(rm, 4)) /
   (std::pow(rp, 3) - std::pow(rm, 3));
   }
 
   KOKKOS_INLINE_FUNCTION
   Real X1s2_(const int i) const {
-      const Real rm = xmin_[0] + i * dx_[0];
-      const Real rp = rm + dx_[0];
-      return TWO_3RD*(std::pow(rp,3) - std::pow(rm,3))/(SQR(rp) - SQR(rm));
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return TWO_3RD*(std::pow(rp,3) - std::pow(rm,3))/(SQR(rp) - SQR(rm));
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Cos_theta_f_(const int j) const {
-      const Real theta = xmin_[1] + j * dx_[1];
-      return std::cos(theta);
+    const Real theta = xmin_[1] + j * dx_[1];
+    return std::cos(theta);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Sin_theta_f_(const int j) const {
-      const Real theta = xmin_[1] + j * dx_[1];
-      return std::sin(theta);
+    const Real theta = xmin_[1] + j * dx_[1];
+    return std::sin(theta);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Theta_c_(const int j) const {
-      Real tm = xmin_[1] + j * dx_[1];
-      Real tp = tm + dx_[1];
-      return (((Sin_theta_f_(j+1) - tp*Cos_theta_f_(j+1)) -
-        (Sin_theta_f_(j  ) - tm*Cos_theta_f_(j  )))/
-        (Cos_theta_f_(j  ) - Cos_theta_f_(j+1)));
+    Real tm = xmin_[1] + j * dx_[1];
+    Real tp = tm + dx_[1];
+    return (((Sin_theta_f_(j+1) - tp*Cos_theta_f_(j+1)) -
+      (Sin_theta_f_(j  ) - tm*Cos_theta_f_(j  )))/
+      (Cos_theta_f_(j  ) - Cos_theta_f_(j+1)));
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Cos_theta_c_(const int j) const {
-      return std::cos(Theta_c_(j));
+    return std::cos(Theta_c_(j));
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Sin_theta_c_(const int j) const {
-      return std::sin(Theta_c_(j));
+    return std::sin(Theta_c_(j));
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Cos_phi_c_(const int k) const {
-      Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
-      return std::cos(Phi);
+    Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
+    return std::cos(Phi);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real Sin_phi_c_(const int k) const {
-      Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
-      return std::sin(Phi);
+    Real Phi = xmin_[2] + (k + 0.5) * dx_[2];
+    return std::sin(Phi);
+  }
+
+  KOKKOS_INLINE_FUNCTION Real Coord_area2_i_(const int i) const {
+    const Real rm = Xf<X1DIR>(i);
+    const Real rp = Xf<X1DIR>(i+1);
+    return 0.5*( SQR(rp) - SQR(rm) );
+  }
+  KOKKOS_INLINE_FUNCTION Real Coord_area1_j_(const int j) const {
+    const Real cm = std::cos(Xf<X2DIR>(j));
+    const Real cp = std::cos(Xf<X2DIR>(j+1));
+    return std::abs(cm - cp);
   }
 
 };
