@@ -28,13 +28,15 @@
 #define __UNIQUE_INST_VAR2(x, y) x##y
 #define __UNIQUE_INST_VAR(x, y) __UNIQUE_INST_VAR2(x, y)
 #define PARTHENON_INSTRUMENT                                                             \
-  KokkosTimer __UNIQUE_INST_VAR(internal_inst, __LINE__)(__FILE__, __LINE__, __func__);
+  parthenon::KokkosTimer __UNIQUE_INST_VAR(internal_inst, __LINE__)(__FILE__, __LINE__,  \
+                                                                    __func__);
 #define PARTHENON_INSTRUMENT_REGION(name)                                                \
-  KokkosTimer __UNIQUE_INST_VAR(internal_inst_reg, __LINE__)(name);
+  parthenon::KokkosTimer __UNIQUE_INST_VAR(internal_inst_reg, __LINE__)(name);
 #define PARTHENON_TRACE                                                                  \
-  Trace __UNIQUE_INST_VAR(internal_trace, __LINE__)(__FILE__, __LINE__, __func__);
+  parthenon::Trace __UNIQUE_INST_VAR(internal_trace, __LINE__)(__FILE__, __LINE__,       \
+                                                               __func__);
 #define PARTHENON_TRACE_REGION(name)                                                     \
-  Trace __UNIQUE_INST_VAR(internal_trace_reg, __LINE__)(name);
+  parthenon::Trace __UNIQUE_INST_VAR(internal_trace_reg, __LINE__)(name);
 #define PARTHENON_AUTO_LABEL parthenon::build_auto_label(__FILE__, __LINE__, __func__)
 
 namespace parthenon {
