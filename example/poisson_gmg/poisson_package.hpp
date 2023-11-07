@@ -62,10 +62,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <class in, class out, bool only_md_level = false>
 TaskStatus CopyData(std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
@@ -91,10 +90,9 @@ TaskStatus AddFieldsAndStoreInteriorSelect(std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior = false) {
   using TE = parthenon::TopologicalElement;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
@@ -162,10 +160,9 @@ TaskStatus SetToZero(std::shared_ptr<MeshData<Real>> &md) {
 template <class a_t, class b_t>
 TaskStatus DotProductLocal(std::shared_ptr<MeshData<Real>> &md, Real *reduce_sum) {
   using TE = parthenon::TopologicalElement;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
   auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
   auto pack = desc.GetPack(md.get());
@@ -362,7 +359,6 @@ template <class... vars>
 TaskStatus PrintChosenValues(std::shared_ptr<MeshData<Real>> &md,
                              const std::string &label) {
   using TE = parthenon::TopologicalElement;
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
 
   auto desc = parthenon::MakePackDescriptor<vars...>(md.get());
   auto pack = desc.GetPack(md.get());

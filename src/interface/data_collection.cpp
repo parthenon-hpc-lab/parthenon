@@ -66,11 +66,13 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
     // TODO(someone) add caching of partitions to Mesh at some point
     const int pack_size = pmy_mesh_->DefaultPackSize();
     auto partitions = partition::ToSizeN(block_list, pack_size);
+    // Account for possibly empty block_list
+    if (partitions.size() == 0) partitions = std::vector<BlockList_t>(1);
     for (auto i = 0; i < partitions.size(); i++) {
       std::string md_label = mbd_label + "_part-" + std::to_string(i);
       if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
-      containers_[md_label]->Set(partitions[i]);
+      containers_[md_label]->Set(partitions[i], pmy_mesh_);
       if (gmg_level >= 0) {
         int min_gmg_logical_level = pmy_mesh_->GetGMGMinLogicalLevel();
         containers_[md_label]->grid = GridIdentifier{GridType::two_level_composite,
