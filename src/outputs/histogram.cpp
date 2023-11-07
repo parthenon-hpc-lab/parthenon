@@ -107,8 +107,9 @@ auto GetEdges(ParameterInput *pin, const std::string &block_name,
     PARTHENON_REQUIRE_THROWS(edge_max > edge_min,
                              "Histogram max needs to be larger than min.")
 
-    const auto edge_num_bins = pin->GetReal(block_name, prefix + "num_bins");
+    const auto edge_num_bins = pin->GetInteger(block_name, prefix + "num_bins");
     PARTHENON_REQUIRE_THROWS(edge_num_bins >= 1, "Need at least one bin for histogram.");
+    edges_in.reserve(edge_num_bins);
 
     if (edge_type_str == "lin") {
       edge_type = EdgeType::Lin;
