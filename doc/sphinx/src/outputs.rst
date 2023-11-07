@@ -175,6 +175,8 @@ Currently supported are
 
 The output format follows ``numpy`` convention, so that plotting data
 with Python based machinery should be straightfoward (see example below).
+In other words, 2D histograms use C-ordering corresponding to ``[x,y]``
+indexing with ``y`` being the fast index.
 In general, histograms are calculated using inclusive left bin edges and
 data equal to the rightmost edge is also included in the last bin.
 
@@ -243,7 +245,7 @@ with the following parameters
    Number of equally spaced bins between min and max value in the first dim.
    Used/required only for ``lin`` and ``log`` edge type.
 - ``hist#_x_edges_list=FLOAT,FLOAT,FLOAT,...`` (comma separated list of increasing values)
-   Arbitrary definition of edge values.
+   Arbitrary definition of edge values with inclusive innermost and outermost edges.
    Used/required only for ``list`` edge type.
 - ``hist#_y_edges...``
    Same as the ``hist#_x_edges...`` parameters except for being used in the second
@@ -259,7 +261,9 @@ with the following parameters
    Used/required only if a variable is binned and not ``HIST_ONES``.
 - ``hist#_weight_by_volume=BOOL`` (``true`` or ``false``)
    Apply volume weighting to the binned variable. Can be used simultaneously with binning
-   by a different variable.
+   by a different variable. Note that this does *not* include any normalization
+   (e.g., by total volume or the sum of the weight variable in question) and is left to
+   the user during post processing.
 - ``hist#_weight_variable=STRING``
    Variable to be used as weight.
    Can be used together with volume weighting.
