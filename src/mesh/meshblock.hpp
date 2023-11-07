@@ -57,7 +57,7 @@ class StateDescriptor;
 // - Not defined in kokkos_abstraction.hpp because it requires the compile time option
 //   DEFAULT_INNER_LOOP_PATTERN to be set.
 template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
                                           const int &iu, const Function &function) {
   parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
 }
