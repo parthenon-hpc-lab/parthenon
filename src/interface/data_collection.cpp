@@ -34,17 +34,10 @@ DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
     return it->second;
   }
 
-  auto c = std::make_shared<T>();
+  auto c = std::make_shared<T>(name);
   c->Initialize(src.get(), field_names, shallow);
 
   Set(name, c);
-
-  if constexpr (std::is_same<T, MeshData<Real>>::value) {
-    for (int b = 0; b < pmy_mesh_->block_list.size(); b++) {
-      auto &mbd = pmy_mesh_->block_list[b]->meshblock_data;
-      mbd.Set(name, c->GetBlockData(b));
-    }
-  }
 
   return containers_[name];
 }
@@ -61,6 +54,12 @@ DataCollection<T>::AddShallow(const std::string &name, const std::string src_nam
   return Add(name, containers_[src_name], field_names, true);
 }
 template <typename T>
+std::shared_ptr<T> &
+DataCollection<T>::AddShallow(const std::string &name, const std::shared_ptr<T> &src,
+                              const std::vector<std::string> &field_names) {
+  return Add(name, src, field_names, true);
+}
+template <typename T>
 std::shared_ptr<T> &DataCollection<T>::Add(const std::string &name,
                                            const std::vector<std::string> &field_names) {
   return Add(name, containers_["base"], field_names, false);
@@ -72,23 +71,49 @@ DataCollection<T>::AddShallow(const std::string &name,
   return Add(name, containers_["base"], field_names, true);
 }
 
-template <>
 std::shared_ptr<MeshData<Real>> &
-DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
-                                         const int &partition_id) {
-  const std::string label = mbd_label + "_part-" + std::to_string(partition_id);
+GetOrAdd_impl(Mesh *pmy_mesh_,
+              std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
+              BlockList_t &block_list, const std::string &mbd_label,
+              const int &partition_id, const int gmg_level) {
+  std::string label = mbd_label + "_part-" + std::to_string(partition_id);
+  if (gmg_level >= 0) label = label + "_gmg-" + std::to_string(gmg_level);
   auto it = containers_.find(label);
   if (it == containers_.end()) {
     // TODO(someone) add caching of partitions to Mesh at some point
     const int pack_size = pmy_mesh_->DefaultPackSize();
-    auto partitions = partition::ToSizeN(pmy_mesh_->block_list, pack_size);
+    auto partitions = partition::ToSizeN(block_list, pack_size);
     for (auto i = 0; i < partitions.size(); i++) {
-      const std::string md_label = mbd_label + "_part-" + std::to_string(i);
-      containers_[md_label] = std::make_shared<MeshData<Real>>();
-      containers_[md_label]->Set(partitions[i], mbd_label);
+      std::string md_label = mbd_label + "_part-" + std::to_string(i);
+      if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
+      containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
+      containers_[md_label]->Set(partitions[i]);
+      if (gmg_level >= 0) {
+        int min_gmg_logical_level = pmy_mesh_->GetGMGMinLogicalLevel();
+        containers_[md_label]->grid = GridIdentifier{GridType::two_level_composite,
+                                                     gmg_level + min_gmg_logical_level};
+      } else {
+        containers_[md_label]->grid = GridIdentifier{GridType::leaf, 0};
+      }
     }
   }
   return containers_[label];
+}
+
+template <>
+std::shared_ptr<MeshData<Real>> &
+DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
+                                         const int &partition_id) {
+  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label,
+                       partition_id, -1);
+}
+
+template <>
+std::shared_ptr<MeshData<Real>> &
+DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
+                                         const int &partition_id) {
+  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->gmg_block_lists[gmg_level],
+                       mbd_label, partition_id, gmg_level);
 }
 
 template class DataCollection<MeshData<Real>>;
