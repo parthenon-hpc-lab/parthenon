@@ -1,6 +1,8 @@
 import sys
 import re
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
 import itertools
 from collections import OrderedDict
 from argparse import ArgumentParser
@@ -21,6 +23,14 @@ parser.add_argument(
     type=int,
     default=-1,
     help="Final step to include (inclusive)",
+)
+
+parser.add_argument(
+    "--outfile",
+    dest="outfile",
+    type=str,
+    default="NOT_SET",
+    help="To dump the plot to a file, specify the name here",
 )
 
 parser.add_argument("files", type=str, nargs="+", help="trace files to plot")
@@ -118,7 +128,79 @@ class Trace:
             )
 
 
-def main(files, step_start, step_stop):
+def plot_traces(traces, functions, outfile):
+    num_colors = len(functions)
+    cm = plt.get_cmap("tab20")
+    hatch = ["", "--", "/", "\\", "+", "x"]
+    num_hatches = len(hatch)
+    colorMap = {}
+    hatchMap = {}
+    cindex = 0
+    for f, dum in functions.items():
+        colorMap[f] = cm((cindex + 0.5) / num_colors)
+        hatchMap[f] = hatch[cindex % num_hatches]
+        cindex += 1
+    fig, ax = plt.subplots(figsize=(18, 12))
+
+    min_rank = 999999
+    max_rank = 0
+    min_time = 999999.0
+    max_time = 0.0
+    for f, dum in functions.items():
+        if f == "StepTimer":
+            continue
+        patches = []
+        for t in traces:
+            for i in range(len(t.regions[f].start)):
+                min_rank = min(min_rank, t.rank)
+                max_rank = max(max_rank, t.rank)
+                min_time = min(min_time, t.regions[f].start[i])
+                max_time = max(
+                    max_time, t.regions[f].start[i] + t.regions[f].duration[i]
+                )
+                patches.append(
+                    Rectangle(
+                        (t.regions[f].start[i], t.rank - 0.25),
+                        t.regions[f].duration[i],
+                        0.5,
+                    )
+                )
+        pc = PatchCollection(
+            patches, linewidth=0, facecolor=colorMap[f], hatch=hatchMap[f]
+        )
+        ax.add_collection(pc)
+    plt.xlim(min_time, max_time)
+    plt.ylim(min_rank - 0.5, max_rank + 0.5)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Rank")
+    plt.yticks([i for i in range(min_rank, max_rank + 1)])
+    handles = []
+    for f, dum in functions.items():
+        if f == "StepTimer":
+            continue
+        handles.append(
+            Rectangle(
+                (min_time, min_rank),
+                0.0,
+                0.0,
+                linewidth=0,
+                edgecolor="k",
+                facecolor=colorMap[f],
+                hatch=hatchMap[f],
+                label=f,
+            )
+        )
+    plt.legend(
+        loc="upper center", handles=handles, bbox_to_anchor=(0, -0.02, 1, -0.02), ncol=3
+    )
+    plt.tight_layout()
+    if outfile == "NOT_SET":
+        plt.show()
+    else:
+        plt.savefig(outfile, dpi=300)
+
+
+def main(files, step_start, step_stop, outfile):
     trace = []
     for f in files:
         print("Getting trace", f, end="")
@@ -130,39 +212,9 @@ def main(files, step_start, step_stop):
         for key in t.region_names():
             all_funcs[key] = ""
 
-    num_colors = len(all_funcs)
-    cm = plt.get_cmap("tab20")
-    hatch = ["", "--", "/", "\\", "+", "x"]
-    num_hatches = len(hatch)
-    colorMap = {}
-    hatchMap = {}
-    cindex = 0
-    for f, dum in all_funcs.items():
-        colorMap[f] = cm((cindex + 0.5) / num_colors)
-        hatchMap[f] = hatch[cindex % num_hatches]
-        cindex += 1
-    fig, ax = plt.subplots(figsize=(18, 12))
-    for t in trace:
-        print("Plotting trace", t.rank, end="")
-        t.plot_trace(ax, colorMap, hatchMap)
-        print("  done!")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Rank")
-    # box = ax.get_position()
-    # ax.set_position([box.x0, box.y0 + box.height*0.2, box.width, box.height * 0.8])
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = OrderedDict(zip(labels, handles))
-    ax.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0, -0.02, 1, -0.02),
-        ncol=3,
-    )
-    plt.tight_layout()
-    plt.show()
+    plot_traces(trace, all_funcs, outfile)
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    main(args.files, args.step_start, args.step_stop)
+    main(args.files, args.step_start, args.step_stop, args.outfile)
