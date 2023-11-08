@@ -18,6 +18,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -39,23 +40,27 @@ enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
 namespace impl {
 using desc_key_t = std::tuple<bool, TopologicalType>;
 template <class... var_ts>
-using map_bc_pack_descriptor_t = std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor, tuple_hash<desc_key_t>>;
+using map_bc_pack_descriptor_t =
+    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor,
+                       tuple_hash<desc_key_t>>;
 
-template <class... var_ts> 
+template <class... var_ts>
 map_bc_pack_descriptor_t<var_ts...>
 GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  std::vector<std::pair<TopologicalType, MetadataFlag>> elements
-                                                       {{TopologicalType::Cell, Metadata::Cell}, 
-                                                        {TopologicalType::Face, Metadata::Face},
-                                                        {TopologicalType::Edge, Metadata::Edge},
-                                                        {TopologicalType::Node, Metadata::Node}};
+  std::vector<std::pair<TopologicalType, MetadataFlag>> elements{
+      {TopologicalType::Cell, Metadata::Cell},
+      {TopologicalType::Face, Metadata::Face},
+      {TopologicalType::Edge, Metadata::Edge},
+      {TopologicalType::Node, Metadata::Node}};
   map_bc_pack_descriptor_t<var_ts...> my_map;
   for (auto [tt, md] : elements) {
     std::vector<MetadataFlag> flags{Metadata::FillGhost};
     flags.push_back(md);
     std::set<PDOpt> opts{PDOpt::Coarse};
-    my_map.emplace(std::make_pair(desc_key_t{true, tt}, MakePackDescriptor<var_ts...>(rc.get(), flags, opts))); 
-    my_map.emplace(std::make_pair(desc_key_t{false, tt}, MakePackDescriptor<var_ts...>(rc.get(), flags))); 
+    my_map.emplace(std::make_pair(desc_key_t{true, tt},
+                                  MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
+    my_map.emplace(std::make_pair(desc_key_t{false, tt},
+                                  MakePackDescriptor<var_ts...>(rc.get(), flags)));
   }
   return my_map;
 }
@@ -74,7 +79,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
   static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
-  auto q = descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
+  auto q =
+      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
   const int b = 0;
   const int lstart = q.GetLowerBoundHost(b);
   const int lend = q.GetUpperBoundHost(b);

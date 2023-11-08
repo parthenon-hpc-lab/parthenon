@@ -150,8 +150,8 @@ class SparsePack : public SparsePackBase {
       if constexpr (std::is_same<T, MeshData<Real>>::value) {
         if (pmd->grid.type == GridType::two_level_composite &&
             only_fine_two_level_composite_blocks) {
-          PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks(), 
-                            "Passed wrong size block include list."); 
+          PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks(),
+                            "Passed wrong size block include list.");
           int fine_level = pmd->grid.logical_level;
           for (int b = 0; b < pmd->NumBlocks(); ++b)
             include_block[b] =
@@ -161,7 +161,7 @@ class SparsePack : public SparsePackBase {
       }
       return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
     }
-    
+
     template <class T>
     SparsePack GetPack(T *pmd, bool only_fine_two_level_composite_blocks = true) const {
       // If this is a composite grid MeshData object, only include blocks on
@@ -176,8 +176,8 @@ class SparsePack : public SparsePackBase {
                 include_block[b] &&
                 (fine_level == pmd->GetBlockData(b)->GetBlockPointer()->loc.level());
           return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
-        } else { 
-          return SparsePack(SparsePackBase::GetPack(pmd, *this, std::vector<bool>{})); 
+        } else {
+          return SparsePack(SparsePackBase::GetPack(pmd, *this, std::vector<bool>{}));
         }
       }
       return SparsePack(SparsePackBase::GetPack(pmd, *this, std::vector<bool>{}));

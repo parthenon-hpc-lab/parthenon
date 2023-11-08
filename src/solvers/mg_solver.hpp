@@ -45,33 +45,33 @@ class MGSolver {
   INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
   INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
   INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
-  std::vector<std::string> GetInternalVariableNames() const { 
+  std::vector<std::string> GetInternalVariableNames() const {
     return {res_err::name(), temp::name(), u0::name(), D::name()};
   }
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
            std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
-    // The ghost cells of res_err need to be filled, but this is accomplished by 
-    // copying res_err into u, communicating, then copying u back into res_err 
+    // The ghost cells of res_err need to be filled, but this is accomplished by
+    // copying res_err into u, communicating, then copying u back into res_err
     // across all zones in a block
     auto mres_err =
-        Metadata({Metadata::Cell, Metadata::Independent,
-                  Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy},
+        Metadata({Metadata::Cell, Metadata::Independent, Metadata::GMGRestrict,
+                  Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
-    auto mtemp = Metadata({Metadata::Cell, Metadata::Independent, Metadata::OneCopy},
-                          shape);
+    auto mtemp =
+        Metadata({Metadata::Cell, Metadata::Independent, Metadata::OneCopy}, shape);
     mtemp.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(temp::name(), mtemp);
 
     auto mu0 = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
     pkg->AddField(u0::name(), mu0);
     auto Dshape = shape;
-    if (params_.two_by_two_diagonal) { 
-       Dshape = std::vector<int>{4};
+    if (params_.two_by_two_diagonal) {
+      Dshape = std::vector<int>{4};
     }
     auto mD = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, Dshape);
     pkg->AddField(D::name(), mD);
@@ -150,7 +150,6 @@ class MGSolver {
   // These functions apparently have to be public to compile with cuda since
   // they contain device side lambdas
  public:
-
   template <class rhs_t, class Axold_t, class D_t, class xold_t, class xnew_t>
   TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md, double weight) {
     using namespace parthenon;
@@ -169,35 +168,39 @@ class MGSolver {
     auto pack = desc.GetPack(md.get(), include_block);
     if (params_.two_by_two_diagonal) {
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0,
+          pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
 
-            const Real D11 = pack(b, te, D_t(0), k, j, i); 
-            const Real D22 = pack(b, te, D_t(1), k, j, i); 
-            const Real D12 = pack(b, te, D_t(2), k, j, i); 
-            const Real D21 = pack(b, te, D_t(3), k, j, i); 
+            const Real D11 = pack(b, te, D_t(0), k, j, i);
+            const Real D22 = pack(b, te, D_t(1), k, j, i);
+            const Real D12 = pack(b, te, D_t(2), k, j, i);
+            const Real D21 = pack(b, te, D_t(3), k, j, i);
             const Real det = D11 * D22 - D12 * D21;
-            
-            const Real Du0 = D11 * pack(b, te, xold_t(0), k, j, i)
-                           + D12 * pack(b, te, xold_t(1), k, j, i);
-            const Real Du1 = D21 * pack(b, te, xold_t(0), k, j, i)
-                           + D22 * pack(b, te, xold_t(1), k, j, i);
 
-            const Real t0 = pack(b, te, rhs_t(0), k, j, i) - pack(b, te, Axold_t(0), k, j, i) + Du0;  
-            const Real t1 = pack(b, te, rhs_t(1), k, j, i) - pack(b, te, Axold_t(1), k, j, i) + Du1;
-            
+            const Real Du0 = D11 * pack(b, te, xold_t(0), k, j, i) +
+                             D12 * pack(b, te, xold_t(1), k, j, i);
+            const Real Du1 = D21 * pack(b, te, xold_t(0), k, j, i) +
+                             D22 * pack(b, te, xold_t(1), k, j, i);
+
+            const Real t0 =
+                pack(b, te, rhs_t(0), k, j, i) - pack(b, te, Axold_t(0), k, j, i) + Du0;
+            const Real t1 =
+                pack(b, te, rhs_t(1), k, j, i) - pack(b, te, Axold_t(1), k, j, i) + Du1;
+
             const Real v0 = (D22 * t0 - D12 * t1) / det;
             const Real v1 = (-D21 * t0 + D11 * t1) / det;
-            
-            pack(b, te, xnew_t(0), k, j, i) = weight * v0 + (1.0 - weight) * pack(b, te, xold_t(0), k, j, i); 
-            pack(b, te, xnew_t(1), k, j, i) = weight * v1 + (1.0 - weight) * pack(b, te, xold_t(1), k, j, i); 
+
+            pack(b, te, xnew_t(0), k, j, i) =
+                weight * v0 + (1.0 - weight) * pack(b, te, xold_t(0), k, j, i);
+            pack(b, te, xnew_t(1), k, j, i) =
+                weight * v1 + (1.0 - weight) * pack(b, te, xold_t(1), k, j, i);
           });
-     } else { 
+    } else {
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-          kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0,
+          pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
 
@@ -216,8 +219,8 @@ class MGSolver {
                   weight * val / diag_elem +
                   (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
             }
-          }); 
-      }
+          });
+    }
     return TaskStatus::complete;
   }
 
@@ -228,7 +231,8 @@ class MGSolver {
 
     auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
-    return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md, omega);
+    return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md,
+                      omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
@@ -255,7 +259,7 @@ class MGSolver {
     auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
                                                               omega[ndim - 1][0], md);
     auto copy1 = tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
-    if (stages < 2) return copy1; 
+    if (stages < 2) return copy1;
     auto jacobi2 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy1, multilevel,
                                                               omega[ndim - 1][1], md);
     auto copy2 = tl.AddTask(jacobi2, CopyData<temp, u, true>, md);
@@ -310,10 +314,10 @@ class MGSolver {
         auto copy_rhs = tl.AddTask(set_from_finer, CopyData<res_err, rhs, true>, md);
         set_from_finer = zero_u | copy_rhs;
       } else {
-        // TODO(LFR): Determine if this boundary exchange task is required, I think it is 
-        // to make sure that the boundaries of the restricted u are up to date before 
-        // calling Ax. That being said, at least in one case commenting this line out 
-        // didn't seem to impact the solution. 
+        // TODO(LFR): Determine if this boundary exchange task is required, I think it is
+        // to make sure that the boundaries of the restricted u are up to date before
+        // calling Ax. That being said, at least in one case commenting this line out
+        // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
             set_from_finer, tl, md, multilevel);
         set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
@@ -389,7 +393,8 @@ class MGSolver {
                                    md, 1.0, -1.0);
         copy_over = calc_err;
       }
-      // This is required to make sure boundaries of res_err are up to date before prolongation
+      // This is required to make sure boundaries of res_err are up to date before
+      // prolongation
       copy_over = tl.AddTask(copy_over, CopyData<res_err, u, true>, md);
       auto boundary =
           AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);

@@ -51,17 +51,11 @@ class BiCGSTABSolver {
   INTERNALSOLVERVARIABLE(u, r);
   INTERNALSOLVERVARIABLE(u, p);
   INTERNALSOLVERVARIABLE(u, x);
-  
-  std::vector<std::string> GetInternalVariableNames() const { 
-    std::vector<std::string> names{rhat0::name(), 
-                                   v::name(), 
-                                   h::name(), 
-                                   s::name(), 
-                                   t::name(), 
-                                   r::name(), 
-                                   p::name(), 
-                                   x::name()};
-    if (params_.precondition) { 
+
+  std::vector<std::string> GetInternalVariableNames() const {
+    std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
+                                   t::name(),     r::name(), p::name(), x::name()};
+    if (params_.precondition) {
       auto pre_names = preconditioner.GetInternalVariableNames();
       names.insert(names.end(), pre_names.begin(), pre_names.end());
     }
@@ -273,7 +267,7 @@ class BiCGSTABSolver {
         this, pmesh, i, params_.max_iters, presidual_tolerance);
     region.AddGlobalDependencies(reg_dep_id, i, check);
     reg_dep_id++;
-    
+
     return tl.AddTask(check, CopyData<x, u>, md);
   }
 
@@ -282,10 +276,9 @@ class BiCGSTABSolver {
 
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
-  
-  void UpdateResidualTolerance(Real *ptol) { 
-    presidual_tolerance = ptol;
-  }
+
+  void UpdateResidualTolerance(Real *ptol) { presidual_tolerance = ptol; }
+
  protected:
   MGSolver<u, rhs, equations> preconditioner;
   BiCGSTABParams params_;
