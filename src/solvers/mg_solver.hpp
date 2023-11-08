@@ -395,10 +395,12 @@ class MGSolver {
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      copy_over = tl.AddTask(copy_over, CopyData<res_err, u, true>, md);
+      copy_over = tl.AddTask(copy_over, CopyData<u, temp, false>, md);
+      copy_over = tl.AddTask(copy_over, CopyData<res_err, u, false>, md);
       auto boundary =
           AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
       auto copy_back = tl.AddTask(boundary, CopyData<u, res_err, true>, md);
+      copy_back = tl.AddTask(copy_back, CopyData<temp, u, false>, md);
       last_task =
           tl.AddTask(copy_back, SendBoundBufs<BoundaryType::gmg_prolongate_send>, md);
     }
