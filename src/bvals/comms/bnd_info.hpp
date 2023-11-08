@@ -97,11 +97,9 @@ struct ProResInfo {
                             std::shared_ptr<Variable<Real>> v);
   static ProResInfo GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorProlongate(MeshBlock *pmb,
-                                          const NeighborBlock &nb,
+  static ProResInfo GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorRestrict(MeshBlock *pmb,
-                                        const NeighborBlock &nb,
+  static ProResInfo GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
 };
 
