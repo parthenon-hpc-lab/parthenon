@@ -67,14 +67,14 @@ class MeshBlockData {
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
                    const std::vector<int> &sparse_ids = {});
 
-  /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() const {
+  std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
-  auto GetParentPointer() const { return GetBlockPointer(); }
+  MeshBlock *GetBlockPointer() const { return GetBlockSharedPointer().get(); }
+  MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
 
@@ -94,10 +94,10 @@ class MeshBlockData {
     SetBlockPointer(other.get());
   }
   void SetBlockPointer(const MeshBlockData<T> &other) {
-    pmy_block = other.GetBlockPointer();
+    pmy_block = other.GetBlockSharedPointer();
   }
   void SetBlockPointer(const MeshBlockData<T> *other) {
-    pmy_block = other->GetBlockPointer();
+    pmy_block = other->GetBlockSharedPointer();
   }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,

@@ -90,8 +90,7 @@ class TagMap {
   // firsts NeighborBlock information) return an ordered pair of BlockGeometricElementIds
   // corresponding to the two blocks geometric elements that coincide. This serves as a
   // unique key defining the two-way communication channel between these elements
-  rank_pair_t MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
-                              const NeighborBlock &nb);
+  rank_pair_t MakeChannelPair(const MeshBlock *pmb, const NeighborBlock &nb);
 
  public:
   void clear() { map_.clear(); }
@@ -107,7 +106,7 @@ class TagMap {
 
   // After the map has been resolved, get the tag for a particular MeshBlock NeighborBlock
   // pair
-  int GetTag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb);
+  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb);
 };
 } // namespace parthenon
 

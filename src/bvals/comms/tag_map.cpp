@@ -25,7 +25,7 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
-TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
+TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
                                             const NeighborBlock &nb) {
   const int location_idx_me = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
   const int location_idx_nb = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
@@ -35,7 +35,7 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pm
 }
 
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     const int other_rank = nb.snb.rank;
     if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
     auto &pair_map = map_[other_rank];
@@ -55,7 +55,7 @@ void TagMap::ResolveMap() {
   }
 }
 
-int TagMap::GetTag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb) {
+int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
   const int other_rank = nb.snb.rank;
   auto &pair_map = map_[other_rank];
   return pair_map[MakeChannelPair(pmb, nb)];
