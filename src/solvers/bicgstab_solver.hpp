@@ -40,17 +40,17 @@ struct BiCGSTABParams {
   bool print_per_step = false;
 };
 
-template <class x, class rhs, class equations>
+template <class u, class rhs, class equations>
 class BiCGSTABSolver {
  public:
-  INTERNALSOLVERVARIABLE(x, rhat0);
-  INTERNALSOLVERVARIABLE(x, v);
-  INTERNALSOLVERVARIABLE(x, h);
-  INTERNALSOLVERVARIABLE(x, s);
-  INTERNALSOLVERVARIABLE(x, t);
-  INTERNALSOLVERVARIABLE(x, r);
-  INTERNALSOLVERVARIABLE(x, p);
-  INTERNALSOLVERVARIABLE(x, u);
+  INTERNALSOLVERVARIABLE(u, rhat0);
+  INTERNALSOLVERVARIABLE(u, v);
+  INTERNALSOLVERVARIABLE(u, h);
+  INTERNALSOLVERVARIABLE(u, s);
+  INTERNALSOLVERVARIABLE(u, t);
+  INTERNALSOLVERVARIABLE(u, r);
+  INTERNALSOLVERVARIABLE(u, p);
+  INTERNALSOLVERVARIABLE(u, x);
   
   std::vector<std::string> GetInternalVariableNames() const { 
     std::vector<std::string> names{rhat0::name(), 
@@ -60,7 +60,7 @@ class BiCGSTABSolver {
                                    t::name(), 
                                    r::name(), 
                                    p::name(), 
-                                   u::name()};
+                                   x::name()};
     if (params_.precondition) { 
       auto pre_names = preconditioner.GetInternalVariableNames();
       names.insert(names.end(), pre_names.begin(), pre_names.end());
@@ -73,13 +73,9 @@ class BiCGSTABSolver {
       : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
         iter_counter(0), eqs_(eq_in), presidual_tolerance(&params_in.residual_tolerance) {
     using namespace refinement_ops;
-    auto mu = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                        Metadata::WithFluxes, Metadata::GMGRestrict},
-                       shape);
-    mu.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
-    pkg->AddField(u::name(), mu);
+    pkg->AddField(x::name(), m_no_ghost);
     pkg->AddField(rhat0::name(), m_no_ghost);
     pkg->AddField(v::name(), m_no_ghost);
     pkg->AddField(h::name(), m_no_ghost);
@@ -277,8 +273,8 @@ class BiCGSTABSolver {
         this, pmesh, i, params_.max_iters, presidual_tolerance);
     region.AddGlobalDependencies(reg_dep_id, i, check);
     reg_dep_id++;
-
-    return check;
+    
+    return tl.AddTask(check, CopyData<x, u>, md);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
