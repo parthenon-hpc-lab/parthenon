@@ -52,8 +52,11 @@ class MGSolver {
            std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
+    // The ghost cells of res_err need to be filled, but this is accomplished by 
+    // copying res_err into u, communicating, then copying u back into res_err 
+    // across all zones in a block
     auto mres_err =
-        Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
+        Metadata({Metadata::Cell, Metadata::Independent,
                   Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
