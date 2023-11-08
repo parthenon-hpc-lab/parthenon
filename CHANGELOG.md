@@ -20,6 +20,7 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 - [[PR 965]](https://github.com/parthenon-hpc-lab/parthenon/pull/965) Allow leading whitespace in input parameters
 - [[PR 926]](https://github.com/parthenon-hpc-lab/parthenon/pull/926) Internal refinement op registration
 - [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
