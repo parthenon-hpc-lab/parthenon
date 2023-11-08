@@ -181,6 +181,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
 } // namespace pack_on_mesh_impl
 
+enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+struct GridIdentifier {
+  GridType type = GridType::none;
+  int logical_level = 0;
+};
+
 /// The MeshData class is a container for cached MeshBlockPacks, i.e., it
 /// contains both the pointers to the MeshBlockData of the MeshBlocks contained
 /// in the object as well as maps to the cached MeshBlockPacks of VariablePacks or
@@ -191,6 +197,8 @@ class MeshData {
  public:
   MeshData() = default;
   explicit MeshData(const std::string &name) : stage_name_(name) {}
+
+  GridIdentifier grid;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -210,14 +218,25 @@ class MeshData {
 
   auto &GetBvarsCache() { return bvars_cache_; }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsI(domain);
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsJ(domain);
+
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsK(domain);
+
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
 
   template <class... Args>
@@ -227,10 +246,10 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks) {
+  void Set(BlockList_t blocks, Mesh *pmesh) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
-    SetMeshPointer(blocks[0]->pmy_mesh);
+    SetMeshPointer(pmesh);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }

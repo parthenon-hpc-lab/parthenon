@@ -142,6 +142,7 @@ TaskStatus SetMatrixElements(T *u) {
 }
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
+auto &GetCoords(MeshBlock *pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
 
 template <typename T>
