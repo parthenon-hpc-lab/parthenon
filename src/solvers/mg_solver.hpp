@@ -53,7 +53,7 @@ class MGSolver {
       : params_(params_in), iter_counter(0), eqs_(eq_in) {
     using namespace parthenon::refinement_ops;
     auto mres_err =
-        Metadata({Metadata::Cell, Metadata::Independent,
+        Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                   Metadata::GMGRestrict, Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
