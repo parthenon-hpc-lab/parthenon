@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -97,6 +97,7 @@ class TagMap {
   void clear() { map_.clear(); }
 
   // Inserts all of the communication channels known about by MeshData md into the map
+  template <BoundaryType BOUND>
   void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md);
 
   // Once all MeshData objects have inserted their known channels into the map, we can

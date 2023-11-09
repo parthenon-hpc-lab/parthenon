@@ -1,9 +1,9 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Parthenon performance portable AMR framework
+#  Copyright(C) 2020-2023 The Parthenon collaboration
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,58 +16,71 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = advection
-
-<parthenon/sparse>
-enable_sparse = true
+problem_id = poisson
 
 <parthenon/mesh>
-refinement = none
-numlevel = 2
+refinement = static
+multigrid = true 
 
 nx1 = 64
-x1min = -0.5
-x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+x1min = -1.0
+x1max = 1.0
+ix1_bc = user
+ox1_bc = user
 
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = user
+ox2_bc = user
 
-nx3 = 64
-x3min = -1.5
-x3max = 1.5
+nx3 = 1
+x3min = 0.0
+x3max = 1.0
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 64
-nx2 = 64
-nx3 = 64
+nx1 = 32
+nx2 = 32
+nx3 = 1
 
 <parthenon/time>
- tlim = 1.0 # Test that leading whitespace is correctly sanitized
-	nlim = 20 # Test that leading tab is correctly sanitized
-integrator = rk2
-perf_cycle_offset = 2
+#nlim = -1
+#tlim = 1.0
+#integrator = rk2
+#ncycle_out_mesh = -10000
 
-<Advection>
-cfl = 0.30
-vx = 1.0
-vy = 2.0
-vz = 3.0
-profile = wave
-ang_2 = 0.0
-ang_3 = 0.0
-ang_2_vert = false
-ang_3_vert = false
-amp = 1e-6
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = poisson.res_err, poisson.u, poisson.x, poisson.r, poisson.rhs, poisson.p, poisson.s, poisson.t, poisson.v, poisson.exact
+ghost_zones = true 
 
-num_vars = 1 # number of variables in variable vector
+<parthenon/static_refinement0> 
+x1min = -1.0
+x1max = -0.75
+x2min = -1.0
+x2max = -0.75
+level = 3
 
-refine_tol = 1.01    # control the package specific refinement tagging function
-derefine_tol = 1.001
-compute_error = false
+<poisson>
+solver = BiCGSTAB
+precondition = true
+precondition_vcycles = 1
+restart_threshold = 0.0
+flux_correct = true
+smoother = SRJ2
+do_FAS = true
+diagonal_alpha = 0.0
+max_iterations = 15
+pre_smooth_iterations = 2
+post_smooth_iterations = 2
+jacobi_damping = 0.0
+
+x0 = 0.0
+y0 = 0.0
+z0 = 0.0
+radius = 0.5
+interior_D = 100.0
+exterior_D = 1.0

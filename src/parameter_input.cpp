@@ -315,7 +315,7 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     name.assign(line, first_char, len);
     last_char = name.find_last_not_of(" ");
     name.erase(last_char + 1, std::string::npos);
-    line.erase(0, len + 1);
+    line.erase(0, equal_char + 1);
   }
 
   cont_char = line.find_first_of("&"); // find "&" continuation character
