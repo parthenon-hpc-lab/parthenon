@@ -76,6 +76,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -145,6 +146,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // read cartesian mapping option
       op.cartesian_vector = false;
+
+      op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
 
       // read single precision output option
       const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
@@ -420,7 +423,10 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
     if ((tm == nullptr) ||
         ((ptype->output_params.dt >= 0.0) &&
          ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
-          (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
+          (tm->time >= tm->tlim) || (signal == SignalHandler::OutputSignal::now) ||
+          (signal == SignalHandler::OutputSignal::final) ||
+          (signal == SignalHandler::OutputSignal::analysis &&
+           ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;

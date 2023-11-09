@@ -182,6 +182,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
+
+    if (arg.analysis_flag == 1) {
+      pmesh->analysis_flag = true;
+    }
   }
 
   // add root_level to all max_level

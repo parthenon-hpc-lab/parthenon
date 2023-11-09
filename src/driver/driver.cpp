@@ -65,7 +65,8 @@ DriverStatus EvolutionDriver::Execute() {
   PreExecute();
   InitializeBlockTimeStepsAndBoundaries();
   SetGlobalTimeStep();
-  OutputSignal signal = OutputSignal::none;
+  OutputSignal signal =
+      pmesh->analysis_flag ? OutputSignal::analysis : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
@@ -76,7 +77,7 @@ DriverStatus EvolutionDriver::Execute() {
   DumpInputParameters();
 
   Kokkos::Profiling::pushRegion("Driver_Main");
-  while (tm.KeepGoing()) {
+  while (tm.KeepGoing() && signal != OutputSignal::analysis) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
@@ -124,8 +125,9 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
-
-  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  if (signal != OutputSignal::analysis) {
+    pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  }
   PostExecute(status);
   return status;
 }
