@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -161,6 +161,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
+  // Block connectivity information
+  std::vector<NeighborBlock> neighbors;
+  std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
+  std::vector<NeighborBlock> gmg_same_neighbors;
+  std::vector<NeighborBlock> gmg_finer_neighbors;
+
   BoundaryFlag boundary_flag[6];
 
   // functions
@@ -273,8 +280,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
-    pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+  void SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist,
+                             int *nslist) {
+    pbval->SearchAndSetNeighbors(mesh, tree, ranklist, nslist);
   }
 
   // inform MeshBlock which arrays contained in member Field, Particles,

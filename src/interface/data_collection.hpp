@@ -21,7 +21,6 @@
 
 namespace parthenon {
 class Mesh;
-
 /// The DataCollection class is an abstract container that contains at least a
 /// "base" container of some type (e.g., of MeshData or MeshBlockData) plus
 /// additional containers identified by string labels.
@@ -75,6 +74,8 @@ class DataCollection {
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
 
   std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
+  std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
+                               const int &partition_id);
 
   void PurgeNonBase() {
     auto c = containers_.begin();
