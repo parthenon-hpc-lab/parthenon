@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -67,10 +67,18 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::incomplete;
   }
 
-  if (rebuild)
-    RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
-                                         ProResInfo::GetSend);
-
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetInteriorRestrict);
+    } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetSend);
+    }
+  }
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
@@ -152,6 +160,10 @@ template TaskStatus SendBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Re
 template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -175,6 +187,10 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(
+    std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -220,6 +236,10 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -229,10 +249,19 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild)
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                          ProResInfo::GetSet);
 
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
@@ -301,6 +330,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 template TaskStatus SetBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -310,9 +343,20 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild)
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                          ProResInfo::GetSet);
+
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
+
   if (nbound > 0 && pmesh->multilevel) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
@@ -333,15 +377,19 @@ template TaskStatus
 ProlongateBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 // Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
   //            possible issues for sparse fields. In particular, the order in which
   //            fields are allocated and then set could potentially result in different
   //            results if the default sparse value is non-zero.
-  const auto any = BoundaryType::any;
+  // const auto any = BoundaryType::any;
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
   // const auto local = BoundaryType::local;
   // const auto nonlocal = BoundaryType::nonlocal;
 
@@ -361,17 +409,23 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 
   // auto out = (pro_local | pro);
 
-  auto send = tl.AddTask(dependency, SendBoundBufs<any>, md);
-  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<any>, md);
-  auto set = tl.AddTask(recv, SetBounds<any>, md);
+  auto send = tl.AddTask(dependency, SendBoundBufs<bounds>, md);
+  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<bounds>, md);
+  auto set = tl.AddTask(recv, SetBounds<bounds>, md);
 
   auto pro = set;
   if (md->GetMeshPointer()->multilevel) {
     auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
-    pro = tl.AddTask(cbound, ProlongateBounds<any>, md);
+    pro = tl.AddTask(cbound, ProlongateBounds<bounds>, md);
   }
   auto fbound = tl.AddTask(pro, ApplyBoundaryConditionsOnCoarseOrFineMD, md, false);
 
   return fbound;
 }
+template TaskID
+AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
+                                            std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID
+AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
+                                                 std::shared_ptr<MeshData<Real>> &, bool);
 } // namespace parthenon

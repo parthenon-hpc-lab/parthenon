@@ -110,6 +110,10 @@
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
   PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGProlongate)                                             \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
 namespace parthenon {
@@ -472,7 +476,8 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
+            IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
 
   const std::vector<int> &Shape() const { return shape_; }

@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,7 +38,12 @@
 
 namespace {
 enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType { Interior, Exterior, Shared };
+enum class IndexRangeType {
+  BoundaryInteriorSend,
+  BoundaryExteriorRecv,
+  InteriorSend,
+  InteriorRecv
+};
 
 using namespace parthenon;
 
@@ -77,7 +82,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
   const auto &ni = nb.ni;
-  auto loc = pmb->loc;
+  const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
@@ -85,11 +90,25 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // interior or exterior cells
   if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
 
+  // Re-create the index space for the neighbor block (either the main block or
+  // the coarse buffer as required)
+  int coarse_fac = 1;
+  if (nb.loc.level() > loc.level()) coarse_fac = 2;
+  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac,
+                                   nb.block_size.nx(X2DIR) / coarse_fac,
+                                   nb.block_size.nx(X1DIR) / coarse_fac, Globals::nghost);
+
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
                                    shape.GetBoundsJ(interior, el),
                                    shape.GetBoundsK(interior, el)};
+  std::array<IndexRange, 3> neighbor_bounds{neighbor_shape.GetBoundsI(interior, el),
+                                            neighbor_shape.GetBoundsJ(interior, el),
+                                            neighbor_shape.GetBoundsK(interior, el)};
 
+  std::array<bool, 3> not_symmetry{!pmb->block_size.symmetry(X1DIR),
+                                   !pmb->block_size.symmetry(X2DIR),
+                                   !pmb->block_size.symmetry(X3DIR)};
   // Account for the fact that the neighbor block may duplicate
   // some active zones on the loading block for face, edge, and nodal
   // fields, so the boundary of the neighbor block is one deeper into
@@ -97,15 +116,15 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
-  std::array<std::int64_t, 3> logic_loc{loc.lx1(), loc.lx2(), loc.lx3()};
-  std::array<std::int64_t, 3> nb_logic_loc{nb.loc.lx1(), nb.loc.lx2(), nb.loc.lx3()};
 
-  int interior_offset = ir_type == IndexRangeType::Interior ? Globals::nghost : 0;
-  int exterior_offset = ir_type == IndexRangeType::Exterior ? Globals::nghost : 0;
+  int interior_offset =
+      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+  int exterior_offset =
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
-    // the exterior we must only go over the coarse ghosts that have corresponding fine
-    // ghosts
+    // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
+    // corresponding fine ghosts
     exterior_offset /= 2;
   }
 
@@ -115,7 +134,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
       if ((loc.level() < nb.loc.level()) &&
-          bounds[dir].e > bounds[dir].s) { // Check that this dimension has ghost zones
+          not_symmetry[dir]) { // Check that this dimension has ghost zones
         // The requested neighbor block is at a finer level, so it only abuts
         // approximately half of the zones in any given direction with offset zero. If we
         // are asking for an interior index range, we also send nghost "extra" zones in
@@ -123,16 +142,33 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
         // for non-cell centered values the number of grid points may be odd, so we pick
         // up an extra zone that is communicated. I think this is ok, but something to
         // keep in mind if there are issues.
-        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
-        s[dir] += nb_logic_loc[dir] % 2 == 1 ? half_grid - interior_offset : 0;
-        e[dir] -= nb_logic_loc[dir] % 2 == 0 ? half_grid - interior_offset : 0;
+        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
+                                (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
+        s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
+        e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
+        if (ir_type == IndexRangeType::InteriorSend) {
+          // Include ghosts of finer block coarse array in message
+          s[dir] -= Globals::nghost;
+          e[dir] += Globals::nghost;
+        }
       }
-      if (loc.level() > nb.loc.level() && bounds[dir].e > bounds[dir].s) {
+      if (loc.level() > nb.loc.level() && not_symmetry[dir]) {
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
         // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
         // interior_offset in the above if block)
-        s[dir] -= logic_loc[dir] % 2 == 1 ? exterior_offset : 0;
-        e[dir] += logic_loc[dir] % 2 == 0 ? exterior_offset : 0;
+        s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
+        e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
+        if (ir_type == IndexRangeType::InteriorRecv) {
+          // Include ghosts of finer block coarse array in message
+          s[dir] -= Globals::nghost;
+          e[dir] += Globals::nghost;
+        }
+      }
+      // Prolongate into ghosts of interior receiver since we have the data available,
+      // having this is important for AMR MG
+      if (prores && not_symmetry[dir] && IndexRangeType::InteriorRecv == ir_type) {
+        s[dir] -= Globals::nghost / 2;
+        e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
       s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
@@ -148,16 +184,16 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
   // index range, it is unecessary. This is probably not immediately obvious,
   // but it is possible to convince oneself that dealing with ownership in
   // only exterior index ranges works correctly
-  if (ir_type == IndexRangeType::Exterior) {
+  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
     int sox1 = -ni.ox1;
     int sox2 = -ni.ox2;
     int sox3 = -ni.ox3;
     if (nb.loc.level() < loc.level()) {
       // For coarse to fine interfaces, we are passing zones from only an
       // interior corner of the cell, never an entire face or edge
-      if (sox1 == 0) sox1 = logic_loc[0] % 2 == 1 ? 1 : -1;
-      if (sox2 == 0) sox2 = logic_loc[1] % 2 == 1 ? 1 : -1;
-      if (sox3 == 0) sox3 = logic_loc[2] % 2 == 1 ? 1 : -1;
+      if (sox1 == 0) sox1 = loc.l(0) % 2 == 1 ? 1 : -1;
+      if (sox2 == 0) sox2 = loc.l(1) % 2 == 1 ? 1 : -1;
+      if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
     owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
   }
@@ -173,7 +209,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
   // will always be enough storage
   auto &cb = pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
-  const IndexDomain in = IndexDomain::interior;
+  const IndexDomain in = IndexDomain::entire;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
   // fields
   const int isize = cb.ie(in) - cb.is(in) + 2;
@@ -203,10 +239,12 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
+  auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Interior, false, {Nt, Nu, Nv});
+    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
   }
   if (nb.snb.level < mylevel) {
     out.var = v->coarse_s.Get();
@@ -216,7 +254,48 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   return out;
 }
 
+BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                               std::shared_ptr<Variable<Real>> v,
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+  BndInfo out;
+  out.buf = buf->buffer();
+  auto buf_state = buf->GetState();
+  if (buf_state == BufferState::received) {
+    out.buf_allocated = true;
+    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
+  } else if (buf_state == BufferState::received_null) {
+    out.buf_allocated = false;
+  } else {
+    PARTHENON_FAIL("Buffer should be in a received state.");
+  }
+  out.allocated = v->IsAllocated();
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+
+  auto elements = v->GetTopologicalElements();
+  out.ntopological_elements = elements.size();
+  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::InteriorRecv;
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+  }
+  if (nb.snb.level < mylevel) {
+    out.var = v->coarse_s.Get();
+  } else {
+    out.var = v->data.Get();
+  }
+
+  return out;
+}
+
 ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+                                           const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -234,23 +313,21 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb;
-  // Make the neighbor block coincide with this block
-  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
-                 NeighborConnect::none, 0, 0);
-  nb.ownership = block_ownership_t(true);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0},
+                   NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
 }
 
 ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+                                             const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -268,17 +345,14 @@ ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb;
-  // Make the neighbor block coincide with this block
-  nb.SetNeighbor(pmb->loc, Globals::my_rank, mylevel, 0, 0, 0, 0, 0,
-                 NeighborConnect::none, 0, 0);
-  nb.ownership = block_ownership_t(true);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0},
+                   NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
@@ -306,9 +380,8 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   out.ntopological_elements = elements.size();
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
-      int idx = static_cast<int>(el) % 3;
-      out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::Interior, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] = CalcIndices(
+          nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -346,14 +419,13 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
     if (nb.snb.level < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.idxer[static_cast<int>(el)] =
-            CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+        out.idxer[static_cast<int>(el)] = CalcIndices(
+            nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
       }
     }
   }
@@ -369,46 +441,9 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.snb.level < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-      out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::Exterior, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] = CalcIndices(
+          nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
   }
-  return out;
-}
-
-BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                               std::shared_ptr<Variable<Real>> v,
-                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-  out.buf = buf->buffer();
-  auto buf_state = buf->GetState();
-  if (buf_state == BufferState::received) {
-    out.buf_allocated = true;
-  } else if (buf_state == BufferState::received_null) {
-    out.buf_allocated = false;
-  } else {
-    PARTHENON_FAIL("Buffer should be in a received state.");
-  }
-  out.allocated = v->IsAllocated();
-
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] =
-        CalcIndices(nb, pmb, el, IndexRangeType::Exterior, false, {Nt, Nu, Nv});
-  }
-  if (nb.snb.level < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-
   return out;
 }
 
