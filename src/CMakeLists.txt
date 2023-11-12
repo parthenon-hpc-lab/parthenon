@@ -328,23 +328,21 @@ lint_target(parthenon)
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-install(TARGETS parthenon EXPORT parthenonTargets
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-)
+install(TARGETS parthenon EXPORT parthenonTargets)
 
 # Maintain directory structure in installed include files
-install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY ./ TYPE INCLUDE FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+
+install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindFilesystem.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake")
 
 install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
