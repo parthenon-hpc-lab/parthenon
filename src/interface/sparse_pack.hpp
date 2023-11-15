@@ -34,6 +34,17 @@
 
 namespace parthenon {
 
+KOKKOS_INLINE_FUNCTION
+IndexShape GetIndexShape(const ParArray3D<Real, VariableState> &arr, int ng) {
+  int extra_zone = std::max(TopologicalOffsetJ(arr.topological_element),
+                            TopologicalOffsetK(arr.topological_element));
+  extra_zone = std::max(extra_zone, TopologicalOffsetI(arr.topological_element));
+  int nx1 = arr.GetDim(1) > 1 ? arr.GetDim(1) - extra_zone - 2 * ng : 0;
+  int nx2 = arr.GetDim(2) > 1 ? arr.GetDim(2) - extra_zone - 2 * ng : 0;
+  int nx3 = arr.GetDim(3) > 1 ? arr.GetDim(3) - extra_zone - 2 * ng : 0;
+  return IndexShape::GetFromSeparateInts(nx3, nx2, nx1, ng);
+}
+
 // Sparse pack index type which allows for relatively simple indexing
 // into non-variable name type based SparsePacks (i.e. objects of
 // type SparsePack<> which are created with a vector of variable

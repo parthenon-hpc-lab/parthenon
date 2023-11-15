@@ -160,9 +160,11 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/logical_location.cpp
   mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp
@@ -222,6 +224,7 @@ add_library(parthenon
   utils/alias_method.cpp
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
+  utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
@@ -326,23 +329,21 @@ lint_target(parthenon)
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-install(TARGETS parthenon EXPORT parthenonTargets
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-)
+install(TARGETS parthenon EXPORT parthenonTargets)
 
 # Maintain directory structure in installed include files
-install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY ./ TYPE INCLUDE FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+
+install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindFilesystem.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake")
 
 install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
