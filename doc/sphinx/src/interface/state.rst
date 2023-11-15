@@ -81,7 +81,7 @@ several useful features and functions.
   with specified fields to the ``DataCollection`` objects in ``Mesh`` and
   ``MeshBlock``.  For convenience, the ``Mesh`` class also provides this
   function, which provides a list of variables gathered from all the package
-  ``StateDescriptor``s.
+  ``StateDescriptor``\s.
 - ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
   ``std::function`` member ``FillDerivedBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
