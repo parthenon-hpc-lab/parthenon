@@ -44,6 +44,9 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
       PARTHENON_DEBUG_REQUIRE(pmesh->MeshBndryFnctn[i] != nullptr,
                               "boundary function must not be null");
       pmesh->MeshBndryFnctn[i](rc, coarse);
+      for (auto &bnd_func : pmesh->UserBoundaryFunctions[i]) {
+        bnd_func(rc, coarse);
+      }
     }
   }
 

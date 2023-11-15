@@ -21,14 +21,14 @@ multigrid = true
 nx1 = 64
 x1min = -1.0
 x1max = 1.0
-ix1_bc = user
-ox1_bc = user
+ix1_bc = outflow
+ox1_bc = outflow
 
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = user
-ox2_bc = user
+ix2_bc = outflow
+ox2_bc = outflow
 
 nx3 = 1
 x3min = 0.0
