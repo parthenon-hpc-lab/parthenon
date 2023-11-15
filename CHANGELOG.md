@@ -20,7 +20,9 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+<<<<<<< HEAD
 - [[PR 975]](https://github.com/parthenon-hpc-lab/parthenon/pull/975) Construct staged integrators via arbitrary name
+- [[PR 976]](https://github.com/parthenon-hpc-lab/parthenon/pull/976) Move UserWorkBeforeLoop to be after first output
 - [[PR 965]](https://github.com/parthenon-hpc-lab/parthenon/pull/965) Allow leading whitespace in input parameters
 - [[PR 926]](https://github.com/parthenon-hpc-lab/parthenon/pull/926) Internal refinement op registration
 - [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
