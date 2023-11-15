@@ -163,7 +163,10 @@ auto GetEdges(ParameterInput *pin, const std::string &block_name,
 }
 
 Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
-                     const std::string &prefix) {
+                     const std::string &name) {
+  name_ = name;
+  const auto prefix = name + "_";
+
   ndim_ = pin->GetInteger(block_name, prefix + "ndim");
   PARTHENON_REQUIRE_THROWS(ndim_ == 1 || ndim_ == 2, "Histogram dim must be '1' or '2'");
 
@@ -420,11 +423,10 @@ void Histogram::CalcHist(Mesh *pm) {
 HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin)
     : OutputType(op) {
 
-  num_histograms_ = pin->GetOrAddInteger(op.block_name, "num_histograms", 0);
+  hist_names_ = pin->GetVector<std::string>(op.block_name, "hist_names");
 
-  for (int i = 0; i < num_histograms_; i++) {
-    const auto prefix = "hist" + std::to_string(i) + "_";
-    histograms_.emplace_back(pin, op.block_name, prefix);
+  for (auto &hist_name : hist_names_) {
+    histograms_.emplace_back(pin, op.block_name, hist_name);
   }
 }
 
@@ -498,11 +500,10 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
-    HDF5WriteAttribute("num_histograms", num_histograms_, info_group);
+    HDF5WriteAttribute("hist_names", hist_names_, info_group);
 
-    for (int h = 0; h < num_histograms_; h++) {
-      auto &hist = histograms_[h];
-      const H5G hist_group = MakeGroup(file, "/" + std::to_string(h));
+    for (auto &hist : histograms_) {
+      const H5G hist_group = MakeGroup(file, "/" + hist.name_);
       HDF5WriteAttribute("ndim", hist.ndim_, hist_group);
       HDF5WriteAttribute("x_var_name", hist.x_var_name_.c_str(), hist_group);
       HDF5WriteAttribute("x_var_component", hist.x_var_component_, hist_group);

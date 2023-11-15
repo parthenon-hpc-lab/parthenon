@@ -228,6 +228,7 @@ enum class VarType { X1, X2, X3, R, Var, Unused };
 enum class EdgeType { Lin, Log, List, Undefined };
 
 struct Histogram {
+  std::string name_;                      // name (id) of histogram
   int ndim_;                              // 1D or 2D histogram
   std::string x_var_name_, y_var_name_;   // variable(s) for bins
   VarType x_var_type_, y_var_type_;       // type, e.g., coord related or actual field
@@ -252,8 +253,7 @@ struct Histogram {
   // temp view for histogram reduction for better performance (switches
   // between atomics and data duplication depending on the platform)
   Kokkos::Experimental::ScatterView<Real **, LayoutWrapper> scatter_result;
-  Histogram(ParameterInput *pin, const std::string &block_name,
-            const std::string &prefix);
+  Histogram(ParameterInput *pin, const std::string &block_name, const std::string &name);
   void CalcHist(Mesh *pm);
 };
 
@@ -268,7 +268,7 @@ class HistogramOutput : public OutputType {
  private:
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
-  int num_histograms_; // number of different histograms to compute
+  std::vector<std::string> hist_names_; // names (used as id) for different histograms
   std::vector<HistUtil::Histogram> histograms_;
 };
 #endif // ifdef ENABLE_HDF5
