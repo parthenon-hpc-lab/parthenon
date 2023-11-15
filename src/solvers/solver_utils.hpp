@@ -157,7 +157,7 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
   auto pack = desc.GetPack(md.get(), {}, only_fine_on_composite);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
+      DEFAULT_LOOP_PATTERN, "CopyData", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int nvars = pack.GetUpperBound(b, in()) - pack.GetLowerBound(b, in()) + 1;
@@ -188,7 +188,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
   auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetPotentialToZero", DevExecSpace(), 0,
+      DEFAULT_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), 0,
       pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
@@ -219,7 +219,7 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "Print", DevExecSpace(), scratch_size_in_bytes,
+      DEFAULT_OUTER_LOOP_PATTERN, "SetFieldsToZero", DevExecSpace(), scratch_size_in_bytes,
       scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0), ng);
