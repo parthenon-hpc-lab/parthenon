@@ -25,10 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "Kokkos_ScatterView.hpp"
+
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -213,6 +216,60 @@ class PHDF5Output : public OutputType {
   void ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
                       const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
                       std::vector<Real> &z);
+};
+
+//----------------------------------------------------------------------------------------
+//! \class HistogramOutput
+//  \brief derived OutputType class for histograms
+
+namespace HistUtil {
+
+enum class VarType { X1, X2, X3, R, Var, Unused };
+enum class EdgeType { Lin, Log, List, Undefined };
+
+struct Histogram {
+  std::string name_;                      // name (id) of histogram
+  int ndim_;                              // 1D or 2D histogram
+  std::string x_var_name_, y_var_name_;   // variable(s) for bins
+  VarType x_var_type_, y_var_type_;       // type, e.g., coord related or actual field
+  int x_var_component_, y_var_component_; // components of bin variables (vector)
+  ParArray1D<Real> x_edges_, y_edges_;
+  EdgeType x_edges_type_, y_edges_type_;
+  // Lowest edge and difference between edges.
+  // Internally used to speed up lookup for log (and lin) bins as otherwise
+  // two more log10 calls would be required per index.
+  Real x_edge_min_, x_edge_dbin_, y_edge_min_, y_edge_dbin_;
+  bool accumulate_;             // accumulate data outside binning range in outermost bins
+  std::string binned_var_name_; // variable name of variable to be binned
+  // component of variable to be binned. If -1 means no variable is binned but the
+  // histgram is a sample count.
+  int binned_var_component_;
+  bool weight_by_vol_;          // use volume weighting
+  std::string weight_var_name_; // variable name of variable used as weight
+  // component of variable to be used as weight. If -1 means no weighting
+  int weight_var_component_;
+  ParArray2D<Real> result_; // resulting histogram
+
+  // temp view for histogram reduction for better performance (switches
+  // between atomics and data duplication depending on the platform)
+  Kokkos::Experimental::ScatterView<Real **, LayoutWrapper> scatter_result;
+  Histogram(ParameterInput *pin, const std::string &block_name, const std::string &name);
+  void CalcHist(Mesh *pm);
+};
+
+} // namespace HistUtil
+
+class HistogramOutput : public OutputType {
+ public:
+  HistogramOutput(const OutputParameters &oparams, ParameterInput *pin);
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
+ private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
+  std::vector<std::string> hist_names_; // names (used as id) for different histograms
+  std::vector<HistUtil::Histogram> histograms_;
 };
 #endif // ifdef ENABLE_HDF5
 

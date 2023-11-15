@@ -43,13 +43,14 @@ subset, and the columns point to the indices in the ``bnd_info`` array
 containing the subset of sub-halos you wish to operate on.
 
 To communicate across a particular boundary type, the templated 
-boundary communication routines (see :boundary_comm_tasks:`boundary_comm_tasks`.) 
+boundary communication routines (see :ref:`boundary_comm_tasks`) 
 should be instantiated with the desired ``BoundaryType``, i.e. 
 
 .. code:: cpp 
+
   SendBoundBufs<BoundaryType::gmg_restrict_send>(md); 
 
-The different ``BoundaryType``s are: 
+The different ``BoundaryType``\ s are: 
 
 - ``any``: Communications are performed between all leaf blocks (i.e. the
   standard Parthenon grid that does not include multi-grid related blocks). 

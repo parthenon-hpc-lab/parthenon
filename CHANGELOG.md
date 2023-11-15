@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 962]](https://github.com/parthenon-hpc-lab/parthenon/pull/962) Add support for in-situ histograms/profiles
 - [[PR 911]](https://github.com/parthenon-hpc-lab/parthenon/pull/911) Add infrastructure for geometric multi-grid
 - [[PR 971]](https://github.com/parthenon-hpc-lab/parthenon/pull/971) Add UserWorkBeforeLoop
 - [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor
@@ -21,6 +22,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
+- [[PR 976]](https://github.com/parthenon-hpc-lab/parthenon/pull/976) Move UserWorkBeforeLoop to be after first o
 - [[PR 965]](https://github.com/parthenon-hpc-lab/parthenon/pull/965) Allow leading whitespace in input parameters
 - [[PR 926]](https://github.com/parthenon-hpc-lab/parthenon/pull/926) Internal refinement op registration
 - [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
