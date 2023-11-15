@@ -182,6 +182,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
+
+    if (arg.analysis_flag == 1) {
+      pmesh->analysis_flag = true;
+    }
   }
 
   // add root_level to all max_level
@@ -256,8 +260,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   bsize.push_back(out_jb.e - out_jb.s + 1);
   bsize.push_back(out_kb.e - out_kb.s + 1);
 
-  size_t nCells = bsize[0] * bsize[1] * bsize[2];
-
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
@@ -272,7 +274,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // Allocate space based on largest vector
-  int max_vlen = 1;
+  int max_blocksize = 0;
   int num_sparse = 0;
   for (auto &v_info : indep_restart_vars) {
     const auto &label = v_info->label();
@@ -288,7 +290,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info->NumComponents());
+
+    const int te_length = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
+                           v_info->metadata().Where() == MetadataFlag(Metadata::Edge)) ? 3 : 1;
+    const int te_offset = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
+                         v_info->metadata().Where() == MetadataFlag(Metadata::Edge) ||
+                         v_info->metadata().Where() == MetadataFlag(Metadata::Node)) ? 1 : 0;
+    const int nPoints = (bsize[0] + te_offset) * (bsize[1] + te_offset) * (bsize[2] + te_offset);
+    max_blocksize = std::max(max_blocksize, nPoints * v_info->NumComponents() * te_length);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -296,13 +305,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       num_sparse == sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
+  std::vector<Real> tmp(static_cast<size_t>(nb) * max_blocksize);
   for (auto &v_info : indep_restart_vars) {
     const auto vlen = v_info->NumComponents();
     const auto &label = v_info->label();
-    const auto &Nv = v_info->GetDim(4);
-    const auto &Nu = v_info->GetDim(5);
-    const auto &Nt = v_info->GetDim(6);
+    const auto &nx4 = v_info->GetDim(4);
+    const auto &nx5 = v_info->GetDim(5);
+    const auto &nx6 = v_info->GetDim(6);
 
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen << std::endl;
@@ -326,7 +335,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->AllocateSparse(label);
         } else {
           // nothing to read for this block, advance reading index
-          index += nCells * vlen;
+          const int te_offset = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
+                              v_info->metadata().Where() == MetadataFlag(Metadata::Edge) ||
+                              v_info->metadata().Where() == MetadataFlag(Metadata::Node)) ? 1 : 0;
+          const int nPoints = (bsize[0] + te_offset) * (bsize[1] + te_offset) * (bsize[2] + te_offset);
+          index += nPoints * vlen;
           continue;
         }
       }
@@ -348,19 +361,57 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       } else if (file_output_format_ver == 2 ||
                  file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
-        for (int t = 0; t < Nt; ++t) {
-          for (int u = 0; u < Nu; ++u) {
-            for (int v = 0; v < Nv; ++v) {
-              for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                  for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                    v_h(t, u, v, k, j, i) = tmp[index++];
+          MetadataFlag where = v_info->metadata().Where();
+          // Face/Edge fields add an index in front of t,u,v so we handle them out here
+          if (where == MetadataFlag(Metadata::Face) || where == MetadataFlag(Metadata::Edge)) {
+            for (int e = 0; e < 3; e++) {
+              for (int t = 0; t < nx6; ++t) {
+                for (int u = 0; u < nx5; ++u) {
+                  for (int v = 0; v < nx4; ++v) {
+                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                          v_h(e, t, u, v, k, j, i) = tmp[index++];
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            for (int t = 0; t < nx6; ++t) {
+              for (int u = 0; u < nx5; ++u) {
+                for (int v = 0; v < nx4; ++v) {
+                  if (where == MetadataFlag(Metadata::Cell)) {
+                    for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                          v_h(t, u, v, k, j, i) = tmp[index++];
+                        }
+                      }
+                    }
+                  } else if (where == MetadataFlag(Metadata::Node)) {
+                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                          v_h(t, u, v, k, j, i) = tmp[index++];
+                        }
+                      }
+                    }
+                  } else {
+                    for (int k = 0; k < v_info->GetDim(3); ++k) {
+                      for (int j = 0; j < v_info->GetDim(2); ++j) {
+                        for (int i = 0; i < v_info->GetDim(1); ++i) {
+                          v_h(t, u, v, k, j, i) = tmp[index++];
+                        }
+                      }
+                    }
                   }
                 }
               }
             }
           }
-        }
       } else {
         PARTHENON_THROW("Unknown output format version in restart file.")
       }

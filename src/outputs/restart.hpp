@@ -194,13 +194,30 @@ class RestartReader {
         count[ndim + 2] = bsize[1];
         count[ndim + 3] = bsize[0];
         total_dim = 3 + ndim + 1;
+      } else if (where == MetadataFlag(Metadata::Face) || where == MetadataFlag(Metadata::Edge)) {
+        count[1] = 3;
+        for (int i = 0; i < ndim; i++) {
+          count[2 + i] = shape[ndim - i - 1];
+        }
+        count[1 + ndim + 1] = bsize[2] + 1;
+        count[1 + ndim + 2] = bsize[1] + 1;
+        count[1 + ndim + 3] = bsize[0] + 1;
+        total_dim = 3 + ndim + 1 + 1;
+      } else if (where == MetadataFlag(Metadata::Node)) {
+        for (int i = 0; i < ndim; i++) {
+          count[1 + i] = shape[ndim - i - 1];
+        }
+        count[ndim + 1] = bsize[2] + 1;
+        count[ndim + 2] = bsize[1] + 1;
+        count[ndim + 3] = bsize[0] + 1;
+        total_dim = 3 + ndim + 1;
       } else if (where == MetadataFlag(Metadata::None)) {
         for (int i = 0; i < ndim; i++) {
           count[1 + i] = shape[ndim - i - 1];
         }
         total_dim = ndim + 1;
       } else {
-        PARTHENON_THROW("Only Cell and None locations supported!");
+        PARTHENON_THROW("Variable defined at unknown location!");
       }
     } else {
       PARTHENON_THROW("Unknown output format version in restart file.")

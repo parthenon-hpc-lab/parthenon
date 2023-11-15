@@ -397,7 +397,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocate space for largest size variable
   int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize =
+    const int te_length = (vinfo.where == MetadataFlag(Metadata::Face) ||
+                           vinfo.where == MetadataFlag(Metadata::Edge)) ? 3 : 1;
+    const int varSize = te_length *
         vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
     varSize_max = std::max(varSize_max, varSize);
   }
@@ -452,6 +454,26 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
 #endif
+    } else if (vinfo.where == MetadataFlag(Metadata::Face) || vinfo.where == MetadataFlag(Metadata::Edge)) {
+      // indices, field rank, location, block ID
+      ndim = 3 + vinfo.tensor_rank + 1 + 1;
+      // Put element index just after block index
+      local_count[1] = global_count[1] = 3;
+      // Shift everything else after the element index
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[2 + i] = global_count[2 + i] = alldims[3 - vinfo.tensor_rank + i];
+      }
+      local_count[vinfo.tensor_rank + 1 + 1] = global_count[vinfo.tensor_rank + 1 + 1] = nx3 + 1;
+      local_count[vinfo.tensor_rank + 1 + 2] = global_count[vinfo.tensor_rank + 1 + 2] = nx2 + 1;
+      local_count[vinfo.tensor_rank + 1 + 3] = global_count[vinfo.tensor_rank + 1 + 3] = nx1 + 1;
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        for (int i = ndim - 3; i < ndim; i++) {
+          chunk_size[i] = local_count[i];
+        }
+      }
+#endif
     } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
       ndim = 3 + vinfo.tensor_rank + 1;
       for (int i = 0; i < vinfo.tensor_rank; i++) {
@@ -485,7 +507,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 #endif
     } else {
-      PARTHENON_THROW("Only Cell, Node, and None locations supported!");
+      PARTHENON_THROW("Variable defined at unknown location!");
     }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
@@ -514,30 +536,49 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // a similar block in parthenon_manager.cpp
         if (v->IsAllocated() && (var_name == v->label())) {
           auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+          // Face/Edge fields add an index in front of t,u,v so we handle them out here
+          if (vinfo.where == MetadataFlag(Metadata::Face) || vinfo.where == MetadataFlag(Metadata::Edge)) {
+            for (int e = 0; e < 3; e++) {
+              for (int t = 0; t < nx6; ++t) {
+                for (int u = 0; u < nx5; ++u) {
+                  for (int v = 0; v < nx4; ++v) {
+                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(e, t, u, v, k, j, i));
+                        }
                       }
                     }
                   }
-                } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
-                  for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                }
+              }
+            }
+          } else {
+            for (int t = 0; t < nx6; ++t) {
+              for (int u = 0; u < nx5; ++u) {
+                for (int v = 0; v < nx4; ++v) {
+                  if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+                    for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
                       }
                     }
-                  }
-                } else {
-                  for (int k = 0; k < vinfo.nx3; ++k) {
-                    for (int j = 0; j < vinfo.nx2; ++j) {
-                      for (int i = 0; i < vinfo.nx1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                  } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
+                      }
+                    }
+                  } else {
+                    for (int k = 0; k < vinfo.nx3; ++k) {
+                      for (int j = 0; j < vinfo.nx2; ++j) {
+                        for (int i = 0; i < vinfo.nx1; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
                       }
                     }
                   }
@@ -564,6 +605,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
           } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
             varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 2) *
+                      (out_jb.e - out_jb.s + 2) * (out_ib.e - out_ib.s + 2);
+          } else if (vinfo.where == MetadataFlag(Metadata::Edge) || vinfo.where == MetadataFlag(Metadata::Face)) {
+            varSize = 3 * vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 2) *
                       (out_jb.e - out_jb.s + 2) * (out_ib.e - out_ib.s + 2);
           } else {
             varSize =
@@ -849,7 +893,7 @@ HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
 // template specializations for std::string and bool
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location) {
-  HDF5WriteAttribute(name, value.size(), value.c_str(), location);
+  HDF5WriteAttribute(name, value.c_str(), location);
 }
 
 template <>
