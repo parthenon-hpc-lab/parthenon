@@ -85,6 +85,7 @@ To work with these GMG levels, ``MeshData`` objects containing these blocks can
 be recovered from a ``Mesh`` pointer using 
 
 .. code:: c++
+
   auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition_idx);
 
 This ``MeshData`` will include blocks at the current level and possibly some 
@@ -94,6 +95,7 @@ communication). To make packs containing only a subset of blocks from a
 GMG ``MeshData`` pointer ``md``, one would use 
 
 .. code:: c++
+
   int nblocks = md->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   for (int b = 0; b < nblocks; ++b)
@@ -104,10 +106,10 @@ GMG ``MeshData`` pointer ``md``, one would use
   auto pack = desc.GetPack(md.get(), include_block);
 
 In addition to creating the ``LogicalLocation`` and block lists for the GMG levels, 
-``Mesh`` fills neigbor arrays in ``MeshBlock`` for intra- and inter-GMG block list 
+``Mesh`` fills neighbor arrays in ``MeshBlock`` for intra- and inter-GMG block list 
 communication (i.e. boundary communication and internal prolongation/restriction, 
 respectively). Communication within and between GMG levels can be done by calling 
 boundary communication routines with the boundary tags ``gmg_same``, 
 ``gmg_restrict_send``, ``gmg_restrict_recv``, ``gmg_prolongate_send``, 
-``gmg_prolongate_recv`` (see :boundary_communication:`boundary_communication`). 
+``gmg_prolongate_recv`` (see :ref:`boundary_comm_tasks`). 
 
