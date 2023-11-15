@@ -38,7 +38,13 @@ struct BiCGSTABParams {
   bool precondition = true;
 };
 
-// The equations type
+// The equations class must include a template method
+//
+//   template <class x_t, class y_t, class TL_t>
+//   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
+//
+// that takes a field associated with x_t and applies
+// the matrix A to it and stores the result in y_t.
 template <class x, class rhs, class equations>
 class BiCGSTABSolver {
  public:
