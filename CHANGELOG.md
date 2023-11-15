@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 962]](https://github.com/parthenon-hpc-lab/parthenon/pull/962) Add support for in-situ histograms/profiles
 - [[PR 911]](https://github.com/parthenon-hpc-lab/parthenon/pull/911) Add infrastructure for geometric multi-grid
 - [[PR 971]](https://github.com/parthenon-hpc-lab/parthenon/pull/971) Add UserWorkBeforeLoop
 - [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor

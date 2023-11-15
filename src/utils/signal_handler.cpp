@@ -25,6 +25,9 @@
 #include <csignal>
 #include <iostream>
 
+#include FS_HEADER
+namespace fs = FS_NAMESPACE;
+
 #include "parthenon_mpi.hpp"
 
 #include "globals.hpp"
@@ -61,10 +64,8 @@ void SignalHandlerInit() {
 
 OutputSignal CheckSignalFlags() {
   if (Globals::my_rank == 0) {
-    // TODO(the person bumping std to C++17): use std::filesystem::exists
-    struct stat buffer;
     // if file "output_now" exists
-    if (stat("output_now", &buffer) == 0) {
+    if (fs::exists("output_now")) {
       signalflag[nsignal] = 1;
     }
   }
