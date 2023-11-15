@@ -272,6 +272,21 @@ class HistogramOutput : public OutputType {
 #endif // ifdef ENABLE_HDF5
 
 //----------------------------------------------------------------------------------------
+//! \class UserOutput
+//  \brief derived OutputType class for User enrolled outputs
+
+class UserOutput : public OutputType {
+ public:
+  explicit UserOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
+ private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
+};
+
+//----------------------------------------------------------------------------------------
 //! \class Outputs
 
 //  \brief root class for all Athena++ outputs. Provides a singly linked list of
