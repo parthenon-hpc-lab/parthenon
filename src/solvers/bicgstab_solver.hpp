@@ -38,17 +38,18 @@ struct BiCGSTABParams {
   bool precondition = true;
 };
 
+// The equations type
 template <class x, class rhs, class equations>
 class BiCGSTABSolver {
  public:
-  INTERNALSOLVERVARIABLE(x, rhat0);
-  INTERNALSOLVERVARIABLE(x, v);
-  INTERNALSOLVERVARIABLE(x, h);
-  INTERNALSOLVERVARIABLE(x, s);
-  INTERNALSOLVERVARIABLE(x, t);
-  INTERNALSOLVERVARIABLE(x, r);
-  INTERNALSOLVERVARIABLE(x, p);
-  INTERNALSOLVERVARIABLE(x, u);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, rhat0);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, v);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, h);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, s);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, t);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, r);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, p);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, u);
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})

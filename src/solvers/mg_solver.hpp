@@ -40,10 +40,11 @@ struct MGParams {
 template <class u, class rhs, class equations>
 class MGSolver {
  public:
-  INTERNALSOLVERVARIABLE(u, res_err); // residual on the way up and error on the way down
-  INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
-  INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
-  INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
+  PARTHENON_INTERNALSOLVERVARIABLE(
+      u, res_err); // residual on the way up and error on the way down
+  PARTHENON_INTERNALSOLVERVARIABLE(u, temp); // Temporary storage
+  PARTHENON_INTERNALSOLVERVARIABLE(u, u0);   // Storage for initial solution during FAS
+  PARTHENON_INTERNALSOLVERVARIABLE(u, D);    // Storage for (approximate) diagonal
 
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
            std::vector<int> shape = {})
