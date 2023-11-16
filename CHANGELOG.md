@@ -3,6 +3,22 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+### Incompatibilities (i.e. breaking changes)
+
+
+## Release 23.11
+Date: 2023-11-16
+
+### Added (new features/APIs/variables/...)
 - [[PR 962]](https://github.com/parthenon-hpc-lab/parthenon/pull/962) Add support for in-situ histograms/profiles
 - [[PR 911]](https://github.com/parthenon-hpc-lab/parthenon/pull/911) Add infrastructure for geometric multi-grid
 - [[PR 971]](https://github.com/parthenon-hpc-lab/parthenon/pull/971) Add UserWorkBeforeLoop
@@ -21,6 +37,7 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 977]](https://github.com/parthenon-hpc-lab/parthenon/pull/977) Change to CalVer from SemVer
 - [[PR 975]](https://github.com/parthenon-hpc-lab/parthenon/pull/975) Construct staged integrators via arbitrary name
 - [[PR 976]](https://github.com/parthenon-hpc-lab/parthenon/pull/976) Move UserWorkBeforeLoop to be after first output
 - [[PR 965]](https://github.com/parthenon-hpc-lab/parthenon/pull/965) Allow leading whitespace in input parameters
