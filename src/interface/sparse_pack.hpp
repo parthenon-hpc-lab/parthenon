@@ -145,8 +145,9 @@ class SparsePack : public SparsePackBase {
     template <class T>
     SparsePack GetPack(T *pmd, std::vector<bool> &include_block,
                        bool only_fine_two_level_composite_blocks = true) const {
-      // If this is a composite grid MeshData object, only include blocks on
-      // the finer level
+      // If this is a composite grid MeshData object and if
+      // only_fine_two_level_composite_blocks is true, only
+      // include blocks on the finer level
       if constexpr (std::is_same<T, MeshData<Real>>::value) {
         if (pmd->grid.type == GridType::two_level_composite &&
             only_fine_two_level_composite_blocks) {

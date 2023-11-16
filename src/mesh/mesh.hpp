@@ -101,6 +101,7 @@ class Mesh {
 
   // data
   bool modified;
+  const bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];

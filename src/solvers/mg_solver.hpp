@@ -38,16 +38,32 @@ struct MGParams {
   bool two_by_two_diagonal = false;
 };
 
+// The equations class must include a template method
+//
+//   template <class x_t, class y_t, class TL_t>
+//   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
+//
+// that takes a field associated with x_t and applies
+// the matrix A to it and stores the result in y_t. Additionally,
+// it must include a template method
+//
+//  template <class diag_t>
+//  TaskStatus SetDiagonal(std::shared_ptr<MeshData<Real>> &md)
+//
+// That stores the (possibly approximate) diagonal of matrix A in the field
+// associated with the type diag_t. This is used for Jacobi iteration.
 template <class u, class rhs, class equations>
 class MGSolver {
  public:
-  INTERNALSOLVERVARIABLE(u, res_err); // residual on the way up and error on the way down
-  INTERNALSOLVERVARIABLE(u, temp);    // Temporary storage
-  INTERNALSOLVERVARIABLE(u, u0);      // Storage for initial solution during FAS
-  INTERNALSOLVERVARIABLE(u, D);       // Storage for (approximate) diagonal
+  PARTHENON_INTERNALSOLVERVARIABLE(
+      u, res_err); // residual on the way up and error on the way down
+  PARTHENON_INTERNALSOLVERVARIABLE(u, temp); // Temporary storage
+  PARTHENON_INTERNALSOLVERVARIABLE(u, u0);   // Storage for initial solution during FAS
+  PARTHENON_INTERNALSOLVERVARIABLE(u, D);    // Storage for (approximate) diagonal
   std::vector<std::string> GetInternalVariableNames() const {
     return {res_err::name(), temp::name(), u0::name(), D::name()};
   }
+
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
            std::vector<int> shape = {})
       : params_(params_in), iter_counter(0), eqs_(eq_in) {

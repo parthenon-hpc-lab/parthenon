@@ -63,7 +63,7 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : // public members:
-      modified(true),
+      modified(true), is_restart(false),
       // aggregate initialization of RegionSize struct:
       mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
                  pin->GetReal("parthenon/mesh", "x2min"),
@@ -439,7 +439,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
-      modified(true),
+      modified(true), is_restart(true),
       // aggregate initialization of RegionSize struct:
       mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
                  pin->GetReal("parthenon/mesh", "x2min"),

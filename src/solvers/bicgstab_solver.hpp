@@ -40,18 +40,25 @@ struct BiCGSTABParams {
   bool print_per_step = false;
 };
 
-template <class u, class rhs, class equations>
+// The equations class must include a template method
+//
+//   template <class x_t, class y_t, class TL_t>
+//   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
+//
+// that takes a field associated with x_t and applies
+// the matrix A to it and stores the result in y_t.
+template <class x, class rhs, class equations>
 class BiCGSTABSolver {
  public:
-  INTERNALSOLVERVARIABLE(u, rhat0);
-  INTERNALSOLVERVARIABLE(u, v);
-  INTERNALSOLVERVARIABLE(u, h);
-  INTERNALSOLVERVARIABLE(u, s);
-  INTERNALSOLVERVARIABLE(u, t);
-  INTERNALSOLVERVARIABLE(u, r);
-  INTERNALSOLVERVARIABLE(u, p);
-  INTERNALSOLVERVARIABLE(u, x);
-
+  PARTHENON_INTERNALSOLVERVARIABLE(x, rhat0);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, v);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, h);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, s);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, t);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, r);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, p);
+  PARTHENON_INTERNALSOLVERVARIABLE(x, u);
+  
   std::vector<std::string> GetInternalVariableNames() const {
     std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
                                    t::name(),     r::name(), p::name(), x::name()};
