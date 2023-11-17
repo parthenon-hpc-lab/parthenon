@@ -47,17 +47,17 @@ struct BiCGSTABParams {
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class x, class rhs, class equations>
+template <class u, class rhs, class equations>
 class BiCGSTABSolver {
  public:
-  PARTHENON_INTERNALSOLVERVARIABLE(x, rhat0);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, v);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, h);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, s);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, t);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, r);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, p);
-  PARTHENON_INTERNALSOLVERVARIABLE(x, u);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, rhat0);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, v);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, h);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, s);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, t);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, r);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, p);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, x);
   
   std::vector<std::string> GetInternalVariableNames() const {
     std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
