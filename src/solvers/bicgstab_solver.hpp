@@ -86,6 +86,12 @@ class BiCGSTABSolver {
     pkg->AddField(p::name(), m_no_ghost);
   }
 
+  template <class TL_t>
+  TaskID AddSetupTasks(TaskRegion &region, TL_t &tl, TaskID dependence,
+                                int partition, int &reg_dep_id, Mesh *pmesh) { 
+    return preconditioner.AddSetupTasks(region, tl, dependence, partition, reg_dep_id, pmesh);
+  }
+
   TaskID AddTasks(TaskList &tl, IterativeTasks &itl, TaskID dependence, int i,
                   Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
     using namespace utils;

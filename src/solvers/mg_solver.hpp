@@ -150,6 +150,18 @@ class MGSolver {
     return AddMultiGridTasksPartitionLevel(region, tl, dependence, partition, reg_dep_id,
                                            max_level, min_level, max_level, pmesh);
   }
+  
+  template <class TL_t>
+  TaskID AddSetupTasks(TaskRegion &region, TL_t &tl, TaskID dependence,
+                                int partition, int &reg_dep_id, Mesh *pmesh) {
+    using namespace utils;
+
+    int min_level = 0;
+    int max_level = pmesh->GetGMGMaxLevel();
+
+    return AddMultiGridSetupPartitionLevel(region, tl, dependence, partition, reg_dep_id,
+                                           max_level, min_level, max_level, pmesh);
+  }
 
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
@@ -242,10 +254,11 @@ class MGSolver {
 
   template <parthenon::BoundaryType comm_boundary, class in_t, class out_t, class TL_t>
   TaskID AddJacobiIteration(TL_t &tl, TaskID depends_on, bool multilevel, Real omega,
-                            std::shared_ptr<MeshData<Real>> &md) {
+                            std::shared_ptr<MeshData<Real>> &md,
+                            std::shared_ptr<MeshData<Real>> &md_comm) {
     using namespace utils;
 
-    auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md, multilevel);
+    auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_comm, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
     return tl.AddTask(mat_mult, &MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>, this, md,
                       omega);
@@ -253,7 +266,8 @@ class MGSolver {
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
   TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
-                         std::shared_ptr<MeshData<Real>> &md) {
+                         std::shared_ptr<MeshData<Real>> &md,
+                         std::shared_ptr<MeshData<Real>> &md_comm) {
     using namespace utils;
     int ndim = md->GetParentPointer()->ndim;
 
@@ -273,16 +287,47 @@ class MGSolver {
     // fine-coarse boundaries of temp are correctly updated during communication
     depends_on = tl.AddTask(depends_on, CopyData<u, temp, false>, md);
     auto jacobi1 = AddJacobiIteration<comm_boundary, u, temp>(tl, depends_on, multilevel,
-                                                              omega[ndim - 1][0], md);
+                                                              omega[ndim - 1][0], md, md_comm);
     auto copy1 = tl.AddTask(jacobi1, CopyData<temp, u, true>, md);
     if (stages < 2) return copy1;
     auto jacobi2 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy1, multilevel,
-                                                              omega[ndim - 1][1], md);
+                                                              omega[ndim - 1][1], md, md_comm);
     auto copy2 = tl.AddTask(jacobi2, CopyData<temp, u, true>, md);
     if (stages < 3) return copy2;
     auto jacobi3 = AddJacobiIteration<comm_boundary, u, temp>(tl, copy2, multilevel,
-                                                              omega[ndim - 1][2], md);
+                                                              omega[ndim - 1][2], md, md_comm);
     return tl.AddTask(jacobi3, CopyData<temp, u, true>, md);
+  }
+
+  template <class TL_t>
+  TaskID AddMultiGridSetupPartitionLevel(TaskRegion &region, TL_t &tl, TaskID dependence,
+                                         int partition, int &reg_dep_id, int level,
+                                         int min_level, int max_level, Mesh *pmesh) {
+    using namespace utils;
+
+    bool multilevel = (level != min_level);
+
+    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+
+    auto task_out = dependence;
+    if (level < max_level) {
+      task_out =
+          tl.AddTask(task_out, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+      task_out =
+          tl.AddTask(task_out, SetBounds<BoundaryType::gmg_restrict_recv>, md);
+    }
+
+    // If we are finer than the coarsest level:
+    if (level > min_level) {
+      task_out =
+          tl.AddTask(task_out, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+      task_out = AddMultiGridSetupPartitionLevel(region, tl, task_out,
+                                                 partition, reg_dep_id, level - 1,
+                                                 min_level, max_level, pmesh);
+    }
+
+    // The boundaries are not up to date on return
+    return task_out;
   }
 
   template <class TL_t>
@@ -312,15 +357,17 @@ class MGSolver {
     bool multilevel = (level != min_level);
 
     auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+    std::string label = "comm_" + std::to_string(level) + "_" + std::to_string(partition);
+    auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(label, md, std::vector<std::string>{u::name(), res_err::name()});
 
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
     if (level < max_level) {
       // Fill fields with restricted values
       auto recv_from_finer =
-          tl.AddTask(dependence, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md);
+          tl.AddTask(dependence, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md_comm);
       set_from_finer =
-          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md);
+          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md_comm);
       region.AddRegionalDependencies(reg_dep_id, partition, set_from_finer);
       reg_dep_id++;
       // 1. Copy residual from dual purpose communication field to the rhs, should be
@@ -335,7 +382,7 @@ class MGSolver {
         // calling Ax. That being said, at least in one case commenting this line out
         // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            set_from_finer, tl, md, multilevel);
+            set_from_finer, tl, md_comm, multilevel);
         set_from_finer = tl.AddTask(set_from_finer, CopyData<u, u0, true>, md);
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
@@ -353,12 +400,12 @@ class MGSolver {
     set_from_finer =
         tl.AddTask(set_from_finer, &equations::template SetDiagonal<D>, &eqs_, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, set_from_finer,
-                                                              pre_stages, multilevel, md);
+                                                              pre_stages, multilevel, md, md_comm);
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
-      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md,
+      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_comm,
                                                                      multilevel);
 
       // 4. Caclulate residual and store in communication field
@@ -369,7 +416,7 @@ class MGSolver {
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
-          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
+          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md_comm);
 
       auto coarser = AddMultiGridTasksPartitionLevel(region, tl, communicate_to_coarse,
                                                      partition, reg_dep_id, level - 1,
@@ -377,11 +424,11 @@ class MGSolver {
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser =
-          tl.AddTask(coarser, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md);
+          tl.AddTask(coarser, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md_comm);
       auto set_from_coarser =
-          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md);
+          tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md_comm);
       auto prolongate = tl.AddTask(
-          set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md);
+          set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md_comm);
       region.AddRegionalDependencies(reg_dep_id, partition, prolongate);
       reg_dep_id++;
 
@@ -392,7 +439,7 @@ class MGSolver {
 
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
-                                                            multilevel, md);
+                                                            multilevel, md, md_comm);
     } else {
       post_smooth = tl.AddTask(pre_smooth, CopyData<u, res_err, true>, md);
     }
