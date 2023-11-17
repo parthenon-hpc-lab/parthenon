@@ -17,6 +17,7 @@
 //! \file tasks.cpp
 //  \brief implementation of the TaskID class
 
+#include "utils/error_checking.hpp"
 #include "tasks/task_id.hpp"
 
 #include <algorithm>
@@ -40,12 +41,14 @@ void TaskID::Set(int id) {
   const int n_myblocks = id / BITBLOCK + 1;
   // grow if necessary.  never shrink
   if (n_myblocks > bitblocks.size()) bitblocks.resize(n_myblocks);
-  bitblocks[n_myblocks - 1].set(id % BITBLOCK);
+  bitblocks[n_myblocks - 1] |= (static_cast<uint64_t>(1) << (id % BITBLOCK));
+  bit = id; 
+  nbits_set++;
 }
 
 void TaskID::clear() {
   for (auto &bset : bitblocks) {
-    bset.reset();
+    bset = 0;
   }
 }
 
@@ -65,7 +68,7 @@ bool TaskID::CheckDependencies(const TaskID &rhs) const {
       if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
     }
     for (int i = n_myblocks; i < n_srcblocks; i++) {
-      if (rhs.bitblocks[i].any()) return false;
+      if (rhs.bitblocks[i] > 0) return false;
     }
   }
   return true;
@@ -93,6 +96,8 @@ void TaskID::SetFinished(const TaskID &rhs) {
 }
 
 bool TaskID::operator==(const TaskID &rhs) const {
+  if (nbits_set != rhs.nbits_set) return false;
+  
   const int n_myblocks = bitblocks.size();
   const int n_srcblocks = rhs.bitblocks.size();
   if (n_myblocks == n_srcblocks) {
@@ -104,14 +109,14 @@ bool TaskID::operator==(const TaskID &rhs) const {
       if (bitblocks[i] != rhs.bitblocks[i]) return false;
     }
     for (int i = n_srcblocks; i < n_myblocks; i++) {
-      if (bitblocks[i].any()) return false;
+      if (bitblocks[i] > 0) return false;
     }
   } else {
     for (int i = 0; i < n_myblocks; i++) {
       if (bitblocks[i] != rhs.bitblocks[i]) return false;
     }
     for (int i = n_myblocks; i < n_srcblocks; i++) {
-      if (rhs.bitblocks[i].any()) return false;
+      if (rhs.bitblocks[i] > 0) return false;
     }
   }
   return true;
@@ -149,7 +154,7 @@ TaskID TaskID::operator|(const TaskID &rhs) const {
 std::string TaskID::to_string() const {
   std::string bs;
   for (int i = bitblocks.size() - 1; i >= 0; i--) {
-    bs += bitblocks[i].to_string();
+    //bs += bitblocks[i].to_string();
   }
   return bs;
 }

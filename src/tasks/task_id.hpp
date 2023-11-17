@@ -26,11 +26,11 @@ namespace parthenon {
 //! \class TaskID
 //  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-#define BITBLOCK 16
+#define BITBLOCK 64
 
 class TaskID {
  public:
-  TaskID() { Set(0); }
+  TaskID() : nbits_set(0), bit(-1) { Set(0); }
   explicit TaskID(int id);
 
   void Set(int id);
@@ -43,7 +43,9 @@ class TaskID {
   std::string to_string() const;
 
  private:
-  std::vector<std::bitset<BITBLOCK>> bitblocks;
+  int nbits_set; 
+  int bit;
+  std::vector<uint64_t> bitblocks;
 };
 
 } // namespace parthenon

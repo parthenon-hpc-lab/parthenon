@@ -71,8 +71,8 @@ class Task {
     }
   }
   void SetID(const TaskID &id) { myid_ = id; }
-  TaskID GetID() const { return myid_; }
-  TaskID GetDependency() const { return dep_; }
+  const TaskID &GetID() const { return myid_; }
+  const TaskID &GetDependency() const { return dep_; }
   TaskStatus GetStatus() const { return status_; }
   void SetStatus(const TaskStatus &status) { status_ = status; }
   TaskType GetType() const { return type_; }

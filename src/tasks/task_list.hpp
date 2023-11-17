@@ -139,7 +139,7 @@ class TaskList {
   bool CheckDependencies(const TaskID &id) const {
     return tasks_completed_.CheckDependencies(id);
   }
-  bool CheckTaskRan(TaskID id) const {
+  bool CheckTaskRan(const TaskID &id) const {
     for (auto &task : task_list_) {
       if (task.GetID() == id) {
         return (task.GetStatus() != TaskStatus::incomplete &&
@@ -258,7 +258,7 @@ class TaskList {
         ++task;
         continue;
       }
-      auto dep = task->GetDependency();
+      const auto &dep = task->GetDependency();
       if (CheckDependencies(dep)) {
         (*task)();
         if (task->GetStatus() == TaskStatus::complete && !task->IsRegional()) {
@@ -475,9 +475,7 @@ class TaskRegion {
     auto &lvec = id_for_reg[reg_id];
     int n_to_run = lvec.size();
     int n_ran = 0;
-    for (auto &pair : lvec) {
-      int list_index = pair.first;
-      TaskID id = pair.second;
+    for (auto &[list_index, id] : lvec) {
       if (lists[list_index].CheckTaskRan(id)) {
         n_ran++;
       }
@@ -488,9 +486,7 @@ class TaskRegion {
     auto &lvec = id_for_reg[reg_id];
     int n_to_finish = lvec.size();
     int n_finished = 0;
-    for (auto &pair : lvec) {
-      int list_index = pair.first;
-      TaskID id = pair.second;
+    for (auto &[list_index, id] : lvec) {
       if (lists[list_index].CheckTaskCompletion(id)) {
         n_finished++;
       }
