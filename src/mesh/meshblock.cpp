@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -94,11 +94,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
-    InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
+                          block_size.nx(X3DIR));
   } else if (pmy_mesh->ndim >= 2) {
-    InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), 0);
   } else {
-    InitializeIndexShapes(block_size.nx1, 0, 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), 0, 0);
   }
 
   // Allow for user overrides to default Parthenon functions
@@ -217,8 +218,17 @@ void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const in
 
   if (init_coarse) {
     if (multilevel) {
+      // Prevent the coarse bounds from going to zero
+      int cnx1 = nx1 / 2;
+      int cnx2 = nx2 / 2;
+      int cnx3 = nx3 / 2;
+      if (pmy_mesh != nullptr) {
+        cnx1 = pmy_mesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
+        cnx2 = pmy_mesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
+        cnx3 = pmy_mesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
+      }
       cnghost = (Globals::nghost + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
+      c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
@@ -289,9 +299,11 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         continue;
       }
 
+      if (!stage.second->HasVariable(l)) continue;
+
       auto v = stage.second->GetVarPtr(l);
 
-      if (v->IsSet(Metadata::OneCopy)) {
+      if (v->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) {
         // nothing to do, we already allocated variable on base stage, and all other
         // stages share that variable
         continue;
@@ -327,7 +339,9 @@ void MeshBlock::DeallocateSparse(std::string const &label) {
   auto &mbd = meshblock_data;
   auto DeallocateVar = [&mbd](const std::string &l) {
     for (auto stage : mbd.Stages()) {
-      stage.second->DeallocateSparse(l);
+      if (!stage.second->IsShallow() && stage.second->HasVariable(l)) {
+        stage.second->DeallocateSparse(l);
+      }
     }
   };
 

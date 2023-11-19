@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -78,7 +79,9 @@ class BoundaryBase {
   static int BufferID(int dim, bool multilevel);
   static int FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
 
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
+  void
+  SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist, int *nslist,
+                        const std::unordered_set<LogicalLocation> &newly_refined = {});
 
  protected:
   // 1D refined or unrefined=2
@@ -89,6 +92,9 @@ class BoundaryBase {
   Mesh *pmy_mesh_;
   RegionSize block_size_;
   ParArrayND<Real> sarea_[2];
+
+  void
+  SetNeighborOwnership(const std::unordered_set<LogicalLocation> &newly_refined = {});
 
  private:
   // calculate 3x shared static data members when constructing only the 1st class instance

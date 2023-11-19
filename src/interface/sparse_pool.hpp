@@ -16,6 +16,7 @@
 #include <map>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "metadata.hpp"
@@ -70,6 +71,12 @@ class SparsePool {
              const std::vector<int> &sparse_ids,
              const std::vector<std::vector<std::string>> &component_labels)
       : SparsePool(base_name, metadata, sparse_ids, {}, {}, component_labels, "") {}
+
+  // template on variable type
+  template <typename T, typename... Args>
+  static SparsePool Make(Args &&...args) {
+    return SparsePool(T::name(), std::forward<Args>(args)...);
+  }
 
   const std::string &base_name() const { return base_name_; }
   const std::string &controller_base_name() const { return controller_base_name_; }

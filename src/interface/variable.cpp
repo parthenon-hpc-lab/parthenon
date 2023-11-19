@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -81,7 +81,8 @@ void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
     }
   }
 
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
+      IsSet(Metadata::ForceRemeshComm)) {
     // no need to check mesh->multilevel, if false, we're just making a shallow copy of
     // an empty ParArrayND
     coarse_s = src->coarse_s;
@@ -172,7 +173,8 @@ void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
   }
 
   // Create the boundary object
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
+      IsSet(Metadata::ForceRemeshComm)) {
     if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
@@ -205,16 +207,18 @@ std::int64_t Variable<T>::Deallocate() {
     }
   }
 
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent)) {
+  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
+      IsSet(Metadata::ForceRemeshComm)) {
     mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
   }
 
   is_allocated_ = false;
+  return mem_size;
 #else
   PARTHENON_THROW("Variable<T>::Deallocate(): Sparse is compile-time disabled");
+  return 0;
 #endif
-  return mem_size;
 }
 
 template <typename T>

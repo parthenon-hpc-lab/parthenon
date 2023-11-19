@@ -117,7 +117,7 @@ finally another round of asynchronous work.
 A diagram illustrating the relationship between these different classes
 is shown below.
 
-.. figure:: TaskDiagram.png
+.. figure:: figs/TaskDiagram.png
    :alt: Task Diagram
 
 ``TaskCollection`` provides two member functions, ``AddRegion`` and

@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 
 #include "parthenon_mpi.hpp"
 
@@ -63,9 +64,11 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
+
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
@@ -81,19 +84,9 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  // TODO(LFR): Set the index ranges appropriately for general topological element
-  // variables
-  static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire);
-  static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire);
-  static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire);
-
-  static const IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  static const IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  static const IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
 
   int test = 1;
 #ifdef MPI_PARALLEL
@@ -115,22 +108,36 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
                                    send_rank, tag, comm, MPI_STATUS_IGNORE));
       fb = var->data;
 #endif
-      const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
-      const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
-      const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
       auto cb = var->coarse_s;
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu, 0,
-          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                        const int i) {
-            cb(t, u, v, k, j, i) = fb(t, u, v, k + ks, j + js, i + is);
-          });
+
+      for (auto te : var->GetTopologicalElements()) {
+        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire, te);
+        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
+        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+
+        IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+
+        const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
+        const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
+        const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
+        const int idx_te = static_cast<int>(te) % 3;
+        parthenon::par_for(
+            DEFAULT_LOOP_PATTERN, "ReceiveCoarseToFineAMR", DevExecSpace(), 0, nt, 0, nu,
+            0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                          const int i) {
+              cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
+            });
+      }
     } else {
-      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
+      if (pmb->IsAllocated(var->label()) &&
+          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
+        pmb->DeallocateSparse(var->label());
 #ifdef MPI_PARALLEL
       PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank,
                                    tag, comm, MPI_STATUS_IGNORE));
@@ -146,9 +153,11 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
+
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
+
   int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
@@ -164,19 +173,9 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  // TODO(LFR): Set the index ranges appropriately for general topological element
-  // variables
-  static const IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior);
-  static const IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior);
-  static const IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior);
-
-  const int ox1 = ((fine_loc.lx1 & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2 & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3 & 1LL) == 1LL);
-
-  const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1);
-  const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1);
-  const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1);
+  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
+  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
+  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
 
   int test = 1;
 #ifdef MPI_PARALLEL
@@ -204,13 +203,30 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nt = fb.GetDim(6) - 1;
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
-      parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu, 0,
-          nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                        const int i) {
-            fb(t, u, v, k + ks, j + js, i + is) = cb(t, u, v, k, j, i);
-          });
+
+      for (auto te : var->GetTopologicalElements()) {
+        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
+        // Deal with ownership of shared elements by removing right side of index
+        // space if fine block is on the left side of a direction. I think this
+        // should work fine even if the ownership model is changed elsewhere, since
+        // the fine blocks should be consistent in their shared elements at this point
+        if (ox3 == 0) kb.e -= TopologicalOffsetK(te);
+        if (ox2 == 0) jb.e -= TopologicalOffsetJ(te);
+        if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
+        const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
+        const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
+        const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
+        const int idx_te = static_cast<int>(te) % 3;
+        parthenon::par_for(
+            DEFAULT_LOOP_PATTERN, "ReceiveFineToCoarseAMR", DevExecSpace(), 0, nt, 0, nu,
+            0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
+                          const int i) {
+              fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
+            });
+      }
       // We have to block here w/o buffering so that the write is guaranteed to be
       // finished before another fine block that is restricted to a sub-region of
       // this coarse block makes an MPI call and overwrites the coarse buffer.
@@ -283,7 +299,9 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
       pmb->pmr->DereferenceCount() = counter_subview_h(0);
       var->dealloc_count = counter_subview_h(1);
     } else {
-      if (pmb->IsAllocated(var->label())) pmb->DeallocateSparse(var->label());
+      if (pmb->IsAllocated(var->label()) &&
+          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
+        pmb->DeallocateSparse(var->label());
       PARTHENON_MPI_CHECK(
           MPI_Recv(var->com_state, 2, MPI_INT, send_rank, tag, comm, MPI_STATUS_IGNORE));
       pmb->pmr->DereferenceCount() = var->com_state[0];
@@ -478,8 +496,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   Kokkos::Profiling::pushRegion("UpdateMeshBlockTree");
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
-  if (mesh_size.nx2 > 1) nleaf = 4;
-  if (mesh_size.nx3 > 1) nleaf = 8;
+  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
+  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
 
   // collect refinement flags from all the meshblocks
   // count the number of the blocks to be (de)refined
@@ -554,20 +572,20 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   int ctnd = 0;
   if (tnderef >= nleaf) {
     int lk = 0, lj = 0;
-    if (mesh_size.nx2 > 1) lj = 1;
-    if (mesh_size.nx3 > 1) lk = 1;
+    if (!mesh_size.symmetry(X2DIR)) lj = 1;
+    if (!mesh_size.symmetry(X3DIR)) lk = 1;
     for (int n = 0; n < tnderef; n++) {
-      if ((lderef[n].lx1 & 1LL) == 0LL && (lderef[n].lx2 & 1LL) == 0LL &&
-          (lderef[n].lx3 & 1LL) == 0LL) {
+      if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
+          (lderef[n].lx3() & 1LL) == 0LL) {
         int r = n, rr = 0;
         for (std::int64_t k = 0; k <= lk; k++) {
           for (std::int64_t j = 0; j <= lj; j++) {
             for (std::int64_t i = 0; i <= 1; i++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1 + i) == lderef[r].lx1 &&
-                    (lderef[n].lx2 + j) == lderef[r].lx2 &&
-                    (lderef[n].lx3 + k) == lderef[r].lx3 &&
-                    lderef[n].level == lderef[r].level)
+                if ((lderef[n].lx1() + i) == lderef[r].lx1() &&
+                    (lderef[n].lx2() + j) == lderef[r].lx2() &&
+                    (lderef[n].lx3() + k) == lderef[r].lx3() &&
+                    lderef[n].level() == lderef[r].level())
                   rr++;
                 r++;
               }
@@ -575,18 +593,19 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          clderef[ctnd].lx1 = lderef[n].lx1 >> 1;
-          clderef[ctnd].lx2 = lderef[n].lx2 >> 1;
-          clderef[ctnd].lx3 = lderef[n].lx3 >> 1;
-          clderef[ctnd].level = lderef[n].level - 1;
+          clderef[ctnd] = lderef[n].GetParent();
           ctnd++;
         }
       }
     }
   }
   // sort the lists by level
-  if (ctnd > 1) std::sort(clderef, &(clderef[ctnd - 1]), LogicalLocation::Greater);
-
+  if (ctnd > 1) {
+    std::sort(clderef, &(clderef[ctnd - 1]),
+              [](const LogicalLocation &left, const LogicalLocation &right) {
+                return left.level() > right.level();
+              });
+  }
   if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
@@ -653,8 +672,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
-  if (mesh_size.nx2 > 1) nleaf = 4;
-  if (mesh_size.nx3 > 1) nleaf = 8;
+  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
+  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
 
   // construct new lists
   Kokkos::Profiling::pushRegion("Construct new list");
@@ -684,13 +703,18 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     oldtonew[mb_idx] = ntot - 1;
 
   current_level = 0;
+  std::unordered_set<LogicalLocation> newly_refined;
   for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
-    if (newloc[n].level > current_level) // set the current max level
-      current_level = newloc[n].level;
-    if (newloc[n].level >= loclist[on].level) { // same or refined
+    if (newloc[n].level() > current_level) // set the current max level
+      current_level = newloc[n].level();
+    if (newloc[n].level() >= loclist[on].level()) { // same or refined
       newcost[n] = costlist[on];
+      // Keep a list of all blocks refined for below
+      if (newloc[n].level() > loclist[on].level()) {
+        newly_refined.insert(newloc[n]);
+      }
     } else {
       double acost = 0.0;
       for (int l = 0; l < nleaf; l++)
@@ -712,23 +736,30 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
+  ProResCache_t restriction_cache;
+  int nrestrict = 0;
   for (int on = onbs; on <= onbe; on++) {
     int nn = oldtonew[on];
-    if (newloc[nn].level < loclist[on].level) {
-      const IndexDomain interior = IndexDomain::interior;
+    auto pmb = FindMeshBlock(on);
+    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
+  }
+  restriction_cache.Initialize(nrestrict, resolved_packages.get());
+  int irestrict = 0;
+  for (int on = onbs; on <= onbe; on++) {
+    int nn = oldtonew[on];
+    if (newloc[nn].level() < loclist[on].level()) {
       auto pmb = FindMeshBlock(on);
-      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-      // Need to restrict this block before doing sends
       for (auto &var : pmb->vars_cc_) {
-        if (var->IsAllocated()) {
-          pmb->pmr->RestrictCellCenteredValues(var.get(), cib.s, cib.e, cjb.s, cjb.e,
-                                               ckb.s, ckb.e);
-        }
+        restriction_cache.RegisterRegionHost(
+            irestrict++, ProResInfo::GetInteriorRestrict(pmb, NeighborBlock(), var),
+            var.get(), resolved_packages.get());
       }
     }
   }
+  restriction_cache.CopyToDevice();
+  refinement::Restrict(resolved_packages.get(), restriction_cache,
+                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
@@ -740,12 +771,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     LogicalLocation &oloc = loclist[n];
     LogicalLocation &nloc = newloc[nn];
     auto pb = FindMeshBlock(n);
-    if (nloc.level == oloc.level &&
+    if (nloc.level() == oloc.level() &&
         newrank[nn] != Globals::my_rank) { // same level, different rank
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn],
                                               var.get(), pb.get(), this));
-    } else if (nloc.level > oloc.level) { // c2f
+    } else if (nloc.level() > oloc.level()) { // c2f
       // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
       for (int l = 0; l < nleaf; l++) {
         const int nl = nn + l; // Leaf block index in new global block list
@@ -754,7 +785,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl],
                                                   nloc, var.get(), this));
       } // end loop over nleaf (unique to c2f branch in this step 6)
-    } else if (nloc.level < oloc.level) { // f2c: restrict + pack + send
+    } else if (nloc.level() < oloc.level()) { // f2c: restrict + pack + send
       for (auto &var : pb->vars_cc_)
         send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn],
                                                 oloc, var.get(), this));
@@ -770,7 +801,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   BlockList_t new_block_list(nbe - nbs + 1);
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
-    if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
+    if ((ranklist[on] == Globals::my_rank) &&
+        (loclist[on].level() == newloc[n].level())) {
       // on the same MPI rank and same level -> just move it
       new_block_list[n - nbs] = FindMeshBlock(on);
       if (!new_block_list[n - nbs]) {
@@ -823,8 +855,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         LogicalLocation &oloc = loclist[on];
         LogicalLocation &nloc = newloc[n];
         auto pb = FindMeshBlock(n);
-
-        if (oloc.level == nloc.level &&
+        if (oloc.level() == nloc.level() &&
             ranklist[on] != Globals::my_rank) { // same level, different rank
 #ifdef MPI_PARALLEL
           for (auto &var : pb->vars_cc_) {
@@ -834,7 +865,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             all_received = finished[idx++] && all_received;
           }
 #endif
-        } else if (oloc.level > nloc.level) { // f2c
+        } else if (oloc.level() > nloc.level()) { // f2c
           for (int l = 0; l < nleaf; l++) {
             auto pob = pb;
             if (ranklist[on + l] == Globals::my_rank) pob = old_block_list[on + l - onbs];
@@ -849,7 +880,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
               all_received = finished[idx++] && all_received;
             }
           }
-        } else if (oloc.level < nloc.level) { // c2f
+        } else if (oloc.level() < nloc.level()) { // c2f
           for (auto &var : pb->vars_cc_) {
             if (!finished[idx]) {
               auto pob = pb;
@@ -871,46 +902,77 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::fence();
 
   // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks)
+  ProResCache_t prolongation_cache;
+  int nprolong = 0;
   for (int nn = nbs; nn <= nbe; nn++) {
     int on = newtoold[nn];
-    LogicalLocation &oloc = loclist[on];
-    LogicalLocation &nloc = newloc[nn];
     auto pmb = FindMeshBlock(nn);
-    if (nloc.level > oloc.level) {
-      const IndexDomain interior = IndexDomain::interior;
-      IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-      IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-      IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-      // Need to restrict this block before doing sends
+    if (newloc[nn].level() > loclist[on].level()) nprolong += pmb->vars_cc_.size();
+  }
+  prolongation_cache.Initialize(nprolong, resolved_packages.get());
+  int iprolong = 0;
+  for (int nn = nbs; nn <= nbe; nn++) {
+    int on = newtoold[nn];
+    if (newloc[nn].level() > loclist[on].level()) {
+      auto pmb = FindMeshBlock(nn);
       for (auto &var : pmb->vars_cc_) {
-        if (var->IsAllocated()) {
-          pmb->pmr->ProlongateCellCenteredValues(var.get(), cib.s, cib.e, cjb.s, cjb.e,
-                                                 ckb.s, ckb.e);
-        }
+        prolongation_cache.RegisterRegionHost(
+            iprolong++, ProResInfo::GetInteriorProlongate(pmb, NeighborBlock(), var),
+            var.get(), resolved_packages.get());
       }
     }
   }
+  prolongation_cache.CopyToDevice();
 
-#ifdef MPI_PARALLEL
-  if (send_reqs.size() != 0)
-    PARTHENON_MPI_CHECK(
-        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-#endif
-  Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
+  refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
+                               block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
   // update the lists
   loclist = std::move(newloc);
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
+  PopulateLeafLocationMap();
 
-  // re-initialize the MeshBlocks
+  // A block newly refined and prolongated may have neighbors which were
+  // already refined to the new level.
+  // If so, the prolongated versions of shared elements will not reflect
+  // the true, finer versions present in the neighbor block.
+  // We must create any new fine buffers and fill them from these neighbors
+  // in order to maintain a consistent global state.
+  // Thus we rebuild and synchronize the mesh now, but using a unique
+  // neighbor precedence favoring the "old" fine blocks over "new" ones
   for (auto &pmb : block_list) {
-    pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
+                                      newly_refined);
   }
+  // Make sure all old sends/receives are done before we reconfigure the mesh
+#ifdef MPI_PARALLEL
+  if (send_reqs.size() != 0)
+    PARTHENON_MPI_CHECK(
+        MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
+#endif
+  // Re-initialize the mesh with our temporary ownership/neighbor configurations.
+  // No buffers are different when we switch to the final precedence order.
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
+                        0, newly_refined);
+  BuildGMGHierarchy(nbs, pin, app_in);
   Initialize(false, pin, app_in);
 
-  ResetLoadBalanceVariables();
+  // Internal refinement relies on the fine shared values, which are only consistent after
+  // being updated with any previously fine versions
+  refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
+  // Rebuild just the ownership model, this time weighting the "new" fine blocks just like
+  // any other blocks at their level.
+  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+  for (auto &pmb : block_list) {
+    pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
+  }
+
+  Kokkos::Profiling::popRegion(); // AMR: Recv data and unpack
+
+  ResetLoadBalanceVariables();
   Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
 }
 } // namespace parthenon

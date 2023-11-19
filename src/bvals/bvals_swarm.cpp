@@ -127,7 +127,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int &mylevel = pmb->loc.level;
+  const int &mylevel = pmb->loc.level();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -132,16 +132,6 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           REQUIRE(varnames.count("v5") == 0);
           REQUIRE(varnames.count("v6") > 0);
         }
-      }
-    }
-
-    WHEN("We extract a subcontainer") {
-      auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
-      THEN("The container has the names in the right order") {
-        auto vars = subcontainer.GetVariableVector();
-        REQUIRE(vars[0]->label() == "v1");
-        REQUIRE(vars[1]->label() == "v3");
-        REQUIRE(vars[2]->label() == "v5");
       }
     }
 

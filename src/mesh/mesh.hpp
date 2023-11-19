@@ -21,13 +21,16 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -61,6 +64,9 @@ class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 
+// Map from LogicalLocation to (gid, rank) pair of location
+using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
 //----------------------------------------------------------------------------------------
 //! \class Mesh
 //  \brief data/functions associated with the overall mesh
@@ -91,13 +97,16 @@ class Mesh {
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetBlockSize() const;
+  RegionSize GetBlockSize(const LogicalLocation &loc) const;
 
   // data
   bool modified;
+  const bool is_restart;
   RegionSize mesh_size;
+  RegionSize base_block_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
-  const bool adaptive, multilevel;
+  const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;
 
@@ -110,9 +119,16 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
+  LogicalLocMap_t leaf_grid_locs;
+  std::vector<LogicalLocMap_t> gmg_grid_locs;
+  std::vector<BlockList_t> gmg_block_lists;
+  std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
+  int GetGMGMaxLevel() { return gmg_grid_locs.size() - 1; }
+  int GetGMGMinLogicalLevel() { return gmg_min_logical_level_; }
+
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
-  void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
+  bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
@@ -165,6 +181,13 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
+  RootGridInfo GetRootGridInfo() const noexcept {
+    return RootGridInfo(
+        root_level, nrbx[0], nrbx[1], nrbx[2],
+        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
+        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
+        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);
+  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
@@ -203,6 +226,12 @@ class Mesh {
     return buffer_memory;
   }
 
+  // expose a mesh-level call to get lists of variables from resolved_packages
+  template <typename... Args>
+  std::vector<std::string> GetVariableNames(Args &&...args) {
+    return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
+  }
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -229,9 +258,7 @@ class Mesh {
   MeshBlockTree tree;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
-  int nrbx1, nrbx2, nrbx3;
-  // TODO(felker) find unnecessary static_cast<> ops. from old std::int64_t type in 2018:
-  // std::int64_t nrbx1, nrbx2, nrbx3;
+  std::array<int, 3> nrbx;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -244,14 +271,14 @@ class Mesh {
   // size of default MeshBlockPacks
   int default_pack_size_;
 
+  int gmg_min_logical_level_ = 0;
+
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
 #endif
 
   // functions
-  MeshGenFunc MeshGenerator_[4];
-
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
@@ -263,121 +290,43 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-
+  void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void
+  SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
+                        RootGridInfo root_grid, int nbs, bool gmg_neighbors,
+                        int composite_logical_level = 0,
+                        const std::unordered_set<LogicalLocation> &newly_refined = {});
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
       InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
+  void PopulateLeafLocationMap();
+
+  // Transform from logical location coordinates to uniform mesh coordinates accounting
+  // for root grid
+  Real GetMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
+                         const LogicalLocation &loc) const {
+    auto xll = loc.LLCoord(dir, bloc);
+    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
+    xll *= root_fac;
+    return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll;
+  }
+
+  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level,
+                                       Real xmesh) const {
+    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
+    auto xLL = (xmesh - mesh_size.xmin(dir)) /
+               (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;
+    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
+  }
 };
-
-//----------------------------------------------------------------------------------------
-// \!fn Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
-//                                 bool sym_interval)
-// \brief wrapper fn to compute Real x logical location for either [0., 1.] or [-0.5, 0.5]
-//        real cell ranges for MeshGenerator_[] functions (default/user vs. uniform)
-
-inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
-                                  bool sym_interval) {
-  // index is typically 0, ... nrange for non-ghost boundaries
-  if (!sym_interval) {
-    // to map to fractional logical position [0.0, 1.0], simply divide by # of faces
-    return static_cast<Real>(index) / static_cast<Real>(nrange);
-  } else {
-    // to map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
-    // if nrange is even, there is an index at center x=0.0; map it to (int) 0
-    // if nrange is odd, the center x=0.0 is between two indices; map them to -1, 1
-    std::int64_t noffset = index - (nrange) / 2;
-    std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
-    // std::cout << "noffset, noffset_ceil = " << noffset << ", " << noffset_ceil << "\n";
-    // average the (possibly) biased integer indexing
-    return static_cast<Real>(noffset + noffset_ceil) / (2.0 * nrange);
-  }
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; x=i/nx1, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX1(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.x1rat == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.x1rat, rs.nx1);
-    Real rnx = std::pow(rs.x1rat, x * rs.nx1);
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  // linear interp, equally weighted from left (x(xmin)=0.0) and right (x(xmax)=1.0)
-  return rs.x1min * lw + rs.x1max * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; x=j/nx2, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX2(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.x2rat == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.x2rat, rs.nx2);
-    Real rnx = std::pow(rs.x2rat, x * rs.nx2);
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.x2min * lw + rs.x2max * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real DefaultMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; x=k/nx3, real in [0., 1.]
-
-inline Real DefaultMeshGeneratorX3(Real x, RegionSize rs) {
-  Real lw, rw;
-  if (rs.x3rat == 1.0) {
-    rw = x, lw = 1.0 - x;
-  } else {
-    Real ratn = std::pow(rs.x3rat, rs.nx3);
-    Real rnx = std::pow(rs.x3rat, x * rs.nx3);
-    lw = (rnx - ratn) / (1.0 - ratn);
-    rw = 1.0 - lw;
-  }
-  return rs.x3min * lw + rs.x3max * rw;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX1(Real x, RegionSize rs)
-// \brief x1 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX1(Real x, RegionSize rs) {
-  // linear interp, equally weighted from left (x(xmin)=-0.5) and right (x(xmax)=0.5)
-  return static_cast<Real>(0.5) * (rs.x1min + rs.x1max) + (x * rs.x1max - x * rs.x1min);
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX2(Real x, RegionSize rs)
-// \brief x2 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x2min + rs.x2max) + (x * rs.x2max - x * rs.x2min);
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn Real UniformMeshGeneratorX3(Real x, RegionSize rs)
-// \brief x3 mesh generator function, x is the logical location; real cells in [-0.5, 0.5]
-
-inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
-  return static_cast<Real>(0.5) * (rs.x3min + rs.x3max) + (x * rs.x3max - x * rs.x3min);
-}
 
 } // namespace parthenon
 

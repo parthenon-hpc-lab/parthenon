@@ -39,7 +39,9 @@ Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
-    std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
+    std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
+    std::cout << std::endl;
+    std::cout << "Setup complete, executing driver...\n" << std::endl;
   }
 
   timer_main.reset();
@@ -63,6 +65,19 @@ DriverStatus EvolutionDriver::Execute() {
   PreExecute();
   InitializeBlockTimeStepsAndBoundaries();
   SetGlobalTimeStep();
+
+  // Before loop do work
+  // App input version
+  Kokkos::Profiling::pushRegion("Driver_UserWorkBeforeLoop");
+  if (app_input->UserWorkBeforeLoop != nullptr) {
+    app_input->UserWorkBeforeLoop(pmesh, pinput, tm);
+  }
+  // packages version
+  for (auto &[name, pkg] : pmesh->packages.AllPackages()) {
+    pkg->UserWorkBeforeLoop(pmesh, pinput, tm);
+  }
+  Kokkos::Profiling::popRegion(); // Driver_UserWorkBeforeLoop
+
   OutputSignal signal = OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;

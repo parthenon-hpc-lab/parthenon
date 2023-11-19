@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "defs.hpp"
+#include "interface/make_pack_descriptor.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pack.hpp"

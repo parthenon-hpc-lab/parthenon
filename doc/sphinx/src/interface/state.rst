@@ -66,6 +66,22 @@ several useful features and functions.
 - ``T *MutableParam(const std::string &key)`` returns a pointer to a
   parameter that has been marked mutable when it was added. Note this
   pointer is *not* marked ``const``.
+- ``MetadataFlag GetMetadataFlag()`` returns a ``MetadataFlag`` that is
+  automatically added to all fields, sparse pools, and swarms that are
+  added to the ``StateDescriptor``.
+- ``std::vector<std::string> GetVariableNames(...)`` provides a means of
+  getting a list of variables that satisfy specified requirements and that
+  are associated with the ``StateDescriptor``.  Optional arguments, in order,
+  include a vector of variable names, a ``Metadata::FlagCollection`` to select,
+  variables by flags, and a vector of sparse ids to allow selecting subsets of
+  sparse fields.  Selection of sparse fields by name requires providing the
+  base name of the sparse field.  Names of a sparse field tied to a specific
+  sparse index are not supported (and will throw).  The returned list is
+  appropriate for use in adding ``MeshData`` and/or ``MeshBlockData`` objects
+  with specified fields to the ``DataCollection`` objects in ``Mesh`` and
+  ``MeshBlock``.  For convenience, the ``Mesh`` class also provides this
+  function, which provides a list of variables gathered from all the package
+  ``StateDescriptor``\s.
 - ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
   ``std::function`` member ``FillDerivedBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
@@ -96,6 +112,13 @@ several useful features and functions.
   deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
+- ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
+  &tm)`` performs a per-package, mesh-wide calculation after the mesh
+  has been generated, and problem generators called, but before any
+  time evolution. This work is done both on first initialization and
+  on restart. If you would like to avoid doing the work upon restart,
+  you can check for the const ``is_restart`` member field of the ``Mesh``
+  object.
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and
@@ -292,6 +315,18 @@ subset of variables provided in the vector of names. This feature allows
 downstream applications to allocate storage in a more targeted fashion,
 as might be desirable to hold source terms for particular equations, for
 example.
+
+Analogously, ``DataCollection`` provides ``AddShallow`` functions that
+differ from ``Add`` only in that ***all*** included variables, even
+non-``Metadata::OncCopy`` variables, are simply shallow copies.  For
+these functions, no new storage for variables is ever allocated.
+
+Finally, all of the functionality just described for ``MeshBlockData``
+objects is also provided for ``MeshData`` objects.  Adding a new
+``MeshData`` object to the ``Mesh``-level ``DataCollection`` automatically
+adds the corresponding ``MeshBlockData`` objects to each of the
+``MeshBlock``-level ``DataCollection``s.  Using this ``Mesh`` level
+functionality can be more convenient.
 
 Two simple examples of usage of these new containers are 1) to provide
 storage for multistage integration schemes and 2) to provide a mechanism

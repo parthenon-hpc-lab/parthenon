@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,6 +31,7 @@
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/unique_id.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -180,6 +181,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
 } // namespace pack_on_mesh_impl
 
+enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+struct GridIdentifier {
+  GridType type = GridType::none;
+  int logical_level = 0;
+};
+
 /// The MeshData class is a container for cached MeshBlockPacks, i.e., it
 /// contains both the pointers to the MeshBlockData of the MeshBlocks contained
 /// in the object as well as maps to the cached MeshBlockPacks of VariablePacks or
@@ -189,6 +196,9 @@ template <typename T>
 class MeshData {
  public:
   MeshData() = default;
+  explicit MeshData(const std::string &name) : stage_name_(name) {}
+
+  GridIdentifier grid;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -208,14 +218,25 @@ class MeshData {
 
   auto &GetBvarsCache() { return bvars_cache_; }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsI(domain);
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsJ(domain);
+
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsK(domain);
+
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
 
   template <class... Args>
@@ -225,27 +246,17 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, const std::string &name) {
-    stage_name_ = name;
+  void Set(BlockList_t blocks, Mesh *pmesh) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
-    SetMeshPointer(blocks[0]->pmy_mesh);
+    SetMeshPointer(pmesh);
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = blocks[i]->meshblock_data.Get(name);
+      block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
     }
   }
 
-  template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
-    if (src.get() == nullptr) {
-      PARTHENON_THROW("src points at null");
-    }
-    const int nblocks = src->NumBlocks();
-    block_data_.resize(nblocks);
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
-    }
-  }
+  void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
+                  const bool shallow);
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
@@ -268,6 +279,14 @@ class MeshData {
       all_initialized = all_initialized && sp_block->AllVariablesInitialized();
     });
     return all_initialized;
+  }
+
+  std::vector<bool> AllocationStatus(const std::string &label) {
+    std::vector<bool> status(NumBlocks());
+    std::transform(
+        block_data_.begin(), block_data_.end(), status.begin(),
+        [&](std::shared_ptr<MeshBlockData<T>> mbd) { return mbd->IsAllocated(label); });
+    return status;
   }
 
  private:
@@ -434,6 +453,12 @@ class MeshData {
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };
+
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
+                         std::forward<Args>(args)...);
+}
 
 } // namespace parthenon
 

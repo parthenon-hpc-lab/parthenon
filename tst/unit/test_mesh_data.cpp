@@ -77,8 +77,8 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
     pkg->AddField("v6", m_face);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data;
-    mesh_data.Set(block_list, "base");
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list, nullptr);
 
     THEN("The number of blocks is correct") { REQUIRE(mesh_data.NumBlocks() == NBLOCKS); }
 
