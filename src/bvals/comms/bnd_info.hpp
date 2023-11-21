@@ -57,16 +57,16 @@ struct BndInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
@@ -89,23 +89,21 @@ struct ProResInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static ProResInfo GetNull(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetNull(MeshBlock *pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v) {
     return ProResInfo();
   }
-  static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
-                                          const NeighborBlock &nb,
+  static ProResInfo GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
-                                        const NeighborBlock &nb,
+  static ProResInfo GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1D<BndInfo>;
