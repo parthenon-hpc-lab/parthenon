@@ -414,6 +414,7 @@ void OutputType::ClearOutputData() {
 void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
                           const SignalHandler::OutputSignal signal) {
   Kokkos::Profiling::pushRegion("MakeOutputs");
+  MPI_Barrier(MPI_COMM_WORLD);
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
@@ -429,6 +430,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
     ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
   }
+  MPI_Barrier(MPI_COMM_WORLD);
   Kokkos::Profiling::popRegion(); // MakeOutputs
 }
 
