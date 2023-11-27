@@ -77,8 +77,7 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
   }
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
-                                     std::shared_ptr<MeshBlock> pmb,
+SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
   const auto &ni = nb.ni;
@@ -202,7 +201,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb,
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
@@ -221,7 +220,7 @@ int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
          v->GetDim(4) * topo_comp;
 }
 
-BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
@@ -254,7 +253,7 @@ BndInfo BndInfo::GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBl
   return out;
 }
 
-BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
@@ -262,7 +261,6 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
-    PARTHENON_DEBUG_REQUIRE(v->IsAllocated(), "Variable must be allocated to receive");
   } else if (buf_state == BufferState::received_null) {
     out.buf_allocated = false;
   } else {
@@ -294,8 +292,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   return out;
 }
 
-ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
-                                           const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -326,8 +323,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
   return out;
 }
 
-ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
-                                             const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -357,7 +353,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
   return out;
 }
 
-ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
 
@@ -388,7 +384,7 @@ ProResInfo ProResInfo::GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   return out;
 }
 
-ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
   out.allocated = v->IsAllocated();
@@ -447,7 +443,7 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   return out;
 }
 
-BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
@@ -504,7 +500,7 @@ BndInfo BndInfo::GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const Neighbor
   return out;
 }
 
-BndInfo BndInfo::GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;

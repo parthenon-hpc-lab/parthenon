@@ -46,7 +46,7 @@ class PoissonEquation {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md);
       auto send_flxcor = tl.AddTask(flux_res, parthenon::LoadAndSendFluxCorrections, md);
-      auto recv_flxcor = tl.AddTask(send_flxcor, parthenon::ReceiveFluxCorrections, md);
+      auto recv_flxcor = tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, md);
       flux_res = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, md);
     }
     return tl.AddTask(flux_res, FluxMultiplyMatrix<x_t, out_t>, md);

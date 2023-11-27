@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -87,7 +87,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   if (lend < lstart) return;
   auto nb = IndexRange{lstart, lend};
 
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  MeshBlock *pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
   const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)

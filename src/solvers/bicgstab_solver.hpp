@@ -100,7 +100,6 @@ class BiCGSTABSolver {
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    // TODO(LFR): Fix this to calculate the actual residual
     auto zero_x = tl.AddTask(dependence, SetToZero<x>, md);
     auto zero_u_init = tl.AddTask(dependence, SetToZero<u>, md);
     auto copy_r = tl.AddTask(dependence, CopyData<rhs, r>, md);

@@ -35,7 +35,7 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
                                                  bool coarse) {
   Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
   using namespace boundary_cond_impl;
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  MeshBlock *pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
 
