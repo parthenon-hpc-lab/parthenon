@@ -11,28 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "bvals/boundary_conditions_generic.hpp"
 #include "parthenon_manager.hpp"
 
 #include "poisson_driver.hpp"
-
-using namespace parthenon;
-using namespace parthenon::BoundaryFunction;
-// We need to register FixedFace boundary conditions by hand since they can't
-// be chosen in the parameter input file. FixedFace boundary conditions assume
-// Dirichlet booundary conditions on the face of the domain and linearly extrapolate
-// into the ghosts to ensure the linear reconstruction on the block face obeys the
-// chosen boundary condition. Just setting the ghost zones of CC variables to a fixed
-// value results in poor MG convergence because the effective BC at the face
-// changes with MG level.
-template <CoordinateDirection DIR, BCSide SIDE>
-auto GetBoundaryCondition() {
-  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
-    using namespace parthenon;
-    using namespace parthenon::BoundaryFunction;
-    GenericBC<DIR, SIDE, BCType::FixedFace, variable_names::any>(rc, coarse, 0.0);
-  };
-}
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -56,19 +37,6 @@ int main(int argc, char *argv[]) {
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
 
-  // Set boundary conditions
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-      GetBoundaryCondition<X1DIR, BCSide::Inner>();
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x2] =
-      GetBoundaryCondition<X2DIR, BCSide::Inner>();
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x3] =
-      GetBoundaryCondition<X3DIR, BCSide::Inner>();
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-      GetBoundaryCondition<X1DIR, BCSide::Outer>();
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x2] =
-      GetBoundaryCondition<X2DIR, BCSide::Outer>();
-  pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x3] =
-      GetBoundaryCondition<X3DIR, BCSide::Outer>();
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
@@ -86,7 +54,6 @@ int main(int argc, char *argv[]) {
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
-  if (Globals::my_rank == 0) printf("success: %i\n", success);
 
   // MPI and Kokkos can no longer be used
   return static_cast<int>(!success);

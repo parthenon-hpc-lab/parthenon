@@ -32,26 +32,14 @@ class PoissonDriver : public Driver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionProRes(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMG(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMGCG(BlockList_t &blocks);
-  TaskCollection MakeTaskCollectionMGBiCGSTAB(BlockList_t &blocks);
 
   DriverStatus Execute() override;
-
-  TaskID AddMultiGridTasksLevel(TaskRegion &region, TaskList &tl, TaskID dependency,
-                                int partition, int &reg_dep_id, int level, int min_level,
-                                int max_level);
-  void AddRestrictionProlongationLevel(TaskRegion &region, int level, int min_level,
-                                       int max_level);
 
   Real final_rms_error, final_rms_residual;
 
  private:
-  // Necessary reductions for BiCGStab dot products and residual calculations
-  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
-  Real rtr_old, rhat0r_old;
-  AllReduce<Real> update_norm;
+  // Necessary reductions for checking error from exact solution
+  AllReduce<Real> err;
 };
 
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);
