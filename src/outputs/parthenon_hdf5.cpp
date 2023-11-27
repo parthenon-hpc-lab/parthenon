@@ -395,12 +395,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
 
   // allocate space for largest size variable
+  // TODO(BSP) could be simpler if we were to waste a little space
   int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int te_length = (vinfo.where == MetadataFlag(Metadata::Face) ||
-                           vinfo.where == MetadataFlag(Metadata::Edge)) ? 3 : 1;
-    const int varSize = te_length *
-        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+    const bool three_loc = vinfo.where == MetadataFlag(Metadata::Face) ||
+                           vinfo.where == MetadataFlag(Metadata::Edge);
+    const int extra_node = three_loc || vinfo.where == MetadataFlag(Metadata::Node);
+    const int varSize = (three_loc ? 3 : 1) *
+        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 *
+        (vinfo.nx3 + extra_node) *
+        (vinfo.nx2 + extra_node) *
+        (vinfo.nx1 + extra_node);
     varSize_max = std::max(varSize_max, varSize);
   }
 
