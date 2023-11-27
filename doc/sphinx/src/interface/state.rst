@@ -81,7 +81,7 @@ several useful features and functions.
   with specified fields to the ``DataCollection`` objects in ``Mesh`` and
   ``MeshBlock``.  For convenience, the ``Mesh`` class also provides this
   function, which provides a list of variables gathered from all the package
-  ``StateDescriptor``s.
+  ``StateDescriptor``\s.
 - ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
   ``std::function`` member ``FillDerivedBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
@@ -112,6 +112,13 @@ several useful features and functions.
   deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
+- ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
+  &tm)`` performs a per-package, mesh-wide calculation after the mesh
+  has been generated, and problem generators called, but before any
+  time evolution. This work is done both on first initialization and
+  on restart. If you would like to avoid doing the work upon restart,
+  you can check for the const ``is_restart`` member field of the ``Mesh``
+  object.
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and

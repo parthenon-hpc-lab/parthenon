@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,7 @@ namespace advection_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 void PreFill(MeshBlockData<Real> *rc);
 void SquareIt(MeshBlockData<Real> *rc);

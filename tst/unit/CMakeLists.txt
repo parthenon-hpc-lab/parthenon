@@ -39,6 +39,7 @@ list(APPEND unit_tests_SOURCES
     test_partitioning.cpp
     test_state_descriptor.cpp
     test_unit_integrators.cpp
+    test_upper_bound.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
