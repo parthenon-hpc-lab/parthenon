@@ -300,6 +300,63 @@ TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partit
   return finish_global_adotb;
 }
 
+template <class a_t>
+TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
+                           AllReduce<Real> *amin) {
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  static auto desc = parthenon::MakePackDescriptor<a_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  Real gmin(0);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lmin) {
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+        //            pull the loop over vars outside of the innermost loop to promote
+        //            vectorization.
+        for (int c = 0; c < nvars; ++c)
+          lmin = std::min(lmin, pack(b, te, a_t(c), k, j, i));
+      },
+      Kokkos::Min<Real>(gmin));
+  amin->val = std::min(gmin, amin->val);
+  return TaskStatus::complete;
+}
+
+template <class a_t, class TL_t>
+TaskID GlobalMin(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partition,
+                  int &reg_dep_id, AllReduce<Real> *amin,
+                  const std::shared_ptr<MeshData<Real>> &md) {
+  using namespace impl;
+  auto zero_amin = (partition == 0 ? tl.AddTask(
+                                          dependency_in,
+                                          [](AllReduce<Real> *r) {
+                                            r->val = std::numeric_limits<Real>::max();
+                                            return TaskStatus::complete;
+                                          },
+                                          amin)
+                                    : dependency_in);
+  region.AddRegionalDependencies(reg_dep_id, partition, zero_amin);
+  reg_dep_id++;
+  auto get_amin = tl.AddTask(zero_amin, GlobalMinLocal<a_t>, md, amin);
+  region.AddRegionalDependencies(reg_dep_id, partition, get_amin);
+  reg_dep_id++;
+  auto start_global_amin =
+      (partition == 0
+           ? tl.AddTask(get_amin, &AllReduce<Real>::StartReduce, amin, MPI_MIN)
+           : get_amin);
+  auto finish_global_amin =
+      tl.AddTask(start_global_amin, &AllReduce<Real>::CheckReduce, amin);
+  region.AddRegionalDependencies(reg_dep_id, partition, finish_global_amin);
+  reg_dep_id++;
+  return finish_global_amin;
+}
+
 } // namespace utils
 
 } // namespace solvers
