@@ -292,7 +292,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
 
     const int te_length = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
-                           v_info->metadata().Where() == MetadataFlag(Metadata::Edge)) ? 3 : 1;
+                           v_info->metadata().Where() == MetadataFlag(Metadata::Edge)) ? rm.ndim : 1;
     const int te_offset = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
                          v_info->metadata().Where() == MetadataFlag(Metadata::Edge) ||
                          v_info->metadata().Where() == MetadataFlag(Metadata::Node)) ? 1 : 0;
@@ -318,7 +318,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver,
+      resfile.ReadBlocks(label, myBlocks, tmp, bsize, rm.ndim, file_output_format_ver,
                          v_info->metadata().Where(), v_info->metadata().Shape());
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
@@ -335,11 +335,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->AllocateSparse(label);
         } else {
           // nothing to read for this block, advance reading index
+          const int te_length = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
+                                v_info->metadata().Where() == MetadataFlag(Metadata::Edge)) ? rm.ndim : 1;
           const int te_offset = (v_info->metadata().Where() == MetadataFlag(Metadata::Face) ||
                               v_info->metadata().Where() == MetadataFlag(Metadata::Edge) ||
                               v_info->metadata().Where() == MetadataFlag(Metadata::Node)) ? 1 : 0;
           const int nPoints = (bsize[0] + te_offset) * (bsize[1] + te_offset) * (bsize[2] + te_offset);
-          index += nPoints * vlen;
+          index += nPoints * vlen * te_length;
           continue;
         }
       }
@@ -364,13 +366,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           MetadataFlag where = v_info->metadata().Where();
           // Face/Edge fields add an index in front of t,u,v so we handle them out here
           if (where == MetadataFlag(Metadata::Face) || where == MetadataFlag(Metadata::Edge)) {
-            for (int e = 0; e < 3; e++) {
+            for (int e = 0; e < rm.ndim; e++) {
               for (int t = 0; t < nx6; ++t) {
                 for (int u = 0; u < nx5; ++u) {
                   for (int v = 0; v < nx4; ++v) {
-                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                    for (int k = out_kb.s; k <= out_kb.e + (!rm.mesh_size.symmetry(X3DIR)); ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + (!rm.mesh_size.symmetry(X2DIR)); ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + (!rm.mesh_size.symmetry(X1DIR)); ++i) {
                           v_h(e, t, u, v, k, j, i) = tmp[index++];
                         }
                       }
@@ -392,9 +394,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                       }
                     }
                   } else if (where == MetadataFlag(Metadata::Node)) {
-                    for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-                      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-                        for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
+                    for (int k = out_kb.s; k <= out_kb.e + (!rm.mesh_size.symmetry(X3DIR)); ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + (!rm.mesh_size.symmetry(X2DIR)); ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + (!rm.mesh_size.symmetry(X1DIR)); ++i) {
                           v_h(t, u, v, k, j, i) = tmp[index++];
                         }
                       }

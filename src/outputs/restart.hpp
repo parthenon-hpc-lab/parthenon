@@ -145,17 +145,17 @@ class RestartReader {
   // fills internal data for given pointer
   template <typename T>
   void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
-                  const std::vector<size_t> &bsize, int file_output_format_version,
+                  const std::vector<size_t> &bsize, int mesh_ndim, int file_output_format_version,
                   MetadataFlag where, const std::vector<int> &shape = {}) const {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
     auto hdl = OpenDataset<T>(name);
 
-    constexpr int CHUNK_MAX_DIM = 7;
+    constexpr int CHUNK_MAX_DIM = 8; // Is this not H5_NDIM?
 
     /** Select hyperslab in dataset **/
-    hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0};
+    hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0, 0};
     hsize_t count[CHUNK_MAX_DIM];
     int total_dim = 0;
     if (file_output_format_version == -1) {
@@ -195,21 +195,21 @@ class RestartReader {
         count[ndim + 3] = bsize[0];
         total_dim = 3 + ndim + 1;
       } else if (where == MetadataFlag(Metadata::Face) || where == MetadataFlag(Metadata::Edge)) {
-        count[1] = 3;
+        count[1] = mesh_ndim;
         for (int i = 0; i < ndim; i++) {
           count[2 + i] = shape[ndim - i - 1];
         }
-        count[1 + ndim + 1] = bsize[2] + 1;
-        count[1 + ndim + 2] = bsize[1] + 1;
-        count[1 + ndim + 3] = bsize[0] + 1;
+        count[1 + ndim + 1] = bsize[2] + (mesh_ndim >= 3);
+        count[1 + ndim + 2] = bsize[1] + (mesh_ndim >= 2);
+        count[1 + ndim + 3] = bsize[0] + (mesh_ndim >= 1);
         total_dim = 3 + ndim + 1 + 1;
       } else if (where == MetadataFlag(Metadata::Node)) {
         for (int i = 0; i < ndim; i++) {
           count[1 + i] = shape[ndim - i - 1];
         }
-        count[ndim + 1] = bsize[2] + 1;
-        count[ndim + 2] = bsize[1] + 1;
-        count[ndim + 3] = bsize[0] + 1;
+        count[ndim + 1] = bsize[2] + (mesh_ndim >= 3);
+        count[ndim + 2] = bsize[1] + (mesh_ndim >= 2);
+        count[ndim + 3] = bsize[0] + (mesh_ndim >= 1);
         total_dim = 3 + ndim + 1;
       } else if (where == MetadataFlag(Metadata::None)) {
         for (int i = 0; i < ndim; i++) {
