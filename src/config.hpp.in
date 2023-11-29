@@ -48,6 +48,15 @@
 // define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
 #cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION
 
+// define PARTHENON_ENABLE_HDF5_VFD or not at all
+// TODO(reviewers) is this appraoch that we want to adopt more generally?
+#cmakedefine01 PARTHENON_ENABLE_HDF5_VFD
+namespace parthenon {
+    struct BuildOptions {
+        constexpr static bool hdf5_vfd = static_cast<bool>(PARTHENON_ENABLE_HDF5_VFD);
+    };
+}
+
 // define ENABLE_SPARSE or not at all
 #cmakedefine ENABLE_SPARSE
 

@@ -36,6 +36,7 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_ENABLE_HDF5_VFD "Use HDF5 Virtual File Driver (required for subfiling) and must be supported by the HDF5 lib. Disabled by default" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -172,6 +173,10 @@ if (NOT PARTHENON_DISABLE_HDF5)
       "-DPARTHENON_DISABLE_HDF5_COMPRESSION=ON or -DPARTHENON_DISABLE_MPI=ON.\nNOTE: Using HDF5 "
       "without compression can result in much larger HDF5 output and restart files as well as "
       "degraded I/O performance.")
+    endif()
+
+    if (PARTHENON_ENABLE_HDF5_VFD AND (HDF5_VERSION VERSION_LESS "1.14.0"))
+      message(FATAL_ERROR "HDF5 VFD only supported with release later than 1.14.0")
     endif()
   endif()
 

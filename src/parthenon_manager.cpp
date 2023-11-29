@@ -52,10 +52,27 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
-  if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI Initialization failed." << std::endl;
-    return ParthenonStatus::error;
+  if constexpr (BuildOptions::hdf5_vfd) {
+    int mpi_thread_required = MPI_THREAD_MULTIPLE;
+    int mpi_thread_provided = 0;
+
+    if (MPI_SUCCESS !=
+        MPI_Init_thread(&argc, &argv, mpi_thread_required, &mpi_thread_provided)) {
+      std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+                << "MPI Initialization failed." << std::endl;
+      return ParthenonStatus::error;
+    }
+    if (mpi_thread_provided < mpi_thread_required) {
+      std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+                << "Provided MPI thread level not enough." << std::endl;
+      return ParthenonStatus::error;
+    }
+  } else {
+    if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
+      std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+                << "MPI Initialization failed." << std::endl;
+      return ParthenonStatus::error;
+    }
   }
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
