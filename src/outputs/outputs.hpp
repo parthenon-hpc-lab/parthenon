@@ -250,9 +250,14 @@ struct Histogram {
   int weight_var_component_;
   ParArray2D<Real> result_; // resulting histogram
 
-  // temp view for histogram reduction for better performance (switches
-  // between atomics and data duplication depending on the platform)
-  Kokkos::Experimental::ScatterView<Real **, LayoutWrapper> scatter_result;
+  // temp view for histogram reduction for better performance.
+  // In theory, switches between atomics and data duplication depending on the platform.
+  // In practice, the defaults turned out to be extremely slow on MI250X so we now use the
+  // hardcoded non-atomic version (for now).
+  Kokkos::Experimental::ScatterView<
+      Real **, LayoutWrapper, parthenon::DevExecSpace, Kokkos::Experimental::ScatterSum,
+      Kokkos::Experimental::ScatterDuplicated, Kokkos::Experimental::ScatterNonAtomic>
+      scatter_result;
   Histogram(ParameterInput *pin, const std::string &block_name, const std::string &name);
   void CalcHist(Mesh *pm);
 };

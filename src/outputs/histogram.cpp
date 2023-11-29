@@ -207,8 +207,10 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
   const auto nybins = ndim_ == 2 ? y_edges_.extent_int(0) - 1 : 1;
 
   result_ = ParArray2D<Real>(prefix + "result", nybins, nxbins);
-  scatter_result =
-      Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result_.KokkosView());
+  scatter_result = Kokkos::Experimental::ScatterView<
+      Real **, LayoutWrapper, parthenon::DevExecSpace, Kokkos::Experimental::ScatterSum,
+      Kokkos::Experimental::ScatterDuplicated, Kokkos::Experimental::ScatterNonAtomic>(
+      result.KokkosView());
 
   accumulate_ = pin->GetOrAddBoolean(block_name, prefix + "accumulate", false);
   weight_by_vol_ = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
