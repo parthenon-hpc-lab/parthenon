@@ -445,9 +445,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       // if (output_params.hdf5_compression_level > 0) {
-        for (int i = ndim - 3; i < ndim; i++) {
-          chunk_size[i] = local_count[i];
-        }
+      for (int i = ndim - 3; i < ndim; i++) {
+        chunk_size[i] = local_count[i];
+      }
       // }
 #endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
@@ -458,10 +458,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       // if (output_params.hdf5_compression_level > 0) {
-        int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
-        for (int i = ndim - nchunk_indices; i < ndim; i++) {
-          chunk_size[i] = alldims[6 - nchunk_indices + i];
-        }
+      int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
+      for (int i = ndim - nchunk_indices; i < ndim; i++) {
+        chunk_size[i] = alldims[6 - nchunk_indices + i];
+      }
       // }
 #endif
     } else {
@@ -878,6 +878,11 @@ hid_t GenerateFileAccessProps() {
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */
   hid_t acc_file = H5Pcreate(H5P_FILE_ACCESS);
+
+  // TODO(hdf5 support) Is this harmful to just always call/set?
+  if constexpr (BuildOptions::hdf5_vfd) {
+    PARTHENON_HDF5_CHECK(H5Pset_mpi_params(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL));
+  }
 
   /* ---------------------------------------------------------------------
      platform dependent code goes here -- the access template must be
