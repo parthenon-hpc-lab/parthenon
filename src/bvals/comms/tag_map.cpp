@@ -60,7 +60,10 @@ void TagMap::ResolveMap() {
   #ifdef MPI_PARALLEL
   int flag;
   void *max_tag; // largest supported MPI tag value
-  MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+  PARTHENON_MPI_CHECK (MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag));
+  if (!flag) {
+    PARTHENON_FAIL("MPI error, cannot query largest supported MPI tag value.");
+  }
   #endif
   for (auto it = map_.begin(); it != map_.end(); ++it) {
     auto &pair_map = it->second;
