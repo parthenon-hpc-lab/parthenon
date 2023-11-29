@@ -32,6 +32,8 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <adios2.h>
+
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
@@ -411,6 +413,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   local_count[6] = global_count[6] = nx1;
 
   // for each variable we write
+  adios2::fstream oStream("cfd.bp", adios2::fstream::out, MPI_COMM_WORLD);
   for (auto &vinfo : all_vars_info) {
     Kokkos::Profiling::pushRegion("write variable loop");
     // not really necessary, but doesn't hurt
@@ -445,9 +448,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       // if (output_params.hdf5_compression_level > 0) {
-        for (int i = ndim - 3; i < ndim; i++) {
-          chunk_size[i] = local_count[i];
-        }
+      for (int i = ndim - 3; i < ndim; i++) {
+        chunk_size[i] = local_count[i];
+      }
       // }
 #endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
@@ -458,10 +461,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       // if (output_params.hdf5_compression_level > 0) {
-        int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
-        for (int i = ndim - nchunk_indices; i < ndim; i++) {
-          chunk_size[i] = alldims[6 - nchunk_indices + i];
-        }
+      int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
+      for (int i = ndim - nchunk_indices; i < ndim; i++) {
+        chunk_size[i] = alldims[6 - nchunk_indices + i];
+      }
       // }
 #endif
     } else {
@@ -553,11 +556,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     Kokkos::Profiling::pushRegion("write variable data");
     // write data to file
-    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer, pl_dcreate);
+    // HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt,
+    // p_glob_cnt, pl_xfer, pl_dcreate);
+    adios2::Dims shape(ndim), start(ndim), count(ndim);
+    for (int i = 0; i < ndim; i++) {
+      shape[i] = global_count[i];
+      count[i] = local_count[i];
+      start[i] = local_offset[i];
+    }
+
+    oStream.write(var_name, tmpData.data(), shape, start, count);
     Kokkos::Profiling::popRegion(); // write variable data
     Kokkos::Profiling::popRegion(); // write variable loop
   }
+  oStream.close();
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // names of variables
