@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -142,6 +142,7 @@ TaskStatus SetMatrixElements(T *u) {
 }
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
+auto &GetCoords(MeshBlock *pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
 
 template <typename T>

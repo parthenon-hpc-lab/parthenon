@@ -425,6 +425,12 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     // sort
     field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
+
+    // Add package registered boundary conditions
+    for (int i = 0; i < 6; ++i)
+      state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
+                                             package->UserBoundaryFunctions[i].begin(),
+                                             package->UserBoundaryFunctions[i].end());
   }
 
   // check that dependent variables are provided somewhere

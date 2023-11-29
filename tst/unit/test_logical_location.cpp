@@ -132,7 +132,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
     hash_leaves.insert(std::begin(leaves), std::end(leaves));
 
     // Create a set of the leaves
-    std::set<LogicalLocation> set_leaves;
+    std::unordered_set<LogicalLocation> set_leaves;
     for (const auto &[k, v] : leaves)
       set_leaves.insert(k);
 
@@ -185,7 +185,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, 0, 0);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be five total neighboring blocks of this face since one neighbor is
       // refined
       by_hand_elements.insert(LogicalLocation(2, 2, 3, 3));
@@ -207,7 +207,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, 0);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be five total neighboring blocks of this edge since one neighbor is
       // refined
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
@@ -229,7 +229,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, -1);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be eight total neighboring blocks for this node
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 2));
