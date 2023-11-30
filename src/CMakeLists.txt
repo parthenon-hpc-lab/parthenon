@@ -172,6 +172,7 @@ add_library(parthenon
   mesh/meshblock.cpp
 
   outputs/ascent.cpp
+  outputs/histogram.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
