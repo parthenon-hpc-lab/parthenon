@@ -1,4 +1,4 @@
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -176,7 +176,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     }
     std::printf("\n");
     Real mem_avg = static_cast<Real>(mem_tot) / static_cast<Real>(blocks_tot);
-    std::printf("\tMem used/block in bytes [min, max, avg] = [%ld, %ld, %.14e]\n",
+    std::printf("\tMem used/block in bytes [min, max, avg] = [%lu, %lu, %.14e]\n",
                 mem_min, mem_max, mem_avg);
   }
 }

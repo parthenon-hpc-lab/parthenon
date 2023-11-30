@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,12 +13,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <coordinates/coordinates.hpp>
+#include <globals.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
@@ -215,8 +217,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
+  pkg->UserWorkBeforeLoopMesh = AdvectionGreetings;
 
   return pkg;
+}
+
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
+  if (parthenon::Globals::my_rank == 0) {
+    std::cout << "Hello from the advection package in the advection example!\n"
+              << "This run is a restart: " << pmesh->is_restart << "\n"
+              << std::endl;
+  }
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
