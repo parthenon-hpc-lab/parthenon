@@ -70,7 +70,7 @@ std::string StringPrintf(const std::string &fmt, Args... args) {
 //  \brief static data and functions that implement a simple signal handling system
 namespace SignalHandler {
 
-enum class OutputSignal { none, now, final };
+enum class OutputSignal { none, now, final, analysis };
 constexpr int nsignal = 3;
 // using the +1 for signaling based on "output_now" trigger
 static volatile int signalflag[nsignal + 1];

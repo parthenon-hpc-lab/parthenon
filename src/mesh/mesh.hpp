@@ -101,6 +101,7 @@ class Mesh {
   const bool adaptive, multilevel;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;
+  bool analysis_flag; // flag if this mesh is constructed for postprocessing
 
   int step_since_lb;
   int gflag;
