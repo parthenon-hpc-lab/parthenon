@@ -213,10 +213,11 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
-  tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
+  tasks/tasks.hpp
+  #tasks/task_id.cpp
+  #tasks/task_id.hpp
+  #tasks/task_list.hpp
+  #tasks/task_types.hpp
 
   time_integration/butcher_integrator.cpp
   time_integration/low_storage_integrator.cpp

@@ -34,8 +34,8 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "tasks/task_id.hpp"
-#include "tasks/task_list.hpp"
+
+#include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -424,11 +424,7 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TL_t &tl,
 }
 template TaskID AddBoundaryExchangeTasks<BoundaryType::any, TaskList>(
     TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
-template TaskID AddBoundaryExchangeTasks<BoundaryType::any, IterativeTasks>(
-    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
 
 template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, TaskList>(
     TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
-template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, IterativeTasks>(
-    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
 } // namespace parthenon

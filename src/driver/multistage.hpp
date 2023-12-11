@@ -22,7 +22,7 @@
 #include "driver/driver.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
-#include "tasks/task_list.hpp"
+#include "tasks/tasks.hpp"
 #include "time_integration/staged_integrator.hpp"
 
 namespace parthenon {
