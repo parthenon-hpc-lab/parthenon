@@ -16,6 +16,8 @@
 
 #include <catch2/catch.hpp>
 
+#include <Kokkos_Core.hpp>
+
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "interface/data_collection.hpp"
@@ -105,6 +107,8 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
                     IndexSplit::no_outer);
       THEN("The outer range should be appropriate") { REQUIRE(sp.outer_size() == N); }
       THEN("The inner ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> nwrong("nwrong", 1);
         parthenon::par_for_outer(
             DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
             sp.outer_size() - 1,
@@ -113,13 +117,16 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
               // JMM: Note that these are little cleaner without ghosts
-              REQUIRE(krange.s == outer_idx);
-              REQUIRE(krange.e == outer_idx);
-              REQUIRE(jrange.s == 0);
-              REQUIRE(jrange.e == N - 1);
-              REQUIRE(irange.s == 0);
-              REQUIRE(irange.e == (N * N - 1));
+              if (!(krange.s == outer_idx)) nwrong(0) += 1;
+              if (!(krange.e == outer_idx)) nwrong(0) += 1;
+              if (!(jrange.s == 0)) nwrong(0) += 1;
+              if (!(jrange.e == N - 1)) nwrong(0) += 1;
+              if (!(irange.s == 0)) nwrong(0) += 1;
+              if (!(irange.e == (N * N - 1))) nwrong(0) += 1;
             });
+        auto nwrong_h = Kokkos::create_mirror_view(nwrong);
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h(0) == 0);
       }
     }
     WHEN("We initialize an IndexSplit with outer k and outer j") {
@@ -129,6 +136,8 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         REQUIRE(sp.outer_size() == (N * N));
       }
       THEN("The inner index ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> nwrong("nwrong", 1);
         parthenon::par_for_outer(
             DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
             sp.outer_size() - 1,
@@ -136,9 +145,12 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
-              REQUIRE(irange.s == 0);
-              REQUIRE(irange.e == N - 1);
+              if (!(irange.s == 0)) nwrong(0) += 1;
+              if (!(irange.e == N - 1)) nwrong(0) += 1;
             });
+        auto nwrong_h = Kokkos::create_mirror_view(nwrong);
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h(0) == 0);
       }
     }
   }
