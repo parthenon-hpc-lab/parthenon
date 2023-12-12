@@ -78,6 +78,8 @@ where `Kokkos_ARCH` should be set appropriately for the machine (see [here](http
 
 Parthenon-VIBE prints to a history file (default name `burgers.hst`) a time series of the sum of squares of evolved variables integrated over volume for each octant of the domain, as well as the total number of meshblocks in the simulation at that time. To compare these quantities between runs, we provide the `burgers_diff.py` program in the benchmark folder. This will diff two history files and report when the relative difference is greater than some tolerance.
 
+Note that `burgers.hst` is **appended** to when the executable is re-run. So if you want to compare two different history files, rename the history file by changing either `problem_id` in the `parthenon/job` block in the input deck (this can be done on the command line. When you start the program, add `parthenon/job/problem_id=mynewname` to the command line argument), or copy the old file to back it up.
+
 ### Memory Usage
 
 The dominant memory usage in Parthenon-VIBE is for storage of the solution, for which two copies are required to support second order time stepping, for storing the update for a integrator stage (essentially the flux divergence), the intercell fluxes of each variable, for intermediate values of each solution variable on each side of every face, and for a derived quantity that we compute from the evolved solution.  From this we can construct a simple model for the memory usage $M$ as 
