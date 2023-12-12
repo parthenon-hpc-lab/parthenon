@@ -143,6 +143,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(pack.ContainsHost(2, v1()));
         REQUIRE(!pack.ContainsHost(2, v3()));
         REQUIRE(pack.ContainsHost(2, v5()));
+        REQUIRE(!pack.ContainsHost(2, v1(), v3(), v5()));
+        REQUIRE(pack.ContainsHost<v1, v5>(2));
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
