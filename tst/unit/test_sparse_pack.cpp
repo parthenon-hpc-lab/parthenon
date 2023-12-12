@@ -140,9 +140,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
            "nonexistence for variables on different blocks.") {
         auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
         auto pack = desc.GetPack(&mesh_data);
-        REQUIRE(pack.ExistsHost(2, v1()));
-        REQUIRE(!pack.ExistsHost(2, v3()));
-        REQUIRE(pack.ExistsHost(2, v5()));
+        REQUIRE(pack.ContainsHost(2, v1()));
+        REQUIRE(!pack.ContainsHost(2, v3()));
+        REQUIRE(pack.ContainsHost(2, v5()));
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
