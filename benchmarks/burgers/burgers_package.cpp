@@ -100,7 +100,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   for (int d = 1; d <= 3; ++d) {
     mesh_mins.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "min"));
     mesh_maxs.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "max"));
-    vol *= (mesh_maxs.back() - mesh_mins.back());
+    mesh_vol *= (mesh_maxs.back() - mesh_mins.back());
     mesh_mids.push_back(0.5 * (mesh_mins.back() + mesh_maxs.back()));
   }
   pkg->AddParam("mesh_volume", mesh_vol);
@@ -170,7 +170,7 @@ void CalculateDerived(MeshData<Real> *md) {
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepMesh(MeshData<Real> *md) {
   Kokkos::Profiling::pushRegion("Task_burgers_EstimateTimestepMesh");
-  auto pm = md->GetParentPointer();
+  Mesh *pm = md->GetMeshPointer();
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
@@ -412,6 +412,7 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
   const auto jb = md->GetBoundsJ(IndexDomain::interior);
   const auto kb = md->GetBoundsK(IndexDomain::interior);
 
+  Mesh *pm = md->GetMeshPointer();
   auto &params = pm->packages.Get("burgers_package")->AllParams();
   const auto &mesh_vol = params.Get<Real>("mesh_volume");
 
