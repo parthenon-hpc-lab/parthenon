@@ -247,6 +247,18 @@ class SparsePack : public SparsePackBase {
     return bounds_h_(1, b, vidx);
   }
 
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION bool Exists(const int b, Args... args) const {
+    static_assert(sizeof...(Args) > 0, "Must pass in a variable to check existence");
+    return GetUpperBound(b, std::forward<Args>(args)...) >= 0;
+  }
+
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION bool ExistsHost(const int b, Args... args) const {
+    static_assert(sizeof...(Args) > 0, "Must pass in a variable to check existence");
+    return GetUpperBoundHost(b, std::forward<Args>(args)...) >= 0;
+  }
+
   // operator() overloads
   using TE = TopologicalElement;
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
