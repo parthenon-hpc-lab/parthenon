@@ -25,16 +25,6 @@ parser.add_argument(
     "-t", "--tolerance", type=float, default=1e-8, help="Relative tolerance for diff"
 )
 
-
-def matprint(mat, fmt="14g"):
-    "Print a numpy arraay prettily"
-    col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col in mat.T]
-    for x in mat:
-        for i, y in enumerate(x):
-            print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
-        print("")
-
-
 def get_rel_diff(d1, d2):
     "Get relative difference between two numpy arrays"
     return 2 * np.abs(d1 - d2) / (d1 + d2 + 1e-20)
