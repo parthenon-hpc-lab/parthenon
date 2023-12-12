@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # ========================================================================================
 # (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 #
@@ -11,7 +12,6 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
-#!/usr/bin/env python
 import numpy as np
 from argparse import ArgumentParser
 
