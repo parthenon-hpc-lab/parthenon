@@ -126,8 +126,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       return MassHistory(md, octant.xmin[0], octant.xmax[0], octant.xmin[1],
                          octant.xmax[1], octant.xmin[2], octant.xmax[2]);
     };
-    hst_vars.emplace_back(HstSum, ReduceMass,
-                          "MS Mass " + std::to_string(i_octant));
+    hst_vars.emplace_back(HstSum, ReduceMass, "MS Mass " + std::to_string(i_octant));
     i_octant++;
   }
   hst_vars.emplace_back(HstSum, MeshCountHistory, "Meshblock count");
