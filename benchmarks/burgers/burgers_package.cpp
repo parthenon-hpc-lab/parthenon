@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -96,11 +96,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Compute the octants
   std::vector<Region> octants;
   std::vector<Real> mesh_mins, mesh_maxs, mesh_mids;
+  Real mesh_vol = 1;
   for (int d = 1; d <= 3; ++d) {
     mesh_mins.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "min"));
     mesh_maxs.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "max"));
+    vol *= (mesh_maxs.back() - mesh_mins.back());
     mesh_mids.push_back(0.5 * (mesh_mins.back() + mesh_maxs.back()));
   }
+  pkg->AddParam("mesh_volume", mesh_vol);
   for (int side1 = 0; side1 < 2; ++side1) {
     Region r;
     r.xmin[0] = side1 ? mesh_mids[0] : mesh_mins[0];
@@ -409,6 +412,9 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
   const auto jb = md->GetBoundsJ(IndexDomain::interior);
   const auto kb = md->GetBoundsK(IndexDomain::interior);
 
+  auto &params = pm->packages.Get("burgers_package")->AllParams();
+  const auto &mesh_vol = params.Get<Real>("mesh_volume");
+
   std::vector<std::string> vars = {"U"};
   const auto pack = md->PackVariables(vars);
 
@@ -420,12 +426,15 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
                     Real &lresult) {
         const auto &coords = pack.GetCoords(b);
         const Real vol = coords.CellVolume(k, j, i);
+        const Real weight = vol / (mesh_vol + 1e-20);
         const Real x1 = coords.Xc<X1DIR>(k, j, i);
         const Real x2 = coords.Xc<X2DIR>(k, j, i);
         const Real x3 = coords.Xc<X3DIR>(k, j, i);
+        // Inclusive bounds are appropriate here because cell-centered
+        // coordinates are passed in, not edges.
         const Real mask = (x1min <= x1) && (x1 <= x1max) && (x2min <= x2) &&
                           (x2 <= x2max) && (x3min <= x3) && (x3 <= x3max);
-        lresult += mask * pack(b, v, k, j, i) * pack(b, v, k, j, i) * vol;
+        lresult += mask * pack(b, v, k, j, i) * pack(b, v, k, j, i) * weight;
       },
       Kokkos::Sum<Real>(result));
   return result;

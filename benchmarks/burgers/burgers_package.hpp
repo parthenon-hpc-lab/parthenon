@@ -43,6 +43,9 @@ void lr_to_flux(const Real uxl, const Real uxr, const Real uyl, const Real uyr,
   fuz = 0.5 * (sr * uzl * upl - sl * uzr * upr + sl * sr * (uzr - uzl)) * islsr;
 }
 
+// JMM: I could have instead used the parthenon::RegionSize
+// class. However, this little Region struct is lighter weight and
+// easier to work with in this context.
 struct Region {
   std::array<Real, 3> xmin, xmax;
 };
