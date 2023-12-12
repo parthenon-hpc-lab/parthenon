@@ -381,8 +381,8 @@ template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
 // Adds all relevant boundary communication to a single task list
-template <BoundaryType bounds>
-TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+template <BoundaryType bounds, class TL_t>
+TaskID AddBoundaryExchangeTasks(TaskID dependency, TL_t &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
   //            possible issues for sparse fields. In particular, the order in which
@@ -422,10 +422,13 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 
   return fbound;
 }
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
-                                            std::shared_ptr<MeshData<Real>> &, bool);
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
-                                                 std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::any, TaskList>(
+    TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::any, IterativeTasks>(
+    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
+
+template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, TaskList>(
+    TaskID, TaskList &, std::shared_ptr<MeshData<Real>> &, bool);
+template TaskID AddBoundaryExchangeTasks<BoundaryType::gmg_same, IterativeTasks>(
+    TaskID, IterativeTasks &, std::shared_ptr<MeshData<Real>> &, bool);
 } // namespace parthenon

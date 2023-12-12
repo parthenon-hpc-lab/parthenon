@@ -209,6 +209,8 @@ add_library(parthenon
   amr_criteria/refinement_package.cpp
   amr_criteria/refinement_package.hpp
 
+  solvers/bicgstab_solver.hpp
+  solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
   tasks/task_id.cpp
