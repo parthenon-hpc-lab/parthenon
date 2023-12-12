@@ -74,6 +74,10 @@ To build for execution on a single GPU, it should be sufficient to add the follo
 ```
 where `Kokkos_ARCH` should be set appropriately for the machine (see [here](https://kokkos.github.io/kokkos-core-wiki/keywords.html)).
 
+### Diagnostics
+
+Parthenon-VIBE prints to a history file (default name `burgers.hst`) a time series of the sum of squares of evolved variables integrated over volume for each octant of the domain, as well as the total number of meshblocks in the simulation at that time. To compare these quantities between runs, we provide the `burgers_diff.py` program in the benchmark folder. This will diff two history files and report when the relative difference is greater than some tolerance.
+
 ### Memory Usage
 
 The dominant memory usage in Parthenon-VIBE is for storage of the solution, for which two copies are required to support second order time stepping, for storing the update for a integrator stage (essentially the flux divergence), the intercell fluxes of each variable, for intermediate values of each solution variable on each side of every face, and for a derived quantity that we compute from the evolved solution.  From this we can construct a simple model for the memory usage $M$ as 
@@ -109,5 +113,4 @@ On a two-socket Broadwell node with 36 cores, the benchmark takes approximately 
 For the GPU, we measure throughput on a single-level mesh ("parthenon/mesh/numlevel = 1") and vary the base mesh size and the block size.  Results on a 40 GB A100 are shown in Figure 3.
 
 <p style="text-align:center;"><img src="data/pvibe_gpu_throughput.png" alt="Plot showing throughput on an A100 at different mesh and block sizes" style=width:50%><br />Figure 3: Throughput for different mesh and block sizes on a single 40 GB A100 GPU.</p>
-
 

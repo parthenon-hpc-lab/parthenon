@@ -93,6 +93,46 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("derived", m);
 
+  // Compute the octants
+  std::vector<Region> octants;
+  std::vector<Real> mesh_mins, mesh_maxs, mesh_mids;
+  for (int d = 1; d <= 3; ++d) {
+    mesh_mins.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "min"));
+    mesh_maxs.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "max"));
+    mesh_mids.push_back(0.5 * (mesh_mins.back() + mesh_maxs.back()));
+  }
+  for (int side1 = 0; side1 < 2; ++side1) {
+    Region r;
+    r.xmin[0] = side1 ? mesh_mids[0] : mesh_mins[0];
+    r.xmax[0] = side1 ? mesh_maxs[0] : mesh_mids[0];
+    for (int side2 = 0; side2 < 2; ++side2) {
+      r.xmin[1] = side2 ? mesh_mids[1] : mesh_mins[1];
+      r.xmax[1] = side2 ? mesh_maxs[1] : mesh_mids[1];
+      for (int side3 = 0; side3 < 2; ++side3) {
+        r.xmin[2] = side3 ? mesh_mids[2] : mesh_mins[2];
+        r.xmax[2] = side3 ? mesh_maxs[2] : mesh_mids[2];
+        octants.push_back(r);
+      }
+    }
+  }
+
+  // Histories
+  auto HstSum = parthenon::UserHistoryOperation::sum;
+  using parthenon::HistoryOutputVar;
+  parthenon::HstVar_list hst_vars = {};
+  int i_octant = 0;
+  for (auto &octant : octants) {
+    auto ReduceMass = [=](MeshData<Real> *md) {
+      return MassHistory(md, octant.xmin[0], octant.xmax[0], octant.xmin[1],
+                         octant.xmax[1], octant.xmin[2], octant.xmax[2]);
+    };
+    hst_vars.emplace_back(HstSum, ReduceMass,
+                          "MS Mass " + std::to_string(i_octant));
+    i_octant++;
+  }
+  hst_vars.emplace_back(HstSum, MeshCountHistory, "Meshblock count");
+  pkg->AddParam(parthenon::hist_param_key, hst_vars);
+
   pkg->EstimateTimestepMesh = EstimateTimestepMesh;
   pkg->FillDerivedMesh = CalculateDerived;
 
@@ -363,5 +403,35 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   Kokkos::Profiling::popRegion(); // Task_burgers_CalculateFluxes
   return TaskStatus::complete;
 }
+
+Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const Real x2min,
+                 const Real x2max, const Real x3min, const Real x3max) {
+  const auto ib = md->GetBoundsI(IndexDomain::interior);
+  const auto jb = md->GetBoundsJ(IndexDomain::interior);
+  const auto kb = md->GetBoundsK(IndexDomain::interior);
+
+  std::vector<std::string> vars = {"U"};
+  const auto pack = md->PackVariables(vars);
+
+  Real result = 0.0;
+  parthenon::par_reduce(
+      parthenon::LoopPatternMDRange(), "MassHistory", DevExecSpace(), 0,
+      pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int v, const int k, const int j, const int i,
+                    Real &lresult) {
+        const auto &coords = pack.GetCoords(b);
+        const Real vol = coords.CellVolume(k, j, i);
+        const Real x1 = coords.Xc<X1DIR>(k, j, i);
+        const Real x2 = coords.Xc<X2DIR>(k, j, i);
+        const Real x3 = coords.Xc<X3DIR>(k, j, i);
+        const Real mask = (x1min <= x1) && (x1 <= x1max) && (x2min <= x2) &&
+                          (x2 <= x2max) && (x3min <= x3) && (x3 <= x3max);
+        lresult += mask * pack(b, v, k, j, i) * pack(b, v, k, j, i) * vol;
+      },
+      Kokkos::Sum<Real>(result));
+  return result;
+}
+
+Real MeshCountHistory(MeshData<Real> *md) { return md->NumBlocks(); }
 
 } // namespace burgers_package
