@@ -249,13 +249,11 @@ class SparsePack : public SparsePackBase {
 
   template <class... Args>
   KOKKOS_INLINE_FUNCTION bool Contains(const int b, Args... args) const {
-    static_assert(sizeof...(Args) > 0, "Must pass in a variable to check existence");
     return GetUpperBound(b, std::forward<Args>(args)...) >= 0;
   }
 
   template <class... Args>
   KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b, Args... args) const {
-    static_assert(sizeof...(Args) > 0, "Must pass in a variable to check existence");
     return GetUpperBoundHost(b, std::forward<Args>(args)...) >= 0;
   }
 
