@@ -129,8 +129,8 @@ can be constructed as
 
   IndexSplit(MeshData<Real> md, IndexDomain domain, const int nkp, const int njp);
 
-where here ``md`` is ``MeshData`` object on which you want to
-operatore. ``domain`` specifies where in the ``MeshBlock`` you wish to
+where here ``md`` is a ``MeshData`` object on which you want to
+operate. ``domain`` specifies where in the ``MeshBlock`` you wish to
 operate, for example ``IndexDomain::Interior``. ``nkp`` and ``njp``
 are the number of points in ``X3`` and ``X2`` respectively that are in
 the outer loop. All remaining points are in the inner loop. Typically
