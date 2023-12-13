@@ -67,6 +67,11 @@ file_type = hdf5
 dt = -0.4
 variables = U, derived
 
+<parthenon/output1>
+file_type = hst
+data_format = %.14e
+dt = 0.01
+
 <burgers>
 cfl = 0.8
 recon = weno5
