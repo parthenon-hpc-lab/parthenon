@@ -110,10 +110,10 @@ get optimal performance. Here we list a few strategies/considerations.
   vector cells in the inner loop is to do a 1D ``SIMDFOR`` inner loop
   but combine the ``j`` and ``i`` indices by simply looping over the
   contiguous memory in a rasterized plane on a block.
-* On Cuda GPUs, the outer loop typically maps to warps, while the
+* On Cuda GPUs, the outer loop typically maps to blocks, while the
   inner maps to threads. To see good performance, you must both
-  provide enough work in the inner loop to fill a warp and enough work
-  in the outer loop to fill all warps.
+  provide enough work in the inner loop to create enough threads to fill a streaming multiprocessor (SM) with multiple warps to take advantage of pipelining and enough work
+  in the outer loop to create enough blocks to fill all SMs on the GPU divided by the number of simultaneous streams. The number of warps in flight on the inner loop per SM (which is related to "occupancy") will depend positively on length of the inner loop and negatively on higher shared memory usage (or scratch pad memory in Kokkos parlance) and higher register usage.
 
 IndexSplit
 -------------
