@@ -12,6 +12,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
+import sys
 import numpy as np
 from argparse import ArgumentParser
 
@@ -53,4 +54,4 @@ def compare_files(file1, file2, tolerance, print_results=True):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    compare_files(args.file1, args.file1, args.tolerance, True)
+    sys.exit(compare_files(args.file1, args.file1, args.tolerance, True))
