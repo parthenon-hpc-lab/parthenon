@@ -85,7 +85,7 @@ enum {
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
+enum class BoundaryFlag { block = -1, undef, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
 enum class NeighborConnect {

@@ -79,13 +79,25 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                  pin->GetInteger("parthenon/mesh", "nx3")},
                 {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
                  pin->GetInteger("parthenon/mesh", "nx3") == 1}),
-      mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+      mesh_bc_names{pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting")},
+      // TODO(JMM): This probably needs a per-package treatment too
+      swarm_bc_names{pin->GetOrAddString("parthenon/mesh", "swarm_ix1_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x1]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox1_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x1]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ix2_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x2]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox2_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x2]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ix3_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x3]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox3_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x3])},
       ndim((mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
@@ -109,6 +121,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
+
+  // BCs
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    mesh_bcs[f] = GetBoundaryFlag(mesh_bc_names[f]);
+    swarm_bcs[f] = GetBoundaryFlag(swarm_bc_names[f]);
+  }
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -455,13 +473,25 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                  pin->GetInteger("parthenon/mesh", "nx3")},
                 {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
                  pin->GetInteger("parthenon/mesh", "nx3") == 1}),
-      mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+      mesh_bc_names{pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting"),
+                    pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting")},
+      // TODO(JMM): This probably needs a per-package treatment too
+      swarm_bc_names{pin->GetOrAddString("parthenon/mesh", "swarm_ix1_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x1]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox1_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x1]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ix2_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x2]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox2_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x2]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ix3_bc",
+                                         mesh_bc_names[BoundaryFace::inner_x3]),
+                     pin->GetOrAddString("parthenon/mesh", "swarm_ox3_bc",
+                                         mesh_bc_names[BoundaryFace::outer_x3])},
       ndim((mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
@@ -485,6 +515,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
+  // BCs
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    mesh_bcs[f] = GetBoundaryFlag(mesh_bc_names[f]);
+    swarm_bcs[f] = GetBoundaryFlag(swarm_bc_names[f]);
+  }
+
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
@@ -506,7 +542,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   root_level = rr.GetAttr<int>("Info", "RootLevel");
 
   const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < BOUNDARY_NFACES; i++) {
     block_bcs[i] = GetBoundaryFlag(bc[i]);
   }
 
@@ -851,48 +887,14 @@ void Mesh::OutputMeshStructure(const int ndim,
 //----------------------------------------------------------------------------------------
 //  Enroll user-defined functions for boundary conditions
 void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
-  static const BValFunc outflow[6] = {
-      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
-      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
-      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
-  static const BValFunc reflect[6] = {
-      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
-      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
-      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
-
-  for (int f = 0; f < BOUNDARY_NFACES; f++) {
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::reflect:
-      MeshBndryFnctn[f] = reflect[f];
-      break;
-    case BoundaryFlag::outflow:
-      MeshBndryFnctn[f] = outflow[f];
-      break;
-    case BoundaryFlag::user:
-      if (app_in->boundary_conditions[f] != nullptr) {
-        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested. but no condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      break;
-    default: // periodic/block BCs handled elsewhere.
-      break;
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    auto face = static_cast<BoundaryFace>(f);
+    if (mesh_bcs[f] == BoundaryFlag::user) { // not block, periodic, or none
+      MeshBndryFnctn[f] = app_in->GetBoundaryCondition(face, mesh_bc_names[f]);
     }
-
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::user:
-      if (app_in->swarm_boundary_conditions[f] != nullptr) {
-        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
-        // boundaries are requested but no swarms are used.
-        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      }
-      break;
-    default: // Default BCs handled elsewhere
-      break;
-    }
+    // Swarms are always done with this mechanism. Periodic not a
+    // different codepath.
+    SwarmBndryFnctn[f] = app_in->GetSwarmBoundaryCondition(face, swarm_bc_names[f]);
   }
 }
 

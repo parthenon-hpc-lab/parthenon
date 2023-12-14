@@ -50,9 +50,6 @@ struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa
 BoundaryFlag GetBoundaryFlag(const std::string &input_string);
-std::string GetBoundaryString(BoundaryFlag input_flag);
-// + confirming that the MeshBlock's boundaries are all valid selections
-void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
 
 //----------------------------------------------------------------------------------------
 //! \class BoundaryBase
@@ -133,11 +130,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   std::weak_ptr<MeshBlock> pmy_block_;
   int nface_, nedge_;
 
-  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
-  // false --> e.g. block, polar, periodic boundaries
-  // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
-  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
     if (pmy_block_.expired()) {
@@ -184,11 +176,6 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
   int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
-
-  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
-  // false --> e.g. block, polar, periodic boundaries
-  bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
-  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {

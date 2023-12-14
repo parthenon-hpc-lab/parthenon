@@ -154,13 +154,17 @@ Particle boundary conditions are not applied in separate kernel calls;
 instead, inherited classes containing boundary condition functions for
 updating particles or removing them when they are in boundary regions
 are allocated depending on the boundary flags specified in the input
-file. Currently, outflow and periodic boundaries are supported natively.
-User-specified boundary conditions must be set by specifying the “user”
-flag in the input parameter file and then updating the appropriate
-Swarm::bounds array entries to factory functions that allocate
-device-side boundary condition objects. An example is given in the
-``particles`` example when ix1 and ox1 are set to ``user`` in the input
-parameter file.
+file. Swarm boundary conditions are set via the ``swarm_*_bc``
+variable in the ``parthenon/mesh`` input block in the input file,
+where ``*`` is ``ix1``, ``ox2``, etc.
+
+Currently, outflow and periodic boundaries are supported natively.
+You can register a new boundary condition by calling
+``ApplicationInput::RegisterSwarmBoundaryCondition`` and assigning the
+function that allocates the device-side boundary condition
+objects. Then the ``parthenon/mesh/swarm_*_bv`` variable can be
+assigned to the name you registered. An example is given in the
+``particles`` example.
 
 Outputs
 --------

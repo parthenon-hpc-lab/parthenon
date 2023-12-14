@@ -104,7 +104,10 @@ class Mesh {
   const bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
+  std::string mesh_bc_names[BOUNDARY_NFACES];
+  std::string swarm_bc_names[BOUNDARY_NFACES];
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
+  BoundaryFlag swarm_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;

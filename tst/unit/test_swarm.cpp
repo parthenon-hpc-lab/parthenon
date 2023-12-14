@@ -59,11 +59,6 @@ class ParticleBoundIX1User : public ParticleBound {
   }
 };
 
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIX1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1User>();
-}
-
 TEST_CASE("Swarm memory management", "[Swarm]") {
   std::stringstream is;
   is << "<parthenon/mesh>" << endl;
@@ -76,17 +71,20 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "nx1 = 4" << endl;
   is << "nx2 = 4" << endl;
   is << "nx3 = 4" << endl;
+  is << "swarm_ix1_bc = user" << endl;
+  is << "swarm_ox1_bc = outflow" << endl;
+  is << "swarm_ix2_bc = outflow" << endl;
+  is << "swarm_ox2_bc = outflow" << endl;
+  is << "swarm_ix3_bc = outflow" << endl;
+  is << "swarm_ox3_bc = outflow" << endl;
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
+  app_in->RegisterSwarmBoundaryCondition<ParticleBoundIX1User>(
+      parthenon::BoundaryFace::inner_x1);
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-  mesh->mesh_bcs[0] = BoundaryFlag::user;
-  mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
-  for (int i = 1; i < 6; i++) {
-    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
-  }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);

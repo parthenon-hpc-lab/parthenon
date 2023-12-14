@@ -186,7 +186,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // Boundary conditions
     std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
     for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
+      // JMM: This appears to be purely for analysis, as it is not
+      // read in for restarts.
+      boundary_condition_str[i] = pm->mesh_bc_names[i];
     }
 
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
