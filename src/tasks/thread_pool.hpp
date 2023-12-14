@@ -68,13 +68,12 @@ class Queue {
   bool complete = false;
   bool exit = false;
   bool started = false;
-
 };
 
 class ThreadPool {
  public:
   explicit ThreadPool(const int numthreads = std::thread::hardware_concurrency())
-    : nthreads(numthreads), queue(nthreads) {
+      : nthreads(numthreads), queue(nthreads) {
     for (int i = 0; i < nthreads; i++) {
       auto worker = [&]() {
         while (true) {
@@ -94,24 +93,17 @@ class ThreadPool {
     }
   }
 
-  void wait() {
-    queue.wait_for_complete();
-  }
+  void wait() { queue.wait_for_complete(); }
 
-  void kill() {
-    queue.signal_kill();
-  }
+  void kill() { queue.signal_kill(); }
 
   template <typename F, class... Args>
-  std::future<typename std::result_of<F(Args...)>::type> enqueue(F &&f, Args &&... args) {
+  std::future<typename std::result_of<F(Args...)>::type> enqueue(F &&f, Args &&...args) {
     using return_t = typename std::result_of<F(Args...)>::type;
-    auto task = std::make_shared<std::packaged_task<return_t()>>([=, func = std::forward<F>(f)] {
-      return func(std::forward<Args>(args)...);
-    });
+    auto task = std::make_shared<std::packaged_task<return_t()>>(
+        [=, func = std::forward<F>(f)] { return func(std::forward<Args>(args)...); });
     std::future<return_t> result = task->get_future();
-    queue.push([task]() {
-      (*task)();
-    });
+    queue.push([task]() { (*task)(); });
     return result;
   }
 

@@ -21,17 +21,17 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
-#include <parthenon_mpi.hpp>
 #include "thread_pool.hpp"
+#include <parthenon_mpi.hpp>
 
 namespace parthenon {
 
-enum class TaskListStatus {complete}; // doesn't feel like we need this...
-enum class TaskType {normal, completion};
+enum class TaskListStatus { complete }; // doesn't feel like we need this...
+enum class TaskType { normal, completion };
 
 class TaskQualifier {
  public:
@@ -82,16 +82,11 @@ class TaskID {
     return result;
   }
 
-  const std::vector<Task *> &GetIDs() const {
-    return std::cref(dep);
-  }
+  const std::vector<Task *> &GetIDs() const { return std::cref(dep); }
 
-  bool empty() const {
-    return (!task && dep.size() == 0);
-  }
-  Task *GetTask() {
-    return task;
-  }
+  bool empty() const { return (!task && dep.size() == 0); }
+  Task *GetTask() { return task; }
+
  private:
   Task *task;
   std::vector<Task *> dep;
@@ -100,9 +95,9 @@ class TaskID {
 class Task {
  public:
   template <typename TID>
-  Task(TID&& dep, const std::function<TaskStatus()> &func,
-       std::pair<int, int> limits = {1,1})
-    : f(func), exec_limits(limits) {
+  Task(TID &&dep, const std::function<TaskStatus()> &func,
+       std::pair<int, int> limits = {1, 1})
+      : f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
     } else {
@@ -139,7 +134,7 @@ class Task {
     return go;
   }
   void AddDependency(Task *t) { dependencies.insert(t); }
-  std::unordered_set<Task *>& GetDependencies() { return dependencies; }
+  std::unordered_set<Task *> &GetDependencies() { return dependencies; }
   void AddDependent(Task *t, TaskStatus status) {
     dependent[static_cast<int>(status)].push_back(t);
   }
@@ -171,19 +166,23 @@ class Task {
 
 class TaskRegion;
 class TaskList {
- friend class TaskRegion;
+  friend class TaskRegion;
+
  public:
-  TaskList() : TaskList(TaskID(), {1,1}) {}
+  TaskList() : TaskList(TaskID(), {1, 1}) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits)
-    : dependency(dep), exec_limits(limits) {
+      : dependency(dep), exec_limits(limits) {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
-    tasks.push_back(std::make_shared<Task>(dependency, [&tasks = tasks]() {
-      for (auto &t : tasks) {
-        t->SetStatus(TaskStatus::incomplete);
-      }
-      return TaskStatus::complete;
-    }, exec_limits));
+    tasks.push_back(std::make_shared<Task>(
+        dependency,
+        [&tasks = tasks]() {
+          for (auto &t : tasks) {
+            t->SetStatus(TaskStatus::incomplete);
+          }
+          return TaskStatus::complete;
+        },
+        exec_limits));
     first_task = tasks.back().get();
     // connect list dependencies to this list's first_task
     for (auto t : first_task->GetDependencies()) {
@@ -192,24 +191,25 @@ class TaskList {
 
     // make a trivial last_task that tasks dependent on this list's execution
     // can depend on.  Also simplifies exiting completed iterations
-    tasks.push_back(std::make_shared<Task>(TaskID(), [&completion_tasks = completion_tasks]() {
-      for (auto t : completion_tasks) {
-        t->reset_iteration();
-      }
-      return TaskStatus::complete;
-    }, exec_limits));
+    tasks.push_back(std::make_shared<Task>(
+        TaskID(),
+        [&completion_tasks = completion_tasks]() {
+          for (auto t : completion_tasks) {
+            t->reset_iteration();
+          }
+          return TaskStatus::complete;
+        },
+        exec_limits));
     last_task = tasks.back().get();
-
   }
 
-
   template <class... Args>
-  TaskID AddTask(TaskID dep, Args &&... args) {
+  TaskID AddTask(TaskID dep, Args &&...args) {
     return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  TaskID AddTask(const TaskQualifier tq, TaskID dep, Args&&... args) {
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, Args &&...args) {
     assert(tq.Valid());
 
     // user-space tasks always depend on something. if no dependencies are given,
@@ -219,9 +219,8 @@ class TaskList {
     if (!tq.Once() || (tq.Once() && unique_id == 0)) {
       AddUserTask(dep, std::forward<Args>(args)...);
     } else {
-      tasks.push_back(std::make_shared<Task>(dep, [=]() {
-        return TaskStatus::complete; 
-      }, exec_limits));
+      tasks.push_back(std::make_shared<Task>(
+          dep, [=]() { return TaskStatus::complete; }, exec_limits));
     }
 
     Task *my_task = tasks.back().get();
@@ -240,8 +239,7 @@ class TaskList {
       global_comm.emplace_back(new MPI_Comm, [&](MPI_Comm *d) {
         int finalized;
         MPI_Finalized(&finalized);
-        if (!finalized)
-          MPI_Comm_free(d);
+        if (!finalized) MPI_Comm_free(d);
       });
       // we need another communicator to support multiple in flight non-blocking
       // collectives where we can't guarantee calling order across ranks
@@ -250,37 +248,43 @@ class TaskList {
       // only call MPI once per region, on the list with unique_id = 0
       if (unique_id == 0) {
         // add a task that starts the Iallreduce on the task statuses
-        tasks.push_back(std::make_shared<Task>(id, [my_task, &stat = *global_status.back(),
-                                &req = *global_request.back(),
-                                &comm = *global_comm.back()]() {
-          // jump through a couple hoops to figure out statuses of all instances of my_task
-          // accross all lists in the enclosing TaskRegion 
-          auto dependent = my_task->GetDependent(TaskStatus::complete);
-          assert(dependent.size() == 1);
-          auto mytask = *dependent.begin();
-          stat = 0;
-          for (auto dep : mytask->GetDependencies()) {
-            stat = std::max(stat, static_cast<int>(dep->GetStatus()));
-          }
-          MPI_Iallreduce(MPI_IN_PLACE, &stat, 1, MPI_INT, MPI_MAX, comm, &req);
-          return TaskStatus::complete;
-        }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            id,
+            [my_task, &stat = *global_status.back(), &req = *global_request.back(),
+             &comm = *global_comm.back()]() {
+              // jump through a couple hoops to figure out statuses of all instances of
+              // my_task accross all lists in the enclosing TaskRegion
+              auto dependent = my_task->GetDependent(TaskStatus::complete);
+              assert(dependent.size() == 1);
+              auto mytask = *dependent.begin();
+              stat = 0;
+              for (auto dep : mytask->GetDependencies()) {
+                stat = std::max(stat, static_cast<int>(dep->GetStatus()));
+              }
+              MPI_Iallreduce(MPI_IN_PLACE, &stat, 1, MPI_INT, MPI_MAX, comm, &req);
+              return TaskStatus::complete;
+            },
+            exec_limits));
         start = TaskID(tasks.back().get());
         // add a task that tests for completion of the Iallreduces of statuses
-        tasks.push_back(std::make_shared<Task>(start, [&stat = *global_status.back(),
-                                       &req = *global_request.back()]() {
-          int check;
-          MPI_Test(&req, &check, MPI_STATUS_IGNORE);
-          if (check) {
-            return static_cast<TaskStatus>(stat);
-          }
-          return TaskStatus::incomplete;
-        }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            start,
+            [&stat = *global_status.back(), &req = *global_request.back()]() {
+              int check;
+              MPI_Test(&req, &check, MPI_STATUS_IGNORE);
+              if (check) {
+                return static_cast<TaskStatus>(stat);
+              }
+              return TaskStatus::incomplete;
+            },
+            exec_limits));
       } else { // unique_id != 0
         // just add empty tasks
-        tasks.push_back(std::make_shared<Task>(id, [&]() { return TaskStatus::complete; }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            id, [&]() { return TaskStatus::complete; }, exec_limits));
         start = TaskID(tasks.back().get());
-        tasks.push_back(std::make_shared<Task>(start, [&]() { return TaskStatus::complete; }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            start, [&]() { return TaskStatus::complete; }, exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
       id = TaskID(tasks.back().get());
@@ -313,7 +317,8 @@ class TaskList {
   }
 
   template <typename TID>
-  std::pair<TaskList&, TaskID> AddSublist(TID&& dep, std::pair<int, int> minmax_iters = {1,1}) {
+  std::pair<TaskList &, TaskID> AddSublist(TID &&dep,
+                                           std::pair<int, int> minmax_iters = {1, 1}) {
     sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters));
     auto &tl = *sublists.back();
     tl.SetID(unique_id);
@@ -349,30 +354,38 @@ class TaskList {
       auto last = completion_tasks.back();
       last->AddDependent(first_task, TaskStatus::iterate);
     }
-    for (auto &tl : sublists) tl->ConnectIteration();
+    for (auto &tl : sublists)
+      tl->ConnectIteration();
   }
 
   template <class T, class U, class... Args1, class... Args2>
-  void AddUserTask(TaskID &dep, TaskStatus (T::*func)(Args1...), U *obj, Args2 &&... args) {
-    tasks.push_back(std::make_shared<Task>(dep, [=]() mutable -> TaskStatus {
-      return (obj->*func)(std::forward<Args2>(args)...);
-    }, exec_limits));
+  void AddUserTask(TaskID &dep, TaskStatus (T::*func)(Args1...), U *obj,
+                   Args2 &&...args) {
+    tasks.push_back(std::make_shared<Task>(
+        dep,
+        [=]() mutable -> TaskStatus {
+          return (obj->*func)(std::forward<Args2>(args)...);
+        },
+        exec_limits));
   }
 
   template <class F, class... Args>
-  void AddUserTask(TaskID &dep, F&& func, Args &&... args) {
-    tasks.push_back(std::make_shared<Task>(dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
-      return func(std::forward<Args>(args)...);
-    }, exec_limits));
+  void AddUserTask(TaskID &dep, F &&func, Args &&...args) {
+    tasks.push_back(std::make_shared<Task>(
+        dep,
+        [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
+          return func(std::forward<Args>(args)...);
+        },
+        exec_limits));
   }
 };
 
 class TaskRegion {
  public:
   TaskRegion() = delete;
-  TaskRegion(const int num_lists)
-    : task_lists(num_lists) {
-    for (int i = 0; i < num_lists; i++) task_lists[i].SetID(i);
+  TaskRegion(const int num_lists) : task_lists(num_lists) {
+    for (int i = 0; i < num_lists; i++)
+      task_lists[i].SetID(i);
   }
 
   void Execute(ThreadPool &pool) {
@@ -386,9 +399,7 @@ class TaskRegion {
       auto next_up = task->GetDependent(status);
       for (auto t : next_up) {
         if (t->ready()) {
-          pool.enqueue([t, &ProcessTask]() {
-            return ProcessTask(t);
-          });
+          pool.enqueue([t, &ProcessTask]() { return ProcessTask(t); });
         }
       }
       return status;
@@ -397,22 +408,16 @@ class TaskRegion {
     // now enqueue the "first_task" for all task lists
     for (auto &tl : task_lists) {
       auto t = tl.GetStartupTask();
-      pool.enqueue([t, &ProcessTask]() {
-        return ProcessTask(t);
-      });
+      pool.enqueue([t, &ProcessTask]() { return ProcessTask(t); });
     }
 
     // then wait until everything is done
     pool.wait();
   }
 
-  TaskList& operator[](const int i) {
-    return task_lists[i];
-  }
+  TaskList &operator[](const int i) { return task_lists[i]; }
 
-  size_t size() const {
-    return task_lists.size();
-  }
+  size_t size() const { return task_lists.size(); }
 
  private:
   std::vector<TaskList> task_lists;
@@ -443,7 +448,6 @@ class TaskRegion {
           }
         }
       }
-
     }
 
     // now hook up iterations
@@ -473,6 +477,7 @@ class TaskCollection {
     }
     return TaskListStatus::complete;
   }
+
  private:
   std::list<TaskRegion> regions;
 };
