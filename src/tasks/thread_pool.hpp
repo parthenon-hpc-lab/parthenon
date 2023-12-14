@@ -27,7 +27,7 @@ namespace parthenon {
 template <typename T>
 class Queue {
  public:
-  Queue(const int num_workers) : nworkers(num_workers), nwaiting(0) {}
+  explicit Queue(const int num_workers) : nworkers(num_workers), nwaiting(0) {}
   void push(T q) {
     std::lock_guard<std::mutex> lock(mutex);
     queue.push(q);
