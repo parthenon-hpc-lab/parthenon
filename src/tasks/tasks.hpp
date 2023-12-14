@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include <basic_types.hpp>
 #include <parthenon_mpi.hpp>
 
 #include "thread_pool.hpp"
