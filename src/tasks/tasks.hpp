@@ -14,8 +14,6 @@
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
-#include <mpi.h>
-
 #include <array>
 #include <cassert>
 #include <functional>
