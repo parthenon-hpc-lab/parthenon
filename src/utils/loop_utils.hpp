@@ -128,7 +128,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         }
       } else {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
-          for (auto &nb : pmb->neighbors) {
+          for (int n = 0; n < pmb->pbval->nneighbor; ++n) {
+            auto &nb = pmb->pbval->neighbor[n];
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.snb.rank != Globals::my_rank) continue;
