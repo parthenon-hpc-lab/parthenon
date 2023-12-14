@@ -14,8 +14,6 @@
 #ifndef TASKS_THREAD_POOL_HPP_
 #define TASKS_THREAD_POOL_HPP_
 
-namespace parthenon {
-
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -25,6 +23,8 @@ namespace parthenon {
 #include <thread>
 #include <utility>
 #include <vector>
+
+namespace parthenon {
 
 template <typename T>
 class Queue {
