@@ -247,6 +247,45 @@ class SparsePack : public SparsePackBase {
     return bounds_h_(1, b, vidx);
   }
 
+  /* Usage:
+   * Contains(b, v1(), v2(), v3())
+   *
+   * returns true if all listed vars are present on block b, false
+   * otherwise.
+   */
+  KOKKOS_INLINE_FUNCTION bool Contains(const int b) const {
+    return GetUpperBound(b) >= 0;
+  }
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION bool Contains(const int b, const T t) const {
+    return GetUpperBound(b, t) >= 0;
+  }
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION bool Contains(const int b, Args... args) const {
+    return (... && Contains(b, args));
+  }
+  // Version that takes templates but no arguments passed
+  template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
+  KOKKOS_INLINE_FUNCTION bool Contains(const int b) const {
+    return (... && Contains(b, Args()));
+  }
+  // Host versions
+  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b) const {
+    return GetUpperBoundHost(b) >= 0;
+  }
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b, const T t) const {
+    return GetUpperBoundHost(b, t) >= 0;
+  }
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b, Args... args) const {
+    return (... && ContainsHost(b, args));
+  }
+  template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
+  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b) const {
+    return (... && ContainsHost(b, Args()));
+  }
+
   // operator() overloads
   using TE = TopologicalElement;
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {

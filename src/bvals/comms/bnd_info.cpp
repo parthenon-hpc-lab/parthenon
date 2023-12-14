@@ -226,6 +226,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   BndInfo out;
 
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   if (!out.allocated) return out;
 
   out.buf = buf->buffer();
@@ -233,7 +234,6 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
-
   int mylevel = pmb->loc.level();
 
   auto elements = v->GetTopologicalElements();
@@ -267,6 +267,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
 
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
@@ -297,6 +298,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   ProResInfo out;
 
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
@@ -328,6 +330,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   ProResInfo out;
 
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
@@ -358,6 +361,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   ProResInfo out;
 
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
@@ -388,6 +392,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
@@ -448,6 +453,7 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
   if (!v->IsAllocated()) {
     // Not going to actually do anything with this buffer
     return out;
@@ -507,9 +513,11 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
 
   if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
     out.allocated = false;
+    out.alloc_status = v->GetAllocationStatus();
     return out;
   }
   out.allocated = true;
+  out.alloc_status = v->GetAllocationStatus();
   out.buf = buf->buffer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
