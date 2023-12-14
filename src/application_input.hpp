@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "bvals/boundary_conditions.hpp"
@@ -24,13 +25,17 @@
 #include "interface/state_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
-struct ApplicationInput {
+class ApplicationInput {
  public:
+  ApplicationInput();
+
   // ParthenonManager functions
-  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
+  std::function<Packages_t(std::unique_ptr<ParameterInput> &)>
+  ProcessPackages = nullptr;
 
   // Mesh functions
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
@@ -49,8 +54,6 @@ struct ApplicationInput {
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoop = nullptr;
-  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr};
-  SBValFunc swarm_boundary_conditions[BOUNDARY_NFACES] = {nullptr};
 
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
@@ -59,6 +62,23 @@ struct ApplicationInput {
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
       nullptr;
+
+  void RegisterBoundaryCondition(BoundaryFace face, const std::string &name,
+                                 BValFunc condition) {
+    if (boundary_conditions_[face].contains
+  }
+  void RegisterSwarmBoundaryCondition(BoundaryFace face, const std::string &name,
+                                      SBValFunc condition);
+  void RegisterBoundaryCondition(BoundaryFace face, BValFunc condition) {
+    RegisterBoundaryCondition(face, "user", condition);
+  }
+  void RegisterSwarmBoundaryCondition(BoundaryFace face, SBValFunc condition) {
+    RegisterSwarmBoundaryCondition(face, "user", condition);
+  }
+
+ private:
+  Dictionary<BValFunc> boundary_conditions_[BOUNDARY_NFACES];
+  Dictionary<SBValFunc> swarm_boundary_conditions_[BOUNDARY_NFACES];
 };
 
 } // namespace parthenon
