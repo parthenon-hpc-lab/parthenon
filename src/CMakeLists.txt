@@ -214,10 +214,7 @@ add_library(parthenon
   solvers/solver_utils.hpp
 
   tasks/tasks.hpp
-  #tasks/task_id.cpp
-  #tasks/task_id.hpp
-  #tasks/task_list.hpp
-  #tasks/task_types.hpp
+  tasks/thread_pool.hpp
 
   time_integration/butcher_integrator.cpp
   time_integration/low_storage_integrator.cpp
