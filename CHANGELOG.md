@@ -18,6 +18,7 @@
 ### Removed (removing behavior/API/varaibles/...)
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 989]](https://github.com/parthenon-hpc-lab/parthenon/pull/989) Update how mesh-level boundary conditions are registered and eliminate the need for the user flag
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 
 
