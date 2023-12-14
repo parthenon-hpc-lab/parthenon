@@ -8,6 +8,8 @@
 
 Parthenon -- a performance portable block-structured adaptive mesh refinement framework
 
+[[Code Paper]](https://doi.org/10.1177/10943420221143775))
+
 # Key features
 
 * High performance by
