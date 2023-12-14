@@ -133,7 +133,7 @@ where here ``md`` is a ``MeshData`` object on which you want to
 operate. ``domain`` specifies where in the ``MeshBlock`` you wish to
 operate, for example ``IndexDomain::Interior``. ``nkp`` and ``njp``
 are the number of points in ``X3`` and ``X2`` respectively that are in
-the outer loop. All remaining points are in the inner loop. Typically
+the outer loop. All remaining points are in the inner loop; each team will iterate over multiple `k` and/or `j` indices to cover the specified `k/j` range. Typically
 ``MeshBlock`` index in the pack is also assumed to be in the outer
 loop. ``nkp`` and ``njp`` also accept special flags
 ``IndexSplit::all_outer`` and ``IndexSplit::no_outer``, which specify
