@@ -81,8 +81,8 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   }
 
   // add a tiny bit to avoid round-off issues when we ultimately convert to int
-  target_k_ = (1.0 * total_k) / nkp_ + 1.e-6;
-  target_j_ = (1.0 * total_j) / njp_ + 1.e-6;
+  target_k_ = static_cast<int>((1.0 * total_k) / nkp_ + 1.e-6);
+  target_j_ = static_cast<int>((1.0 * total_j) / njp_ + 1.e-6);
 
   // save the "entire" ranges
   // don't bother save ".s" since it's always zero

@@ -110,19 +110,21 @@ get optimal performance. Here we list a few strategies/considerations.
   vector cells in the inner loop is to do a 1D ``SIMDFOR`` inner loop
   but combine the ``j`` and ``i`` indices by simply looping over the
   contiguous memory in a rasterized plane on a block.
-* On Cuda GPUs, the outer loop typically maps to blocks, while the
-  inner maps to threads. To see good performance, you must both
-  provide enough work in the inner loop to create enough threads to
-  fill a streaming multiprocessor (SM) with multiple warps to take
-  advantage of pipelining and enough work in the outer loop to create
-  enough blocks to fill all SMs on the GPU divided by the number of
-  simultaneous streams. The number of warps in flight on the inner
-  loop per SM (which is related to "occupancy") will depend positively
-  on length of the inner loop and negatively on higher shared memory
-  usage (or scratch pad memory in Kokkos parlance) and higher register
-  usage. On AMD GPUs, the story is essentially the same, except that
-  the scratch pad is much smaller and wavefronts are twice as large as
-  warps.
+* On GPUs, the outer loop typically maps to blocks, while the inner
+  maps to threads. To see good performance, you must both provide
+  enough work in the inner loop to create enough threads to fill in
+  CUDA terms a streaming multiprocessor (SM, equivalent to a Compute
+  Unit or CU on AMD GPUs) with multiple warps (or wavefronts for AMD)
+  to take advantage of pipelining and enough work in the outer loop to
+  create enough blocks to fill all SMs on the GPU divided by the
+  number of simultaneous streams. The number of warps in flight on the
+  inner loop per SM (which is related to "occupancy") will depend
+  positively on length of the inner loop and negatively on higher
+  shared memory usage (scratch pad memory in Kokkos parlance and Local
+  Data Store or LDS on AMD GPUs) and higher register usage. Note that
+  the number of SMs and the available shared memory and registers per
+  SM will vary between GPU architectures and especially between GPU
+  vendors.
 
 IndexSplit
 -------------
@@ -150,11 +152,11 @@ The ``IndexSplit`` class can be constructed as
 
   IndexSplit(MeshData<Real> md, IndexDomain domain, const int nkp, const int njp);
 
-where here ``md`` is ``MeshData`` object on which you want to
-operatore. ``domain`` specifies where in the ``MeshBlock`` you wish to
+where here ``md`` is a ``MeshData`` object on which you want to
+operate. ``domain`` specifies where in the ``MeshBlock`` you wish to
 operate, for example ``IndexDomain::Interior``. ``nkp`` and ``njp``
 are the number of points in ``X3`` and ``X2`` respectively that are in
-the outer loop. All remaining points are in the inner loop. Typically
+the outer loop. All remaining points are in the inner loop; each team will iterate over multiple `k` and/or `j` indices to cover the specified `k/j` range. Typically
 ``MeshBlock`` index in the pack is also assumed to be in the outer
 loop. ``nkp`` and ``njp`` also accept special flags
 ``IndexSplit::all_outer`` and ``IndexSplit::no_outer``, which specify
