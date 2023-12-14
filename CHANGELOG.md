@@ -12,6 +12,7 @@
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR986]](https://github.com/parthenon-hpc-lab/parthenon/pull/986) Fix bug in sparse boundary communication BndInfo cacheing
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
 ### Infrastructure (changes irrelevant to downstream codes)
