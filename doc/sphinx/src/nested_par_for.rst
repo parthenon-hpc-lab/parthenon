@@ -139,12 +139,8 @@ In our experience ``IndexSplit`` is most beneficial when working with
 small meshblocks, especially in two dimensions. For small blocks, we
 want vectorized operations over contiguous memory for our innermost
 loop, but we want that loop to contain enough work for, e.g., vector
-ops to function. 
-
-On CPUs, the optimal split is to fuse k, j, and i into the inner loop
-and use blocks in the outer loop. On Cuda GPUs, we have found a more
-optimal split is to fuse k and block index (in three dimensions) into
-the outer loop and i and j in the inner loop.
+ops to function. We have often found that the optimal split is to fuse
+j, and i into the inner loop and use k and blocks in the outer loop.
 
 The ``IndexSplit`` class can be constructed as
 
