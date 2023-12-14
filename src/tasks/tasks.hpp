@@ -38,7 +38,7 @@ class TaskQualifier {
  public:
   using qualifier_t = uint64_t;
   TaskQualifier() = delete;
-  TaskQualifier(const qualifier_t n) : flags(n) {}  // NOLINT(runtime/explicit)
+  TaskQualifier(const qualifier_t n) : flags(n) {} // NOLINT(runtime/explicit)
 
   static inline constexpr qualifier_t normal{0};
   static inline constexpr qualifier_t local_sync{1 << 0};
@@ -65,7 +65,7 @@ class TaskID {
  public:
   TaskID() : task(nullptr) {}
   // pointers to Task are implicitly convertible to TaskID
-  TaskID(Task *t) : task(t) {}  // NOLINT(runtime/explicit)
+  TaskID(Task *t) : task(t) {} // NOLINT(runtime/explicit)
 
   TaskID operator|(const TaskID &other) const {
     // calling this operator means you're building a TaskID to hold a dependency
