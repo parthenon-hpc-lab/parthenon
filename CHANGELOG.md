@@ -8,6 +8,8 @@
 - [[PR 948]](https://github.com/parthenon-hpc-lab/parthenon/pull/948) Add solver interface and update Poisson geometric multi-grid example
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 989]](https://github.com/parthenon-hpc-lab/parthenon/pull/989) Update how mesh-level boundary conditions are registered and eliminate the need for the user flag
+- [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
