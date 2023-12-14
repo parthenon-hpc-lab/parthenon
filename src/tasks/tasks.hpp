@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <parthenon_mpi.hpp>
+
 #include "thread_pool.hpp"
 
 namespace parthenon {
