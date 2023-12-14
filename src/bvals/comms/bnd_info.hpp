@@ -47,6 +47,7 @@ struct BndInfo {
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
+  int alloc_status; 
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
@@ -79,6 +80,7 @@ struct ProResInfo {
 
   CoordinateDirection dir;
   bool allocated = true;
+  int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
