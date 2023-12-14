@@ -111,7 +111,7 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         Kokkos::View<int *, atomic_view> nwrong("nwrong", 1);
         parthenon::par_for_outer(
             DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
-            sp.outer_size() - 1,
+            sp.outer_size() - 1, //N * N - 1
             KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
