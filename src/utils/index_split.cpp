@@ -70,8 +70,9 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   }
   if (njp_ == 0) {
 #ifdef KOKKOS_ENABLE_CUDA
-    // TODO(@jdolence) why 4?  Do something better here for a default
-    njp_ = std::min(4, total_j);
+    // From Forrest Glines:
+    // nkp_ * njp_ >= number of SMs / number of streams
+    njp_ = std::min(nkp_ * NSTREAMS_ / NSMS_, total_j);
 #else
     njp_ = 1;
 #endif

@@ -112,8 +112,17 @@ get optimal performance. Here we list a few strategies/considerations.
   contiguous memory in a rasterized plane on a block.
 * On Cuda GPUs, the outer loop typically maps to blocks, while the
   inner maps to threads. To see good performance, you must both
-  provide enough work in the inner loop to create enough threads to fill a streaming multiprocessor (SM) with multiple warps to take advantage of pipelining and enough work
-  in the outer loop to create enough blocks to fill all SMs on the GPU divided by the number of simultaneous streams. The number of warps in flight on the inner loop per SM (which is related to "occupancy") will depend positively on length of the inner loop and negatively on higher shared memory usage (or scratch pad memory in Kokkos parlance) and higher register usage.
+  provide enough work in the inner loop to create enough threads to
+  fill a streaming multiprocessor (SM) with multiple warps to take
+  advantage of pipelining and enough work in the outer loop to create
+  enough blocks to fill all SMs on the GPU divided by the number of
+  simultaneous streams. The number of warps in flight on the inner
+  loop per SM (which is related to "occupancy") will depend positively
+  on length of the inner loop and negatively on higher shared memory
+  usage (or scratch pad memory in Kokkos parlance) and higher register
+  usage. On AMD GPUs, the story is essentially the same, except that
+  the scratch pad is much smaller and wavefronts are twice as large as
+  warps.
 
 IndexSplit
 -------------
@@ -122,8 +131,20 @@ To balance the CPU vs GPU hardware considerations of hierarchical
 parallelism, ``Parthenon`` provides a utility, the ``IndexSplit``
 class, defined in the ``utils/index_split.hpp`` header file and
 available in ``<parthenon/package.hpp>`` in the
-``parthenon::package::prelude`` namespace. The ``IndexSplit`` class
-can be constructed as
+``parthenon::package::prelude`` namespace.
+
+In our experience ``IndexSplit`` is most beneficial when working with
+small meshblocks, especially in two dimensions. For small blocks, we
+want vectorized operations over contiguous memory for our innermost
+loop, but we want that loop to contain enough work for, e.g., vector
+ops to function. 
+
+On CPUs, the optimal split is to fuse k, j, and i into the inner loop
+and use blocks in the outer loop. On Cuda GPUs, we have found a more
+optimal split is to fuse k and block index (in three dimensions) into
+the outer loop and i and j in the inner loop.
+
+The ``IndexSplit`` class can be constructed as
 
 .. code:: cpp
 
