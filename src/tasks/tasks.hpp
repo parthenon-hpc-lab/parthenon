@@ -14,6 +14,7 @@
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <functional>
@@ -21,10 +22,11 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "thread_pool.hpp"
 #include <parthenon_mpi.hpp>
+#include "thread_pool.hpp"
 
 namespace parthenon {
 
@@ -35,7 +37,7 @@ class TaskQualifier {
  public:
   using qualifier_t = uint64_t;
   TaskQualifier() = delete;
-  TaskQualifier(const qualifier_t n) : flags(n) {}
+  TaskQualifier(const qualifier_t n) : flags(n) {}  // NOLINT(runtime/explicit)
 
   static inline constexpr qualifier_t normal{0};
   static inline constexpr qualifier_t local_sync{1 << 0};
@@ -62,7 +64,7 @@ class TaskID {
  public:
   TaskID() : task(nullptr) {}
   // pointers to Task are implicitly convertible to TaskID
-  TaskID(Task *t) : task(t) {}
+  TaskID(Task *t) : task(t) {}  // NOLINT(runtime/explicit)
 
   TaskID operator|(const TaskID &other) const {
     // calling this operator means you're building a TaskID to hold a dependency
@@ -381,7 +383,7 @@ class TaskList {
 class TaskRegion {
  public:
   TaskRegion() = delete;
-  TaskRegion(const int num_lists) : task_lists(num_lists) {
+  explicit TaskRegion(const int num_lists) : task_lists(num_lists) {
     for (int i = 0; i < num_lists; i++)
       task_lists[i].SetID(i);
   }
