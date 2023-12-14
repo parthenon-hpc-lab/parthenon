@@ -47,7 +47,7 @@ struct BndInfo {
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
-  int alloc_status; 
+  int alloc_status;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
