@@ -110,20 +110,12 @@ class Task {
         dependencies.insert(d);
       }
     }
-    //printf("dependencies are: ");
-    //for (auto &d : dependencies) {
-      //printf("%p ", d);
-    //}
-    //printf("\n");
     // always add "this" to repeat task if it's incomplete
     dependent[static_cast<int>(TaskStatus::incomplete)].push_back(this);
   }
 
   TaskStatus operator()() {
     auto status = f();
-    if (status == TaskStatus::incomplete) {
-      printf("Got an incomplete task\n");
-    }
     if (task_type == TaskType::completion) {
       // keep track of how many times it's been called
       num_calls += (status == TaskStatus::iterate || status == TaskStatus::complete);
@@ -213,7 +205,7 @@ class TaskList {
 
   template <class... Args>
   TaskID AddTask(TaskID dep, Args &&... args) {
-    return AddTask(TaskQualifier::local_sync, dep, std::forward<Args>(args)...);
+    return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
   }
 
   template <class... Args>
