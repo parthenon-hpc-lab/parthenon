@@ -94,7 +94,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
 #ifdef KOKKOS_ENABLE_CUDA
     // From Forrest Glines:
     // nkp_ * njp_ >= number of SMs / number of streams
-    njp_ = std::min(nkp_ * NSTREAMS_ / NSMS_, total_j);
+    njp_ = std::min(nkp_ * NSTREAMS_ / concurrency_, total_j);
 #else
     njp_ = 1;
 #endif
