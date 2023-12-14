@@ -153,12 +153,13 @@ where here ``md`` is a ``MeshData`` object on which you want to
 operate. ``domain`` specifies where in the ``MeshBlock`` you wish to
 operate, for example ``IndexDomain::Interior``. ``nkp`` and ``njp``
 are the number of points in ``X3`` and ``X2`` respectively that are in
-the outer loop. All remaining points are in the inner loop; each team will iterate over multiple `k` and/or `j` indices to cover the specified `k/j` range. Typically
-``MeshBlock`` index in the pack is also assumed to be in the outer
-loop. ``nkp`` and ``njp`` also accept special flags
-``IndexSplit::all_outer`` and ``IndexSplit::no_outer``, which specify
-that all and none of the indices in that direction should be in the
-outer loop.
+the outer loop. All remaining points are in the inner loop; each team
+will iterate over multiple `k` and/or `j` indices to cover the
+specified `k/j` range. Typically ``MeshBlock`` index in the pack is
+also assumed to be in the outer loop. ``nkp`` and ``njp`` also accept
+special flags ``IndexSplit::all_outer`` and ``IndexSplit::no_outer``,
+which specify that all and none of the indices in that direction
+should be in the outer loop.
 
 A second constructor alternatively sets the range for ``X3``, ``X2``,
 and ``X1`` explicitly:
@@ -170,6 +171,14 @@ and ``X1`` explicitly:
 
 where here ``kb``, ``jb``, and ``ib`` specify the starting and ending
 indices for ``X3``, ``X2``, and ``X1`` respecively.
+
+.. warning::
+
+  Note that, at this time, ``IndexSplit`` doesn't know about
+  face-centered or edge-centered data. To use ``IndexSplit`` with,
+  e.g., face-centered data, set the input ``IndexRange`` quantities to
+  match the shape for the face-centered data (e.g., with the
+  appropriate offsets).
 
 An ``IndexSplit`` object is typically used as:
 
