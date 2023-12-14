@@ -136,11 +136,12 @@ available in ``<parthenon/package.hpp>`` in the
 ``parthenon::package::prelude`` namespace.
 
 In our experience ``IndexSplit`` is most beneficial when working with
-small meshblocks, especially in two dimensions. For small blocks, we
-want vectorized operations over contiguous memory for our innermost
-loop, but we want that loop to contain enough work for, e.g., vector
-ops to function. We have often found that the optimal split is to fuse
-j, and i into the inner loop and use k and blocks in the outer loop.
+small meshblocks on CPUs, especially in two dimensions. For small
+blocks, we want vectorized operations over contiguous memory for our
+innermost loop, but we want that loop to contain enough work for,
+e.g., vector ops to function. We have often found that the optimal
+split is to fuse j, and i into the inner loop and use k and blocks in
+the outer loop.
 
 The ``IndexSplit`` class can be constructed as
 
