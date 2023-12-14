@@ -13,12 +13,15 @@
 
 #include <algorithm>
 
+#include <Kokkos_Core.hpp>
+
 #include "utils/index_split.hpp"
 
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/mesh_data.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 
@@ -49,6 +52,25 @@ IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nkp,
 void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   const int total_k = kbe - kbs_ + 1;
   const int total_j = jbe - jbs_ + 1;
+  const int total_i = ibe_ - ibs_ + 1;
+
+  // Compute max parallelism (at outer loop level) from Kokkos
+  // equivalent to NSMS in Kokkos
+  // TODO(JMM): I'm not sure if this is really the best way to do
+  // this. Based on discussion on Kokkos slack.
+#ifdef KOKKOS_ENABLE_CUDA
+  const auto space = DevExecSpace();
+  team_policy policy(space, total_k, Kokkos::AUTO);
+  // JMM: In principle, should pass a realistic functor here. Using a
+  // dummy because we don't know what's available.
+  // TODO(JMM): Should we expose the functor?
+  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * total_i * total_j));
+  const int nteams = policy.team_size_recommended(KOKKOS_LAMBDA(team_mbr_t team_member){},
+                                                  Kokkos::ParallelForTag());
+  concurrency_ = space.concurrency() / nteams;
+#else
+  concurrency_ = 1;
+#endif // KOKKOS_ENABLE_CUDA
 
   if (nkp_ == all_outer)
     nkp_ = total_k;

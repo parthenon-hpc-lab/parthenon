@@ -104,8 +104,8 @@ class IndexSplit {
 
  private:
   // TODO(JMM): Replace this with a macro or something when available
-  static constexpr int NSMS_ = 132; // For NVIDIA H100
   static constexpr int NSTREAMS_ = 1; // Change if we add streams back
+  int concurrency_;                   //  = NSMs = 132 for NVIDIA H100
   int nghost_, nkp_, njp_, kbs_, jbs_, ibs_, ibe_;
   int kbe_entire_, jbe_entire_, ibe_entire_, ndim_;
   float target_k_, target_j_;
