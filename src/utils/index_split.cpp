@@ -30,7 +30,7 @@ namespace parthenon {
 struct DummyFunctor {
   DummyFunctor() = default;
   KOKKOS_INLINE_FUNCTION
-  void operator(team_mbr_t team_member) const {}
+  void operator()(team_mbr_t team_member) const {}
 };
 
 IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRange &jb,
@@ -71,8 +71,8 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // dummy because we don't know what's available.
   // TODO(JMM): Should we expose the functor?
   policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * total_i * total_j));
-  const int nteams = policy.team_size_recommended(DummyFunctor(),
-                                                  Kokkos::ParallelForTag());
+  const int nteams =
+      policy.team_size_recommended(DummyFunctor(), Kokkos::ParallelForTag());
   concurrency_ = space.concurrency() / nteams;
 #else
   concurrency_ = 1;
