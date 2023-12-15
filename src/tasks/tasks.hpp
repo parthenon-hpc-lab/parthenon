@@ -71,16 +71,10 @@ class TaskID {
   TaskID operator|(const TaskID &other) const {
     // calling this operator means you're building a TaskID to hold a dependency
     TaskID result;
-    if (task) {
-      result.dep.push_back(task);
-    } else {
-      result.dep.insert(result.dep.end(), dep.begin(), dep.end());
-    }
-    if (other.task) {
-      result.dep.push_back(other.task);
-    } else {
-      result.dep.insert(result.dep.end(), other.dep.begin(), other.dep.end());
-    }
+    if (task != nullptr) result.dep.push_back(task);
+    result.dep.insert(result.dep.end(), dep.begin(), dep.end());
+    if (other.task != nullptr) result.dep.push_back(other.task);
+    result.dep.insert(result.dep.end(), other.dep.begin(), other.dep.end());
     return result;
   }
 
