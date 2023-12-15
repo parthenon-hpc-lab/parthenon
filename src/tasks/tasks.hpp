@@ -234,6 +234,8 @@ class TaskList {
     }
 
     if (tq.GlobalSync()) {
+      bool do_mpi = false;
+#ifdef MPI_PARALLEL
       // make status, request, and comm for this global task
       global_status.push_back(std::make_shared<int>(0));
       global_request.push_back(std::make_shared<MPI_Request>(MPI_REQUEST_NULL));
@@ -247,9 +249,12 @@ class TaskList {
       // we need another communicator to support multiple in flight non-blocking
       // collectives where we can't guarantee calling order across ranks
       MPI_Comm_dup(MPI_COMM_WORLD, global_comm.back().get());
+      do_mpi = true;
+#endif // MPI_PARALLEL
       TaskID start;
       // only call MPI once per region, on the list with unique_id = 0
-      if (unique_id == 0) {
+      if (unique_id == 0 && do_mpi) {
+#ifdef MPI_PARALLEL
         // add a task that starts the Iallreduce on the task statuses
         tasks.push_back(std::make_shared<Task>(
             id,
@@ -281,6 +286,7 @@ class TaskList {
               return TaskStatus::incomplete;
             },
             exec_limits));
+#endif // MPI_PARALLEL
       } else { // unique_id != 0
         // just add empty tasks
         tasks.push_back(std::make_shared<Task>(
@@ -334,9 +340,11 @@ class TaskList {
   // put these in shared_ptrs so copying TaskList works as expected
   std::vector<std::shared_ptr<Task>> tasks;
   std::vector<std::shared_ptr<TaskList>> sublists;
+#ifdef MPI_PARALLEL
   std::vector<std::shared_ptr<int>> global_status;
   std::vector<std::shared_ptr<MPI_Request>> global_request;
   std::vector<std::shared_ptr<MPI_Comm>> global_comm;
+#endif // MPI_PARALLEL
   // vectors are fine for these
   std::vector<Task *> regional_tasks;
   std::vector<Task *> global_tasks;
