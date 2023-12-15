@@ -676,10 +676,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
   Kokkos::Profiling::popRegion(); // write particle data
 
-  Kokkos::Profiling::pushRegion("genXDMF");
-  // generate XDMF companion file
-  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
-  Kokkos::Profiling::popRegion(); // genXDMF
+  if (output_params.write_xdmf) {
+    Kokkos::Profiling::pushRegion("genXDMF");
+    // generate XDMF companion file
+    XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
+    Kokkos::Profiling::popRegion(); // genXDMF
+  }
 
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
