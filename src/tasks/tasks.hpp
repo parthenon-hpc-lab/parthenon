@@ -280,7 +280,7 @@ class TaskList {
               return TaskStatus::incomplete;
             },
             exec_limits));
-#endif // MPI_PARALLEL
+#endif         // MPI_PARALLEL
       } else { // unique_id != 0
         // just add empty tasks
         tasks.push_back(std::make_shared<Task>(
