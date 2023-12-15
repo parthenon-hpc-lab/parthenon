@@ -24,9 +24,9 @@
 using parthenon::Task;
 using parthenon::TaskID;
 
-TEST_CASE("Just check everything", "[|][GetIDs][empty]") {
+TEST_CASE("Just check everything", "[GetIDs][empty]") {
   GIVEN("Some TaskIDs") {
-    Task ta,tb;
+    Task ta, tb;
     TaskID a(&ta);
     TaskID b(&tb);
     TaskID c = a | b;

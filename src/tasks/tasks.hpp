@@ -96,6 +96,7 @@ class TaskID {
 
 class Task {
  public:
+  Task() = default;
   template <typename TID>
   Task(TID &&dep, const std::function<TaskStatus()> &func,
        std::pair<int, int> limits = {1, 1})

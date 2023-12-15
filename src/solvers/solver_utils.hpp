@@ -272,32 +272,24 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class TL_t>
-TaskID DotProduct(TaskID dependency_in, TaskRegion &region, TL_t &tl, int partition,
-                  int &reg_dep_id, AllReduce<Real> *adotb,
+template <class a_t, class b_t>
+TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::shared_ptr<MeshData<Real>> &md) {
   using namespace impl;
-  auto zero_adotb = (partition == 0 ? tl.AddTask(
-                                          dependency_in,
-                                          [](AllReduce<Real> *r) {
-                                            r->val = 0.0;
-                                            return TaskStatus::complete;
-                                          },
-                                          adotb)
-                                    : dependency_in);
-  region.AddRegionalDependencies(reg_dep_id, partition, zero_adotb);
-  reg_dep_id++;
-  auto get_adotb = tl.AddTask(zero_adotb, DotProductLocal<a_t, b_t>, md, adotb);
-  region.AddRegionalDependencies(reg_dep_id, partition, get_adotb);
-  reg_dep_id++;
-  auto start_global_adotb =
-      (partition == 0
-           ? tl.AddTask(get_adotb, &AllReduce<Real>::StartReduce, adotb, MPI_SUM)
-           : get_adotb);
+  auto zero_adotb = tl.AddTask(
+      TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+      [](AllReduce<Real> *r) {
+        r->val = 0.0;
+        return TaskStatus::complete;
+      },
+      adotb);
+  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                              DotProductLocal<a_t, b_t>, md, adotb);
+  auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
+                                       &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
-      tl.AddTask(start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
-  region.AddRegionalDependencies(reg_dep_id, partition, finish_global_adotb);
-  reg_dep_id++;
+      tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                 start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
   return finish_global_adotb;
 }
 
