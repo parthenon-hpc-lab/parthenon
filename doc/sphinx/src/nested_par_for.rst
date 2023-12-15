@@ -121,7 +121,7 @@ get optimal performance. Here we list a few strategies/considerations.
   inner loop per SM (which is related to "occupancy") will depend
   positively on length of the inner loop and negatively on higher
   shared memory usage (scratch pad memory in Kokkos parlance and Local
-  Data Store or LDS on AMD GPUs) and higher register usage. Note that
+  Data Share or LDS on AMD GPUs) and higher register usage. Note that
   the number of SMs and the available shared memory and registers per
   SM will vary between GPU architectures and especially between GPU
   vendors.
