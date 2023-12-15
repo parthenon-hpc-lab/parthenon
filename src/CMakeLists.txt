@@ -307,7 +307,7 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
-target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)

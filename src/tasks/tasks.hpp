@@ -84,7 +84,7 @@ class TaskID {
   Task *GetTask() { return task; }
 
  private:
-  Task *task;
+  Task *task = nullptr;
   std::vector<Task *> dep;
 };
 
