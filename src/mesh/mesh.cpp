@@ -519,6 +519,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   for (int f = 0; f < BOUNDARY_NFACES; ++f) {
     mesh_bcs[f] = GetBoundaryFlag(mesh_bc_names[f]);
     swarm_bcs[f] = GetBoundaryFlag(swarm_bc_names[f]);
+    block_bcs[i] = mesh_bcs[i];
   }
 
   // mesh test
@@ -540,11 +541,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbdel = rr.GetAttr<int>("Info", "NBDel");
   nbtotal = rr.GetAttr<int>("Info", "NumMeshBlocks");
   root_level = rr.GetAttr<int>("Info", "RootLevel");
-
-  const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
-  for (int i = 0; i < BOUNDARY_NFACES; i++) {
-    block_bcs[i] = GetBoundaryFlag(bc[i]);
-  }
 
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
