@@ -181,5 +181,4 @@ class ApplicationInput {
 };
 
 } // namespace parthenon
-
 #endif // APPLICATION_INPUT_HPP_
