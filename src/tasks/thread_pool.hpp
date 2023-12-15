@@ -27,9 +27,9 @@
 namespace parthenon {
 
 template <typename T>
-class Queue {
+class ThreadQueue {
  public:
-  explicit Queue(const int num_workers) : nworkers(num_workers), nwaiting(0) {}
+  explicit ThreadQueue(const int num_workers) : nworkers(num_workers), nwaiting(0) {}
   void push(T q) {
     std::lock_guard<std::mutex> lock(mutex);
     queue.push(q);
@@ -129,7 +129,7 @@ class ThreadPool {
  private:
   const int nthreads;
   std::vector<std::thread> threads;
-  Queue<std::function<void()>> queue;
+  ThreadQueue<std::function<void()>> queue;
 };
 
 } // namespace parthenon
