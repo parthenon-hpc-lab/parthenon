@@ -145,12 +145,138 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
+              if (!(krange.s == krange.e)) nwrong(0) += 1;
+              if (!(jrange.s == jrange.e)) nwrong(0) += 1;
               if (!(irange.s == 0)) nwrong(0) += 1;
               if (!(irange.e == N - 1)) nwrong(0) += 1;
             });
         auto nwrong_h = Kokkos::create_mirror_view(nwrong);
         Kokkos::deep_copy(nwrong_h, nwrong);
         REQUIRE(nwrong_h(0) == 0);
+      }
+    }
+
+    WHEN("We initialize with nkp > NK") {
+      constexpr int NKP = N + 1;
+      REQUIRE(NKP > N);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, NKP, IndexSplit::no_outer);
+      THEN("The outer index range should not overrun the mesh domain") {
+        REQUIRE(sp.outer_size() == N);
+      }
+    }
+
+    WHEN("We initialize with nkp*njp > NK*NJ") {
+      constexpr int NTOOBIG = N + 1;
+      REQUIRE(NTOOBIG > N);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, NTOOBIG, NTOOBIG);
+      THEN("The outer index range should not overrun the mesh domain") {
+        REQUIRE(sp.outer_size() == N * N);
+      }
+    }
+
+    WHEN("We initialize an IndexSplit so that work and nj are evenly divisible") {
+      constexpr int NJP = 3;
+      REQUIRE(N % NJP == 0);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, IndexSplit::all_outer, NJP);
+      THEN("The outer index range should be appropriate") {
+        REQUIRE(sp.outer_size() == NJP * N);
+      }
+      THEN("The inner index ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> nwrong("nwrong", 1);
+        parthenon::par_for_outer(
+            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
+            sp.outer_size() - 1,
+            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+              const auto krange = sp.GetBoundsK(outer_idx);
+              const auto jrange = sp.GetBoundsJ(outer_idx);
+              const auto irange = sp.GetInnerBounds(jrange);
+              if (!(krange.s == krange.e)) nwrong(0) += 1;
+              if (!(jrange.e == jrange.s + 1)) nwrong(0) += 1;
+              if (!((irange.e - irange.s + 1) == (N / NJP) * N)) nwrong(0) += 1;
+            });
+        auto nwrong_h = Kokkos::create_mirror_view(nwrong);
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h(0) == 0);
+      }
+    }
+
+    WHEN("We initialize an IndexSplit so that work and nk are evenly divisible") {
+      constexpr int NKP = 3;
+      REQUIRE(N % NKP == 0);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, NKP, IndexSplit::no_outer);
+      THEN("The outer index range should be appropriate") {
+        REQUIRE(sp.outer_size() == NKP);
+      }
+      THEN("The inner index ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> nwrong("nwrong", 1);
+        parthenon::par_for_outer(
+            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
+            sp.outer_size() - 1,
+            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+              const auto krange = sp.GetBoundsK(outer_idx);
+              const auto jrange = sp.GetBoundsJ(outer_idx);
+              const auto irange = sp.GetInnerBounds(jrange);
+              // The user is expected to loop over k manually between
+              // the outer loop and the inner.
+              if (!((krange.e - krange.s + 1) == (N / NKP))) nwrong(0) += 1;
+              if (!((jrange.e - jrange.s + 1) == N)) nwrong(0) += 1;
+              if (!((irange.e - irange.s + 1) == (N * N))) nwrong(0) += 1;
+            });
+        auto nwrong_h = Kokkos::create_mirror_view(nwrong);
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h(0) == 0);
+      }
+    }
+
+    WHEN("We initialize an IndexSplit so the work and nj aren't evenly divisible") {
+      constexpr int NJP = 4;
+      REQUIRE(N % NJP > 0);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, IndexSplit::all_outer, NJP);
+      THEN("The outer index range should be appropriate") {
+        REQUIRE(sp.outer_size() == NJP * N);
+      }
+      THEN("The inner index ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> total_work("work", 1);
+        parthenon::par_for_outer(
+            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
+            sp.outer_size() - 1,
+            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+              const auto krange = sp.GetBoundsK(outer_idx);
+              const auto jrange = sp.GetBoundsJ(outer_idx);
+              const auto irange = sp.GetInnerBounds(jrange);
+              total_work(0) += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+            });
+        auto work_h = Kokkos::create_mirror_view(total_work);
+        Kokkos::deep_copy(work_h, total_work);
+        REQUIRE(work_h(0) == N * N * N);
+      }
+    }
+
+    WHEN("We initialize an IndexSplit so the work and nk aren't evenly divisible") {
+      constexpr int NKP = 4;
+      REQUIRE(N % NKP > 0);
+      IndexSplit sp(&mesh_data, IndexDomain::interior, NKP, IndexSplit::no_outer);
+      THEN("The outer index range should be appropriate") {
+        REQUIRE(sp.outer_size() == NKP);
+      }
+      THEN("The inner index ranges should be appropriate") {
+        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
+        Kokkos::View<int *, atomic_view> total_work("work", 1);
+        parthenon::par_for_outer(
+            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
+            sp.outer_size() - 1,
+            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+              const auto krange = sp.GetBoundsK(outer_idx);
+              const auto jrange = sp.GetBoundsJ(outer_idx);
+              const auto irange = sp.GetInnerBounds(jrange);
+              total_work(0) += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+            });
+        auto work_h = Kokkos::create_mirror_view(total_work);
+        Kokkos::deep_copy(work_h, total_work);
+        REQUIRE(work_h(0) == N * N * N);
       }
     }
   }

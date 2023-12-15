@@ -66,7 +66,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // this. Based on discussion on Kokkos slack.
 #ifdef KOKKOS_ENABLE_CUDA
   const auto space = DevExecSpace();
-  team_policy policy(space, total_k, Kokkos::AUTO);
+  team_policy policy(space, (md->NumBlocks()) * total_k, Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
   // dummy because we don't know what's available.
   // TODO(JMM): Should we expose the functor?
@@ -100,7 +100,8 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
 #ifdef KOKKOS_ENABLE_CUDA
     // From Forrest Glines:
     // nkp_ * njp_ >= number of SMs / number of streams
-    njp_ = std::min(nkp_ * NSTREAMS_ / concurrency_, total_j);
+    // => njp_ >= SMS / streams / NKP
+    njp_ = std::min(concurrency_ / (NSTREAMS * nkp_), total_j);
 #else
     njp_ = 1;
 #endif
@@ -109,8 +110,10 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   }
 
   // add a tiny bit to avoid round-off issues when we ultimately convert to int
-  target_k_ = static_cast<int>((1.0 * total_k) / nkp_ + 1.e-6);
-  target_j_ = static_cast<int>((1.0 * total_j) / njp_ + 1.e-6);
+  // JMM: Do NOT cast these to integers here. The casting happens later.
+  // These being doubles is necessary for proper interleaving of work.
+  target_k_ = (1.0 * total_k) / nkp_ + 1.e-6;
+  target_j_ = (1.0 * total_j) / njp_ + 1.e-6;
 
   // save the "entire" ranges
   // don't bother save ".s" since it's always zero
