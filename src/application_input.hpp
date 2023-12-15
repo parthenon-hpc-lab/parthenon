@@ -120,7 +120,6 @@ class ApplicationInput {
   void RegisterBoundaryCondition(BoundaryFace face, const std::string &name,
                                  BValFunc condition) {
     if (boundary_conditions_[face].count(name) > 0) {
-
       PARTHENON_THROW("Boundary condition " + name + " at face " + std::to_string(face) +
                       "already registered.");
     }
