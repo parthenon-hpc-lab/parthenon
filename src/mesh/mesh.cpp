@@ -519,7 +519,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   for (int f = 0; f < BOUNDARY_NFACES; ++f) {
     mesh_bcs[f] = GetBoundaryFlag(mesh_bc_names[f]);
     swarm_bcs[f] = GetBoundaryFlag(swarm_bc_names[f]);
-    block_bcs[i] = mesh_bcs[i];
+    block_bcs[f] = mesh_bcs[f];
   }
 
   // mesh test
@@ -1161,7 +1161,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
   RegionSize block_size = GetBlockSize();
-  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
