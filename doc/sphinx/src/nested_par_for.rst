@@ -221,7 +221,7 @@ An ``IndexSplit`` object is typically used as:
 
 	      // pull out a pointer some variable in some pack. Note
 	      // we pick the 0th index of i at k and jrange.s
-	      Real *var = &pack(b, ivar, k, jrange.s, 0);
+	      Real *var = &pack(b, ivar, k, jrange.s, irange.s);
 
 	      // Do something with the pointer in the inner loop.
 	      par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, irange.s, irange.e,
