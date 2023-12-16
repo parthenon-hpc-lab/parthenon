@@ -101,7 +101,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
     // From Forrest Glines:
     // nkp_ * njp_ >= number of SMs / number of streams
     // => njp_ >= SMS / streams / NKP
-    njp_ = std::min(concurrency_ / (NSTREAMS * nkp_), total_j);
+    njp_ = std::min(concurrency_ / (NSTREAMS_ * nkp_), total_j);
 #else
     njp_ = 1;
 #endif
