@@ -336,6 +336,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
+      // JMM: Version -1 is the old version. We are now on version 3.
+      // TODO(JMM): Do we need to maintain backwards compatibility
+      // here? It would be ncie to remove this.
       if (file_output_format_ver == -1) {
         for (int k = out_kb.s; k <= out_kb.e; ++k) {
           for (int j = out_jb.s; j <= out_jb.e; ++j) {
@@ -348,19 +351,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       } else if (file_output_format_ver == 2 ||
                  file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
-        for (int t = 0; t < Nt; ++t) {
-          for (int u = 0; u < Nu; ++u) {
-            for (int v = 0; v < Nv; ++v) {
-              for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                  for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                    v_h(t, u, v, k, j, i) = tmp[index++];
-                  }
-                }
-              }
-            }
-          }
-        }
+        OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
+                                     [&](auto v_h, auto index, int t, int u, int v, int k,
+                                         int j,
+                                         int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
       } else {
         PARTHENON_THROW("Unknown output format version in restart file.")
       }

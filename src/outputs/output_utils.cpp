@@ -100,6 +100,41 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
   }
 }
 
+// Tools that can be shared accross Output types
+std::vector<Real> ComputeXminBlocks(Mesh *pm) {
+  return FlattenBlockInfo<Real>(pm, 3,
+                                [=](MeshBlock *pmb, std::vector<Real> &data, int &i) {
+                                  auto xmin = pmb->coords.GetXmin();
+                                  data[i++] = xmin[0];
+                                  if (pm->ndim > 1) {
+                                    data[i++] = xmin[1];
+                                  }
+                                  if (pm->ndim > 2) {
+                                    data[i++] = xmin[2];
+                                  }
+                                });
+}
+
+std::vector<int64_t> ComputeLocs(Mesh *pm) {
+  return FlattenBlockInfo<int64_t>(
+      pm, 3, [=](MeshBlock *pmb, std::vector<int64_t> &locs, int &i) {
+        locs[i++] = pmb->loc.lx1();
+        locs[i++] = pmb->loc.lx2();
+        locs[i++] = pmb->loc.lx3();
+      });
+}
+
+std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
+  return FlattenBlockInfo<int>(pm, 5,
+                               [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+                                 data[i++] = pmb->loc.level();
+                                 data[i++] = pmb->gid;
+                                 data[i++] = pmb->lid;
+                                 data[i++] = pmb->cnghost;
+                                 data[i++] = pmb->gflag;
+                               });
+}
+
 // TODO(JMM): may need to generalize this
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   std::size_t out = 0;

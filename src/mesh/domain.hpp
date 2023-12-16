@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 
 namespace parthenon {

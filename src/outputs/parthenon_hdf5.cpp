@@ -247,8 +247,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // write Xmin[ndim] for blocks
     {
-      std::vector<Real> tmpData(num_blocks_local * 3);
-      ComputeXminBlocks_(pm, tmpData);
+      std::vector<Real> tmpData = OutputUtils::ComputeXminBlocks(pm);
       local_count[1] = global_count[1] = pm->ndim;
       HDF5Write2D(gBlocks, "xmin", tmpData.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                   pl_xfer);
@@ -258,17 +257,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     {
       // LOC.lx1,2,3
       hsize_t n = 3;
-      std::vector<int64_t> tmpLoc(num_blocks_local * n);
+      std::vector<int64_t> tmpLoc = OutputUtils::ComputeLocs(pm);
       local_count[1] = global_count[1] = n;
-      ComputeLocs_(pm, tmpLoc);
       HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), p_loc_offset, p_loc_cnt,
                   p_glob_cnt, pl_xfer);
 
       // (LOC.)level, GID, LID, cnghost, gflag
       n = 5; // this is NOT H5_NDIM
-      std::vector<int> tmpID(num_blocks_local * n);
+      std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
       local_count[1] = global_count[1] = n;
-      ComputeIDsAndFlags_(pm, tmpID);
       HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
                   p_loc_cnt, p_glob_cnt, pl_xfer);
     }
@@ -495,30 +492,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // For reference, if we update the logic here, there's also
         // a similar block in parthenon_manager.cpp
         if (v->IsAllocated() && (var_name == v->label())) {
-          auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
-                      }
-                    }
-                  }
-                } else {
-                  for (int k = 0; k < vinfo.nx3; ++k) {
-                    for (int j = 0; j < vinfo.nx2; ++j) {
-                      for (int i = 0; i < vinfo.nx1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          OutputUtils::PackOrUnpackVar(
+              pmb.get(), v.get(), output_params.include_ghost_zones, index, tmpData,
+              [&](auto v_h, auto index, int t, int u, int v, int k, int j, int i) {
+                tmpData[index] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+              });
 
           is_allocated = true;
           break;
@@ -720,40 +698,7 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
   }
   return filename;
 }
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    auto xmin = pmb->coords.GetXmin();
-    data[i++] = xmin[0];
-    if (pm->ndim > 1) {
-      data[i++] = xmin[1];
-    }
-    if (pm->ndim > 2) {
-      data[i++] = xmin[2];
-    }
-  }
-}
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    locs[i++] = pmb->loc.lx1();
-    locs[i++] = pmb->loc.lx2();
-    locs[i++] = pmb->loc.lx3();
-  }
-}
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    data[i++] = pmb->loc.level();
-    data[i++] = pmb->gid;
-    data[i++] = pmb->lid;
-    data[i++] = pmb->cnghost;
-    data[i++] = pmb->gflag;
-  }
-}
+
 // TODO(JMM): Should this live in the base class or output_utils?
 void PHDF5Output::ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib,
                                  const IndexRange &jb, const IndexRange &kb,
