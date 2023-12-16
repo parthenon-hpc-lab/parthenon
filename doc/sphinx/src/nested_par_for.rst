@@ -161,6 +161,12 @@ special flags ``IndexSplit::all_outer`` and ``IndexSplit::no_outer``,
 which specify that all and none of the indices in that direction
 should be in the outer loop.
 
+.. warning::
+
+  Note that, in contrast to ``njp``, ``nkp`` points in the
+  ``k``-direction are not included in the innermost loop bounds. You
+  must loop over ``k`` by hand inside the outer loop body.
+
 A second constructor alternatively sets the range for ``X3``, ``X2``,
 and ``X1`` explicitly:
 
@@ -213,7 +219,8 @@ An ``IndexSplit`` object is typically used as:
 	    const auto krange = idx_sp.GetBoundsK(outer_idx);
 	    const auto jrange = idx_sp.GetBoundsJ(outer_idx);
 	    // This is the loop of contiguous inner memory. May contain i and j!
-	    const auto irange = idx_sp.GetInnerBounds(jrange);
+	    const auto flattened_inner_ijrange = idx_sp.GetInnerBounds(jrange);
+            const int inner_size = flattened_inner_ijrange.e - flattened_inner_ijrange.s + 1;
 
 	    // Whatever part of k is not in the outer loop can be looped over
 	    // with a normal for loop here
@@ -221,10 +228,10 @@ An ``IndexSplit`` object is typically used as:
 
 	      // pull out a pointer some variable in some pack. Note
 	      // we pick the 0th index of i at k and jrange.s
-	      Real *var = &pack(b, ivar, k, jrange.s, 0);
+	      Real *var = &pack(b, ivar, k, jrange.s, flattened_inner_ijrange.s);
 
 	      // Do something with the pointer in the inner loop.
-	      par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, irange.s, irange.e,
+	      par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, flattened_inner_size,
 	        [&](const int i) {
 		  foo(var[i]);
 		});
