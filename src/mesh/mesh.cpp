@@ -1158,9 +1158,9 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 // \!fn void Mesh::GetBlockSize(const LogicalLocation &loc) const
 // \brief Find the (hyper-)rectangular region of the grid covered by the block at
 //        logical location loc
-
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
   RegionSize block_size = GetBlockSize();
+  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
