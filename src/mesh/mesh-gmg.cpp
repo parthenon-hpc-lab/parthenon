@@ -97,7 +97,11 @@ void Mesh::SetSameLevelNeighbors(
                 bool not_neighbor = false;
                 for (int dir = 0; dir < 3; ++dir) {
                   if (ox[dir] != 0) {
-                    const int temp = 2 * (fine_loc.l(dir) - (fine_loc.l(dir) >> 1)) - 1;
+                    // temp should be +1 if a block is to the right within its parent
+                    // block and -1 if it is to the left.
+                    const int temp =
+                        2 * (fine_loc.l(dir) - 2 * (fine_loc.l(dir) >> 1)) - 1;
+                    PARTHENON_DEBUG_REQUIRE(temp * temp == 1, "Bad Offset");
                     if (temp != mult * ox[dir]) not_neighbor = true;
                   }
                 }
