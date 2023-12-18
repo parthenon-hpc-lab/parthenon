@@ -51,9 +51,7 @@ class TaskQualifier {
   bool GlobalSync() const { return flags & global_sync; }
   bool Completion() const { return flags & completion; }
   bool Once() const { return flags & once_per_region; }
-  bool Valid() const {
-    return true;
-  }
+  bool Valid() const { return true; }
 
  private:
   qualifier_t flags;
