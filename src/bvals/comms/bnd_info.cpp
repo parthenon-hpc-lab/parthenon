@@ -141,13 +141,10 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         // for non-cell centered values the number of grid points may be odd, so we pick
         // up an extra zone that is communicated. I think this is ok, but something to
         // keep in mind if there are issues.
-        // const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
-        //                         (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
-        // s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
-        // e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
-        const int half_grid = (bounds[dir].e - bounds[dir].s + 1) / 2;
-        s[dir] += nb.loc.l(dir) % 2 == 1 ? half_grid - interior_offset : 0;
-        e[dir] -= nb.loc.l(dir) % 2 == 0 ? half_grid - interior_offset : 0;
+        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
+                                (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
+        s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
+        e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
         if (ir_type == IndexRangeType::InteriorSend) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
