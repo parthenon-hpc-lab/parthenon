@@ -83,6 +83,25 @@ void Mesh::SetSameLevelNeighbors(
           for (auto ox2 : offsets[1]) {
             for (auto ox3 : offsets[2]) {
               NeighborConnect nc;
+              if (pos_neighbor_location.level() != loc.level()) {  
+                // Check that the two blocks are in fact neighbors in this offset 
+                // direction, since we only checked that they are actually neighbors 
+                // when they have both been derefined to the coarser of their levels 
+                // (this should only play a role in small meshes with periodic
+                // bounday conditions)
+                auto &fine_loc = pos_neighbor_location.level() > loc.level() ? 
+                                 pos_neighbor_location : loc; 
+                int mult = loc.level() - pos_neighbor_location.level();
+                std::array<int, 3> ox{ox1, ox2, ox3};
+                bool not_neighbor = false;
+                for (int dir = 0; dir < 3; ++dir) { 
+                  if (ox[dir] != 0) { 
+                    const int temp = 2 * (fine_loc.l(dir) - (fine_loc.l(dir) >> 1)) - 1;
+                    if (temp != mult * ox[dir]) not_neighbor = true; 
+                  }
+                }
+                if (not_neighbor) continue;
+              } 
               int connect_indicator = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
               if (connect_indicator == 0) continue;
               if (connect_indicator == 1) {
