@@ -52,7 +52,6 @@ class TaskQualifier {
   bool Completion() const { return flags & completion; }
   bool Once() const { return flags & once_per_region; }
   bool Valid() const {
-    if (LocalSync() && GlobalSync()) return false;
     return true;
   }
 
@@ -393,7 +392,7 @@ class TaskRegion {
       task_lists[i].SetID(i);
   }
 
-  void Execute(ThreadPool &pool) {
+  TaskListStatus Execute(ThreadPool &pool) {
     // first, if needed, finish building the graph
     if (!graph_built) BuildGraph();
 
@@ -418,6 +417,8 @@ class TaskRegion {
 
     // then wait until everything is done
     pool.wait();
+
+    return TaskListStatus::complete;
   }
 
   TaskList &operator[](const int i) { return task_lists[i]; }
@@ -477,8 +478,10 @@ class TaskCollection {
     return Execute(pool);
   }
   TaskListStatus Execute(ThreadPool &pool) {
+    TaskListStatus status;
     for (auto &region : regions) {
-      region.Execute(pool);
+      status = region.Execute(pool);
+      if (status != TaskListStatus::complete) return status;
     }
     return TaskListStatus::complete;
   }
