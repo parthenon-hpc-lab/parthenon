@@ -1168,7 +1168,7 @@ RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
     if (!block_size.symmetry(dir)) {
       std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level){ 
+      if (loc.level() < root_level) {
         std::int64_t fac = 1 << (root_level - loc.level());
         nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
       }

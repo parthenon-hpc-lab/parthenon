@@ -245,9 +245,11 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
-              const int local_work = (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+              const int local_work =
+                  (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
               total_work += local_work;
-            }, Kokkos::Sum<int>(total_work));
+            },
+            Kokkos::Sum<int>(total_work));
         REQUIRE(total_work == N * N * N);
       }
     }
@@ -268,7 +270,8 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
               total_work += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
-            }, Kokkos::Sum<int>(total_work));
+            },
+            Kokkos::Sum<int>(total_work));
         REQUIRE(total_work == N * N * N);
       }
     }
