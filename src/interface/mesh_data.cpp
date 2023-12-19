@@ -31,6 +31,26 @@ void MeshData<T>::Initialize(const MeshData<T> *src,
   }
 }
 
+template <typename T>
+void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+  const int nblocks = blocks.size();
+  ndim_ = ndim;
+  block_data_.resize(nblocks);
+  SetMeshPointer(pmesh);
+  for (int i = 0; i < nblocks; i++) {
+    block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
+  }
+}
+
+template <typename T>
+void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
+  int ndim;
+  if (pmesh != nullptr) {
+    ndim = pmesh->ndim;
+  }
+  Set(blocks, pmesh, ndim);
+}
+
 template class MeshData<Real>;
 
 } // namespace parthenon
