@@ -240,14 +240,16 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         int total_work = 0;
         const int outer_size = sp.outer_size();
         parthenon::par_reduce(
-            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0,  outer_size - 1,
+            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, outer_size - 1,
             KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
-              const int local_work = (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+              const int local_work =
+                  (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
               total_work += local_work;
-            }, Kokkos::Sum<int>(total_work));
+            },
+            Kokkos::Sum<int>(total_work));
         REQUIRE(total_work == N * N * N);
       }
     }
@@ -262,13 +264,15 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
       THEN("The inner index ranges should be appropriate") {
         int total_work = 0;
         parthenon::par_reduce(
-            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, sp.outer_size() - 1,
+            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0,
+            sp.outer_size() - 1,
             KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
               total_work += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
-            }, Kokkos::Sum<int>(total_work));
+            },
+            Kokkos::Sum<int>(total_work));
         REQUIRE(total_work == N * N * N);
       }
     }
