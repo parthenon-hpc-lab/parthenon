@@ -86,7 +86,6 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
     constexpr int N = 6;
     constexpr int NDIM = 3;
     constexpr int NBLOCKS = 9;
-    constexpr int NG = 0;
     const std::vector<int> scalar_shape{N, N, N};
     const std::vector<int> vector_shape{N, N, N, 3};
 
@@ -238,20 +237,18 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         REQUIRE(sp.outer_size() == NJP * N);
       }
       THEN("The inner index ranges should be appropriate") {
-        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
-        Kokkos::View<int *, atomic_view> total_work("work", 1);
-        parthenon::par_for_outer(
-            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
-            sp.outer_size() - 1,
-            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+        int total_work = 0;
+        const int outer_size = sp.outer_size();
+        parthenon::par_reduce(
+            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0,  outer_size - 1,
+            KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
-              total_work(0) += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
-            });
-        auto work_h = Kokkos::create_mirror_view(total_work);
-        Kokkos::deep_copy(work_h, total_work);
-        REQUIRE(work_h(0) == N * N * N);
+              const int local_work = (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+              total_work += local_work;
+            }, Kokkos::Sum<int>(total_work));
+        REQUIRE(total_work == N * N * N);
       }
     }
 
@@ -263,20 +260,16 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         REQUIRE(sp.outer_size() == NKP);
       }
       THEN("The inner index ranges should be appropriate") {
-        using atomic_view = Kokkos::MemoryTraits<Kokkos::Atomic>;
-        Kokkos::View<int *, atomic_view> total_work("work", 1);
-        parthenon::par_for_outer(
-            DEFAULT_OUTER_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, 0, 0,
-            sp.outer_size() - 1,
-            KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int outer_idx) {
+        int total_work = 0;
+        parthenon::par_reduce(
+            DEFAULT_LOOP_PATTERN, "Test IndexSplit", DevExecSpace(), 0, sp.outer_size() - 1,
+            KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
               const auto irange = sp.GetInnerBounds(jrange);
-              total_work(0) += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
-            });
-        auto work_h = Kokkos::create_mirror_view(total_work);
-        Kokkos::deep_copy(work_h, total_work);
-        REQUIRE(work_h(0) == N * N * N);
+              total_work += (krange.e - krange.s + 1) * (irange.e - irange.s + 1);
+            }, Kokkos::Sum<int>(total_work));
+        REQUIRE(total_work == N * N * N);
       }
     }
   }
