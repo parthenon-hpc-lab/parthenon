@@ -316,9 +316,13 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-           const std::vector<std::string> &component_labels = {},
-           const std::string &associated = "");
+  Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -548,7 +552,6 @@ class Metadata {
 
   // Refinement stuff
   const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
-    PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
   template <class ProlongationOp, class RestrictionOp,

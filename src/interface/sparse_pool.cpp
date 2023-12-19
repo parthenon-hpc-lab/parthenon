@@ -59,7 +59,7 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
       shared_metadata_.Flags(), shape.size() > 0 ? shape : shared_metadata_.Shape(),
       component_labels.size() > 0 ? component_labels
                                   : shared_metadata_.getComponentLabels(),
-      shared_metadata_.getAssociated());
+      shared_metadata_.getAssociated(), shared_metadata_.GetRefinementFunctions());
 
   this_metadata.SetSparseThresholds(shared_metadata_.GetAllocationThreshold(),
                                     shared_metadata_.GetDeallocationThreshold(),
