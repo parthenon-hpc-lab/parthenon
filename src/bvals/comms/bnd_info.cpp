@@ -77,27 +77,29 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
   }
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const std::shared_ptr<Variable<Real>>& var, 
+SpatiallyMaskedIndexer6D CalcIndices(const std::shared_ptr<Variable<Real>> &var,
                                      const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
   const auto &ni = nb.ni;
   const auto &loc = pmb->loc;
-  bool is_fine_field = var->IsSet(Metadata::Fine); 
+  bool is_fine_field = var->IsSet(Metadata::Fine);
   auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb.loc.level() < loc.level()) shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
+  if (prores || nb.loc.level() < loc.level())
+    shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
   int fine_field_fac = is_fine_field ? 2 : 1;
   int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
-  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
-                                   nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
-                                   nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
+  auto neighbor_shape =
+      IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
 
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),

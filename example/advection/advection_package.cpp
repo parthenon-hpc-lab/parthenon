@@ -168,7 +168,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddField(field_name, m);
   }
   // TODO(LFR): Remove this
-  Metadata m_fine({Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost}); 
+  Metadata m_fine(
+      {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
   pkg->AddField("advected_fine", m_fine);
   if (!v_const) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
@@ -449,7 +450,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // TODO(LFR): Remove this
 TaskStatus FillFine(MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetParentPointer();
-  const int ndim = md->GetMeshPointer()->ndim; 
+  const int ndim = md->GetMeshPointer()->ndim;
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -463,22 +464,22 @@ TaskStatus FillFine(MeshData<Real> *md) {
   const int in = imap.get("advected").first;
   const int out = imap.get("advected_fine").first;
   pmb->par_for(
-      "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         int fi = (i - ib.s) * 2 + ib.s;
         int fj = (j - jb.s) * 2 + jb.s;
         int fk = (k - kb.s) * 2 + kb.s;
-        v(b, out, fk, fj, fi) = v(b, in, k, j, i); 
-        v(b, out, fk, fj, fi + 1) = v(b, in, k, j, i); 
+        v(b, out, fk, fj, fi) = v(b, in, k, j, i);
+        v(b, out, fk, fj, fi + 1) = v(b, in, k, j, i);
         if (ndim > 1) {
-          v(b, out, fk, fj + 1, fi) = v(b, in, k, j, i); 
-          v(b, out, fk, fj + 1, fi + 1) = v(b, in, k, j, i); 
+          v(b, out, fk, fj + 1, fi) = v(b, in, k, j, i);
+          v(b, out, fk, fj + 1, fi + 1) = v(b, in, k, j, i);
         }
         if (ndim > 2) {
-          v(b, out, fk + 1, fj, fi) = v(b, in, k, j, i); 
-          v(b, out, fk + 1, fj, fi + 1) = v(b, in, k, j, i); 
-          v(b, out, fk + 1, fj + 1, fi) = v(b, in, k, j, i); 
-          v(b, out, fk + 1, fj + 1, fi + 1) = v(b, in, k, j, i); 
+          v(b, out, fk + 1, fj, fi) = v(b, in, k, j, i);
+          v(b, out, fk + 1, fj, fi + 1) = v(b, in, k, j, i);
+          v(b, out, fk + 1, fj + 1, fi) = v(b, in, k, j, i);
+          v(b, out, fk + 1, fj + 1, fi + 1) = v(b, in, k, j, i);
         }
       });
   return TaskStatus::complete;
@@ -487,7 +488,7 @@ TaskStatus FillFine(MeshData<Real> *md) {
 // TODO(LFR): Remove this
 TaskStatus PrintFine(MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetParentPointer();
-  const int ndim = md->GetMeshPointer()->ndim; 
+  const int ndim = md->GetMeshPointer()->ndim;
 
   IndexRange ib = pmb->f_cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->f_cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -501,8 +502,8 @@ TaskStatus PrintFine(MeshData<Real> *md) {
   const int in = imap.get("advected").first;
   const int out = imap.get("advected_fine").first;
   pmb->par_for(
-      "advection_package::PrintFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "advection_package::PrintFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         printf("[%i: %i %i %i] %e\n", b, k, j, i, v(b, out, k, j, i));
       });
   return TaskStatus::complete;
