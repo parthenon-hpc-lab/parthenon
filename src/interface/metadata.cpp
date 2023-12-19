@@ -213,7 +213,8 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
     auto pmb = wpmb.lock();
-    const auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds; 
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
     arrDims[1] = bnds.ncellsj(IndexDomain::entire);
     arrDims[2] = bnds.ncellsk(IndexDomain::entire);

@@ -215,7 +215,8 @@ MeshBlock::~MeshBlock() = default;
 void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                           bool init_coarse, bool multilevel) {
   cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
-
+  f_cellbounds = IndexShape(2 * nx3, 2 * nx2, 2 * nx1, Globals::nghost); 
+  
   if (init_coarse) {
     if (multilevel) {
       // Prevent the coarse bounds from going to zero

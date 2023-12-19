@@ -140,6 +140,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   //  - - - - - - - - - -   v              - - - - - - - - - -     v
   //
   IndexShape c_cellbounds;
+  IndexShape f_cellbounds;
   int gid, lid;
   int cnghost;
   int gflag;

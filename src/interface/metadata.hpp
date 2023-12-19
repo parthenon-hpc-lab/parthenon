@@ -115,7 +115,9 @@
   /** the variable participate in GMG calculations */                                    \
   PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
-  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
+  /** the variable will have twice as many active zones in each direction **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(Fine)
 namespace parthenon {
 
 namespace internal {

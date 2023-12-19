@@ -77,25 +77,27 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
   }
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+SpatiallyMaskedIndexer6D CalcIndices(const std::shared_ptr<Variable<Real>>& var, 
+                                     const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
   const auto &ni = nb.ni;
   const auto &loc = pmb->loc;
-  auto shape = pmb->cellbounds;
+  bool is_fine_field = var->IsSet(Metadata::Fine); 
+  auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
+  if (prores || nb.loc.level() < loc.level()) shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
-  int coarse_fac = 1;
-  if (nb.loc.level() > loc.level()) coarse_fac = 2;
-  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac,
-                                   nb.block_size.nx(X2DIR) / coarse_fac,
-                                   nb.block_size.nx(X1DIR) / coarse_fac, Globals::nghost);
+  int fine_field_fac = is_fine_field ? 2 : 1;
+  int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
+  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
+                                   nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
+                                   nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
 
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
@@ -206,7 +208,7 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
   // will always be enough storage
-  auto &cb = pmb->cellbounds;
+  auto &cb = v->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::entire;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
@@ -243,7 +245,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+    out.idxer[idx] = CalcIndices(v, nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
   }
   if (nb.snb.level < mylevel) {
     out.var = v->coarse_s.Get();
@@ -282,7 +284,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     idx_range_type = IndexRangeType::InteriorRecv;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+    out.idxer[idx] = CalcIndices(v, nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
   }
   if (nb.snb.level < mylevel) {
     out.var = v->coarse_s.Get();
@@ -319,7 +321,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
+        CalcIndices(v, nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -351,7 +353,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
+        CalcIndices(v, nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
@@ -381,7 +383,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.snb.level < mylevel) {
     for (auto el : elements) {
       out.idxer[static_cast<int>(el)] = CalcIndices(
-          nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
+          v, nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -426,7 +428,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.idxer[static_cast<int>(el)] = CalcIndices(
-            nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+            v, nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
       }
     }
   }
@@ -443,7 +445,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.snb.level < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] = CalcIndices(
-          nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+          v, nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
   }
   return out;
 }

@@ -167,6 +167,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
+  // TODO(LFR): Remove this
+  Metadata m_fine({Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost}); 
+  pkg->AddField("advected_fine", m_fine);
   if (!v_const) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost, Metadata::Vector},
@@ -441,6 +444,68 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       Kokkos::Min<Real>(min_dt));
 
   return cfl * min_dt;
+}
+
+// TODO(LFR): Remove this
+TaskStatus FillFine(MeshData<Real> *md) {
+  auto pmb = md->GetBlockData(0)->GetParentPointer();
+  const int ndim = md->GetMeshPointer()->ndim; 
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // packing in principle unnecessary/convoluted here and just done for demonstration
+  std::vector<std::string> vars({"advected", "advected_fine"});
+  PackIndexMap imap;
+  const auto &v = md->PackVariables(vars, imap);
+
+  const int in = imap.get("advected").first;
+  const int out = imap.get("advected_fine").first;
+  pmb->par_for(
+      "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        int fi = (i - ib.s) * 2 + ib.s;
+        int fj = (j - jb.s) * 2 + jb.s;
+        int fk = (k - kb.s) * 2 + kb.s;
+        v(b, out, fk, fj, fi) = v(b, in, k, j, i); 
+        v(b, out, fk, fj, fi + 1) = v(b, in, k, j, i); 
+        if (ndim > 1) {
+          v(b, out, fk, fj + 1, fi) = v(b, in, k, j, i); 
+          v(b, out, fk, fj + 1, fi + 1) = v(b, in, k, j, i); 
+        }
+        if (ndim > 2) {
+          v(b, out, fk + 1, fj, fi) = v(b, in, k, j, i); 
+          v(b, out, fk + 1, fj, fi + 1) = v(b, in, k, j, i); 
+          v(b, out, fk + 1, fj + 1, fi) = v(b, in, k, j, i); 
+          v(b, out, fk + 1, fj + 1, fi + 1) = v(b, in, k, j, i); 
+        }
+      });
+  return TaskStatus::complete;
+}
+
+// TODO(LFR): Remove this
+TaskStatus PrintFine(MeshData<Real> *md) {
+  auto pmb = md->GetBlockData(0)->GetParentPointer();
+  const int ndim = md->GetMeshPointer()->ndim; 
+
+  IndexRange ib = pmb->f_cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->f_cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->f_cellbounds.GetBoundsK(IndexDomain::entire);
+
+  // packing in principle unnecessary/convoluted here and just done for demonstration
+  std::vector<std::string> vars({"advected", "advected_fine"});
+  PackIndexMap imap;
+  const auto &v = md->PackVariables(vars, imap);
+
+  const int in = imap.get("advected").first;
+  const int out = imap.get("advected_fine").first;
+  pmb->par_for(
+      "advection_package::PrintFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        printf("[%i: %i %i %i] %e\n", b, k, j, i, v(b, out, k, j, i));
+      });
+  return TaskStatus::complete;
 }
 
 // Compute fluxes at faces given the constant velocity field and

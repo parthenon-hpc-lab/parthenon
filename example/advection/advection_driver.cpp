@@ -137,9 +137,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // apply du/dt to all independent fields in the container
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
+    
+    // TODO(LFR): Remove this
+    update = tl.AddTask(update, advection_package::FillFine, mc1.get());
 
     // do boundary exchange
     parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
+    
+    // TODO(LFR): Remove this
+    update = tl.AddTask(update, advection_package::PrintFine, mc1.get());
   }
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
