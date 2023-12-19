@@ -302,20 +302,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // levels and logical locations for all meshblocks on all ranks
   {
     Kokkos::Profiling::pushRegion("write levels and locations");
-    const auto &loclist = pm->GetLocList();
-
-    std::vector<std::int64_t> levels;
-    levels.reserve(pm->nbtotal);
-
-    std::vector<std::int64_t> logicalLocations;
-    logicalLocations.reserve(pm->nbtotal * 3);
-
-    for (const auto &loc : loclist) {
-      levels.push_back(loc.level() - pm->GetRootLevel());
-      logicalLocations.push_back(loc.lx1());
-      logicalLocations.push_back(loc.lx2());
-      logicalLocations.push_back(loc.lx3());
-    }
+    auto [levels, logicalLocations] = pm->GetLevelsAndLogicalLocationsFlat();
 
     // Only write levels on rank 0 since it has data for all ranks
     local_count[0] = (Globals::my_rank == 0) ? pm->nbtotal : 0;
