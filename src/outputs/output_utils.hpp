@@ -55,6 +55,7 @@ struct VarInfo {
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
+  int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
 
   VarInfo() = delete;
 

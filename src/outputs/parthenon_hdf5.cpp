@@ -394,8 +394,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocate space for largest size variable
   int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize =
-        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+    const int varSize = vinfo.Size();
     varSize_max = std::max(varSize_max, varSize);
   }
 
