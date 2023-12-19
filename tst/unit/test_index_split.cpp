@@ -240,7 +240,8 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
         int total_work = 0;
         const int outer_size = sp.outer_size();
         parthenon::par_reduce(
-                              parthenon::loop_pattern_flatrange_tag, "Test IndexSplit", DevExecSpace(), 0,  outer_size - 1,
+            parthenon::loop_pattern_flatrange_tag, "Test IndexSplit", DevExecSpace(), 0,
+            outer_size - 1,
             KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
@@ -264,7 +265,8 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
       THEN("The inner index ranges should be appropriate") {
         int total_work = 0;
         parthenon::par_reduce(
-            parthenon::loop_pattern_flatrange_tag, "Test IndexSplit", DevExecSpace(), 0, sp.outer_size() - 1,
+            parthenon::loop_pattern_flatrange_tag, "Test IndexSplit", DevExecSpace(), 0,
+            sp.outer_size() - 1,
             KOKKOS_LAMBDA(const int outer_idx, int &total_work) {
               const auto krange = sp.GetBoundsK(outer_idx);
               const auto jrange = sp.GetBoundsJ(outer_idx);
