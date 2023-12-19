@@ -31,6 +31,7 @@
 #include <mesh/meshblock_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
+#include <utils/index_split.hpp>
 #include <utils/partition_stl_containers.hpp>
 
 // Local Includes
@@ -46,6 +47,7 @@ using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
 using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
+using ::parthenon::IndexSplit;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;

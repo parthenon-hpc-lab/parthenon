@@ -1163,7 +1163,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
   RegionSize block_size = GetBlockSize();
-  bool valid_region = true;
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
     block_size.symmetry(dir) = mesh_size.symmetry(dir);
@@ -1182,8 +1181,6 @@ RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
         PARTHENON_REQUIRE(loc.level() < root_level, "Something is messed up.");
         std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
         std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        if (block_size.nx(dir) * (nrbx[dir - 1] - loc_low) % (loc_hi - loc_low) != 0)
-          valid_region = false;
         block_size.nx(dir) =
             block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
         block_size.xmax(dir) = mesh_size.xmax(dir);
