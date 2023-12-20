@@ -156,13 +156,13 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
-constexpr int TopologicalOffsetI(TE el) noexcept {
+inline constexpr int TopologicalOffsetI(TE el) {
   return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
-constexpr int TopologicalOffsetJ(TE el) noexcept {
+inline constexpr int TopologicalOffsetJ(TE el) {
   return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
-constexpr int TopologicalOffsetK(TE el) noexcept {
+inline constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 
