@@ -244,27 +244,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   WriteBlocksMetadata_(pm, file, pl_xfer, my_offset, max_blocks_global);
 
   // Write mesh coordinates to file
-  Kokkos::Profiling::pushRegion("write mesh coords");
-  for (const bool face : {true, false}) {
-    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
-
-    // write X coordinates
-    std::vector<Real> loc_x, loc_y, loc_z;
-    OutputUtils::ComputeCoords(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
-
-    local_count[1] = global_count[1] = nx1 + face;
-    HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-
-    local_count[1] = global_count[1] = nx2 + face;
-    HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-
-    local_count[1] = global_count[1] = nx3 + face;
-    HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-  }
-  Kokkos::Profiling::popRegion(); // write mesh coords
+  WriteCoordinates_(pm, theDomain, file, pl_xfer, my_offset, max_blocks_global);
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
@@ -697,6 +677,42 @@ void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl
                 &loc_cnt[0], &glob_cnt[0], pl);
   }
   Kokkos::Profiling::popRegion(); // write block metadata
+}
+
+void PHDF5Output::WriteCoordinates_(Mesh *pm, const IndexDomain &domain, hid_t file,
+                                    const HDF5::H5P &pl, hsize_t offset,
+                                    hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("write mesh coords");
+  const IndexShape &shape = pm->GetLeafBlockCellBounds();
+  const IndexRange ib = shape.GetBoundsI(domain);
+  const IndexRange jb = shape.GetBoundsJ(domain);
+  const IndexRange kb = shape.GetBoundsK(domain);
+
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t loc_offset[2] = {offset, 0};
+  hsize_t loc_cnt[2] = {num_blocks_local, 1};
+  hsize_t glob_cnt[2] = {max_blocks_global, 1};
+
+  for (const bool face : {true, false}) {
+    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
+
+    std::vector<Real> loc_x, loc_y, loc_z;
+    OutputUtils::ComputeCoords(pm, face, ib, jb, kb, loc_x, loc_y, loc_z);
+
+    loc_cnt[1] = glob_cnt[1] = (ib.e - ib.s + 1) + face;
+    HDF5Write2D(gLocations, "x", loc_x.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+
+    loc_cnt[1] = glob_cnt[1] = (jb.e - jb.s + 1) + face;
+    HDF5Write2D(gLocations, "y", loc_y.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+
+    loc_cnt[1] = glob_cnt[1] = (kb.e - kb.s + 1) + face;
+    HDF5Write2D(gLocations, "z", loc_z.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+  }
+  Kokkos::Profiling::popRegion(); // write mesh coords
 }
 
 // Utility functions implemented
