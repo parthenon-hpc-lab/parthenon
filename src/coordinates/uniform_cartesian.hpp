@@ -164,18 +164,11 @@ class UniformCartesian {
 
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
-    using TE = TopologicalElement;
-    [[maybe_unused]] bool constexpr X1EDGE =
-        el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN;
-    [[maybe_unused]] bool constexpr X2EDGE =
-        el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN;
-    [[maybe_unused]] bool constexpr X3EDGE =
-        el == TE::F3 || el == TE::E1 || el == TE::E2 || el == TE::NN;
-    if constexpr (dir == X1DIR && X1EDGE) {
+    if constexpr (dir == X1DIR && TopologicalOIffsetI(el)) {
       return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
-    } else if constexpr (dir == X2DIR && X2EDGE) {
+    } else if constexpr (dir == X2DIR && TopologicalOffsetJ(el)) {
       return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
-    } else if constexpr (dir == X3DIR && X3EDGE) {
+    } else if constexpr (dir == X3DIR && TopologicalOffsetK(el)) {
       return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
     } else {
       return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1]; // idx
