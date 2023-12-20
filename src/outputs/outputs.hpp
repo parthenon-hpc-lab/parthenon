@@ -209,8 +209,9 @@ class PHDF5Output : public OutputType {
  private:
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
+  void WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
+                            hsize_t max_blocks_global) const;
   const bool restart_; // true if we write a restart file, false for regular output files
-  // TODO(JMM): these methods might want to live in the base class or in output_utils.hpp
 };
 
 //----------------------------------------------------------------------------------------

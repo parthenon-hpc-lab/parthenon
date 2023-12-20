@@ -241,36 +241,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 #endif
 
   // write Blocks metadata
-  {
-    Kokkos::Profiling::pushRegion("write block metadata");
-    const H5G gBlocks = MakeGroup(file, "/Blocks");
-
-    // write Xmin[ndim] for blocks
-    {
-      std::vector<Real> tmpData = OutputUtils::ComputeXminBlocks(pm);
-      local_count[1] = global_count[1] = pm->ndim;
-      HDF5Write2D(gBlocks, "xmin", tmpData.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                  pl_xfer);
-    }
-
-    // write Block ID
-    {
-      // LOC.lx1,2,3
-      hsize_t n = 3;
-      std::vector<int64_t> tmpLoc = OutputUtils::ComputeLocs(pm);
-      local_count[1] = global_count[1] = n;
-      HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), p_loc_offset, p_loc_cnt,
-                  p_glob_cnt, pl_xfer);
-
-      // (LOC.)level, GID, LID, cnghost, gflag
-      n = 5; // this is NOT H5_NDIM
-      std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
-      local_count[1] = global_count[1] = n;
-      HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
-                  p_loc_cnt, p_glob_cnt, pl_xfer);
-    }
-    Kokkos::Profiling::popRegion(); // write block metadata
-  }                                 // Block section
+  WriteBlocksMetadata_(pm, file, pl_xfer, my_offset, max_blocks_global);
 
   // Write mesh coordinates to file
   Kokkos::Profiling::pushRegion("write mesh coords");
@@ -646,6 +617,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
+// explicit template instantiation
+template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
+                                                      SignalHandler::OutputSignal);
+template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
+                                                     SignalHandler::OutputSignal);
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                            const SignalHandler::OutputSignal signal) {
@@ -682,11 +658,46 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
   return filename;
 }
 
-// explicit template instantiation
-template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
-                                                      SignalHandler::OutputSignal);
-template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
-                                                     SignalHandler::OutputSignal);
+void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
+                                       hsize_t offset, hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("I/O HDF5: write block metadata");
+  const H5G gBlocks = MakeGroup(file, "/Blocks");
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t ndim = pm->ndim;
+  const hsize_t loc_offset[2] = {offset, 0};
+
+  // write Xmin[ndim] for blocks
+  {
+    // JMM: These arrays chould be shared, but I think this is clearer
+    // as to what's going on.
+    hsize_t loc_cnt[2] = {num_blocks_local, ndim};
+    hsize_t glob_cnt[2] = {max_blocks_global, ndim};
+
+    std::vector<Real> tmpData = OutputUtils::ComputeXminBlocks(pm);
+    HDF5Write2D(gBlocks, "xmin", tmpData.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
+  }
+
+  {
+    // LOC.lx1,2,3
+    hsize_t loc_cnt[2] = {num_blocks_local, 3};
+    hsize_t glob_cnt[2] = {max_blocks_global, 3};
+    std::vector<int64_t> tmpLoc = OutputUtils::ComputeLocs(pm);
+    HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
+  }
+
+  {
+    // (LOC.)level, GID, LID, cnghost, gflag
+    hsize_t loc_cnt[2] = {num_blocks_local, 5};
+    hsize_t glob_cnt[2] = {max_blocks_global, 5};
+    std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
+    HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
+                &loc_cnt[0], &glob_cnt[0], pl);
+  }
+  Kokkos::Profiling::popRegion(); // write block metadata
+}
 
 // Utility functions implemented
 namespace HDF5 {
