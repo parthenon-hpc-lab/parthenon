@@ -98,6 +98,7 @@ class Mesh {
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetBlockSize() const;
   RegionSize GetBlockSize(const LogicalLocation &loc) const;
+  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   // data
   bool modified;

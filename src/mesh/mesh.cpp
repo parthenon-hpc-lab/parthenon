@@ -1204,6 +1204,22 @@ int Mesh::GetNumberOfMeshBlockCells() const {
 }
 const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
 
+const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  // TODO(JMM): Luke this is for your Metadata::fine stuff.
+  PARTHENON_DEBUG_REQUIRE(level != CellLevel::fine,
+                          "Currently no access to finer cellbounds");
+  MeshBlock *pmb = block_list[0].get();
+  if (level == CellLevel::same) {
+    return pmb->cellbounds;
+    // TODO(JMM):
+    // } else if (level == CellLevel::fine) {
+    //   return pmb->fine_cellbounds;
+    // }
+  } else { // if (level == CellLevel::coarse) {
+    return pmb->c_cellbounds;
+  }
+}
+
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
 #ifdef MPI_PARALLEL // JMM: Not sure this ifdef is needed

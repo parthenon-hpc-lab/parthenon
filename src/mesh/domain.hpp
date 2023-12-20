@@ -183,6 +183,17 @@ class IndexShape {
                : IndexRange{ks(domain, el), ke(domain, el)};
   }
 
+  template <int dim>
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBounds(const IndexDomain &domain,
+                                                    TE el = TE::CC) const noexcept {
+    if constexpr (dim == 0)
+      return GetBoundsI(domain, el);
+    else if constexpr (dim == 1)
+      return GetBoundsJ(domain, el);
+    else
+      return GetBoundsK(domain, el);
+  }
+
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
     switch (domain) {

@@ -249,6 +249,9 @@ void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t
   }
 }
 
+void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                   std::vector<Real> &z);
 std::vector<Real> ComputeXminBlocks(Mesh *pm);
 std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);

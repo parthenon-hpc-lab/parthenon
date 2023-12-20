@@ -214,9 +214,6 @@ class PHDF5Output : public OutputType {
   void ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data);
   void ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs);
   void ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data);
-  void ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
-                      const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
-                      std::vector<Real> &z);
 };
 
 //----------------------------------------------------------------------------------------

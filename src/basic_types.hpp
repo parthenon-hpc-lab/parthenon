@@ -49,7 +49,7 @@ enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
 
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
-
+enum class CellLevel : int { coarse = -1, same = 0, fine = 1 };
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
 constexpr int NUM_BNDRY_TYPES = 10;

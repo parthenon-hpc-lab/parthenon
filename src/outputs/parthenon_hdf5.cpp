@@ -278,11 +278,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
 
     // write X coordinates
-    std::vector<Real> loc_x((nx1 + face) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + face) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + face) * num_blocks_local);
-
-    ComputeCoords_(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
+    std::vector<Real> loc_x, loc_y, loc_z;
+    OutputUtils::ComputeCoords(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
 
     local_count[1] = global_count[1] = nx1 + face;
     HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
@@ -683,27 +680,6 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   }
   return filename;
-}
-
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib,
-                                 const IndexRange &jb, const IndexRange &kb,
-                                 std::vector<Real> &x, std::vector<Real> &y,
-                                 std::vector<Real> &z) {
-  std::size_t idx_x = 0, idx_y = 0, idx_z = 0;
-
-  // note relies on casting of bool to int
-  for (auto &pmb : pm->block_list) {
-    for (int i = ib.s; i <= ib.e + face; ++i) {
-      x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
-    }
-    for (int j = jb.s; j <= jb.e + face; ++j) {
-      y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
-    }
-    for (int k = kb.s; k <= kb.e + face; ++k) {
-      z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
-    }
-  }
 }
 
 // explicit template instantiation
