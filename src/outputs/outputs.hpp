@@ -211,9 +211,6 @@ class PHDF5Output : public OutputType {
                                 const SignalHandler::OutputSignal signal);
   const bool restart_; // true if we write a restart file, false for regular output files
   // TODO(JMM): these methods might want to live in the base class or in output_utils.hpp
-  void ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data);
-  void ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs);
-  void ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data);
 };
 
 //----------------------------------------------------------------------------------------
