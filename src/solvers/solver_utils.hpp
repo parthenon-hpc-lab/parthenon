@@ -146,7 +146,7 @@ struct Stencil {
 };
 
 namespace utils {
-template <class in, class out, bool only_fine_on_composite = true>
+template <class in_t, class out_t, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
@@ -154,23 +154,28 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
 
-  static auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
+  static auto desc = parthenon::MakePackDescriptor<in_t, out_t>(md.get());
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "CopyData", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
-        const int nvars = pack.GetUpperBound(b, in()) - pack.GetLowerBound(b, in()) + 1;
-        for (int c = 0; c < nvars; ++c)
-          pack(b, te, out(c), k, j, i) = pack(b, te, in(c), k, j, i);
+  const int scratch_size = 0; 
+  const int scratch_level = 0;
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level, 
+      0, pack.GetNBlocks() - 1, 
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+        const int nvars = pack.GetUpperBound(b, in_t()) - pack.GetLowerBound(b, in_t()) + 1;
+        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1); 
+        for (int c = 0; c < nvars; ++c) {
+          Real *in = &pack(b, te, in_t(c), kb.s, jb.s, ib.s);
+          Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
+            out[idx] = in[idx];
+          });
+        }
       });
   return TaskStatus::complete;
 }
 
-template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
+template <class a_t, class b_t, class out_t, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior_blocks = false) {
@@ -188,19 +193,23 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
       include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
 
-  static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
+  static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out_t>(md.get());
   auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
+  const int scratch_size = 0; 
+  const int scratch_level = 0;
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size, scratch_level, 
+      0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
         for (int c = 0; c < nvars; ++c) {
-          pack(b, te, out(c), k, j, i) =
-              wa * pack(b, te, a_t(c), k, j, i) + wb * pack(b, te, b_t(c), k, j, i);
+          Real *avar = &pack(b, te, a_t(c), kb.s, jb.s, ib.s);
+          Real *bvar = &pack(b, te, b_t(c), kb.s, jb.s, ib.s);
+          Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
+            out[idx] = wa * avar[idx] + wb * bvar[idx];
+          });
         }
       });
   return TaskStatus::complete;
