@@ -701,7 +701,7 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
   Kokkos::Profiling::pushRegion("write sparse info");
 
   const hsize_t num_blocks_local = pm->block_list.size();
-  const hsize_t loc_offset[2] = {offset, num_sparse};
+  const hsize_t loc_offset[2] = {offset, 0};
   const hsize_t loc_cnt[2] = {num_blocks_local, num_sparse};
   const hsize_t glob_cnt[2] = {max_blocks_global, num_sparse};
 
