@@ -36,6 +36,7 @@ struct MGParams {
   bool do_FAS = true;
   std::string smoother = "SRJ2";
   bool two_by_two_diagonal = false;
+  int max_coarsenings = std::numeric_limits<int>::max();
 };
 
 // The equations class must include a template method
@@ -144,7 +145,7 @@ class MGSolver {
     using namespace utils;
     iter_counter = 0;
 
-    int min_level = 0;
+    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings, 0);
     int max_level = pmesh->GetGMGMaxLevel();
 
     return AddMultiGridTasksPartitionLevel(region, tl, dependence, partition, reg_dep_id,
@@ -226,26 +227,28 @@ class MGSolver {
                 weight * v1 + (1.0 - weight) * pack(b, te, xold_t(1), k, j, i);
           });
     } else {
-      parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0,
-          pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-            const auto &coords = pack.GetCoordinates(b);
-
+      const int scratch_size = 0; 
+      const int scratch_level = 0;
+      parthenon::par_for_outer(
+          DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size, scratch_level, 
+          0, pack.GetNBlocks() - 1, kb.s, kb.e, 
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
             const int nvars =
                 pack.GetUpperBound(b, xnew_t()) - pack.GetLowerBound(b, xnew_t()) + 1;
-
             for (int c = 0; c < nvars; ++c) {
-              Real diag_elem = pack(b, te, D_t(c), k, j, i);
-
-              // Get the off-diagonal contribution to Ax = (D + L + U)x = y
-              Real off_diag = pack(b, te, Axold_t(c), k, j, i) -
-                              diag_elem * pack(b, te, xold_t(c), k, j, i);
-
-              Real val = pack(b, te, rhs_t(c), k, j, i) - off_diag;
-              pack(b, te, xnew_t(c), k, j, i) =
-                  weight * val / diag_elem +
-                  (1.0 - weight) * pack(b, te, xold_t(c), k, j, i);
+              Real *Ax = &pack(b, te, Axold_t(c), k, jb.s, ib.s); 
+              Real *diag = &pack(b, te, D_t(c), k, jb.s, ib.s); 
+              Real *rhs = &pack(b, te, rhs_t(c), k, jb.s, ib.s);
+              Real *xo = &pack(b, te, xold_t(c), k, jb.s, ib.s);
+              Real *xn = &pack(b, te, xnew_t(c), k, jb.s, ib.s);
+              const int npoints = (jb.e - jb.s + 1) 
+                                * (ib.e - ib.s + 1 + 2 * Globals::nghost) 
+                                - 2 * Globals::nghost;
+              parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
+                const Real off_diag = Ax[idx] - diag[idx] * xo[idx];
+                const Real val = rhs[idx] - off_diag; 
+                xn[idx] = weight * val / diag[idx] + (1.0 - weight) * xo[idx];
+              });
             }
           });
     }
