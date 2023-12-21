@@ -248,23 +248,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
-  {
-    Kokkos::Profiling::pushRegion("write levels and locations");
-    auto [levels, logicalLocations] = pm->GetLevelsAndLogicalLocationsFlat();
-
-    // Only write levels on rank 0 since it has data for all ranks
-    local_count[0] = (Globals::my_rank == 0) ? pm->nbtotal : 0;
-    HDF5WriteND(file, "Levels", levels.data(), 1, local_offset.data(), local_count.data(),
-                global_count.data(), pl_xfer, H5P_DEFAULT);
-
-    local_count[1] = global_count[1] = 3;
-    HDF5Write2D(file, "LogicalLocations", logicalLocations.data(), local_offset.data(),
-                local_count.data(), global_count.data(), pl_xfer);
-
-    // reset for collective output
-    local_count[0] = num_blocks_local;
-    Kokkos::Profiling::popRegion(); // write levels and locations
-  }
+  WriteLevelsAndLocs_(pm, file, pl_xfer, my_offset, max_blocks_global);
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
@@ -713,6 +697,26 @@ void PHDF5Output::WriteCoordinates_(Mesh *pm, const IndexDomain &domain, hid_t f
                 pl);
   }
   Kokkos::Profiling::popRegion(); // write mesh coords
+}
+
+void PHDF5Output::WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
+                                      hsize_t offset, hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("write levels and locations");
+  auto [levels, logicalLocations] = pm->GetLevelsAndLogicalLocationsFlat();
+
+  // Only write levels on rank 0 since it has data for all ranks
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t loc_offset[2] = {offset, 0};
+  const hsize_t loc_cnt[2] = {(Globals::my_rank == 0) ? max_blocks_global : 0, 3};
+  const hsize_t glob_cnt[2] = {max_blocks_global, 3};
+
+  HDF5Write1D(file, "Levels", levels.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+              pl);
+  HDF5Write2D(file, "LogicalLocations", logicalLocations.data(), &loc_offset[0],
+              &loc_cnt[0], &glob_cnt[0], pl);
+
+  Kokkos::Profiling::popRegion(); // write levels and locations
 }
 
 // Utility functions implemented
