@@ -96,7 +96,11 @@ class BiCGSTABSolver {
                   Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
     using namespace utils;
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    std::string label = "bicg_comm_" + std::to_string(i);
+    auto &md_comm = pmesh->mesh_data.AddShallow(label, md, std::vector<std::string>{u::name()});
+
     iter_counter = 0;
+    bool multilevel = pmesh->multilevel;
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
@@ -144,7 +148,7 @@ class BiCGSTABSolver {
     }
 
     // 2. v <- A u
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md, true);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_comm, multilevel);
     auto get_v = eqs_.template Ax<u, v>(itl, comm, md);
 
     // 3. rhat0v <- (rhat0, v)
@@ -195,7 +199,7 @@ class BiCGSTABSolver {
     }
 
     // 7. t <- A u
-    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md, true);
+    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_comm, multilevel);
     auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md);
 
     // 8. omega <- (t,s) / (t,t)
