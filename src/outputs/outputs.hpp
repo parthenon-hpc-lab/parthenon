@@ -216,6 +216,10 @@ class PHDF5Output : public OutputType {
                          hsize_t max_blocks_global) const;
   void WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
                            hsize_t max_blocks_global) const;
+  void WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                        const std::vector<std::string> &sparse_names, hsize_t num_sparse,
+                        hid_t file, const HDF5::H5P &pl, size_t offset,
+                        hsize_t max_blocks_global) const;
   const bool restart_; // true if we write a restart file, false for regular output files
 };
 
