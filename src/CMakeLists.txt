@@ -300,6 +300,10 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
+if (PARTHENON_ENABLE_OPENPMD)
+  target_link_libraries(parthenon PUBLIC openPMD::openPMD)
+endif()
+
 # For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with
 # relaxed-constexpr, see https://github.com/kokkos/kokkos/issues/3496
 # However, Parthenon heavily relies on it and there is no harm in compiling Kokkos
