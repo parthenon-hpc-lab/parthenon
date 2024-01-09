@@ -24,11 +24,11 @@
 #include <utility>
 #include <vector>
 
-#include "utils/error_checking.hpp"
 #include <basic_types.hpp>
 #include <parthenon_mpi.hpp>
 
 #include "thread_pool.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
