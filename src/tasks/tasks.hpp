@@ -153,6 +153,8 @@ class Task {
 
  private:
   std::function<TaskStatus()> f;
+  // store a list of tasks that might be available to
+  // run for each possible status this task returns
   std::array<std::vector<Task *>, 3> dependent;
   std::unordered_set<Task *> dependencies;
   std::pair<int, int> exec_limits;
