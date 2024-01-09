@@ -33,11 +33,13 @@ The basic call to ``AddTask`` takes the task's dependencies, the function to be
 executed, and the arguments to the function as its arguments.  ``AddTask`` returns
 a ``TaskID`` object that can be used in subsequent calls to ``AddTask`` as a
 dependency either on its own or combined with other ``TaskID``s via the ``|``
-operator.  An overload of ``AddTask`` takes a ``TaskQualifier`` object as the
-first argument which specifies certain special, non-default behaviors.  These
-will be described below.  Note that the default constructor of ``TaskID`` produces
-a special object that when passed into ``AddTask`` signifies that the task has
-no dependencies.
+operator.  Use of the ``|`` operator is historical and perhaps a bit misleading as
+it really acts as a logical and -- that is, all tasks combined with ``|`` must be
+complete before the dependencies are satisfied.  An overload of ``AddTask`` takes
+a ``TaskQualifier`` object as the first argument which specifies certain special,
+non-default behaviors.  These will be described below.  Note that the default
+constructor of ``TaskID`` produces a special object that when passed into
+``AddTask`` signifies that the task has no dependencies.
 
 The ``AddSublist`` function adds a nested ``TaskList`` to the ``TaskList`` on
 which its called.  The principle use case for this is to add iterative cycles
@@ -129,8 +131,8 @@ in each region concurrently.
 internally generated ``ThreadPool`` with a single thread.
 
 NOTE: Work remains to make the rest of
-Parthenon thread-safe, so it is currently not recommended to use a ``ThreadPool``
-with more than one thread.
+Parthenon thread-safe, so it is currently required to use a ``ThreadPool``
+with one thread.
 
 TaskQualifier
 -------------

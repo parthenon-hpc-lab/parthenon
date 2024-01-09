@@ -126,6 +126,8 @@ class ThreadPool {
     return result;
   }
 
+  int size() const { return nthreads; }
+
  private:
   const int nthreads;
   std::vector<std::thread> threads;

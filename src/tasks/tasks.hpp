@@ -10,7 +10,6 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
@@ -25,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "utils/error_checking.hpp"
 #include <basic_types.hpp>
 #include <parthenon_mpi.hpp>
 
@@ -68,10 +68,14 @@ class TaskID {
   TaskID operator|(const TaskID &other) const {
     // calling this operator means you're building a TaskID to hold a dependency
     TaskID result;
-    if (task != nullptr) result.dep.push_back(task);
-    result.dep.insert(result.dep.end(), dep.begin(), dep.end());
-    if (other.task != nullptr) result.dep.push_back(other.task);
-    result.dep.insert(result.dep.end(), other.dep.begin(), other.dep.end());
+    if (task != nullptr)
+      result.dep.push_back(task);
+    else
+      result.dep.insert(result.dep.end(), dep.begin(), dep.end());
+    if (other.task != nullptr)
+      result.dep.push_back(other.task);
+    else
+      result.dep.insert(result.dep.end(), other.dep.begin(), other.dep.end());
     return result;
   }
 
@@ -234,12 +238,12 @@ class TaskList {
       // an MPI function after Finalize
       global_comm.emplace_back(new MPI_Comm, [&](MPI_Comm *d) {
         int finalized;
-        MPI_Finalized(&finalized);
-        if (!finalized) MPI_Comm_free(d);
+        PARTHENON_MPI_CHECK(MPI_Finalized(&finalized));
+        if (!finalized) PARTHENON_MPI_CHECK(MPI_Comm_free(d));
       });
       // we need another communicator to support multiple in flight non-blocking
       // collectives where we can't guarantee calling order across ranks
-      MPI_Comm_dup(MPI_COMM_WORLD, global_comm.back().get());
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, global_comm.back().get()));
       do_mpi = true;
 #endif // MPI_PARALLEL
       TaskID start;
@@ -260,7 +264,8 @@ class TaskList {
               for (auto dep : mytask->GetDependencies()) {
                 stat = std::max(stat, static_cast<int>(dep->GetStatus()));
               }
-              MPI_Iallreduce(MPI_IN_PLACE, &stat, 1, MPI_INT, MPI_MAX, comm, &req);
+              PARTHENON_MPI_CHECK(
+                  MPI_Iallreduce(MPI_IN_PLACE, &stat, 1, MPI_INT, MPI_MAX, comm, &req));
               return TaskStatus::complete;
             },
             exec_limits));
@@ -270,7 +275,7 @@ class TaskList {
             start,
             [&stat = *global_status.back(), &req = *global_request.back()]() {
               int check;
-              MPI_Test(&req, &check, MPI_STATUS_IGNORE);
+              PARTHENON_MPI_CHECK(MPI_Test(&req, &check, MPI_STATUS_IGNORE));
               if (check) {
                 return static_cast<TaskStatus>(stat);
               }
@@ -391,6 +396,10 @@ class TaskRegion {
   }
 
   TaskListStatus Execute(ThreadPool &pool) {
+    // for now, require a pool with one thread
+    PARTHENON_REQUIRE_THROWS(pool.size() == 1,
+                             "ThreadPool size != 1 is not currently supported.")
+
     // first, if needed, finish building the graph
     if (!graph_built) BuildGraph();
 
