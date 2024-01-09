@@ -231,9 +231,11 @@ add_library(parthenon
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
-  utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/error_checking.hpp
   utils/hash.hpp
+  utils/index_split.cpp
+  utils/index_split.hpp
   utils/indexer.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp

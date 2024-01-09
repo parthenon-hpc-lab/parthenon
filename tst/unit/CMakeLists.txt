@@ -26,12 +26,13 @@ list(APPEND unit_tests_SOURCES
     test_unit_domain.cpp
     test_unit_sort.cpp
     kokkos_abstraction.cpp
+    test_index_split.cpp
     test_logical_location.cpp
     test_metadata.cpp
-    test_pararrays.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
     test_nan_tags.cpp
+    test_pararrays.cpp
     test_sparse_pack.cpp
     test_swarm.cpp
     test_required_desired.cpp
