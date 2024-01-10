@@ -340,6 +340,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // TODO(JMM): Do we need to maintain backwards compatibility
       // here? It would be ncie to remove this.
       if (file_output_format_ver == -1) {
+        PARTHENON_WARN("This file output format version is deprecrated and will be "
+                       "removed in a future release.");
         for (int k = out_kb.s; k <= out_kb.e; ++k) {
           for (int j = out_jb.s; j <= out_jb.e; ++j) {
             for (int i = out_ib.s; i <= out_ib.e; ++i) {

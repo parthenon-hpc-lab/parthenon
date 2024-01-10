@@ -221,12 +221,12 @@ void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t
   const auto &Nt = pvar->GetDim(6);
   const auto &Nu = pvar->GetDim(5);
   const auto &Nv = pvar->GetDim(4);
-  const IndexDomain theDomain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
+  const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
   IndexRange kb, jb, ib;
   if (pvar->metadata().Where() == MetadataFlag(Metadata::Cell)) {
-    kb = pmb->cellbounds.GetBoundsK(theDomain);
-    jb = pmb->cellbounds.GetBoundsJ(theDomain);
-    ib = pmb->cellbounds.GetBoundsI(theDomain);
+    kb = pmb->cellbounds.GetBoundsK(domain);
+    jb = pmb->cellbounds.GetBoundsJ(domain);
+    ib = pmb->cellbounds.GetBoundsI(domain);
     // TODO(JMM): Add topological elements here
   } else { // metadata none
     kb = {0, pvar->GetDim(3) - 1};

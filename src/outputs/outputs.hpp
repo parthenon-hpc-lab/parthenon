@@ -70,7 +70,7 @@ struct OutputParameters {
       : block_number(0), next_time(0.0), dt(-1.0), file_number(0),
         include_ghost_zones(false), cartesian_vector(false),
         single_precision_output(false), sparse_seed_nans(false),
-        hdf5_compression_level(5), write_xdmf(true) {}
+        hdf5_compression_level(5), write_xdmf(false) {}
 };
 
 //----------------------------------------------------------------------------------------
