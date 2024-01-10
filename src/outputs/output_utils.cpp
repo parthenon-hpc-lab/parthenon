@@ -103,7 +103,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
 // Tools that can be shared accross Output types
 
 std::vector<Real> ComputeXminBlocks(Mesh *pm) {
-  return FlattenBlockInfo<Real>(pm, 3,
+  return FlattenBlockInfo<Real>(pm, pm->ndim,
                                 [=](MeshBlock *pmb, std::vector<Real> &data, int &i) {
                                   auto xmin = pmb->coords.GetXmin();
                                   data[i++] = xmin[0];
