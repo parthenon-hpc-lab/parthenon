@@ -336,9 +336,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      // JMM: Version -1 is the old version. We are now on version 3.
-      // TODO(JMM): Do we need to maintain backwards compatibility
-      // here? It would be ncie to remove this.
       if (file_output_format_ver == -1) {
         PARTHENON_WARN("This file output format version is deprecrated and will be "
                        "removed in a future release.");
