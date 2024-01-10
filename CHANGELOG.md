@@ -13,6 +13,8 @@
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR992]](https://github.com/parthenon-hpc-lab/parthenon/pull/992) Allow custom PR ops with sparse pools
+- [[PR988]](https://github.com/parthenon-hpc-lab/parthenon/pull/988) Fix bug in neighbor finding routine for small, periodic, refined meshes
 - [[PR986]](https://github.com/parthenon-hpc-lab/parthenon/pull/986) Fix bug in sparse boundary communication BndInfo cacheing
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
