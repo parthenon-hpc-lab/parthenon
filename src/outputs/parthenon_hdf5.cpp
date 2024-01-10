@@ -217,13 +217,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     my_offset += nblist[i];
   }
 
-  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0, 0, 0});
+  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0, 0, 0, 0});
 
   // these can vary by data set, except index 0 is always the same
   std::array<hsize_t, H5_NDIM> local_count(
-      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1, 1, 1});
+      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1, 1, 1, 1});
   std::array<hsize_t, H5_NDIM> global_count(
-      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1, 1, 1});
+      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1, 1, 1, 1});
 
   // for convenience
   const hsize_t *const p_loc_offset = local_offset.data();
@@ -397,20 +397,21 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocate space for largest size variable
   int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize =
+    // Faces & edges have an extra dimension with size == mesh ndim
+    const bool ndim_loc = vinfo.where == MetadataFlag(Metadata::Face) ||
+                           vinfo.where == MetadataFlag(Metadata::Edge);
+    const int varSize = (ndim_loc ? 3 : 1) *
         vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
     varSize_max = std::max(varSize_max, varSize);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmpData(varSize_max * num_blocks_local);
+  // TODO(BSP) why does this need padding?
+  std::vector<OutT> tmpData(varSize_max * num_blocks_local * 2);
 
   // create persistent spaces
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
-  local_count[4] = global_count[4] = nx3;
-  local_count[5] = global_count[5] = nx2;
-  local_count[6] = global_count[6] = nx1;
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
@@ -434,7 +435,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     int ndim = -1;
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     // we need chunks to enable compression
-    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1, 1});
 #endif
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
       ndim = 3 + vinfo.tensor_rank + 1;
@@ -444,6 +445,44 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3;
       local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2;
       local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1;
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        for (int i = ndim - 3; i < ndim; i++) {
+          chunk_size[i] = local_count[i];
+        }
+      }
+#endif
+    } else if (vinfo.where == MetadataFlag(Metadata::Face) || vinfo.where == MetadataFlag(Metadata::Edge)) {
+      // indices, field rank, location, block ID
+      ndim = 3 + vinfo.tensor_rank + 1 + 1;
+      // Put element index just after block index
+      local_count[1] = global_count[1] = pm->ndim;
+      // Shift everything else after the element index
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[2 + i] = global_count[2 + i] = alldims[3 - vinfo.tensor_rank + i];
+      }
+      local_count[vinfo.tensor_rank + 1 + 1] = global_count[vinfo.tensor_rank + 1 + 1] = nx3 + (!pm->mesh_size.symmetry(X3DIR));
+      local_count[vinfo.tensor_rank + 1 + 2] = global_count[vinfo.tensor_rank + 1 + 2] = nx2 + (!pm->mesh_size.symmetry(X2DIR));
+      local_count[vinfo.tensor_rank + 1 + 3] = global_count[vinfo.tensor_rank + 1 + 3] = nx1 + (!pm->mesh_size.symmetry(X1DIR));
+
+#ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (output_params.hdf5_compression_level > 0) {
+        for (int i = ndim - 3; i < ndim; i++) {
+          chunk_size[i] = local_count[i];
+        }
+      }
+#endif
+    } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+      ndim = 3 + vinfo.tensor_rank + 1;
+      for (int i = 0; i < vinfo.tensor_rank; i++) {
+        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+      }
+      // Not sure this is 100% write in parallel
+      // Might not own all nodes, but probably does want to write them?
+      local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3 + (!pm->mesh_size.symmetry(X3DIR));
+      local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2 + (!pm->mesh_size.symmetry(X2DIR));
+      local_count[vinfo.tensor_rank + 3] = global_count[vinfo.tensor_rank + 3] = nx1 + (!pm->mesh_size.symmetry(X1DIR));
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       if (output_params.hdf5_compression_level > 0) {
@@ -467,7 +506,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 #endif
     } else {
-      PARTHENON_THROW("Only Cell and None locations supported!");
+      PARTHENON_THROW("Variable defined at unknown location!");
     }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
@@ -496,22 +535,49 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // a similar block in parthenon_manager.cpp
         if (v->IsAllocated() && (var_name == v->label())) {
           auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+          // Face/Edge fields add an index in front of t,u,v so we handle them out here
+          if (vinfo.where == MetadataFlag(Metadata::Face) || vinfo.where == MetadataFlag(Metadata::Edge)) {
+            for (int e = 0; e < pm->ndim; e++) {
+              for (int t = 0; t < nx6; ++t) {
+                for (int u = 0; u < nx5; ++u) {
+                  for (int v = 0; v < nx4; ++v) {
+                    for (int k = out_kb.s; k <= out_kb.e + (!pm->mesh_size.symmetry(X3DIR)); ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + (!pm->mesh_size.symmetry(X2DIR)); ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + (!pm->mesh_size.symmetry(X1DIR)); ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(e, t, u, v, k, j, i));
+                        }
                       }
                     }
                   }
-                } else {
-                  for (int k = 0; k < vinfo.nx3; ++k) {
-                    for (int j = 0; j < vinfo.nx2; ++j) {
-                      for (int i = 0; i < vinfo.nx1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                }
+              }
+            }
+          } else {
+            for (int t = 0; t < nx6; ++t) {
+              for (int u = 0; u < nx5; ++u) {
+                for (int v = 0; v < nx4; ++v) {
+                  if (vinfo.where == MetadataFlag(Metadata::Cell)) {
+                    for (int k = out_kb.s; k <= out_kb.e; ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e; ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
+                      }
+                    }
+                  } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+                    for (int k = out_kb.s; k <= out_kb.e + (!pm->mesh_size.symmetry(X3DIR)); ++k) {
+                      for (int j = out_jb.s; j <= out_jb.e + (!pm->mesh_size.symmetry(X2DIR)); ++j) {
+                        for (int i = out_ib.s; i <= out_ib.e + (!pm->mesh_size.symmetry(X1DIR)); ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
+                      }
+                    }
+                  } else {
+                    for (int k = 0; k < vinfo.nx3; ++k) {
+                      for (int j = 0; j < vinfo.nx2; ++j) {
+                        for (int i = 0; i < vinfo.nx1; ++i) {
+                          tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+                        }
                       }
                     }
                   }
@@ -536,6 +602,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
           if (vinfo.where == MetadataFlag(Metadata::Cell)) {
             varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
+          } else if (vinfo.where == MetadataFlag(Metadata::Node)) {
+            varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 2) *
+                      (out_jb.e - out_jb.s + 2) * (out_ib.e - out_ib.s + 2);
+          } else if (vinfo.where == MetadataFlag(Metadata::Edge) || vinfo.where == MetadataFlag(Metadata::Face)) {
+            varSize = 3 * vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 2) *
+                      (out_jb.e - out_jb.s + 2) * (out_ib.e - out_ib.s + 2);
           } else {
             varSize =
                 vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
@@ -590,8 +662,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   HDF5WriteAttribute("ComponentNames", component_names, info_group);
   HDF5WriteAttribute("OutputDatasetNames", var_names, info_group);
 
-  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
-  // this if we have sparse fields)
+  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only
+  // write this if we have sparse fields)
   if (num_sparse > 0) {
     Kokkos::Profiling::pushRegion("write sparse info");
     local_count[1] = global_count[1] = num_sparse;
@@ -838,7 +910,8 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
   // get strings as char pointers, HDF5 will allocate the memory and we need to free it
   auto char_ptrs = HDF5ReadAttributeVec<char *>(location, name);
 
-  // make strings out of char pointers, which copies the memory and then free the memeory
+  // make strings out of char pointers, which copies the memory and then free the
+  // memeory
   std::vector<std::string> res(char_ptrs.size());
   for (size_t i = 0; i < res.size(); ++i) {
     res[i] = std::string(char_ptrs[i]);
@@ -957,7 +1030,8 @@ hid_t GenerateFileAccessProps() {
     ~MPI_InfoDeleter() { MPI_Info_free(&info); }
   } delete_info{FILE_INFO_TEMPLATE};
 
-  // Hint specifies the manner in which the file will be accessed until the file is closed
+  // Hint specifies the manner in which the file will be accessed until the file is
+  // closed
   const auto access_style =
       Env::get<std::string>("MPI_access_style", "write_once", exists);
   PARTHENON_MPI_CHECK(
@@ -973,8 +1047,8 @@ hid_t GenerateFileAccessProps() {
         Env::get<std::string>("MPI_cb_block_size", "1048576", exists);
     PARTHENON_MPI_CHECK(
         MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", cb_block_size.c_str()));
-    // Specifies the total buffer space that can be used for collective buffering on each
-    // target node, usually a multiple of cb_block_size
+    // Specifies the total buffer space that can be used for collective buffering on
+    // each target node, usually a multiple of cb_block_size
     const auto cb_buffer_size =
         Env::get<std::string>("MPI_cb_buffer_size", "4194304", exists);
     PARTHENON_MPI_CHECK(
