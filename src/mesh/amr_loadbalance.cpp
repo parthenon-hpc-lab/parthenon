@@ -915,14 +915,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         for (auto &var : pmb->vars_cc_) {
           prolongation_cache.RegisterRegionHost(
               iprolong++,
-              ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var), var.get(),
-              resolved_packages.get());
+              ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var),
+              var.get(), resolved_packages.get());
         }
       }
       prolongation_cache.CopyToDevice();
     }
     refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
     // update the lists
     loclist = std::move(newloc);
@@ -943,11 +943,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                         newly_refined);
     }
     // Make sure all old sends/receives are done before we reconfigure the mesh
-  #ifdef MPI_PARALLEL
+#ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-  #endif
+#endif
     // Re-initialize the mesh with our temporary ownership/neighbor configurations.
     // No buffers are different when we switch to the final precedence order.
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
@@ -955,14 +955,16 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
 
-    // Internal refinement relies on the fine shared values, which are only consistent after
-    // being updated with any previously fine versions
+    // Internal refinement relies on the fine shared values, which are only consistent
+    // after being updated with any previously fine versions
     refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                  block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                   block_list[0]->cellbounds,
+                                   block_list[0]->c_cellbounds);
 
-    // Rebuild just the ownership model, this time weighting the "new" fine blocks just like
-    // any other blocks at their level.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+    // Rebuild just the ownership model, this time weighting the "new" fine blocks just
+    // like any other blocks at their level.
+    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
+                          false);
     for (auto &pmb : block_list) {
       pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
     }
