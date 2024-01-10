@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -53,36 +53,19 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
     : BoundaryBase(wpmb.lock()->pmy_mesh, wpmb.lock()->loc, wpmb.lock()->block_size,
                    input_bcs),
       pmy_block_(wpmb) {
-  // Check BC functions for each of the 6 boundaries in turn ---------------------
-  for (int i = 0; i < 6; i++) {
-    switch (block_bcs[i]) {
-    case BoundaryFlag::reflect:
-    case BoundaryFlag::outflow:
-      apply_bndry_fn_[i] = true;
-      break;
-    default: // already initialized to false in class
-      break;
-    }
-  }
   // Inner x1
   nface_ = 2;
   nedge_ = 0;
-  CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
-  CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   if (!pmb->block_size.symmetry(X2DIR)) {
     nface_ = 4;
     nedge_ = 4;
-    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
-    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
   }
 
   if (!pmb->block_size.symmetry(X3DIR)) {
     nface_ = 6;
     nedge_ = 12;
-    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
-    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
   }
 
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
@@ -133,36 +116,21 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
                    input_bcs),
       pmy_block_(wpmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
-  // TODO(BRR) Add physical particle boundary conditions, maybe using the below code
-  /*for (int i = 0; i < 6; i++) {
-    switch (block_bcs[i]) {
-    case BoundaryFlag::reflect:
-    case BoundaryFlag::outflow:
-      apply_bndry_fn_[i] = true;
-      break;
-    default: // already initialized to false in class
-      break;
-    }
-  }*/
+  // TODO(BRR) Add physical particle boundary conditions
+
   // Inner x1
   nface_ = 2;
   nedge_ = 0;
-  CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
-  CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   if (!pmb->block_size.symmetry(X2DIR)) {
     nface_ = 4;
     nedge_ = 4;
-    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
-    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
   }
 
   if (!pmb->block_size.symmetry(X3DIR)) {
     nface_ = 6;
     nedge_ = 12;
-    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
-    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
   }
 }
 

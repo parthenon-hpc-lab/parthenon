@@ -40,7 +40,9 @@ for your ``parthenon_manager``. e.g.,
 
 .. code:: c++
 
-   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] = MyBoundaryInnerX1;
+   pman.app_input->RegisterBoundaryCondition(
+	  parthenon::BoundaryFace::inner_x1,
+	  "my_bc_name", MyBoundaryInnerX1);
 
 where ``BoundaryFace`` is an enum defined in ``defs.hpp`` as
 
@@ -58,13 +60,13 @@ where ``BoundaryFace`` is an enum defined in ``defs.hpp`` as
      outer_x3 = 5
    };
 
-You can then set this boundary condition via the ``user`` flag in the
-input file:
+You can then set this boundary condition by using the name you
+registered in the input file:
 
 ::
 
    <parthenon/mesh>
-   ix1_bc = user
+   ix1_bc = my_bc_name
 
 Boundary conditions so defined should look roughly like
 

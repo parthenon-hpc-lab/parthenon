@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -85,7 +85,7 @@ enum {
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
+enum class BoundaryFlag { block = -1, undef, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
 enum class NeighborConnect {

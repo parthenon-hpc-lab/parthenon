@@ -104,7 +104,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
                 }
               });
         }
-        auto &var = pmbd->Get("v6");
+        auto &var = pmbd->Get("v6").data;
         par_for(
             loop_pattern_mdrange_tag, "initialize v6", DevExecSpace(), kb.s, kb.e + 1,
             jb.s, jb.e + 1, ib.s, ib.e + 1, KOKKOS_LAMBDA(int k, int j, int i) {
