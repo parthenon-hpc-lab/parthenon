@@ -229,18 +229,6 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
       }
     }
   }
-  // JMM: I also wanted to test registration of refinement operations
-  // but this turns out to be impossible because Catch2 macros are not
-  // careful with commas, and the macro interprets commas within the
-  // template as separate arguments.
-  GIVEN("A metadata struct without the relevant flags set") {
-    Metadata m;
-    WHEN("We try to request refinement functions") {
-      THEN("It should fail") {
-        REQUIRE_THROWS_AS(m.GetRefinementFunctions(), std::runtime_error);
-      }
-    }
-  }
   GIVEN("A simple metadata object") {
     using FlagVec = std::vector<parthenon::MetadataFlag>;
     Metadata m(FlagVec{Metadata::Derived, Metadata::OneCopy});

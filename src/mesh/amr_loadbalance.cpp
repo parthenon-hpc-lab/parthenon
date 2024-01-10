@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 
 #include "parthenon_mpi.hpp"
 
@@ -743,9 +744,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (newloc[nn].level() < loclist[on].level()) {
       auto pmb = FindMeshBlock(on);
       for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(irestrict++,
-                                             ProResInfo::GetInteriorRestrict(pmb, var),
-                                             var.get(), resolved_packages.get());
+        restriction_cache.RegisterRegionHost(
+            irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
+            var.get(), resolved_packages.get());
       }
     }
   }
@@ -913,20 +914,21 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         auto pmb = FindMeshBlock(nn);
         for (auto &var : pmb->vars_cc_) {
           prolongation_cache.RegisterRegionHost(
-              iprolong++, ProResInfo::GetInteriorProlongate(pmb, var), var.get(),
+              iprolong++,
+              ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var), var.get(),
               resolved_packages.get());
         }
       }
+      prolongation_cache.CopyToDevice();
     }
-    prolongation_cache.CopyToDevice();
-
     refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
     // update the lists
     loclist = std::move(newloc);
     ranklist = std::move(newrank);
     costlist = std::move(newcost);
+    PopulateLeafLocationMap();
 
     // A block newly refined and prolongated may have neighbors which were
     // already refined to the new level.
@@ -937,29 +939,32 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // Thus we rebuild and synchronize the mesh now, but using a unique
     // neighbor precedence favoring the "old" fine blocks over "new" ones
     for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data(),
+      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
                                         newly_refined);
     }
     // Make sure all old sends/receives are done before we reconfigure the mesh
-#ifdef MPI_PARALLEL
+  #ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-#endif
+  #endif
     // Re-initialize the mesh with our temporary ownership/neighbor configurations.
     // No buffers are different when we switch to the final precedence order.
+    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
+                          0, newly_refined);
+    BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
 
-    // Internal refinement relies on the fine shared values, which are only consistent
-    // after being updated with any previously fine versions
+    // Internal refinement relies on the fine shared values, which are only consistent after
+    // being updated with any previously fine versions
     refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                   block_list[0]->cellbounds,
-                                   block_list[0]->c_cellbounds);
+                                  block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
-    // Rebuild just the ownership model, this time weighting the "new" fine blocks just
-    // like any other blocks at their level.
+    // Rebuild just the ownership model, this time weighting the "new" fine blocks just like
+    // any other blocks at their level.
+    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
     for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
     }
   } // AMR Recv and unpack data
 

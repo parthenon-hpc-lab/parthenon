@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,6 +27,7 @@
 #include <sstream>   // stringstream
 #include <stdexcept> // runtime_error
 #include <string>    // c_str()
+#include <unordered_set>
 
 #include "globals.hpp"
 #include "mesh/logical_location.hpp"
@@ -94,6 +95,38 @@ void NeighborBlock::SetNeighbor(LogicalLocation inloc, int irank, int ilevel, in
       eid = (8 + (((ni.ox2 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
   }
   return;
+}
+
+NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
+                             std::array<int, 3> offsets, NeighborConnect type, int bid,
+                             int target_id, int fi1, int fi2)
+    : snb{rank, loc.level(), lid, gid}, ni{offsets[0], offsets[1], offsets[2],
+                                           fi1,        fi2,        type},
+      bufid{bid}, eid{0}, targetid{target_id}, fid{BoundaryFace::undef}, loc{loc},
+      ownership(true), block_size(mesh->GetBlockSize(loc)) {
+  // TODO(LFR): Look and see if this stuff gets used anywhere
+  if (ni.type == NeighborConnect::face) {
+    if (ni.ox1 == -1)
+      fid = BoundaryFace::inner_x1;
+    else if (ni.ox1 == 1)
+      fid = BoundaryFace::outer_x1;
+    else if (ni.ox2 == -1)
+      fid = BoundaryFace::inner_x2;
+    else if (ni.ox2 == 1)
+      fid = BoundaryFace::outer_x2;
+    else if (ni.ox3 == -1)
+      fid = BoundaryFace::inner_x3;
+    else if (ni.ox3 == 1)
+      fid = BoundaryFace::outer_x3;
+  }
+  if (ni.type == NeighborConnect::edge) {
+    if (ni.ox3 == 0)
+      eid = ((((ni.ox1 + 1) >> 1) | ((ni.ox2 + 1) & 2)));
+    else if (ni.ox2 == 0)
+      eid = (4 + (((ni.ox1 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
+    else if (ni.ox1 == 0)
+      eid = (8 + (((ni.ox2 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -302,7 +335,7 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid) {
 // TODO(felker): break-up this long function
 
 void BoundaryBase::SearchAndSetNeighbors(
-    MeshBlockTree &tree, int *ranklist, int *nslist,
+    Mesh *mesh, MeshBlockTree &tree, int *ranklist, int *nslist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
   PARTHENON_INSTRUMENT
   MeshBlockTree *neibt;
@@ -632,7 +665,7 @@ void BoundaryBase::SearchAndSetNeighbors(
 void BoundaryBase::SetNeighborOwnership(
     const std::unordered_set<LogicalLocation> &newly_refined) {
   // Set neighbor block ownership
-  std::set<LogicalLocation> allowed_neighbors;
+  std::unordered_set<LogicalLocation> allowed_neighbors;
   allowed_neighbors.insert(loc); // Insert the location of this block
   for (int n = 0; n < nneighbor; ++n)
     allowed_neighbors.insert(neighbor[n].loc);

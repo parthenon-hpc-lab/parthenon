@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.8.0 LANGUAGES C CXX)
+project(parthenon VERSION 23.11 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -352,6 +352,10 @@ endif()
 if (PARTHENON_ENABLE_ASCENT)
   find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
+
+# Installation configuration
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 add_subdirectory(src)
 add_subdirectory(example)

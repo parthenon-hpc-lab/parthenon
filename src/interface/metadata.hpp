@@ -110,6 +110,10 @@
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
   PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGProlongate)                                             \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
 namespace parthenon {
@@ -312,9 +316,13 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-           const std::vector<std::string> &component_labels = {},
-           const std::string &associated = "");
+  Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -472,7 +480,8 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
+            IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
 
   const std::vector<int> &Shape() const { return shape_; }
@@ -543,7 +552,6 @@ class Metadata {
 
   // Refinement stuff
   const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
-    PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
   template <class ProlongationOp, class RestrictionOp,

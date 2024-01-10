@@ -35,7 +35,7 @@ namespace Update {
 
 template <>
 TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_cont) {
-  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
+  MeshBlock *pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = in->GetBoundsI(interior);
@@ -87,7 +87,7 @@ template <>
 TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
                                     MeshBlockData<Real> *u1_data, const Real gam0,
                                     const Real gam1, const Real beta_dt) {
-  std::shared_ptr<MeshBlock> pmb = u0_data->GetBlockPointer();
+  MeshBlock *pmb = u0_data->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = u0_data->GetBoundsI(interior);

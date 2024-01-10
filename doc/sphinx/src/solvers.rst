@@ -3,9 +3,20 @@
 Solvers
 =======
 
-Parthenon does not yet provide an exhaustive set of solvers. Currently,
-a few basic building blocks are provided and we hope to develop more
-capability in the future.
+Parthenon does not yet provide an exhaustive set of plug and play solvers. 
+Nevertheless, the building blocks required for implementing Krylov subspace 
+methods (i.e. global reductions for vector dot products) like CG, BiCGStab, 
+and GMRES are available. An example of a Parthenon based implementation of 
+BiCGStab can be found in ``examples/poisson_gmg``. Additionally, the 
+infrastructure required for implementing multigrid solvers is also 
+included in Parthenon. The requisite hierarchy of grids is produced if 
+``parthenon/mesh/multigrid=true`` is set in the parameter input. An example 
+of a multi-grid based linear solver in Parthenon is also given in 
+``examples/poisson_gmg`` (and also an example of using multi-grid as a 
+preconditioner for BiCGStab). We plan to build wrappers that simplify the 
+use of these methods in down stream codes in the future. Note that the 
+example code does not currently rely on the Stencil and SparseMatrixAccessor 
+code described below. 
 
 Stencil
 -------
