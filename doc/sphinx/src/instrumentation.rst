@@ -9,13 +9,13 @@ these macros instantiate Kokkos profiling regions via calls to
 Kokkos profiling tools should work straightforwardly with Parthenon-based applications.
 
 - ``PARTHENON_INSTRUMENT``: Instantiates an object that pushes a profiling region on
-construction and pops the region on destruction.  The name of the region is
-auto-generated and takes the form ``"file_name::line_number::function_name"``.  The region
-being profiled is controlled by invoking the macro at the appropriate scope.
+  construction and pops the region on destruction.  The name of the region is
+  auto-generated and takes the form ``"file_name::line_number::function_name"``.  The region
+  being profiled is controlled by invoking the macro at the appropriate scope.
 - ``PARTHENON_INSTRUMENT_REGION(name)``: Same as ``PARTHENON_INSTRUMENT``, but uses the
-provided name instead of the auto-generated name.
+  provided name instead of the auto-generated name.
 - ``PARTHENON_INSTRUMENT_REGION_PUSH``: A trivial wrapper around ``pushRegion`` where
-the name is auto-generated as above.
+  the name is auto-generated as above.
 - ``PARTHENON_INSTRUMENT_REGION_POP``: A trivial wrapper around ``popRegion``.
 
 In addition to these macros, Parthenon provides the ``PARTHENON_AUTO_LABEL`` macro which
