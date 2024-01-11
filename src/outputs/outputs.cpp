@@ -246,6 +246,17 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new VTKOutput(op);
       } else if (op.file_type == "ascent") {
         pnew_type = new AscentOutput(op);
+      } else if (op.file_type == "openpmd") {
+#ifdef PARTHENON_ENABLE_OPENPMD
+        pnew_type = new OpenPMDOutput(op, pin);
+#else
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
+            << "is requested in output/restart block '" << op.block_name << "'. "
+            << "You can disable this block without deleting it by setting a dt < 0."
+            << std::endl;
+        PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
       } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
         pnew_type = new HistogramOutput(op, pin);

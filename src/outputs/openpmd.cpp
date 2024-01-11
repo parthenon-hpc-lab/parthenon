@@ -31,6 +31,8 @@
 #include "globals.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
+#include "openPMD/IO/Access.hpp"
+#include "openPMD/Series.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "utils/error_checking.hpp"
@@ -48,38 +50,50 @@ using namespace OutputUtils;
 //! \fn void OpenPMDOutput:::WriteOutputFile(Mesh *pm)
 //  \brief  Expose mesh and all Cell variables for processing with Ascent
 void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                                   const SignalHandler::OutputSignal signal) {
+                                    const SignalHandler::OutputSignal signal) {
 #ifndef PARTHENON_ENABLE_OPENPMD
   if (Globals::my_rank == 0) {
     PARTHENON_WARN("OpenPMD output requested by input file, but OpenPMD support not "
                    "compiled in. Skipping this output type.");
   }
 #else
+  using openPMD::Access;
+  using openPMD::Series;
 
-  using conduit::Node;
+  // TODO(pgrete) .h5 for hd5 and .bp for ADIOS2 or .json for JSON
+  // TODO(pgrete) check if CREATE is the correct pattern (for not overwriting the series
+  // but an interation) This just describes the pattern of the filename. The correct file
+  // will be accessed through the iteration idx below. The file suffix maps to the chosen
+  // backend.
+  Series series = Series("test_%05T.h5", Access::CREATE);
 
-  // Ascent needs the MPI communicator we are using
-  ascent::Ascent ascent;
-  Node ascent_opts;
-  ascent_opts["mpi_comm"] = MPI_Comm_c2f(MPI_COMM_WORLD);
-  ascent_opts["actions_file"] = pin->GetString(output_params.block_name, "actions_file");
-  // Only publish fields that are used within actions to reduce memory footprint.
-  // A user might need to override this, e.g., in a runtime ascent_options.yaml, if
-  // the required fields cannot be resolved by Ascent.
-  // See https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering
-  // TODO(some in mid 2023) Reenable this as this currently only works in develop of
-  // Ascent and not in published release (expected in 0.9.1), see
-  // https://github.com/Alpine-DAV/ascent/pull/1109
-  // ascent_opts["field_filtering"] = "true";
-  ascent.open(ascent_opts);
+  // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
+  // TODO(pgrete) Should we update for restart or only set this once? Or make it per
+  // iteration?
+  // ... = pin->GetString(output_params.block_name, "actions_file");
+  series.setAuthor("My Name <mail@addre.es");
+  series.setComment("Hello world!");
+  series.setMachine("bla");
+  series.setSoftware("Parthenon + Downstream info");
+  series.setDate("today");
 
-  // create root node for the whole mesh
-  Node root;
+  // TODO(pgrete) Units?
+
+  // TODO(pgrete) We probably want this for params!
+  series.setAttribute("bla", true);
+
+  // open iteration (corresponding to a timestep in OpenPMD naming)
+  // TODO(pgrete) fix iteration name <-> file naming
+  auto it = series.iterations[42];
+  it.open(); // explicit open() is important when run in parallel
+
+  it.setTime(tm->time);
+  it.setDt(tm->dt);
 
   for (auto &pmb : pm->block_list) {
     // create a unique id for this MeshBlock
     const std::string &meshblock_name = "domain_" + std::to_string(pmb->gid);
-    Node &mesh = root[meshblock_name];
+    auto mesh = it.meshes[meshblock_name];
 
     // add basic state info
     mesh["state/domain_id"] = pmb->gid;
