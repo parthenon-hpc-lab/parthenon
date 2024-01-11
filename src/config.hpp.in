@@ -45,7 +45,6 @@
 // defne ENABLE_HDF5 or not at all
 #cmakedefine ENABLE_HDF5
 
-// defne ENABLE_HDF5 or not at all
 #cmakedefine PARTHENON_ENABLE_OPENPMD
 
 // define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all

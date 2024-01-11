@@ -31,12 +31,12 @@ include(CTest)
 # Compile time constants
 
 # Compile Options
-option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
+option(PARTHENON_SINGLE_PRENSION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
-option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to True to disable OpenPMD" OFF)
+option(PARTHENON_ENABLE_OPENPMD "OpenPMD is enabled by default if found, set this to True to disable OpenPMD" ON)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -185,7 +185,7 @@ if (NOT PARTHENON_DISABLE_HDF5)
   install(TARGETS HDF5_C EXPORT parthenonTargets)
 endif()
 
-if (NOT PARTHENON_DISABLE_OPENPMD)
+if (PARTHENON_ENABLE_OPENPMD)
 #TODO(pgrete) add logic for serial/parallel
 #TODO(pgrete) add logic for internal/external build
   include(FetchContent)
@@ -201,6 +201,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
     GIT_TAG        "0.15.2")
   FetchContent_MakeAvailable(openPMD)
+  install(TARGETS openPMD EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
