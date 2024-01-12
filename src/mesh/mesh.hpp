@@ -54,6 +54,7 @@
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+#include "utils/thread_pool.hpp"
 
 namespace parthenon {
 
@@ -233,6 +234,8 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  void SetThreadPool(std::shared_ptr<ThreadPool> p) { pool = p; }
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -273,6 +276,8 @@ class Mesh {
   int default_pack_size_;
 
   int gmg_min_logical_level_ = 0;
+
+  std::shared_ptr<ThreadPool> pool;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
