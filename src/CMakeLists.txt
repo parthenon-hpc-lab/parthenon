@@ -237,6 +237,7 @@ add_library(parthenon
   utils/index_split.cpp
   utils/index_split.hpp
   utils/indexer.hpp
+  utils/instrument.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
   utils/mpi_types.hpp

@@ -911,7 +911,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop as well as during remeshing
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
-  Kokkos::Profiling::pushRegion("Mesh::Initialize");
+  PARTHENON_INSTRUMENT
   bool init_done = true;
   const int nb_initial = nbtotal;
   do {
@@ -1112,8 +1112,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
   // Initialize the "base" MeshData object
   mesh_data.Get()->Set(block_list, this);
-
-  Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
 
 /// Finds location of a block with ID `tgid`.
