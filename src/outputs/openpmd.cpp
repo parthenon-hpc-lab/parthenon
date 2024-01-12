@@ -84,12 +84,11 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // open iteration (corresponding to a timestep in OpenPMD naming)
   // TODO(pgrete) fix iteration name <-> file naming
-  auto it = series.iterations[42];
+  auto it = series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
 
   it.setTime(tm->time);
   it.setDt(tm->dt);
-
   for (auto &pmb : pm->block_list) {
     // create a unique id for this MeshBlock
     const std::string &meshblock_name = "domain_" + std::to_string(pmb->gid);
@@ -143,38 +142,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       mesh["coordsets/coords/spacing/dz"] = dx3;
     }
 
-    // add the topology
-    mesh["topologies/topo/type"] = "uniform";
-    mesh["topologies/topo/coordset"] = "coords";
-
-    // indicate ghost zones with ascent_ghosts set to 1
-    Node &n_field = mesh["fields/ascent_ghosts"];
-    n_field["association"] = "element";
-    n_field["topology"] = "topo";
-
-    // allocate ghost mask if not already done
-    if (ghost_mask_.data() == nullptr) {
-      ghost_mask_ = ParArray1D<Real>("Ascent ghost mask", ncells);
-
-      const int njni = nj * ni;
-      auto &ghost_mask = ghost_mask_; // redef to lambda capture class member
-      pmb->par_for(
-          "Set ascent ghost mask", 0, ncells - 1, KOKKOS_LAMBDA(const int &idx) {
-            const int k = idx / (njni);
-            const int j = (idx - k * njni) / ni;
-            const int i = idx - k * njni - j * nj;
-
-            if ((i < ib_int.s) || (ib_int.e < i) || (j < jb_int.s) || (jb_int.e < j) ||
-                ((nk > 1) && ((k < kb_int.s) || (kb_int.e < k)))) {
-              ghost_mask(idx) = 1;
-            } else {
-              ghost_mask(idx) = 0;
-            }
-          });
-    }
-    // Set ghost mask
-    n_field["values"].set_external(ghost_mask_.data(), ncells);
-
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();
 
@@ -196,25 +163,12 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
     }
   }
-
-  // make sure we conform:
-  Node verify_info;
-  if (!conduit::blueprint::mesh::verify(root, verify_info)) {
-    if (parthenon::Globals::my_rank == 0) {
-      PARTHENON_WARN("Ascent output: blueprint::mesh::verify failed!");
-    }
-    verify_info.print();
-  }
-  ascent.publish(root);
-
-  // Create dummy action as we need to "execute" to override the actions defined in the
-  // yaml file.
-  Node actions;
-  // execute the actions
-  ascent.execute(actions);
-
-  // close ascent
-  ascent.close();
+  // The iteration can be closed in order to help free up resources.
+  // The iteration's content will be flushed automatically.
+  // An iteration once closed cannot (yet) be reopened.
+  it.close();
+  // No need to close series as it's done in the desctructor of the object when it runs
+  // out of scope.
 #endif // ifndef PARTHENON_ENABLE_OPENPMD
 
   // advance output parameters
