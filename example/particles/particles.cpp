@@ -130,7 +130,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
-  Kokkos::Profiling::pushRegion("Task_Particles_DestroySomeParticles");
+  PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my_particles");
@@ -143,7 +143,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 
   // Randomly mark some fraction of particles each timestep for removal
   pmb->par_for(
-      "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
           if (rng_gen.drand() > 1.0 - destroy_particles_frac) {
@@ -156,7 +156,6 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   // Remove marked particles
   swarm->RemoveMarkedParticles();
 
-  Kokkos::Profiling::popRegion(); // Task_Particles_DestroySomeParticles
   return TaskStatus::complete;
 }
 
@@ -172,7 +171,7 @@ TaskStatus SortParticlesIfUsingPerCellDeposition(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  Kokkos::Profiling::pushRegion("Task_Particles_DepositParticles");
+  PARTHENON_INSTRUMENT
 
   auto swarm = pmb->swarm_data.Get()->Get("my_particles");
 
@@ -202,13 +201,13 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   if (deposition_method == DepositionMethod::per_particle) {
     // Reset particle count
     pmb->par_for(
-        "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           particle_dep(k, j, i) = 0.;
         });
 
     pmb->par_for(
-        "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
             int j = 0;
@@ -228,7 +227,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         });
   } else if (deposition_method == DepositionMethod::per_cell) {
     pmb->par_for(
-        "DepositParticlesByCell", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           particle_dep(k, j, i) = 0.;
           for (int n = 0; n < swarm_d.GetParticleCountPerCell(k, j, i); n++) {
@@ -238,12 +237,11 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Particles_DepositParticles
   return TaskStatus::complete;
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
-  Kokkos::Profiling::pushRegion("Task_Particles_CreateSomeParticles");
+  PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my_particles");
@@ -280,8 +278,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
   if (orbiting_particles) {
     pmb->par_for(
-        "CreateSomeOrbitingParticles", 0, swarm->GetMaxActiveIndex(),
-        KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -325,7 +322,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   } else {
     pmb->par_for(
-        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -351,13 +348,12 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Particles_CreateSomeParticles
   return TaskStatus::complete;
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
-  Kokkos::Profiling::pushRegion("Task_Particles_TransportParticles");
+  PARTHENON_INSTRUMENT
 
   auto swarm = pmb->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
@@ -396,7 +392,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   if (orbiting_particles) {
     // Particles orbit the origin
     pmb->par_for(
-        "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             PARTHENON_DEBUG_REQUIRE(vel > 0., "Speed must be > 0!");
@@ -449,7 +445,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   } else {
     // Particles move in straight lines
     pmb->par_for(
-        "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             Real vel = sqrt(v(0, n) * v(0, n) + v(1, n) * v(1, n) + v(2, n) * v(2, n));
             PARTHENON_DEBUG_REQUIRE(vel > 0., "vel must be > 0 for division!");
@@ -478,7 +474,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Particles_TransportParticles
   return TaskStatus::complete;
 }
 
@@ -520,7 +515,7 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
-  Kokkos::Profiling::pushRegion("Task_Particles_StopCommunicationMesh");
+  PARTHENON_INSTRUMENT
 
   int num_sent_local = 0;
   for (auto &block : blocks) {
@@ -574,7 +569,6 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Particles_StopCommunicationMesh
   return TaskStatus::complete;
 }
 

@@ -39,7 +39,7 @@ namespace parthenon {
 using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
@@ -53,12 +53,10 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::complete;
   }
 
   if (other_communication_unfinished) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::incomplete;
   }
 
@@ -69,7 +67,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   Kokkos::parallel_for(
-      "SendFluxCorrectionBufs",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         auto &binfo = bnd_info(team_member.league_rank());
@@ -116,12 +114,11 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   // Calling Send will send null if the underlying buffer is unallocated
   for (auto &buf : cache.buf_vec)
     buf->Send();
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
   return TaskStatus::complete;
 }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiveFluxCorrections");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
@@ -131,12 +128,11 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion(); // Task_StartReceiveFluxCorrections
   return TaskStatus::complete;
 }
 
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -149,14 +145,12 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
-
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -169,7 +163,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
-      "SetFluxCorBuffers",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
@@ -188,7 +182,6 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
 
-  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
 
