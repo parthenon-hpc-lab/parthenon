@@ -18,6 +18,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <tuple>
@@ -120,6 +121,13 @@ class SparsePackCache {
   std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t,
                                              SparsePackBase::include_t>>
       pack_map;
+
+ private:
+  auto GetFromMap(const std::string &key) {
+    std::lock_guard<std::mutex> lock(mutex);
+    return pack_map.find(key);
+  }
+  std::mutex mutex;
 
   friend class SparsePackBase;
 };

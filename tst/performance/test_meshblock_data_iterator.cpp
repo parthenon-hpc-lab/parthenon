@@ -76,7 +76,8 @@ void performance_test_wrapper(const std::string &test_name, InitFunc init_func,
 
 // we need to connect the MeshBlockData to a dummy mesh block, otherwise variables
 // won't be allocated
-static MeshBlockData<Real> createTestContainer(std::shared_ptr<MeshBlock> &dummy_mb) {
+static void createTestContainer(std::shared_ptr<MeshBlock> dummy_mb,
+                                MeshBlockData<Real> &mbd) {
   // Make a container for testing performance
   std::vector<int> scalar_shape{N, N, N};
   std::vector<int> vector_shape{N, N, N, 3};
@@ -93,10 +94,7 @@ static MeshBlockData<Real> createTestContainer(std::shared_ptr<MeshBlock> &dummy
   pkg->AddField("v4", m_in_vec);
   pkg->AddField("v5", m_in);
 
-  MeshBlockData<Real> mbd;
   mbd.Initialize(pkg, dummy_mb);
-
-  return mbd;
 }
 
 // std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
@@ -125,7 +123,6 @@ std::function<void()> createLambdaContainer(MeshBlockData<Real> &container) {
             v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
     }
-    return container;
   };
 }
 
@@ -142,7 +139,6 @@ std::function<void()> createLambdaContainerVar(MeshBlockData<Real> &container,
             data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
     }
-    return container;
   };
 }
 
@@ -196,7 +192,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
       auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
-      MeshBlockData<Real> container = createTestContainer(dummy_mb);
+      MeshBlockData<Real> container;
+      createTestContainer(dummy_mb, container);
       auto init_container = createLambdaContainer(container);
 
       // Make a function for initializing the container variables
@@ -215,7 +212,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
     } // GIVEN
     GIVEN("A container Var.") {
       auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
-      MeshBlockData<Real> container = createTestContainer(dummy_mb);
+      MeshBlockData<Real> container;
+      createTestContainer(dummy_mb, container);
       std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
       auto init_container = createLambdaContainerVar(container, names);
 
@@ -238,7 +236,8 @@ TEST_CASE("Catch2 Container Iterator Performance",
   SECTION("View of Views") {
     GIVEN("A container.") {
       auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
-      MeshBlockData<Real> container = createTestContainer(dummy_mb);
+      MeshBlockData<Real> container;
+      createTestContainer(dummy_mb, container);
       WHEN("The view of views does not have any names.") {
         parthenon::VariablePack<Real> var_view =
             container.PackVariables({Metadata::Independent});
