@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TASKS_THREAD_POOL_HPP_
-#define TASKS_THREAD_POOL_HPP_
+#ifndef UTILS_THREAD_POOL_HPP_
+#define UTILS_THREAD_POOL_HPP_
 
 #include <condition_variable>
 #include <functional>
