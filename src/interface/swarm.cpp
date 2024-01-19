@@ -321,6 +321,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 
     Kokkos::deep_copy(mask_, mask_h);
     blockIndex_.DeepCopy(blockIndex_h);
+    newIndicesMaxIdx_ = num_to_add - 1;
   } else {
     newIndicesMaxIdx_ = -1;
   }
@@ -1090,8 +1091,6 @@ void Swarm::UnloadBuffers_() {
 
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
-    // ParArrayND<int> new_indices;
-    // auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
 
     // TODO(BRR) remove these dynamic allocs
     ParArray1D<int> neighbor_index("Neighbor index", total_received_particles_);
@@ -1130,7 +1129,7 @@ void Swarm::UnloadBuffers_() {
           }
         });
 
-    ApplyBoundaries_(total_received_particles_, fromToIndices_);
+    ApplyBoundaries_(total_received_particles_, newIndices_);
   }
 }
 
