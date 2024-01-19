@@ -385,7 +385,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
-      KOKKOS_LAMBDA(const int n) {
+      KOKKOS_LAMBDA(const int new_n) {
         const int n = newParticlesContext.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
 
