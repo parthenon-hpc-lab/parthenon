@@ -289,7 +289,7 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
-  PARTHENON_DEBUG_REQUIRE(num_to_add < 0, "Cannot add negative numbers of particles!");
+  PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
 
   if (num_to_add > 0) {
     while (free_indices_.size() < num_to_add) {
