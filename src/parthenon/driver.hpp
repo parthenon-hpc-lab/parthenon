@@ -67,6 +67,7 @@ using ::parthenon::TaskListStatus;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;
+using ::parthenon::TaskQualifier;
 using ::parthenon::Uid_t;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
