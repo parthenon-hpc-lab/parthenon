@@ -175,9 +175,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
 
-  ParArrayND<int> new_indices;
-  const auto new_particles_mask =
-      swarm->AddEmptyParticles(num_particles_this_block, new_indices);
+  auto newParticlesContext = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
@@ -189,7 +187,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int new_n) {
+        const int n = newParticlesContext.GetNewParticleIndex(new_n);
         const auto &m = ids_this_block(n);
 
         id(n) = m; // global unique id

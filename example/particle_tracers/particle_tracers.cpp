@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -375,8 +375,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
 
-  ParArrayND<int> new_indices;
-  swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
+  auto newParticlesContext = swarm->AddEmptyParticles(num_tracers_meshblock);
 
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
@@ -384,10 +383,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  // This hardcoded implementation should only used in PGEN and not during runtime
-  // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int n) {
+        const int n = newParticlesContext.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
 
         // Rejection sample the x position

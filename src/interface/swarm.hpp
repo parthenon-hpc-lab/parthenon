@@ -47,6 +47,29 @@ struct BoundaryDeviceContext {
   ParticleBound *bounds[6];
 };
 
+// This class is returned by AddEmptyParticles. It provides accessors to the new particle
+// memory by wrapping the persistent new_indices_ array.
+class NewParticlesContext {
+ public:
+  NewParticlesContext(const int newIndicesMaxIdx, const ParArray1D<int> newIndices)
+      : newIndicesMaxIdx_(newIndicesMaxIdx), newIndices_(newIndices) {}
+
+  // Return the maximum index of the contiguous block of new particle indices.
+  int GetNewParticlesMaxIndex() const { return newIndicesMaxIdx_; }
+
+  // Given an index n into the contiguous block of new particle indices, return the swarm
+  // index of the new particle.
+  int GetNewParticleIndex(const int n) const {
+    PARTHENON_DEBUG_REQUIRE(n >= 0 && n <= newIndicesMaxIdx_,
+                            "New particle index is out of bounds!")
+    return newIndices_(n);
+  }
+
+ private:
+  const int newIndicesMaxIdx_;
+  ParArray1D<int> newIndices_;
+};
+
 class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
@@ -170,7 +193,7 @@ class Swarm {
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
-  ParArray1D<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
+  NewParticlesContext AddEmptyParticles(const int num_to_add);
 
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
@@ -275,6 +298,11 @@ class Swarm {
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively
+  ParArray1D<int> newIndices_;      // Persistent array that provides the new indices when
+                                    // AddEmptyParticles is called. Always defragmented.
+  int newIndicesMaxIdx_;            // Maximum valid index of new_indices_ array.
+  ParArray1D<int> fromToIndices_;   // Array used for sorting particles during defragment
+                                    // step (size nmax_pool + 1).
 
   constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;

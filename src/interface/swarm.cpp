@@ -66,6 +66,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
       marked_for_removal_("mfr", nmax_pool_), blockIndex_("blockIndex_", nmax_pool_),
       neighborIndices_("neighborIndices_", 4, 4, 4),
+      newIndices_("newIndices_", nmax_pool_),
+      fromToIndices_("fromToIndices_", nmax_pool_ + 1),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
@@ -78,6 +80,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   num_active_ = 0;
   max_active_index_ = 0;
 
+  // TODO(BRR) Do this in a device kernel?
   auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
   auto marked_for_removal_h =
       Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
@@ -256,6 +259,8 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
+  Kokkos::resize(new_indices_, nmax_pool);
+  Kokkos::resize(fromToIndices_, nmax_pool + 1);
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cellSorted_, nmax_pool);
@@ -282,58 +287,51 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   nmax_pool_ = nmax_pool;
 }
 
-ParArray1D<bool> Swarm::AddEmptyParticles(const int num_to_add,
-                                          ParArrayND<int> &new_indices) {
-  if (num_to_add <= 0) {
-    new_indices = ParArrayND<int>();
-    return ParArray1D<bool>();
+NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
+  PARTHENON_DEBUG_REQUIRE(num_to_add < 0, "Cannot add negative numbers of particles!");
+
+  if (num_to_add > 0) {
+    while (free_indices_.size() < num_to_add) {
+      increasePoolMax();
+    }
+
+    // TODO(BRR) Use par_scan on device rather than do this on host
+    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+
+    auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+
+    auto free_index = free_indices_.begin();
+
+    auto newIndices_h = newIndices_.GetHostMirror();
+
+    // Don't bother sanitizing the memory
+    for (int n = 0; n < num_to_add; n++) {
+      mask_h(*free_index) = true;
+      blockIndex_h(*free_index) = this_block_;
+      max_active_index_ = std::max<int>(max_active_index_, *free_index);
+      newIndices_h(n) = *free_index;
+
+      free_index = free_indices_.erase(free_index);
+    }
+
+    newIndices_.DeepCopy(newIndices_h);
+
+    num_active_ += num_to_add;
+
+    Kokkos::deep_copy(mask_, mask_h);
+    blockIndex_.DeepCopy(blockIndex_h);
+  } else {
+    newIndicesMaxIdx_ = -1;
   }
 
-  while (free_indices_.size() < num_to_add) {
-    increasePoolMax();
-  }
-
-  ParArray1D<bool> new_mask("Newly created particles", nmax_pool_);
-  auto new_mask_h = Kokkos::create_mirror_view(HostMemSpace(), new_mask);
-  for (int n = 0; n < nmax_pool_; n++) {
-    new_mask_h(n) = false;
-  }
-
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-
-  auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-
-  auto free_index = free_indices_.begin();
-
-  new_indices = ParArrayND<int>("New indices", num_to_add);
-  auto new_indices_h = new_indices.GetHostMirror();
-
-  // Don't bother sanitizing the memory
-  for (int n = 0; n < num_to_add; n++) {
-    mask_h(*free_index) = true;
-    new_mask_h(*free_index) = true;
-    blockIndex_h(*free_index) = this_block_;
-    max_active_index_ = std::max<int>(max_active_index_, *free_index);
-    new_indices_h(n) = *free_index;
-
-    free_index = free_indices_.erase(free_index);
-  }
-
-  new_indices.DeepCopy(new_indices_h);
-
-  num_active_ += num_to_add;
-
-  Kokkos::deep_copy(new_mask, new_mask_h);
-  Kokkos::deep_copy(mask_, mask_h);
-  blockIndex_.DeepCopy(blockIndex_h);
-
-  return new_mask;
+  return NewParticlesContext(newIndicesMaxIdx_, newIndices_);
 }
 
 // No active particles: nmax_active_index = -1
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
+  // TODO(BRR) Use par_scan to do this on device rather than host
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto marked_for_removal_h =
       Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
@@ -366,13 +364,13 @@ void Swarm::Defrag() {
   std::int64_t num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
 
-  ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
-  auto from_to_indices_h = from_to_indices.GetHostMirror();
+  // ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
+  auto fromToIndices_h = fromToIndices.GetHostMirror();
 
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
   for (int n = 0; n <= max_active_index_; n++) {
-    from_to_indices_h(n) = unset_index_;
+    fromToIndices_h(n) = unset_index_;
   }
 
   std::list<int> new_free_indices;
@@ -395,20 +393,20 @@ void Swarm::Defrag() {
     int index_to_move_to = free_indices_.front();
     free_indices_.pop_front();
     new_free_indices.push_back(index_to_move_from);
-    from_to_indices_h(index_to_move_from) = index_to_move_to;
+    fromToIndices_h(index_to_move_from) = index_to_move_to;
   }
 
   // TODO(BRR) Not all these sorts may be necessary
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
 
-  from_to_indices.DeepCopy(from_to_indices_h);
+  fromToIndices.DeepCopy(fromToIndices_h);
 
   auto &mask = mask_;
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
-          mask(from_to_indices(n)) = mask(n);
+        if (fromToIndices(n) >= 0) {
+          mask(fromToIndices(n)) = mask(n);
           mask(n) = false;
         }
       });
@@ -870,6 +868,7 @@ int Swarm::CountParticlesToSend_() {
   const int nbmax = vbswarm->bd_var_.nbmax;
 
   // Fence to make sure particles aren't currently being transported locally
+  // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
   auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
