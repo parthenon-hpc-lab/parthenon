@@ -55,13 +55,15 @@ class NewParticlesContext {
       : newIndicesMaxIdx_(newIndicesMaxIdx), newIndices_(newIndices) {}
 
   // Return the maximum index of the contiguous block of new particle indices.
+  KOKKOS_INLINE_FUNCTION
   int GetNewParticlesMaxIndex() const { return newIndicesMaxIdx_; }
 
   // Given an index n into the contiguous block of new particle indices, return the swarm
   // index of the new particle.
+  KOKKOS_INLINE_FUNCTION
   int GetNewParticleIndex(const int n) const {
     PARTHENON_DEBUG_REQUIRE(n >= 0 && n <= newIndicesMaxIdx_,
-                            "New particle index is out of bounds!")
+                            "New particle index is out of bounds!");
     return newIndices_(n);
   }
 
@@ -245,7 +247,7 @@ class Swarm {
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
-  void ApplyBoundaries_(const int nparticles, ParArrayND<int> indices);
+  void ApplyBoundaries_(const int nparticles, ParArray1D<int> indices);
 
   std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
 
@@ -269,8 +271,8 @@ class Swarm {
 
   int CountParticlesToSend_();
   void CountReceivedParticles_();
-  void UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
-                                           ParArrayND<int> &buffer_index);
+  void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
+                                           ParArray1D<int> &buffer_index);
 
   template <class T>
   SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap);

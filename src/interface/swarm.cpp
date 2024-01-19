@@ -259,7 +259,7 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
-  Kokkos::resize(new_indices_, nmax_pool);
+  Kokkos::resize(newIndices_, nmax_pool);
   Kokkos::resize(fromToIndices_, nmax_pool + 1);
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
@@ -365,7 +365,7 @@ void Swarm::Defrag() {
   auto pmb = GetBlockPointer();
 
   // ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
-  auto fromToIndices_h = fromToIndices.GetHostMirror();
+  auto fromToIndices_h = fromToIndices_.GetHostMirror();
 
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
@@ -400,7 +400,9 @@ void Swarm::Defrag() {
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
 
-  fromToIndices.DeepCopy(fromToIndices_h);
+  fromToIndices_.DeepCopy(fromToIndices_h);
+
+  auto fromToIndices = fromToIndices_;
 
   auto &mask = mask_;
   pmb->par_for(
@@ -426,12 +428,12 @@ void Swarm::Defrag() {
 
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
+        if (fromToIndices(n) >= 0) {
           for (int vidx = 0; vidx < realPackDim; vidx++) {
-            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+            vreal(vidx, fromToIndices(n)) = vreal(vidx, n);
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
-            vint(vidx, from_to_indices(n)) = vint(vidx, n);
+            vint(vidx, fromToIndices(n)) = vint(vidx, n);
           }
         }
       });
@@ -900,7 +902,7 @@ int Swarm::CountParticlesToSend_() {
   // Not a ragged-right array, just for convenience
   if (total_noblock_particles > 0) {
     auto noblock_indices =
-        ParArrayND<int>("Particles with no block", total_noblock_particles);
+        ParArray1D<int>("Particles with no block", total_noblock_particles);
     auto noblock_indices_h = noblock_indices.GetHostMirror();
     int counter = 0;
     for (int n = 0; n <= max_active_index_; n++) {
@@ -915,6 +917,7 @@ int Swarm::CountParticlesToSend_() {
     ApplyBoundaries_(total_noblock_particles, noblock_indices);
   }
 
+  // TODO(BRR) don't allocate dynamically
   particle_indices_to_send_ =
       ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
   auto particle_indices_to_send_h = particle_indices_to_send_.GetHostMirror();
@@ -1015,7 +1018,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
         Kokkos::Sum<int>(total_sent_particles));
 
     if (total_sent_particles > 0) {
-      ParArrayND<int> new_indices("new indices", total_sent_particles);
+      ParArray1D<int> new_indices("new indices", total_sent_particles);
       auto new_indices_h = new_indices.GetHostMirrorAndCopy();
       int sent_particle_index = 0;
       for (int n = 0; n <= max_active_index_; n++) {
@@ -1059,8 +1062,8 @@ void Swarm::CountReceivedParticles_() {
   }
 }
 
-void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
-                                                ParArrayND<int> &buffer_index) {
+void Swarm::UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
+                                                ParArray1D<int> &buffer_index) {
   auto pmb = GetBlockPointer();
   auto neighbor_index_h = neighbor_index.GetHostMirror();
   auto buffer_index_h =
@@ -1086,11 +1089,13 @@ void Swarm::UnloadBuffers_() {
   auto &bdvar = vbswarm->bd_var_;
 
   if (total_received_particles_ > 0) {
-    ParArrayND<int> new_indices;
-    auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
+    auto newParticlesContext = AddEmptyParticles(total_received_particles_);
+    // ParArrayND<int> new_indices;
+    // auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
 
-    ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
-    ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
+    // TODO(BRR) remove these dynamic allocs
+    ParArray1D<int> neighbor_index("Neighbor index", total_received_particles_);
+    ParArray1D<int> buffer_index("Buffer index", total_received_particles_);
     UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
@@ -1108,9 +1113,10 @@ void Swarm::UnloadBuffers_() {
     auto swarm_d = GetDeviceContext();
 
     pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, total_received_particles_ - 1,
+        PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+        // n is both new particle index and index over buffer values
         KOKKOS_LAMBDA(const int n) {
-          const int sid = new_indices(n);
+          const int sid = newParticlesContext.GetNewParticleIndex(n);
           const int nid = neighbor_index(n);
           int bid = buffer_index(n) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
@@ -1124,11 +1130,11 @@ void Swarm::UnloadBuffers_() {
           }
         });
 
-    ApplyBoundaries_(total_received_particles_, new_indices);
+    ApplyBoundaries_(total_received_particles_, fromToIndices_);
   }
 }
 
-void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
+void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
   auto pmb = GetBlockPointer();
   auto &x = Get<Real>("x").Get();
   auto &y = Get<Real>("y").Get();
