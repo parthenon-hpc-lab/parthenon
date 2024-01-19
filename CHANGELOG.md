@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) New tasking infrastructure and capabilities
+- [[PR 969]](https://github.com/parthenon-hpc-lab/parthenon/pull/969) New macro-based auto-naming of profiling regions and kernels
 - [[PR 981]](https://github.com/parthenon-hpc-lab/parthenon/pull/981) Add IndexSplit
 - [[PR 983]](https://github.com/parthenon-hpc-lab/parthenon/pull/983) Add Contains to SparsePack
 - [[PR 968]](https://github.com/parthenon-hpc-lab/parthenon/pull/968) Add per package registration of boundary conditions
