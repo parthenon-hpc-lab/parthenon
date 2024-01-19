@@ -310,7 +310,7 @@ class Swarm {
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
 
-  ParArrayND<int> num_particles_to_send_;
+  ParArray1D<int> numParticlesToSend_;
   ParArrayND<int> particle_indices_to_send_;
 
   std::vector<int> neighbor_received_particles_;

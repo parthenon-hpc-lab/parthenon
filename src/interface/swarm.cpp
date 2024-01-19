@@ -68,6 +68,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       neighborIndices_("neighborIndices_", 4, 4, 4),
       newIndices_("newIndices_", nmax_pool_),
       fromToIndices_("fromToIndices_", nmax_pool_ + 1),
+      numParticlesToSend_("numParticlesToSend_", NMAX_NEIGHBORS),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
@@ -835,7 +836,6 @@ void Swarm::SetupPersistentMPI() {
   const int ndim = pmb->pmy_mesh->ndim;
 
   const int nbmax = vbswarm->bd_var_.nbmax;
-  num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
 
   // Build up convenience array of neighbor indices
   if (ndim == 1) {
@@ -872,9 +872,9 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
-  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
+  auto numParticlesToSend_h = numParticlesToSend_.GetHostMirror();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    num_particles_to_send_h(n) = 0;
+    numParticlesToSend_h(n) = 0;
   }
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
@@ -885,9 +885,9 @@ int Swarm::CountParticlesToSend_() {
     if (mask_h(n)) {
       // This particle should be sent
       if (blockIndex_h(n) >= 0) {
-        num_particles_to_send_h(blockIndex_h(n))++;
-        if (max_indices_size < num_particles_to_send_h(blockIndex_h(n))) {
-          max_indices_size = num_particles_to_send_h(blockIndex_h(n));
+        numParticlesToSend_h(blockIndex_h(n))++;
+        if (max_indices_size < numParticlesToSend_h(blockIndex_h(n))) {
+          max_indices_size = numParticlesToSend_h(blockIndex_h(n));
         }
       }
       if (blockIndex_h(n) == no_block_) {
@@ -930,7 +930,7 @@ int Swarm::CountParticlesToSend_() {
       }
     }
   }
-  num_particles_to_send_.DeepCopy(num_particles_to_send_h);
+  numParticlesToSend_.DeepCopy(numParticlesToSend_h);
   particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
 
   num_particles_sent_ = 0;
@@ -938,12 +938,12 @@ int Swarm::CountParticlesToSend_() {
     // Resize buffer if too small
     const int bufid = pmb->pbval->neighbor[n].bufid;
     auto sendbuf = vbswarm->bd_var_.send[bufid];
-    if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
-      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
+    if (sendbuf.extent(0) < numParticlesToSend_h(n) * particle_size) {
+      sendbuf = BufArray1D<Real>("Buffer", numParticlesToSend_h(n) * particle_size);
       vbswarm->bd_var_.send[bufid] = sendbuf;
     }
-    vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
-    num_particles_sent_ += num_particles_to_send_h(n);
+    vbswarm->send_size[bufid] = numParticlesToSend_h(n) * particle_size;
+    num_particles_sent_ += numParticlesToSend_h(n);
   }
 
   return max_indices_size;
@@ -968,7 +968,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   // [variable start] [swarm idx]
 
   auto &bdvar = vbswarm->bd_var_;
-  auto num_particles_to_send = num_particles_to_send_;
+  auto numParticlesToSend = numParticlesToSend_;
   auto particle_indices_to_send = particle_indices_to_send_;
   auto neighbor_buffer_index = neighbor_buffer_index_;
   pmb->par_for(
@@ -976,7 +976,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
       KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           const int bufid = neighbor_buffer_index(m);
-          if (n < num_particles_to_send(m)) {
+          if (n < numParticlesToSend(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
