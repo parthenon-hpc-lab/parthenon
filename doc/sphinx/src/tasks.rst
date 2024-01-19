@@ -46,9 +46,10 @@ which its called.  The principle use case for this is to add iterative cycles
 to the graph, allowing one to execute a series of tasks repeatedly until some
 criteria are satisfied.  The call takes as arguments the dependencies (via
 ``TaskID``s combined with ``|``) that must be complete before the sublist
-exectues and, optionally, a ``std::pair<int, int>`` specifying the minimum
+exectues and a ``std::pair<int, int>`` specifying the minimum
 and maximum number of times the sublist should execute.  Passing something like
-``{min_iters, max_iters}`` as the second argument should suffice.  ``AddSublist``
+``{min_iters, max_iters}`` as the second argument should suffice, with `{1, 1}`
+leading to a sublist that never cycles.  ``AddSublist``
 returns a ``std::pair<TaskList&, TaskID>`` which is conveniently accessed via
 a structured binding, e.g.
 .. code:: cpp

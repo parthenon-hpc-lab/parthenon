@@ -51,7 +51,6 @@ class TaskQualifier {
   bool GlobalSync() const { return flags & global_sync; }
   bool Completion() const { return flags & completion; }
   bool Once() const { return flags & once_per_region; }
-  bool Valid() const { return true; }
 
  private:
   qualifier_t flags;
@@ -210,8 +209,6 @@ class TaskList {
 
   template <class... Args>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, Args &&...args) {
-    assert(tq.Valid());
-
     // user-space tasks always depend on something. if no dependencies are given,
     // make the task dependent on the list's first_task
     if (dep.empty()) dep = TaskID(first_task);
@@ -324,8 +321,7 @@ class TaskList {
   }
 
   template <typename TID>
-  std::pair<TaskList &, TaskID> AddSublist(TID &&dep,
-                                           std::pair<int, int> minmax_iters = {1, 1}) {
+  std::pair<TaskList &, TaskID> AddSublist(TID &&dep, std::pair<int, int> minmax_iters) {
     sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters));
     auto &tl = *sublists.back();
     tl.SetID(unique_id);
