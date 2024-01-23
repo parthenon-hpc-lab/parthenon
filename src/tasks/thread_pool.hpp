@@ -39,19 +39,16 @@ class ThreadQueue {
     std::unique_lock<std::mutex> lock(mutex);
     if (queue.empty()) {
       nwaiting++;
-      if (nwaiting == nworkers && started) {
+      if (waiting && nwaiting == nworkers) {
         complete = true;
         complete_cv.notify_all();
       }
       cv.wait(lock, [this]() { return exit || !queue.empty(); });
       nwaiting--;
+      if (exit) return true;
     }
-    started = true;
-    if (exit && complete && queue.empty()) return true;
-    if (!queue.empty()) {
-      q = queue.front();
-      queue.pop();
-    }
+    q = queue.front();
+    queue.pop();
     return false;
   }
   void signal_kill() {
@@ -69,12 +66,15 @@ class ThreadQueue {
   }
   void wait_for_complete() {
     std::unique_lock<std::mutex> lock(mutex);
-    if (complete) {
+    waiting = true;
+    if (queue.empty() && nwaiting == nworkers) {
       complete = false;
+      waiting = false;
       return;
     }
     complete_cv.wait(lock, [this]() { return complete; });
     complete = false;
+    waiting = false;
   }
 
  private:
@@ -86,7 +86,7 @@ class ThreadQueue {
   std::condition_variable complete_cv;
   bool complete = false;
   bool exit = false;
-  bool started = false;
+  bool waiting = false;
 };
 
 class ThreadPool {
