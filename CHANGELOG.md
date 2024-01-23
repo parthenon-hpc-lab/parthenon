@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
 - [[PR 969]](https://github.com/parthenon-hpc-lab/parthenon/pull/969) New macro-based auto-naming of profiling regions and kernels
 - [[PR 981]](https://github.com/parthenon-hpc-lab/parthenon/pull/981) Add IndexSplit
 - [[PR 983]](https://github.com/parthenon-hpc-lab/parthenon/pull/983) Add Contains to SparsePack
