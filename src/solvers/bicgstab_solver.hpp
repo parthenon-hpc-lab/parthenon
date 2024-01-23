@@ -238,9 +238,9 @@ class BiCGSTABSolver {
         [](BiCGSTABSolver *solver, Mesh *pmesh, Real res_tol) {
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          solver->final_residual = rms_res;
+          solver->final_iteration = solver->iter_counter;
           if (rms_res < res_tol) {
-            solver->final_residual = rms_res;
-            solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
           }
           solver->rhat0r_old = solver->rhat0r.val;

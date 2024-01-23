@@ -111,9 +111,9 @@ class MGSolver {
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter, rms_res);
-          if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
+          if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
           return TaskStatus::complete;
         },
         this, pmesh);
