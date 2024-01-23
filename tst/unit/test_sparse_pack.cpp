@@ -77,13 +77,76 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   static std::string name() { return "v5"; }
 };
 
+struct v7 : public parthenon::variable_names::base_t<false, 3, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v7"; }
+};
+
 } // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
+  constexpr int N = 6;
+  constexpr int NDIM = 3;
+  constexpr int NBLOCKS = 9;
+
+  GIVEN("A tensor variable on a mesh") {
+    const std::vector<int> tensor_shape{N, N, N, 3, 3};
+    Metadata m_tensor({Metadata::Independent}, tensor_shape);
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddField<v7>(m_tensor);
+    BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
+
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list, nullptr);
+
+    WHEN("We initialize the independent variables by hand and deallocate one") {
+      auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+      auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+      auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+      for (int b = 0; b < NBLOCKS; ++b) {
+        auto &pmb = block_list[b];
+        auto &pmbd = pmb->meshblock_data.Get();
+        auto var = pmbd->Get("v7");
+        auto var5 = var.data.Get<5>();
+        int slower_rank = var5.GetDim(5);
+        int faster_rank = var5.GetDim(4);
+        par_for(
+            loop_pattern_mdrange_tag, "initializev7", DevExecSpace(), kb.s, kb.e, jb.s,
+            jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
+              for (int l = 0; l < slower_rank; ++l) {
+                for (int m = 0; m < faster_rank; ++m) {
+                  Real n = m + 1e1 * l;
+                  var5(l, m, k, j, i) = n;
+                }
+              }
+            });
+      }
+      THEN("A sparse pack can correctly index into tensor types") {
+        auto desc = parthenon::MakePackDescriptor<v7>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              for (int l = 0; l < 3; ++l) {
+                for (int m = 0; m < 3; ++m) {
+                  Real n = m + 1e1 * l;
+                  if (sparse_pack(b, v7(l, m), k, j, i) != n) {
+                    ltot += 1;
+                  }
+                }
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+    }
+  }
+
   GIVEN("A set of meshblocks and meshblock and mesh data") {
-    constexpr int N = 6;
-    constexpr int NDIM = 3;
-    constexpr int NBLOCKS = 9;
     const std::vector<int> scalar_shape{N, N, N};
     const std::vector<int> vector_shape{N, N, N, 3};
 
@@ -122,6 +185,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               });
         }
       }
+
       // Deallocate a variable on an arbitrary block
       block_list[2]->DeallocateSparse("v3");
 

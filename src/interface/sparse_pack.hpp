@@ -90,6 +90,7 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
 // device
 namespace variable_names {
 // Struct that all variable_name types should inherit from
+constexpr int ANYDIM = -1234;
 template <bool REGEX, int... NCOMP>
 struct base_t {
   KOKKOS_INLINE_FUNCTION
@@ -97,6 +98,17 @@ struct base_t {
 
   KOKKOS_INLINE_FUNCTION
   explicit base_t(int idx1) : idx(idx1) {}
+
+  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value)>
+  /*
+    for 2D:, (M, N),
+    idx(m, n) = N*m + n
+    for 3D: (L, M, N)
+    idx(l, m, n) = (M*l + m)*N + n
+                 = l*M*N + m*N + n
+   */
+  KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
+      : idx(GetIndex_<NCOMP...>(std::forward<Args>(args)...)) {}
 
   virtual ~base_t() = default;
 
@@ -114,6 +126,19 @@ struct base_t {
   static int size() { return multiply<NCOMP...>::value; }
 
   const int idx;
+
+ private:
+  template <int Head, int... Tail, typename... TailArgs,
+            REQUIRES(all_implement<integral(TailArgs...)>::value)>
+  KOKKOS_INLINE_FUNCTION static auto GetIndex_(int first, TailArgs... rest) {
+    if constexpr (sizeof...(Tail) == 0)
+      return first;
+    else if constexpr (sizeof...(TailArgs) == 0)
+      return first;
+    else
+      return (multiply<Tail...>::value * first +
+              GetIndex_<Tail...>(std::forward<TailArgs>(rest)...));
+  }
 };
 
 // An example variable name type that selects all variables available
