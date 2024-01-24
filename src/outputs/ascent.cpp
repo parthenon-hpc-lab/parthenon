@@ -150,7 +150,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       const int njni = nj * ni;
       auto &ghost_mask = ghost_mask_; // redef to lambda capture class member
       pmb->par_for(
-          "Set ascent ghost mask", 0, ncells - 1, KOKKOS_LAMBDA(const int &idx) {
+          PARTHENON_AUTO_LABEL, 0, ncells - 1, KOKKOS_LAMBDA(const int &idx) {
             const int k = idx / (njni);
             const int j = (idx - k * njni) / ni;
             const int i = idx - k * njni - j * nj;

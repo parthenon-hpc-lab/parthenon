@@ -24,7 +24,6 @@
 #include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
-#include "utils/error_checking.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
@@ -39,12 +38,12 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 // Parthenon headers
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
-#include "globals.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/output_utils.hpp"
@@ -62,11 +61,40 @@ using namespace OutputUtils;
 
 namespace HistUtil {
 
+// Parse input for x and y vars from input
+// std::tuple<std::string, int, VarType>
+auto ProcessVarInput(ParameterInput *pin, const std::string &block_name,
+                     const std::string &prefix) {
+  auto var_name = pin->GetString(block_name, prefix + "variable");
+  int var_component = -1;
+  VarType var_type;
+  if (var_name == "HIST_COORD_X1") {
+    var_type = VarType::X1;
+  } else if (var_name == "HIST_COORD_X2") {
+    var_type = VarType::X2;
+  } else if (var_name == "HIST_COORD_X3") {
+    var_type = VarType::X3;
+  } else if (var_name == "HIST_COORD_R") {
+    PARTHENON_REQUIRE_THROWS(
+        typeid(Coordinates_t) == typeid(UniformCartesian),
+        "Radial coordinate currently only works for uniform Cartesian coordinates.");
+    var_type = VarType::R;
+  } else {
+    var_type = VarType::Var;
+    var_component = pin->GetInteger(block_name, prefix + "variable_component");
+    // would add additional logic to pick it from a pack...
+    PARTHENON_REQUIRE_THROWS(var_component >= 0,
+                             "Negative component indices are not supported");
+  }
+
+  return std::make_tuple(var_name, var_component, var_type);
+}
+
 // Parse edges from input parameters. Returns the edges themselves (to be used as list for
 // arbitrary bins) as well as min and step sizes (potentially in log space) for direct
 // indexing.
-std::tuple<ParArray1D<Real>, EdgeType, Real, Real>
-GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &prefix) {
+auto GetEdges(ParameterInput *pin, const std::string &block_name,
+              const std::string &prefix) {
   std::vector<Real> edges_in;
   auto edge_type = EdgeType::Undefined;
   auto edge_min = std::numeric_limits<Real>::quiet_NaN();
@@ -79,8 +107,9 @@ GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &
     PARTHENON_REQUIRE_THROWS(edge_max > edge_min,
                              "Histogram max needs to be larger than min.")
 
-    const auto edge_num_bins = pin->GetReal(block_name, prefix + "num_bins");
+    const auto edge_num_bins = pin->GetInteger(block_name, prefix + "num_bins");
     PARTHENON_REQUIRE_THROWS(edge_num_bins >= 1, "Need at least one bin for histogram.");
+    edges_in.reserve(edge_num_bins);
 
     if (edge_type_str == "lin") {
       edge_type = EdgeType::Lin;
@@ -113,8 +142,8 @@ GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &
     //  required by binning index function
     PARTHENON_REQUIRE_THROWS(std::is_sorted(edges_in.begin(), edges_in.end()),
                              "Bin edges must be in order.");
-    PARTHENON_REQUIRE_THROWS(edges_in.size() >= 2,
-                             "Need at least one bin, i.e., two edges.");
+    PARTHENON_REQUIRE_THROWS(edges_in.size() >= 2 && edges_in[1] > edges_in[0],
+                             "Need at least one bin, i.e., two distinct edges.");
 
   } else {
     PARTHENON_THROW(
@@ -130,99 +159,68 @@ GetEdges(ParameterInput *pin, const std::string &block_name, const std::string &
   PARTHENON_REQUIRE_THROWS(
       edge_type != EdgeType::Undefined,
       "Edge type not set and it's unclear how this code was triggered...");
-  return {edges, edge_type, edge_min, edge_dbin};
+  return std::make_tuple(edges, edge_type, edge_min, edge_dbin);
 }
 
 Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
-                     const std::string &prefix) {
-  ndim = pin->GetInteger(block_name, prefix + "ndim");
-  PARTHENON_REQUIRE_THROWS(ndim == 1 || ndim == 2, "Histogram dim must be '1' or '2'");
+                     const std::string &name) {
+  name_ = name;
+  const auto prefix = name + "_";
 
-  x_var_name = pin->GetString(block_name, prefix + "x_variable");
-  x_var_component = -1;
-  if (x_var_name == "HIST_COORD_X1") {
-    x_var_type = VarType::X1;
-  } else if (x_var_name == "HIST_COORD_X2") {
-    x_var_type = VarType::X2;
-  } else if (x_var_name == "HIST_COORD_X3") {
-    x_var_type = VarType::X3;
-  } else if (x_var_name == "HIST_COORD_R") {
-    PARTHENON_REQUIRE_THROWS(
-        typeid(Coordinates_t) == typeid(UniformCartesian),
-        "Radial coordinate currently only works for uniform Cartesian coordinates.");
-    x_var_type = VarType::R;
-  } else {
-    x_var_type = VarType::Var;
-    x_var_component = pin->GetInteger(block_name, prefix + "x_variable_component");
-    // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(x_var_component >= 0,
-                             "Negative component indices are not supported");
-  }
+  ndim_ = pin->GetInteger(block_name, prefix + "ndim");
+  PARTHENON_REQUIRE_THROWS(ndim_ == 1 || ndim_ == 2, "Histogram dim must be '1' or '2'");
 
-  std::tie(x_edges, x_edges_type, x_edge_min, x_edge_dbin) =
+  std::tie(x_var_name_, x_var_component_, x_var_type_) =
+      ProcessVarInput(pin, block_name, prefix + "x_");
+
+  std::tie(x_edges_, x_edges_type_, x_edge_min_, x_edge_dbin_) =
       GetEdges(pin, block_name, prefix + "x_edges_");
 
   // For 1D profile default initalize y variables
-  y_var_name = "";
-  y_var_component = -1;
-  y_var_type = VarType::Unused;
+  y_var_name_ = "";
+  y_var_component_ = -1;
+  y_var_type_ = VarType::Unused;
   // and for 2D profile check if they're explicitly set (not default value)
-  if (ndim == 2) {
-    y_var_name = pin->GetString(block_name, prefix + "y_variable");
-    if (y_var_name == "HIST_COORD_X1") {
-      y_var_type = VarType::X1;
-    } else if (y_var_name == "HIST_COORD_X2") {
-      y_var_type = VarType::X2;
-    } else if (y_var_name == "HIST_COORD_X3") {
-      y_var_type = VarType::X3;
-    } else if (y_var_name == "HIST_COORD_R") {
-      PARTHENON_REQUIRE_THROWS(
-          typeid(Coordinates_t) == typeid(UniformCartesian),
-          "Radial coordinate currently only works for uniform Cartesian coordinates.");
-      y_var_type = VarType::R;
-    } else {
-      y_var_type = VarType::Var;
-      y_var_component = pin->GetInteger(block_name, prefix + "y_variable_component");
-      // would add additional logic to pick it from a pack...
-      PARTHENON_REQUIRE_THROWS(y_var_component >= 0,
-                               "Negative component indices are not supported");
-    }
+  if (ndim_ == 2) {
+    std::tie(y_var_name_, y_var_component_, y_var_type_) =
+        ProcessVarInput(pin, block_name, prefix + "y_");
 
-    std::tie(y_edges, y_edges_type, y_edge_min, y_edge_dbin) =
+    std::tie(y_edges_, y_edges_type_, y_edge_min_, y_edge_dbin_) =
         GetEdges(pin, block_name, prefix + "y_edges_");
 
   } else {
-    y_edges = ParArray1D<Real>(prefix + "y_edges_unused", 0);
+    y_edges_ = ParArray1D<Real>(prefix + "y_edges_unused", 0);
   }
 
-  binned_var_name =
+  binned_var_name_ =
       pin->GetOrAddString(block_name, prefix + "binned_variable", "HIST_ONES");
-  binned_var_component = -1; // implies that we're not binning a variable but count
-  if (binned_var_name != "HIST_ONES") {
-    binned_var_component =
+  binned_var_component_ = -1; // implies that we're not binning a variable but count
+  if (binned_var_name_ != "HIST_ONES") {
+    binned_var_component_ =
         pin->GetInteger(block_name, prefix + "binned_variable_component");
     // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(binned_var_component >= 0,
+    PARTHENON_REQUIRE_THROWS(binned_var_component_ >= 0,
                              "Negative component indices are not supported");
   }
 
-  const auto nxbins = x_edges.extent_int(0) - 1;
-  const auto nybins = ndim == 2 ? y_edges.extent_int(0) - 1 : 1;
+  const auto nxbins = x_edges_.extent_int(0) - 1;
+  const auto nybins = ndim_ == 2 ? y_edges_.extent_int(0) - 1 : 1;
 
-  result = ParArray2D<Real>(prefix + "result", nybins, nxbins);
+  result_ = ParArray2D<Real>(prefix + "result", nybins, nxbins);
   scatter_result =
-      Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result.KokkosView());
+      Kokkos::Experimental::ScatterView<Real **, LayoutWrapper>(result_.KokkosView());
 
-  weight_by_vol = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
+  accumulate_ = pin->GetOrAddBoolean(block_name, prefix + "accumulate", false);
+  weight_by_vol_ = pin->GetOrAddBoolean(block_name, prefix + "weight_by_volume", false);
 
-  weight_var_name =
+  weight_var_name_ =
       pin->GetOrAddString(block_name, prefix + "weight_variable", "HIST_ONES");
-  weight_var_component = -1; // implies that weighting is not applied
-  if (weight_var_name != "HIST_ONES") {
-    weight_var_component =
+  weight_var_component_ = -1; // implies that weighting is not applied
+  if (weight_var_name_ != "HIST_ONES") {
+    weight_var_component_ =
         pin->GetInteger(block_name, prefix + "weight_variable_component");
     // would add additional logic to pick it from a pack...
-    PARTHENON_REQUIRE_THROWS(weight_var_component >= 0,
+    PARTHENON_REQUIRE_THROWS(weight_var_component_ >= 0,
                              "Negative component indices are not supported");
   }
 }
@@ -230,26 +228,27 @@ Histogram::Histogram(ParameterInput *pin, const std::string &block_name,
 // Computes a 1D or 2D histogram with inclusive lower edges and inclusive rightmost edges.
 // Function could in principle be templated on dimension, but it's currently not expected
 // to be a performance concern (because it won't be called that often).
-void CalcHist(Mesh *pm, const Histogram &hist) {
+void Histogram::CalcHist(Mesh *pm) {
   Kokkos::Profiling::pushRegion("Calculate single histogram");
-  const auto x_var_component = hist.x_var_component;
-  const auto y_var_component = hist.y_var_component;
-  const auto binned_var_component = hist.binned_var_component;
-  const auto weight_var_component = hist.weight_var_component;
-  const auto x_var_type = hist.x_var_type;
-  const auto y_var_type = hist.y_var_type;
-  const auto x_edges = hist.x_edges;
-  const auto y_edges = hist.y_edges;
-  const auto x_edges_type = hist.x_edges_type;
-  const auto y_edges_type = hist.y_edges_type;
-  const auto x_edge_min = hist.x_edge_min;
-  const auto x_edge_dbin = hist.x_edge_dbin;
-  const auto y_edge_min = hist.y_edge_min;
-  const auto y_edge_dbin = hist.y_edge_dbin;
-  const auto hist_ndim = hist.ndim;
-  const auto weight_by_vol = hist.weight_by_vol;
-  auto result = hist.result;
-  auto scatter = hist.scatter_result;
+  const auto x_var_component = x_var_component_;
+  const auto y_var_component = y_var_component_;
+  const auto binned_var_component = binned_var_component_;
+  const auto weight_var_component = weight_var_component_;
+  const auto x_var_type = x_var_type_;
+  const auto y_var_type = y_var_type_;
+  const auto x_edges = x_edges_;
+  const auto y_edges = y_edges_;
+  const auto x_edges_type = x_edges_type_;
+  const auto y_edges_type = y_edges_type_;
+  const auto x_edge_min = x_edge_min_;
+  const auto x_edge_dbin = x_edge_dbin_;
+  const auto y_edge_min = y_edge_min_;
+  const auto y_edge_dbin = y_edge_dbin_;
+  const auto hist_ndim = ndim_;
+  const auto weight_by_vol = weight_by_vol_;
+  const auto accumulate = accumulate_;
+  auto result = result_;
+  auto scatter = scatter_result;
 
   // Reset ScatterView from previous output
   scatter.reset();
@@ -264,23 +263,23 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
     auto &md = pm->mesh_data.GetOrAdd("base", p);
 
     const auto x_var_pack_string = x_var_type == VarType::Var
-                                       ? std::vector<std::string>{hist.x_var_name}
+                                       ? std::vector<std::string>{x_var_name_}
                                        : std::vector<std::string>{};
     const auto x_var = md->PackVariables(x_var_pack_string);
 
     const auto y_var_pack_string = y_var_type == VarType::Var
-                                       ? std::vector<std::string>{hist.y_var_name}
+                                       ? std::vector<std::string>{y_var_name_}
                                        : std::vector<std::string>{};
     const auto y_var = md->PackVariables(y_var_pack_string);
 
-    const auto binned_var_pack_string =
-        binned_var_component == -1 ? std::vector<std::string>{}
-                                   : std::vector<std::string>{hist.binned_var_name};
+    const auto binned_var_pack_string = binned_var_component == -1
+                                            ? std::vector<std::string>{}
+                                            : std::vector<std::string>{binned_var_name_};
     const auto binned_var = md->PackVariables(binned_var_pack_string);
 
-    const auto weight_var_pack_string =
-        weight_var_component == -1 ? std::vector<std::string>{}
-                                   : std::vector<std::string>{hist.weight_var_name};
+    const auto weight_var_pack_string = weight_var_component == -1
+                                            ? std::vector<std::string>{}
+                                            : std::vector<std::string>{weight_var_name_};
     const auto weight_var = md->PackVariables(weight_var_pack_string);
 
     const auto ib = md->GetBoundsI(IndexDomain::interior);
@@ -305,13 +304,23 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
           } else {
             x_val = x_var(b, x_var_component, k, j, i);
           }
-          if (x_val < x_edges(0) || x_val > x_edges(x_edges.extent_int(0) - 1)) {
-            return;
-          }
 
           int x_bin = -1;
-          // if we're on the rightmost edge, directly set last bin
-          if (x_val == x_edges(x_edges.extent_int(0) - 1)) {
+          // First handle edge cases explicitly
+          if (x_val < x_edges(0)) {
+            if (accumulate) {
+              x_bin = 0;
+            } else {
+              return;
+            }
+          } else if (x_val > x_edges(x_edges.extent_int(0) - 1)) {
+            if (accumulate) {
+              x_bin = x_edges.extent_int(0) - 2;
+            } else {
+              return;
+            }
+            // if we're on the rightmost edge, directly set last bin
+          } else if (x_val == x_edges(x_edges.extent_int(0) - 1)) {
             x_bin = x_edges.extent_int(0) - 2;
           } else {
             // for lin and log directly pick index
@@ -345,13 +354,22 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
               y_val = y_var(b, y_var_component, k, j, i);
             }
 
-            if (y_val < y_edges(0) || y_val > y_edges(y_edges.extent_int(0) - 1)) {
-              return;
-            }
-
             y_bin = -1; // reset to impossible value
-            // if we're on the rightmost edge, directly set last bin
-            if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
+            // First handle edge cases explicitly
+            if (y_val < y_edges(0)) {
+              if (accumulate) {
+                y_bin = 0;
+              } else {
+                return;
+              }
+            } else if (y_val > y_edges(y_edges.extent_int(0) - 1)) {
+              if (accumulate) {
+                y_bin = y_edges.extent_int(0) - 2;
+              } else {
+                return;
+              }
+              // if we're on the rightmost edge, directly set last bin
+            } else if (y_val == y_edges(y_edges.extent_int(0) - 1)) {
               y_bin = y_edges.extent_int(0) - 2;
             } else {
               // for lin and log directly pick index
@@ -405,11 +423,10 @@ void CalcHist(Mesh *pm, const Histogram &hist) {
 HistogramOutput::HistogramOutput(const OutputParameters &op, ParameterInput *pin)
     : OutputType(op) {
 
-  num_histograms_ = pin->GetOrAddInteger(op.block_name, "num_histograms", 0);
+  hist_names_ = pin->GetVector<std::string>(op.block_name, "hist_names");
 
-  for (int i = 0; i < num_histograms_; i++) {
-    const auto prefix = "hist" + std::to_string(i) + "_";
-    histograms_.emplace_back(pin, op.block_name, prefix);
+  for (auto &hist_name : hist_names_) {
+    histograms_.emplace_back(pin, op.block_name, hist_name);
   }
 }
 
@@ -445,7 +462,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
                                       const SignalHandler::OutputSignal signal) {
   Kokkos::Profiling::pushRegion("Calculate all histograms");
   for (auto &hist : histograms_) {
-    CalcHist(pm, hist);
+    hist.CalcHist(pm);
   }
   Kokkos::Profiling::popRegion(); // Calculate all histograms
 
@@ -483,33 +500,32 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
-    HDF5WriteAttribute("num_histograms", num_histograms_, info_group);
+    HDF5WriteAttribute("hist_names", hist_names_, info_group);
 
-    for (int h = 0; h < num_histograms_; h++) {
-      auto &hist = histograms_[h];
-      const H5G hist_group = MakeGroup(file, "/" + std::to_string(h));
-      HDF5WriteAttribute("ndim", hist.ndim, hist_group);
-      HDF5WriteAttribute("x_var_name", hist.x_var_name.c_str(), hist_group);
-      HDF5WriteAttribute("x_var_component", hist.x_var_component, hist_group);
-      HDF5WriteAttribute("binned_var_name", hist.binned_var_name.c_str(), hist_group);
-      HDF5WriteAttribute("binned_var_component", hist.binned_var_component, hist_group);
+    for (auto &hist : histograms_) {
+      const H5G hist_group = MakeGroup(file, "/" + hist.name_);
+      HDF5WriteAttribute("ndim", hist.ndim_, hist_group);
+      HDF5WriteAttribute("x_var_name", hist.x_var_name_.c_str(), hist_group);
+      HDF5WriteAttribute("x_var_component", hist.x_var_component_, hist_group);
+      HDF5WriteAttribute("binned_var_name", hist.binned_var_name_.c_str(), hist_group);
+      HDF5WriteAttribute("binned_var_component", hist.binned_var_component_, hist_group);
 
-      const auto x_edges_h = hist.x_edges.GetHostMirrorAndCopy();
+      const auto x_edges_h = hist.x_edges_.GetHostMirrorAndCopy();
       local_count[0] = global_count[0] = x_edges_h.extent_int(0);
       HDF5Write1D(hist_group, "x_edges", x_edges_h.data(), local_offset.data(),
                   local_count.data(), global_count.data(), pl_xfer);
 
-      if (hist.ndim == 2) {
-        HDF5WriteAttribute("y_var_name", hist.y_var_name.c_str(), hist_group);
-        HDF5WriteAttribute("y_var_component", hist.y_var_component, hist_group);
+      if (hist.ndim_ == 2) {
+        HDF5WriteAttribute("y_var_name", hist.y_var_name_.c_str(), hist_group);
+        HDF5WriteAttribute("y_var_component", hist.y_var_component_, hist_group);
 
-        const auto y_edges_h = hist.y_edges.GetHostMirrorAndCopy();
+        const auto y_edges_h = hist.y_edges_.GetHostMirrorAndCopy();
         local_count[0] = global_count[0] = y_edges_h.extent_int(0);
         HDF5Write1D(hist_group, "y_edges", y_edges_h.data(), local_offset.data(),
                     local_count.data(), global_count.data(), pl_xfer);
       }
 
-      const auto hist_h = hist.result.GetHostMirrorAndCopy();
+      const auto hist_h = hist.result_.GetHostMirrorAndCopy();
       // Ensure correct output format (as the data in Parthenon may, in theory, vary by
       // changing the default view layout) so that it matches the numpy output  (row
       // major, x first)
@@ -522,7 +538,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 
       local_count[0] = global_count[0] = hist_h.extent_int(1);
-      if (hist.ndim == 2) {
+      if (hist.ndim_ == 2) {
         local_count[1] = global_count[1] = hist_h.extent_int(0);
 
         HDF5Write2D(hist_group, "data", tmp_data.data(), local_offset.data(),

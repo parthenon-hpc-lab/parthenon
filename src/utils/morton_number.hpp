@@ -16,49 +16,10 @@
 #include <memory>
 #include <vector>
 
+#include "utils/bit_hacks.hpp"
+
 namespace parthenon {
 namespace impl {
-template <int NDIM = 3>
-constexpr uint64_t GetInterleaveConstant(int power) {
-  // For power = 2, NDIM = 3, this should return
-  // ...000011000011
-  // For power = 1, NDIM = 3, this should return
-  // ...001001001001
-  // For power = 2, NDIM = 2, this should return
-  // ...001100110011
-  // etc.
-  constexpr int type_bit_size = sizeof(uint64_t) * 8;
-  if (power >= type_bit_size) return ~0ULL; // Return with all bits set
-  uint64_t i_const = ~((~0ULL) << power);   // std::pow(2, power) - 1;
-  int cur_shift = type_bit_size * NDIM; // Works for anything that will fit in uint64_t
-  while (cur_shift >= NDIM * power) {
-    if (cur_shift < type_bit_size) i_const = (i_const << cur_shift) | i_const;
-    cur_shift /= 2;
-  }
-  return i_const;
-}
-
-template <int NDIM = 3, int N_VALID_BITS = 21>
-uint64_t InterleaveZeros(uint64_t x) {
-  // This is a standard bithack for interleaving zeros in binary numbers to make a Morton
-  // number
-  if constexpr (N_VALID_BITS >= 64)
-    x = (x | x << 64 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(64);
-  if constexpr (N_VALID_BITS >= 32)
-    x = (x | x << 32 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(32);
-  if constexpr (N_VALID_BITS >= 16)
-    x = (x | x << 16 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(16);
-  if constexpr (N_VALID_BITS >= 8)
-    x = (x | x << 8 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(8);
-  if constexpr (N_VALID_BITS >= 4)
-    x = (x | x << 4 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(4);
-  if constexpr (N_VALID_BITS >= 2)
-    x = (x | x << 2 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(2);
-  if constexpr (N_VALID_BITS >= 1)
-    x = (x | x << 1 * (NDIM - 1)) & GetInterleaveConstant<NDIM>(1);
-  return x;
-}
-
 inline uint64_t GetMortonBits(int level, uint64_t x, uint64_t y, uint64_t z, int chunk) {
   constexpr int NBITS = 21;
   constexpr uint64_t lowest_nbits_mask = ~((~static_cast<uint64_t>(0)) << NBITS);

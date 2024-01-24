@@ -116,6 +116,12 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson/parthinput.poisson")
   list(APPEND EXTRA_TEST_LABELS "poisson")
 
+  list(APPEND TEST_DIRS poisson_gmg)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson_gmg/poisson-gmg-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson_gmg/parthinput.poisson")
+  list(APPEND EXTRA_TEST_LABELS "poisson_gmg")
+
   list(APPEND TEST_DIRS sparse_advection)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
@@ -127,7 +133,6 @@ endif()
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
 # list variable, before including TestSetup.cmake.
 list(APPEND REQUIRED_PYTHON_MODULES numpy)
-list(APPEND REQUIRED_PYTHON_MODULES h5py)
 list(APPEND DESIRED_PYTHON_MODULES matplotlib)
 
 # Include test setup functions, and check for python interpreter and modules

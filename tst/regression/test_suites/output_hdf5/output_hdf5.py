@@ -179,7 +179,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["0/data"][:]
+                hist_parth = infile["hist0/data"][:]
                 all_close = np.allclose(hist_parth, hist_np1d[0])
                 if not all_close:
                     print(f"1D variable-based hist for {dim}D setup don't match")
@@ -197,7 +197,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["1/data"][:]
+                hist_parth = infile["name/data"][:]
                 # testing slices separately to ensure matching numpy convention
                 all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])
@@ -210,7 +210,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["2/data"][:]
+                hist_parth = infile["other_name/data"][:]
                 all_close = np.allclose(hist_parth, hist_np1d[0])
                 if not all_close:
                     print(f"1D sampling-based hist for {dim}D setup don't match")
@@ -229,7 +229,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out3.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["0/data"][:]
+                hist_parth = infile["hist0/data"][:]
                 # testing slices separately to ensure matching numpy convention
                 all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -59,7 +59,8 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   //    2) the code must maintain proper nesting, which sometimes means a block that is
   //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  PARTHENON_INSTRUMENT
+  MeshBlock *pmb = rc->GetBlockPointer();
   // delta_level holds the max over all criteria.  default to derefining.
   AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages.AllPackages()) {
@@ -90,11 +91,12 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
 
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
+  PARTHENON_INSTRUMENT
   const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
   Real maxd = 0.0;
   par_reduce(
-      loop_pattern_mdrange_tag, "refinement first derivative", DevExecSpace(), bnds.ks,
-      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
+      loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), bnds.ks, bnds.ke,
+      bnds.js, bnds.je, bnds.is, bnds.ie,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
@@ -118,11 +120,12 @@ AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 
 AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                         const Real refine_criteria, const Real derefine_criteria) {
+  PARTHENON_INSTRUMENT
   const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);
   Real maxd = 0.0;
   par_reduce(
-      loop_pattern_mdrange_tag, "refinement second derivative", DevExecSpace(), bnds.ks,
-      bnds.ke, bnds.js, bnds.je, bnds.is, bnds.ie,
+      loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), bnds.ks, bnds.ke,
+      bnds.js, bnds.je, bnds.is, bnds.ie,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real aqt = std::abs(q(k, j, i)) + TINY_NUMBER;
         Real qavg = 0.5 * (q(k, j, i + 1) + q(k, j, i - 1));
@@ -153,19 +156,17 @@ void SetRefinement_(MeshBlockData<Real> *rc) {
 
 template <>
 TaskStatus Tag(MeshBlockData<Real> *rc) {
-  Kokkos::Profiling::pushRegion("Task_Tag_Block");
+  PARTHENON_INSTRUMENT
   SetRefinement_(rc);
-  Kokkos::Profiling::popRegion(); // Task_Tag_Block
   return TaskStatus::complete;
 }
 
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
-  Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
+  PARTHENON_INSTRUMENT
   for (int i = 0; i < rc->NumBlocks(); i++) {
     SetRefinement_(rc->GetBlockData(i).get());
   }
-  Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
   return TaskStatus::complete;
 }
 
