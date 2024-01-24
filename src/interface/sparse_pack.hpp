@@ -99,7 +99,7 @@ struct base_t {
   KOKKOS_INLINE_FUNCTION
   explicit base_t(int idx1) : idx(idx1) {}
 
-  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value)>
+  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value), REQUIRES(sizeof...(Args) == sizeof...(NCOMP)>
   /*
     for 2D:, (M, N),
     idx(m, n) = N*m + n
