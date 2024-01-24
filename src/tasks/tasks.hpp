@@ -288,7 +288,7 @@ class TaskList {
             id, [&]() { return TaskStatus::complete; }, exec_limits));
         start = TaskID(tasks.back().get());
         tasks.push_back(std::make_shared<Task>(
-            start, [&]() { return TaskStatus::complete; }, exec_limits));
+            start, [my_task]() { return my_task->GetStatus(); }, exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
       id = TaskID(tasks.back().get());
