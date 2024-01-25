@@ -99,7 +99,6 @@ struct base_t {
   KOKKOS_INLINE_FUNCTION
   explicit base_t(int idx1) : idx(idx1) {}
 
-  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value)>
   /*
     for 2D:, (M, N),
     idx(m, n) = N*m + n
@@ -107,9 +106,11 @@ struct base_t {
     idx(l, m, n) = (M*l + m)*N + n
                  = l*M*N + m*N + n
    */
-  KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
-      : idx(GetIndex_<NCOMP...>(std::forward<Args>(args)...)) {}
 
+  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
+  KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
+      : idx(GetIndex_(std::forward<Args>(args)...)) {}
   virtual ~base_t() = default;
 
   // All of these are just static methods so that there is no
@@ -118,6 +119,11 @@ struct base_t {
     PARTHENON_FAIL("Need to implement your own name method.");
     return "error";
   }
+  template <int idx>
+  static constexpr auto GetDim() {
+    return std::get<idx>(std::make_tuple(NCOMP...));
+  }
+  static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
   static bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
@@ -128,16 +134,16 @@ struct base_t {
   const int idx;
 
  private:
-  template <int Head, int... Tail, typename... TailArgs,
-            REQUIRES(all_implement<integral(TailArgs...)>::value)>
-  KOKKOS_INLINE_FUNCTION static auto GetIndex_(int first, TailArgs... rest) {
-    if constexpr (sizeof...(Tail) == 0)
-      return first;
-    else if constexpr (sizeof...(TailArgs) == 0)
-      return first;
-    else
-      return (multiply<Tail...>::value * first +
-              GetIndex_<Tail...>(std::forward<TailArgs>(rest)...));
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION static auto GetIndex_(Args... args) {
+    int idx = 0;
+    (
+        [&] {
+          idx *= NCOMP;
+          idx += args;
+        }(),
+        ...);
+    return idx;
   }
 };
 

@@ -77,10 +77,11 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   static std::string name() { return "v5"; }
 };
 
-struct v7 : public parthenon::variable_names::base_t<false, 3, 3> {
+using parthenon::variable_names::ANYDIM;
+struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
-      : parthenon::variable_names::base_t<false, 3, 3>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false, ANYDIM, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v7"; }
 };
 
@@ -131,8 +132,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
             sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              for (int l = 0; l < 3; ++l) {
-                for (int m = 0; m < 3; ++m) {
+              // 0-th is ANYDIM, 1st is 3.
+              for (int l = 0; l < v7::GetDim<1>(); ++l) {
+                for (int m = 0; m < v7::GetDim<1>(); ++m) {
                   Real n = m + 1e1 * l;
                   if (sparse_pack(b, v7(l, m), k, j, i) != n) {
                     ltot += 1;
