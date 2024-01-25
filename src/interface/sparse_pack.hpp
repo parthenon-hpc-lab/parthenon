@@ -106,11 +106,11 @@ struct base_t {
     idx(l, m, n) = (M*l + m)*N + n
                  = l*M*N + m*N + n
    */
-
   template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
   KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
       : idx(GetIndex_(std::forward<Args>(args)...)) {}
+
   virtual ~base_t() = default;
 
   // All of these are just static methods so that there is no

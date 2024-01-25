@@ -107,7 +107,7 @@ struct RegionSize {
 // TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
-// task_list.hpp, ???
+// tasks.hpp, ???
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
