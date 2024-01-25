@@ -278,8 +278,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
   if (orbiting_particles) {
     pmb->par_for(
-        // PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n)
-        // {
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
         KOKKOS_LAMBDA(const int new_n) {
           const int n = newParticlesContext.GetNewParticleIndex(new_n);
