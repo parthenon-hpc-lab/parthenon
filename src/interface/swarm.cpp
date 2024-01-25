@@ -68,6 +68,8 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       neighborIndices_("neighborIndices_", 4, 4, 4),
       newIndices_("newIndices_", nmax_pool_),
       fromToIndices_("fromToIndices_", nmax_pool_ + 1),
+      recv_neighbor_index_("recv_neighbor_index_", nmax_pool_),
+      recv_buffer_index_("recv_buffer_index_", nmax_pool_),
       numParticlesToSend_("numParticlesToSend_", NMAX_NEIGHBORS),
       cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
@@ -262,6 +264,8 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   Kokkos::resize(marked_for_removal_, nmax_pool);
   Kokkos::resize(newIndices_, nmax_pool);
   Kokkos::resize(fromToIndices_, nmax_pool + 1);
+  Kokkos::resize(recv_neighbor_index_, nmax_pool);
+  Kokkos::resize(recv_buffer_index_, nmax_pool);
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cellSorted_, nmax_pool);
@@ -1092,9 +1096,11 @@ void Swarm::UnloadBuffers_() {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
     // TODO(BRR) remove these dynamic allocs
-    ParArray1D<int> neighbor_index("Neighbor index", total_received_particles_);
-    ParArray1D<int> buffer_index("Buffer index", total_received_particles_);
-    UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
+    // ParArray1D<int> neighbor_index("Neighbor index", total_received_particles_);
+    // ParArray1D<int> buffer_index("Buffer index", total_received_particles_);
+    auto &recv_neighbor_index = recv_neighbor_index_;
+    auto &recv_buffer_index = recv_buffer_index_;
+    UpdateNeighborBufferReceiveIndices_(recv_neighbor_index, recv_buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
     auto &intVector_ = std::get<getType<int>()>(Vectors_);
@@ -1115,8 +1121,8 @@ void Swarm::UnloadBuffers_() {
         // n is both new particle index and index over buffer values
         KOKKOS_LAMBDA(const int n) {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
-          const int nid = neighbor_index(n);
-          int bid = buffer_index(n) * particle_size;
+          const int nid = recv_neighbor_index(n);
+          int bid = recv_buffer_index(n) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);

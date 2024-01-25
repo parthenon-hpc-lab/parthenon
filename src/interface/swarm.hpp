@@ -305,6 +305,8 @@ class Swarm {
   int newIndicesMaxIdx_;            // Maximum valid index of new_indices_ array.
   ParArray1D<int> fromToIndices_;   // Array used for sorting particles during defragment
                                     // step (size nmax_pool + 1).
+  ParArray1D<int> recv_neighbor_index_; // Neighbor indices for received particles
+  ParArray1D<int> recv_buffer_index_;   // Buffer indices for received particles
 
   constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;
