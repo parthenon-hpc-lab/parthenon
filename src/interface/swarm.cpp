@@ -28,11 +28,11 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   SwarmDeviceContext context;
   context.marked_for_removal_ = marked_for_removal_;
   context.mask_ = mask_;
-  context.blockIndex_ = blockIndex_;
-  context.neighborIndices_ = neighborIndices_;
-  context.cellSorted_ = cellSorted_;
-  context.cellSortedBegin_ = cellSortedBegin_;
-  context.cellSortedNumber_ = cellSortedNumber_;
+  context.block_index_ = block_index_;
+  context.neighbor_indices_ = neighbor_indices_;
+  context.cell_sorted_ = cell_sorted_;
+  context.cell_sorted_begin_ = cell_sorted_begin_;
+  context.cell_sorted_number_ = cell_sorted_number_;
 
   auto pmb = GetBlockPointer();
   auto pmesh = pmb->pmy_mesh;
@@ -64,14 +64,14 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
-      marked_for_removal_("mfr", nmax_pool_), blockIndex_("blockIndex_", nmax_pool_),
-      neighborIndices_("neighborIndices_", 4, 4, 4),
-      newIndices_("newIndices_", nmax_pool_),
-      fromToIndices_("fromToIndices_", nmax_pool_ + 1),
+      marked_for_removal_("mfr", nmax_pool_), block_index_("block_index_", nmax_pool_),
+      neighbor_indices_("neighbor_indices_", 4, 4, 4),
+      new_indices_("new_indices_", nmax_pool_),
+      from_to_indices_("from_to_indices_", nmax_pool_ + 1),
       recv_neighbor_index_("recv_neighbor_index_", nmax_pool_),
       recv_buffer_index_("recv_buffer_index_", nmax_pool_),
-      numParticlesToSend_("numParticlesToSend_", NMAX_NEIGHBORS),
-      cellSorted_("cellSorted_", nmax_pool_), mpiStatus(true) {
+      num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
+      cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
@@ -151,9 +151,9 @@ void Swarm::AllocateBoundaries() {
   }
 }
 
-void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &metadata) {
+void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
   // generate the vector and call Add
-  for (auto label : labelArray) {
+  for (auto label : label_array) {
     Add(label, metadata);
   }
 }
@@ -174,8 +174,8 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
   //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
-  if (std::get<getType<int>()>(Maps_).count(label) > 0 ||
-      std::get<getType<Real>()>(Maps_).count(label) > 0) {
+  if (std::get<getType<int>()>(maps_).count(label) > 0 ||
+      std::get<getType<Real>()>(maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
@@ -200,14 +200,14 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 void Swarm::Remove(const std::string &label) {
   bool found = false;
 
-  auto &intMap_ = std::get<getType<int>()>(Maps_);
-  auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realMap_ = std::get<getType<Real>()>(Maps_);
-  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+  auto &int_map = std::get<getType<int>()>(maps_);
+  auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &real_map = std::get<getType<Real>()>(maps_);
+  auto &real_vector = std::get<getType<Real>()>(vectors_);
 
   // Find index of variable
   int idx = 0;
-  for (auto v : intVector_) {
+  for (auto v : int_vector) {
     if (label == v->label()) {
       found = true;
       break;
@@ -216,19 +216,19 @@ void Swarm::Remove(const std::string &label) {
   }
   if (found == true) {
     // first delete the variable
-    intVector_[idx].reset();
+    int_vector[idx].reset();
 
     // Next move the last element into idx and pop last entry
-    if (intVector_.size() > 1) intVector_[idx] = std::move(intVector_.back());
-    intVector_.pop_back();
+    if (int_vector.size() > 1) int_vector[idx] = std::move(int_vector.back());
+    int_vector.pop_back();
 
     // Also remove variable from map
-    intMap_.erase(label);
+    int_map.erase(label);
   }
 
   if (found == false) {
     idx = 0;
-    for (const auto &v : realVector_) {
+    for (const auto &v : real_vector) {
       if (label == v->label()) {
         found = true;
         break;
@@ -237,10 +237,10 @@ void Swarm::Remove(const std::string &label) {
     }
   }
   if (found == true) {
-    realVector_[idx].reset();
-    if (realVector_.size() > 1) realVector_[idx] = std::move(realVector_.back());
-    realVector_.pop_back();
-    realMap_.erase(label);
+    real_vector[idx].reset();
+    if (real_vector.size() > 1) real_vector[idx] = std::move(real_vector.back());
+    real_vector.pop_back();
+    real_map.erase(label);
   }
 
   if (found == false) {
@@ -262,28 +262,28 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
-  Kokkos::resize(newIndices_, nmax_pool);
-  Kokkos::resize(fromToIndices_, nmax_pool + 1);
+  Kokkos::resize(new_indices_, nmax_pool);
+  Kokkos::resize(from_to_indices_, nmax_pool + 1);
   Kokkos::resize(recv_neighbor_index_, nmax_pool);
   Kokkos::resize(recv_buffer_index_, nmax_pool);
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
-  Kokkos::resize(cellSorted_, nmax_pool);
+  Kokkos::resize(cell_sorted_, nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
-  blockIndex_.Resize(nmax_pool);
+  block_index_.Resize(nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(int));
 
-  auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+  auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &real_vector = std::get<getType<Real>()>(vectors_);
 
-  for (auto &d : intVector_) {
+  for (auto &d : int_vector) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
     pmb->LogMemUsage(n_new * sizeof(int));
   }
 
-  for (auto &d : realVector_) {
+  for (auto &d : real_vector) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
     pmb->LogMemUsage(n_new * sizeof(Real));
@@ -303,34 +303,34 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
     // TODO(BRR) Use par_scan on device rather than do this on host
     auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
-    auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+    auto block_index_h = block_index_.GetHostMirrorAndCopy();
 
     auto free_index = free_indices_.begin();
 
-    auto newIndices_h = newIndices_.GetHostMirror();
+    auto new_indices_h = new_indices_.GetHostMirror();
 
     // Don't bother sanitizing the memory
     for (int n = 0; n < num_to_add; n++) {
       mask_h(*free_index) = true;
-      blockIndex_h(*free_index) = this_block_;
+      block_index_h(*free_index) = this_block_;
       max_active_index_ = std::max<int>(max_active_index_, *free_index);
-      newIndices_h(n) = *free_index;
+      new_indices_h(n) = *free_index;
 
       free_index = free_indices_.erase(free_index);
     }
 
-    newIndices_.DeepCopy(newIndices_h);
+    new_indices_.DeepCopy(new_indices_h);
 
     num_active_ += num_to_add;
 
     Kokkos::deep_copy(mask_, mask_h);
-    blockIndex_.DeepCopy(blockIndex_h);
-    newIndicesMaxIdx_ = num_to_add - 1;
+    block_index_.DeepCopy(block_index_h);
+    new_indices_max_idx_ = num_to_add - 1;
   } else {
-    newIndicesMaxIdx_ = -1;
+    new_indices_max_idx_ = -1;
   }
 
-  return NewParticlesContext(newIndicesMaxIdx_, newIndices_);
+  return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
 // No active particles: nmax_active_index = -1
@@ -370,12 +370,12 @@ void Swarm::Defrag() {
   std::int64_t num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
 
-  auto fromToIndices_h = fromToIndices_.GetHostMirror();
+  auto from_to_indices_h = from_to_indices_.GetHostMirror();
 
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
   for (int n = 0; n <= max_active_index_; n++) {
-    fromToIndices_h(n) = unset_index_;
+    from_to_indices_h(n) = unset_index_;
   }
 
   std::list<int> new_free_indices;
@@ -398,34 +398,34 @@ void Swarm::Defrag() {
     int index_to_move_to = free_indices_.front();
     free_indices_.pop_front();
     new_free_indices.push_back(index_to_move_from);
-    fromToIndices_h(index_to_move_from) = index_to_move_to;
+    from_to_indices_h(index_to_move_from) = index_to_move_to;
   }
 
   // TODO(BRR) Not all these sorts may be necessary
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
 
-  fromToIndices_.DeepCopy(fromToIndices_h);
+  from_to_indices_.DeepCopy(from_to_indices_h);
 
-  auto fromToIndices = fromToIndices_;
+  auto from_to_indices = from_to_indices_;
 
   auto &mask = mask_;
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (fromToIndices(n) >= 0) {
-          mask(fromToIndices(n)) = mask(n);
+        if (from_to_indices(n) >= 0) {
+          mask(from_to_indices(n)) = mask(n);
           mask(n) = false;
         }
       });
 
-  auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+  auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
-  int real_vars_size = realVector_.size();
-  int int_vars_size = intVector_.size();
+  int real_vars_size = real_vector.size();
+  int int_vars_size = int_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   const int realPackDim = vreal.GetDim(2);
@@ -433,12 +433,12 @@ void Swarm::Defrag() {
 
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (fromToIndices(n) >= 0) {
+        if (from_to_indices(n) >= 0) {
           for (int vidx = 0; vidx < realPackDim; vidx++) {
-            vreal(vidx, fromToIndices(n)) = vreal(vidx, n);
+            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
-            vint(vidx, fromToIndices(n)) = vint(vidx, n);
+            vint(vidx, from_to_indices(n)) = vint(vidx, n);
           }
         }
       });
@@ -449,9 +449,9 @@ void Swarm::Defrag() {
 
 ///
 /// Routine to sort particles by cell. Updates internal swarm variables:
-///  cellSorted_: 1D Per-cell sorted array of swarm memory indices
-///  (SwarmKey::swarm_index_) cellSortedBegin_: Per-cell array of starting indices in
-///  cellSorted_ cellSortedNumber_: Per-cell array of number of particles in each cell
+///  cell_sorted_: 1D Per-cell sorted array of swarm memory indices
+///  (SwarmKey::swarm_index_) cell_sorted_begin_: Per-cell array of starting indices in
+///  cell_sorted_ cell_sorted_number_: Per-cell array of number of particles in each cell
 ///
 void Swarm::SortParticlesByCell() {
   auto pmb = GetBlockPointer();
@@ -466,18 +466,18 @@ void Swarm::SortParticlesByCell() {
   PARTHENON_REQUIRE(nx1 * nx2 * nx3 < std::numeric_limits<int>::max(),
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
-  auto cellSorted = cellSorted_;
+  auto cell_sorted = cell_sorted_;
   int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 
   // Allocate data if necessary
-  if (cellSortedBegin_.GetDim(1) == 0) {
-    cellSortedBegin_ = ParArrayND<int>("cellSortedBegin_", nx3, nx2, nx1);
-    cellSortedNumber_ = ParArrayND<int>("cellSortedNumber_", nx3, nx2, nx1);
+  if (cell_sorted_begin_.GetDim(1) == 0) {
+    cell_sorted_begin_ = ParArrayND<int>("cell_sorted_begin_", nx3, nx2, nx1);
+    cell_sorted_number_ = ParArrayND<int>("cell_sorted_number_", nx3, nx2, nx1);
   }
-  auto cellSortedBegin = cellSortedBegin_;
-  auto cellSortedNumber = cellSortedNumber_;
+  auto cell_sorted_begin = cell_sorted_begin_;
+  auto cell_sorted_number = cell_sorted_number_;
   auto swarm_d = GetDeviceContext();
 
   // Write an unsorted list
@@ -486,10 +486,10 @@ void Swarm::SortParticlesByCell() {
         int i, j, k;
         swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
         const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
-        cellSorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
+        cell_sorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
       });
 
-  sort(cellSorted, SwarmKeyComparator(), 0, max_active_index);
+  sort(cell_sorted, SwarmKeyComparator(), 0, max_active_index);
 
   // Update per-cell arrays for easier accessing later
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -511,52 +511,52 @@ void Swarm::SortParticlesByCell() {
             break;
           }
 
-          if (cellSorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+          if (cell_sorted(start_index).cell_idx_1d_ == cell_idx_1d) {
             if (start_index == 0) {
               break;
-            } else if (cellSorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+            } else if (cell_sorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
               break;
             } else {
               start_index--;
               continue;
             }
           }
-          if (cellSorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          if (cell_sorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
-            if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
-          if (cellSorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
             start_index++;
             if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
-            if (cellSorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+            if (cell_sorted(start_index).cell_idx_1d_ > cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
         }
-        cellSortedBegin(k, j, i) = start_index;
+        cell_sorted_begin(k, j, i) = start_index;
         if (start_index == -1) {
-          cellSortedNumber(k, j, i) = 0;
+          cell_sorted_number(k, j, i) = 0;
         } else {
           int number = 0;
           int current_index = start_index;
           while (current_index <= max_active_index &&
-                 cellSorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+                 cell_sorted(current_index).cell_idx_1d_ == cell_idx_1d) {
             current_index++;
             number++;
-            cellSortedNumber(k, j, i) = number;
+            cell_sorted_number(k, j, i) = number;
           }
         }
       });
@@ -570,13 +570,13 @@ void Swarm::SortParticlesByCell() {
 void Swarm::SetNeighborIndices1D_() {
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
-  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+  auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
 
   // Initialize array in event of zero neighbors
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = no_block_;
+        neighbor_indices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -591,7 +591,7 @@ void Swarm::SetNeighborIndices1D_() {
   for (int k = kmin; k < kmax; k++) {
     for (int j = jmin; j < jmax; j++) {
       for (int i = imin; i < imax; i++) {
-        neighborIndices_h(k, j, i) = this_block_;
+        neighbor_indices_h(k, j, i) = this_block_;
       }
     }
   }
@@ -604,28 +604,28 @@ void Swarm::SetNeighborIndices1D_() {
     const int i = nb.ni.ox1;
 
     if (i == -1) {
-      neighborIndices_h(0, 0, 0) = n;
+      neighbor_indices_h(0, 0, 0) = n;
     } else if (i == 0) {
-      neighborIndices_h(0, 0, 1) = n;
-      neighborIndices_h(0, 0, 2) = n;
+      neighbor_indices_h(0, 0, 1) = n;
+      neighbor_indices_h(0, 0, 2) = n;
     } else {
-      neighborIndices_h(0, 0, 3) = n;
+      neighbor_indices_h(0, 0, 3) = n;
     }
   }
 
-  neighborIndices_.DeepCopy(neighborIndices_h);
+  neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
 void Swarm::SetNeighborIndices2D_() {
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
-  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+  auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
 
   // Initialize array in event of zero neighbors
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = no_block_;
+        neighbor_indices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -640,7 +640,7 @@ void Swarm::SetNeighborIndices2D_() {
   for (int k = kmin; k < kmax; k++) {
     for (int j = jmin; j < jmax; j++) {
       for (int i = imin; i < imax; i++) {
-        neighborIndices_h(k, j, i) = this_block_;
+        neighbor_indices_h(k, j, i) = this_block_;
       }
     }
   }
@@ -654,46 +654,46 @@ void Swarm::SetNeighborIndices2D_() {
 
     if (i == -1) {
       if (j == -1) {
-        neighborIndices_h(0, 0, 0) = n;
+        neighbor_indices_h(0, 0, 0) = n;
       } else if (j == 0) {
-        neighborIndices_h(0, 1, 0) = n;
-        neighborIndices_h(0, 2, 0) = n;
+        neighbor_indices_h(0, 1, 0) = n;
+        neighbor_indices_h(0, 2, 0) = n;
       } else if (j == 1) {
-        neighborIndices_h(0, 3, 0) = n;
+        neighbor_indices_h(0, 3, 0) = n;
       }
     } else if (i == 0) {
       if (j == -1) {
-        neighborIndices_h(0, 0, 1) = n;
-        neighborIndices_h(0, 0, 2) = n;
+        neighbor_indices_h(0, 0, 1) = n;
+        neighbor_indices_h(0, 0, 2) = n;
       } else if (j == 1) {
-        neighborIndices_h(0, 3, 1) = n;
-        neighborIndices_h(0, 3, 2) = n;
+        neighbor_indices_h(0, 3, 1) = n;
+        neighbor_indices_h(0, 3, 2) = n;
       }
     } else if (i == 1) {
       if (j == -1) {
-        neighborIndices_h(0, 0, 3) = n;
+        neighbor_indices_h(0, 0, 3) = n;
       } else if (j == 0) {
-        neighborIndices_h(0, 1, 3) = n;
-        neighborIndices_h(0, 2, 3) = n;
+        neighbor_indices_h(0, 1, 3) = n;
+        neighbor_indices_h(0, 2, 3) = n;
       } else if (j == 1) {
-        neighborIndices_h(0, 3, 3) = n;
+        neighbor_indices_h(0, 3, 3) = n;
       }
     }
   }
 
-  neighborIndices_.DeepCopy(neighborIndices_h);
+  neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
 void Swarm::SetNeighborIndices3D_() {
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
-  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+  auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
 
   // Initialize array in event of zero neighbors
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighborIndices_h(k, j, i) = no_block_;
+        neighbor_indices_h(k, j, i) = no_block_;
       }
     }
   }
@@ -708,7 +708,7 @@ void Swarm::SetNeighborIndices3D_() {
   for (int k = kmin; k < kmax; k++) {
     for (int j = jmin; j < jmax; j++) {
       for (int i = imin; i < imax; i++) {
-        neighborIndices_h(k, j, i) = this_block_;
+        neighbor_indices_h(k, j, i) = this_block_;
       }
     }
   }
@@ -724,113 +724,113 @@ void Swarm::SetNeighborIndices3D_() {
     if (i == -1) {
       if (j == -1) {
         if (k == -1) {
-          neighborIndices_h(0, 0, 0) = n;
+          neighbor_indices_h(0, 0, 0) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 0, 0) = n;
-          neighborIndices_h(2, 0, 0) = n;
+          neighbor_indices_h(1, 0, 0) = n;
+          neighbor_indices_h(2, 0, 0) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 0, 0) = n;
+          neighbor_indices_h(3, 0, 0) = n;
         }
       } else if (j == 0) {
         if (k == -1) {
-          neighborIndices_h(0, 1, 0) = n;
-          neighborIndices_h(0, 2, 0) = n;
+          neighbor_indices_h(0, 1, 0) = n;
+          neighbor_indices_h(0, 2, 0) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 1, 0) = n;
-          neighborIndices_h(1, 2, 0) = n;
-          neighborIndices_h(2, 1, 0) = n;
-          neighborIndices_h(2, 2, 0) = n;
+          neighbor_indices_h(1, 1, 0) = n;
+          neighbor_indices_h(1, 2, 0) = n;
+          neighbor_indices_h(2, 1, 0) = n;
+          neighbor_indices_h(2, 2, 0) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 1, 0) = n;
-          neighborIndices_h(3, 2, 0) = n;
+          neighbor_indices_h(3, 1, 0) = n;
+          neighbor_indices_h(3, 2, 0) = n;
         }
       } else if (j == 1) {
         if (k == -1) {
-          neighborIndices_h(0, 3, 0) = n;
+          neighbor_indices_h(0, 3, 0) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 3, 0) = n;
-          neighborIndices_h(2, 3, 0) = n;
+          neighbor_indices_h(1, 3, 0) = n;
+          neighbor_indices_h(2, 3, 0) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 3, 0) = n;
+          neighbor_indices_h(3, 3, 0) = n;
         }
       }
     } else if (i == 0) {
       if (j == -1) {
         if (k == -1) {
-          neighborIndices_h(0, 0, 1) = n;
-          neighborIndices_h(0, 0, 2) = n;
+          neighbor_indices_h(0, 0, 1) = n;
+          neighbor_indices_h(0, 0, 2) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 0, 1) = n;
-          neighborIndices_h(1, 0, 2) = n;
-          neighborIndices_h(2, 0, 1) = n;
-          neighborIndices_h(2, 0, 2) = n;
+          neighbor_indices_h(1, 0, 1) = n;
+          neighbor_indices_h(1, 0, 2) = n;
+          neighbor_indices_h(2, 0, 1) = n;
+          neighbor_indices_h(2, 0, 2) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 0, 1) = n;
-          neighborIndices_h(3, 0, 2) = n;
+          neighbor_indices_h(3, 0, 1) = n;
+          neighbor_indices_h(3, 0, 2) = n;
         }
       } else if (j == 0) {
         if (k == -1) {
-          neighborIndices_h(0, 1, 1) = n;
-          neighborIndices_h(0, 1, 2) = n;
-          neighborIndices_h(0, 2, 1) = n;
-          neighborIndices_h(0, 2, 2) = n;
+          neighbor_indices_h(0, 1, 1) = n;
+          neighbor_indices_h(0, 1, 2) = n;
+          neighbor_indices_h(0, 2, 1) = n;
+          neighbor_indices_h(0, 2, 2) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 1, 1) = n;
-          neighborIndices_h(3, 1, 2) = n;
-          neighborIndices_h(3, 2, 1) = n;
-          neighborIndices_h(3, 2, 2) = n;
+          neighbor_indices_h(3, 1, 1) = n;
+          neighbor_indices_h(3, 1, 2) = n;
+          neighbor_indices_h(3, 2, 1) = n;
+          neighbor_indices_h(3, 2, 2) = n;
         }
       } else if (j == 1) {
         if (k == -1) {
-          neighborIndices_h(0, 3, 1) = n;
-          neighborIndices_h(0, 3, 2) = n;
+          neighbor_indices_h(0, 3, 1) = n;
+          neighbor_indices_h(0, 3, 2) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 3, 1) = n;
-          neighborIndices_h(1, 3, 2) = n;
-          neighborIndices_h(2, 3, 1) = n;
-          neighborIndices_h(2, 3, 2) = n;
+          neighbor_indices_h(1, 3, 1) = n;
+          neighbor_indices_h(1, 3, 2) = n;
+          neighbor_indices_h(2, 3, 1) = n;
+          neighbor_indices_h(2, 3, 2) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 3, 1) = n;
-          neighborIndices_h(3, 3, 2) = n;
+          neighbor_indices_h(3, 3, 1) = n;
+          neighbor_indices_h(3, 3, 2) = n;
         }
       }
     } else if (i == 1) {
       if (j == -1) {
         if (k == -1) {
-          neighborIndices_h(0, 0, 3) = n;
+          neighbor_indices_h(0, 0, 3) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 0, 3) = n;
-          neighborIndices_h(2, 0, 3) = n;
+          neighbor_indices_h(1, 0, 3) = n;
+          neighbor_indices_h(2, 0, 3) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 0, 3) = n;
+          neighbor_indices_h(3, 0, 3) = n;
         }
       } else if (j == 0) {
         if (k == -1) {
-          neighborIndices_h(0, 1, 3) = n;
-          neighborIndices_h(0, 2, 3) = n;
+          neighbor_indices_h(0, 1, 3) = n;
+          neighbor_indices_h(0, 2, 3) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 1, 3) = n;
-          neighborIndices_h(1, 2, 3) = n;
-          neighborIndices_h(2, 1, 3) = n;
-          neighborIndices_h(2, 2, 3) = n;
+          neighbor_indices_h(1, 1, 3) = n;
+          neighbor_indices_h(1, 2, 3) = n;
+          neighbor_indices_h(2, 1, 3) = n;
+          neighbor_indices_h(2, 2, 3) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 1, 3) = n;
-          neighborIndices_h(3, 2, 3) = n;
+          neighbor_indices_h(3, 1, 3) = n;
+          neighbor_indices_h(3, 2, 3) = n;
         }
       } else if (j == 1) {
         if (k == -1) {
-          neighborIndices_h(0, 3, 3) = n;
+          neighbor_indices_h(0, 3, 3) = n;
         } else if (k == 0) {
-          neighborIndices_h(1, 3, 3) = n;
-          neighborIndices_h(2, 3, 3) = n;
+          neighbor_indices_h(1, 3, 3) = n;
+          neighbor_indices_h(2, 3, 3) = n;
         } else if (k == 1) {
-          neighborIndices_h(3, 3, 3) = n;
+          neighbor_indices_h(3, 3, 3) = n;
         }
       }
     }
   }
 
-  neighborIndices_.DeepCopy(neighborIndices_h);
+  neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
 void Swarm::SetupPersistentMPI() {
@@ -867,7 +867,7 @@ void Swarm::SetupPersistentMPI() {
 }
 
 int Swarm::CountParticlesToSend_() {
-  auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+  auto block_index_h = block_index_.GetHostMirrorAndCopy();
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
@@ -876,9 +876,9 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
-  auto numParticlesToSend_h = numParticlesToSend_.GetHostMirror();
+  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    numParticlesToSend_h(n) = 0;
+    num_particles_to_send_h(n) = 0;
   }
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
@@ -888,19 +888,19 @@ int Swarm::CountParticlesToSend_() {
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
       // This particle should be sent
-      if (blockIndex_h(n) >= 0) {
-        numParticlesToSend_h(blockIndex_h(n))++;
-        if (max_indices_size < numParticlesToSend_h(blockIndex_h(n))) {
-          max_indices_size = numParticlesToSend_h(blockIndex_h(n));
+      if (block_index_h(n) >= 0) {
+        num_particles_to_send_h(block_index_h(n))++;
+        if (max_indices_size < num_particles_to_send_h(block_index_h(n))) {
+          max_indices_size = num_particles_to_send_h(block_index_h(n));
         }
       }
-      if (blockIndex_h(n) == no_block_) {
+      if (block_index_h(n) == no_block_) {
         total_noblock_particles++;
       }
     }
   }
-  // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic that
-  // indicates completed communications
+  // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic
+  // that indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
 
   // Not a ragged-right array, just for convenience
@@ -911,7 +911,7 @@ int Swarm::CountParticlesToSend_() {
     int counter = 0;
     for (int n = 0; n <= max_active_index_; n++) {
       if (mask_h(n)) {
-        if (blockIndex_h(n) == no_block_) {
+        if (block_index_h(n) == no_block_) {
           noblock_indices_h(counter) = n;
           counter++;
         }
@@ -928,13 +928,13 @@ int Swarm::CountParticlesToSend_() {
   std::vector<int> counter(nbmax, 0);
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
-      if (blockIndex_h(n) >= 0) {
-        particle_indices_to_send_h(blockIndex_h(n), counter[blockIndex_h(n)]) = n;
-        counter[blockIndex_h(n)]++;
+      if (block_index_h(n) >= 0) {
+        particle_indices_to_send_h(block_index_h(n), counter[block_index_h(n)]) = n;
+        counter[block_index_h(n)]++;
       }
     }
   }
-  numParticlesToSend_.DeepCopy(numParticlesToSend_h);
+  num_particles_to_send_.DeepCopy(num_particles_to_send_h);
   particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
 
   num_particles_sent_ = 0;
@@ -942,12 +942,12 @@ int Swarm::CountParticlesToSend_() {
     // Resize buffer if too small
     const int bufid = pmb->pbval->neighbor[n].bufid;
     auto sendbuf = vbswarm->bd_var_.send[bufid];
-    if (sendbuf.extent(0) < numParticlesToSend_h(n) * particle_size) {
-      sendbuf = BufArray1D<Real>("Buffer", numParticlesToSend_h(n) * particle_size);
+    if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
+      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
       vbswarm->bd_var_.send[bufid] = sendbuf;
     }
-    vbswarm->send_size[bufid] = numParticlesToSend_h(n) * particle_size;
-    num_particles_sent_ += numParticlesToSend_h(n);
+    vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
+    num_particles_sent_ += num_particles_to_send_h(n);
   }
 
   return max_indices_size;
@@ -959,8 +959,8 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   const int particle_size = GetParticleDataSize();
   const int nneighbor = pmb->pbval->nneighbor;
 
-  auto &intVector_ = std::get<getType<int>()>(Vectors_);
-  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+  auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
@@ -972,7 +972,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   // [variable start] [swarm idx]
 
   auto &bdvar = vbswarm->bd_var_;
-  auto numParticlesToSend = numParticlesToSend_;
+  auto num_particles_to_send = num_particles_to_send_;
   auto particle_indices_to_send = particle_indices_to_send_;
   auto neighbor_buffer_index = neighbor_buffer_index_;
   pmb->par_for(
@@ -980,7 +980,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
       KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           const int bufid = neighbor_buffer_index(m);
-          if (n < numParticlesToSend(m)) {
+          if (n < num_particles_to_send(m)) {
             const int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
             swarm_d.MarkParticleForRemoval(sidx);
@@ -1006,7 +1006,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
   if (nneighbor == 0) {
     // Process physical boundary conditions on "sent" particles
-    auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+    auto block_index_h = block_index_.GetHostMirrorAndCopy();
     auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
 
     int total_sent_particles = 0;
@@ -1027,7 +1027,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
       int sent_particle_index = 0;
       for (int n = 0; n <= max_active_index_; n++) {
         if (mask_h(n)) {
-          if (blockIndex_h(n) >= 0 || blockIndex_h(n) == no_block_) {
+          if (block_index_h(n) >= 0 || block_index_h(n) == no_block_) {
             new_indices_h(sent_particle_index) = n;
             sent_particle_index++;
           }
@@ -1103,8 +1103,8 @@ void Swarm::UnloadBuffers_() {
     UpdateNeighborBufferReceiveIndices_(recv_neighbor_index, recv_buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
-    auto &intVector_ = std::get<getType<int>()>(Vectors_);
-    auto &realVector_ = std::get<getType<Real>()>(Vectors_);
+    auto &int_vector = std::get<getType<int>()>(vectors_);
+    auto &real_vector = std::get<getType<Real>()>(vectors_);
     PackIndexMap real_imap;
     PackIndexMap int_imap;
     auto vreal = PackAllVariables_<Real>(real_imap);
@@ -1112,7 +1112,8 @@ void Swarm::UnloadBuffers_() {
     int realPackDim = vreal.GetDim(2);
     int intPackDim = vint.GetDim(2);
 
-    // construct map from buffer index to swarm index (or just return vector of indices!)
+    // construct map from buffer index to swarm index (or just return vector of
+    // indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
@@ -1134,7 +1135,7 @@ void Swarm::UnloadBuffers_() {
           }
         });
 
-    ApplyBoundaries_(total_received_particles_, newIndices_);
+    ApplyBoundaries_(total_received_particles_, new_indices_);
   }
 }
 
@@ -1165,7 +1166,8 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     // Do nothing; no boundaries to receive
     return true;
   } else {
-    // Ensure all local deep copies marked BoundaryStatus::completed are actually received
+    // Ensure all local deep copies marked BoundaryStatus::completed are actually
+    // received
     pmb->exec_space.fence();
 
     // Populate buffers

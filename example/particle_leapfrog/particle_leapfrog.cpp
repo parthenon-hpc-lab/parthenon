@@ -187,9 +187,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
       KOKKOS_LAMBDA(const int new_n) {
-        const int n = newParticlesContext.GetNewParticleIndex(new_n);
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
         const auto &m = ids_this_block(n);
 
         id(n) = m; // global unique id

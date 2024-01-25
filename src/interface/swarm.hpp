@@ -51,25 +51,25 @@ struct BoundaryDeviceContext {
 // memory by wrapping the persistent new_indices_ array.
 class NewParticlesContext {
  public:
-  NewParticlesContext(const int newIndicesMaxIdx, const ParArray1D<int> newIndices)
-      : newIndicesMaxIdx_(newIndicesMaxIdx), newIndices_(newIndices) {}
+  NewParticlesContext(const int new_indices_max_idx, const ParArray1D<int> new_indices)
+      : new_indices_max_idx_(new_indices_max_idx), new_indices_(new_indices) {}
 
   // Return the maximum index of the contiguous block of new particle indices.
   KOKKOS_INLINE_FUNCTION
-  int GetNewParticlesMaxIndex() const { return newIndicesMaxIdx_; }
+  int GetNewParticlesMaxIndex() const { return new_indices_max_idx_; }
 
   // Given an index n into the contiguous block of new particle indices, return the swarm
   // index of the new particle.
   KOKKOS_INLINE_FUNCTION
   int GetNewParticleIndex(const int n) const {
-    PARTHENON_DEBUG_REQUIRE(n >= 0 && n <= newIndicesMaxIdx_,
+    PARTHENON_DEBUG_REQUIRE(n >= 0 && n <= new_indices_max_idx_,
                             "New particle index is out of bounds!");
-    return newIndices_(n);
+    return new_indices_(n);
   }
 
  private:
-  const int newIndicesMaxIdx_;
-  ParArray1D<int> newIndices_;
+  const int new_indices_max_idx_;
+  ParArray1D<int> new_indices_;
 };
 
 class MeshBlock;
@@ -214,10 +214,10 @@ class Swarm {
   // integers are cast as Reals.
   int GetParticleDataSize() {
     int size = 0;
-    for (auto &v : std::get<0>(Vectors_)) {
+    for (auto &v : std::get<0>(vectors_)) {
       size += v->NumComponents();
     }
-    for (auto &v : std::get<1>(Vectors_)) {
+    for (auto &v : std::get<1>(vectors_)) {
       size += v->NumComponents();
     }
 
@@ -253,7 +253,7 @@ class Swarm {
 
   template <typename T>
   const auto &GetVariableVector() const {
-    return std::get<getType<T>()>(Vectors_);
+    return std::get<getType<T>()>(vectors_);
   }
 
  private:
@@ -289,21 +289,20 @@ class Swarm {
   Metadata m_;
   int nmax_pool_;
   std::string info_;
-  std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
-  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>> Vectors_;
+  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>> vectors_;
 
-  std::tuple<MapToParticle<int>, MapToParticle<Real>> Maps_;
+  std::tuple<MapToParticle<int>, MapToParticle<Real>> maps_;
 
   std::list<int> free_indices_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
-  ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
-  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
-                                    // k,j indices unused in 3D&2D, 2D, respectively
-  ParArray1D<int> newIndices_;      // Persistent array that provides the new indices when
+  ParArrayND<int> block_index_; // Neighbor index for each particle. -1 for current block.
+  ParArrayND<int> neighbor_indices_; // Indexing of vbvar's neighbor array. -1 for same.
+                                     // k,j indices unused in 3D&2D, 2D, respectively
+  ParArray1D<int> new_indices_;     // Persistent array that provides the new indices when
                                     // AddEmptyParticles is called. Always defragmented.
-  int newIndicesMaxIdx_;            // Maximum valid index of new_indices_ array.
-  ParArray1D<int> fromToIndices_;   // Array used for sorting particles during defragment
+  int new_indices_max_idx_;         // Maximum valid index of new_indices_ array.
+  ParArray1D<int> from_to_indices_; // Array used for sorting particles during defragment
                                     // step (size nmax_pool + 1).
   ParArray1D<int> recv_neighbor_index_; // Neighbor indices for received particles
   ParArray1D<int> recv_buffer_index_;   // Buffer indices for received particles
@@ -312,7 +311,7 @@ class Swarm {
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
 
-  ParArray1D<int> numParticlesToSend_;
+  ParArray1D<int> num_particles_to_send_;
   ParArrayND<int> particle_indices_to_send_;
 
   std::vector<int> neighbor_received_particles_;
@@ -321,11 +320,13 @@ class Swarm {
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
 
   ParArray1D<SwarmKey>
-      cellSorted_; // 1D per-cell sorted array of key-value swarm memory indices
+      cell_sorted_; // 1D per-cell sorted array of key-value swarm memory indices
 
-  ParArrayND<int> cellSortedBegin_; // Per-cell array of starting indices in cell_sorted_
+  ParArrayND<int>
+      cell_sorted_begin_; // Per-cell array of starting indices in cell_sorted_
 
-  ParArrayND<int> cellSortedNumber_; // Per-cell array of number of particles in each cell
+  ParArrayND<int>
+      cell_sorted_number_; // Per-cell array of number of particles in each cell
 
  public:
   bool mpiStatus;
@@ -347,7 +348,7 @@ template <class T>
 inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_() {
   int size = 0;
   vpack_types::SwarmVarList<T> vars;
-  auto variables = std::get<getType<T>()>(Vectors_);
+  auto variables = std::get<getType<T>()>(vectors_);
   for (auto it = variables.rbegin(); it != variables.rend(); ++it) {
     auto v = *it;
     vars.push_front(v);
@@ -370,8 +371,8 @@ inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> 
 template <class T>
 inline SwarmVariablePack<T> Swarm::PackAllVariables_(PackIndexMap &vmap) {
   std::vector<std::string> names;
-  names.reserve(std::get<getType<T>()>(Vectors_).size());
-  for (const auto &v : std::get<getType<T>()>(Vectors_)) {
+  names.reserve(std::get<getType<T>()>(vectors_).size());
+  for (const auto &v : std::get<getType<T>()>(vectors_)) {
     names.push_back(v->label());
   }
 
@@ -384,7 +385,7 @@ inline void Swarm::Add_(const std::string &label, const Metadata &m) {
   ParticleVariable<T> pvar(label, nmax_pool_, m);
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 
-  std::get<getType<T>()>(Vectors_).push_back(var);
+  std::get<getType<T>()>(vectors_).push_back(var);
   std::get<getType<T>()>(Maps_)[label] = var;
 }
 

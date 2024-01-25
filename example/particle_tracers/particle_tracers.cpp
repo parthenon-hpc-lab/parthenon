@@ -375,7 +375,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
 
-  auto newParticlesContext = swarm->AddEmptyParticles(num_tracers_meshblock);
+  auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
 
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
@@ -384,9 +384,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
       KOKKOS_LAMBDA(const int new_n) {
-        const int n = newParticlesContext.GetNewParticleIndex(new_n);
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
 
         // Rejection sample the x position
