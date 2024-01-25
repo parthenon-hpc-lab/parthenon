@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -160,6 +160,7 @@ class Mesh {
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
       nullptr;
+  std::function<void(Mesh *, MeshData<Real> *)> PostInitialization = nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =

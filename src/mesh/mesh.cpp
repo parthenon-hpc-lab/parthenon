@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -155,6 +155,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
   if (app_in->MeshProblemGenerator != nullptr) {
     ProblemGenerator = app_in->MeshProblemGenerator;
+  }
+  if (app_in->MeshPostInitialization != nullptr) {
+    PostInitialization = app_in->MeshPostInitialization;
   }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
@@ -930,6 +933,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       PARTHENON_REQUIRE_THROWS(
           !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
+      PARTHENON_REQUIRE_THROWS(
+          !(PostInitialization != nullptr &&
+            block_list[0]->PostInitialization != nullptr),
+          "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
@@ -946,6 +953,24 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
+
+      // Call Mesh PostInitialization
+      if (PostInitialization != nullptr) {
+        PARTHENON_REQUIRE(num_partitions == 1,
+                          "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
+                          "during first initialization.");
+
+        auto &md = mesh_data.GetOrAdd("base", 0);
+        PostInitialization(this, md.get());
+        // Call individual MeshBlock PostInitialization
+      } else {
+        for (int i = 0; i < nmb; ++i) {
+          auto &pmb = block_list[i];
+          auto &mbd = pmb->meshblock_data.Get();
+          pmb->PostInitialization(mbd.get());
+        }
+      }
+
       std::for_each(block_list.begin(), block_list.end(),
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
