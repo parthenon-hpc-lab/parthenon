@@ -175,7 +175,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
 
-  auto newParticlesContext = swarm->AddEmptyParticles(num_particles_this_block);
+  auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
