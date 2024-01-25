@@ -366,7 +366,6 @@ void Swarm::Defrag() {
   std::int64_t num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
 
-  // ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto fromToIndices_h = fromToIndices_.GetHostMirror();
 
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
