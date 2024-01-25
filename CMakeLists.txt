@@ -116,6 +116,9 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 
+# Require threading for tasks
+find_package(Threads)
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)
