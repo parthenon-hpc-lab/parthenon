@@ -46,6 +46,7 @@ look like
 
    <parthenon/output1>
    file_type = hdf5
+   write_xdmf = true # Determines whether xdmf annotations are output
    # nonexistent variables/swarms are ignored
    variables = density, velocity, & # comments are still ok
                energy               # notice the & continuation character
