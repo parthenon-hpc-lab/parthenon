@@ -351,9 +351,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       } else if (file_output_format_ver == 2 ||
                  file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
         OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
-                                     [&](auto v_h, auto index, int t, int u, int v, int k,
+                                     [&](auto index, int t, int u, int v, int k,
                                          int j,
-                                         int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
+                                         int i) {
+				       v_h(t, u, v, k, j, i) = tmp[index];
+				     });
       } else {
         PARTHENON_THROW("Unknown output format version in restart file.")
       }
