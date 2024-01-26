@@ -70,12 +70,12 @@ TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
 template <typename F, typename T>
 TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
                            T *out) {
-  Kokkos::Profiling::pushRegion("Task_WeightedSumData");
+  PARTHENON_INSTRUMENT
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         // TOOD(someone) This is potentially dangerous and/or not intended behavior
@@ -85,7 +85,6 @@ TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const 
           z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
         }
       });
-  Kokkos::Profiling::popRegion(); // Task_WeightedSumData
   return TaskStatus::complete;
 }
 
@@ -96,17 +95,16 @@ TaskStatus CopyData(const F &flags, T *in, T *out) {
 
 template <typename F, typename T>
 TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
-  Kokkos::Profiling::pushRegion("Task_SetDataToConstant");
+  PARTHENON_INSTRUMENT
   const auto &x = data->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetDataToConstant", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (x.IsAllocated(b, l)) {
           x(b, l, k, j, i) = val;
         }
       });
-  Kokkos::Profiling::popRegion(); // Task_SetDataToConstant
   return TaskStatus::complete;
 }
 
@@ -148,7 +146,7 @@ template <typename F, typename T>
 TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
                     const LowStorageIntegrator *pint, Real dt, int stage,
                     bool update_s1) {
-  Kokkos::Profiling::pushRegion("Task_2S_Update");
+  PARTHENON_INSTRUMENT
   const auto &s0 = s0_data->PackVariables(flags);
   const auto &s1 = s1_data->PackVariables(flags);
   const auto &rhs = rhs_data->PackVariables(flags);
@@ -163,7 +161,7 @@ TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
   Real gam0 = pint->gam0[stage - 1];
   Real gam1 = pint->gam1[stage - 1];
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "2S_Update", DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, s0.GetDim(5) - 1, 0,
       s0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (s0.IsAllocated(b, l) && s1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
@@ -174,7 +172,6 @@ TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
                               beta * dt * rhs(b, l, k, j, i);
         }
       });
-  Kokkos::Profiling::popRegion(); // Task_2S_Update
   return TaskStatus::complete;
 }
 template <typename T>
@@ -194,7 +191,7 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
                       std::vector<std::shared_ptr<T>> stage_data,
                       std::shared_ptr<T> out_data, const ButcherIntegrator *pint, Real dt,
                       int stage) {
-  Kokkos::Profiling::pushRegion("Task_Butcher_Sum");
+  PARTHENON_INSTRUMENT
   const auto &out = out_data->PackVariables(flags);
   const auto &in = base_data->PackVariables(flags);
   const IndexDomain interior = IndexDomain::interior;
@@ -202,7 +199,7 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
   const IndexRange jb = out_data->GetBoundsJ(interior);
   const IndexRange kb = out_data->GetBoundsK(interior);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "ButcherSumInit", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1, 0,
       out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
@@ -213,15 +210,14 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
     Real a = pint->a[stage - 1][prev];
     const auto &in = stage_data[stage]->PackVariables(flags);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "ButcherSum", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
-        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1,
+        0, out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
           if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
             out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
           }
         });
   }
-  Kokkos::Profiling::popRegion(); // Task_Butcher_Sum
   return TaskStatus::complete;
 }
 template <typename T>
@@ -238,7 +234,7 @@ template <typename F, typename T>
 TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_data,
                          std::shared_ptr<T> out_data, const ButcherIntegrator *pint,
                          Real dt) {
-  Kokkos::Profiling::pushRegion("Task_Butcher_Update");
+  PARTHENON_INSTRUMENT
 
   const auto &out = out_data->PackVariables(flags);
   const IndexDomain interior = IndexDomain::interior;
@@ -251,15 +247,14 @@ TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_d
     const Real butcher_b = pint->b[stage];
     const auto &in = stage_data[stage]->PackVariables(flags);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "ButcherUpdate", DevExecSpace(), 0, out.GetDim(5) - 1, 0,
-        out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, out.GetDim(5) - 1,
+        0, out.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
           if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
             out(b, l, k, j, i) += dt * b * in(b, l, k, j, i);
           }
         });
   }
-  Kokkos::Profiling::popRegion(); // Task_Butcher_Update
   return TaskStatus::complete;
 }
 template <typename F, typename T>
@@ -272,53 +267,54 @@ TaskStatus UpdateButcherIndependent(std::vector<std::shared_ptr<T>> stage_data,
 
 template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
-  Kokkos::Profiling::pushRegion("Task_EstimateTimestep");
+  PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
   for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
     dt_min = std::min(dt_min, dt);
   }
   rc->SetAllowedDt(dt_min);
-  Kokkos::Profiling::popRegion(); // Task_EstimateTimestep
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus PreCommFillDerived(T *rc) {
-  Kokkos::Profiling::pushRegion("Task_PreCommFillDerived");
+  PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PreCommFillDerived(rc);
   }
-  Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus FillDerived(T *rc) {
-  Kokkos::Profiling::pushRegion("Task_FillDerived");
+  PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
-  Kokkos::Profiling::pushRegion("PreFillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PreFillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // PreFillDerived
-  Kokkos::Profiling::pushRegion("FillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->FillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // FillDerived
-  Kokkos::Profiling::pushRegion("PostFillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PostFillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // PostFillDerived
-  Kokkos::Profiling::popRegion(); // Task_FillDerived
+  { // PreFillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->PreFillDerived(rc);
+    }
+  } // PreFillDerived region
+  { // FillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->FillDerived(rc);
+    }
+  } // FillDerived region
+  { // PostFillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->PostFillDerived(rc);
+    }
+  } // PostFillDerived region
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
+  PARTHENON_INSTRUMENT
   if (!rc->AllVariablesInitialized()) {
     const IndexDomain interior = IndexDomain::interior;
     const IndexRange ib = rc->GetBoundsI(interior);
@@ -338,7 +334,7 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     auto v = desc.GetPack(rc);
 
     Kokkos::parallel_for(
-        "Set newly allocated interior to default",
+        PARTHENON_AUTO_LABEL,
         Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
         KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
           const int b = team_member.league_rank();
@@ -369,12 +365,10 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
   // This has to be done even in the case where no blocks have been allocated
   // since the boundaries of allocated blocks could have received default data
   // in any case
-  Kokkos::Profiling::pushRegion("Task_InitNewlyAllocatedVars");
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->InitNewlyAllocatedVars(rc);
   }
-  Kokkos::Profiling::popRegion();
 
   // Don't worry about flagging variables as initialized
   // since they will be flagged at the beginning of the

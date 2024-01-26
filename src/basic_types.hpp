@@ -45,7 +45,7 @@ using Real = double;
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 enum class BlockLocation { Left = 0, Center = 1, Right = 2 };
-enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
+enum class TaskStatus { complete, incomplete, iterate };
 
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };

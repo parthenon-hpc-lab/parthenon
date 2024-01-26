@@ -113,7 +113,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 // pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
 
@@ -127,7 +127,6 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md,
                                                        pmesh->boundary_comm_flxcor_map);
 
-  Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
 
