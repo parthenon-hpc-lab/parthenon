@@ -396,8 +396,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // For reference, if we update the logic here, there's also
         // a similar block in parthenon_manager.cpp
         if (v->IsAllocated() && (var_name == v->label())) {
-	  auto v_h = v->data.GetHostMirrorAndCopy();
-          OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), output_params.include_ghost_zones, index, tmpData,
+          auto v_h = v->data.GetHostMirrorAndCopy();
+          OutputUtils::PackOrUnpackVar(
+              pmb.get(), v.get(), output_params.include_ghost_zones, index, tmpData,
               [&](auto index, int t, int u, int v, int k, int j, int i) {
                 tmpData[index] = static_cast<OutT>(v_h(t, u, v, k, j, i));
               });

@@ -216,8 +216,7 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 
 // mirror must be provided because copying done externally
 template <typename Data_t, typename idx_t, typename Function_t>
-void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar,
-		     bool do_ghosts, idx_t &idx,
+void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t &idx,
                      std::vector<Data_t> &data, Function_t f) {
   const auto &Nt = pvar->GetDim(6);
   const auto &Nu = pvar->GetDim(5);
