@@ -3,85 +3,84 @@
 Tasks
 =====
 
+Parthenon's tasking infrastructure is how downstream applications describe 
+and execute their work.  Tasks are organized into a hierarchy of objects.
+``TaskCollection``s have one or more ``TaskRegion``s, ``TaskRegion``s have
+one or more ``TaskList``s, and ``TaskList``s can have one or more sublists
+(that are themselves ``TaskList``s).
+
+Task
+----
+
+Though downstream codes never have to interact with the ``Task`` object directly,
+it's useful to describe nonetheless.  A ``Task`` object is essentially a functor
+that stores the necessary data to invoke a downstream code's functions with
+the desired arguments.  Importantly, however, it also stores information that
+relates itself to other tasks, namely the tasks that must be complete before
+it should execute and the tasks that may be available to run after it completes.
+In other words, ``Task``s are nodes in a directed (possibly cyclic) graph, and
+include the edges that connect to it and emerge from it.
+
 TaskList
 --------
 
-The ``TaskList`` class implements methods to build and execute a set of
-tasks with associated dependencies. The class implements a few public
-facing member functions that provide useful functionality for downstream
-apps:
+The ``TaskList`` class stores a vector of all the tasks and sublists (a nested
+``TaskList``) added to it.  Additionally, it stores various bookkeeping
+information that facilitate more advanced features described below.  Adding
+tasks and sublists are the only way to interact with ``TaskList`` objects.
 
-AddTask
-~~~~~~~
+The basic call to ``AddTask`` takes the task's dependencies, the function to be
+executed, and the arguments to the function as its arguments.  ``AddTask`` returns
+a ``TaskID`` object that can be used in subsequent calls to ``AddTask`` as a
+dependency either on its own or combined with other ``TaskID``s via the ``|``
+operator.  Use of the ``|`` operator is historical and perhaps a bit misleading as
+it really acts as a logical and -- that is, all tasks combined with ``|`` must be
+complete before the dependencies are satisfied.  An overload of ``AddTask`` takes
+a ``TaskQualifier`` object as the first argument which specifies certain special,
+non-default behaviors.  These will be described below.  Note that the default
+constructor of ``TaskID`` produces a special object that when passed into
+``AddTask`` signifies that the task has no dependencies.
 
-``AddTask`` is a templated variadic function that takes the task
-function to be executed, the task dependencies (see ``TaskID`` below),
-and the arguments to the task function as it’s arguments. All arguments
-are captured by value in a lambda for later execution.
-
-When adding functions that are non-static class member functions, a
-slightly different interface is required. The first argument should be
-the class-name-scoped name of the function. For example, for a function
-named ``DoSomething`` in class ``SomeClass``, the first argument would
-be ``&SomeClass::DoSomething``. The second argument should be a pointer
-to the object that should invoke this member function. Finally, the
-dependencies and function arguments should be provided as described
-above.
-
-Examples of both ``AddTask`` calls can be found in the advection example
-`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_driver.cpp>`__.
-
-AddIteration
-~~~~~~~~~~~~
-
-``AddIteration`` provides a means of grouping a set of tasks together
-that will be executed repeatedly until stopping criteria are satisfied.
-``AddIteration`` returns an ``IterativeTasks`` object which provides
-overloaded ``AddTask`` functions as described above, but internally
-handles the bookkeeping necessary to maintain the association of all the
-tasks associated with the iterative process. A special function
-``SetCompletionTask``, which behaves identically to ``AddTask``, allows
-a task to be defined that evaluates the stopping criteria. The maximum
-number of iterations can be controlled through the ``SetMaxIterations``
-member function and the number of iterations between evaluating the
-stopping criteria can be set with the ``SetCheckInterval`` function.
-
-DoAvailable
-~~~~~~~~~~~
-
-``DoAvailable`` loops over the task list once, executing all tasks whose
-dependencies are satisfied. Completed tasks are removed from the task
-list.
-
-TaskID
-------
-
-The ``TaskID`` class implements methods that allow Parthenon to keep
-track of tasks, their dependencies, and what remains to be completed.
-The main way application code will interact with this object is as a
-returned object from ``TaskList::AddTask`` and as an argument to
-subsequent calls to ``TaskList::AddTask`` as a dependency for other
-tasks. When used as a dependency, ``TaskID`` objects can be combined
-with the bitwise or operator (``|``) to specify multiple dependencies.
+The ``AddSublist`` function adds a nested ``TaskList`` to the ``TaskList`` on
+which its called.  The principle use case for this is to add iterative cycles
+to the graph, allowing one to execute a series of tasks repeatedly until some
+criteria are satisfied.  The call takes as arguments the dependencies (via
+``TaskID``s combined with ``|``) that must be complete before the sublist
+exectues and a ``std::pair<int, int>`` specifying the minimum
+and maximum number of times the sublist should execute.  Passing something like
+``{min_iters, max_iters}`` as the second argument should suffice, with `{1, 1}`
+leading to a sublist that never cycles.  ``AddSublist``
+returns a ``std::pair<TaskList&, TaskID>`` which is conveniently accessed via
+a structured binding, e.g.
+.. code:: cpp
+  TaskID none;
+  auto [child_list, child_list_id] = parent_list.AddSublist(dependencies, {1,3});
+  auto task_id = child_list.AddTask(none, SomeFunction, arg1, arg2);
+In the above example, passing ``none`` as the dependency for the task added to
+``child_list`` does not imply that this task can execute at any time since
+``child_list`` itself has dependencies that must be satisfied before any of its
+tasks can be invoked.
 
 TaskRegion
 ----------
 
-``TaskRegion`` is a lightweight class that wraps
-``std::vector<TaskList>``, providing a little extra functionality.
-During task execution (described below), all task lists in a
-``TaskRegion`` can be operated on concurrently. For example, a
-``TaskRegion`` can be used to construct independent task lists for each
-``MeshBlock``. Occasionally, it is useful to have a task not be
-considered complete until that task completes in all lists of a region.
-For example, a global iterative solver cannot be considered complete
-until the stopping criteria are satisfied everywhere, which may require
-evaluating those criteria in tasks that live in different lists within a
-region. An example of this use case is
-shown `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_driver.cpp>`__. The mechanism
-to mark a task so that dependent tasks will wait until all lists have
-completed it is to call ``AddRegionalDependencies``, as shown in the
-Poisson example.
+Under the hood, a ``TaskRegion`` is a directed, possibly cyclic graph.  The graph
+is built up incrementally as tasks are added to the ``TaskList``s within the 
+``TaskRegion``, and it's construction is completed upon the first time it's
+executed.  ``TaskRegion``s can have one or more ``TaskList``s.  The primary reason
+for this is to allow flexibility in how work is broken up into tasks (and
+eventually kernels).  A region with many lists will produce many small
+tasks/kernels, but may expose more asynchrony (e.g. MPI communication).  A region
+with fewer lists will produce more work per kernel (which may be good for GPUs,
+for example), but may limit asynchrony.  Typically, each list is tied to a unique
+partition of the mesh blocks owned by a rank.  ``TaskRegion`` only provides a few
+public facing functions:
+- ``TaskListStatus Execute(ThreadPool &pool)``: ``TaskRegion``s can be executed, requiring a
+``ThreadPool`` be provided by the caller.  In practice, ``Execute`` is usually
+called from the ``Execute`` member function of ``TaskCollection``.
+- ``TaskList& operator[](const int i)``: return a reference to the ``i``th
+``TaskList`` in the region.
+- ``size_t size()``: return the number of ``TaskList``s in the region.
 
 TaskCollection
 --------------
@@ -117,24 +116,55 @@ finally another round of asynchronous work.
 A diagram illustrating the relationship between these different classes
 is shown below.
 
-.. figure:: TaskDiagram.png
+.. figure:: figs/TaskDiagram.png
    :alt: Task Diagram
 
-``TaskCollection`` provides two member functions, ``AddRegion`` and
-``Execute``.
+``TaskCollection`` provides a few 
+public-facing functions:
+- ``TaskRegion& AddRegion(const int num_lists)``: Add and return a reference to
+a new ``TaskRegion`` with the specified number of ``TaskList``s.
+- ``TaskListStatus Execute(ThreadPool &pool)``: Execute all regions in the
+collection.  Regions are executed completely, in the order they were added,
+before moving on to the next region.  Task execution will take advantage of
+the provided ``ThreadPool`` to (possibly) execute tasks across ``TaskList``s
+in each region concurrently.
+- ``TaskListStatus Execute()``: Same as above, but execution will use an
+internally generated ``ThreadPool`` with a single thread.
 
-AddRegion
-~~~~~~~~~
+NOTE: Work remains to make the rest of
+Parthenon thread-safe, so it is currently required to use a ``ThreadPool``
+with one thread.
 
-``AddRegion`` simply adds a new ``TaskRegion`` to the back of the
-collection and returns it as a reference. The integer argument
-determines how many task lists make up the region.
+TaskQualifier
+-------------
 
-Execute
-~~~~~~~
+``TaskQualifier``s provide a mechanism for downstream codes to alter the default
+behavior of specific tasks in certain ways.  The qualifiers are described below:
+- ``TaskQualifier::local_sync``: Tasks marked with ``local_sync`` synchronize across
+lists in a region on a given MPI rank.  Tasks that depend on a ``local_sync``
+marked task gain dependencies from the corresponding task on all lists within
+a region.  A typical use for this qualifier is to do a rank-local reduction, for
+example before initiating a global MPI reduction (which should be done only once
+per rank, not once per ``TaskList``).  Note that Parthenon links tasks across
+lists in the order they are added to each list, i.e. the ``n``th ``local_sync`` task
+in a list is assumed to be associated with the ``n``th ``local_sync`` task in all
+lists in the region.
+- ``TaskQualifier::global_sync``: Tasks marked with ``global_sync`` implicitly have
+the same semantics as ``local_sync``, but additionally do a global reduction on the
+``TaskStatus`` to determine if/when execution can proceed on to dependent tasks.
+- ``TaskQualifier::completion``: Tasks marked with ``completion`` can lead to exiting
+execution of the owning ``TaskList``.  If these tasks return ``TaskStatus::complete``
+and the minimum number of iterations of the list have been completed, the remainder
+of the task list will be skipped (or the iteration stopped).  Returning
+``TaskList::iterate`` leads to continued execution/iteration, unless the maximum
+number of iterations has been reached.
+- ``TaskQualifier::once_per_region``: Tasks with the ``once_per_region`` qualifier
+will only execute once (per iteration, if relevant) regardless of the number of
+``TaskList``s in the region.  This can be useful when, for example, doing MPI
+reductions, printing out some rank-wide state, or calling a ``completion`` task
+that depends on some global condition where all lists would evaluate identical code.
 
-Calling the ``Execute`` method on the ``TaskCollection`` executes all
-the tasks that have been added to the collection, processing each
-``TaskRegion`` in the order they were added, and allowing tasks in
-different ``TaskList``\ s but the same ``TaskRegion`` to be executed
-concurrently.
+``TaskQualifier``s can be combined via the ``|`` operator and all combinations are
+supported.  For example, you might mark a task ``global_sync | completion | once_per_region``
+if it were a task to determine whether an iteration should continue that depended
+on some previously reduced quantity.

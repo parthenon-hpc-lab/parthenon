@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,8 +25,8 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
-#include "tasks/task_id.hpp"
-#include "tasks/task_list.hpp"
+
+#include "tasks/tasks.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -72,11 +72,13 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
 // Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
-// This task should not be called in down stream code
+// These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace parthenon
 

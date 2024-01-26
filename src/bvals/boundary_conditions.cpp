@@ -33,9 +33,9 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
-  Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
+  PARTHENON_INSTRUMENT
   using namespace boundary_cond_impl;
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  MeshBlock *pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
 
@@ -44,10 +44,12 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
       PARTHENON_DEBUG_REQUIRE(pmesh->MeshBndryFnctn[i] != nullptr,
                               "boundary function must not be null");
       pmesh->MeshBndryFnctn[i](rc, coarse);
+      for (auto &bnd_func : pmesh->UserBoundaryFunctions[i]) {
+        bnd_func(rc, coarse);
+      }
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_ApplyBoundaryConditionsOnCoarseOrFine
   return TaskStatus::complete;
 }
 

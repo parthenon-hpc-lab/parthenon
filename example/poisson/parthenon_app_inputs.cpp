@@ -50,8 +50,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const int iphi = imap["potential"].first;
 
   pmb->par_for(
-      "Poisson::ProblemGenerator", 0, q_bpack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      PARTHENON_AUTO_LABEL, 0, q_bpack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = q_bpack.GetCoords(b);
         auto &q = q_bpack(b);
         Real dist2 = std::pow(coords.Xc<1>(i) - x0, 2) +

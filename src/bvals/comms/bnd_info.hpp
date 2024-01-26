@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -47,6 +47,7 @@ struct BndInfo {
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
+  int alloc_status;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
@@ -57,16 +58,16 @@ struct BndInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
@@ -79,6 +80,7 @@ struct ProResInfo {
 
   CoordinateDirection dir;
   bool allocated = true;
+  int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
@@ -89,17 +91,21 @@ struct ProResInfo {
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetNull(MeshBlock *pmb, const NeighborBlock &nb,
+                            std::shared_ptr<Variable<Real>> v) {
+    return ProResInfo();
+  }
+  static ProResInfo GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
+  static ProResInfo GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
+  static ProResInfo GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1D<BndInfo>;

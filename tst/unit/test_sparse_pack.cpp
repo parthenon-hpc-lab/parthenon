@@ -97,7 +97,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
     MeshData<Real> mesh_data("base");
-    mesh_data.Set(block_list);
+    mesh_data.Set(block_list, nullptr);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -134,6 +134,17 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         int hi = pack.GetUpperBoundHost(2);
         REQUIRE(lo == 0); // lo = 0 because always start at 0 on a block
         REQUIRE(hi == 0); // hi is scalar. Only one value.
+      }
+
+      THEN("A sparse pack correctly loads this data and can report existence and "
+           "nonexistence for variables on different blocks.") {
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto pack = desc.GetPack(&mesh_data);
+        REQUIRE(pack.ContainsHost(2, v1()));
+        REQUIRE(!pack.ContainsHost(2, v3()));
+        REQUIRE(pack.ContainsHost(2, v5()));
+        REQUIRE(!pack.ContainsHost(2, v1(), v3(), v5()));
+        REQUIRE(pack.ContainsHost<v1, v5>(2));
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "

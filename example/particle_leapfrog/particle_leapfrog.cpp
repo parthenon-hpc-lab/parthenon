@@ -189,7 +189,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      "CreateParticles", 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
         const auto &m = ids_this_block(n);
 
         id(n) = m; // global unique id
@@ -227,7 +227,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   const Real ay = 0.0;
   const Real az = 0.0;
   pmb->par_for(
-      "Leapfrog", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           // drift
           x(n) += v(0, n) * 0.5 * dt;

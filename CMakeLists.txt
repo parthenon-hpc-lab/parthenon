@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.8.0 LANGUAGES C CXX)
+project(parthenon VERSION 23.11 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -62,9 +62,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 19 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 20 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=e1d1a06b9cf9b761d42d0b6b241056ac75658db90138b6b867b1ca7ead4308af4f980285af092b40aee1dbbfb68b4e8cb15efcc9b83d7930c18bf992ae95c729"
+  "SHA512=e5e421f3c0be01e4708965542bb8b1b79b5c96de97091e46972e375c7616588d026a9a8e29226d9c7ef75346bc859fd9af72acdc7e95e0d783b5ef29aa4630b1"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -115,6 +115,9 @@ endif()
 # This is fully standard, but links a separate library when using old compilers
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
+
+# Require threading for tasks
+find_package(Threads)
 
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
@@ -352,6 +355,10 @@ endif()
 if (PARTHENON_ENABLE_ASCENT)
   find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
+
+# Installation configuration
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 add_subdirectory(src)
 add_subdirectory(example)
