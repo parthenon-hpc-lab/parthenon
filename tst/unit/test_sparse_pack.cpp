@@ -133,8 +133,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               // 0-th is ANYDIM, 1st is 3.
-              for (int l = 0; l < v7::GetDim<1>(); ++l) {
-                for (int m = 0; m < v7::GetDim<1>(); ++m) {
+              for (int l = 0; l < tensor_shape[4]; ++l) {
+                for (int m = 0; m < tensor_shape[3]; ++m) {
                   Real n = m + 1e1 * l;
                   if (sparse_pack(b, v7(l, m), k, j, i) != n) {
                     ltot += 1;

@@ -90,7 +90,7 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
 // device
 namespace variable_names {
 // Struct that all variable_name types should inherit from
-constexpr int ANYDIM = -1234;
+constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
 template <bool REGEX, int... NCOMP>
 struct base_t {
   KOKKOS_INLINE_FUNCTION
@@ -109,8 +109,11 @@ struct base_t {
   template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
   KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
-      : idx(GetIndex_(std::forward<Args>(args)...)) {}
-
+      : idx(GetIndex_(std::forward<Args>(args)...)) {
+    static_assert(CheckArgs_(NCOMP...),
+                  "All dimensions must be strictly positive, "
+                  "except the first (slowest), which may be ANYDIM.");
+  }
   virtual ~base_t() = default;
 
   // All of these are just static methods so that there is no
@@ -134,6 +137,10 @@ struct base_t {
   const int idx;
 
  private:
+  template <typename... Tail, REQUIRES(all_implement<integral(Tail...)>::value)>
+  static constexpr bool CheckArgs_(int head, Tail... tail) {
+    return (... && (tail > 0));
+  }
   template <class... Args>
   KOKKOS_INLINE_FUNCTION static auto GetIndex_(Args... args) {
     int idx = 0;
