@@ -3,7 +3,7 @@
 // Copyright(C) 2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,8 +29,10 @@
 #include <vector>
 
 // Parthenon
+#include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
@@ -53,6 +55,7 @@ struct VarInfo {
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
+  int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
 
   VarInfo() = delete;
 
@@ -199,6 +202,59 @@ struct AllSwarmInfo {
                const std::map<std::string, std::set<std::string>> &swarmnames,
                bool is_restart);
 };
+
+template <typename T, typename Function_t>
+std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
+  const int num_blocks_local = static_cast<int>(pm->block_list.size());
+  std::vector<T> data(shape * num_blocks_local);
+  int i = 0;
+  for (auto &pmb : pm->block_list) {
+    f(pmb.get(), data, i);
+  }
+  return data;
+}
+
+// mirror must be provided because copying done externally
+template <typename Data_t, typename idx_t, typename Function_t>
+void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t &idx,
+                     std::vector<Data_t> &data, Function_t f) {
+  const auto &Nt = pvar->GetDim(6);
+  const auto &Nu = pvar->GetDim(5);
+  const auto &Nv = pvar->GetDim(4);
+  const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
+  IndexRange kb, jb, ib;
+  if (pvar->metadata().Where() == MetadataFlag(Metadata::Cell)) {
+    kb = pmb->cellbounds.GetBoundsK(domain);
+    jb = pmb->cellbounds.GetBoundsJ(domain);
+    ib = pmb->cellbounds.GetBoundsI(domain);
+    // TODO(JMM): Add topological elements here
+  } else { // metadata none
+    kb = {0, pvar->GetDim(3) - 1};
+    jb = {0, pvar->GetDim(2) - 1};
+    ib = {0, pvar->GetDim(1) - 1};
+  }
+  for (int t = 0; t < Nt; ++t) {
+    for (int u = 0; u < Nu; ++u) {
+      for (int v = 0; v < Nv; ++v) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
+            for (int i = ib.s; i <= ib.e; ++i) {
+              f(idx, t, u, v, k, j, i);
+              idx++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                   std::vector<Real> &z);
+std::vector<Real> ComputeXminBlocks(Mesh *pm);
+std::vector<int64_t> ComputeLocs(Mesh *pm);
+std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
