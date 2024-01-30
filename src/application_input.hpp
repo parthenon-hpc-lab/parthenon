@@ -36,7 +36,8 @@ struct ApplicationInput {
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator =
       nullptr;
-  std::function<void(Mesh *, MeshData<Real> *)> MeshPostInitialization = nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
+      nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;
@@ -58,7 +59,8 @@ struct ApplicationInput {
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void(MeshBlockData<Real> *)> PostInitialization = nullptr;
+  std::function<void(MeshBlockData<Real> *, ParameterInput *)> PostInitialization =
+      nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
       nullptr;
 };

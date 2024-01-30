@@ -160,7 +160,8 @@ class Mesh {
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
       nullptr;
-  std::function<void(Mesh *, MeshData<Real> *)> PostInitialization = nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
+      nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =

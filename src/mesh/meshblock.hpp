@@ -440,9 +440,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  static void PostInitializationDefault(MeshBlockData<Real> *mbd);
+  static void PostInitializationDefault(MeshBlockData<Real> *mbd, ParameterInput *pin);
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void(MeshBlockData<Real> *)> PostInitialization = nullptr;
+  std::function<void(MeshBlockData<Real> *, ParameterInput *)> PostInitialization =
+      nullptr;
   static pMeshBlockApplicationData_t
   InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>

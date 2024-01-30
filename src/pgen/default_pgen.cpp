@@ -121,11 +121,14 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
-//! \fn void MeshBlock::PostInitializationDefault(MeshBlockData<Real> *mbd)
+//! \fn void MeshBlock::PostInitializationDefault(MeshBlockData<Real> *mbd,
+//!                                               ParameterInput *pin)
 //  \brief Should be used to perform post initialization ops.
 //========================================================================================
 
-void MeshBlock::PostInitializationDefault(MeshBlockData<Real> *mbd) { return; }
+void MeshBlock::PostInitializationDefault(MeshBlockData<Real> *mbd, ParameterInput *pin) {
+  return;
+}
 
 //========================================================================================
 //! \fn void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin)

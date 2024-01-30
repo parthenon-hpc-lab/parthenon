@@ -961,13 +961,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                           "during first initialization.");
 
         auto &md = mesh_data.GetOrAdd("base", 0);
-        PostInitialization(this, md.get());
+        PostInitialization(this, pin, md.get());
         // Call individual MeshBlock PostInitialization
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
           auto &mbd = pmb->meshblock_data.Get();
-          pmb->PostInitialization(mbd.get());
+          pmb->PostInitialization(mbd.get(), pin);
         }
       }
 
