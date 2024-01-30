@@ -966,8 +966,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          auto &mbd = pmb->meshblock_data.Get();
-          pmb->PostInitialization(mbd.get(), pin);
+          pmb->PostInitialization(pmb.get(), pin);
         }
       }
 
