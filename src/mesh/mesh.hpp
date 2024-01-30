@@ -98,6 +98,7 @@ class Mesh {
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetBlockSize() const;
   RegionSize GetBlockSize(const LogicalLocation &loc) const;
+  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   // data
   bool modified;
@@ -195,6 +196,20 @@ class Mesh {
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
+
+  // TODO(JMM): Put in implementation file?
+  auto GetLevelsAndLogicalLocationsFlat() const noexcept {
+    std::vector<std::int64_t> levels, logicalLocations;
+    levels.reserve(nbtotal);
+    logicalLocations.reserve(nbtotal * 3);
+    for (const auto &loc : loclist) {
+      levels.push_back(loc.level() - GetRootLevel());
+      logicalLocations.push_back(loc.lx1());
+      logicalLocations.push_back(loc.lx2());
+      logicalLocations.push_back(loc.lx3());
+    }
+    return std::make_pair(levels, logicalLocations);
+  }
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
