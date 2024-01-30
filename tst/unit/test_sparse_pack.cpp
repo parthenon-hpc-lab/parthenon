@@ -128,13 +128,15 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         auto desc = parthenon::MakePackDescriptor<v7>(pkg.get());
         auto sparse_pack = desc.GetPack(&mesh_data);
         int nwrong = 0;
+        int nl = tensor_shape[4];
+        int nm = tensor_shape[3];
         par_reduce(
             loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
             sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               // 0-th is ANYDIM, 1st is 3.
-              for (int l = 0; l < tensor_shape[4]; ++l) {
-                for (int m = 0; m < tensor_shape[3]; ++m) {
+              for (int l = 0; l < nl; ++l) {
+                for (int m = 0; m < nm; ++m) {
                   Real n = m + 1e1 * l;
                   if (sparse_pack(b, v7(l, m), k, j, i) != n) {
                     ltot += 1;
