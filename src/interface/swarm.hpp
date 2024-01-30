@@ -137,18 +137,18 @@ class Swarm {
   /// Get particle variable
   template <typename T>
   bool Contains(const std::string &label) {
-    return std::get<getType<T>()>(Maps_).count(label);
+    return std::get<getType<T>()>(maps_).count(label);
   }
   // TODO(JMM): Kind of sucks to have two Gets here.
   // Ben could we remove the get reference one and always get a
   // pointer?
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
-    return *std::get<getType<T>()>(Maps_).at(label);
+    return *std::get<getType<T>()>(maps_).at(label);
   }
   template <class T>
   std::shared_ptr<ParticleVariable<T>> GetP(const std::string &label) const {
-    return std::get<getType<T>()>(Maps_).at(label);
+    return std::get<getType<T>()>(maps_).at(label);
   }
 
   /// Assign label for swarm
@@ -336,7 +336,7 @@ template <class T>
 inline vpack_types::SwarmVarList<T>
 Swarm::MakeVarList_(const std::vector<std::string> &names) {
   vpack_types::SwarmVarList<T> vars;
-  auto variables = std::get<getType<T>()>(Maps_);
+  auto variables = std::get<getType<T>()>(maps_);
 
   for (auto name : names) {
     vars.push_front(variables[name]);
@@ -386,7 +386,7 @@ inline void Swarm::Add_(const std::string &label, const Metadata &m) {
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 
   std::get<getType<T>()>(vectors_).push_back(var);
-  std::get<getType<T>()>(Maps_)[label] = var;
+  std::get<getType<T>()>(maps_)[label] = var;
 }
 
 using SP_Swarm = std::shared_ptr<Swarm>;
