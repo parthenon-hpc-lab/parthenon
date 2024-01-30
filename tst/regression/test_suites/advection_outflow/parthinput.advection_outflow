@@ -64,4 +64,4 @@ num_vars = 1 # number of variables in variable vector
 <parthenon/output0>
 file_type = hdf5
 dt = 0.5
-variables = advected
+variables = advected my_derived_var
