@@ -705,6 +705,38 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       });
 }
 
+// 4D  outer parallel loop using Kokkos Teams
+template <typename Function>
+inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
+                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
+                          const int scratch_level, const int ml, const int mu,
+                          const int nl, const int nu, const int kl, const int ku,
+                          const int jl, const int ju, const Function &function) {
+  const int Nm = mu - ml + 1;
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int NkNj = Nk * Nj;
+  const int NnNkNj = Nn * Nk * Nj;
+  const int NmNnNkNj = Nm*Nn * Nk * Nj;
+
+  team_policy policy(exec_space, NmNnNkNj, Kokkos::AUTO);
+
+  Kokkos::parallel_for(
+      name,
+      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        int m = team_member.league_rank() / NnNkNj;
+        int n = (team_member.league_rank() - m * NnNkNj) / NkNj;
+        int k = (team_member.league_rank() - m * NnNkNj - n * NkNj) / Nj;
+        const int j = team_member.league_rank() - m * NnNkNj - n * NkNj - k * Nj + jl;
+        m += ml;
+        n += nl;
+        k += kl;
+        function(team_member, m, n, k, j);
+      });
+}
+
 // Inner parallel loop using TeamThreadRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void
