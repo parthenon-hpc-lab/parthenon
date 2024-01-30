@@ -50,4 +50,18 @@ class TestCase(utils.test_case.TestCaseAbs):
             check_metadata=False,
         )
 
-        return delta == 0
+        try:
+            from phdf import phdf
+        except ModuleNotFoundError:
+            print("Couldn't find module to open Parthenon hdf5 files.")
+            return False
+
+        ## compute the derived var 'manually' and compare to the output derived var
+        data_filename = "outflow.out0.final.phdf"
+        data_file = phdf(data_filename)
+        q = data_file.Get("advected")[0]
+        import numpy as np
+        my_derived_var = np.log10(q + 1.0e-5)
+        file_derived_var = data_file.Get("my_derived_var")[0]
+
+        return (delta == 0) and np.all(my_derived_var == file_derived_var)
