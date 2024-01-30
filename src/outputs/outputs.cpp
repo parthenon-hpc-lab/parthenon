@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -263,6 +263,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           num_rst_outputs++;
         }
 #ifdef ENABLE_HDF5
+        op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl

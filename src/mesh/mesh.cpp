@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -1209,6 +1209,22 @@ int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
 const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
+
+const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  // TODO(JMM): Luke this is for your Metadata::fine stuff.
+  PARTHENON_DEBUG_REQUIRE(level != CellLevel::fine,
+                          "Currently no access to finer cellbounds");
+  MeshBlock *pmb = block_list[0].get();
+  if (level == CellLevel::same) {
+    return pmb->cellbounds;
+    // TODO(JMM):
+    // } else if (level == CellLevel::fine) {
+    //   return pmb->fine_cellbounds;
+    // }
+  } else { // if (level == CellLevel::coarse) {
+    return pmb->c_cellbounds;
+  }
+}
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
