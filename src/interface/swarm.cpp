@@ -1095,9 +1095,6 @@ void Swarm::UnloadBuffers_() {
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
-    // TODO(BRR) remove these dynamic allocs
-    // ParArray1D<int> neighbor_index("Neighbor index", total_received_particles_);
-    // ParArray1D<int> buffer_index("Buffer index", total_received_particles_);
     auto &recv_neighbor_index = recv_neighbor_index_;
     auto &recv_buffer_index = recv_buffer_index_;
     UpdateNeighborBufferReceiveIndices_(recv_neighbor_index, recv_buffer_index);
