@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -110,7 +110,7 @@ void MeshBlock::InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin
 }
 
 //========================================================================================
-//! \fn void MeshBlock::ProblemGeneratorDefault(ParameterInput *pin)
+//! \fn void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin)
 //  \brief Should be used to set initial conditions.
 //========================================================================================
 
@@ -130,6 +130,12 @@ void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime con
   // do nothing
   return;
 }
+
+//! \fn void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin)
+//  \brief Should be used to perform post initialization ops.
+//========================================================================================
+
+void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin) { return; }
 
 //========================================================================================
 //! \fn void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin)
