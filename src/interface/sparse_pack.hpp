@@ -124,7 +124,7 @@ struct base_t {
   }
   template <int idx>
   static constexpr auto GetDim() {
-    return std::get<idx>(std::make_tuple(NCOMP...));
+    return std::get<sizeof...(NCOMP) - idx>(std::make_tuple(NCOMP...));
   }
   static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
