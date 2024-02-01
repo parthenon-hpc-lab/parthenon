@@ -111,8 +111,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         auto &pmbd = pmb->meshblock_data.Get();
         auto var = pmbd->Get("v7");
         auto var5 = var.data.Get<5>();
-        int slower_rank = var5.GetDim(0);
-        int faster_rank = var5.GetDim(1);
+        int slower_rank = var5.GetDim(5);
+        int faster_rank = var5.GetDim(4);
         par_for(
             loop_pattern_mdrange_tag, "initializev7", DevExecSpace(), kb.s, kb.e, jb.s,
             jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
