@@ -303,7 +303,12 @@ command. For example, the ``refine_tol`` parameter in the
 appending ``parthenon/refinement0/refine_tol=my_new_value`` to the
 launch command (e.g.,
 ``srun ./myapp -i my_input.file parthenon/refinement0/refine_tol=my_new_value``).
-This similarly applies to simulations that are restarted.
+This similarly applies to simulations that are restarted, where modifications
+from the command line and through an input file are possible, e.g.,
+``srun ./myapp -r out0.rhdf -i modified_input.in parthenon/refinement0/refine_tol=my_new_value``.
+In the latter case, the input stored in the restart file will be read first,
+then updated from the content in the input file, and finalyl modified from the
+parameters provided on the command line.
 
 Global reductions
 ~~~~~~~~~~~~~~~~~

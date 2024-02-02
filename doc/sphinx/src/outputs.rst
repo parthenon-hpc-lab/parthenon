@@ -133,8 +133,9 @@ This will produce an hdf5 (``.rhdf``) output file every 1 units of
 simulation time that can be used for restarting the simulation.
 
 To use this restart file, simply specify the restart file with a
-``-r <restart.rhdf>`` at the command line. It is an error to specify an
-input file with the ``-i`` flag when using the restart option.
+``-r <restart.rhdf>`` at the command line. If both ``-r <restart.rhdf>``
+and ``-i <input.in>`` are specicifed, the simulation will be restarted from
+the restart file with input parameter updated (or added) from the input file.
 
 For physics developers: The fields to be output are automatically
 selected as all the variables that have either the ``Independent`` or
