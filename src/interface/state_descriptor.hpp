@@ -31,6 +31,7 @@
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/swarm.hpp"
+#include "interface/var_id.hpp"
 #include "interface/variable.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -43,33 +44,7 @@ class MeshBlockData;
 template <typename T>
 class MeshData;
 
-/// We uniquely identify a variable by it's full label, i.e. base name plus sparse ID.
-/// However, sometimes we also need to be able to separate the base name from the sparse
-/// ID. Instead of relying on the fact that they are separated by a "_", we store them
-/// separately in VarID struct. This way we know that a dense variable "foo_3" does not
-/// have a sparse ID and a sparse field "foo_3" has base name "foo" and sparse ID 3,
-/// however, the two VarIDs representing them are still considered equal, so that we find
-/// such duplicates
-/// TODO(JMM): Using VarID machinery for prolongation/restriction
-/// implies that all vars in a sparse pool have the same custom
-/// prolongation/restriction operators.
-struct VarID {
-  std::string base_name;
-  int sparse_id;
-
-  explicit VarID(const std::string base_name, int sparse_id = InvalidSparseID)
-      : base_name(base_name), sparse_id(sparse_id) {}
-
-  std::string label() const { return MakeVarLabel(base_name, sparse_id); }
-
-  bool operator==(const VarID &other) const { return (label() == other.label()); }
-};
-
-struct VarIDHasher {
-  auto operator()(const VarID &vid) const {
-    return std::hash<std::string>{}(vid.label());
-  }
-};
+using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -127,10 +102,28 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string const &label) : label_(label) {}
+  explicit StateDescriptor(std::string const &label) : label_(label) {
+    if (Metadata::FlagNameExists(label)) {
+      AddParam("PackageMetadataFlag_", Metadata::GetUserFlag(label));
+    } else {
+      AddParam("PackageMetadataFlag_", Metadata::AddUserFlag(label));
+    }
+  }
+
+  // Virtual destructor for subclassing
+  virtual ~StateDescriptor() = default;
 
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
+
+  MetadataFlag GetMetadataFlag() {
+    return params_.Get<MetadataFlag>("PackageMetadataFlag_");
+  }
+
+  template <typename T>
+  void AddParam(const std::string &key, T value, Params::Mutability mutability) {
+    params_.Add<T>(key, value, mutability);
+  }
 
   template <typename T>
   void AddParam(const std::string &key, T value, bool is_mutable = false) {
@@ -168,7 +161,7 @@ class StateDescriptor {
   // retrieve label
   const std::string &label() const noexcept { return label_; }
 
-  bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
+  bool AddSwarm(const std::string &swarm_name, const Metadata &m_in) {
     PARTHENON_REQUIRE(
         swarm_name != "swarm",
         "A swarm may not be named \"swarm\", as this may cause name collisions.");
@@ -177,13 +170,23 @@ class StateDescriptor {
     if (swarmMetadataMap_.count(swarm_name) > 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
+    Metadata m = m_in; // so we can modify it
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     swarmMetadataMap_[swarm_name] = m;
 
     return true;
   }
+  template <typename T>
+  bool AddSwarm(const Metadata &m) {
+    return AddSwarm(T::name(), m);
+  }
 
   bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
                      const Metadata &m);
+  template <typename T, typename V>
+  bool AddSwarmValue(const Metadata &m) {
+    return AddSwarmValue(T::name(), V::name(), m);
+  }
 
   // field addition / retrieval routines
  private:
@@ -195,15 +198,21 @@ class StateDescriptor {
   bool AddSparsePoolImpl(const SparsePool &pool);
 
  public:
-  bool AddField(const std::string &field_name, const Metadata &m,
+  bool AddField(const std::string &field_name, const Metadata &m_in,
                 const std::string &controlling_field = "") {
+    Metadata m = m_in; // so we can modify it
     if (m.IsSet(Metadata::Sparse)) {
       PARTHENON_THROW(
           "Tried to add a sparse field with AddField, use AddSparsePool instead");
     }
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     VarID controller = VarID(controlling_field);
     if (controlling_field == "") controller = VarID(field_name);
     return AddFieldImpl(VarID(field_name), m, controller);
+  }
+  template <typename T>
+  bool AddField(const Metadata &m, const std::string &controlling_field = "") {
+    return AddField(T::name(), m, controlling_field);
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
@@ -212,6 +221,16 @@ class StateDescriptor {
   template <typename... Args>
   bool AddSparsePool(Args &&...args) {
     return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
+  }
+  template <typename... Args>
+  bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&...args) {
+    Metadata m = m_in; // so we can modify it
+    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
+    return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
+  }
+  template <typename T, typename... Args>
+  bool AddSparsePool(const Metadata &m_in, Args &&...args) {
+    return AddSparsePool(T::name(), m_in, std::forward<Args>(args)...);
   }
 
   // retrieve number of fields
@@ -245,6 +264,16 @@ class StateDescriptor {
     // automatically have x, y, z.
     return swarmValueMetadataMap_[swarm_name];
   }
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names);
+  std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags);
+
   std::size_t
   RefinementFuncID(const refinement::RefinementFunctions_t &funcs) const noexcept {
     return refinementFuncMaps_.funcs_to_ids.at(funcs);
@@ -325,6 +354,12 @@ class StateDescriptor {
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
+  void PreCommFillDerived(MeshBlockData<Real> *rc) const {
+    if (PreCommFillDerivedBlock != nullptr) PreCommFillDerivedBlock(rc);
+  }
+  void PreCommFillDerived(MeshData<Real> *rc) const {
+    if (PreCommFillDerivedMesh != nullptr) PreCommFillDerivedMesh(rc);
+  }
   void PreFillDerived(MeshBlockData<Real> *rc) const {
     if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
   }
@@ -373,14 +408,22 @@ class StateDescriptor {
     if (InitNewlyAllocatedVarsBlock != nullptr) return InitNewlyAllocatedVarsBlock(rc);
   }
 
+  void UserWorkBeforeLoop(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
+    if (UserWorkBeforeLoopMesh != nullptr) return UserWorkBeforeLoopMesh(pmesh, pin, tm);
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
+  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
   std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
   std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
   std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
+      nullptr;
 
   std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
       nullptr;
@@ -396,8 +439,9 @@ class StateDescriptor {
   std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
+  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
- private:
+ protected:
   void InvertControllerMap();
 
   Params params_;

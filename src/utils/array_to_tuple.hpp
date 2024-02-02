@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,42 +10,33 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef UTILS_ARRAY_TO_TUPLE_HPP_
+#define UTILS_ARRAY_TO_TUPLE_HPP_
 
-#ifndef TASKS_TASK_ID_HPP_
-#define TASKS_TASK_ID_HPP_
-
-#include <bitset>
-#include <string>
-#include <vector>
-
-#include "basic_types.hpp"
+#include <type_traits>
 
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-//! \class TaskID
-//  \brief generalization of bit fields for Task IDs, status, and dependencies.
+template <class T, std::size_t... I>
+auto ArrayToTuple(const T &arr_in, std::index_sequence<I...>) {
+  return std::make_tuple((arr_in[I])...);
+}
 
-#define BITBLOCK 16
+template <class T, std::size_t N>
+auto ArrayToTuple(const std::array<T, N> &arr_in) {
+  return ArrayToTuple(arr_in, std::make_index_sequence<N>());
+}
 
-class TaskID {
- public:
-  TaskID() { Set(0); }
-  explicit TaskID(int id);
+template <class T, std::size_t... I>
+auto ArrayToReverseTuple(const T &arr_in, std::index_sequence<I...>) {
+  return std::make_tuple((arr_in[sizeof...(I) - I - 1])...);
+}
 
-  void Set(int id);
-  void clear();
-  bool CheckDependencies(const TaskID &rhs) const;
-  void SetFinished(const TaskID &rhs);
-  bool operator==(const TaskID &rhs) const;
-  bool operator!=(const TaskID &rhs) const;
-  TaskID operator|(const TaskID &rhs) const;
-  std::string to_string() const;
-
- private:
-  std::vector<std::bitset<BITBLOCK>> bitblocks;
-};
+template <class T, std::size_t N>
+auto ArrayToReverseTuple(const std::array<T, N> &arr_in) {
+  return ArrayToReverseTuple(arr_in, std::make_index_sequence<N>());
+}
 
 } // namespace parthenon
 
-#endif // TASKS_TASK_ID_HPP_
+#endif // UTILS_ARRAY_TO_TUPLE_HPP_

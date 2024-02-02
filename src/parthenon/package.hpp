@@ -18,6 +18,7 @@
 #include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <interface/make_pack_descriptor.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/sparse_pack.hpp>
@@ -30,6 +31,7 @@
 #include <mesh/meshblock_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
+#include <utils/index_split.hpp>
 #include <utils/partition_stl_containers.hpp>
 
 // Local Includes
@@ -45,6 +47,7 @@ using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
 using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
+using ::parthenon::IndexSplit;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;
@@ -55,6 +58,7 @@ using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
+using ::parthenon::SparsePack;
 using ::parthenon::SparsePool;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;

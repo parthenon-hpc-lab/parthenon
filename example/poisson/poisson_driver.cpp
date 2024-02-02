@@ -18,7 +18,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -70,9 +70,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   // and a kokkos view just for fun
   AllReduce<HostArray1D<Real>> *pview_reduce =
       pkg->MutableParam<AllReduce<HostArray1D<Real>>>("view_reduce");
-  int reg_dep_id;
   for (int i = 0; i < num_partitions; i++) {
-    reg_dep_id = 0;
     // make/get a mesh_data container for the state
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     auto &mdelta = pmesh->mesh_data.GetOrAdd("delta", i);
@@ -81,128 +79,102 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     //--- Demo a few reductions
     // pass a pointer to the variable being reduced into
-    auto loc_red = tl.AddTask(none, poisson_package::SumMass<MeshData<Real>>, md.get(),
-                              &total_mass.val);
-    // make it a regional dependency so dependent tasks can't execute until all lists do
-    // this
-    solver_region.AddRegionalDependencies(reg_dep_id, i, loc_red);
-    reg_dep_id++;
+    auto loc_red =
+        tl.AddTask(TaskQualifier::local_sync, none,
+                   poisson_package::SumMass<MeshData<Real>>, md.get(), &total_mass.val);
 
     auto rank_red = tl.AddTask(
-        none,
+        TaskQualifier::local_sync, none,
         [](int *max_rank) {
           *max_rank = std::max(*max_rank, Globals::my_rank);
           return TaskStatus::complete;
         },
         &max_rank.val);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, rank_red);
-    reg_dep_id++;
 
     // start a non-blocking MPI_Iallreduce
     auto start_global_reduce =
-        (i == 0 ? tl.AddTask(loc_red, &AllReduce<Real>::StartReduce, &total_mass, MPI_SUM)
-                : none);
+        tl.AddTask(TaskQualifier::once_per_region, loc_red, &AllReduce<Real>::StartReduce,
+                   &total_mass, MPI_SUM);
 
-    auto start_rank_reduce =
-        (i == 0 ? tl.AddTask(rank_red, &Reduce<int>::StartReduce, &max_rank, 0, MPI_MAX)
-                : none);
+    auto start_rank_reduce = tl.AddTask(TaskQualifier::once_per_region, rank_red,
+                                        &Reduce<int>::StartReduce, &max_rank, 0, MPI_MAX);
 
     // test the reduction until it completes
     auto finish_global_reduce =
-        tl.AddTask(start_global_reduce, &AllReduce<Real>::CheckReduce, &total_mass);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_global_reduce);
-    reg_dep_id++;
+        tl.AddTask(TaskQualifier::local_sync | TaskQualifier::once_per_region,
+                   start_global_reduce, &AllReduce<Real>::CheckReduce, &total_mass);
 
     auto finish_rank_reduce =
-        tl.AddTask(start_rank_reduce, &Reduce<int>::CheckReduce, &max_rank);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_rank_reduce);
-    reg_dep_id++;
+        tl.AddTask(TaskQualifier::local_sync | TaskQualifier::once_per_region,
+                   start_rank_reduce, &Reduce<int>::CheckReduce, &max_rank);
 
     // notice how we must always pass a pointer to the reduction value
     // since tasks capture args by value, this would print zero if we just passed in
     // the val since the tasks that compute the value haven't actually executed yet
-    auto report_mass = (i == 0 && Globals::my_rank == 0
-                            ? tl.AddTask(
-                                  finish_global_reduce,
-                                  [](Real *mass) {
-                                    std::cout << "Total mass = " << *mass << std::endl;
-                                    return TaskStatus::complete;
-                                  },
-                                  &total_mass.val)
-                            : none);
-    auto report_rank = (i == 0 && Globals::my_rank == 0
-                            ? tl.AddTask(
-                                  finish_rank_reduce,
-                                  [](int *max_rank) {
-                                    std::cout << "Max rank = " << *max_rank << std::endl;
-                                    return TaskStatus::complete;
-                                  },
-                                  &max_rank.val)
-                            : none);
+    auto report_mass = tl.AddTask(
+        TaskQualifier::once_per_region, finish_global_reduce,
+        [](Real *mass) {
+          if (Globals::my_rank == 0) std::cout << "Total mass = " << *mass << std::endl;
+          return TaskStatus::complete;
+        },
+        &total_mass.val);
+    auto report_rank = tl.AddTask(
+        TaskQualifier::once_per_region, finish_rank_reduce,
+        [](int *max_rank) {
+          if (Globals::my_rank == 0) std::cout << "Max rank = " << *max_rank << std::endl;
+          return TaskStatus::complete;
+        },
+        &max_rank.val);
 
     //--- Begining of tasks related to solving the Poisson eq.
     auto mat_elem =
         tl.AddTask(none, poisson_package::SetMatrixElements<MeshData<Real>>, md.get());
 
-    auto &solver = tl.AddIteration("poisson solver");
-    solver.SetMaxIterations(max_iters);
-    solver.SetCheckInterval(check_interval);
-    solver.SetFailWithMaxIterations(fail_flag);
-    solver.SetWarnWithMaxIterations(warn_flag);
+    auto [solver, solver_id] = tl.AddSublist(mat_elem, {1, max_iters});
 
-    auto start_recv = solver.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveBoundaryBuffers, md);
+    auto start_recv = solver.AddTask(none, parthenon::StartReceiveBoundaryBuffers, md);
 
-    auto update = solver.AddTask(mat_elem, poisson_package::UpdatePhi<MeshData<Real>>,
+    auto update = solver.AddTask(none, poisson_package::UpdatePhi<MeshData<Real>>,
                                  md.get(), mdelta.get());
 
-    auto norm = solver.AddTask(update, poisson_package::SumDeltaPhi<MeshData<Real>>,
-                               mdelta.get(), &update_norm.val);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, norm);
-    reg_dep_id++;
-    auto start_reduce_norm = (i == 0 ? solver.AddTask(norm, &AllReduce<Real>::StartReduce,
-                                                      &update_norm, MPI_SUM)
-                                     : none);
+    auto norm = solver.AddTask(TaskQualifier::local_sync, update,
+                               poisson_package::SumDeltaPhi<MeshData<Real>>, mdelta.get(),
+                               &update_norm.val);
+    auto start_reduce_norm =
+        solver.AddTask(TaskQualifier::once_per_region, norm,
+                       &AllReduce<Real>::StartReduce, &update_norm, MPI_SUM);
     auto finish_reduce_norm =
-        solver.AddTask(start_reduce_norm, &AllReduce<Real>::CheckReduce, &update_norm);
-    auto report_norm = (i == 0 ? solver.AddTask(
-                                     finish_reduce_norm,
-                                     [](Real *norm) {
-                                       if (Globals::my_rank == 0) {
-                                         std::cout << "Update norm = " << *norm
-                                                   << std::endl;
-                                       }
-                                       *norm = 0.0;
-                                       return TaskStatus::complete;
-                                     },
-                                     &update_norm.val)
-                               : none);
+        solver.AddTask(TaskQualifier::once_per_region, start_reduce_norm,
+                       &AllReduce<Real>::CheckReduce, &update_norm);
+    auto report_norm = solver.AddTask(
+        TaskQualifier::once_per_region, finish_reduce_norm,
+        [](Real *norm) {
+          if (Globals::my_rank == 0) {
+            std::cout << "Update norm = " << *norm << std::endl;
+          }
+          *norm = 0.0;
+          return TaskStatus::complete;
+        },
+        &update_norm.val);
 
-    auto send = solver.AddTask(update, cell_centered_bvars::SendBoundaryBuffers, md);
+    auto send = solver.AddTask(update, SendBoundaryBuffers, md);
 
-    auto recv =
-        solver.AddTask(start_recv, cell_centered_bvars::ReceiveBoundaryBuffers, md);
+    auto recv = solver.AddTask(start_recv, ReceiveBoundaryBuffers, md);
 
-    auto setb = solver.AddTask(recv | update, cell_centered_bvars::SetBoundaries, md);
+    auto setb = solver.AddTask(recv | update, SetBoundaries, md);
 
-    auto check = solver.SetCompletionTask(
-        send | setb | report_norm, poisson_package::CheckConvergence<MeshData<Real>>,
-        md.get(), mdelta.get());
-    // mark task so that dependent tasks (below) won't execute
-    // until all task lists have completed it
-    solver_region.AddRegionalDependencies(reg_dep_id, i, check);
-    reg_dep_id++;
+    auto check = solver.AddTask(
+        TaskQualifier::completion | TaskQualifier::global_sync, send | setb | report_norm,
+        poisson_package::CheckConvergence<MeshData<Real>>, md.get(), mdelta.get());
 
-    auto print = none;
-    if (i == 0) { // only print once
-      print = tl.AddTask(check, poisson_package::PrintComplete);
-    }
+    auto print = tl.AddTask(TaskQualifier::once_per_region, solver_id,
+                            poisson_package::PrintComplete);
     //--- End of tasks related to solving the Poisson eq
 
     // do a vector reduction (everything below here), just for fun
     // first fill it in
     auto fill_vec = tl.AddTask(
-        none,
+        TaskQualifier::local_sync, none,
         [](std::vector<int> *vec) {
           auto &v = *vec;
           for (int n = 0; n < v.size(); n++)
@@ -210,72 +182,64 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           return TaskStatus::complete;
         },
         &vec_reduce.val);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, fill_vec);
-    reg_dep_id++;
 
     TaskID start_vec_reduce =
-        (i == 0 ? tl.AddTask(fill_vec, &AllReduce<std::vector<int>>::StartReduce,
-                             &vec_reduce, MPI_SUM)
-                : none);
+        tl.AddTask(TaskQualifier::once_per_region, fill_vec,
+                   &AllReduce<std::vector<int>>::StartReduce, &vec_reduce, MPI_SUM);
     // test the reduction until it completes
     TaskID finish_vec_reduce = tl.AddTask(
-        start_vec_reduce, &AllReduce<std::vector<int>>::CheckReduce, &vec_reduce);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_vec_reduce);
-    reg_dep_id++;
+        TaskQualifier::once_per_region | TaskQualifier::local_sync, start_vec_reduce,
+        &AllReduce<std::vector<int>>::CheckReduce, &vec_reduce);
 
-    auto report_vec = (i == 0 && Globals::my_rank == 0
-                           ? tl.AddTask(
-                                 finish_vec_reduce,
-                                 [num_partitions](std::vector<int> *vec) {
-                                   auto &v = *vec;
-                                   std::cout << "Vec reduction: ";
-                                   for (int n = 0; n < v.size(); n++) {
-                                     std::cout << v[n] << " ";
-                                   }
-                                   std::cout << std::endl;
-                                   std::cout << "Should be:     ";
-                                   for (int n = 0; n < v.size(); n++) {
-                                     std::cout << n * num_partitions * Globals::nranks
-                                               << " ";
-                                   }
-                                   std::cout << std::endl;
-                                   return TaskStatus::complete;
-                                 },
-                                 &vec_reduce.val)
-                           : none);
+    auto report_vec = tl.AddTask(
+        TaskQualifier::once_per_region, finish_vec_reduce,
+        [num_partitions](std::vector<int> *vec) {
+          if (Globals::my_rank == 0) {
+            auto &v = *vec;
+            std::cout << "Vec reduction: ";
+            for (int n = 0; n < v.size(); n++) {
+              std::cout << v[n] << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "Should be:     ";
+            for (int n = 0; n < v.size(); n++) {
+              std::cout << n * num_partitions * Globals::nranks << " ";
+            }
+            std::cout << std::endl;
+          }
+          return TaskStatus::complete;
+        },
+        &vec_reduce.val);
 
     // And lets do a view reduce too just for fun
     // The views are filled in the package
     TaskID start_view_reduce =
-        (i == 0 ? tl.AddTask(none, &AllReduce<HostArray1D<Real>>::StartReduce,
-                             pview_reduce, MPI_SUM)
-                : none);
+        tl.AddTask(TaskQualifier::once_per_region, none,
+                   &AllReduce<HostArray1D<Real>>::StartReduce, pview_reduce, MPI_SUM);
     // test the reduction until it completes
     TaskID finish_view_reduce = tl.AddTask(
-        start_view_reduce, &AllReduce<HostArray1D<Real>>::CheckReduce, pview_reduce);
-    solver_region.AddRegionalDependencies(reg_dep_id, i, finish_view_reduce);
-    reg_dep_id++;
+        TaskQualifier::once_per_region | TaskQualifier::local_sync, start_view_reduce,
+        &AllReduce<HostArray1D<Real>>::CheckReduce, pview_reduce);
 
-    auto report_view = (i == 0 && Globals::my_rank == 0
-                            ? tl.AddTask(
-                                  finish_view_reduce,
-                                  [num_partitions](HostArray1D<Real> *view) {
-                                    auto &v = *view;
-                                    std::cout << "View reduction: ";
-                                    for (int n = 0; n < v.size(); n++) {
-                                      std::cout << v(n) << " ";
-                                    }
-                                    std::cout << std::endl;
-                                    std::cout << "Should be:     ";
-                                    for (int n = 0; n < v.size(); n++) {
-                                      std::cout << n * num_partitions * Globals::nranks
-                                                << " ";
-                                    }
-                                    std::cout << std::endl;
-                                    return TaskStatus::complete;
-                                  },
-                                  &(pview_reduce->val))
-                            : none);
+    auto report_view = tl.AddTask(
+        TaskQualifier::once_per_region, finish_view_reduce,
+        [num_partitions](HostArray1D<Real> *view) {
+          if (Globals::my_rank == 0) {
+            auto &v = *view;
+            std::cout << "View reduction: ";
+            for (int n = 0; n < v.size(); n++) {
+              std::cout << v(n) << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "Should be:     ";
+            for (int n = 0; n < v.size(); n++) {
+              std::cout << n * num_partitions * Globals::nranks << " ";
+            }
+            std::cout << std::endl;
+          }
+          return TaskStatus::complete;
+        },
+        &(pview_reduce->val));
   }
 
   return tc;

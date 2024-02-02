@@ -13,10 +13,20 @@
 #ifndef SOLVERS_SOLVER_UTILS_HPP_
 #define SOLVERS_SOLVER_UTILS_HPP_
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
+
+#define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return base::name() + "." #varname; }                    \
+  }
 
 namespace parthenon {
 
@@ -134,6 +144,156 @@ struct Stencil {
     return (rhs - matvec + w(ndiag) * v(b, iv, k, j, i)) / w(ndiag);
   }
 };
+
+namespace utils {
+template <class in, class out, bool only_fine_on_composite = true>
+TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
+
+  auto desc = parthenon::MakePackDescriptor<in, out>(md.get());
+  auto pack = desc.GetPack(md.get(), {}, only_fine_on_composite);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "CopyData", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+        //            pull the loop over vars outside of the innermost loop to promote
+        //            vectorization.
+        const int nvars = pack.GetUpperBound(b, in()) - pack.GetLowerBound(b, in()) + 1;
+        for (int c = 0; c < nvars; ++c)
+          pack(b, te, out(c), k, j, i) = pack(b, te, in(c), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
+template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
+TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
+                                           Real wa = 1.0, Real wb = 1.0,
+                                           bool only_interior = false) {
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::entire, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::entire, te);
+
+  int nblocks = md->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+  if (only_interior) {
+    // The neighbors array will only be set for a block if its a leaf block
+    for (int b = 0; b < nblocks; ++b)
+      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  }
+
+  auto desc = parthenon::MakePackDescriptor<a_t, b_t, out>(md.get());
+  auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+        //            pull the loop over vars outside of the innermost loop to promote
+        //            vectorization.
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        for (int c = 0; c < nvars; ++c) {
+          pack(b, te, out(c), k, j, i) =
+              wa * pack(b, te, a_t(c), k, j, i) + wb * pack(b, te, b_t(c), k, j, i);
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <class a_t, class b_t, class out, bool only_fine_on_composite = true>
+TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md, Real wa = 1.0,
+                             Real wb = 1.0) {
+  return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_fine_on_composite>(
+      md, wa, wb, false);
+}
+
+template <class var, bool only_fine_on_composite = true>
+TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
+  int nblocks = md->NumBlocks();
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  std::vector<bool> include_block(nblocks, true);
+  auto desc = parthenon::MakePackDescriptor<var>(md.get());
+  auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
+  const size_t scratch_size_in_bytes = 0;
+  const int scratch_level = 1;
+  const int ng = parthenon::Globals::nghost;
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "SetFieldsToZero", DevExecSpace(),
+      scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+        auto cb = GetIndexShape(pack(b, te, 0), ng);
+        const auto &coords = pack.GetCoordinates(b);
+        IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
+        const int nvars = pack.GetUpperBound(b, var()) - pack.GetLowerBound(b, var()) + 1;
+        for (int c = 0; c < nvars; ++c) {
+          parthenon::par_for_inner(
+              parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
+              ib.s, ib.e,
+              [&](int k, int j, int i) { pack(b, te, var(c), k, j, i) = 0.0; });
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <class a_t, class b_t>
+TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
+                           AllReduce<Real> *adotb) {
+  using TE = parthenon::TopologicalElement;
+  TE te = TE::CC;
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+  auto desc = parthenon::MakePackDescriptor<a_t, b_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  Real gsum(0);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+        //            pull the loop over vars outside of the innermost loop to promote
+        //            vectorization.
+        for (int c = 0; c < nvars; ++c)
+          lsum += pack(b, te, a_t(c), k, j, i) * pack(b, te, b_t(c), k, j, i);
+      },
+      Kokkos::Sum<Real>(gsum));
+  adotb->val += gsum;
+  return TaskStatus::complete;
+}
+
+template <class a_t, class b_t>
+TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
+                  const std::shared_ptr<MeshData<Real>> &md) {
+  using namespace impl;
+  auto zero_adotb = tl.AddTask(
+      TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+      [](AllReduce<Real> *r) {
+        r->val = 0.0;
+        return TaskStatus::complete;
+      },
+      adotb);
+  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                              DotProductLocal<a_t, b_t>, md, adotb);
+  auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
+                                       &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
+  auto finish_global_adotb =
+      tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                 start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
+  return finish_global_adotb;
+}
+
+} // namespace utils
 
 } // namespace solvers
 

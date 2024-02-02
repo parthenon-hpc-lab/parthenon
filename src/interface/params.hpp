@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 #include <string>
 #include <typeindex>
 #include <typeinfo>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -34,6 +35,11 @@ namespace parthenon {
 /// of any kind
 class Params {
  public:
+  // Immutable is default. Mutable is it can be updated at runtime.
+  // Restart is a subset of mutable. Param not only can be updated at
+  // runtime, but should be read from the restart file upon restart.
+  enum class Mutability : int { Immutable = 0, Mutable = 1, Restart = 2 };
+
   Params() {}
 
   // can't copy because we have a map of unique_ptr
@@ -43,11 +49,15 @@ class Params {
   ///
   /// Throws an error if the key is already in use
   template <typename T>
-  void Add(const std::string &key, T value, bool is_mutable = false) {
+  void Add(const std::string &key, T value, Mutability mutability) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
-    myMutable_[key] = is_mutable;
+    myMutable_[key] = mutability;
+  }
+  template <typename T>
+  void Add(const std::string &key, T value, bool is_mutable = false) {
+    Add(key, value, static_cast<Mutability>(is_mutable));
   }
 
   /// Updates existing object
@@ -55,7 +65,8 @@ class Params {
   template <typename T>
   void Update(const std::string &key, T value) {
     PARTHENON_REQUIRE_THROWS((hasKey(key)), "Key " + key + "missing.");
-    PARTHENON_REQUIRE_THROWS(myMutable_.at(key),
+    // immutable casts to false all others cast to true
+    PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
                              "Parameter " + key + " must be marked as mutable");
     PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
                              "WRONG TYPE FOR KEY '" + key + "'");
@@ -81,7 +92,8 @@ class Params {
   template <typename T>
   T *GetMutable(const std::string &key) const {
     auto typed_ptr = GetTypedPointer_<T>(key);
-    PARTHENON_REQUIRE_THROWS(myMutable_.at(key),
+    // immutable casts to false all others cast to true
+    PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
                              "Parameter " + key + " must be marked as mutable");
     return typed_ptr->pValue.get();
   }
@@ -126,39 +138,52 @@ class Params {
 
 #ifdef ENABLE_HDF5
 
+ public:
+  void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const;
+  void ReadFromRestart(const std::string &prefix, const HDF5::H5G &group);
+
  private:
-  // will write all params with type T to the given HDF5 group as an attribute
+  // these can go in implementation file, since the only relevant
+  // instantiations are in that same implementation file.
+  // Pattern here is the following:
+  //
+  // - {ReadTo, WriteFrom}HDF5AllParamsOfType<T>(prefix, group)
+  //   works on any single type supported by parthenon_hdf5.
+  //   see outputs/parthenon_hdf5.hpp for more details.
+  //   scalars, std::vector<T>, and several view/ParArray types are supported.
+  //
+  // - {ReadTo, WriteFrom}HDF5AllParamsOfMultipleTypes<Ts...>(prefix, group)
+  //   loops through all types in the variatic list and calls
+  //   the above scalar function
+  //
+  // - {ReadTo, WriteFrom}HDF5AllParamsOfTypeOrVec<T>(prefix, group)
+  //   calls the above functions on a single scalar type, as well as
+  //   vectors and views of said scalar type.
+  //
+  // - The public functions call {ReadTo, WriteFrom}HDF5AllParamsOfTypeOrVec<T>
+  //   on a set of relevant types.
   template <typename T>
   void WriteToHDF5AllParamsOfType(const std::string &prefix,
-                                  const HDF5::H5G &group) const {
-    for (const auto &p : myParams_) {
-      const auto &key = p.first;
-      const auto type = myTypes_.at(key);
-      if (type == std::type_index(typeid(T))) {
-        auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-        HDF5::HDF5WriteAttribute(prefix + "/" + key, *typed_ptr->pValue, group);
-      }
-    }
-  }
+                                  const HDF5::H5G &group) const;
+
+  template <typename... Ts>
+  void WriteToHDF5AllParamsOfMultipleTypes(const std::string &prefix,
+                                           const HDF5::H5G &group) const;
 
   template <typename T>
   void WriteToHDF5AllParamsOfTypeOrVec(const std::string &prefix,
-                                       const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfType<T>(prefix, group);
-    WriteToHDF5AllParamsOfType<std::vector<T>>(prefix, group);
-  }
+                                       const HDF5::H5G &group) const;
 
- public:
-  void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
-    WriteToHDF5AllParamsOfTypeOrVec<bool>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<int32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<int64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<uint32_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<float>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<double>(prefix, group);
-    WriteToHDF5AllParamsOfTypeOrVec<std::string>(prefix, group);
-  }
+  template <typename T>
+  void ReadFromHDF5AllParamsOfType(const std::string &prefix, const HDF5::H5G &group);
+
+  template <typename... Ts>
+  void ReadFromHDF5AllParamsOfMultipleTypes(const std::string &prefix,
+                                            const HDF5::H5G &group);
+
+  template <typename T>
+  void ReadFromHDF5AllParamsOfTypeOrVec(const std::string &prefix,
+                                        const HDF5::H5G &group);
 
 #endif // ifdef ENABLE_HDF5
 
@@ -189,7 +214,7 @@ class Params {
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
   std::map<std::string, std::type_index> myTypes_;
-  std::map<std::string, bool> myMutable_;
+  std::map<std::string, Mutability> myMutable_;
 };
 
 } // namespace parthenon

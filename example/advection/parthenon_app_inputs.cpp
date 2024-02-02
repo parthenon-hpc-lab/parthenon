@@ -73,7 +73,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "block") profile_type = 3;
 
   pmb->par_for(
-      "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         if (profile_type == 0) {
           Real x = cos_a2 * (coords.Xc<1>(i) * cos_a3 + coords.Xc<2>(j) * sin_a3) +
@@ -99,8 +99,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // initialize some arbitrary cells in the first block that move in all 6 directions
   if (profile_type == 3 && block_id == 0) {
     pmb->par_for(
-        "Advection::ProblemGenerator bvals test", 0, 1,
-        KOKKOS_LAMBDA(const int /*unused*/) {
+        PARTHENON_AUTO_LABEL, 0, 1, KOKKOS_LAMBDA(const int /*unused*/) {
           q(idx_adv, 4, 4, 4) = 10.0;
           q(idx_v, 4, 4, 4) = vx;
           q(idx_adv, 4, 6, 4) = 10.0;
@@ -204,8 +203,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (Globals::my_rank == 0) {
     // normalize errors by number of cells
     auto mesh_size = mesh->mesh_size;
-    Real vol = (mesh_size.x1max - mesh_size.x1min) * (mesh_size.x2max - mesh_size.x2min) *
-               (mesh_size.x3max - mesh_size.x3min);
+    Real vol = (mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR)) *
+               (mesh_size.xmax(X2DIR) - mesh_size.xmin(X2DIR)) *
+               (mesh_size.xmax(X3DIR) - mesh_size.xmin(X3DIR));
     l1_err /= vol;
     // compute rms error
     max_max_over_l1 = std::max(max_max_over_l1, (max_err / l1_err));
@@ -237,8 +237,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     }
 
     // write errors
-    std::fprintf(pfile, "%d  %d", mesh_size.nx1, mesh_size.nx2);
-    std::fprintf(pfile, "  %d  %d", mesh_size.nx3, tm.ncycle);
+    std::fprintf(pfile, "%d  %d", mesh_size.nx(X1DIR), mesh_size.nx(X2DIR));
+    std::fprintf(pfile, "  %d  %d", mesh_size.nx(X3DIR), tm.ncycle);
     std::fprintf(pfile, "  %e ", l1_err);
     std::fprintf(pfile, "  %e  %e  ", max_max_over_l1, max_err);
     std::fprintf(pfile, "\n");

@@ -38,10 +38,25 @@ several useful features and functions.
   all blocks just like dense variables, however, in a future upgrade, they
   will only be allocated on those blocks where the user explicitly
   allocates them or non-zero values are advected into.
-- ``void AddParam<T>(const std::string& key, T& value, bool is_mutable)``
-  adds a parameter (e.g., a timestep control coefficient, refinement
-  tolerance, etc.) with name ``key`` and value ``value``. If
-  ``is_mutable`` is true, parameters can be more easily modified.
+- ``void AddParam<T>(const std::string& key, T& value, Mutability mutability)``
+  adds a parameter (e.g., a timestep control
+  coefficient, refinement tolerance, etc.) with name ``key`` and value
+  ``value``. The enum ``mutability`` can take on three values:
+  ``Mutability::Immutable``, ``Mutability::Mutable``, and
+  ``Mutability::Restart``. Paramters that are ``Immutable`` cannot be
+  modified. Parameters that are ``Mutable`` or ``Restart`` can be
+  modified via the ``MutableParam`` and ``UpdateParam``
+  options. Parameters that are ``Restart`` will be re-read from the
+  restart file and updated upon restart. In contrast, ``Mutable``
+  params not marked ``Restart`` are updated only by user code, not
+  automatically. Note that not all parameter types can be output to
+  HDF5 file. However, most common scalar, vector, and ``Kokkos`` view
+  types are supported. Note also that if the value of a ``Param`` is
+  different on different MPI ranks, this will result in undefined
+  behaviour.
+- ``void AddParam<T>(const std::string& key, T& value, bool is_mutable=false)``
+  is the same as above, but adds only ``Immutable`` or ``Mutable`` params,
+  not ``Restart`` params.
 - ``void UpdateParam<T>(const std::string& key, T& value)``\ updates a
   parameter (e.g., a timestep control coefficient, refinement tolerance,
   etc.) with name ``key`` and value ``value``. A parameter of the same
@@ -51,6 +66,22 @@ several useful features and functions.
 - ``T *MutableParam(const std::string &key)`` returns a pointer to a
   parameter that has been marked mutable when it was added. Note this
   pointer is *not* marked ``const``.
+- ``MetadataFlag GetMetadataFlag()`` returns a ``MetadataFlag`` that is
+  automatically added to all fields, sparse pools, and swarms that are
+  added to the ``StateDescriptor``.
+- ``std::vector<std::string> GetVariableNames(...)`` provides a means of
+  getting a list of variables that satisfy specified requirements and that
+  are associated with the ``StateDescriptor``.  Optional arguments, in order,
+  include a vector of variable names, a ``Metadata::FlagCollection`` to select,
+  variables by flags, and a vector of sparse ids to allow selecting subsets of
+  sparse fields.  Selection of sparse fields by name requires providing the
+  base name of the sparse field.  Names of a sparse field tied to a specific
+  sparse index are not supported (and will throw).  The returned list is
+  appropriate for use in adding ``MeshData`` and/or ``MeshBlockData`` objects
+  with specified fields to the ``DataCollection`` objects in ``Mesh`` and
+  ``MeshBlock``.  For convenience, the ``Mesh`` class also provides this
+  function, which provides a list of variables gathered from all the package
+  ``StateDescriptor``\s.
 - ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
   ``std::function`` member ``FillDerivedBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
@@ -81,6 +112,20 @@ several useful features and functions.
   deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
+- ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
+  &tm)`` performs a per-package, mesh-wide calculation after (1) the mesh
+  has been generated, (2) problem generators are called, and (3) comms
+  are executed, but before any time evolution. This work is done both on
+  first initialization and on restart. If you would like to avoid doing the
+  work upon restart, you can check for the const ``is_restart`` member
+  field of the ``Mesh`` object.  It is worth making a clear distinction
+  between ``UserWorkBeforeLoopMesh`` and ``ApplicationInput``s
+  ``PostInitialization``.  ``PostInitialization`` is very much so tied to
+  initialization, and will not be called upon restarts.  ``PostInitialization``
+  is also carefully positioned after ``ProblemGenerator`` and before
+  ``PreCommFillDerived`` (and hence communications).  In practice, when
+  additional granularity is required inbetween initialization and communication,
+  ``PostInitialization`` may be the desired hook.
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and
@@ -169,11 +214,11 @@ convenience features. It is described fully
 
 .. _cell var:
 
-CellVariable
+Variable
 ------------
 
-The ``CellVariable`` class collects several associated objects that are
-needed to store, describe, and update simulation data. ``CellVariable``
+The ``Variable`` class collects several associated objects that are
+needed to store, describe, and update simulation data. ``Variable``
 is templated on type ``T`` and includes the following member data (names
 preceded by ``_`` have private scope):
 
@@ -197,7 +242,7 @@ that array.
 
 Finally, the ``bool IsSet(const MetadataFlag bit)`` member function
 provides a convenient mechanism to query whether a particular
-``Metadata`` flag is set for the ``CellVariable``.
+``Metadata`` flag is set for the ``Variable``.
 
 FaceVariable (Work in progress...)
 ----------------------------------
@@ -211,9 +256,9 @@ Sparse fields
 Sparse fields can be added via the ``StateDescriptor::AddSparsePool``
 function. A ``SparsePool`` is a collection of sparse fields that share a
 common base name and metadata (see details below), but each sparse ID
-produces a distinct ``CellVariable``. For example, a ``SparsePool`` with
+produces a distinct ``Variable``. For example, a ``SparsePool`` with
 base name ``sparse`` and sparse IDs ``{3, 10, 11, 2097}`` will produce
-four ``CellVariable``\ s: ``sparse_3``, ``sparse_10``, ``sparse_11``,
+four ``Variable``\ s: ``sparse_3``, ``sparse_10``, ``sparse_11``,
 and ``sparse_2097``. These variables can be accessed either via their
 full name or the combination of base name and sparse ID. Furthermore, in
 a future upgrade, the sparse fields will not be allocated on all blocks
@@ -277,6 +322,18 @@ subset of variables provided in the vector of names. This feature allows
 downstream applications to allocate storage in a more targeted fashion,
 as might be desirable to hold source terms for particular equations, for
 example.
+
+Analogously, ``DataCollection`` provides ``AddShallow`` functions that
+differ from ``Add`` only in that ***all*** included variables, even
+non-``Metadata::OncCopy`` variables, are simply shallow copies.  For
+these functions, no new storage for variables is ever allocated.
+
+Finally, all of the functionality just described for ``MeshBlockData``
+objects is also provided for ``MeshData`` objects.  Adding a new
+``MeshData`` object to the ``Mesh``-level ``DataCollection`` automatically
+adds the corresponding ``MeshBlockData`` objects to each of the
+``MeshBlock``-level ``DataCollection``s.  Using this ``Mesh`` level
+functionality can be more convenient.
 
 Two simple examples of usage of these new containers are 1) to provide
 storage for multistage integration schemes and 2) to provide a mechanism

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,19 +28,15 @@ class UniformCartesian {
  public:
   UniformCartesian() = default;
   UniformCartesian(const RegionSize &rs, ParameterInput *pin) {
-    dx_[0] = (rs.x1max - rs.x1min) / rs.nx1;
-    dx_[1] = (rs.x2max - rs.x2min) / rs.nx2;
-    dx_[2] = (rs.x3max - rs.x3min) / rs.nx3;
+    for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
+      dx_[dir - 1] = (rs.xmax(dir) - rs.xmin(dir)) / rs.nx(dir);
+      istart_[dir - 1] = (!rs.symmetry(dir) ? Globals::nghost : 0);
+      xmin_[dir - 1] = rs.xmin(dir) - istart_[dir - 1] * dx_[dir - 1];
+    }
     area_[0] = dx_[1] * dx_[2];
     area_[1] = dx_[0] * dx_[2];
     area_[2] = dx_[0] * dx_[1];
     cell_volume_ = dx_[0] * dx_[1] * dx_[2];
-    istart_[0] = Globals::nghost;
-    istart_[1] = (rs.nx2 > 1 ? Globals::nghost : 0);
-    istart_[2] = (rs.nx3 > 1 ? Globals::nghost : 0);
-    xmin_[0] = rs.x1min - istart_[0] * dx_[0];
-    xmin_[1] = rs.x2min - istart_[1] * dx_[1];
-    xmin_[2] = rs.x3min - istart_[2] * dx_[2];
   }
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : istart_(src.GetStartIndex()) {
@@ -166,6 +162,36 @@ class UniformCartesian {
     }
   }
 
+  template <int dir, TopologicalElement el>
+  KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
+    if constexpr (dir == X1DIR && TopologicalOffsetI(el)) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else if constexpr (dir == X2DIR && TopologicalOffsetJ(el)) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else if constexpr (dir == X3DIR && TopologicalOffsetK(el)) {
+      return xmin_[dir - 1] + idx * dx_[dir - 1]; // idx - 1/2
+    } else {
+      return xmin_[dir - 1] + (idx + 0.5) * dx_[dir - 1]; // idx
+    }
+    return 0; // This should never be reached, but w/o it some compilers generate warnings
+  }
+
+  template <int dir, TopologicalElement el>
+  KOKKOS_FORCEINLINE_FUNCTION Real X(const int k, const int j, const int i) const {
+    assert(dir > 0 && dir < 4);
+    switch (dir) {
+    case 1:
+      return X<dir, el>(i);
+    case 2:
+      return X<dir, el>(j);
+    case 3:
+      return X<dir, el>(k);
+    default:
+      PARTHENON_FAIL("Unknown dir");
+      return 0; // To appease compiler
+    }
+  }
+
   //----------------------------------------
   // CellWidth: Width of cells at cell centers
   //----------------------------------------
@@ -213,6 +239,34 @@ class UniformCartesian {
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
     return cell_volume_;
+  }
+
+  //----------------------------------------
+  // Generalized volume
+  //----------------------------------------
+  template <TopologicalElement el, class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(Args... args) const {
+    using TE = TopologicalElement;
+    if constexpr (el == TE::CC) {
+      return cell_volume_;
+    } else if constexpr (el == TE::F1) {
+      return area_[X1DIR - 1];
+    } else if constexpr (el == TE::F2) {
+      return area_[X2DIR - 1];
+    } else if constexpr (el == TE::F3) {
+      return area_[X3DIR - 1];
+    } else if constexpr (el == TE::E1) {
+      return dx_[X1DIR - 1];
+    } else if constexpr (el == TE::E2) {
+      return dx_[X2DIR - 1];
+    } else if constexpr (el == TE::E3) {
+      return dx_[X3DIR - 1];
+    } else if constexpr (el == TE::NN) {
+      return 1.0;
+    }
+    PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
+                   "TopologicalElement enum.");
+    return 0.0;
   }
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }

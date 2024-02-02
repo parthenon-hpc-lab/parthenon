@@ -247,6 +247,7 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
   // Swarm variables are always Metadata::Particle
   Metadata newm(m);
   newm.Set(Metadata::Particle);
+  if (!newm.IsSet(GetMetadataFlag())) newm.Set(GetMetadataFlag());
 
   if (swarmMetadataMap_.count(swarm_name) == 0) {
     throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
@@ -275,7 +276,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     allocControllerReverseMap_.insert({vid, control_vid});
     // Add this variable to the set of unique IDs at the
     // earliest possible time
-    CellVariable<Real>::GetUniqueID(vid.label());
+    Variable<Real>::GetUniqueID(vid.label());
   }
 
   return true;
@@ -424,6 +425,12 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     // sort
     field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
+
+    // Add package registered boundary conditions
+    for (int i = 0; i < 6; ++i)
+      state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
+                                             package->UserBoundaryFunctions[i].begin(),
+                                             package->UserBoundaryFunctions[i].end());
   }
 
   // check that dependent variables are provided somewhere
@@ -441,6 +448,92 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   state->InvertControllerMap();
 
   return state;
+}
+
+// Build a list of variables in the following order
+// 1. fields requested by name (if present), in the order they're requested
+// 2. non-sparse fields picked up by the provided Metadata::FlagCollection
+// 3. sparse fields picked up by metadata
+// For sparse fields, only those ids in sparse_ids are included, unless
+// sparse_ids is empty, in which case all ids are included.
+// Variable names are only added to the list once the first time they
+// are encountered.
+std::vector<std::string>
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
+                                  const Metadata::FlagCollection &flags,
+                                  const std::vector<int> &sparse_ids) {
+  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
+  std::unordered_set<std::string> names;
+  std::vector<std::string> names_vec;
+  // first add names that are present
+  for (const auto &name : requested_names) {
+    if (FieldPresent(name)) {
+      if (metadataMap_[VarID(name)].IsSet(Metadata::Sparse)) {
+        PARTHENON_THROW("Cannot ask for variables by name with specific sparse ids");
+      }
+      if (names.count(name) == 0) names_vec.push_back(name);
+      names.insert(name);
+    } else if (SparseBaseNamePresent(name)) {
+      const auto &sparse_pool = GetSparsePool(name);
+      for (const auto &s : sparse_pool.pool()) {
+        if (sparse_ids_set.empty() || sparse_ids_set.count(s.first) > 0) {
+          if (names.count(MakeVarLabel(name, s.first)) == 0)
+            names_vec.push_back(MakeVarLabel(name, s.first));
+          names.insert(MakeVarLabel(name, s.first));
+        }
+      }
+    }
+  }
+
+  // now add by metadata flags
+  if (!flags.Empty()) {
+    // first handle non-sparse fields
+    for (const auto &v : metadataMap_) {
+      auto name = (v.first).label();
+      auto &meta = v.second;
+      if (MetadataUtils::MatchFlags(flags, meta)) {
+        if (!meta.IsSet(Metadata::Sparse)) {
+          if (names.count(name) == 0) names_vec.push_back(name);
+          names.insert(name);
+        }
+      }
+    }
+    // now handle sparse fields
+    for (const auto &p : sparsePoolMap_) {
+      auto &name = p.first;
+      auto &pool = p.second;
+      auto &meta = pool.shared_metadata();
+      if (MetadataUtils::MatchFlags(flags, meta)) {
+        for (const auto &s : pool.pool()) {
+          if (sparse_ids_set.empty() || sparse_ids_set.count(s.first) > 0) {
+            if (names.count(MakeVarLabel(name, s.first)) == 0)
+              names_vec.push_back(MakeVarLabel(name, s.first));
+            names.insert(MakeVarLabel(name, s.first));
+          }
+        }
+      }
+    }
+  }
+
+  return names_vec;
+}
+std::vector<std::string>
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
+                                  const std::vector<int> &sparse_ids) {
+  return GetVariableNames(requested_names, Metadata::FlagCollection(), sparse_ids);
+}
+std::vector<std::string>
+StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags,
+                                  const std::vector<int> &sparse_ids) {
+  return GetVariableNames({}, flags, sparse_ids);
+}
+std::vector<std::string>
+StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names) {
+  return GetVariableNames(requested_names, Metadata::FlagCollection(), {});
+}
+std::vector<std::string>
+StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {
+  return GetVariableNames({}, flags, {});
 }
 
 } // namespace parthenon

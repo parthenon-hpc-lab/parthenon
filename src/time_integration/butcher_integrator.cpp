@@ -36,8 +36,12 @@ namespace parthenon {
  * alpha_k = c_k
  * c_k = b_k
  */
-ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
-    : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
+
+//----------------------------------------------------------------------------------------
+//! \class ButcherIntegrator::ButcherIntegrator(const std::string &name)
+//! \brief Constructs a ButcherIntegrator instance given a string (e.g., rk2, rk3..)
+
+ButcherIntegrator::ButcherIntegrator(const std::string &name) : StagedIntegrator(name) {
   if (name_ == "rk1") {
     nstages = nbuffers = 1;
     Resize_(nstages);
@@ -218,6 +222,17 @@ ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
     a[16][15] = -0.675000000000000000000000000000000000000000000000000000000000;
   }
 }
+
+//----------------------------------------------------------------------------------------
+//! \class ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
+//! \brief Constructs a ButcherIntegrator instance given ParameterInput *pin
+
+ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
+    : ButcherIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {}
+
+//----------------------------------------------------------------------------------------
+//! \fn  void ButcherIntegrator::Resize_(int nstages)
+//! \brief Resizes ButcherIntegrator registers given a supplied integer nstages
 
 void ButcherIntegrator::Resize_(int nstages) {
   a.resize(nstages);

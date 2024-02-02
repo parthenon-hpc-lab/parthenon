@@ -53,6 +53,12 @@ void MeshBlockData<T>::Initialize(
   for (auto const &q : resolved_packages->AllFields()) {
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
+
+  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
+  auto vars = GetVariablesByFlag(flags);
+  for (auto &v : vars.vars()) {
+    AllocateSparse(v->label());
+  }
 }
 
 ///
@@ -65,8 +71,7 @@ void MeshBlockData<T>::Initialize(
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
                                 int sparse_id) {
-  auto pvar =
-      std::make_shared<CellVariable<T>>(base_name, metadata, sparse_id, pmy_block);
+  auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
@@ -74,26 +79,17 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
-// TODO(JMM): Add CopyFrom that takes unique IDs
+// TODO(JMM): Move to unique IDs at some point
 template <typename T>
-void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
-                                const std::vector<std::string> &names,
-                                const std::vector<MetadataFlag> &flags,
-                                const std::vector<int> &sparse_ids) {
+void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
+                                  const std::vector<std::string> &names,
+                                  const bool shallow_copy) {
+  assert(src != nullptr);
   SetBlockPointer(src);
-  resolved_packages_ = src.resolved_packages_;
-  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
+  resolved_packages_ = src->resolved_packages_;
+  is_shallow_ = shallow_copy;
 
-  auto add_var = [=, &flags, &sparse_ids](auto var) {
-    if (!flags.empty() && !var->metadata().AnyFlagsSet(flags)) {
-      return;
-    }
-
-    if (!sparse_ids.empty() && var->IsSparse() &&
-        (sparse_ids_set.count(var->GetSparseID()) == 0)) {
-      return;
-    }
-
+  auto add_var = [=](auto var) {
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
       Add(var);
     } else {
@@ -101,12 +97,13 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
     }
   };
 
+  // special case when the list of names is empty, copy everything
   if (names.empty()) {
-    for (auto v : src.GetCellVariableVector()) {
+    for (auto v : src->GetVariableVector()) {
       add_var(v);
     }
   } else {
-    auto var_map = src.GetCellVariableMap();
+    auto var_map = src->GetVariableMap();
 
     for (const auto &name : names) {
       bool found = false;
@@ -115,52 +112,10 @@ void MeshBlockData<T>::CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
         found = true;
         add_var(v->second);
       }
-
-      if (!found && (resolved_packages_ != nullptr)) {
-        // check if this is a sparse base name, if so we get its pool of sparse_ids,
-        // otherwise we get an empty pool
-        const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
-
-        // add all sparse ids of the pool
-        for (const auto iter : sparse_pool.pool()) {
-          // this variable must exist, if it doesn't something is very wrong
-          const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-          add_var(v);
-          found = true;
-        }
-      }
-
       PARTHENON_REQUIRE_THROWS(found, "MeshBlockData::CopyFrom: Variable '" + name +
                                           "' not found");
     }
   }
-}
-
-// Constructor for getting sub-containers
-// the variables returned are all shallow copies of the src container.
-// Optionally extract only some of the sparse ids of src variable.
-template <typename T>
-MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids) {
-  CopyFrom(src, true, names, {}, sparse_ids);
-}
-
-// TODO(JMM): Add constructor that takes unique IDs
-template <typename T>
-MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                                const std::vector<MetadataFlag> &flags,
-                                const std::vector<int> &sparse_ids) {
-  CopyFrom(src, true, {}, flags, sparse_ids);
-}
-
-// provides a container that has a single sparse slice
-template <typename T>
-std::shared_ptr<MeshBlockData<T>>
-MeshBlockData<T>::SparseSlice(const std::vector<int> &sparse_ids) const {
-  auto c = std::make_shared<MeshBlockData<T>>();
-  c->CopyFrom(*this, true, {}, {}, sparse_ids);
-  return c;
 }
 
 /// Queries related to variable packs
@@ -372,7 +327,7 @@ template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                      const std::vector<int> &sparse_ids) {
-  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
+  PARTHENON_INSTRUMENT
 
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
@@ -383,7 +338,6 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
     var_list.Add(v, sparse_ids_set);
   }
 
-  Kokkos::Profiling::popRegion(); // GetVariablesByFlag
   return var_list;
 }
 
@@ -392,7 +346,7 @@ typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
-    auto v = GetCellVarPtr(i);
+    auto v = GetVarPtr(i);
     var_list.Add(v);
   }
   return var_list;

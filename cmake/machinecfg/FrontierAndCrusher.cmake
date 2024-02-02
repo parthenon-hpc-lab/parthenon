@@ -21,16 +21,15 @@ message(STATUS "Loading machine configuration for OLCF's Frontier and Crusher.\n
   "  $ module load PrgEnv-amd craype-accel-amd-gfx90a cmake hdf5 cray-python amd/5.4.0 cray-mpich/8.1.21\n"
   "and environment variables:\n"
   "  $ export MPICH_GPU_SUPPORT_ENABLED=1\n\n"
-  "On Frontier, different modules are required (tested on 2023-03-14): \n"
-  "  $ module load PrgEnv-cray craype-accel-amd-gfx90a cmake hdf5 cray-python rocm/5.3.0 cray-mpich/8.1.23\n"
+  "On Frontier, different modules are required (tested on 2023-06-21): \n"
+  "  $ load PrgEnv-cray craype-accel-amd-gfx90a cmake cray-hdf5-parallel cray-python amd-mixed/5.3.0 cray-mpich/8.1.23 cce/15.0.1\n"
   "  $ export MPICH_GPU_SUPPORT_ENABLED=1\n\n"
   "NOTE: In order to run the test suite, the build directory should be on GPFS (or on\n"
   "Frontier, Lustre) work filesystem and not in your NFS user or project home (because\n"
   "they are read-only on compute nodes).\n\n")
 
 # common options
-set(Kokkos_ARCH_ZEN2 ON CACHE BOOL "CPU architecture")
-set(PARTHENON_DISABLE_OPENMP ON CACHE BOOL "OpenMP support not yet tested in Parthenon.")
+set(Kokkos_ARCH_ZEN3 ON CACHE BOOL "CPU architecture")
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default release build")
 set(MACHINE_VARIANT "hip-mpi" CACHE STRING "Default build for CUDA and MPI")
 
@@ -63,7 +62,7 @@ if (${MACHINE_VARIANT} MATCHES "hip")
   set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -I$ENV{MPICH_DIR}/include")
   set(CMAKE_EXE_LINKER_FLAGS "-L$ENV{MPICH_DIR}/lib -lmpi -L$ENV{CRAY_MPICH_ROOTDIR}/gtl/lib -lmpi_gtl_hsa" CACHE STRING "Default flags for this config")
 elseif (${MACHINE_VARIANT} MATCHES "cray")
-  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -I$ENV{ROCM_PATH_DIR}/include")
+  set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -I$ENV{ROCM_PATH}/include")
   set(CMAKE_EXE_LINKER_FLAGS "-L$ENV{ROCM_PATH}/lib -lamdhip64" CACHE STRING "Default flags for this config")
 endif()
 

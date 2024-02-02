@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "bnd_info.hpp"
-#include "bvals_cc_in_one.hpp"
+#include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -36,12 +36,10 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-namespace cell_centered_bvars {
-
 using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_LoadAndSendFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
@@ -55,59 +53,43 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::complete;
   }
 
   if (other_communication_unfinished) {
-    Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
     return TaskStatus::incomplete;
   }
 
   if (rebuild)
-    RebuildBufferCache<BoundaryType::flxcor_send, true>(md, nbound,
-                                                        BndInfo::GetSendCCFluxCor);
+    RebuildBufferCache<BoundaryType::flxcor_send, true>(
+        md, nbound, BndInfo::GetSendCCFluxCor, ProResInfo::GetSend);
 
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   Kokkos::parallel_for(
-      "SendFluxCorrectionBufs",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         auto &binfo = bnd_info(team_member.league_rank());
         if (!binfo.allocated) return;
         auto &coords = binfo.coords;
 
-        const int Ni = binfo.ei + 1 - binfo.si;
-        const int Nj = binfo.ej + 1 - binfo.sj;
-        const int Nk = binfo.ek + 1 - binfo.sk;
-
-        const int &Nt = binfo.Nt;
-        const int &Nu = binfo.Nu;
-        const int &Nv = binfo.Nv;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
         int ioff = binfo.dir == X1DIR ? 0 : 1;
         int joff = (binfo.dir == X2DIR) || (ndim < 2) ? 0 : 1;
         int koff = (binfo.dir == X3DIR) || (ndim < 3) ? 0 : 1;
-
+        auto &idxer = binfo.idxer[0];
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi), [&](const int idx) {
-              const int t = idx / NuNvNkNjNi;
-              const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-              const int v = (idx % NvNkNjNi) / NkNjNi;
-              const int ck = (idx % NkNjNi) / NjNi;
-              const int cj = (idx % NjNi) / Ni;
-              const int ci = idx % Ni;
-
-              const int k = binfo.sk + 2 * ck;
-              const int j = binfo.sj + 2 * cj;
-              const int i = binfo.si + 2 * ci;
+            Kokkos::TeamThreadRange<>(team_member, idxer.size()), [&](const int idx) {
+              const auto [t, u, v, ck, cj, ci] = idxer(idx);
+              // Move from a coarse grid index to the corresponding lower left fine grid
+              // index, StartIdx<I>() should return the index of the first non-ghost zone
+              // in direction I
+              const int k =
+                  idxer.template StartIdx<3>() + 2 * (ck - idxer.template StartIdx<3>());
+              const int j =
+                  idxer.template StartIdx<4>() + 2 * (cj - idxer.template StartIdx<4>());
+              const int i =
+                  idxer.template StartIdx<5>() + 2 * (ci - idxer.template StartIdx<5>());
 
               // For the given set of offsets, etc. this should work for any
               // dimensionality since the same flux will be included multiple times
@@ -132,12 +114,11 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   // Calling Send will send null if the underlying buffer is unallocated
   for (auto &buf : cache.buf_vec)
     buf->Send();
-  Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
   return TaskStatus::complete;
 }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_StartReceiveFluxCorrections");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
@@ -147,12 +128,11 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
 
-  Kokkos::Profiling::popRegion(); // Task_StartReceiveFluxCorrections
   return TaskStatus::complete;
 }
 
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -165,14 +145,12 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
-
   if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SetFluxCorrections");
+  PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -180,39 +158,21 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   auto [rebuild, nbound] =
       CheckReceiveBufferCacheForRebuild<BoundaryType::flxcor_recv, false>(md);
   if (rebuild)
-    RebuildBufferCache<BoundaryType::flxcor_recv, false>(md, nbound,
-                                                         BndInfo::GetSetCCFluxCor);
+    RebuildBufferCache<BoundaryType::flxcor_recv, false>(
+        md, nbound, BndInfo::GetSetCCFluxCor, ProResInfo::GetSend);
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
-      "SetFluxCorBuffers",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         if (!bnd_info(b).allocated) return;
 
-        const int Ni = bnd_info(b).ei + 1 - bnd_info(b).si;
-        const int Nj = bnd_info(b).ej + 1 - bnd_info(b).sj;
-        const int Nk = bnd_info(b).ek + 1 - bnd_info(b).sk;
-        const int &Nt = bnd_info(b).Nt;
-        const int &Nu = bnd_info(b).Nu;
-        const int &Nv = bnd_info(b).Nv;
-
-        const int NjNi = Nj * Ni;
-        const int NkNjNi = Nk * NjNi;
-        const int NvNkNjNi = Nv * NkNjNi;
-        const int NuNvNkNjNi = Nu * NvNkNjNi;
-        const int NtNuNvNkNjNi = Nt * NuNvNkNjNi;
-
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NtNuNvNkNjNi),
+        auto &idxer = bnd_info(b).idxer[0];
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                              [&](const int idx) {
-                               const int t = idx / NuNvNkNjNi;
-                               const int u = (idx % NuNvNkNjNi) / NvNkNjNi;
-                               const int v = (idx % NvNkNjNi) / NkNjNi;
-                               const int k = (idx % NkNjNi) / NjNi + bnd_info(b).sk;
-                               const int j = (idx % NjNi) / Ni + bnd_info(b).sj;
-                               const int i = idx % Ni + bnd_info(b).si;
-
+                               const auto [t, u, v, k, j, i] = idxer(idx);
                                bnd_info(b).var(t, u, v, k, j, i) = bnd_info(b).buf(idx);
                              });
       });
@@ -222,9 +182,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
 
-  Kokkos::Profiling::popRegion(); // Task_SetFluxCorrections
   return TaskStatus::complete;
 }
 
-} // namespace cell_centered_bvars
 } // namespace parthenon

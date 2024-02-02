@@ -26,6 +26,7 @@
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/unique_id.hpp"
 
 namespace parthenon {
 
@@ -57,17 +58,7 @@ class MeshBlockData {
   //-----------------
   /// Constructor
   MeshBlockData<T>() = default;
-
-  /// Copies variables from src, optionally only copying names given and/or variables
-  /// matching any of the flags given. If sparse_ids is not empty, only sparse fields with
-  /// listed sparse ids will be copied, dense fields will always be copied. If both names
-  /// and flags are provided, only variables that show up in names AND have metadata in
-  /// FLAGS are copied. If shallow_copy is true, no copies of variables will be allocated
-  /// regardless whether they are flagged as OneCopy or not
-  void CopyFrom(const MeshBlockData<T> &src, bool shallow_copy,
-                const std::vector<std::string> &names = {},
-                const std::vector<MetadataFlag> &flags = {},
-                const std::vector<int> &sparse_ids = {});
+  explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
@@ -76,87 +67,80 @@ class MeshBlockData {
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
                    const std::vector<int> &sparse_ids = {});
 
-  /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() const {
+  std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
-  auto GetParentPointer() const { return GetBlockPointer(); }
+  MeshBlock *GetBlockPointer() const { return GetBlockSharedPointer().get(); }
+  MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
+  Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsI(domain);
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsI(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsJ(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsK(domain);
-  }
-
-  /// Create non-shallow copy of MeshBlockData, but only include named variables
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
-            const std::vector<std::string> &names) {
-    CopyFrom(*src, false, names);
-  }
-  /// Create non-shallow copy of MeshBlockData
-  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) { CopyFrom(*src, false); }
-
-  /// Get a container containing only dense fields and the sparse fields with a sparse id
-  /// from the given list of sparse ids.
-  ///
-  /// @param sparse_ids The list of sparse ids to include
-  /// @return New container with slices from all variables
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(const std::vector<int> &sparse_ids) const;
-
-  /// As above but for just one sparse id
-  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id) const {
-    return SparseSlice({sparse_id});
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
 
-  ///
   /// Set the pointer to the mesh block for this container
-  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
-    SetBlockPointer(*other);
+    SetBlockPointer(other.get());
   }
-  void SetBlockPointer(const MeshBlockData<T> &other) { pmy_block = other.pmy_block; }
+  void SetBlockPointer(const MeshBlockData<T> &other) {
+    pmy_block = other.GetBlockSharedPointer();
+  }
+  void SetBlockPointer(const MeshBlockData<T> *other) {
+    pmy_block = other->GetBlockSharedPointer();
+  }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
 
+  /// Create copy of MeshBlockData, possibly with a subset of named fields,
+  /// and possibly shallow.  Note when shallow=false, new storage is allocated
+  /// for non-OneCopy vars, but the data from src is not actually deep copied
+  void Initialize(const MeshBlockData<T> *src, const std::vector<std::string> &names,
+                  const bool shallow);
+
   //
-  // Queries related to CellVariable objects
+  // Queries related to Variable objects
   //
-  bool HasCellVariable(const std::string &label) const noexcept {
+  bool HasVariable(const std::string &label) const noexcept {
     return varMap_.count(label) > 0;
   }
 
-  const CellVariableVector<T> &GetCellVariableVector() const noexcept {
-    return varVector_;
-  }
+  const VariableVector<T> &GetVariableVector() const noexcept { return varVector_; }
 
-  const MapToCellVars<T> &GetCellVariableMap() const noexcept { return varMap_; }
+  const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
-  std::shared_ptr<CellVariable<T>> GetCellVarPtr(const std::string &label) const {
+  std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
     auto it = varMap_.find(label);
     PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
                              "Couldn't find variable '" + label + "'");
     return it->second;
   }
-  std::shared_ptr<CellVariable<T>> GetCellVarPtr(const Uid_t &uid) const {
+  std::shared_ptr<Variable<T>> GetVarPtr(const Uid_t &uid) const {
     PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
                              "Variable ID " + std::to_string(uid) + "not found!");
     return varUidMap_.at(uid);
   }
 
-  CellVariable<T> &Get(const std::string &base_name,
-                       int sparse_id = InvalidSparseID) const {
-    return *GetCellVarPtr(MakeVarLabel(base_name, sparse_id));
+  const auto &GetUidMap() const { return varUidMap_; }
+
+  Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+    return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
   }
-  CellVariable<T> &Get(const Uid_t &uid) const { return *(varUidMap_.at(uid)); }
+  Variable<T> &Get(const Uid_t &uid) const { return *(varUidMap_.at(uid)); }
 
   Uid_t UniqueID(const std::string &label) noexcept {
     auto it = varMap_.find(label);
@@ -176,6 +160,7 @@ class MeshBlockData {
   inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
+
 #else
   constexpr inline bool IsAllocated(std::string const & /*label*/) const noexcept {
     return true;
@@ -186,6 +171,10 @@ class MeshBlockData {
     return true;
   }
 #endif
+
+  std::vector<bool> AllocationStatus(const std::string &label) const noexcept {
+    return std::vector<bool>({IsAllocated(label)});
+  }
 
   using VarList = VarListWithKeys<T>;
 
@@ -206,6 +195,18 @@ class MeshBlockData {
   /// Get list of all variables and labels, optionally selecting only given sparse ids
   VarList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
     return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids);
+  }
+
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
+                                     const std::vector<int> &sparse_ids = {}) {
+    return GetVariablesByName(names, sparse_ids).unique_ids();
+  }
+  std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
+                                     const std::vector<int> &sparse_ids = {}) {
+    return GetVariablesByFlag(flags, sparse_ids).unique_ids();
+  }
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}) {
+    return GetAllVariables(sparse_ids).unique_ids();
   }
 
   /// Queries related to variable packs
@@ -381,7 +382,7 @@ class MeshBlockData {
     for (auto &v : varMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : cmp.GetCellVariableMap()) {
+    for (auto &v : cmp.GetVariableMap()) {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
@@ -411,11 +412,13 @@ class MeshBlockData {
     return all_initialized;
   }
 
+  bool IsShallow() const { return is_shallow_; }
+
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
-  void Add(std::shared_ptr<CellVariable<T>> var) noexcept {
+  void Add(std::shared_ptr<Variable<T>> var) noexcept {
     varVector_.push_back(var);
     varMap_[var->label()] = var;
     varUidMap_[var->GetUniqueID()] = var;
@@ -424,14 +427,14 @@ class MeshBlockData {
     }
   }
 
-  std::shared_ptr<CellVariable<T>> AllocateSparse(std::string const &label,
-                                                  bool flag_uninitialized = false) {
-    if (!HasCellVariable(label)) {
+  std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label,
+                                              bool flag_uninitialized = false) {
+    if (!HasVariable(label)) {
       PARTHENON_THROW("Tried to allocate sparse variable '" + label +
                       "', but no such sparse variable exists");
     }
 
-    auto var = GetCellVarPtr(label);
+    auto var = GetVarPtr(label);
     PARTHENON_REQUIRE_THROWS(var->IsSparse(),
                              "Tried to allocate non-sparse variable " + label);
 
@@ -440,32 +443,36 @@ class MeshBlockData {
     return var;
   }
 
-  std::shared_ptr<CellVariable<T>> AllocSparseID(std::string const &base_name,
-                                                 const int sparse_id) {
+  std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
+                                             const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
   void DeallocateSparse(std::string const &label) {
-    PARTHENON_REQUIRE_THROWS(HasCellVariable(label),
+    PARTHENON_REQUIRE_THROWS(HasVariable(label),
                              "Tried to deallocate sparse variable '" + label +
                                  "', but no such sparse variable exists");
 
-    auto var = GetCellVarPtr(label);
+    auto var = GetVarPtr(label);
     // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
     //                         "Tried to deallocate non-sparse variable " + label);
 
     if (var->IsAllocated()) {
-      var->Deallocate();
+      std::int64_t bytes = var->Deallocate();
+      auto pmb = GetBlockPointer();
+      pmb->LogMemUsage(-bytes);
     }
   }
 
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages_;
+  bool is_shallow_ = false;
+  const std::string stage_name_;
 
-  CellVariableVector<T> varVector_; ///< the saved variable array
-  std::map<Uid_t, std::shared_ptr<CellVariable<T>>> varUidMap_;
+  VariableVector<T> varVector_; ///< the saved variable array
+  std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
 
-  MapToCellVars<T> varMap_;
+  MapToVars<T> varMap_;
   MetadataFlagToVariableMap<T> flagsToVars_;
 
   // variable packing
@@ -661,6 +668,14 @@ class MeshBlockData {
                                            bool coarse, PackIndexMap *map,
                                            vpack_types::VPackKey_t *key);
 };
+
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshBlockData<T> *mbd1, MeshBlockData<T> *mbd2,
+                                   Args &&...args) {
+  auto u1 = mbd1->GetVariableUIDs(std::forward<Args>(args)...);
+  auto u2 = mbd2->GetVariableUIDs(std::forward<Args>(args)...);
+  return UidIntersection(u1, u2);
+}
 
 } // namespace parthenon
 

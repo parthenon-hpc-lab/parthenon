@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,6 +28,7 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 
@@ -62,6 +63,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                       const SignalHandler::OutputSignal signal) {
   using namespace HDF5;
   using namespace OutputUtils;
+
+  if constexpr (WRITE_SINGLE_PRECISION) {
+    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileSinglePrec");
+  } else {
+    Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
+  }
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -110,7 +117,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
+  Kokkos::Profiling::pushRegion("write Attributes");
   {
+    Kokkos::Profiling::pushRegion("write input");
     // write input key-value pairs
     std::ostringstream oss;
     pin->ParameterDump(oss);
@@ -119,11 +128,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const H5G input_group = MakeGroup(file, "/Input");
 
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
-  } // Input section
+    Kokkos::Profiling::popRegion(); // write input
+  }                                 // Input section
 
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
   {
+    Kokkos::Profiling::pushRegion("write Info");
     HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
 
     if (tm != nullptr) {
@@ -159,16 +170,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
     HDF5WriteAttribute(
         "RootGridDomain",
-        std::vector<Real>{pm->mesh_size.x1min, pm->mesh_size.x1max, pm->mesh_size.x1rat,
-                          pm->mesh_size.x2min, pm->mesh_size.x2max, pm->mesh_size.x2rat,
-                          pm->mesh_size.x3min, pm->mesh_size.x3max, pm->mesh_size.x3rat},
+        std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR),
+                          pm->mesh_size.xrat(X1DIR), pm->mesh_size.xmin(X2DIR),
+                          pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
+                          pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR),
+                          pm->mesh_size.xrat(X3DIR)},
         info_group);
 
     // Root grid size (number of cells at root level)
-    HDF5WriteAttribute(
-        "RootGridSize",
-        std::vector<int>{pm->mesh_size.nx1, pm->mesh_size.nx2, pm->mesh_size.nx3},
-        info_group);
+    HDF5WriteAttribute("RootGridSize",
+                       std::vector<int>{pm->mesh_size.nx(X1DIR), pm->mesh_size.nx(X2DIR),
+                                        pm->mesh_size.nx(X3DIR)},
+                       info_group);
 
     // Boundary conditions
     std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
@@ -177,10 +190,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
-  } // Info section
+    Kokkos::Profiling::popRegion(); // write Info
+  }                                 // Info section
 
   // write Params
   {
+    Kokkos::Profiling::pushRegion("behold: write Params");
     const H5G params_group = MakeGroup(file, "/Params");
 
     for (const auto &package : pm->packages.AllPackages()) {
@@ -188,7 +203,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // Write all params that can be written as HDF5 attributes
       state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
-  } // Params section
+    Kokkos::Profiling::popRegion(); // behold: write Params
+  }                                 // Params section
+  Kokkos::Profiling::popRegion();   // write Attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -200,19 +217,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     my_offset += nblist[i];
   }
 
-  const std::array<hsize_t, H5_NDIM> local_offset({my_offset, 0, 0, 0, 0, 0, 0});
-
-  // these can vary by data set, except index 0 is always the same
-  std::array<hsize_t, H5_NDIM> local_count(
-      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1, 1, 1});
-  std::array<hsize_t, H5_NDIM> global_count(
-      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1, 1, 1});
-
-  // for convenience
-  const hsize_t *const p_loc_offset = local_offset.data();
-  const hsize_t *const p_loc_cnt = local_count.data();
-  const hsize_t *const p_glob_cnt = global_count.data();
-
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
 
@@ -223,103 +227,20 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
-  // write Blocks metadata
-  {
-    const H5G gBlocks = MakeGroup(file, "/Blocks");
-
-    // write Xmin[ndim] for blocks
-    {
-      std::vector<Real> tmpData(num_blocks_local * 3);
-      ComputeXminBlocks_(pm, tmpData);
-      local_count[1] = global_count[1] = pm->ndim;
-      HDF5Write2D(gBlocks, "xmin", tmpData.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                  pl_xfer);
-    }
-
-    // write Block ID
-    {
-      // LOC.lx1,2,3
-      hsize_t n = 3;
-      std::vector<int64_t> tmpLoc(num_blocks_local * n);
-      local_count[1] = global_count[1] = n;
-      ComputeLocs_(pm, tmpLoc);
-      HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), p_loc_offset, p_loc_cnt,
-                  p_glob_cnt, pl_xfer);
-
-      // (LOC.)level, GID, LID, cnghost, gflag
-      n = 5; // this is NOT H5_NDIM
-      std::vector<int> tmpID(num_blocks_local * n);
-      local_count[1] = global_count[1] = n;
-      ComputeIDsAndFlags_(pm, tmpID);
-      HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
-                  p_loc_cnt, p_glob_cnt, pl_xfer);
-    }
-  } // Block section
-
-  // Write mesh coordinates to file
-  for (const bool face : {true, false}) {
-    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
-
-    // write X coordinates
-    std::vector<Real> loc_x((nx1 + face) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + face) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + face) * num_blocks_local);
-
-    ComputeCoords_(pm, face, out_ib, out_jb, out_kb, loc_x, loc_y, loc_z);
-
-    local_count[1] = global_count[1] = nx1 + face;
-    HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-
-    local_count[1] = global_count[1] = nx2 + face;
-    HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-
-    local_count[1] = global_count[1] = nx3 + face;
-    HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer);
-  }
-
-  // Write Levels and Logical Locations with the level for each Meshblock loclist contains
-  // levels and logical locations for all meshblocks on all ranks
-  {
-    const auto &loclist = pm->GetLocList();
-
-    std::vector<std::int64_t> levels;
-    levels.reserve(pm->nbtotal);
-
-    std::vector<std::int64_t> logicalLocations;
-    logicalLocations.reserve(pm->nbtotal * 3);
-
-    for (const auto &loc : loclist) {
-      levels.push_back(loc.level - pm->GetRootLevel());
-      logicalLocations.push_back(loc.lx1);
-      logicalLocations.push_back(loc.lx2);
-      logicalLocations.push_back(loc.lx3);
-    }
-
-    // Only write levels on rank 0 since it has data for all ranks
-    local_count[0] = (Globals::my_rank == 0) ? pm->nbtotal : 0;
-    HDF5WriteND(file, "Levels", levels.data(), 1, local_offset.data(), local_count.data(),
-                global_count.data(), pl_xfer, H5P_DEFAULT);
-
-    local_count[1] = global_count[1] = 3;
-    HDF5Write2D(file, "LogicalLocations", logicalLocations.data(), local_offset.data(),
-                local_count.data(), global_count.data(), pl_xfer);
-
-    // reset for collective output
-    local_count[0] = num_blocks_local;
-  }
+  WriteBlocksMetadata_(pm, file, pl_xfer, my_offset, max_blocks_global);
+  WriteCoordinates_(pm, theDomain, file, pl_xfer, my_offset, max_blocks_global);
+  WriteLevelsAndLocs_(pm, file, pl_xfer, my_offset, max_blocks_global);
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
+  Kokkos::Profiling::pushRegion("write all variable data");
 
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    auto &var_vec = pmb->meshblock_data.Get()->GetCellVariableVector();
+    auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
     if (restart_) {
       // get all vars with flag Independent OR restart
       return GetAnyVariables(
@@ -373,23 +294,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // allocate space for largest size variable
   int varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize =
-        vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+    const int varSize = vinfo.Size();
     varSize_max = std::max(varSize_max, varSize);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
   std::vector<OutT> tmpData(varSize_max * num_blocks_local);
 
-  // create persistent spaces
-  local_count[0] = num_blocks_local;
-  global_count[0] = max_blocks_global;
-  local_count[4] = global_count[4] = nx3;
-  local_count[5] = global_count[5] = nx2;
-  local_count[6] = global_count[6] = nx1;
-
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
+    Kokkos::Profiling::pushRegion("write variable loop");
     // not really necessary, but doesn't hurt
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
@@ -398,9 +312,21 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
 
-    local_count[1] = global_count[1] = nx6;
-    local_count[2] = global_count[2] = nx5;
-    local_count[3] = global_count[3] = nx4;
+    hsize_t local_offset[H5_NDIM] = {my_offset, 0, 0, 0, 0, 0, 0};
+    hsize_t local_count[H5_NDIM] = {static_cast<hsize_t>(num_blocks_local),
+                                    static_cast<hsize_t>(nx6),
+                                    static_cast<hsize_t>(nx5),
+                                    static_cast<hsize_t>(nx4),
+                                    static_cast<hsize_t>(nx3),
+                                    static_cast<hsize_t>(nx2),
+                                    static_cast<hsize_t>(nx1)};
+    hsize_t global_count[H5_NDIM] = {static_cast<hsize_t>(max_blocks_global),
+                                     static_cast<hsize_t>(nx6),
+                                     static_cast<hsize_t>(nx5),
+                                     static_cast<hsize_t>(nx4),
+                                     static_cast<hsize_t>(nx3),
+                                     static_cast<hsize_t>(nx2),
+                                     static_cast<hsize_t>(nx1)};
 
     std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
                                   static_cast<hsize_t>(vinfo.nx2),
@@ -447,13 +373,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-    PARTHENON_HDF5_CHECK(
-        H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+    // Do not run the pipeline if compression is soft disabled.
+    // By default data would still be passed, which may result in slower output.
+    if (output_params.hdf5_compression_level > 0) {
+      PARTHENON_HDF5_CHECK(
+          H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
+    }
 #endif
 
     // load up data
     hsize_t index = 0;
 
+    Kokkos::Profiling::pushRegion("fill host output buffer");
     // for each local mesh block
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
@@ -466,29 +397,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         // a similar block in parthenon_manager.cpp
         if (v->IsAllocated() && (var_name == v->label())) {
           auto v_h = v->data.GetHostMirrorAndCopy();
-          for (int t = 0; t < nx6; ++t) {
-            for (int u = 0; u < nx5; ++u) {
-              for (int v = 0; v < nx4; ++v) {
-                if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-                  for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                    for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                      for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
-                      }
-                    }
-                  }
-                } else {
-                  for (int k = 0; k < vinfo.nx3; ++k) {
-                    for (int j = 0; j < vinfo.nx2; ++j) {
-                      for (int i = 0; i < vinfo.nx1; ++i) {
-                        tmpData[index++] = static_cast<OutT>(v_h(t, u, v, k, j, i));
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          OutputUtils::PackOrUnpackVar(
+              pmb.get(), v.get(), output_params.include_ghost_zones, index, tmpData,
+              [&](auto index, int t, int u, int v, int k, int j, int i) {
+                tmpData[index] = static_cast<OutT>(v_h(t, u, v, k, j, i));
+              });
 
           is_allocated = true;
           break;
@@ -510,7 +423,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
             varSize =
                 vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
           }
-          memset(tmpData.data() + index, 0, varSize * sizeof(OutT));
+          auto fill_val =
+              output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;
+          std::fill(tmpData.data() + index, tmpData.data() + index + varSize, fill_val);
           index += varSize;
         } else {
           std::stringstream msg;
@@ -519,11 +434,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         }
       }
     }
+    Kokkos::Profiling::popRegion(); // fill host output buffer
 
+    Kokkos::Profiling::pushRegion("write variable data");
     // write data to file
-    HDF5WriteND(file, var_name, tmpData.data(), ndim, p_loc_offset, p_loc_cnt, p_glob_cnt,
-                pl_xfer, pl_dcreate);
+    HDF5WriteND(file, var_name, tmpData.data(), ndim, &local_offset[0], &local_count[0],
+                &global_count[0], pl_xfer, pl_dcreate);
+    Kokkos::Profiling::popRegion(); // write variable data
+    Kokkos::Profiling::popRegion(); // write variable loop
   }
+  Kokkos::Profiling::popRegion(); // write all variable data
 
   // names of variables
   std::vector<std::string> var_names;
@@ -556,24 +476,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    local_count[1] = global_count[1] = num_sparse;
-
-    HDF5Write2D(file, "SparseInfo", sparse_allocated.get(), p_loc_offset, p_loc_cnt,
-                p_glob_cnt, pl_xfer);
-
-    // write names of sparse fields as attribute, first convert to vector of const char*
-    std::vector<const char *> names(num_sparse);
-    for (size_t i = 0; i < num_sparse; ++i)
-      names[i] = sparse_names[i].c_str();
-
-    const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
-    HDF5WriteAttribute("SparseFields", names, dset);
+    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_names, num_sparse, file, pl_xfer,
+                     my_offset, max_blocks_global);
   } // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
 
+  Kokkos::Profiling::pushRegion("write particle data");
   AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
@@ -589,6 +500,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                 global_count, pl_xfer);
 
     const H5G g_var = MakeGroup(g_swm, "SwarmVars");
+    if (swinfo.global_count == 0) {
+      continue;
+    }
     auto SetCounts = [&](const SwarmInfo &swinfo, const SwarmVarInfo &vinfo) {
       const int rank = vinfo.tensor_rank;
       for (int i = 0; i < 6; ++i) {
@@ -631,10 +545,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   pl_xfer);
     }
   }
+  Kokkos::Profiling::popRegion(); // write particle data
 
-  // generate XDMF companion file
-  XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
+  if (output_params.write_xdmf) {
+    Kokkos::Profiling::pushRegion("genXDMF");
+    // generate XDMF companion file
+    XDMF::genXDMF(filename, pm, tm, nx1, nx2, nx3, all_vars_info, swarm_info);
+    Kokkos::Profiling::popRegion(); // genXDMF
+  }
+
+  Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
+// explicit template instantiation
+template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
+                                                      SignalHandler::OutputSignal);
+template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
+                                                     SignalHandler::OutputSignal);
 
 std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                            const SignalHandler::OutputSignal signal) {
@@ -670,70 +596,173 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
   }
   return filename;
 }
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    auto xmin = pmb->coords.GetXmin();
-    data[i++] = xmin[0];
-    if (pm->ndim > 1) {
-      data[i++] = xmin[1];
-    }
-    if (pm->ndim > 2) {
-      data[i++] = xmin[2];
-    }
-  }
-}
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    locs[i++] = pmb->loc.lx1;
-    locs[i++] = pmb->loc.lx2;
-    locs[i++] = pmb->loc.lx3;
-  }
-}
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data) {
-  int i = 0;
-  for (auto &pmb : pm->block_list) {
-    data[i++] = pmb->loc.level;
-    data[i++] = pmb->gid;
-    data[i++] = pmb->lid;
-    data[i++] = pmb->cnghost;
-    data[i++] = pmb->gflag;
-  }
-}
-// TODO(JMM): Should this live in the base class or output_utils?
-void PHDF5Output::ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib,
-                                 const IndexRange &jb, const IndexRange &kb,
-                                 std::vector<Real> &x, std::vector<Real> &y,
-                                 std::vector<Real> &z) {
-  std::size_t idx_x = 0, idx_y = 0, idx_z = 0;
 
-  // note relies on casting of bool to int
-  for (auto &pmb : pm->block_list) {
-    for (int i = ib.s; i <= ib.e + face; ++i) {
-      x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
-    }
-    for (int j = jb.s; j <= jb.e + face; ++j) {
-      y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
-    }
-    for (int k = kb.s; k <= kb.e + face; ++k) {
-      z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
-    }
+void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
+                                       hsize_t offset, hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("I/O HDF5: write block metadata");
+  const H5G gBlocks = MakeGroup(file, "/Blocks");
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t ndim = pm->ndim;
+  const hsize_t loc_offset[2] = {offset, 0};
+
+  // write Xmin[ndim] for blocks
+  {
+    // JMM: These arrays chould be shared, but I think this is clearer
+    // as to what's going on.
+    hsize_t loc_cnt[2] = {num_blocks_local, ndim};
+    hsize_t glob_cnt[2] = {max_blocks_global, ndim};
+
+    std::vector<Real> tmpData = OutputUtils::ComputeXminBlocks(pm);
+    HDF5Write2D(gBlocks, "xmin", tmpData.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
   }
+
+  {
+    // LOC.lx1,2,3
+    hsize_t loc_cnt[2] = {num_blocks_local, 3};
+    hsize_t glob_cnt[2] = {max_blocks_global, 3};
+    std::vector<int64_t> tmpLoc = OutputUtils::ComputeLocs(pm);
+    HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
+  }
+
+  {
+    // (LOC.)level, GID, LID, cnghost, gflag
+    hsize_t loc_cnt[2] = {num_blocks_local, 5};
+    hsize_t glob_cnt[2] = {max_blocks_global, 5};
+    std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
+    HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
+                &loc_cnt[0], &glob_cnt[0], pl);
+  }
+  Kokkos::Profiling::popRegion(); // write block metadata
 }
 
-// explicit template instantiation
-template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *, SimTime *,
-                                                      SignalHandler::OutputSignal);
-template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *,
-                                                     SignalHandler::OutputSignal);
+void PHDF5Output::WriteCoordinates_(Mesh *pm, const IndexDomain &domain, hid_t file,
+                                    const HDF5::H5P &pl, hsize_t offset,
+                                    hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("write mesh coords");
+  const IndexShape &shape = pm->GetLeafBlockCellBounds();
+  const IndexRange ib = shape.GetBoundsI(domain);
+  const IndexRange jb = shape.GetBoundsJ(domain);
+  const IndexRange kb = shape.GetBoundsK(domain);
+
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t loc_offset[2] = {offset, 0};
+  hsize_t loc_cnt[2] = {num_blocks_local, 1};
+  hsize_t glob_cnt[2] = {max_blocks_global, 1};
+
+  for (const bool face : {true, false}) {
+    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
+
+    std::vector<Real> loc_x, loc_y, loc_z;
+    OutputUtils::ComputeCoords(pm, face, ib, jb, kb, loc_x, loc_y, loc_z);
+
+    loc_cnt[1] = glob_cnt[1] = (ib.e - ib.s + 1) + face;
+    HDF5Write2D(gLocations, "x", loc_x.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+
+    loc_cnt[1] = glob_cnt[1] = (jb.e - jb.s + 1) + face;
+    HDF5Write2D(gLocations, "y", loc_y.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+
+    loc_cnt[1] = glob_cnt[1] = (kb.e - kb.s + 1) + face;
+    HDF5Write2D(gLocations, "z", loc_z.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+                pl);
+  }
+  Kokkos::Profiling::popRegion(); // write mesh coords
+}
+
+void PHDF5Output::WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
+                                      hsize_t offset, hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("write levels and locations");
+  auto [levels, logicalLocations] = pm->GetLevelsAndLogicalLocationsFlat();
+
+  // Only write levels on rank 0 since it has data for all ranks
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t loc_offset[2] = {offset, 0};
+  const hsize_t loc_cnt[2] = {(Globals::my_rank == 0) ? max_blocks_global : 0, 3};
+  const hsize_t glob_cnt[2] = {max_blocks_global, 3};
+
+  HDF5Write1D(file, "Levels", levels.data(), &loc_offset[0], &loc_cnt[0], &glob_cnt[0],
+              pl);
+  HDF5Write2D(file, "LogicalLocations", logicalLocations.data(), &loc_offset[0],
+              &loc_cnt[0], &glob_cnt[0], pl);
+
+  Kokkos::Profiling::popRegion(); // write levels and locations
+}
+
+void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                                   const std::vector<std::string> &sparse_names,
+                                   hsize_t num_sparse, hid_t file, const HDF5::H5P &pl,
+                                   size_t offset, hsize_t max_blocks_global) const {
+  using namespace HDF5;
+  Kokkos::Profiling::pushRegion("write sparse info");
+
+  const hsize_t num_blocks_local = pm->block_list.size();
+  const hsize_t loc_offset[2] = {offset, 0};
+  const hsize_t loc_cnt[2] = {num_blocks_local, num_sparse};
+  const hsize_t glob_cnt[2] = {max_blocks_global, num_sparse};
+
+  HDF5Write2D(file, "SparseInfo", sparse_allocated, &loc_offset[0], &loc_cnt[0],
+              &glob_cnt[0], pl);
+
+  // write names of sparse fields as attribute, first convert to vector of const char*
+  std::vector<const char *> names(num_sparse);
+  for (size_t i = 0; i < num_sparse; ++i)
+    names[i] = sparse_names[i].c_str();
+
+  const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
+  HDF5WriteAttribute("SparseFields", names, dset);
+  Kokkos::Profiling::popRegion(); // write sparse info
+}
 
 // Utility functions implemented
 namespace HDF5 {
-// template specializations for std::string
+std::tuple<int, std::vector<hsize_t>, std::size_t>
+HDF5GetAttributeInfo(hid_t location, const std::string &name, H5A &attr) {
+  // check if attribute exists
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Attribute '" + name + "' does not exist");
+
+  // Open attribute
+  attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
+
+  // Get attribute shape
+  const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
+  int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
+  std::size_t size = 1;
+  std::vector<hsize_t> dim;
+  if (rank > 0) {
+    dim.resize(rank);
+    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, dim.data(), NULL));
+    for (int d = 0; d < rank; ++d) {
+      size *= dim[d];
+    }
+    if (size == 0) {
+      PARTHENON_THROW("Attribute " + name + " has no value");
+    }
+  } else { // scalar quantity
+    dim.resize(1);
+    dim[0] = 1;
+  }
+  // JMM: H5Handle doesn't play nice with returning a tuple/structured
+  // binding, which is why it's not in the tuple. I think the issue is
+  // that H5Handle doesn't have a copy assignment operator, only a
+  // move operator. That probably implies not great things about the
+  // performance of returning the dim array by value here, but
+  // whatever. This isn't performance critical code.
+  return std::make_tuple(rank, dim, size);
+}
+
+// template specializations for std::string and bool
+void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location) {
+  HDF5WriteAttribute(name, value.c_str(), location);
+}
+
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
                         hid_t location) {
@@ -759,7 +788,18 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
   return res;
 }
 
-// template specialization for bool
+// JMM: A little circular but it works.
+template <>
+std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
+  HostArray1D<bool> temp;
+  HDF5ReadAttribute(location, name, temp);
+  std::vector<bool> out(temp.size());
+  for (int i = 0; i < temp.size(); ++i) {
+    out[i] = temp[i];
+  }
+  return out;
+}
+
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location) {
@@ -769,6 +809,11 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
     data[i] = values[i];
   }
   HDF5WriteAttribute(name, values.size(), data.get(), location);
+}
+
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::string &val) {
+  std::vector<std::string> vec = HDF5ReadAttributeVec<std::string>(location, name);
+  val = vec[0];
 }
 
 hid_t GenerateFileAccessProps() {

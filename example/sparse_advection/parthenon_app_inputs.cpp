@@ -1,4 +1,4 @@
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <limits>
 #include <sstream>
 #include <string>
 
@@ -96,8 +97,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       }
 
       pmb->par_for(
-          "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
-          ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          PARTHENON_AUTO_LABEL, 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
             auto x = coords.Xc<1>(i) - x0;
             auto y = coords.Xc<2>(j) - y0;
             auto z = coords.Xc<3>(k);
@@ -128,23 +129,55 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     }
   }
 
+  std::uint64_t mem_min = std::numeric_limits<std::uint64_t>::max();
+  std::uint64_t mem_max = 0;
+  std::uint64_t mem_tot = 0;
+  std::uint64_t blocks_tot = mesh->block_list.size();
+  for (auto pmb : mesh->block_list) {
+    auto blk_mem = pmb->ReportMemUsage();
+    mem_min = std::min(blk_mem, mem_min);
+    mem_max = std::max(blk_mem, mem_max);
+    mem_tot += blk_mem;
+  }
+
 #ifdef MPI_PARALLEL
+  static_assert(sizeof(std::uint64_t) == sizeof(unsigned long long int),
+                "MPI_UNSIGNED_LONG_LONG same as uint64_t");
   if (Globals::my_rank == 0) {
     PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_allocated.data(), n, MPI_INT,
                                    MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &mem_min, 1, MPI_UNSIGNED_LONG_LONG,
+                                   MPI_MIN, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &mem_max, 1, MPI_UNSIGNED_LONG_LONG,
+                                   MPI_MAX, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &mem_tot, 1, MPI_UNSIGNED_LONG_LONG,
+                                   MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &blocks_tot, 1, MPI_UNSIGNED_LONG_LONG,
+                                   MPI_SUM, 0, MPI_COMM_WORLD));
   } else {
     PARTHENON_MPI_CHECK(MPI_Reduce(num_allocated.data(), num_allocated.data(), n, MPI_INT,
+                                   MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&mem_min, &mem_min, 1, MPI_UNSIGNED_LONG_LONG, MPI_MIN,
+                                   0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&mem_max, &mem_max, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX,
+                                   0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&mem_tot, &mem_tot, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM,
+                                   0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&blocks_tot, &blocks_tot, 1, MPI_UNSIGNED_LONG_LONG,
                                    MPI_SUM, 0, MPI_COMM_WORLD));
   }
 #endif
 
   // only the root process outputs the result
   if (Globals::my_rank == 0) {
-    printf("Number of allocations: ");
+    std::printf("\tNumber of allocations: ");
     for (int i = 0; i < n; ++i) {
-      printf("%i: %i%s", i, num_allocated[i], i == n - 1 ? "" : ", ");
+      std::printf("%i: %i%s", i, num_allocated[i], i == n - 1 ? "" : ", ");
     }
-    printf("\n");
+    std::printf("\n");
+    Real mem_avg = static_cast<Real>(mem_tot) / static_cast<Real>(blocks_tot);
+    std::printf("\tMem used/block in bytes [min, max, avg] = [%lu, %lu, %.14e]\n",
+                mem_min, mem_max, mem_avg);
   }
 }
 

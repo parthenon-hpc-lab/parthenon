@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_TAG_MAP_HPP_
-#define BVALS_CC_TAG_MAP_HPP_
+#ifndef BVALS_COMMS_TAG_MAP_HPP_
+#define BVALS_COMMS_TAG_MAP_HPP_
 
 #include <map>
 #include <memory>
@@ -90,13 +90,13 @@ class TagMap {
   // firsts NeighborBlock information) return an ordered pair of BlockGeometricElementIds
   // corresponding to the two blocks geometric elements that coincide. This serves as a
   // unique key defining the two-way communication channel between these elements
-  rank_pair_t MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
-                              const NeighborBlock &nb);
+  rank_pair_t MakeChannelPair(const MeshBlock *pmb, const NeighborBlock &nb);
 
  public:
   void clear() { map_.clear(); }
 
   // Inserts all of the communication channels known about by MeshData md into the map
+  template <BoundaryType BOUND>
   void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md);
 
   // Once all MeshData objects have inserted their known channels into the map, we can
@@ -107,8 +107,8 @@ class TagMap {
 
   // After the map has been resolved, get the tag for a particular MeshBlock NeighborBlock
   // pair
-  int GetTag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb);
+  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb);
 };
 } // namespace parthenon
 
-#endif // BVALS_CC_TAG_MAP_HPP_
+#endif // BVALS_COMMS_TAG_MAP_HPP_

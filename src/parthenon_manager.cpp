@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -33,22 +33,19 @@
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
 
-ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
-  auto manager_status = ParthenonInitEnv(argc, argv);
-  if (manager_status != ParthenonStatus::ok) {
-    return manager_status;
-  }
-  ParthenonInitPackagesAndMesh();
-  return ParthenonStatus::ok;
-}
-
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
+  if (called_init_env_) {
+    PARTHENON_THROW("ParthenonInitEnv called twice!");
+  }
+  called_init_env_ = true;
+
   // initialize MPI
 #ifdef MPI_PARALLEL
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
@@ -145,6 +142,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 }
 
 void ParthenonManager::ParthenonInitPackagesAndMesh() {
+  if (called_init_packages_and_mesh_) {
+    PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
+  }
+  called_init_packages_and_mesh_ = true;
+
   // Allow for user overrides to default Parthenon functions
   if (app_input->ProcessPackages != nullptr) {
     ProcessPackages = app_input->ProcessPackages;
@@ -259,7 +261,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
-      GetAnyVariables(mb.meshblock_data.Get()->GetCellVariableVector(),
+      GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
 
   const auto sparse_info = resfile.GetSparseInfo();
@@ -329,12 +331,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       }
 
-      auto v = pmb->meshblock_data.Get()->GetCellVarPtr(label);
+      auto v = pmb->meshblock_data.Get()->GetVarPtr(label);
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
       if (file_output_format_ver == -1) {
+        PARTHENON_WARN("This file output format version is deprecrated and will be "
+                       "removed in a future release.");
         for (int k = out_kb.s; k <= out_kb.e; ++k) {
           for (int j = out_jb.s; j <= out_jb.e; ++j) {
             for (int i = out_ib.s; i <= out_ib.e; ++i) {
@@ -346,19 +350,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         }
       } else if (file_output_format_ver == 2 ||
                  file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
-        for (int t = 0; t < Nt; ++t) {
-          for (int u = 0; u < Nu; ++u) {
-            for (int v = 0; v < Nv; ++v) {
-              for (int k = out_kb.s; k <= out_kb.e; ++k) {
-                for (int j = out_jb.s; j <= out_jb.e; ++j) {
-                  for (int i = out_ib.s; i <= out_ib.e; ++i) {
-                    v_h(t, u, v, k, j, i) = tmp[index++];
-                  }
-                }
-              }
-            }
-          }
-        }
+        OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
+                                     [&](auto index, int t, int u, int v, int k, int j,
+                                         int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
       } else {
         PARTHENON_THROW("Unknown output format version in restart file.")
       }
@@ -379,6 +373,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =
         resfile.GetSwarmCounts(swarmname, myBlocks, counts, offsets);
+    // Compute total count and skip this swarm if total count is zero.
+    std::size_t total_count = OutputUtils::MPISum(count_on_rank);
+    if (total_count == 0) {
+      continue;
+    }
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {
@@ -389,6 +388,15 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
+  }
+
+  // Params
+  // ============================================================
+  // packages and params are owned by shared pointer, so reading from
+  // the mesh updates on all meshblocks.
+  for (auto &[name, pkg] : rm.packages.AllPackages()) {
+    auto &params = pkg->AllParams();
+    resfile.ReadParams(name, params);
   }
 #endif // ifdef ENABLE_HDF5
 }

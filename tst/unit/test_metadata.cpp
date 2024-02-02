@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable_state.hpp"
@@ -24,32 +25,43 @@
 using parthenon::Coordinates_t;
 using parthenon::IndexRange;
 using parthenon::Metadata;
-using parthenon::ParArray6D;
+using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::TopologicalElement;
 using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };
 struct MyRestrictOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };
@@ -69,10 +81,8 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     // Note: `parthenon::internal` is subject to change, and so this test may
     // rightfully break later - this test needn't be maintained if so.
     //
-    // Checks that the first allocated flag is equal to `Max` - the final built-in
-    // flag + 1.
-    REQUIRE(f.InternalFlagValue() ==
-            static_cast<int>(parthenon::internal::MetadataInternal::Max));
+    // Checks that an allocated flag was ended to the end of existing flags
+    REQUIRE(f.InternalFlagValue() == static_cast<int>(Metadata::num_flags) - 1);
     REQUIRE(name == f.Name());
 
     // Metadata should be able to report that this flag exists and
@@ -86,6 +96,11 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
 
     // It should throw an error if you try to allocate a new flag with the same name.
     REQUIRE_THROWS_AS(Metadata::AddUserFlag(name), std::runtime_error);
+
+    // We can get or add a flag
+    auto const f3 = Metadata::GetOrAddFlag("ImFlexible");
+    auto const f4 = Metadata::GetOrAddFlag("ImFlexible");
+    REQUIRE(f3 == f4);
   }
 }
 
@@ -200,8 +215,8 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
     THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
-          parthenon::refinement_ops::ProlongateCellMinMod,
-          parthenon::refinement_ops::RestrictCellAverage>();
+          parthenon::refinement_ops::ProlongateSharedMinMod,
+          parthenon::refinement_ops::RestrictAverage>();
       REQUIRE(m.GetRefinementFunctions() == cell_funcs);
     }
     WHEN("We register new operations") {
@@ -211,18 +226,6 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
             parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                       MyRestrictOp>();
         REQUIRE(m.GetRefinementFunctions() == my_funcs);
-      }
-    }
-  }
-  // JMM: I also wanted to test registration of refinement operations
-  // but this turns out to be impossible because Catch2 macros are not
-  // careful with commas, and the macro interprets commas within the
-  // template as separate arguments.
-  GIVEN("A metadata struct without the relevant flags set") {
-    Metadata m;
-    WHEN("We try to request refinement functions") {
-      THEN("It should fail") {
-        REQUIRE_THROWS_AS(m.GetRefinementFunctions(), std::runtime_error);
       }
     }
   }

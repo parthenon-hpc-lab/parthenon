@@ -58,7 +58,7 @@ To build Parthenon on CPU, including this benchmark, with minimal external depen
 
 ```bash
 parthenon$ mkdir build && cd build
-parthenon$ cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_DISABLE_OPENMP=ON -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF ../
+parthenon$ cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF ../
 parthenon$ make -j
 ```
 The executable `burgers-benchmark` should be built in `parthenon/build/benchmarks/burgers/` and can be run as, e.g.
@@ -73,6 +73,12 @@ To build for execution on a single GPU, it should be sufficient to add the follo
 -DPARTHENON_DISABLE_MPI=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON
 ```
 where `Kokkos_ARCH` should be set appropriately for the machine (see [here](https://kokkos.github.io/kokkos-core-wiki/keywords.html)).
+
+### Diagnostics
+
+Parthenon-VIBE prints to a history file (default name `burgers.hst`) a time series of the sum of squares of evolved variables integrated over volume for each octant of the domain, as well as the total number of meshblocks in the simulation at that time. To compare these quantities between runs, we provide the `burgers_diff.py` program in the benchmark folder. This will diff two history files and report when the relative difference is greater than some tolerance.
+
+Note that `burgers.hst` is **appended** to when the executable is re-run. So if you want to compare two different history files, rename the history file by changing either `problem_id` in the `parthenon/job` block in the input deck (this can be done on the command line. When you start the program, add `parthenon/job/problem_id=mynewname` to the command line argument), or copy the old file to back it up.
 
 ### Memory Usage
 
@@ -109,5 +115,4 @@ On a two-socket Broadwell node with 36 cores, the benchmark takes approximately 
 For the GPU, we measure throughput on a single-level mesh ("parthenon/mesh/numlevel = 1") and vary the base mesh size and the block size.  Results on a 40 GB A100 are shown in Figure 3.
 
 <p style="text-align:center;"><img src="data/pvibe_gpu_throughput.png" alt="Plot showing throughput on an A100 at different mesh and block sizes" style=width:50%><br />Figure 3: Throughput for different mesh and block sizes on a single 40 GB A100 GPU.</p>
-
 

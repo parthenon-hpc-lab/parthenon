@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
@@ -182,7 +182,7 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
 
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
-      "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           x(n) += vx * dt;
           y(n) += vy * dt;
@@ -219,13 +219,13 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
   // Reset particle count
   pmb->par_for(
-      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
 
   const int ndim = pmb->pmy_mesh->ndim;
 
   pmb->par_for(
-      "DepositTracers", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
           int j = 0;
@@ -269,7 +269,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   // Spatially first order upwind method
   pmb->par_for(
-      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         // X1
         if (vx > 0.) {
@@ -282,7 +282,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   if (ndim > 1) {
     auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X2
           if (vy > 0.) {
@@ -296,7 +296,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   if (ndim > 2) {
     auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX3", kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X3
           if (vz > 0.) {
@@ -345,17 +345,17 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
-  const Real x_min_mesh = mesh_size.x1min;
-  const Real y_min_mesh = mesh_size.x2min;
-  const Real z_min_mesh = mesh_size.x3min;
-  const Real x_max_mesh = mesh_size.x1max;
-  const Real y_max_mesh = mesh_size.x2max;
-  const Real z_max_mesh = mesh_size.x3max;
+  const Real x_min_mesh = mesh_size.xmin(X1DIR);
+  const Real y_min_mesh = mesh_size.xmin(X2DIR);
+  const Real z_min_mesh = mesh_size.xmin(X3DIR);
+  const Real x_max_mesh = mesh_size.xmax(X1DIR);
+  const Real y_max_mesh = mesh_size.xmax(X2DIR);
+  const Real z_max_mesh = mesh_size.xmax(X3DIR);
 
   const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
 
   pmb->par_for(
-      "Init advected profile", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.Xc<1>(i));
       });
@@ -374,7 +374,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
-  int nbtotal = pmb->pmy_mesh->nbtotal;
 
   ParArrayND<int> new_indices;
   swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
@@ -388,7 +387,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      "CreateParticles", 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
         auto rng_gen = rng_pool.get_state();
 
         // Rejection sample the x position
@@ -452,15 +451,12 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
     const auto any = parthenon::BoundaryType::any;
 
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-    auto send_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -473,8 +469,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                             pmesh->multilevel);
+    parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
   }
 
   TaskRegion &async_region1 = tc.AddRegion(nblocks);
@@ -483,9 +478,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &tl = async_region1[n];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(

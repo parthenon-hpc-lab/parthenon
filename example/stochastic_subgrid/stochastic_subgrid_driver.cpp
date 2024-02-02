@@ -17,7 +17,7 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -64,16 +64,10 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
   // sample number of iterations task
   {
-    const int pack_size = pmesh->DefaultPackSize();
-    auto partitions = partition::ToSizeN(blocks, pack_size);
-    for (int i = 0; i < partitions.size(); i++) {
-      auto md = pmesh->mesh_data.Add("num_iter_partition_" + std::to_string(i));
-      md->Set(partitions[i], "base");
-    }
-
-    TaskRegion &async_region = tc.AddRegion(partitions.size());
-    for (int i = 0; i < partitions.size(); i++) {
-      auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
+    const int num_partitions = pmesh->DefaultNumPartitions();
+    TaskRegion &async_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
       async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
     }
   }
@@ -134,15 +128,12 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
       const auto any = parthenon::BoundaryType::any;
 
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+      tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+      tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-      auto send_flx = tl.AddTask(
-          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-      auto recv_flx =
-          tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-      auto set_flx =
-          tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+      auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
+      auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
+      auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
       // compute the divergence of fluxes of conserved variables
       auto flux_div =
@@ -155,8 +146,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                mdudt.get(), beta * dt, mc1.get());
 
       // do boundary exchange
-      parthenon::cell_centered_bvars::AddBoundaryExchangeTasks(update, tl, mc1,
-                                                               pmesh->multilevel);
+      parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
     }
   }
 
@@ -170,13 +160,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       auto &tl = async_region2[i];
       auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-      auto prolongBound = none;
-      if (pmesh->multilevel) {
-        prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-      }
-
       // set physical boundaries
-      auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+      auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
       // fill in derived fields
       auto fill_derived = tl.AddTask(
