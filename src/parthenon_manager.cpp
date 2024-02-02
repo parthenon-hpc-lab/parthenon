@@ -95,10 +95,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
 
-  // Populate the ParameterInput object
-  if (arg.input_filename != nullptr) {
-    pinput = std::make_unique<ParameterInput>(arg.input_filename);
-  } else if (arg.res_flag != 0) {
+  // Populate the ParameterInput object.
+  // If restart, then ParameterInput in the restart file takes precedence.
+  if (arg.res_flag != 0) {
     // Read input from restart file
     restartReader = std::make_unique<RestartReader>(arg.restart_filename);
 
@@ -107,6 +106,20 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     auto inputString = restartReader->GetAttr<std::string>("Input", "File");
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
+  }
+  // If an input was provided
+  if (arg.input_filename != nullptr) {
+    // Modify info read from restart file
+    if (arg.res_flag != 0) {
+      IOWrapper infile;
+      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+      pinput->LoadFromFile(infile);
+      infile.Close();
+
+      // Populate new object for fresh simulation
+    } else {
+      pinput = std::make_unique<ParameterInput>(arg.input_filename);
+    }
   }
 
   // Modify based on command line inputs
