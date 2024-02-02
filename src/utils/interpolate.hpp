@@ -13,13 +13,18 @@
 //            Vol. 17, No. 2, April 1980. [https://doi.org/10.1137/0717021]
 //========================================================================================
 
-#include "../kokkos_abstraction.hpp"
 #include <ostream>
+
+#include "../kokkos_abstraction.hpp"
+#include "concepts_lite.hpp"
 
 namespace parthenon {
 
-template<typename VectorContainer, class = ENABLEIF(implements<contiguous_container(VectorContainer)>::value)>
+template <typename VectorContainer,
+          REQUIRES(implements<contiguous_container(VectorContainer)>::value)>
 class MonotoneInterpolator {
+  // NOTE: the values in VectorContainer are assumed to be accessible from both host and
+  // device
  public:
   using Real = typename VectorContainer::value_type;
   MonotoneInterpolator(VectorContainer const &x, VectorContainer const &y);
@@ -47,10 +52,10 @@ auto MonotoneInterpolator<std::vector<Real>>::ConstructVectorContainer(size_t si
   return std::vector<Real>(size);
 }
 
-template <>
-auto MonotoneInterpolator<PinnedArray1D<Real>>::ConstructVectorContainer(size_t size)
-    -> PinnedArray1D<Real> {
-  return PinnedArray1D<Real>("d", size);
+template <typename VectorContainer,
+          REQUIRES(implements<kokkos_view(VectorContainer)>::value)>
+auto MonotoneInterpolator<VectorContainer>::ConstructVectorContainer(size_t size) {
+  return VectorContainer("d", size);
 }
 
 template <class VectorContainer>
@@ -102,12 +107,14 @@ KOKKOS_FUNCTION KOKKOS_FORCEINLINE_FUNCTION auto
 MonotoneInterpolator<T>::operator()(Real x) const -> Real {
   // to avoid branchy code, do a linear search for the segment I_i
   // where x_{i} <= x < x_{i+1}.
+  // TODO(bwibking): replace with binary search
   int i = 0;
   for (; i < (x_vec_.size() - 1); ++i) {
     if ((x >= x_vec_[i]) && (x < x_vec_[i + 1])) {
       break;
     }
   }
+
   const Real x_i = x_vec_[i];
   const Real x_i1 = x_vec_[i + 1];
   const Real f_i = f_vec_[i];
