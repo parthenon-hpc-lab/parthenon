@@ -16,17 +16,15 @@
 #include <ostream>
 
 #include "../kokkos_abstraction.hpp"
+#include "basic_types.hpp"
 #include "concepts_lite.hpp"
 
 namespace parthenon {
 
-template <typename VectorContainer,
-          REQUIRES(implements<contiguous_container(VectorContainer)>::value)>
+template<typename VectorContainer, REQUIRES(implements<contiguous_container(VectorContainer)>::value)>
 class MonotoneInterpolator {
-  // NOTE: the values in VectorContainer are assumed to be accessible from both host and
-  // device
+  // NOTE: the values in VectorContainer are assumed to be accessible from both host and device
  public:
-  using Real = typename VectorContainer::value_type;
   MonotoneInterpolator(VectorContainer const &x, VectorContainer const &y);
   KOKKOS_FUNCTION KOKKOS_FORCEINLINE_FUNCTION
   MonotoneInterpolator(MonotoneInterpolator const &rhs)
@@ -52,8 +50,7 @@ auto MonotoneInterpolator<std::vector<Real>>::ConstructVectorContainer(size_t si
   return std::vector<Real>(size);
 }
 
-template <typename VectorContainer,
-          REQUIRES(implements<kokkos_view(VectorContainer)>::value)>
+template<typename VectorContainer, REQUIRES(implements<kokkos_view(VectorContainer)>::value)>
 auto MonotoneInterpolator<VectorContainer>::ConstructVectorContainer(size_t size) {
   return VectorContainer("d", size);
 }
