@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "bvals/boundary_conditions.hpp"
+#include "bvals/boundary_conditions_generic.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
@@ -28,56 +29,13 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
-                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                IndexRange &bk);
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
-                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                           int sk, int ek);
 } // namespace boundary_cond_impl
-
-TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
-  Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
-
-  // Impose physical boundaries on the coarse zones and prolongate to
-  // the fine as needed.
-
-  // In principle, the coarse zones must be filled by restriction first.
-  // This is true *even* for meshblocks adjacent to a neighbor at the same level.
-  // However, it is decoupled from the prolongation step because:
-  // (a) For meshblocks next to a coarser block, it
-  //     is automatically handled during ghost zone communication
-  // (b) Restriction may be handled via meshblock packs, independently from whether
-  //     or not boundaries and prolongation are.
-
-  // Step 0. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
-  // Handled elsewhere now
-
-  // Step 1. Apply physical boundaries on the coarse boundary,
-  ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
-
-  // Step 2. Finally, the ghost-ghost zones are ready for prolongation:
-  const auto &pmb = rc->GetBlockPointer();
-  int &mylevel = pmb->loc.level;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (nb.snb.level >= mylevel) continue;
-    // calculate the loop limits for the ghost zones
-    IndexRange bi, bj, bk;
-    boundary_cond_impl::ComputeProlongationBounds_(pmb, nb, bi, bj, bk);
-    boundary_cond_impl::ProlongateGhostCells_(rc, nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
-  } // end loop over nneighbor
-
-  Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
-  return TaskStatus::complete;
-}
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
-  Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
+  PARTHENON_INSTRUMENT
   using namespace boundary_cond_impl;
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  MeshBlock *pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
 
@@ -86,114 +44,76 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
       PARTHENON_DEBUG_REQUIRE(pmesh->MeshBndryFnctn[i] != nullptr,
                               "boundary function must not be null");
       pmesh->MeshBndryFnctn[i](rc, coarse);
+      for (auto &bnd_func : pmesh->UserBoundaryFunctions[i]) {
+        bnd_func(rc, coarse);
+      }
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_ApplyBoundaryConditionsOnCoarseOrFine
+  return TaskStatus::complete;
+}
+
+TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd) {
+  for (int b = 0; b < pmd->NumBlocks(); ++b)
+    ApplyBoundaryConditions(pmd->GetBlockData(b));
+  return TaskStatus::complete;
+}
+
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
+                                                   bool coarse) {
+  for (int b = 0; b < pmd->NumBlocks(); ++b)
+    ApplyBoundaryConditionsOnCoarseOrFine(pmd->GetBlockData(b), coarse);
   return TaskStatus::complete;
 }
 
 namespace BoundaryFunction {
 
-enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect };
-
-template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
-void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  // make sure DIR is X[123]DIR so we don't have to check again
-  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
-
-  // convenient shorthands
-  constexpr bool X1 = (DIR == X1DIR);
-  constexpr bool X2 = (DIR == X2DIR);
-  constexpr bool X3 = (DIR == X3DIR);
-  constexpr bool INNER = (SIDE == BCSide::Inner);
-
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-
-  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior)
-                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior)
-                               : bounds.GetBoundsK(IndexDomain::interior));
-  const int ref = INNER ? range.s : range.e;
-
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
-  auto nb = IndexRange{0, q.GetDim(4) - 1};
-
-  std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
-  label += (INNER ? "Inner" : "Outer");
-  label += "X" + std::to_string(DIR);
-
-  constexpr IndexDomain domain =
-      INNER ? (X1 ? IndexDomain::inner_x1
-                  : (X2 ? IndexDomain::inner_x2 : IndexDomain::inner_x3))
-            : (X1 ? IndexDomain::outer_x1
-                  : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
-
-  // used for reflections
-  const int offset = 2 * ref + (INNER ? -1 : 1);
-
-  pmb->par_for_bndry(
-      label, nb, domain, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        if (!q.IsAllocated(l)) return;
-        if (TYPE == BCType::Reflect) {
-          const bool reflect = (q.VectorComponent(l) == DIR);
-          q(l, k, j, i) =
-              (reflect ? -1.0 : 1.0) *
-              q(l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
-        } else {
-          q(l, k, j, i) = q(l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
-        }
-      });
-}
-
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, BCSide::Inner, BCType::Outflow>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, BCSide::Outer, BCType::Outflow>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Outflow, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X1DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
+  GenericBC<X1DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X2DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
+  GenericBC<X2DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, BCSide::Inner, BCType::Reflect>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Inner, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
-  GenericBC<X3DIR, BCSide::Outer, BCType::Reflect>(rc, coarse);
+  GenericBC<X3DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
 } // namespace BoundaryFunction
@@ -213,55 +133,6 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   } // ndim always at least 1
 
   return true; // reflect, outflow, user, dims correct
-}
-
-void ProlongateGhostCells_(std::shared_ptr<MeshBlockData<Real>> &rc,
-                           const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                           int sk, int ek) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  auto &pmr = pmb->pmr;
-
-  for (auto cc_var : rc->GetCellVariableVector()) {
-    if (!cc_var->IsAllocated()) continue;
-    if (!(cc_var->IsSet(Metadata::Independent) || cc_var->IsSet(Metadata::FillGhost)))
-      continue;
-
-    // TODO(LFR): Is this indexing correct for 5 and 6 dimensional fields?
-    int nu = cc_var->GetDim(4) - 1;
-    pmr->ProlongateCellCenteredValues(cc_var.get(), si, ei, sj, ej, sk, ek);
-  }
-
-  // TODO(LFR): Deal with prolongation of non-cell centered values
-}
-
-void ComputeProlongationBounds_(const std::shared_ptr<MeshBlock> &pmb,
-                                const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
-                                IndexRange &bk) {
-  const IndexDomain interior = IndexDomain::interior;
-  int cn = pmb->cnghost - 1;
-
-  auto getbounds = [=](const int nbx, const std::int64_t &lx, const IndexRange bblock,
-                       IndexRange &bprol) {
-    if (nbx == 0) {
-      bprol.s = bblock.s;
-      bprol.e = bblock.e;
-      if ((lx & 1LL) == 0LL) {
-        bprol.e += cn;
-      } else {
-        bprol.s -= cn;
-      }
-    } else if (nbx > 0) {
-      bprol.s = bblock.e + 1;
-      bprol.e = bblock.e + cn;
-    } else {
-      bprol.s = bblock.s - cn;
-      bprol.e = bblock.s - 1;
-    }
-  };
-
-  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
-  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
-  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
 }
 
 } // namespace boundary_cond_impl

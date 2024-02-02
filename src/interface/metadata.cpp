@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "mesh/meshblock.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
 using parthenon::Metadata;
@@ -35,6 +36,8 @@ namespace parthenon {
 
 PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
+
+int Metadata::num_flags = static_cast<int>(internal::MetadataInternal::Max);
 
 namespace internal {
 
@@ -84,6 +87,7 @@ class UserMetadataState {
 parthenon::internal::UserMetadataState metadata_state;
 
 MetadataFlag Metadata::AddUserFlag(const std::string &name) {
+  num_flags++;
   return metadata_state.AllocateNewFlag(name);
 }
 
@@ -97,6 +101,71 @@ MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
 }
 
 namespace parthenon {
+Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
+                   const std::vector<std::string> &component_labels,
+                   const std::string &associated,
+                   const refinement::RefinementFunctions_t ref_funcs_)
+    : shape_(shape), component_labels_(component_labels), associated_(associated) {
+  // set flags
+  for (const auto f : bits) {
+    DoBit(f, true);
+  }
+
+  // set defaults
+  if (CountSet({None, Node, Edge, Face, Cell}) == 0) {
+    DoBit(None, true);
+  }
+  if (CountSet({Private, Provides, Requires, Overridable}) == 0) {
+    DoBit(Provides, true);
+  }
+  if (CountSet({Boolean, Integer, Real}) == 0) {
+    DoBit(Real, true);
+  }
+  if (CountSet({Independent, Derived}) == 0) {
+    DoBit(Derived, true);
+  }
+  // If variable is refined, set a default prolongation/restriction op
+  // TODO(JMM): This is dangerous. See Issue #844.
+  if (IsRefined()) {
+    refinement_funcs_ = ref_funcs_;
+  }
+
+  // check if all flag constraints are satisfied, throw if not
+  IsValid(true);
+
+  // check shape is valid
+  // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
+  // flags?
+  if (IsMeshTied()) {
+    PARTHENON_REQUIRE_THROWS(
+        shape_.size() <= 3,
+        "Variables tied to mesh entities can only have a shape of rank <= 3");
+
+    int num_comp = 1;
+    for (auto s : shape) {
+      num_comp *= s;
+    }
+
+    PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
+                                 (component_labels.size() == num_comp),
+                             "Must provide either 0 component labels or the same "
+                             "number as the number of components");
+  }
+
+  // Set the allocation and deallocation thresholds
+  // TODO(JMM): This is dangerous. See Issue #844.
+  if (IsSet(Sparse)) {
+    allocation_threshold_ = Globals::sparse_config.allocation_threshold;
+    deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
+    default_value_ = 0.0;
+  } else {
+    // Not sparse, so set to zero so we are guaranteed never to deallocate
+    allocation_threshold_ = 0.0;
+    deallocation_threshold_ = 0.0;
+    default_value_ = 0.0;
+  }
+}
+
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   bool first = true;
   auto &flags = metadata_state.AllFlags();
@@ -128,9 +197,9 @@ std::vector<MetadataFlag> Metadata::Flags() const {
   return set_flags;
 }
 
-std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
-                                          bool coarse) const {
-  std::array<int, 6> arrDims;
+std::array<int, MAX_VARIABLE_DIMENSION>
+Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
+  std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
   const int N = shape.size();
 
@@ -152,12 +221,25 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
+    if (IsSet(Cell)) {
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
+    } else if (IsSet(Face) || IsSet(Edge)) {
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
+      arrDims[0]++;
+      if (arrDims[1] > 1) arrDims[1]++;
+      if (arrDims[2] > 1) arrDims[2]++;
+    } else if (IsSet(Node)) {
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one lower left node per cell
+      arrDims[0]++;
+      if (arrDims[1] > 1) arrDims[1]++;
+      if (arrDims[2] > 1) arrDims[2]++;
+    }
   } else if (IsSet(Particle)) {
-    assert(N >= 0 && N <= 5);
+    assert(N >= 0 && N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
-    for (int i = N; i < 5; i++)
+    for (int i = N; i < MAX_VARIABLE_DIMENSION - 1; i++)
       arrDims[i + 1] = 1;
   } else if (IsSet(Swarm)) {
     // No dimensions
@@ -167,14 +249,25 @@ std::array<int, 6> Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
-    assert(N >= 1 && N <= 6);
+    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION);
     for (int i = 0; i < N; i++)
       arrDims[i] = shape[i];
-    for (int i = N; i < 6; i++)
+    for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
   }
 
   return arrDims;
 }
+
+namespace MetadataUtils {
+bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m) {
+  const auto &intersections = flags.GetIntersections();
+  const auto &unions = flags.GetUnions();
+  const auto &exclusions = flags.GetExclusions();
+
+  return m.AllFlagsSet(intersections) && (unions.empty() || m.AnyFlagsSet(unions)) &&
+         m.NoFlagsSet(exclusions);
+}
+} // namespace MetadataUtils
 
 } // namespace parthenon

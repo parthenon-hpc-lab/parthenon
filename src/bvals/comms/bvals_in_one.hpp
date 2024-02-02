@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,8 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_BVALS_CC_IN_ONE_HPP_
-#define BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#ifndef BVALS_COMMS_BVALS_IN_ONE_HPP_
+#define BVALS_COMMS_BVALS_IN_ONE_HPP_
 
 #include <memory>
 #include <string>
@@ -25,8 +25,8 @@
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
-#include "tasks/task_id.hpp"
-#include "tasks/task_list.hpp"
+
+#include "tasks/tasks.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -36,9 +36,7 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 template <typename T>
-class CellVariable;
-
-namespace cell_centered_bvars {
+class Variable;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
@@ -62,23 +60,26 @@ inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::any>(md);
 }
 
+template <BoundaryType bound_type>
+TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md);
+inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+  return ProlongateBounds<BoundaryType::any>(md);
+}
+
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
 
-// Restricts all relevant meshblock boundaries, but doesn't
-// communicate at all.
-TaskStatus RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset);
-
 // Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
-// This task should not be called in down stream code
+// These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 
-} // namespace cell_centered_bvars
 } // namespace parthenon
 
-#endif // BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

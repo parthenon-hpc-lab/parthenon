@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,11 +26,10 @@
 #include <mesh/meshblock_pack.hpp>
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>
-#include <tasks/task_id.hpp>
-#include <tasks/task_list.hpp>
-#include <tasks/task_types.hpp>
+#include <tasks/tasks.hpp>
 #include <utils/partition_stl_containers.hpp>
 #include <utils/reductions.hpp>
+#include <utils/unique_id.hpp>
 
 // Local Includes
 #include "prelude.hpp"
@@ -65,9 +64,11 @@ using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
 using ::parthenon::TaskListStatus;
+using ::parthenon::TaskQualifier;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;
+using ::parthenon::Uid_t;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
 

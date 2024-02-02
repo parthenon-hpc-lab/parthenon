@@ -69,3 +69,68 @@ variables = advected, one_minus_advected, & # comments are ok
 <parthenon/output1>
 file_type = hst
 dt = 0.25
+
+<parthenon/output2>
+file_type = histogram
+dt = 0.25
+
+hist_names = hist0, name, other_name
+
+# 1D histogram of a variable, binned by a variable
+hist0_ndim = 1
+hist0_x_variable = advected
+hist0_x_variable_component = 0
+hist0_x_edges_type = list
+hist0_x_edges_list = 1e-9, 1e-4,1e-1, 2e-1, 5e-1 ,1.0
+hist0_binned_variable = advected
+hist0_binned_variable_component = 0
+
+# 2D histogram of a variable, binned by a coordinate and a different variable
+name_ndim = 2
+name_x_variable = HIST_COORD_X1
+name_x_edges_type = lin
+name_x_edges_num_bins = 4
+name_x_edges_min = -0.5
+name_x_edges_max = 0.5
+name_y_variable = one_minus_advected_sq
+name_y_variable_component = 0
+name_y_edges_type = list
+name_y_edges_list = 0, 0.5, 1.0
+name_binned_variable = advected
+name_binned_variable_component = 0
+
+# 1D histogram ("standard", i.e., counting occurance in bin)
+other_name_ndim = 1
+other_name_x_variable = advected
+other_name_x_variable_component = 0
+other_name_x_edges_type = log
+other_name_x_edges_num_bins = 10
+other_name_x_edges_min = 1e-9
+other_name_x_edges_max = 1e0
+other_name_binned_variable = HIST_ONES
+
+# A second output block with different dt for histograms
+# to double check that writing to different files works
+<parthenon/output3>
+file_type = histogram
+dt = 0.5
+
+hist_names = hist0
+
+# 2D histogram of volume weighted variable according to two coordinates
+hist0_ndim = 2
+hist0_x_variable = HIST_COORD_X1
+hist0_x_edges_type = list
+# Note that the coordinate edges are smaller than the domain extents on purpose
+# to test the accumulation feature (as the reference histogram in the test calculated
+# with numpy goes all the way out to the domain edges).
+hist0_x_edges_list = -0.5, -0.25, 0.0, 0.25, 0.35
+hist0_y_variable = HIST_COORD_X2
+hist0_y_edges_type = list
+hist0_y_edges_list = -0.25, -0.1, 0.0, 0.1, 0.5
+hist0_binned_variable = advected
+hist0_binned_variable_component = 0
+hist0_weight_by_volume = true
+hist0_weight_variable = one_minus_advected_sq
+hist0_weight_variable_component = 0
+hist0_accumulate = true

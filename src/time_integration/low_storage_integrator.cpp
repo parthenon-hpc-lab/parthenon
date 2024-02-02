@@ -43,8 +43,13 @@ namespace parthenon {
  * Stone et al., ApJS (2020) 249:4
  * See equations 11 through 15.
  */
-LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
-    : StagedIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {
+
+//----------------------------------------------------------------------------------------
+//! \class LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
+//! \brief Constructs a LowStorageIntegrator instance given a string (e.g., rk2, rk3..)
+
+LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
+    : StagedIntegrator(name) {
   if (name_ == "rk1") {
     nstages = 1;
     nbuffers = 1;
@@ -154,5 +159,12 @@ LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
   MakePeriodicNames_(buffer_name, nbuffers);
   MakePeriodicNames_(stage_name, nstages);
 }
+
+//----------------------------------------------------------------------------------------
+//! \class LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
+//! \brief Constructs a LowStorageIntegrator instance given ParameterInput *pin
+
+LowStorageIntegrator::LowStorageIntegrator(ParameterInput *pin)
+    : LowStorageIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "rk2")) {}
 
 } // namespace parthenon

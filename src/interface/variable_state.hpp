@@ -28,7 +28,14 @@ class Metadata;
 static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 struct VariableState : public empty_state_t {
-  explicit VariableState(const Metadata &md, int sparse_id = InvalidSparseID);
+  explicit VariableState(
+      const Metadata &md, int sparse_id = InvalidSparseID,
+      const std::array<int, MAX_VARIABLE_DIMENSION> &dims = [] {
+        std::array<int, MAX_VARIABLE_DIMENSION> d;
+        for (int i = 0; i < MAX_VARIABLE_DIMENSION; ++i)
+          d[i] = 1;
+        return d;
+      }());
 
   KOKKOS_INLINE_FUNCTION
   VariableState(Real alloc, Real dealloc, Real sparse_default_val = 0.0,
@@ -54,6 +61,11 @@ struct VariableState : public empty_state_t {
   int sparse_id;
   int vector_component = NODIR;
   bool initialized = true;
+
+  TopologicalType topological_type = TopologicalType::Cell;
+  TopologicalElement topological_element = TopologicalElement::CC;
+  std::size_t tensor_components;
+  std::size_t tensor_shape[3];
 };
 
 } // namespace parthenon

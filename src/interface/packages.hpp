@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "basic_types.hpp"
 
@@ -26,12 +27,45 @@ class Packages_t {
   Packages_t() = default;
   void Add(const std::shared_ptr<StateDescriptor> &package);
 
-  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) const {
     return packages_.at(name);
+  }
+
+  // Retrieve a package pointer, cast to a given type T
+  template <typename T>
+  T *Get(const std::string &name) const {
+    return static_cast<T *>(packages_.at(name).get());
   }
 
   const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
     return packages_;
+  }
+  Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() { return packages_; }
+
+  // Returns a sub-Dictionary containing just pointers to packages of type T.
+  // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
+  template <typename T>
+  const Dictionary<T *> AllPackagesOfType() const {
+    Dictionary<T *> sub_dict;
+    for (auto package : packages_) {
+      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
+        sub_dict[package.first] = cast_package;
+      }
+    }
+    return sub_dict;
+  }
+
+  // Returns a list of pointers to packages of type T.
+  // List contains bare pointers, not shared_ptr objects
+  template <typename T>
+  const std::vector<T *> ListPackagesOfType() const {
+    std::vector<T *> sub_list;
+    for (auto package : packages_) {
+      if (T *cast_package = dynamic_cast<T *>(package.second.get())) {
+        sub_list.append(cast_package);
+      }
+    }
+    return sub_list;
   }
 
  private:

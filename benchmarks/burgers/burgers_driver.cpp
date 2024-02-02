@@ -20,7 +20,7 @@
 #include "amr_criteria/refinement_package.hpp"
 #include "burgers_driver.hpp"
 #include "burgers_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -85,20 +85,15 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     const auto any = parthenon::BoundaryType::any;
 
-    auto start_bnd =
-        tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    auto start_flx_recv = tl.AddTask(
-        none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    auto start_flx_recv = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
     auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
 
-    auto send_flx =
-        tl.AddTask(flx, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(
-        start_flx_recv, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto send_flx = tl.AddTask(flx, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask(start_flx_recv, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -113,27 +108,18 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     // do boundary exchange
     const auto local = parthenon::BoundaryType::local;
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
+    auto send = tl.AddTask(update, parthenon::SendBoundBufs<nonlocal>, mc1);
 
-    auto send_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
-    auto recv_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
-    auto set_local =
-        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
+    auto send_local = tl.AddTask(update, parthenon::SendBoundBufs<local>, mc1);
+    auto recv_local = tl.AddTask(update, parthenon::ReceiveBoundBufs<local>, mc1);
+    auto set_local = tl.AddTask(recv_local, parthenon::SetBounds<local>, mc1);
 
     auto recv =
-        tl.AddTask(start_bnd | update,
-                   parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
+        tl.AddTask(start_bnd | update, parthenon::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask(recv, parthenon::SetBounds<nonlocal>, mc1);
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
-    if (pmesh->multilevel) {
-      tl.AddTask(set | set_local, parthenon::cell_centered_bvars::RestrictGhostHalos, mc1,
-                 false);
-    }
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
@@ -147,13 +133,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = none;
-    if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-    }
-
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       // Update refinement

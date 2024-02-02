@@ -3,7 +3,7 @@
 // Copyright(C) 2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,8 +29,10 @@
 #include <vector>
 
 // Parthenon
+#include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
@@ -53,6 +55,7 @@ struct VarInfo {
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
+  int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
 
   VarInfo() = delete;
 
@@ -71,23 +74,21 @@ struct VarInfo {
       PARTHENON_FAIL(msg);
     }
 
-    // Note that this logic does not subscript components without component_labels if
-    // there is only one component. Component names will be e.g.
-    //   my_scalar
-    // or
-    //   my_non-vector_set_0
-    //   my_non-vector_set_1
-    // Note that this means the subscript will be dropped for multidim quantities if their
-    // Nx6, Nx5, Nx4 are set to 1 at runtime e.g.
-    //   my_non-vector_set
-    // Similarly, if component labels are given for all components, those will be used
-    // without the prefixed label.
+    // Full components labels will be composed according to the following rules:
+    // If there just one component (e.g., a scalar var or a vector/tensor with a single
+    // component) only the basename and no suffix is used unless a component label is
+    // provided (which will then be added as suffix following an `_`). For variables with
+    // >1 components, the final component label will be composed of the basename and a
+    // suffix. This suffix is either a integer if no component labels are given, or the
+    // component label itself.
     component_labels = {};
-    if (num_components == 1 || is_vector) {
-      component_labels = component_labels_.size() > 0 ? component_labels_
-                                                      : std::vector<std::string>({label});
+    if (num_components == 1) {
+      const auto suffix = component_labels_.empty() ? "" : "_" + component_labels_[0];
+      component_labels = std::vector<std::string>({label + suffix});
     } else if (component_labels_.size() == num_components) {
-      component_labels = component_labels_;
+      for (int i = 0; i < num_components; i++) {
+        component_labels.push_back(label + "_" + component_labels_[i]);
+      }
     } else {
       for (int i = 0; i < num_components; i++) {
         component_labels.push_back(label + "_" + std::to_string(i));
@@ -95,7 +96,7 @@ struct VarInfo {
     }
   }
 
-  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+  explicit VarInfo(const std::shared_ptr<Variable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
                 var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
                 var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
@@ -202,11 +203,65 @@ struct AllSwarmInfo {
                bool is_restart);
 };
 
+template <typename T, typename Function_t>
+std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
+  const int num_blocks_local = static_cast<int>(pm->block_list.size());
+  std::vector<T> data(shape * num_blocks_local);
+  int i = 0;
+  for (auto &pmb : pm->block_list) {
+    f(pmb.get(), data, i);
+  }
+  return data;
+}
+
+// mirror must be provided because copying done externally
+template <typename Data_t, typename idx_t, typename Function_t>
+void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t &idx,
+                     std::vector<Data_t> &data, Function_t f) {
+  const auto &Nt = pvar->GetDim(6);
+  const auto &Nu = pvar->GetDim(5);
+  const auto &Nv = pvar->GetDim(4);
+  const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
+  IndexRange kb, jb, ib;
+  if (pvar->metadata().Where() == MetadataFlag(Metadata::Cell)) {
+    kb = pmb->cellbounds.GetBoundsK(domain);
+    jb = pmb->cellbounds.GetBoundsJ(domain);
+    ib = pmb->cellbounds.GetBoundsI(domain);
+    // TODO(JMM): Add topological elements here
+  } else { // metadata none
+    kb = {0, pvar->GetDim(3) - 1};
+    jb = {0, pvar->GetDim(2) - 1};
+    ib = {0, pvar->GetDim(1) - 1};
+  }
+  for (int t = 0; t < Nt; ++t) {
+    for (int u = 0; u < Nu; ++u) {
+      for (int v = 0; v < Nv; ++v) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
+            for (int i = ib.s; i <= ib.e; ++i) {
+              f(idx, t, u, v, k, j, i);
+              idx++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                   std::vector<Real> &z);
+std::vector<Real> ComputeXminBlocks(Mesh *pm);
+std::vector<int64_t> ComputeLocs(Mesh *pm);
+std::vector<int> ComputeIDsAndFlags(Mesh *pm);
+
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
-// where tis is the case?
+// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
+std::size_t MPISum(std::size_t local);
 
 } // namespace OutputUtils
 } // namespace parthenon

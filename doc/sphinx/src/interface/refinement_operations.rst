@@ -21,8 +21,8 @@ a void function ``Do`` with the following signature:
       const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
       const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
       const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-      const ParArray6D<Real, VariableState> *pcoarse,
-      const ParArray6D<Real, VariableState> *pfine)
+      const ParArrayND<Real, VariableState> *pcoarse,
+      const ParArrayND<Real, VariableState> *pfine)
 
 where ``l``, ``m``, ``n`` are the indices of a variable object not tied
 to mesh (for example the tensor indices of a rank 3 tensor, or 0,0,0 for
@@ -46,8 +46,8 @@ restrict operation:
         const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
         const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
         const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-        const ParArray6D<Real, VariableState> *pcoarse,
-        const ParArray6D<Real, VariableState> *pfine) {
+        const ParArrayND<Real, VariableState> *pcoarse,
+        const ParArrayND<Real, VariableState> *pfine) {
        auto &coarse = *pcoarse;
        auto &fine = *pfine;
        const int i = (ci - cib.s) * 2 + ib.s;
@@ -87,8 +87,9 @@ The default operations
 
 The default operations for cell-centered variables are named
 
-- ``parthenon::refinement_ops::RestrictCellAverage``
-- ``parthenon::refinement_ops::ProlongateCellMinMod``
+- ``parthenon::refinement_ops::RestrictAverage``
+- ``parthenon::refinement_ops::ProlongateSharedMinMod``
+- ``parthenon::refinement_ops::ProlongateInternalAverage``
 
 both structs are templated on dimension via ``template<int DIM>``.
 

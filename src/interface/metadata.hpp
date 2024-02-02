@@ -109,7 +109,13 @@
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \
-  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceRemeshComm)                                           \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGProlongate)                                             \
+  /** the variable participate in GMG calculations */                                    \
+  PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
+  /** the variable must always be allocated for new blocks **/                           \
+  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
 namespace parthenon {
 
 namespace internal {
@@ -230,7 +236,9 @@ class Metadata {
     FlagCollection(MetadataFlag first, Args... args)
         : FlagCollection({first, std::forward<Args>(args)...}, false) {}
     // Check if set empty
-    bool Empty() const { return (unions_.empty() && intersections_.empty()); }
+    bool Empty() const {
+      return (unions_.empty() && intersections_.empty() && exclusions_.empty());
+    }
     // Union
     template <template <class...> class Container_t, class... extra>
     void TakeUnion(const Container_t<MetadataFlag, extra...> &flags) {
@@ -308,70 +316,13 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-           const std::vector<std::string> &component_labels = {},
-           const std::string &associated = "")
-      : shape_(shape), component_labels_(component_labels), associated_(associated) {
-    // set flags
-    for (const auto f : bits) {
-      DoBit(f, true);
-    }
-
-    // set defaults
-    if (CountSet({None, Node, Edge, Face, Cell}) == 0) {
-      DoBit(None, true);
-    }
-    if (CountSet({Private, Provides, Requires, Overridable}) == 0) {
-      DoBit(Provides, true);
-    }
-    if (CountSet({Boolean, Integer, Real}) == 0) {
-      DoBit(Real, true);
-    }
-    if (CountSet({Independent, Derived}) == 0) {
-      DoBit(Derived, true);
-    }
-    // If variable is refined, set a default prolongation/restriction op
-    // TODO(JMM): This is dangerous. See Issue #844.
-    if (IsRefined()) {
-      refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
-          refinement_ops::ProlongateCellMinMod, refinement_ops::RestrictCellAverage>();
-    }
-
-    // check if all flag constraints are satisfied, throw if not
-    IsValid(true);
-
-    // check shape is valid
-    // TODO(JL) Should we be extra pedantic and check that shape matches Vector/Tensor
-    // flags?
-    if (IsMeshTied()) {
-      PARTHENON_REQUIRE_THROWS(
-          shape_.size() <= 3,
-          "Variables tied to mesh entities can only have a shape of rank <= 3");
-
-      int num_comp = 1;
-      for (auto s : shape) {
-        num_comp *= s;
-      }
-
-      PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
-                                   (component_labels.size() == num_comp),
-                               "Must provide either 0 component labels or the same "
-                               "number as the number of components");
-    }
-
-    // Set the allocation and deallocation thresholds
-    // TODO(JMM): This is dangerous. See Issue #844.
-    if (IsSet(Sparse)) {
-      allocation_threshold_ = Globals::sparse_config.allocation_threshold;
-      deallocation_threshold_ = Globals::sparse_config.deallocation_threshold;
-      default_value_ = 0.0;
-    } else {
-      // Not sparse, so set to zero so we are guaranteed never to deallocate
-      allocation_threshold_ = 0.0;
-      deallocation_threshold_ = 0.0;
-      default_value_ = 0.0;
-    }
-  }
+  Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -392,6 +343,10 @@ class Metadata {
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
   static MetadataFlag GetUserFlag(const std::string &flagname);
+  static MetadataFlag GetOrAddFlag(const std::string &name) {
+    return FlagNameExists(name) ? GetUserFlag(name) : AddUserFlag(name);
+  }
+  static int num_flags;
 
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
@@ -525,7 +480,8 @@ class Metadata {
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
   bool IsRefined() const {
-    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm));
+    return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
+            IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
 
   const std::vector<int> &Shape() const { return shape_; }
@@ -535,7 +491,8 @@ class Metadata {
   /*--------------------------------------------------------*/
 
   // get the dims of the 6D array
-  std::array<int, 6> GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const;
+  std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
+                                                       bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
@@ -550,8 +507,9 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <template <class...> class Container_t, class... extra>
-  bool AnyFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
@@ -560,14 +518,25 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <template <class...> class Container_t, class... extra>
-  bool AllFlagsSet(const Container_t<MetadataFlag, extra...> &flags) const {
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
   template <typename... Args>
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
+  }
+  template <class Container_t,
+            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  bool NoFlagsSet(const Container_t &flags) const {
+    return std::none_of(flags.begin(), flags.end(),
+                        [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+  template <typename... Args>
+  bool NoFlagsSet(const MetadataFlag &flag, Args... args) const {
+    return NoFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
   template <template <class...> class Container_t, class... extra>
@@ -583,16 +552,17 @@ class Metadata {
 
   // Refinement stuff
   const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
-    PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
-  template <class ProlongationOp, class RestrictionOp>
+  template <class ProlongationOp, class RestrictionOp,
+            class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
         IsRefined(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
-        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp>();
+        refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                       InternalProlongationOp>();
   }
 
   // Operators
@@ -668,7 +638,16 @@ class Metadata {
   }
 };
 
+inline TopologicalType GetTopologicalType(const Metadata &md) {
+  using TT = TopologicalType;
+  if (md.IsSet(Metadata::Face)) return TT::Face;
+  if (md.IsSet(Metadata::Edge)) return TT::Edge;
+  if (md.IsSet(Metadata::Node)) return TT::Node;
+  return TT::Cell; // Default case
+}
+
 namespace MetadataUtils {
+bool MatchFlags(const Metadata::FlagCollection &flags, Metadata m);
 // From a given container, extract all variables whose Metadata matchs the all of the
 // given flags (if the list of flags is empty, extract all variables), optionally only
 // extracting sparse fields with an index from the given list of sparse indices

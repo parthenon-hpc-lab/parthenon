@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2022 The Parthenon collaboration
+# Copyright(C) 2020-2023 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.7.0 LANGUAGES C CXX)
+project(parthenon VERSION 23.11 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -34,7 +34,6 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
-option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
@@ -59,20 +58,13 @@ option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
-# Default to an external Kokkos package if the submodule is not populated
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
-else()
-    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
-endif()
-
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 15 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 20 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=33a2e58f9e8970652febcc3564bb8be02186e0eafbde58417bdf9ee89b0ee9a62ad4058acc6bb4ed9a755c092a0d16323884c8bd29336836c8a7040375fb37c6"
+  "SHA512=e5e421f3c0be01e4708965542bb8b1b79b5c96de97091e46972e375c7616588d026a9a8e29226d9c7ef75346bc859fd9af72acdc7e95e0d783b5ef29aa4630b1"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -124,6 +116,9 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 
+# Require threading for tasks
+find_package(Threads)
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)
@@ -135,34 +130,9 @@ if (NOT PARTHENON_DISABLE_MPI)
   set(ENABLE_MPI ON)
 endif()
 
-set(ENABLE_OPENMP OFF)
-if (NOT PARTHENON_DISABLE_OPENMP)
-  # Using Host OpenMP and Cuda with nvcc currently does not compile with C++17 standard.
-  # Also there is no proper support for two separate execution spaces in Parthenon right now.
-  # We may need to revisit this logic when OpenMP target for devices will be used in the future.
-  if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
-    message(STATUS "Parthenon is not using Host OpenMP because Cuda or HIP is enabled")
-  else()
-    find_package(OpenMP COMPONENTS CXX)
-    if (NOT OpenMP_FOUND)
-      message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-      "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
-    endif()
-    set(ENABLE_OPENMP ON)
-    set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP as execution space.")
-  endif()
-endif()
-
 set(ENABLE_SPARSE ON)
 if (PARTHENON_DISABLE_SPARSE)
   set(ENABLE_SPARSE OFF)
-endif()
-
-if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
-  message(WARNING
-    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
-    "If you encounter problems, please delete your CMake cache "
-    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
 endif()
 
 set(ENABLE_HDF5 OFF)
@@ -220,53 +190,55 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Tell Kokkos to vectorize aggressively
-# Kokkos prefers this capitalization for debugging reasons
-SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
-     "Kokkos aggressive vectorization")
-
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
-if (Kokkos_ENABLE_CUDA)
-  # Tell Kokkos we need lambdas in Cuda.
-  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
-       "Enable lambda expressions in CUDA")
-  if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
-     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
-  endif()
-endif()
-
-# If this is a debug build, set kokkos debug on
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-  message(STATUS "Enabling Kokkos debug mode")
-  set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
-  set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
-     "Bounds checking on Kokkos views")
-  set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
-      "Sanity checks on Kokkos DualView")
-endif()
 
 if (ENABLE_COMPILER_WARNINGS)
-  message(STATUS "Enabling -Wall and setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
-  set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
-      "Make the compiler warn us about things")
+  message(STATUS "Enabling -Wall.")
   add_compile_options(-Wall)
 endif()
-
-set(Kokkos_ENABLE_DEPRECATED_CODE_3 OFF CACHE BOOL "No need for old/unused code.")
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
+option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
-    find_package(Kokkos 3)
+    find_package(Kokkos 4)
     if (NOT Kokkos_FOUND)
-      unset(PARTHENON_IMPORT_KOKKOS CACHE)
       message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or disabling external Kokkos with e.g. -DPARTHENON_IMPORT_KOKKOS=OFF")
+    else()
+      message(STATUS "Using imported Kokkos from ${Kokkos_CONFIG}. "
+      "All manually defined Kokkos variables will be ignored as they have no affect on the imported "
+      "(installed) version. If you want to use a custom Kokkos version, please use the one shipped "
+      "as Parthenon submodule.")
     endif()
   else()
+    # First, set some Kokkos options
+    # Tell Kokkos to vectorize aggressively
+    # Kokkos prefers this capitalization for debugging reasons
+    SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
+         "Kokkos aggressive vectorization")
+
+    # If this is a debug build, set kokkos debug on
+    if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+      message(STATUS "Enabling Kokkos debug mode")
+      set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
+      set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
+         "Bounds checking on Kokkos views")
+      set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
+          "Sanity checks on Kokkos DualView")
+    endif()
+
+    # Also enable Compiler warnings for Kokkos
+    if (ENABLE_COMPILER_WARNINGS)
+      message(STATUS "Setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
+      set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
+          "Make the compiler warn us about things")
+    endif()
+
+    # Second, add Kokkos
     if (EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
       add_subdirectory(${Kokkos_ROOT} Kokkos)
       message(STATUS "Using Kokkos source from Kokkos_ROOT=${Kokkos_ROOT}")
@@ -279,6 +251,8 @@ if (NOT TARGET Kokkos::kokkos)
   endif()
 endif()
 
+# After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
+# is also availalbe when imported.
 if (Kokkos_ENABLE_SYCL)
   message(WARNING
     "SYCL backend is currently NOT tested in Parthenon due to lack of access to hardware. "
@@ -293,6 +267,32 @@ if (PARTHENON_ENABLE_HOST_COMM_BUFFERS)
   endif()
 endif()
 
+if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
+  message(WARNING
+    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
+    "If you encounter problems, please delete your CMake cache "
+    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
+endif()
+
+# Globally turn on useful intel and/or nvcc compiler output
+if (Kokkos_ENABLE_CUDA)
+  if(CHECK_REGISTRY_PRESSURE)
+    add_compile_options(-Xptxas=-v)
+  endif()
+endif()
+# Note that these options may not play nice with nvcc wrapper
+if (TEST_INTEL_OPTIMIZATION)
+  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
+endif()
+
+# GPU check on the build node are currently only supported for Nvidia GPUs
+if (Kokkos_ENABLE_CUDA AND "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+endif()
+
+
+
+
 # Build Tests and download Catch2
 if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHENON_ENABLE_REGRESSION_TESTS OR PARTHENON_ENABLE_PERFORMANCE_TESTS)
 
@@ -306,7 +306,7 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
     if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
       message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
       file(
-        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        DOWNLOAD https://github.com/parthenon-hpc-lab/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
         )
       execute_process(
@@ -329,41 +329,36 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
     endif()
   endif()
 
-  # Try finding an installed Catch2 first
-  find_package(Catch2 2.13.8 QUIET)
+  if (NOT TARGET catch2_define)
+    # Try finding an installed Catch2 first
+    find_package(Catch2 2.13.8 QUIET)
 
-  if (NOT Catch2_FOUND)
-    # If Catch2 is not found, instead use the git submodule
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
-      # Unable to find the header files for Catch2 or they don't exist
-      message(STATUS "Downloading Catch2 submodule.")
+    if (NOT Catch2_FOUND)
+      # If Catch2 is not found, instead use the git submodule
+      if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
+        # Unable to find the header files for Catch2 or they don't exist
+        message(STATUS "Downloading Catch2 submodule.")
 
-      # Clone the submodule
-      execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        # Clone the submodule
+        execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      endif()
+
+      add_subdirectory(external/Catch2)
+      list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
     endif()
-
-    add_subdirectory(external/Catch2)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
   include(Catch)
   add_subdirectory(tst)
 endif()
 
-# Globally turn on useful intel and/or nvcc compiler output
-if (Kokkos_ENABLE_CUDA)
-  if(CHECK_REGISTRY_PRESSURE)
-    add_compile_options(-Xptxas=-v)
-  endif()
-endif()
-# Note that these options may not play nice with nvcc wrapper
-if (TEST_INTEL_OPTIMIZATION)
-  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
-endif()
-
 if (PARTHENON_ENABLE_ASCENT)
   find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
+
+# Installation configuration
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 add_subdirectory(src)
 add_subdirectory(example)

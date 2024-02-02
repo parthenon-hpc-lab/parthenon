@@ -50,12 +50,12 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.x_max_ = pmb->coords.Xf<1>(ib.e + 1);
   context.y_max_ = pmb->coords.Xf<2>(jb.e + 1);
   context.z_max_ = pmb->coords.Xf<3>(kb.e + 1);
-  context.x_min_global_ = mesh_size.x1min;
-  context.x_max_global_ = mesh_size.x1max;
-  context.y_min_global_ = mesh_size.x2min;
-  context.y_max_global_ = mesh_size.x2max;
-  context.z_min_global_ = mesh_size.x3min;
-  context.z_max_global_ = mesh_size.x3max;
+  context.x_min_global_ = mesh_size.xmin(X1DIR);
+  context.x_max_global_ = mesh_size.xmax(X1DIR);
+  context.y_min_global_ = mesh_size.xmin(X2DIR);
+  context.y_max_global_ = mesh_size.xmax(X2DIR);
+  context.z_min_global_ = mesh_size.xmin(X3DIR);
+  context.z_max_global_ = mesh_size.xmax(X3DIR);
   context.ndim_ = pmb->pmy_mesh->ndim;
   context.my_rank_ = Globals::my_rank;
   context.coords_ = pmb->coords;
@@ -242,24 +242,27 @@ void Swarm::Remove(const std::string &label) {
   }
 }
 
-void Swarm::setPoolMax(const int nmax_pool) {
+void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
-  int n_new_begin = nmax_pool_;
-  int n_new = nmax_pool - nmax_pool_;
+  std::int64_t n_new_begin = nmax_pool_;
+  std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
 
-  for (int n = 0; n < n_new; n++) {
+  for (std::int64_t n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
   }
 
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
+  pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cellSorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
   blockIndex_.Resize(nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(int));
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
   auto &realVector_ = std::get<getType<Real>()>(Vectors_);
@@ -267,11 +270,13 @@ void Swarm::setPoolMax(const int nmax_pool) {
   for (auto &d : intVector_) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(int));
   }
 
   for (auto &d : realVector_) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(Real));
   }
 
   nmax_pool_ = nmax_pool;
@@ -358,7 +363,7 @@ void Swarm::Defrag() {
   }
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
-  int num_free = (max_active_index_ + 1) - num_active_;
+  std::int64_t num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
 
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
@@ -401,7 +406,7 @@ void Swarm::Defrag() {
 
   auto &mask = mask_;
   pmb->par_for(
-      "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
           mask(from_to_indices(n)) = mask(n);
           mask(n) = false;
@@ -422,7 +427,7 @@ void Swarm::Defrag() {
   const int intPackDim = vint.GetDim(2);
 
   pmb->par_for(
-      "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
           for (int vidx = 0; vidx < realPackDim; vidx++) {
             vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
@@ -472,7 +477,7 @@ void Swarm::SortParticlesByCell() {
 
   // Write an unsorted list
   pmb->par_for(
-      "Write unsorted list", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         int i, j, k;
         swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
         const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
@@ -486,7 +491,7 @@ void Swarm::SortParticlesByCell() {
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
   pmb->par_for(
-      "Update per-cell arrays", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         int cell_idx_1d = i + nx1 * (j + nx2 * k);
         // Find starting index, first by guessing
@@ -965,7 +970,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto particle_indices_to_send = particle_indices_to_send_;
   auto neighbor_buffer_index = neighbor_buffer_index_;
   pmb->par_for(
-      "Pack Buffers", 0, max_indices_size - 1,
+      PARTHENON_AUTO_LABEL, 0, max_indices_size - 1,
       KOKKOS_LAMBDA(const int n) {            // Max index
         for (int m = 0; m < nneighbor; m++) { // Number of neighbors
           const int bufid = neighbor_buffer_index(m);
@@ -1000,7 +1005,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
     int total_sent_particles = 0;
     pmb->par_reduce(
-        "total sent particles", 0, max_active_index_,
+        PARTHENON_AUTO_LABEL, 0, max_active_index_,
         KOKKOS_LAMBDA(int n, int &total_sent_particles) {
           if (swarm_d.IsActive(n)) {
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
@@ -1104,7 +1109,8 @@ void Swarm::UnloadBuffers_() {
     auto swarm_d = GetDeviceContext();
 
     pmb->par_for(
-        "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
+        PARTHENON_AUTO_LABEL, 0, total_received_particles_ - 1,
+        KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
           int bid = buffer_index(n) * particle_size;
@@ -1132,7 +1138,7 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
   auto bcs = this->bounds_d;
 
   pmb->par_for(
-      "Swarm::ApplyBoundaries", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
         const int sid = indices(n);
         for (int l = 0; l < 6; l++) {
           bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);

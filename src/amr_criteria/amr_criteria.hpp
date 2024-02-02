@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,11 +17,13 @@
 #include <string>
 
 #include "defs.hpp"
-#include "interface/meshblock_data.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
 class ParameterInput;
+template <class>
+class MeshBlockData;
 
 struct AMRBounds {
   AMRBounds(const IndexRange &ib, const IndexRange &jb, const IndexRange &kb)

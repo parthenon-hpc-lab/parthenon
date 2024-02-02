@@ -52,6 +52,7 @@ using H5S = UnusedPlaceholder;
 namespace parthenon {
 
 class Mesh;
+class Param;
 
 class RestartReader {
  public:
@@ -320,6 +321,8 @@ class RestartReader {
                              std::vector<std::size_t> &counts,
                              std::vector<std::size_t> &offsets);
 
+  void ReadParams(const std::string &name, Params &p);
+
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();
@@ -334,6 +337,7 @@ class RestartReader {
   // Currently all restarts are HDF5 files
   // when that changes, this will be revisited
   H5F fh_;
+  H5G params_group_;
 #endif // ENABLE_HDF5
 };
 

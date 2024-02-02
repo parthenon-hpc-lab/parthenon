@@ -29,6 +29,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
@@ -149,7 +150,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       const int njni = nj * ni;
       auto &ghost_mask = ghost_mask_; // redef to lambda capture class member
       pmb->par_for(
-          "Set ascent ghost mask", 0, ncells - 1, KOKKOS_LAMBDA(const int &idx) {
+          PARTHENON_AUTO_LABEL, 0, ncells - 1, KOKKOS_LAMBDA(const int &idx) {
             const int k = idx / (njni);
             const int j = (idx - k * njni) / ni;
             const int i = idx - k * njni - j * nj;
@@ -168,7 +169,12 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // create a field for each component of each variable pack
     auto &mbd = pmb->meshblock_data.Get();
 
-    for (const auto &var : mbd->GetCellVariableVector()) {
+    for (const auto &var : mbd->GetVariableVector()) {
+      // ensure that only cell vars are added (for now) as the topology above is only
+      // valid for cell centered vars
+      if (!var->IsSet(Metadata::Cell)) {
+        continue;
+      }
       const auto var_info = VarInfo(var);
 
       for (int icomp = 0; icomp < var_info.num_components; ++icomp) {

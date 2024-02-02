@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,6 +22,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/sparse_pool.hpp"
@@ -34,37 +35,49 @@ using parthenon::Coordinates_t;
 using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
+using FC_t = parthenon::Metadata::FlagCollection;
 using parthenon::Packages_t;
-using parthenon::ParArray6D;
+using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+using parthenon::TopologicalElement;
 using parthenon::VariableState;
 
 // Some fake ops classes
 struct MyProlongOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int k, const int j, const int i,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };
 struct MyRestrictOp {
-  template <int DIM>
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
   Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
      const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
      const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
      const Coordinates_t &coords, const Coordinates_t &coarse_coords,
-     const ParArray6D<Real, VariableState> *pcoarse,
-     const ParArray6D<Real, VariableState> *pfine) {
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
     return; // stub
   }
 };
@@ -207,6 +220,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
             REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == (m_sparse_provides));
           }
         }
+        AND_THEN("The sparse ids in the sparse pool are sorted") {
+          auto &pool = (pkg4->GetSparsePool("sparse")).pool();
+          std::vector<int> local_ids;
+          for (auto &[id, m] : pool) {
+            local_ids.push_back(id);
+          }
+          REQUIRE(std::is_sorted(local_ids.begin(), local_ids.end()));
+        }
       }
     }
 
@@ -257,7 +278,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The provides package is available") {
           REQUIRE(pkg3->FieldPresent("dense"));
-          REQUIRE(pkg3->FieldMetadata("dense") == m_provides);
+          // add in package Metadata before checking equality
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg3->FieldMetadata("dense") == m_provides_local);
         }
       }
     }
@@ -314,9 +339,16 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
-          REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
+          // add in package metadata before equality check
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package1"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->FieldMetadata("dense") == m_provides_local);
           REQUIRE(pkg4->SwarmPresent("myswarm"));
-          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm);
+          Metadata m_provides_swarm_local = m_provides_swarm;
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm_local);
           REQUIRE(pkg4->SwarmValuePresent("provides", "myswarm"));
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "myswarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
@@ -351,7 +383,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    WHEN("We register a dense variable custom prolongation/restriction") {
+    WHEN("We register a dense variable with default prolongation/restriction") {
       pkg1->AddField("dense", m_provides);
       WHEN("We register a sparse variable with custom prolongation/restriction") {
         auto m_sparse_provides_ = m_sparse_provides;
@@ -359,18 +391,24 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
         THEN("We can perform dependency resolution") {
           auto pkg3 = ResolvePackages(packages);
-          AND_THEN("The two relevant prolongation restriction operators exist and have "
-                   "unique ids") {
+          AND_THEN("The two relevant prolongation restriction operators exist, are "
+                   "appropriately set, and have unique ids") {
             const auto my_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                           MyRestrictOp>();
             const auto cell_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<
-                    parthenon::refinement_ops::ProlongateCellMinMod,
-                    parthenon::refinement_ops::RestrictCellAverage>();
+                    parthenon::refinement_ops::ProlongateSharedMinMod,
+                    parthenon::refinement_ops::RestrictAverage>();
             REQUIRE(pkg3->NumRefinementFuncs() == 2);
             REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
                     (pkg3->RefinementFuncID(cell_funcs)));
+            REQUIRE(pkg3->FieldMetadata("dense").GetRefinementFunctions() == cell_funcs);
+            for (int i = 0; i < sparse_ids.size(); i++) {
+              REQUIRE(
+                  pkg3->FieldMetadata("sparse", sparse_ids[i]).GetRefinementFunctions() ==
+                  my_funcs);
+            }
           }
         }
       }
@@ -495,6 +533,76 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
       REQUIRE(pkg->AddField("fake2_sparse_27", Metadata()));
       REQUIRE_THROWS(
           pkg->AddSparsePool("fake2_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
+    }
+  }
+}
+
+TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescriptor]") {
+  FlagVec m_indc = {Metadata::Independent, Metadata::FillGhost, Metadata::Cell};
+  FlagVec m_indf = {Metadata::Independent, Metadata::FillGhost, Metadata::Face};
+  FlagVec m_derc = {Metadata::Derived, Metadata::OneCopy, Metadata::Cell};
+  FlagVec m_sparse = {Metadata::Sparse, Metadata::OneCopy};
+
+  StateDescriptor state("state");
+  state.AddField("indc", m_indc);
+  state.AddField("indf", m_indf);
+  state.AddField("derc", m_derc);
+  state.AddSparsePool("sp", m_sparse, std::vector<int>{3, 7, 12});
+  GIVEN("A state descriptor with some fields with differenet metadata") {
+    WHEN("We ask for fields by name") {
+      std::vector<std::string> req_names({"indc", "derc"});
+      auto names = state.GetVariableNames(req_names);
+      THEN("The vector contains the requested fields") { REQUIRE(names == req_names); }
+    }
+    WHEN("We ask for fields by metadata") {
+      FC_t fc =
+          FC_t({Metadata::Independent, Metadata::FillGhost}) - FC_t({Metadata::Face});
+      auto names = state.GetVariableNames(fc);
+      THEN("The vector contains the request fields") {
+        REQUIRE(names == std::vector<std::string>({"indc"}));
+      }
+    }
+    WHEN("We try to pull out sparse fields by base name") {
+      std::vector<std::string> bname({"sp"});
+      auto names = state.GetVariableNames(bname);
+      THEN("We should get all the sparse variables tied to that base name") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_7", "sp_12"}));
+      }
+    }
+    WHEN("We try to filter based on sparse ids") {
+      std::vector<std::string> bname({"sp"});
+      std::vector<int> sids({3, 12});
+      auto names = state.GetVariableNames(bname, sids);
+      THEN("We should get only the ids we asked for") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use metadata and filter on sparse ids") {
+      FC_t fc({Metadata::OneCopy});
+      std::vector<int> sids({3, 12});
+      auto names = state.GetVariableNames(fc, sids);
+      THEN("We should get fields that satisfy the metadata criteria including only "
+           "specific sparse ids") {
+        REQUIRE(names == std::vector<std::string>({"derc", "sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use all possible filters") {
+      std::vector<std::string> req_names({"indc", "indf"});
+      FC_t fc = FC_t({Metadata::OneCopy}) - FC_t({Metadata::Cell});
+      std::vector<int> sids({3, 7});
+      auto names = state.GetVariableNames(req_names, fc, sids);
+      THEN("We should get just what we asked for") {
+        REQUIRE(names == std::vector<std::string>({"indc", "indf", "sp_3", "sp_7"}));
+      }
+    }
+    WHEN("We ask for a specific sparse id by name") {
+      std::vector<std::string> req_names({"indc", "sp_7"});
+      REQUIRE_THROWS(state.GetVariableNames(req_names));
+    }
+    WHEN("We ask for metadata that are not satisfied for any variable") {
+      FC_t fc = FC_t({Metadata::Independent, Metadata::Sparse});
+      auto names = state.GetVariableNames(fc);
+      THEN("We should get nothing back") { REQUIRE(names == std::vector<std::string>()); }
     }
   }
 }

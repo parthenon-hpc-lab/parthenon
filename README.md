@@ -4,6 +4,7 @@
 [![Extended CI](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
+[![Documentation](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/docs.yml/badge.svg?branch=develop)](https://parthenon-hpc-lab.github.io/parthenon/develop/index.html)
 
 Parthenon -- a performance portable block-structured adaptive mesh refinement framework
 
@@ -28,7 +29,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 
 * CMake 3.16 or greater
 * C++17 compatible compiler
-* Kokkos 3.6 or greater
+* Kokkos 4.0.1 or greater
 
 ## Optional (enabling features)
 

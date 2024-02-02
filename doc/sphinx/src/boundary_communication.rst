@@ -1,3 +1,5 @@
+.. _boundary_communication:
+
 Boundary communication-in-one concepts
 ======================================
 
@@ -22,19 +24,60 @@ array of all the kinds of caches needed for the various kinds of
 boundary operations performed.
 
 We note that this infrastructure is more general than just ghost halos.
-The same machinery could, for example, be used to prolongate or restrict
-an entire meshblock.
+The same machinery is used for communicating the interiors of meshblocks 
+that are restricted and/or prolongated between geometric multi-grid levels. 
+Additionally, with the ownership model for non-face fields, the basic 
+communication infrastructure could deal with flux correction as well 
+(although currently flux correction uses a somewhat separate code path).
 
 Buffer subsets
 --------------
 
 Sometimes it is desirable, for example for custom prolongation and
-restriction, to loop over a subset of the ghost sub-halos, rather than
+restriction or to communicate on a single geometric multi-grid level, 
+to loop over a subset of the ghost sub-halos, rather than
 all halos at once. This is enabled by the ``buffer_subsets`` and
 ``buffer_subsets_h`` arrays, which are contained in ``BvarsSubCache_t``.
 The ``buffer_subsets`` array is a matrix, where the rows index the
 subset, and the columns point to the indices in the ``bnd_info`` array
 containing the subset of sub-halos you wish to operate on.
+
+To communicate across a particular boundary type, the templated 
+boundary communication routines (see :ref:`boundary_comm_tasks`) 
+should be instantiated with the desired ``BoundaryType``, i.e. 
+
+.. code:: cpp 
+
+  SendBoundBufs<BoundaryType::gmg_restrict_send>(md); 
+
+The different ``BoundaryType``\ s are: 
+
+- ``any``: Communications are performed between all leaf blocks (i.e. the
+  standard Parthenon grid that does not include multi-grid related blocks). 
+- ``local``: Communications are performed between all leaf blocks that 
+  are on the current rank. *Currently, this option should not be used 
+  because there are possibly associated bugs. This and nonlocal would 
+  only be used as a potential performance enhancement, calling both 
+  should result in the same communication as just calling 
+  BoundaryType::any.*
+- ``nonlocal``: Communications are performed between all leaf blocks that 
+  are on different ranks than the current rank. *Currently, this option 
+  should not be used because there are possibly associated bugs.*
+- ``flxcor_send`` and ``flxcor_recv``: Used only for flux correction 
+  routines, currently cannot be passed to regular boundary communication 
+  routines. 
+- ``gmg_same``: Communicates ghost halos between blocks in the 
+  same geometric multi-grid level. 
+- ``gmg_restrict_send`` and ``gmg_restrict_recv``: For restricting 
+  block interiors between geometric multi-grid levels, i.e. inter-grid 
+  communication. *It is probably not necessary to have separate 
+  communicators for sending and receiving, but for now this is the way 
+  if was written*
+- ``gmg_prolongate_send`` and ``gmg_prolongate_recv``: For prolongating 
+  block interiors between geometric multi-grid levels, i.e. inter-grid 
+  communication. *It is probably not necessary to have separate 
+  communicators for sending and receiving, but for now this is the way 
+  if was written* 
 
 .. _sparse boundary comm:
 
@@ -327,6 +370,8 @@ generalizes to more realistic problems not being run with all ranks on
 the same node. See ``InitializeBufferCache(...)`` for how to choose the
 ordering.*
 
+.. _boundary_comm_tasks:
+
 Boundary Communication Tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -405,6 +450,7 @@ Boundary Communication Tasks
   * Launch kernels to copy from buffers into fields or copy default data
     into fields if sending null.
   * Stale the communication buffers.
+  * Restrict ghost regions where necessary to fill prolongation stencils.
 
 Flux Correction Tasks
 ~~~~~~~~~~~~~~~~~~~~~
@@ -426,14 +472,6 @@ cacheing if desired.
 - ``ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
 - ``SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
 
-Non-communication tasks
-~~~~~~~~~~~~~~~~~~~~~~~
-
-These tasks use the same infrastructure as the boundary communication
-machinery but do not communicate.
-
-.. topic:: ``RestrictGhostHalos(std::shared_ptr<MeshData<Real>> &md, bool reset_cache)``
-
-  Loops over parts of the mesh with a coarse-fine boundary and restricts
-  from the fine buffer to the coarse buffer of a variable when relevant.
-  This is needed for physical boundary conditions to be applied correctly.
+*Now that non-cell-centered fields are implemented in Parthenon, the 
+flux correction tasks can be unified with the boundary communication 
+above.*

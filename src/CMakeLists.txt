@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -95,16 +95,17 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
-  bvals/cc/bvals_cc_in_one.hpp
-  bvals/cc/bvals_utils.hpp
-  bvals/cc/build_boundary_buffers.cpp
-  bvals/cc/bnd_info.cpp
-  bvals/cc/bnd_info.hpp
-  bvals/cc/boundary_communication.cpp
-  bvals/cc/flux_correction.cpp 
-  bvals/cc/tag_map.cpp 
-  bvals/cc/tag_map.hpp 
+  bvals/comms/bvals_in_one.hpp
+  bvals/comms/bvals_utils.hpp
+  bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_info.cpp
+  bvals/comms/bnd_info.hpp
+  bvals/comms/boundary_communication.cpp
+  bvals/comms/flux_correction.cpp 
+  bvals/comms/tag_map.cpp 
+  bvals/comms/tag_map.hpp 
   
+  bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -126,6 +127,7 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
+  interface/mesh_data.cpp
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
@@ -134,9 +136,11 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_boundaries.hpp
   interface/swarm_device_context.hpp
+  interface/make_pack_descriptor.hpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
+  interface/params.cpp
   interface/params.hpp
   interface/sparse_pack.hpp
   interface/sparse_pack_base.cpp
@@ -147,6 +151,7 @@ add_library(parthenon
   interface/state_descriptor.cpp
   interface/update.cpp
   interface/update.hpp
+  interface/var_id.hpp
   interface/variable_pack.hpp
   interface/variable_state.hpp
   interface/variable_state.cpp
@@ -155,8 +160,11 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/logical_location.cpp
+  mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp
@@ -166,6 +174,7 @@ add_library(parthenon
   mesh/meshblock.cpp
 
   outputs/ascent.cpp
+  outputs/histogram.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
@@ -200,12 +209,12 @@ add_library(parthenon
   amr_criteria/refinement_package.cpp
   amr_criteria/refinement_package.hpp
 
+  solvers/bicgstab_solver.hpp
+  solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
-  tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
+  tasks/tasks.hpp
+  tasks/thread_pool.hpp
 
   time_integration/butcher_integrator.cpp
   time_integration/low_storage_integrator.cpp
@@ -214,17 +223,25 @@ add_library(parthenon
 
   utils/alias_method.cpp
   utils/alias_method.hpp
+  utils/array_to_tuple.hpp
+  utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
-  utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/error_checking.hpp
   utils/hash.hpp
+  utils/index_split.cpp
+  utils/index_split.hpp
+  utils/indexer.hpp
+  utils/instrument.hpp
   utils/loop_utils.hpp
+  utils/morton_number.hpp
   utils/mpi_types.hpp
+  utils/multi_pointer.hpp
   utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
@@ -293,7 +310,7 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
-target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)
@@ -315,23 +332,21 @@ lint_target(parthenon)
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-install(TARGETS parthenon EXPORT parthenonTargets
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-)
+install(TARGETS parthenon EXPORT parthenonTargets)
 
 # Maintain directory structure in installed include files
-install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY ./ TYPE INCLUDE FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+
+install(FILES ${PROJECT_SOURCE_DIR}/cmake/FindFilesystem.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake")
 
 install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake

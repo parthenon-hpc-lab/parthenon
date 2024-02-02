@@ -31,9 +31,9 @@
 namespace parthenon {
 namespace prelude {
 using ::parthenon::BoundaryCommSubset;
-using ::parthenon::CellVariable;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
+using ::parthenon::KokkosTimer;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockData;
 using ::parthenon::MeshData;
@@ -44,6 +44,7 @@ using ::parthenon::ParthenonStatus;
 using ::parthenon::Real;
 using ::parthenon::Swarm;
 using ::parthenon::SwarmContainer;
+using ::parthenon::Variable;
 using ::parthenon::Globals::my_rank;
 using ::parthenon::Globals::nranks;
 } // namespace prelude

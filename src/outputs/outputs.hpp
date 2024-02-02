@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,10 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "Kokkos_ScatterView.hpp"
+
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -59,12 +62,15 @@ struct OutputParameters {
   int file_number;
   bool include_ghost_zones, cartesian_vector;
   bool single_precision_output;
+  bool sparse_seed_nans;
   int hdf5_compression_level;
+  bool write_xdmf;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
       : block_number(0), next_time(0.0), dt(-1.0), file_number(0),
         include_ghost_zones(false), cartesian_vector(false),
-        single_precision_output(false), hdf5_compression_level(5) {}
+        single_precision_output(false), sparse_seed_nans(false),
+        hdf5_compression_level(5), write_xdmf(false) {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -203,14 +209,72 @@ class PHDF5Output : public OutputType {
  private:
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
+  void WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
+                            hsize_t max_blocks_global) const;
+  void WriteCoordinates_(Mesh *pm, const IndexDomain &domain, hid_t file,
+                         const HDF5::H5P &pl, hsize_t offset,
+                         hsize_t max_blocks_global) const;
+  void WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
+                           hsize_t max_blocks_global) const;
+  void WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                        const std::vector<std::string> &sparse_names, hsize_t num_sparse,
+                        hid_t file, const HDF5::H5P &pl, size_t offset,
+                        hsize_t max_blocks_global) const;
   const bool restart_; // true if we write a restart file, false for regular output files
-  // TODO(JMM): these methods might want to live in the base class or in output_utils.hpp
-  void ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data);
-  void ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs);
-  void ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data);
-  void ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
-                      const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
-                      std::vector<Real> &z);
+};
+
+//----------------------------------------------------------------------------------------
+//! \class HistogramOutput
+//  \brief derived OutputType class for histograms
+
+namespace HistUtil {
+
+enum class VarType { X1, X2, X3, R, Var, Unused };
+enum class EdgeType { Lin, Log, List, Undefined };
+
+struct Histogram {
+  std::string name_;                      // name (id) of histogram
+  int ndim_;                              // 1D or 2D histogram
+  std::string x_var_name_, y_var_name_;   // variable(s) for bins
+  VarType x_var_type_, y_var_type_;       // type, e.g., coord related or actual field
+  int x_var_component_, y_var_component_; // components of bin variables (vector)
+  ParArray1D<Real> x_edges_, y_edges_;
+  EdgeType x_edges_type_, y_edges_type_;
+  // Lowest edge and difference between edges.
+  // Internally used to speed up lookup for log (and lin) bins as otherwise
+  // two more log10 calls would be required per index.
+  Real x_edge_min_, x_edge_dbin_, y_edge_min_, y_edge_dbin_;
+  bool accumulate_;             // accumulate data outside binning range in outermost bins
+  std::string binned_var_name_; // variable name of variable to be binned
+  // component of variable to be binned. If -1 means no variable is binned but the
+  // histgram is a sample count.
+  int binned_var_component_;
+  bool weight_by_vol_;          // use volume weighting
+  std::string weight_var_name_; // variable name of variable used as weight
+  // component of variable to be used as weight. If -1 means no weighting
+  int weight_var_component_;
+  ParArray2D<Real> result_; // resulting histogram
+
+  // temp view for histogram reduction for better performance (switches
+  // between atomics and data duplication depending on the platform)
+  Kokkos::Experimental::ScatterView<Real **, LayoutWrapper> scatter_result;
+  Histogram(ParameterInput *pin, const std::string &block_name, const std::string &name);
+  void CalcHist(Mesh *pm);
+};
+
+} // namespace HistUtil
+
+class HistogramOutput : public OutputType {
+ public:
+  HistogramOutput(const OutputParameters &oparams, ParameterInput *pin);
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
+ private:
+  std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                const SignalHandler::OutputSignal signal);
+  std::vector<std::string> hist_names_; // names (used as id) for different histograms
+  std::vector<HistUtil::Histogram> histograms_;
 };
 #endif // ifdef ENABLE_HDF5
 

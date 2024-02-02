@@ -69,80 +69,6 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 }
 
 //----------------------------------------------------------------------------------------
-//  \brief restrict cell centered values
-
-void MeshRefinement::RestrictCellCenteredValues(CellVariable<Real> *var, int csi, int cei,
-                                                int csj, int cej, int csk, int cek) {
-  const auto &metadata = var->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
-                                                    " must be registered for refinement");
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  const auto &refinement_funcs = metadata.GetRefinementFunctions();
-  const auto &restrictor = refinement_funcs.restrictor_host;
-  int b = 0;
-  int nbuffers = 1;
-  // TODO(JMM): We're allocating on the heap here... we could move to
-  // the stack by giving these functions pointers to underlying data?
-  // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
-  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
-  idxs_h(b) = b;
-  // buff and var unused.
-  info_h(b).si = csi;
-  info_h(b).ei = cei;
-  info_h(b).sj = csj;
-  info_h(b).ej = cej;
-  info_h(b).sk = csk;
-  info_h(b).ek = cek;
-  info_h(b).Nt = var->GetDim(6);
-  info_h(b).Nu = var->GetDim(5);
-  info_h(b).Nv = var->GetDim(4);
-  info_h(b).refinement_op = RefinementOp_t::Restriction;
-  info_h(b).coords = pmb->coords;
-  info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (var->data).Get();
-  info_h(b).coarse = (var->coarse_s).Get();
-  restrictor(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
-}
-
-//----------------------------------------------------------------------------------------
-//  \brief Prolongate cell centered values
-
-void MeshRefinement::ProlongateCellCenteredValues(CellVariable<Real> *var, int si, int ei,
-                                                  int sj, int ej, int sk, int ek) {
-  const auto &metadata = var->metadata();
-  PARTHENON_DEBUG_REQUIRE(metadata.IsRefined(), "Variable " + var->base_name() +
-                                                    " must be registered for refinement");
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  const auto &refinement_funcs = metadata.GetRefinementFunctions();
-  const auto &prolongator = refinement_funcs.prolongator_host;
-  int b = 0;
-  int nbuffers = 1;
-  // TODO(JMM): We're allocating on the heap here... we could move to
-  // the stack by giving these functions pointers to underlying data?
-  // Probably not worth it, as these functions will be completely removed soon.
-  cell_centered_bvars::BufferCacheHost_t info_h("refinement info", nbuffers);
-  refinement::loops::IdxHost_t idxs_h("host data", nbuffers);
-  idxs_h(b) = b;
-  // buff and var unused
-  info_h(b).si = si;
-  info_h(b).ei = ei;
-  info_h(b).sj = sj;
-  info_h(b).ej = ej;
-  info_h(b).sk = sk;
-  info_h(b).ek = ek;
-  info_h(b).Nt = var->GetDim(6);
-  info_h(b).Nu = var->GetDim(5);
-  info_h(b).Nv = var->GetDim(4);
-  info_h(b).refinement_op = RefinementOp_t::Prolongation;
-  info_h(b).coords = pmb->coords;
-  info_h(b).coarse_coords = this->coarse_coords;
-  info_h(b).fine = (var->data).Get();
-  info_h(b).coarse = (var->coarse_s).Get();
-  prolongator(info_h, idxs_h, pmb->cellbounds, pmb->c_cellbounds, nbuffers);
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void MeshRefinement::CheckRefinementCondition()
 //  \brief Check refinement criteria
 
@@ -161,26 +87,26 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
   if (aret >= 0) deref_count_ = 0;
   if (aret > 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->max_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->max_level) {
       refine_flag_ = 0;
     } else {
       refine_flag_ = 1;
     }
   } else if (aret < 0) {
-    if (pmb->loc.level == pmb->pmy_mesh->root_level) {
+    if (pmb->loc.level() == pmb->pmy_mesh->root_level) {
       refine_flag_ = 0;
       deref_count_ = 0;
     } else {
       deref_count_++;
       int ec = 0, js, je, ks, ke;
-      if (pmb->block_size.nx2 > 1) {
+      if (!pmb->block_size.symmetry(X2DIR)) {
         js = -1;
         je = 1;
       } else {
         js = 0;
         je = 0;
       }
-      if (pmb->block_size.nx3 > 1) {
+      if (!pmb->block_size.symmetry(X3DIR)) {
         ks = -1;
         ke = 1;
       } else {
@@ -190,7 +116,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = -1; i <= 1; i++)
-            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level) ec++;
+            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level()) ec++;
         }
       }
       if (ec > 0) {
@@ -210,7 +136,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(std::shared_ptr<CellVariable<Real>> pvar) {
+int MeshRefinement::AddToRefinement(std::shared_ptr<Variable<Real>> pvar) {
   pvars_cc_.insert(pvar);
   return static_cast<int>(pvars_cc_.size() - 1);
 }

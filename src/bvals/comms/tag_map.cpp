@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,11 +22,10 @@
 
 namespace parthenon {
 
-using namespace cell_centered_bvars;
 using namespace loops;
 using namespace loops::shorthands;
 
-TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pmb,
+TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
                                             const NeighborBlock &nb) {
   const int location_idx_me = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
   const int location_idx_nb = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
@@ -34,10 +33,9 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const std::shared_ptr<MeshBlock> &pm
   BlockGeometricElementId bgei_nb{nb.snb.gid, location_idx_nb};
   return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
-
+template <BoundaryType BOUND>
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
-  ForEachBoundary(md, [&](sp_mb_t pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v,
-                          const OffsetIndices &no) {
+  ForEachBoundary<BOUND>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     const int other_rank = nb.snb.rank;
     if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
     auto &pair_map = map_[other_rank];
@@ -45,19 +43,41 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     pair_map[MakeChannelPair(pmb, nb)] = -1;
   });
 }
+template void
+TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(
+    std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_send>(
+    std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(
+    std::shared_ptr<MeshData<Real>> &md);
+template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(
+    std::shared_ptr<MeshData<Real>> &md);
 
 void TagMap::ResolveMap() {
+#ifdef MPI_PARALLEL
+  int flag;
+  void *max_tag; // largest supported MPI tag value
+  PARTHENON_MPI_CHECK(MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag));
+  if (!flag) {
+    PARTHENON_FAIL("MPI error, cannot query largest supported MPI tag value.");
+  }
+#endif
   for (auto it = map_.begin(); it != map_.end(); ++it) {
     auto &pair_map = it->second;
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
-    if (idx > 32767)
-      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by the MPI standard.");
+#ifdef MPI_PARALLEL
+    if (idx > (*reinterpret_cast<int *>(max_tag)) && it->first != Globals::my_rank)
+      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by this MPI version.");
+#endif
   }
 }
 
-int TagMap::GetTag(const std::shared_ptr<MeshBlock> &pmb, const NeighborBlock &nb) {
+int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
   const int other_rank = nb.snb.rank;
   auto &pair_map = map_[other_rank];
   return pair_map[MakeChannelPair(pmb, nb)];
