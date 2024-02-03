@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
+- [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) New tasking infrastructure and capabilities
 - [[PR 969]](https://github.com/parthenon-hpc-lab/parthenon/pull/969) New macro-based auto-naming of profiling regions and kernels
 - [[PR 981]](https://github.com/parthenon-hpc-lab/parthenon/pull/981) Add IndexSplit
@@ -20,6 +21,7 @@
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 990]](https://github.com/parthenon-hpc-lab/parthenon/pull/990) Partial refactor of HDF5 I/O code for readability/extendability
 - [[PR 982]](https://github.com/parthenon-hpc-lab/parthenon/pull/982) add some gut check testing for parthenon-VIBE
 
 ### Removed (removing behavior/API/varaibles/...)
