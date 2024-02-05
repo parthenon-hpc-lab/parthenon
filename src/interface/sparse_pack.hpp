@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -90,6 +90,7 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
 // device
 namespace variable_names {
 // Struct that all variable_name types should inherit from
+constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
 template <bool REGEX, int... NCOMP>
 struct base_t {
   KOKKOS_INLINE_FUNCTION
@@ -98,6 +99,21 @@ struct base_t {
   KOKKOS_INLINE_FUNCTION
   explicit base_t(int idx1) : idx(idx1) {}
 
+  /*
+    for 2D:, (M, N),
+    idx(m, n) = N*m + n
+    for 3D: (L, M, N)
+    idx(l, m, n) = (M*l + m)*N + n
+                 = l*M*N + m*N + n
+   */
+  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
+            REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
+  KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
+      : idx(GetIndex_(std::forward<Args>(args)...)) {
+    static_assert(CheckArgs_(NCOMP...),
+                  "All dimensions must be strictly positive, "
+                  "except the first (slowest), which may be ANYDIM.");
+  }
   virtual ~base_t() = default;
 
   // All of these are just static methods so that there is no
@@ -106,6 +122,11 @@ struct base_t {
     PARTHENON_FAIL("Need to implement your own name method.");
     return "error";
   }
+  template <int idx>
+  static constexpr auto GetDim() {
+    return std::get<sizeof...(NCOMP) - idx>(std::make_tuple(NCOMP...));
+  }
+  static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
   static bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
@@ -114,6 +135,23 @@ struct base_t {
   static int size() { return multiply<NCOMP...>::value; }
 
   const int idx;
+
+ private:
+  template <typename... Tail, REQUIRES(all_implement<integral(Tail...)>::value)>
+  static constexpr bool CheckArgs_(int head, Tail... tail) {
+    return (... && (tail > 0));
+  }
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION static auto GetIndex_(Args... args) {
+    int idx = 0;
+    (
+        [&] {
+          idx *= NCOMP;
+          idx += args;
+        }(),
+        ...);
+    return idx;
+  }
 };
 
 // An example variable name type that selects all variables available
