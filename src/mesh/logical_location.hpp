@@ -89,7 +89,13 @@ class LogicalLocation { // aggregate and POD type
   const auto &lx3() const { return l_[2]; }
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
-
+  
+  bool IsInTree() const { 
+    return (l_[0] >= 0) && (l_[0] < (1LL << level())) 
+      &&   (l_[1] >= 0) && (l_[1] < (1LL << level()))
+      &&   (l_[2] >= 0) && (l_[2] < (1LL << level())); 
+  }
+  
   // Returns the coordinate in the range [0, 1] of the left side of
   // a logical location in a given direction on refinement level level
   Real LLCoord(CoordinateDirection dir, BlockLocation bloc = BlockLocation::Left) const {
@@ -125,12 +131,12 @@ class LogicalLocation { // aggregate and POD type
     return LogicalLocation(level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
-  LogicalLocation GetParent() const {
-    if (level() <= 0) return LogicalLocation(level() - 1, 0, 0, 0);
-    return LogicalLocation(level() - 1, lx1() >> 1, lx2() >> 1, lx3() >> 1);
+  LogicalLocation GetParent(int nlevel = 1) const {
+    if (level() - nlevel < 0) return LogicalLocation(level() - nlevel, 0, 0, 0);
+    return LogicalLocation(level() - nlevel, lx1() >> nlevel, lx2() >> nlevel, lx3() >> nlevel);
   }
 
-  std::vector<LogicalLocation> GetDaughters() const;
+  std::vector<LogicalLocation> GetDaughters(int ndim = 3) const;
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
     if (level() < 0) return LogicalLocation(level() + 1, 0, 0, 0);

@@ -174,16 +174,19 @@ LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
                                             const std::array<int, 3> &te_offset,
                                             const RootGridInfo &rg_info) const;
 
-std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
+std::vector<LogicalLocation> LogicalLocation::GetDaughters(int ndim) const {
   std::vector<LogicalLocation> daughters;
   if (level() < 0) {
     daughters.push_back(GetDaughter(0, 0, 0));
     return daughters;
   }
-  daughters.reserve(8);
-  for (int i : {0, 1}) {
-    for (int j : {0, 1}) {
-      for (int k : {0, 1}) {
+
+  const std::vector<int> active{0, 1};
+  const std::vector<int> inactive{0};
+  daughters.reserve(1LL << ndim);
+  for (int i : active) {
+    for (int j : ndim > 1 ? active : inactive) {
+      for (int k : ndim > 2 ? active : inactive) {
         daughters.push_back(GetDaughter(i, j, k));
       }
     }

@@ -12,6 +12,8 @@
 //========================================================================================
 
 #include <array>
+#include <map>
+#include <set>
 #include <vector>
 #include <memory>
 #include <tuple> 
@@ -23,12 +25,15 @@
 
 namespace parthenon {
 namespace forest { 
+
+  using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
   constexpr int NDIM = 2; 
   template <class T, int SIZE>
   using sptr_vec_t = std::array<std::shared_ptr<T>, SIZE>;
   
   enum class Direction : int {I = 0, J = 1, K = 2};
-  
+  enum class EdgeLoc : int {South = 0, West = 1, East = 2, North = 3};
+
   class Face; 
   class Node { 
    public: 
@@ -58,8 +63,6 @@ namespace forest {
     }
   };
   
-  enum class EdgeLoc : int {South = 0, West = 1, East = 2, North = 3};
-  
   class Face : public std::enable_shared_from_this<Face> { 
    private:  
     struct Private_t {};
@@ -88,6 +91,7 @@ namespace forest {
   
     sptr_vec_t<Node, 4> nodes;
     std::unordered_map<EdgeLoc, Edge> edges; 
+    LogicalLocMap_t tree;
   };
   
   void ListFaces(const std::shared_ptr<Node>& node) { 
