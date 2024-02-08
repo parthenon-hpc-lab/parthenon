@@ -96,6 +96,13 @@ class LogicalLocation { // aggregate and POD type
       &&   (l_[2] >= 0) && (l_[2] < (1LL << level())); 
   }
   
+  int NeighborTreeIndex() const {
+    int i1 = (l_[0] >= 0) - (l_[0] < (1LL << level())) + 1; 
+    int i2 = (l_[1] >= 0) - (l_[1] < (1LL << level())) + 1; 
+    int i3 = (l_[2] >= 0) - (l_[2] < (1LL << level())) + 1; 
+    return i1 + 3 * i2 + 9 * i3;
+  } 
+
   // Returns the coordinate in the range [0, 1] of the left side of
   // a logical location in a given direction on refinement level level
   Real LLCoord(CoordinateDirection dir, BlockLocation bloc = BlockLocation::Left) const {

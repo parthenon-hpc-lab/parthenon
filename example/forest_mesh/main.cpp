@@ -22,6 +22,31 @@ using parthenon::LogicalLocation;
 using parthenon::Real;
 using namespace parthenon::forest;
 
+struct RelativeOrientation { 
+  LogicalLocation Transform(const LogicalLocation &loc_in) const { 
+    std::array<std::int64_t, 3> l_out; 
+    int nblock = 1LL << loc_in.level();  
+    for (int dir = 0; dir < 3; ++dir) {  
+      std::int64_t l_in = loc_in.l(dir);
+      // First shift the logical location index back into the interior 
+      // of a bordering tree assuming they have the same coordinate 
+      // orientation
+      l_in = (l_in + nblock) % nblock; 
+      // Then permute (and possibly flip) the coordinate indices 
+      // to move to the logical coordinate system of the new tree
+      if (dir_flip[dir]) { 
+        l_out[abs(dir_connection[dir])] = nblock - 1 - l_in;
+      } else {
+        l_out[abs(dir_connection[dir])] = l_in; 
+      }
+    }    
+    return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
+  }
+
+  int dir_connection[3]; 
+  bool dir_flip[3];
+};
+
 // We don't allow for periodic boundaries, since we can encode periodicity through connectivity in the forest
 class Tree { 
  public: 
@@ -67,8 +92,12 @@ class Tree {
             nadded += Refine(neigh);
           }
           if (!neigh.IsInTree()) {
-            // Need to communicate this refinement action to possible neighboring tree and 
+            // Need to communicate this refinement action to possible neighboring tree(s) and 
             // trigger refinement there
+            int n_idx = neigh.NeighborTreeIndex(); 
+            for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
+              nadded += neighbor_tree->Refine(orientation.Transform(neigh));
+            }
           }
         }
       }
@@ -112,21 +141,26 @@ class Tree {
     return daughters.size();
   }
   
-  void Print() const { 
+  void Print(std::string fname) const {
+    FILE * pFile;
+    pFile = fopen(fname.c_str(), "w");
     for (const auto &l : leaves) 
-      printf("%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
+      fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
+    fclose(pFile);
+  }
+  
+  void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree, RelativeOrientation orient) { 
+    neighbors[location_idx].push_back(std::make_pair(neighbor_tree, orient));   
   }
 
  private:
   int ndim;  
   std::unordered_set<LogicalLocation> leaves; 
   std::unordered_set<LogicalLocation> internal_nodes; 
-  // Add pointers to neighboring trees 
+  std::array<std::vector<std::pair<std::shared_ptr<Tree>, RelativeOrientation>>, 27> neighbors;
 };
 
 int main(int argc, char *argv[]) {
-
-
   // Things to do:
   // 1. Get a single tree mesh to work with just a map of LogicalLocations
   //    a. Need to perform refinement operations, deal with periodicity  
@@ -135,13 +169,38 @@ int main(int argc, char *argv[]) {
   // 4. Write out tree mesh
 
   
-  Tree tree(2, 2);
+  auto tree1 = std::make_shared<Tree>(2, 2);
+  auto tree2 = std::make_shared<Tree>(2, 2);
+  auto tree3 = std::make_shared<Tree>(2, 2);
+
+  RelativeOrientation tree1to2; 
+  tree1to2.dir_connection[0] = 1; 
+  tree1to2.dir_connection[1] = 0; 
+  tree1to2.dir_connection[2] = 2; 
+  tree1to2.dir_flip[0] = true;
+  tree1to2.dir_flip[1] = false;
+  tree1to2.dir_flip[2] = false;
+   
+  RelativeOrientation tree2to1;
+  tree2to1.dir_connection[0] = 1; 
+  tree2to1.dir_connection[1] = 0; 
+  tree2to1.dir_connection[2] = 2; 
+  tree2to1.dir_flip[0] = false;
+  tree2to1.dir_flip[1] = true;
+  tree2to1.dir_flip[2] = false;
+    
+  tree1->AddNeighbor(2 + 3 * 1 + 9 * 1, tree2, tree1to2);
+  tree2->AddNeighbor(1 + 3 * 2 + 9 * 1, tree1, tree2to1);
+
   //tree.Print();
   //printf("\n");
-  tree.Refine(LogicalLocation(2, 1, 1, 0));
-  tree.Refine(LogicalLocation(3, 3, 3, 0));
-  tree.Refine(LogicalLocation(4, 7, 7, 0));
-  tree.Print(); 
+  tree1->Refine(LogicalLocation(2, 3, 3, 0));
+  tree1->Refine(LogicalLocation(3, 7, 7, 0));
+  //tree1->Refine(LogicalLocation(3, 3, 3, 0));
+  //tree1->Refine(LogicalLocation(4, 7, 7, 0));
+  tree1->Print("tree1.txt");
+
+  tree2->Print("tree2.txt");
   //printf("\n");
   //ParthenonManager pman;
   
