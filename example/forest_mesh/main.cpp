@@ -167,11 +167,9 @@ int main(int argc, char *argv[]) {
   // 2. Figure out how to include ghost leaves 
   // 3. Assign positions to leaves based on parent hexahedron
   // 4. Write out tree mesh
-
-  
-  auto tree1 = std::make_shared<Tree>(2, 2);
-  auto tree2 = std::make_shared<Tree>(2, 2);
-  auto tree3 = std::make_shared<Tree>(2, 2);
+  auto tree1 = std::make_shared<Tree>(2, 1);
+  auto tree2 = std::make_shared<Tree>(2, 1);
+  auto tree3 = std::make_shared<Tree>(2, 1);
 
   RelativeOrientation tree1to2; 
   tree1to2.dir_connection[0] = 1; 
@@ -188,19 +186,45 @@ int main(int argc, char *argv[]) {
   tree2to1.dir_flip[0] = false;
   tree2to1.dir_flip[1] = true;
   tree2to1.dir_flip[2] = false;
-    
+
+  RelativeOrientation tree1to3; 
+  tree1to3.dir_connection[0] = 0; 
+  tree1to3.dir_connection[1] = 1; 
+  tree1to3.dir_connection[2] = 2; 
+  tree1to3.dir_flip[0] = false;
+  tree1to3.dir_flip[1] = false;
+  tree1to3.dir_flip[2] = false;
+  RelativeOrientation tree3to1 = tree1to3; 
+
+  RelativeOrientation tree2to3; 
+  tree2to3.dir_connection[0] = 0; 
+  tree2to3.dir_connection[1] = 1; 
+  tree2to3.dir_connection[2] = 2; 
+  tree2to3.dir_flip[0] = true;
+  tree2to3.dir_flip[1] = true;
+  tree2to3.dir_flip[2] = false;
+  
+  RelativeOrientation tree3to2 = tree2to3;
+
   tree1->AddNeighbor(2 + 3 * 1 + 9 * 1, tree2, tree1to2);
+  tree1->AddNeighbor(1 + 3 * 2 + 9 * 1, tree3, tree1to3); 
+  
   tree2->AddNeighbor(1 + 3 * 2 + 9 * 1, tree1, tree2to1);
+  tree2->AddNeighbor(2 + 3 * 1 + 9 * 1, tree3, tree2to3);
+
+  tree3->AddNeighbor(1 + 3 * 0 + 9 * 1, tree1, tree3to1);
+  tree3->AddNeighbor(2 + 3 * 1 + 9 * 1, tree2, tree3to2);
 
   //tree.Print();
   //printf("\n");
+  tree1->Refine(LogicalLocation(1, 1, 1, 0));
   tree1->Refine(LogicalLocation(2, 3, 3, 0));
-  tree1->Refine(LogicalLocation(3, 7, 7, 0));
   //tree1->Refine(LogicalLocation(3, 3, 3, 0));
   //tree1->Refine(LogicalLocation(4, 7, 7, 0));
   tree1->Print("tree1.txt");
-
   tree2->Print("tree2.txt");
+  tree3->Print("tree3.txt");
+
   //printf("\n");
   //ParthenonManager pman;
   
