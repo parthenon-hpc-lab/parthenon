@@ -51,6 +51,7 @@
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+#include "bvals/comms/mm_neigh_token.hpp" // Moraru
 
 namespace parthenon {
 
@@ -75,6 +76,11 @@ class Mesh {
   friend class MeshRefinement;
 
  public:
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  neigh_comm::NeighToken neigh_token; // Moraru TODO (change to private)
+  #endif
+
+
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);

@@ -37,6 +37,11 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+#include "utils/mm_logger.hpp"
+
+#ifdef ENABLE_MM_LOGGER
+std::shared_ptr<logger::My_Logger> logger::global_logger = std::make_shared<logger::My_Logger>() ; // Moraru
+#endif
 
 namespace parthenon {
 
@@ -65,6 +70,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     return ParthenonStatus::error;
   }
 
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->init_logger(Globals::my_rank); // Moraru
+  #endif
+  
   // Get total number of MPI processes (ranks)
   if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
     std::cout << "### FATAL ERROR in main" << std::endl

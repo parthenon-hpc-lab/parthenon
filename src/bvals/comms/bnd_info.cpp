@@ -375,12 +375,54 @@ ProResInfo ProResInfo::GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBloc
   return out;
 }
 
+// MORARU
+BndInfo BndInfo::NeighCommGetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+                              std::shared_ptr<Variable<Real>> v,
+                              CommBuffer<buf_pool_t<Real>::owner_t> *buf){ // Moraru
+    BndInfo out;
+    out.buf = buf->buffer();
+    auto buf_state = buf->GetState();
+    out.buf_allocated = true;
+    
+    buf->Allocate();
+    /*
+    // Moraru : debug (Uncomment)
+    buf->buffer()[0]= 18.0; // Works
+    std::cout<<" Works : "<< buf->buffer()[0] <<std::endl; // Works
+    std::cout<< out.buf[0] << std::endl; // error 
+    */
+    out.allocated = v->IsAllocated();
+
+    int Nv = v->GetDim(4);
+    int Nu = v->GetDim(5);
+    int Nt = v->GetDim(6);
+
+    int mylevel = pmb->loc.level();
+
+    auto elements = v->GetTopologicalElements();
+    out.ntopological_elements = elements.size();
+    for (auto el : elements) {
+      int idx = static_cast<int>(el) % 3;
+      out.idxer[idx] =
+          CalcIndices(nb, pmb, el, IndexRangeType::Exterior, false, {Nt, Nu, Nv});
+    }
+    if (nb.snb.level < mylevel) {
+      out.var = v->coarse_s.Get();
+    } else {
+      out.var = v->data.Get();
+    }
+
+    return out;
+}
+// END MORARU
+
 BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
+
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
   } else if (buf_state == BufferState::received_null) {
@@ -388,6 +430,7 @@ BndInfo BndInfo::GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlo
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
+
   out.allocated = v->IsAllocated();
 
   int Nv = v->GetDim(4);

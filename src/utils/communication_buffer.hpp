@@ -29,6 +29,10 @@
 #include "parthenon_mpi.hpp"
 #include "utils/mpi_types.hpp"
 
+//#ifdef ENABLE_MM_LOGGER
+#include "utils/mm_logger.hpp"
+//#endif
+#include "bvals/comms/mm_neigh_token.hpp"
 namespace parthenon {
 
 //             Read    Write
@@ -90,7 +94,7 @@ class CommBuffer {
   operator T &() { return buf_; }
   operator const T &() const { return buf_; }
 
-  T &buffer() { return buf_; }
+  T &buffer() { return buf_; } 
   const T &buffer() const { return buf_; }
 
   void Allocate() {
@@ -109,13 +113,13 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
-  void Send() noexcept;
-  void SendNull() noexcept;
+  void Send(const logger::COMM_TYPE & prof_comm_type = logger::NoneComeType) noexcept;
+  void SendNull(const logger::COMM_TYPE & prof_comm_type = logger::NoneComeType) noexcept;
 
   bool IsAvailableForWrite();
 
   void TryStartReceive() noexcept;
-  bool TryReceive() noexcept;
+  bool TryReceive(const logger::COMM_TYPE & prof_comm_type = logger::NoneComeType) noexcept;
   bool IsSafeToDelete() {
     if (*comm_type_ == BuffCommType::sparse_receiver ||
         *comm_type_ == BuffCommType::receiver) {
@@ -206,9 +210,9 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
 }
 
 template <class T>
-void CommBuffer<T>::Send() noexcept {
+void CommBuffer<T>::Send(const logger::COMM_TYPE & prof_comm_type) noexcept {
   if (!active_) {
-    SendNull();
+    SendNull(prof_comm_type);
     return;
   }
 
@@ -226,6 +230,10 @@ void CommBuffer<T>::Send() noexcept {
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
                                   my_request_.get()));
+    #ifdef ENABLE_MM_LOGGER
+      if(prof_comm_type != logger::NoneComeType)
+        logger::global_logger->get_logger()<<prof_comm_type<<":T"<<recv_rank_<<":"<<sizeof(buf_base_t)*buf_.size()<<","; // Moraru (F==from (recieve))
+    #endif
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {
@@ -235,7 +243,7 @@ void CommBuffer<T>::Send() noexcept {
 }
 
 template <class T>
-void CommBuffer<T>::SendNull() noexcept {
+void CommBuffer<T>::SendNull(const logger::COMM_TYPE & prof_comm_type) noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
@@ -246,6 +254,11 @@ void CommBuffer<T>::SendNull() noexcept {
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
+    #ifdef ENABLE_MM_LOGGER
+      if(prof_comm_type != logger::NoneComeType)
+        logger::global_logger->get_logger()<<prof_comm_type<<":T"<<recv_rank_<<":"<<0<<","; // Moraru (F==from (recieve))
+    #endif
+
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {
@@ -319,7 +332,7 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceive() noexcept {
+bool CommBuffer<T>::TryReceive(const logger::COMM_TYPE & prof_comm_type) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
@@ -380,6 +393,11 @@ bool CommBuffer<T>::TryReceive() noexcept {
         else
           *state_ = BufferState::received_null;
 
+        #ifdef ENABLE_MM_LOGGER
+        if(prof_comm_type != logger::NoneComeType)
+        logger::global_logger->get_logger()<<prof_comm_type<<":F"<<status.MPI_SOURCE<<":"<<sizeof(buf_base_t)*size<<","; // Moraru (F==from (recieve))
+        #endif
+        
         return true;
       }
     }

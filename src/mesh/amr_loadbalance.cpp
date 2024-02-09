@@ -42,6 +42,8 @@
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
+#include "bvals/comms/mm_neigh_token.hpp" // Moraru
+
 
 namespace parthenon {
 
@@ -330,7 +332,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
 
   UpdateCostList();
 
-  modified = false;
+  modified = false; 
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
     GatherCostListAndCheckBalance();
     RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
@@ -934,10 +936,26 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   ranklist = std::move(newrank);
   costlist = std::move(newcost);
 
+  /*#ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  neigh_token.start_searching_neighbors();
+  #endif*/
+
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->start_timer_token_creation();
+  #endif
   // re-initialize the MeshBlocks
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->end_timer_token_creation();
+  //logger::global_logger->log_time_token_creation();
+  #endif
+
+  /*#ifdef USE_NEIGHBORHOOD_COLLECTIVES
+    neigh_token.end_searching_neighbors();
+  #endif*/
+  
   Initialize(false, pin, app_in);
 
   ResetLoadBalanceVariables();

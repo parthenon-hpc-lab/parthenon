@@ -28,6 +28,8 @@
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/utils.hpp"
+#include "bvals/comms/mm_neigh_token.hpp" // Moraru
+
 
 namespace parthenon {
 using SignalHandler::OutputSignal;
@@ -163,11 +165,21 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   pmesh->boundary_comm_map.clear();
   pmesh->boundary_comm_flxcor_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  // Moraru : We are not ready for multiple paritions 
+  if(num_partitions != 1) PARTHENON_FAIL("num_partitions != 1");
+  #endif
+
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
     BuildBoundaryBuffers(mbase);
   }
+
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+    pmesh->neigh_token.build_neigh_comm(MPI_COMM_WORLD);
+    //pmesh->neigh_token.print_neigh();
+  #endif
 }
 
 //----------------------------------------------------------------------------------------

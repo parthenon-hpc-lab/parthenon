@@ -32,6 +32,7 @@
 #include "mesh/mesh.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
+#include "bvals/comms/mm_neigh_token.hpp" // Moraru
 
 namespace parthenon {
 
@@ -346,6 +347,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, 0, 0,
                                           NeighborConnect::face, bufid, tbid, f1, f2);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[fid]<<",";
+          #endif
+          
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+          #endif    
+
           bufid++;
           nneighbor++;
         }
@@ -363,6 +372,13 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                       nid - nslist[ranklist[nid]], n, 0, 0,
                                       NeighborConnect::face, bufid, tbid);
+      #ifdef ENABLE_MM_LOGGER
+       logger::global_logger->get_logger()<<ranklist[nid]<<",";
+      #endif
+
+      #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+        //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+      #endif    
       bufid += nf1 * nf2;
       nneighbor++;
     }
@@ -392,6 +408,13 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], 0, n, 0,
                                           NeighborConnect::face, bufid, tbid, f1, f2);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[fid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+          #endif    
           bufid++;
           nneighbor++;
         }
@@ -409,6 +432,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                       nid - nslist[ranklist[nid]], 0, n, 0,
                                       NeighborConnect::face, bufid, tbid);
+      #ifdef ENABLE_MM_LOGGER
+       logger::global_logger->get_logger()<<ranklist[nid]<<",";
+      #endif
+      
+      #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+        //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+      #endif    
+
       bufid += nf1 * nf2;
       nneighbor++;
     }
@@ -434,6 +465,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
             neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                             fid - nslist[ranklist[fid]], 0, 0, n,
                                             NeighborConnect::face, bufid, tbid, f1, f2);
+            #ifdef ENABLE_MM_LOGGER
+             logger::global_logger->get_logger()<<ranklist[fid]<<",";
+            #endif
+
+            #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+              //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+            #endif    
+
             bufid++;
             nneighbor++;
           }
@@ -451,6 +490,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
         neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                         nid - nslist[ranklist[nid]], 0, 0, n,
                                         NeighborConnect::face, bufid, tbid);
+        #ifdef ENABLE_MM_LOGGER
+        logger::global_logger->get_logger()<<ranklist[nid]<<",";
+        #endif
+
+        #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+          //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+        #endif    
+
         bufid += nf1 * nf2;
         nneighbor++;
       }
@@ -478,6 +525,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, m, 0,
                                           NeighborConnect::edge, bufid, tbid, f1, 0);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[fid]<<",";
+          #endif
+          
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+          #endif    
+
           bufid++;
           nneighbor++;
         }
@@ -495,6 +550,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], n, m, 0,
                                           NeighborConnect::edge, bufid, tbid);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[nid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+          #endif    
+
           nneighbor++;
         }
         bufid += nf2;
@@ -528,6 +591,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], n, 0, m,
                                           NeighborConnect::edge, bufid, tbid, f1, 0);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[fid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+          #endif    
+
           bufid++;
           nneighbor++;
         }
@@ -545,6 +616,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], n, 0, m,
                                           NeighborConnect::edge, bufid, tbid);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[nid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+          #endif    
+
           nneighbor++;
         }
         bufid += nf1;
@@ -572,6 +651,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(nf->loc_, ranklist[fid], nlevel, fid,
                                           fid - nslist[ranklist[fid]], 0, n, m,
                                           NeighborConnect::edge, bufid, tbid, f1, 0);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[fid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[fid]);
+          #endif    
+
           bufid++;
           nneighbor++;
         }
@@ -589,6 +676,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], 0, n, m,
                                           NeighborConnect::edge, bufid, tbid);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[nid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+          #endif    
+
           nneighbor++;
         }
         bufid += nf1;
@@ -619,6 +714,14 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
           neighbor[nneighbor].SetNeighbor(neibt->loc_, ranklist[nid], nlevel, nid,
                                           nid - nslist[ranklist[nid]], n, m, l,
                                           NeighborConnect::corner, bufid, tbid);
+          #ifdef ENABLE_MM_LOGGER
+           logger::global_logger->get_logger()<<ranklist[nid]<<",";
+          #endif
+
+          #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+            //pmy_mesh_->neigh_token.add_neighbor(ranklist[nid]);
+          #endif    
+
           nneighbor++;
         }
         bufid++;

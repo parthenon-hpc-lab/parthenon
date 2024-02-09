@@ -39,6 +39,10 @@
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
+//#ifdef ENABLE_MM_LOGGER
+#include "utils/mm_logger.hpp"
+//#endif
+
 namespace parthenon {
 
 using namespace loops;
@@ -122,13 +126,59 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
 
+  // Moraru 
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  if(bound_type == BoundaryType::nonlocal){
+    pmesh->neigh_token.start_data_exchange_neigh_alltoallv();
+  }
+  else{
+    for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
+      auto &buf = *cache.buf_vec[ibuf];
+      #ifdef ENABLE_MM_LOGGER
+      if(bound_type == BoundaryType::nonlocal){
+        if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+          buf.Send(logger::BoundBufs);
+        else
+          buf.SendNull(logger::BoundBufs);
+      }
+      else{
+        if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+          buf.Send();
+        else
+          buf.SendNull();
+      }
+      #else
+      if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+        buf.Send();
+      else
+        buf.SendNull();
+      #endif // ENABLE_MM_LOGGER
+    }
+  }
+  #else
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
+    #ifdef ENABLE_MM_LOGGER
+    if(bound_type == BoundaryType::nonlocal){
+      if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+        buf.Send(logger::BoundBufs);
+      else
+        buf.SendNull(logger::BoundBufs);
+    }
+    else{
+      if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+        buf.Send();
+      else
+        buf.SendNull();
+    }
+    #else
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.Send();
     else
       buf.SendNull();
+    #endif // ENABLE_MM_LOGGER
   }
+  #endif // USE_NEIGHBORHOOD_COLLECTIVES
 
   Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
   return TaskStatus::complete;
@@ -171,11 +221,44 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
+  #ifdef ENABLE_MM_LOGGER
+  if(bound_type == BoundaryType::nonlocal) logger::global_logger->start_timer_recv_bound_bufs();
+  #endif
 
   bool all_received = true;
-  std::for_each(
-      std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+  // Moraru 
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+    if(bound_type == BoundaryType::nonlocal){
+      all_received = pmesh->neigh_token.end_data_exchange_neigh_alltoallv();
+    }
+    else{
+      std::for_each(
+          std::begin(cache.buf_vec), std::end(cache.buf_vec),
+          [&all_received](auto pbuf) { 
+            #ifdef ENABLE_MM_LOGGER
+            if(bound_type == BoundaryType::nonlocal) all_received = pbuf->TryReceive(logger::BoundBufs) && all_received; // Moraru
+            else all_received = pbuf->TryReceive() && all_received; 
+            #else
+            all_received = pbuf->TryReceive() && all_received; 
+            #endif
+      });
+    }
+  #else
+    std::for_each(
+          std::begin(cache.buf_vec), std::end(cache.buf_vec),
+          [&all_received](auto pbuf) { 
+            #ifdef ENABLE_MM_LOGGER
+            if(bound_type == BoundaryType::nonlocal) all_received = pbuf->TryReceive(logger::BoundBufs) && all_received; // Moraru
+            else all_received = pbuf->TryReceive() && all_received; 
+            #else
+            all_received = pbuf->TryReceive() && all_received; 
+            #endif
+      });
+  #endif // USE_NEIGHBORHOOD_COLLECTIVES
+
+  #ifdef ENABLE_MM_LOGGER
+  if(bound_type == BoundaryType::nonlocal) logger::global_logger->end_timer_recv_bound_bufs();
+  #endif
 
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
@@ -215,9 +298,21 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-  if (rebuild)
-    RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  if (rebuild){
+    if(bound_type == BoundaryType::nonlocal){
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::NeighCommGetSetBndInfo, // Moraru : for debugging purpose
                                           ProResInfo::GetSet);
+    }
+    else
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                          ProResInfo::GetSet);
+  }
+  #else
+    if (rebuild)
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                          ProResInfo::GetSet);
+  #endif
 
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;

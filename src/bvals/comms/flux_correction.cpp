@@ -114,8 +114,13 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::fence();
 #endif
   // Calling Send will send null if the underlying buffer is unallocated
-  for (auto &buf : cache.buf_vec)
+  for (auto &buf : cache.buf_vec){
+    #ifdef ENABLE_MM_LOGGER
+    buf->Send(logger::FluxCorrections);
+    #else
     buf->Send();
+    #endif
+  }
   Kokkos::Profiling::popRegion(); // Task_LoadAndSendFluxCorrections
   return TaskStatus::complete;
 }
@@ -144,10 +149,24 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
     InitializeBufferCache<BoundaryType::flxcor_recv>(
         md, &(pmesh->boundary_comm_flxcor_map), &cache, ReceiveKey, false);
 
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->start_timer_recv_flux_corr();
+  #endif
+
   bool all_received = true;
   std::for_each(
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+      [&all_received](auto pbuf) { 
+        #ifdef ENABLE_MM_LOGGER
+        all_received = pbuf->TryReceive(logger::FluxCorrections) && all_received; 
+        #else
+        all_received = pbuf->TryReceive() && all_received; 
+        #endif
+  });
+
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->end_timer_recv_flux_corr();
+  #endif
 
   Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrections
 

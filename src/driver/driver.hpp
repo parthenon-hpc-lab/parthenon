@@ -28,6 +28,7 @@
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "tasks/task_list.hpp"
+#include "utils/mm_logger.hpp"
 
 namespace parthenon {
 
@@ -109,11 +110,24 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   return status;
 }
 
+
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+
+  #ifdef ENABLE_MM_LOGGER
+  if(logger::global_logger->new_token_created()) logger::global_logger->log_time_token_creation();
+  #endif
+
   TaskCollection tc =
       driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
   TaskListStatus status = tc.Execute();
+
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->get_logger()<< std::endl;
+  logger::global_logger->log_time_recv_bound_bufs();
+  logger::global_logger->log_time_recv_flux_corr();
+  #endif
+
   return status;
 }
 

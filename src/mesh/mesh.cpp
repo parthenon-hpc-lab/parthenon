@@ -463,6 +463,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
   // create MeshBlock list for this process
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->start_timer_token_creation();
+  #endif
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
@@ -473,6 +476,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                         packages, resolved_packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->end_timer_token_creation(); 
+  //logger::global_logger->log_time_token_creation();
+  #endif
 
   ResetLoadBalanceVariables();
 
@@ -724,6 +731,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Create MeshBlocks (parallel)
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
+  
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->start_timer_token_creation();
+  #endif
+
   for (int i = nbs; i <= nbe; i++) {
     for (auto &v : block_bcs) {
       v = parthenon::BoundaryFlag::undef;
@@ -737,6 +749,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
+  #ifdef ENABLE_MM_LOGGER
+  logger::global_logger->end_timer_token_creation(); 
+  //logger::global_logger->log_time_token_creation();
+  #endif
   ResetLoadBalanceVariables();
 
   // Output variables in use in this run
