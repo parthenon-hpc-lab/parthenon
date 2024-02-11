@@ -489,7 +489,9 @@ class UniformCylindrical {
     return 1./( Xc<1>(i)*Xf<1>(i+1) );
   }
 
+  KOKKOS_INLINE_FUNCTION
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
+  KOKKOS_INLINE_FUNCTION
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
 
