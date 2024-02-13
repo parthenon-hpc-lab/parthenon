@@ -381,9 +381,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {
-      ParArrayND<int> new_indices;
       auto pswarm_blk = (pmb->swarm_data.Get())->Get(swarmname);
-      pswarm_blk->AddEmptyParticles(counts[block_index], new_indices);
+      pswarm_blk->AddEmptyParticles(counts[block_index]);
       block_index++;
     }
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
