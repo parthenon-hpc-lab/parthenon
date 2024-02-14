@@ -31,8 +31,43 @@ namespace forest {
   template <class T, int SIZE>
   using sptr_vec_t = std::array<std::shared_ptr<T>, SIZE>;
   
-  enum class Direction : int {I = 0, J = 1, K = 2};
-  enum class EdgeLoc : int {South = 0, West = 1, East = 2, North = 3};
+  enum class Direction : uint {I = 0, J = 1, K = 2};
+
+  struct EdgeLoc { 
+    Direction dir; 
+    bool lower;
+    
+    // In 2D we can ignore connectivity of K-direction faces, 
+    int GetFaceIdx2D() const {
+      return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
+    } 
+
+    const static EdgeLoc South; 
+    const static EdgeLoc North; 
+    const static EdgeLoc West; 
+    const static EdgeLoc East; 
+  };
+  inline const EdgeLoc EdgeLoc::South{Direction::I, true}; 
+  inline const EdgeLoc EdgeLoc::North{Direction::I, false}; 
+  inline const EdgeLoc EdgeLoc::West{Direction::J, true}; 
+  inline const EdgeLoc EdgeLoc::East{Direction::J, false}; 
+  inline bool operator==(const EdgeLoc &lhs, const EdgeLoc &rhs) {
+    return (lhs.dir == rhs.dir) && (lhs.lower == rhs.lower);
+  }
+
+}
+}
+
+template<>
+class std::hash<parthenon::forest::EdgeLoc> {
+ public:
+  std::size_t operator()(const parthenon::forest::EdgeLoc &key) const noexcept {
+    return 2 * static_cast<uint>(key.dir) + key.lower;
+  }
+};
+
+namespace parthenon {
+namespace forest { 
 
   class Face; 
   class Node { 

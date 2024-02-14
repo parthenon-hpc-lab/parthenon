@@ -23,6 +23,21 @@ using parthenon::Real;
 using namespace parthenon::forest;
 
 struct RelativeOrientation { 
+  RelativeOrientation() : dir_connection{0, 1, 2}, dir_flip{false, false, false} {};
+
+  static RelativeOrientation FromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor, int orientation) { 
+    if (origin.dir == Direction::K || neighbor.dir == Direction::K) { 
+      PARTHENON_FAIL("In 2D we shouldn't have explicit edges in the Z direction.");
+    }
+
+    RelativeOrientation out;
+    out.dir_connection[static_cast<uint>(origin.dir)] = static_cast<uint>(neighbor.dir);
+    out.dir_flip[static_cast<uint>(origin.dir)] = orientation == -1;
+    out.dir_connection[(static_cast<uint>(origin.dir) + 1) % 2] = (static_cast<uint>(neighbor.dir) + 1) % 2; 
+    out.dir_flip[(static_cast<uint>(origin.dir) + 1) % 2] = (neighbor.lower == origin.lower);
+    return out;
+  }
+
   LogicalLocation Transform(const LogicalLocation &loc_in) const { 
     std::array<std::int64_t, 3> l_out; 
     int nblock = 1LL << loc_in.level();  
@@ -66,7 +81,11 @@ class Tree {
       }
     }
   }
-  
+
+  static std::shared_ptr<Tree> create(int ndim, int root_level) {
+    return std::make_shared<Tree>(ndim, root_level);
+  }
+
   int Refine(LogicalLocation ref_loc) {
     // Check that this is a valid refinement location 
     if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
@@ -167,9 +186,9 @@ int main(int argc, char *argv[]) {
   // 2. Figure out how to include ghost leaves 
   // 3. Assign positions to leaves based on parent hexahedron
   // 4. Write out tree mesh
-  auto tree1 = std::make_shared<Tree>(2, 1);
-  auto tree2 = std::make_shared<Tree>(2, 1);
-  auto tree3 = std::make_shared<Tree>(2, 1);
+  auto tree1 = Tree::create(2, 1);
+  auto tree2 = Tree::create(2, 1);
+  auto tree3 = Tree::create(2, 1);
 
   RelativeOrientation tree1to2; 
   tree1to2.dir_connection[0] = 1; 
@@ -231,25 +250,32 @@ int main(int argc, char *argv[]) {
   //LogicalLocation loc;
 
   //// Simplest possible setup with two blocks with the same orientation sharing one edge 
-  //std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  //nodes[0] = std::make_shared<Node>(0, std::array<Real, NDIM>{0.0, 0.0});
-  //nodes[1] = std::make_shared<Node>(1, std::array<Real, NDIM>{1.0, 0.0});
-  //nodes[2] = std::make_shared<Node>(2, std::array<Real, NDIM>{1.0, 1.0});
-  //nodes[3] = std::make_shared<Node>(3, std::array<Real, NDIM>{0.0, 1.0});
-  //nodes[4] = std::make_shared<Node>(4, std::array<Real, NDIM>{2.0, 0.0});
-  //nodes[5] = std::make_shared<Node>(5, std::array<Real, NDIM>{2.0, 1.0});
+  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
+  nodes[0] = std::make_shared<Node>(0, std::array<Real, NDIM>{0.0, 0.0});
+  nodes[1] = std::make_shared<Node>(1, std::array<Real, NDIM>{1.0, 0.0});
+  nodes[2] = std::make_shared<Node>(2, std::array<Real, NDIM>{1.0, 1.0});
+  nodes[3] = std::make_shared<Node>(3, std::array<Real, NDIM>{0.0, 1.0});
+  nodes[4] = std::make_shared<Node>(4, std::array<Real, NDIM>{2.0, 0.0});
+  nodes[5] = std::make_shared<Node>(5, std::array<Real, NDIM>{2.0, 1.0});
   
-  //std::vector<std::shared_ptr<Face>> zones;
-  //zones.emplace_back(Face::create(sptr_vec_t<Node, 4>{nodes[3], nodes[0], nodes[2], nodes[1]})); 
-  //zones.emplace_back(Face::create(sptr_vec_t<Node, 4>{nodes[1], nodes[4], nodes[2], nodes[5]})); 
+  std::vector<std::shared_ptr<Face>> zones;
+  zones.emplace_back(Face::create({nodes[3], nodes[0], nodes[2], nodes[1]})); 
+  zones.emplace_back(Face::create({nodes[1], nodes[4], nodes[2], nodes[5]})); 
 
-  //ListFaces(nodes[0]); 
-  //ListFaces(nodes[2]); 
-
-  //auto west_neighbors = FindEdgeNeighbors(zones[1], EdgeLoc::West); 
-  //auto north_neighbors = FindEdgeNeighbors(zones[1], EdgeLoc::North); 
-  //printf("west neighbor loc = %i orientation = %i\n", std::get<1>(west_neighbors[0]), std::get<2>(west_neighbors[0]));
-  //printf("north neighbors: %lu\n", north_neighbors.size());
+  int z = 0;
+  for (auto & zone : zones) { 
+    for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
+      auto neighbors = FindEdgeNeighbors(zone, side); 
+      for (auto &n : neighbors) { 
+        auto orient = RelativeOrientation::FromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
+        printf("tree = %i idx = %i\n", z, side.GetFaceIdx2D());
+        for (int d = 0; d < 3; d++) 
+          printf("%i: %i %i\n", d, orient.dir_connection[d], orient.dir_flip[d]);
+      } 
+    }
+    printf("\n");
+    z++;
+  }
 
   // MPI and Kokkos can no longer be used
   return 0;
