@@ -17,16 +17,17 @@ def GetPosition(t, a1, a2):
 fig, ax = plt.subplots()
 for (t, fname) in trees:
   dat = np.loadtxt(fname, delimiter=",")
-  for i in range(len(dat)): 
-    h = 1.0 / 2**dat[i, 0] 
-    a1 = dat[i, 1] * h
-    a2 = dat[i, 2] * h
-    rect = patches.Polygon([GetPosition(t, a1, a2), 
-                            GetPosition(t, a1 + h, a2), 
-                            GetPosition(t, a1 + h, a2 + h), 
-                            GetPosition(t, a1, a2 + h)], 
-                            linewidth=0.75, edgecolor='r', facecolor='none', alpha=1.0)
-    ax.add_patch(rect)
+  if (len(dat.shape) > 1):
+    for i in range(len(dat)): 
+      h = 1.0 / 2**dat[i, 0] 
+      a1 = dat[i, 1] * h
+      a2 = dat[i, 2] * h
+      rect = patches.Polygon([GetPosition(t, a1, a2), 
+                              GetPosition(t, a1 + h, a2), 
+                              GetPosition(t, a1 + h, a2 + h), 
+                              GetPosition(t, a1, a2 + h)], 
+                              linewidth=0.75, edgecolor='r', facecolor='none', alpha=1.0)
+      ax.add_patch(rect)
   
   # Plot bounds of the tree
   rect = patches.Polygon([GetPosition(t, 0.0, 0.0), 
