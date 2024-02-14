@@ -62,9 +62,52 @@ mesh_t two_blocks() {
   return mesh;
 }
 
+mesh_t squared_circle() { 
+  mesh_t mesh; 
+  // The outer square
+  mesh.nodes[0] = Node::create(0, {0.0, 0.0});
+  mesh.nodes[1] = Node::create(1, {3.0, 0.0});
+  mesh.nodes[2] = Node::create(2, {0.0, 3.0});
+  mesh.nodes[3] = Node::create(3, {3.0, 3.0});
+  
+  // The inner square
+  mesh.nodes[4] = Node::create(4, {1.0, 1.0});
+  mesh.nodes[5] = Node::create(5, {2.0, 1.0});
+  mesh.nodes[6] = Node::create(6, {1.0, 2.0});
+  mesh.nodes[7] = Node::create(7, {2.0, 2.0});
+
+  
+  auto &n = mesh.nodes; 
+  // South block 
+  mesh.zones.emplace_back(Face::create({n[0], n[1], n[4], n[5]}));
+  
+  // West block 
+  mesh.zones.emplace_back(Face::create({n[0], n[4], n[2], n[6]}));
+
+  // North block 
+  mesh.zones.emplace_back(Face::create({n[6], n[7], n[2], n[3]}));
+
+  // East block 
+  mesh.zones.emplace_back(Face::create({n[5], n[1], n[7], n[3]}));
+
+  // Center block 
+  mesh.zones.emplace_back(Face::create({n[4], n[5], n[6], n[7]}));
+
+  mesh.SetTreeConnections();
+  
+  // Do some refinements that should propagate into the south and west trees
+  mesh.zones[4]->tree->Refine(LogicalLocation(0, 0, 0, 0));
+  mesh.zones[4]->tree->Refine(LogicalLocation(1, 0, 0, 0));
+  mesh.zones[4]->tree->Refine(LogicalLocation(2, 0, 0, 0));
+
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 0, 1, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(2, 0, 3, 0));
+
+  return mesh;
+}
 
 int main(int argc, char *argv[]) {
-  auto mesh = two_blocks();
+  auto mesh = squared_circle();
   
   // Write out forest for matplotlib
   FILE *pfile; 
