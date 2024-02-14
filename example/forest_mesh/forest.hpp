@@ -72,7 +72,10 @@ namespace forest {
   class Face; 
   class Node { 
    public: 
-    Node(int id_in, std::array<Real, NDIM> pos) : id(id_in), x(pos) {} 
+    Node(int id_in, std::array<Real, NDIM> pos) : id(id_in), x(pos) {}
+    static std::shared_ptr<Node> create(int id, std::array<Real, NDIM> pos) { 
+      return std::make_shared<Node>(id, pos);
+    } 
     std::uint32_t id;
     std::array<Real, NDIM> x;
     std::unordered_set<std::shared_ptr<Face>> associated_faces;  

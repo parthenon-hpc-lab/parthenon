@@ -251,12 +251,12 @@ int main(int argc, char *argv[]) {
 
   //// Simplest possible setup with two blocks with the same orientation sharing one edge 
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  nodes[0] = std::make_shared<Node>(0, std::array<Real, NDIM>{0.0, 0.0});
-  nodes[1] = std::make_shared<Node>(1, std::array<Real, NDIM>{1.0, 0.0});
-  nodes[2] = std::make_shared<Node>(2, std::array<Real, NDIM>{1.0, 1.0});
-  nodes[3] = std::make_shared<Node>(3, std::array<Real, NDIM>{0.0, 1.0});
-  nodes[4] = std::make_shared<Node>(4, std::array<Real, NDIM>{2.0, 0.0});
-  nodes[5] = std::make_shared<Node>(5, std::array<Real, NDIM>{2.0, 1.0});
+  nodes[0] = Node::create(0, {0.0, 0.0});
+  nodes[1] = Node::create(1, {1.0, 0.0});
+  nodes[2] = Node::create(2, {1.0, 1.0});
+  nodes[3] = Node::create(3, {0.0, 1.0});
+  nodes[4] = Node::create(4, {2.0, 0.0});
+  nodes[5] = Node::create(5, {2.0, 1.0});
   
   std::vector<std::shared_ptr<Face>> zones;
   zones.emplace_back(Face::create({nodes[3], nodes[0], nodes[2], nodes[1]})); 
