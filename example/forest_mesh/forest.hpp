@@ -26,7 +26,6 @@
 namespace parthenon {
 namespace forest { 
 
-  using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
   constexpr int NDIM = 2; 
   template <class T, int SIZE>
   using sptr_vec_t = std::array<std::shared_ptr<T>, SIZE>;
@@ -68,6 +67,163 @@ class std::hash<parthenon::forest::EdgeLoc> {
 
 namespace parthenon {
 namespace forest { 
+  
+  struct RelativeOrientation { 
+    RelativeOrientation() : dir_connection{0, 1, 2}, dir_flip{false, false, false} {};
+  
+    static RelativeOrientation FromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor, int orientation) { 
+      if (origin.dir == Direction::K || neighbor.dir == Direction::K) { 
+        PARTHENON_FAIL("In 2D we shouldn't have explicit edges in the Z direction.");
+      }
+  
+      RelativeOrientation out;
+      out.dir_connection[static_cast<uint>(origin.dir)] = static_cast<uint>(neighbor.dir);
+      out.dir_flip[static_cast<uint>(origin.dir)] = orientation == -1;
+      out.dir_connection[(static_cast<uint>(origin.dir) + 1) % 2] = (static_cast<uint>(neighbor.dir) + 1) % 2; 
+      out.dir_flip[(static_cast<uint>(origin.dir) + 1) % 2] = (neighbor.lower == origin.lower);
+      return out;
+    }
+  
+    LogicalLocation Transform(const LogicalLocation &loc_in) const { 
+      std::array<std::int64_t, 3> l_out; 
+      int nblock = 1LL << loc_in.level();  
+      for (int dir = 0; dir < 3; ++dir) {  
+        std::int64_t l_in = loc_in.l(dir);
+        // First shift the logical location index back into the interior 
+        // of a bordering tree assuming they have the same coordinate 
+        // orientation
+        l_in = (l_in + nblock) % nblock; 
+        // Then permute (and possibly flip) the coordinate indices 
+        // to move to the logical coordinate system of the new tree
+        if (dir_flip[dir]) { 
+          l_out[abs(dir_connection[dir])] = nblock - 1 - l_in;
+        } else {
+          l_out[abs(dir_connection[dir])] = l_in; 
+        }
+      }    
+      return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
+    }
+  
+    int dir_connection[3]; 
+    bool dir_flip[3];
+  };
+  
+  // We don't allow for periodic boundaries, since we can encode periodicity through connectivity in the forest
+  class Tree { 
+   public: 
+    Tree(int ndim, int root_level) : ndim(ndim) { 
+      // Add internal and leaf nodes of the initial tree
+      for (int l = 0; l <= root_level; ++l) { 
+        for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) { 
+          for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) { 
+            for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) { 
+              if (l == root_level) {
+                leaves.emplace(l, i, j, k); 
+              } else {
+                internal_nodes.emplace(l, i, j, k); 
+              }
+            }
+          }
+        }
+      }
+    }
+  
+    static std::shared_ptr<Tree> create(int ndim, int root_level) {
+      return std::make_shared<Tree>(ndim, root_level);
+    }
+  
+    int Refine(LogicalLocation ref_loc) {
+      // Check that this is a valid refinement location 
+      if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
+      
+      // Perform the refinement for this block 
+      std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim); 
+      leaves.erase(ref_loc); 
+      internal_nodes.insert(ref_loc);
+      leaves.insert(daughters.begin(), daughters.end());
+      int nadded = daughters.size();
+  
+      // Enforce internal proper nesting
+      LogicalLocation parent = ref_loc.GetParent();
+      int ox1 = ref_loc.lx1() - (parent.lx1() << 1); 
+      int ox2 = ref_loc.lx2() - (parent.lx2() << 1); 
+      int ox3 = ref_loc.lx3() - (parent.lx3() << 1); 
+  
+      for (int k = 0; k < (ndim > 2 ? 2 : 1); ++k) {
+        for (int j = 0; j < (ndim > 1 ? 2 : 1); ++j) {
+          for (int i = 0; i < (ndim > 0 ? 2 : 1); ++i) {
+            LogicalLocation neigh = parent.GetSameLevelNeighbor(i + ox1 - 1, j + ox2 - (ndim > 1), k + ox3 - (ndim > 2));
+            if (leaves.count(neigh)) {
+              nadded += Refine(neigh);
+            }
+            if (!neigh.IsInTree()) {
+              // Need to communicate this refinement action to possible neighboring tree(s) and 
+              // trigger refinement there
+              int n_idx = neigh.NeighborTreeIndex(); 
+              for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
+                nadded += neighbor_tree->Refine(orientation.Transform(neigh));
+              }
+            }
+          }
+        }
+      }
+      return nadded;
+    }
+  
+    int Derefine(LogicalLocation ref_loc) { 
+      // ref_loc is the block to be added and its daughters are the blocks to be removed 
+      std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
+  
+      // Check that we can actually de-refine 
+      for (LogicalLocation &d : daughters) { 
+        // Check that the daughters actually exist as leaf nodes 
+        if (!leaves.count(d)) return 0; 
+        
+        // Check that removing these blocks doesn't break proper nesting, that just means that any of the daughters 
+        // same level neighbors can't be in the internal node list (which would imply that the daughter abuts a finer block) 
+        // Note: these loops check more than is necessary, but as written are simpler than the minimal set
+        const std::vector<int> active{-1, 0, 1};
+        const std::vector<int> inactive{0};
+        for (int k : (ndim > 2) ? active : inactive) {
+          for (int j : (ndim > 1) ? active : inactive) {
+            for (int i : (ndim > 0) ? active : inactive) {
+              LogicalLocation neigh = d.GetSameLevelNeighbor(i, j, k);
+              if (internal_nodes.count(neigh)) return 0; 
+              if (!neigh.IsInTree()) { 
+                // Need to check that this derefinement doesn't break proper nesting with
+                // a neighboring tree
+              }
+            }
+          }
+        }
+      }
+  
+      // Derefinement is ok
+      for (auto &d : daughters)
+          leaves.erase(d);
+      internal_nodes.erase(ref_loc); 
+      leaves.insert(ref_loc);
+      return daughters.size();
+    }
+    
+    void Print(std::string fname) const {
+      FILE * pFile;
+      pFile = fopen(fname.c_str(), "w");
+      for (const auto &l : leaves) 
+        fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
+      fclose(pFile);
+    }
+    
+    void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree, RelativeOrientation orient) { 
+      neighbors[location_idx].push_back(std::make_pair(neighbor_tree, orient));   
+    }
+  
+   private:
+    int ndim;  
+    std::unordered_set<LogicalLocation> leaves; 
+    std::unordered_set<LogicalLocation> internal_nodes; 
+    std::array<std::vector<std::pair<std::shared_ptr<Tree>, RelativeOrientation>>, 27> neighbors;
+  };
 
   class Face; 
   class Node { 
@@ -105,10 +261,10 @@ namespace forest {
    private:  
     struct Private_t {};
    public: 
-    Face() = default;
+    Face() : tree(Tree::create(NDIM, 0)) {};
   
     // Constructor that can only be called internally 
-    Face(sptr_vec_t<Node, 4> nodes_in, Private_t) : nodes(nodes_in) {
+    Face(sptr_vec_t<Node, 4> nodes_in, Private_t) : nodes(nodes_in), tree(Tree::create(NDIM, 0)) {
       edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
       edges[EdgeLoc::West] = Edge({nodes[0], nodes[2]});
       edges[EdgeLoc::East] = Edge({nodes[1], nodes[3]});
@@ -129,7 +285,7 @@ namespace forest {
   
     sptr_vec_t<Node, 4> nodes;
     std::unordered_map<EdgeLoc, Edge> edges; 
-    LogicalLocMap_t tree;
+    std::shared_ptr<Tree> tree;
   };
   
   void ListFaces(const std::shared_ptr<Node>& node) { 

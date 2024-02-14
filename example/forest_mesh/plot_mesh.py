@@ -2,28 +2,19 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches 
 import numpy as np 
 
+dat = np.loadtxt("faces.txt", delimiter=",")
+trees = []
+for face in dat:
+  fname = "tree" + str(int(face[0])) + ".txt" 
+  loc = [(face[1], face[2]), (face[3], face[4]), (face[5], face[6]), (face[7], face[8])]
+  trees.append((loc, fname))
 
-fig, ax = plt.subplots()
-
-
-
-tree = [(0.2, 0.1), (0.3, 0.2), (0.1, 0.2), (0.2, 0.3)]
-
-
-tree1 = [(0.0, 0.0), (0.5, 0.0), (0.0, 0.5), (0.5, 0.5)]
-tree2 = [(1.0, 0.0), (1.0, 1.0), (0.5, 0.0), (0.5, 0.5)]
-tree3 = [(0.0, 0.5), (0.5, 0.5), (0.0, 1.0), (1.0, 1.0)]
-#tree = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
 def GetPosition(t, a1, a2):
   x = t[0][0]*(1 - a1)*(1 - a2) + t[1][0]*a1*(1-a2) + t[2][0]*a2*(1-a1) + t[3][0]*a1*a2;
   y = t[0][1]*(1 - a1)*(1 - a2) + t[1][1]*a1*(1-a2) + t[2][1]*a2*(1-a1) + t[3][1]*a1*a2;
   return (x, y)
 
-
-#rect = patches.Rectangle((0.1, 0.2), 0.1, 0.2, linewidth=1, edgecolor='r', facecolor='none')
-#rect = patches.Polygon(tree, linewidth=1, edgecolor='r', facecolor='none')
-#ax.add_patch(rect) 
-trees = [(tree1, "tree1.txt"), (tree2, "tree2.txt"), (tree3, "tree3.txt")]
+fig, ax = plt.subplots()
 for (t, fname) in trees:
   dat = np.loadtxt(fname, delimiter=",")
   for i in range(len(dat)): 
