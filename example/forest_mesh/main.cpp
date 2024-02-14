@@ -22,38 +22,55 @@ using parthenon::LogicalLocation;
 using parthenon::Real;
 using namespace parthenon::forest;
 
-int main(int argc, char *argv[]) {
-  // Simplest possible setup with two blocks with the same orientation sharing one edge 
-  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  nodes[0] = Node::create(0, {0.0, 0.0});
-  nodes[1] = Node::create(1, {1.0, 0.0});
-  nodes[2] = Node::create(2, {1.0, 1.0});
-  nodes[3] = Node::create(3, {0.0, 1.0});
-  nodes[4] = Node::create(4, {2.0, 0.0});
-  nodes[5] = Node::create(5, {2.0, 1.0});
-  
-  std::vector<std::shared_ptr<Face>> zones;
-  zones.emplace_back(Face::create({nodes[3], nodes[0], nodes[2], nodes[1]})); 
-  zones.emplace_back(Face::create({nodes[1], nodes[4], nodes[2], nodes[5]})); 
 
-  for (auto & zone : zones) { 
-    for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
-      auto neighbors = FindEdgeNeighbors(zone, side); 
-      for (auto &n : neighbors) { 
-        auto orient = RelativeOrientation::FromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
-        zone->tree->AddNeighbor(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
-      } 
+struct mesh_t { 
+  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
+  std::vector<std::shared_ptr<Face>> zones;
+
+  void SetTreeConnections() { 
+    for (auto & zone : zones) { 
+      for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
+        auto neighbors = FindEdgeNeighbors(zone, side); 
+        for (auto &n : neighbors) { 
+          auto orient = RelativeOrientation::FromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
+          zone->tree->AddNeighbor(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
+        } 
+      }
     }
-  }
-  zones[1]->tree->Refine(LogicalLocation(0, 0, 0, 0));
-  zones[1]->tree->Refine(LogicalLocation(1, 0, 0, 0));
-  zones[1]->tree->Refine(LogicalLocation(2, 0, 0, 0));
+  } 
+};
+
+mesh_t two_blocks() { 
+  mesh_t mesh; 
+  mesh.nodes[0] = Node::create(0, {0.0, 0.0});
+  mesh.nodes[1] = Node::create(1, {1.0, 0.0});
+  mesh.nodes[2] = Node::create(2, {1.0, 1.0});
+  mesh.nodes[3] = Node::create(3, {0.0, 1.0});
+  mesh.nodes[4] = Node::create(4, {2.0, 0.0});
+  mesh.nodes[5] = Node::create(5, {2.0, 1.0});
+  
+  auto &n = mesh.nodes; 
+  mesh.zones.emplace_back(Face::create({n[3], n[0], n[2], n[1]})); 
+  mesh.zones.emplace_back(Face::create({n[1], n[4], n[2], n[5]}));  
+  
+  mesh.SetTreeConnections();
+  // Do some refinements that should propagate into tree 1
+  mesh.zones[1]->tree->Refine(LogicalLocation(0, 0, 0, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 0, 0, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(2, 0, 0, 0));
+
+  return mesh;
+}
+
+
+int main(int argc, char *argv[]) {
+  auto mesh = two_blocks();
   
   // Write out forest for matplotlib
   FILE *pfile; 
   pfile = fopen("faces.txt", "w");
   int z = 0;
-  for (auto &zone : zones) {
+  for (auto &zone : mesh.zones) {
     fprintf(pfile, "%i", z);
     for (auto & n : zone->nodes) { 
       fprintf(pfile, ", %e, %e", n->x[0], n->x[1]);
