@@ -44,7 +44,7 @@ class SwarmDeviceContext {
   bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
-  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == this_block_; }
+  bool IsOnCurrentMeshBlock(int n) const { return block_index_(n) == this_block_; }
 
   KOKKOS_FUNCTION
   void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
@@ -68,16 +68,16 @@ class SwarmDeviceContext {
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      blockIndex_(n) = neighborIndices_(0, 0, i);
+      block_index_(n) = neighbor_indices_(0, 0, i);
     } else if (ndim_ == 2) {
-      blockIndex_(n) = neighborIndices_(0, j, i);
+      block_index_(n) = neighbor_indices_(0, j, i);
     } else {
-      blockIndex_(n) = neighborIndices_(k, j, i);
+      block_index_(n) = neighbor_indices_(k, j, i);
     }
 
-    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
+    is_on_current_mesh_block = (block_index_(n) == this_block_);
 
-    return blockIndex_(n);
+    return block_index_(n);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -101,14 +101,14 @@ class SwarmDeviceContext {
 
   KOKKOS_INLINE_FUNCTION
   int GetParticleCountPerCell(const int k, const int j, const int i) const {
-    return cellSortedNumber_(k, j, i);
+    return cell_sorted_number_(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   int GetFullIndex(const int k, const int j, const int i, const int n) const {
-    PARTHENON_DEBUG_REQUIRE(n < cellSortedNumber_(k, j, i),
+    PARTHENON_DEBUG_REQUIRE(n < cell_sorted_number_(k, j, i),
                             "Particle index out of range!");
-    return cellSorted_(cellSortedBegin_(k, j, i) + n).swarm_idx_;
+    return cell_sorted_(cell_sorted_begin_(k, j, i) + n).swarm_idx_;
   }
 
   // private:
@@ -129,11 +129,11 @@ class SwarmDeviceContext {
   Real z_max_global_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
-  ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
-  ParArray1D<SwarmKey> cellSorted_;
-  ParArrayND<int> cellSortedBegin_;
-  ParArrayND<int> cellSortedNumber_;
+  ParArrayND<int> block_index_;
+  ParArrayND<int> neighbor_indices_; // 4x4x4 array of possible block AMR regions
+  ParArray1D<SwarmKey> cell_sorted_;
+  ParArrayND<int> cell_sorted_begin_;
+  ParArrayND<int> cell_sorted_number_;
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
