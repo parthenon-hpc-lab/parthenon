@@ -45,6 +45,9 @@ struct ApplicationInput {
       PostStepMeshUserWorkInLoop = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      UserMeshWorkBeforeOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PreStepDiagnosticsInLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PostStepDiagnosticsInLoop = nullptr;

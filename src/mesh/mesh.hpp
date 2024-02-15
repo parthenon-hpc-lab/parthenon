@@ -151,7 +151,7 @@ class Mesh {
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
-  void ApplyUserWorkBeforeOutput(ParameterInput *pin);
+  void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
@@ -174,6 +174,10 @@ class Mesh {
       &UserWorkInLoopDefault;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
+
+  static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);

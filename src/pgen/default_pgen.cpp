@@ -121,6 +121,16 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
+//! \fn void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *pmb, ParameterInput *pin, SimTime
+//! &t)
+//  \brief Function called before generating output files
+//========================================================================================
+
+void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &) {
+  // do nothing
+  return;
+}
+
 //! \fn void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin)
 //  \brief Should be used to perform post initialization ops.
 //========================================================================================
