@@ -15,7 +15,8 @@ namespace neigh_comm{
         using buff_sizes = std::vector<std::pair<p_key,size_t>>;
 
         public:
-            NeighToken(): building_token_on(false), neigh_request() {}
+            
+            // , send_comm_buffer(("send_comm_buffer",100)), recv_comm_buffer(("recv_comm_buffer",100))
             
             /*
              * add_buff_info()
@@ -96,11 +97,17 @@ namespace neigh_comm{
              */
             void alloc_comm_buffers(){
                 if(building_token_on){
-                    if(send_comm_buffer.extent(0) < total_buf_size)
+                    /*if(send_comm_buffer.extent(0) < total_buf_size)
                         new(&send_comm_buffer) Kokkos::View<parthenon::Real*>("send_comm_buffer", total_buf_size);
 
                     if(recv_comm_buffer.extent(0) < total_buf_size)
-                        new(&recv_comm_buffer) Kokkos::View<parthenon::Real*>("recv_comm_buffer", total_buf_size);
+                        new(&recv_comm_buffer) Kokkos::View<parthenon::Real*>("recv_comm_buffer", total_buf_size);*/
+
+                    if(send_comm_buffer.extent(0) < total_buf_size)
+                        realloc(send_comm_buffer, total_buf_size);
+
+                    if(recv_comm_buffer.extent(0) < total_buf_size)
+                        realloc(recv_comm_buffer, total_buf_size);
                 }
             } 
 
@@ -123,7 +130,8 @@ namespace neigh_comm{
             }
 
         public:
-
+            NeighToken(): building_token_on(false), neigh_request(), send_comm_buffer("send_neigh_buf",100), recv_comm_buffer("recv_neigh_buf",100) {}
+            
             std::set<int> mpi_neighbors;
             std::vector<int> displs;
             std::vector<int> counts;

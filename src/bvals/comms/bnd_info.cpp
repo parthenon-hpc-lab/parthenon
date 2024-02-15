@@ -385,12 +385,16 @@ BndInfo BndInfo::NeighCommGetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const Ne
     out.buf_allocated = true;
     
     buf->Allocate();
-    /*
+    
     // Moraru : debug (Uncomment)
-    buf->buffer()[0]= 18.0; // Works
+    /*buf->buffer()[0]= 18.0; // Works
+    auto & test = buf->buffer();
+    std::cout<<" Test : "<< buf->buffer()[0] <<std::endl; // Works
+    test[0] = 19.0;
     std::cout<<" Works : "<< buf->buffer()[0] <<std::endl; // Works
-    std::cout<< out.buf[0] << std::endl; // error 
+    //std::cout<< out.buf[0] << std::endl; // error 
     */
+    
     out.allocated = v->IsAllocated();
 
     int Nv = v->GetDim(4);
