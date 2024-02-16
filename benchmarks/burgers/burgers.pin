@@ -24,6 +24,7 @@ refinement = adaptive
 numlevel = 2
 deref_count = 10
 
+
 nx1 = 128
 x1min = -0.5
 x1max = 0.5
@@ -43,9 +44,9 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
-nx3 = 16
+nx1 = 32
+nx2 = 32
+nx3 = 32
 
 <parthenon/refinement0>
 method = derivative_order_1

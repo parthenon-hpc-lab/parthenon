@@ -230,6 +230,14 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
     if(bound_type == BoundaryType::nonlocal){
       all_received = pmesh->neigh_token.end_data_exchange_neigh_alltoallv();
+
+      if(all_received){
+          std::for_each(
+            std::begin(cache.buf_vec), std::end(cache.buf_vec),
+            [&all_received](auto pbuf) { 
+                *(pbuf->state_) = BufferState::received; 
+        });
+      }
     }
     else{
       std::for_each(

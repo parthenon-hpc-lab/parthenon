@@ -380,20 +380,21 @@ BndInfo BndInfo::NeighCommGetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const Ne
                               std::shared_ptr<Variable<Real>> v,
                               CommBuffer<buf_pool_t<Real>::owner_t> *buf){ // Moraru
     BndInfo out;
+    buf->Allocate();
     out.buf = buf->buffer();
     auto buf_state = buf->GetState();
     out.buf_allocated = true;
-    
-    buf->Allocate();
-    
+
     // Moraru : debug (Uncomment)
     /*buf->buffer()[0]= 18.0; // Works
     auto & test = buf->buffer();
     std::cout<<" Test : "<< buf->buffer()[0] <<std::endl; // Works
+    
     test[0] = 19.0;
-    std::cout<<" Works : "<< buf->buffer()[0] <<std::endl; // Works
-    //std::cout<< out.buf[0] << std::endl; // error 
-    */
+    std::cout<<" Works : "<< test[0] << " | "<< buf->buffer()[0] <<std::endl; // Works
+
+    std::cout<< out.buf[0] << std::endl; // error */
+    
     
     out.allocated = v->IsAllocated();
 

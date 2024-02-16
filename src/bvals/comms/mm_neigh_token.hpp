@@ -29,9 +29,8 @@ namespace neigh_comm{
                         total_buf_size += buff_size;
                     }
                 }
-                else{
+                else
                     PARTHENON_FAIL("trying to add a negative mpi rank in NeighToken::add_neighbor (neigh_mpi_rank < 0)");
-                }
             }
 
             /*
@@ -124,9 +123,10 @@ namespace neigh_comm{
              */
             bool end_data_exchange_neigh_alltoallv(){
                 int flag = 0;
-                if(neigh_request)
-                    MPI_Test(&neigh_request,&flag, MPI_STATUS_IGNORE);
-                return flag;
+                //if(neigh_request)
+                //MPI_Test(&neigh_request,&flag, MPI_STATUS_IGNORE);
+                MPI_Wait(&neigh_request, MPI_STATUS_IGNORE);
+                return true;
             }
 
         public:
@@ -151,6 +151,5 @@ namespace neigh_comm{
             Kokkos::View<parthenon::Real*, parthenon::LayoutWrapper, parthenon::BufMemSpace> recv_comm_buffer;
 
     };
-
 }
 #endif
