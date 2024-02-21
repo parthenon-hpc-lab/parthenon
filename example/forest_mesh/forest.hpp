@@ -21,7 +21,10 @@
 #include <unordered_set> 
 
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "mesh/logical_location.hpp"
+#include "utils/bit_hacks.hpp"
+#include "utils/indexer.hpp"
 
 namespace parthenon {
 namespace forest { 
@@ -31,7 +34,7 @@ namespace forest {
   using sptr_vec_t = std::array<std::shared_ptr<T>, SIZE>;
   
   enum class Direction : uint {I = 0, J = 1, K = 2};
-
+  
   struct EdgeLoc { 
     Direction dir; 
     bool lower;
@@ -201,7 +204,9 @@ namespace forest {
     int dir_connection[3]; 
     bool dir_flip[3];
   };
-  
+
+   using ForestLocation = std::pair<std::uint64_t, LogicalLocation>; 
+
   // We don't allow for periodic boundaries, since we can encode periodicity through connectivity in the forest
   class Tree { 
    public: 
@@ -308,16 +313,115 @@ namespace forest {
       fclose(pFile);
     }
     
+    std::vector<ForestLocation> GetMeshBlockList() const { 
+      std::vector<ForestLocation> mb_list; 
+      mb_list.reserve(leaves.size());
+      for (auto &loc : leaves)
+          mb_list.push_back({my_id, loc}); 
+      std::sort(mb_list.begin(), mb_list.end(), [](const auto &a, const auto &b){ return a.second < b.second;});
+      return mb_list;
+    }
+
     void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree, RelativeOrientation orient) { 
       neighbors[location_idx].push_back(std::make_pair(neighbor_tree, orient));   
     }
   
    private:
-    int ndim;  
+    int ndim;
+    std::uint64_t my_id;  
     std::unordered_set<LogicalLocation> leaves; 
     std::unordered_set<LogicalLocation> internal_nodes; 
     std::array<std::vector<std::pair<std::shared_ptr<Tree>, RelativeOrientation>>, 27> neighbors;
   };
+  
+  class Forest { 
+   public: 
+    std::vector<std::shared_ptr<Tree>> trees;
+    
+    std::vector<ForestLocation> GetMeshBlockList() const {
+      std::vector<ForestLocation> mb_list; 
+      for (auto &tree : trees) {
+        auto tree_mbs = tree->GetMeshBlockList();   
+        mb_list.insert(mb_list.end(), std::make_move_iterator(tree_mbs.begin()), 
+                                      std::make_move_iterator(tree_mbs.end())); 
+      }
+      // The index of blocks in this list corresponds to their gid 
+      return mb_list;
+    }
+
+    Forest(RegionSize mesh_size, RegionSize block_size, std::array<bool, 3> periodic) { 
+      std::array<int, 3> nblock, ntree; 
+      int ndim = 0;
+      int max_common_power2_divisor = std::numeric_limits<int>::max();
+      for (auto dir : {X1DIR, X2DIR, X3DIR}) { 
+        if (mesh_size.symmetry(dir)) {
+          nblock[dir - 1] = 1;
+          continue;
+        }
+        // Add error checking
+        ndim = dir;
+        nblock[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
+        max_common_power2_divisor = std::min(max_common_power2_divisor, MaximumPowerOf2Divisor(nblock[dir - 1]));
+      }
+
+      int max_ntree = 0; 
+      for (auto dir : {X1DIR, X2DIR, X3DIR}) { 
+        if (mesh_size.symmetry(dir)) {
+          ntree[dir - 1] = 1;
+          continue;
+        }
+        ntree[dir - 1] = nblock[dir - 1] / max_common_power2_divisor;
+        max_ntree = std::max(ntree[dir - 1], max_ntree);
+      }
+
+      auto ref_level = IntegerLog2(max_common_power2_divisor); 
+      auto level = IntegerLog2(max_ntree);
+      
+      // Create the trees and the tree logical locations in the forest (which 
+      // works here since we assume the trees are layed out as a hyper rectangle) 
+      // so we can put them in z-order. This should insure that block gids are the 
+      // same as they were for an athena++ style base grid. 
+      Indexer3D idxer({0, ntree[0] - 1}, {0, ntree[1] - 1}, {0, ntree[2] - 1}); 
+      std::vector<std::shared_ptr<Tree>> trees(idxer.size());
+      std::vector<LogicalLocation> tree_locs(idxer.size());
+
+      for (int n = 0; n < idxer.size(); ++n) { 
+        auto [ix1, ix2, ix3] = idxer(n);
+        trees[n] = Tree::create(ndim, ref_level);
+        tree_locs[n] = LogicalLocation(level, ix1, ix2, ix3);
+      }
+      
+      // Connect the trees to each other
+      Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0}, 
+                        {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
+                        {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
+      for (int n = 0; n < idxer.size(); ++n) { 
+        auto [ix1, ix2, ix3] = idxer(n);
+        std::array<int, 3> ix{ix1, ix2, ix3};
+        for (int o = 0; o < offsets.size(); ++o) { 
+          auto [ox1, ox2, ox3] = offsets(o);
+          std::array<int, 3> ox{ox1, ox2, ox3}, nx; 
+          bool add = true;
+          for (int dir = 0; dir < 3; ++dir) { 
+            nx[dir] = ix[dir] + ox[dir]; 
+            if (nx[dir] >= ntree[dir] || nx[dir] < 0) { 
+              if (periodic[dir]) {
+                nx[dir] = (nx[dir] + ntree[dir]) % ntree[dir]; 
+              } else {
+                add = false;
+              }
+            } 
+          }
+          if (add) { 
+            int neigh_idx = nx[0] + ntree[0] * (nx[1] + ntree[1] * nx[2]);
+            int loc_idx = (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1);
+            trees[n]->AddNeighbor(loc_idx, trees[neigh_idx], RelativeOrientation());
+          }
+        }
+      }
+      // Sort trees by logical location 
+    }
+  }; 
 
   class Face; 
   class Node { 
