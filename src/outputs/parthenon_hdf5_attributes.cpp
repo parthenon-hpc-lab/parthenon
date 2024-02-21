@@ -137,5 +137,5 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, std::string &val
 }
 
 } // namespace HDF5
-} // namespace parthenno
+} // namespace parthenon
 #endif // ENABLE_HDF5

@@ -41,8 +41,9 @@
 namespace parthenon {
 namespace HDF5 {
 
-#define PARTHENON_ATTR_APPLY(...) \
-  template void HDF5WriteAttribute<__VA_ARGS__>(const std::string &name, const __VA_ARGS__ &value, hid_t location)
+#define PARTHENON_ATTR_APPLY(...)                                                        \
+  template void HDF5WriteAttribute<__VA_ARGS__>(                                         \
+      const std::string &name, const __VA_ARGS__ &value, hid_t location)
 
 PARTHENON_ATTR_FOREACH_VECTOR_TYPE(bool);
 PARTHENON_ATTR_FOREACH_VECTOR_TYPE(int32_t);
@@ -55,6 +56,6 @@ PARTHENON_ATTR_FOREACH_VECTOR_TYPE(double);
 #undef PARTHENON_ATTR_APPLY
 
 } // namespace HDF5
-} // namespace parthenno
+} // namespace parthenon
 
 #endif // ENABLE_HDF5
