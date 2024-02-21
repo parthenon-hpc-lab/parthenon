@@ -18,6 +18,35 @@
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
 #include "config.hpp"
+
+#include "kokkos_abstraction.hpp"
+#include "parthenon_arrays.hpp"
+
+// JMM: This could probably be done with template magic but I think
+// using a macro is honestly the simplest and cleanest solution here.
+// Template solution would be to define a variatic class to conain the
+// list of types and then a hierarchy of structs/functions to turn
+// that into function calls. Preprocessor seems easier, given we're
+// not manipulating this list in any way.
+#define PARTHENON_ATTR_VALID_VEC_TYPES(T)                                                \
+  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, ParArray4D<T>,         \
+      ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>, HostArray1D<T>,        \
+      HostArray2D<T>, HostArray3D<T>, HostArray4D<T>, HostArray5D<T>, HostArray6D<T>,    \
+      HostArray7D<T>, Kokkos::View<T *>, Kokkos::View<T **>, ParArrayND<T>,              \
+      ParArrayHost<T>
+// JMM: This is the list of template specializations we
+// "pre-instantiate" We only pre-instantiate device memory, not host
+// memory. The reason is that when building with the Kokkos serial
+// backend, DevMemSpace and HostMemSpace are the same and so this
+// resolves to the same type in the macro, which causes problems.
+#define PARTHENON_ATTR_FOREACH_VECTOR_TYPE(T)                               \
+  PARTHENON_ATTR_APPLY(T);                                                  \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T *, LayoutWrapper, DevMemSpace>);      \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T **, LayoutWrapper, DevMemSpace>);     \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T ***, LayoutWrapper, DevMemSpace>);    \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T ****, LayoutWrapper, DevMemSpace>);   \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T *****, LayoutWrapper, DevMemSpace>);  \
+  PARTHENON_ATTR_APPLY(Kokkos::View<T ******, LayoutWrapper, DevMemSpace>)
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 
@@ -34,7 +63,6 @@
 #include <tuple>
 #include <vector>
 
-#include "kokkos_abstraction.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
@@ -338,6 +366,21 @@ template <typename T>
 void HDF5ReadAttribute(hid_t location, const std::string &name, std::vector<T> &vec) {
   vec = HDF5ReadAttributeVec<T>(location, name);
 }
+
+// Template extern declarations ensuring these are instantiated elsewhere
+#define PARTHENON_ATTR_APPLY(...)                                                                                          \
+  extern template void HDF5ReadAttribute<__VA_ARGS__>(hid_t location, const std::string &name, __VA_ARGS__ &val);          \
+  extern template void HDF5WriteAttribute<__VA_ARGS__>(const std::string &name, const __VA_ARGS__ &value, hid_t location)
+
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(bool);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(int32_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(int64_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(uint32_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(uint64_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(float);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(double);
+
+#undef PARTHENON_ATTR_APPLY
 
 } // namespace HDF5
 } // namespace parthenon

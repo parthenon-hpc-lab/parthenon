@@ -26,19 +26,6 @@
 
 namespace parthenon {
 
-// JMM: This could probably be done with template magic but I think
-// using a macro is honestly the simplest and cleanest solution here.
-// Template solution would be to define a variatic class to conain the
-// list of types and then a hierarchy of structs/functions to turn
-// that into function calls. Preprocessor seems easier, given we're
-// not manipulating this list in any way.
-#define VALID_VEC_TYPES(T)                                                               \
-  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, ParArray4D<T>,         \
-      ParArray5D<T>, ParArray6D<T>, ParArray7D<T>, ParArray8D<T>, HostArray1D<T>,        \
-      HostArray2D<T>, HostArray3D<T>, HostArray4D<T>, HostArray5D<T>, HostArray6D<T>,    \
-      HostArray7D<T>, Kokkos::View<T *>, Kokkos::View<T **>, ParArrayND<T>,              \
-      ParArrayHost<T>
-
 #ifdef ENABLE_HDF5
 
 template <typename T>
@@ -63,7 +50,7 @@ void Params::WriteToHDF5AllParamsOfMultipleTypes(const std::string &prefix,
 template <typename T>
 void Params::WriteToHDF5AllParamsOfTypeOrVec(const std::string &prefix,
                                              const HDF5::H5G &group) const {
-  WriteToHDF5AllParamsOfMultipleTypes<VALID_VEC_TYPES(T)>(prefix, group);
+  WriteToHDF5AllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(prefix, group);
 }
 
 template <typename T>
@@ -91,7 +78,7 @@ void Params::ReadFromHDF5AllParamsOfMultipleTypes(const std::string &prefix,
 template <typename T>
 void Params::ReadFromHDF5AllParamsOfTypeOrVec(const std::string &prefix,
                                               const HDF5::H5G &group) {
-  ReadFromHDF5AllParamsOfMultipleTypes<VALID_VEC_TYPES(T)>(prefix, group);
+  ReadFromHDF5AllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(prefix, group);
 }
 
 void Params::WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
