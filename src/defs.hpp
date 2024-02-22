@@ -86,8 +86,8 @@ struct RegionSize {
 
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
-  
-  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const { 
+
+  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
     return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
   }
   // A "symmetry" direction is a a direction that posesses a translational symmetry

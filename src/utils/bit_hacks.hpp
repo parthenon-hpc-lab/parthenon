@@ -88,13 +88,13 @@ inline int NumberOfBinaryTrailingZeros(std::uint64_t val) {
   return n;
 }
 
-inline int MaximumPowerOf2Divisor(int in) { 
-  return in & (~(in - 1));
-}
+inline int MaximumPowerOf2Divisor(int in) { return in & (~(in - 1)); }
 
 inline uint IntegerLog2(uint in) {
-  uint log2 = 0; 
-  while (in >>= 1) {log2++;}
+  uint log2 = 0;
+  while (in >>= 1) {
+    log2++;
+  }
   return log2;
 }
 

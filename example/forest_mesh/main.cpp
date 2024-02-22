@@ -18,49 +18,47 @@
 #include "mesh/logical_location.hpp"
 #include "parthenon_manager.hpp"
 
+using parthenon::LogicalLocation;
+using parthenon::ParthenonManager;
+using parthenon::ParthenonStatus;
+using parthenon::Real;
+using parthenon::RegionSize;
 using parthenon::CoordinateDirection::X1DIR;
 using parthenon::CoordinateDirection::X2DIR;
 using parthenon::CoordinateDirection::X3DIR;
-using parthenon::RegionSize;
-using parthenon::ParthenonManager;
-using parthenon::ParthenonStatus;
-using parthenon::LogicalLocation;
-using parthenon::Real;
 using namespace parthenon::forest;
 
-
-struct mesh_t { 
+struct mesh_t {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
   std::vector<std::shared_ptr<Face>> zones;
 
-  void SetTreeConnections() { 
-    for (auto & zone : zones) { 
+  void SetTreeConnections() {
+    for (auto &zone : zones) {
       for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
-        auto neighbors = FindEdgeNeighbors(zone, side); 
-        for (auto &n : neighbors) { 
-          auto orient = RelativeOrientationFromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
+        auto neighbors = FindEdgeNeighbors(zone, side);
+        for (auto &n : neighbors) {
+          auto orient =
+              RelativeOrientationFromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
           zone->tree->AddNeighbor(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
-        } 
+        }
       }
     }
-  } 
+  }
 };
 
-
-
-mesh_t two_blocks() { 
-  mesh_t mesh; 
+mesh_t two_blocks() {
+  mesh_t mesh;
   mesh.nodes[0] = Node::create(0, {0.0, 0.0});
   mesh.nodes[1] = Node::create(1, {1.0, 0.0});
   mesh.nodes[2] = Node::create(2, {1.0, 1.0});
   mesh.nodes[3] = Node::create(3, {0.0, 1.0});
   mesh.nodes[4] = Node::create(4, {2.0, 0.0});
   mesh.nodes[5] = Node::create(5, {2.0, 1.0});
-  
-  auto &n = mesh.nodes; 
-  mesh.zones.emplace_back(Face::create({n[3], n[0], n[2], n[1]})); 
-  mesh.zones.emplace_back(Face::create({n[1], n[4], n[2], n[5]}));  
-  
+
+  auto &n = mesh.nodes;
+  mesh.zones.emplace_back(Face::create({n[3], n[0], n[2], n[1]}));
+  mesh.zones.emplace_back(Face::create({n[1], n[4], n[2], n[5]}));
+
   mesh.SetTreeConnections();
   // Do some refinements that should propagate into tree 1
   mesh.zones[1]->tree->Refine(LogicalLocation(0, 0, 0, 0));
@@ -70,39 +68,38 @@ mesh_t two_blocks() {
   return mesh;
 }
 
-mesh_t squared_circle() { 
-  mesh_t mesh; 
+mesh_t squared_circle() {
+  mesh_t mesh;
   // The outer square
   mesh.nodes[0] = Node::create(0, {0.0, 0.0});
   mesh.nodes[1] = Node::create(1, {3.0, 0.0});
   mesh.nodes[2] = Node::create(2, {0.0, 3.0});
   mesh.nodes[3] = Node::create(3, {3.0, 3.0});
-  
+
   // The inner square
   mesh.nodes[4] = Node::create(4, {1.0, 1.0});
   mesh.nodes[5] = Node::create(5, {2.0, 1.0});
   mesh.nodes[6] = Node::create(6, {1.0, 2.0});
   mesh.nodes[7] = Node::create(7, {2.0, 2.0});
 
-  
-  auto &n = mesh.nodes; 
-  // South block 
+  auto &n = mesh.nodes;
+  // South block
   mesh.zones.emplace_back(Face::create({n[0], n[1], n[4], n[5]}));
-  
-  // West block 
+
+  // West block
   mesh.zones.emplace_back(Face::create({n[0], n[4], n[2], n[6]}));
 
-  // North block 
+  // North block
   mesh.zones.emplace_back(Face::create({n[6], n[7], n[2], n[3]}));
 
-  // East block 
+  // East block
   mesh.zones.emplace_back(Face::create({n[5], n[1], n[7], n[3]}));
 
-  // Center block 
+  // Center block
   mesh.zones.emplace_back(Face::create({n[4], n[5], n[6], n[7]}));
 
   mesh.SetTreeConnections();
-  
+
   // Do some refinements that should propagate into the south and west trees
   mesh.zones[4]->tree->Refine(LogicalLocation(0, 0, 0, 0));
   mesh.zones[4]->tree->Refine(LogicalLocation(1, 0, 0, 0));
@@ -114,24 +111,24 @@ mesh_t squared_circle() {
   return mesh;
 }
 
-void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) { 
-  FILE * pFile;
+void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
+  FILE *pFile;
   pFile = fopen(fname.c_str(), "w");
-  for (const auto &l : tree->GetLeaves()) 
+  for (const auto &l : tree->GetLeaves())
     fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
   fclose(pFile);
 }
 
 int main(int argc, char *argv[]) {
   auto mesh = squared_circle();
-  
+
   // Write out forest for matplotlib
-  FILE *pfile; 
+  FILE *pfile;
   pfile = fopen("faces.txt", "w");
   int z = 0;
   for (auto &zone : mesh.zones) {
     fprintf(pfile, "%i", z);
-    for (auto & n : zone->nodes) { 
+    for (auto &n : zone->nodes) {
       fprintf(pfile, ", %e, %e", n->x[0], n->x[1]);
     }
     fprintf(pfile, "\n");
@@ -140,20 +137,17 @@ int main(int argc, char *argv[]) {
     z++;
   }
   fclose(pfile);
-  
-  RegionSize mesh_size({0.0, 0.0, 0.0},
-                       {1.0, 1.0, 1.0},
-                       {1.0, 1.0, 1.0},
-                       {64, 128, 1},
-                       {false, false, true}); 
-  RegionSize block_size(mesh_size); 
-  block_size.nx(X1DIR) = 8; 
+
+  RegionSize mesh_size({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, {1.0, 1.0, 1.0}, {64, 128, 1},
+                       {false, false, true});
+  RegionSize block_size(mesh_size);
+  block_size.nx(X1DIR) = 8;
   block_size.nx(X2DIR) = 8;
 
   auto forest = Forest::AthenaXX(mesh_size, block_size, {false, false, false});
-  
+
   printf("ntrees: %i\n", forest.trees.size());
-  auto block_list = forest.GetMeshBlockList(); 
-  printf("number of blocks = %i\n", block_list.size()); 
+  auto block_list = forest.GetMeshBlockList();
+  printf("number of blocks = %i\n", block_list.size());
   return 0;
 }
