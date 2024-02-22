@@ -95,18 +95,28 @@ namespace forest {
   class Forest { 
    public: 
     std::vector<std::shared_ptr<Tree>> trees;
-    
-    int Refine(const ForestLocation &loc) { 
-      return trees[loc.first]->Refine(loc.second);
-    }
-    
-    int Derefine(const ForestLocation &loc) { 
-      return trees[loc.first]->Derefine(loc.second);
-    }
 
+    int AddMeshBlock(const ForestLocation &loc, bool enforce_proper_nesting = true) { 
+      return trees[loc.first]->AddMeshBlock(loc.second, enforce_proper_nesting);
+    }
+    int Refine(const ForestLocation &loc, bool enforce_proper_nesting = true) { 
+      return trees[loc.first]->Refine(loc.second, enforce_proper_nesting);
+    }
+    int Derefine(const ForestLocation &loc, bool enforce_proper_nesting = true) { 
+      return trees[loc.first]->Derefine(loc.second, enforce_proper_nesting);
+    }
+    
     std::vector<ForestLocation> GetMeshBlockList() const;
-    RegionSize GetBlockDomain(ForestLocation loc) const {
-      return trees[loc.first]->GetBlockDomain(loc.second);
+    RegionSize GetBlockDomain(const ForestLocation &loc) const { 
+      return trees[loc.first]->GetBlockDomain(loc.second); 
+    } 
+    std::vector<ForestLocation> FindNeighbor(const ForestLocation &loc, int ox1, int ox2, int ox3) const {
+      return trees[loc.first]->FindNeighbor(loc.second, ox1, ox2, ox3); 
+    }
+    std::size_t CountMeshBlock() const { 
+      std::size_t count;
+      for (auto &tree : trees) count += tree->CountMeshBlock();
+      return count;
     }
 
     static Forest AthenaXX(RegionSize mesh_size, RegionSize block_size, std::array<bool, 3> periodic);
