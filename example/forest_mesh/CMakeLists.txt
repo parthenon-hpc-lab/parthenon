@@ -15,6 +15,7 @@ get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
 if( "forest-mesh-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
       forest-mesh-example
+          forest.cpp
           main.cpp
   )
   target_link_libraries(forest-mesh-example PRIVATE Parthenon::parthenon)

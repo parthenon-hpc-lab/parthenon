@@ -12,10 +12,15 @@
 //========================================================================================
 
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "forest.hpp"
 #include "mesh/logical_location.hpp"
 #include "parthenon_manager.hpp"
 
+using parthenon::CoordinateDirection::X1DIR;
+using parthenon::CoordinateDirection::X2DIR;
+using parthenon::CoordinateDirection::X3DIR;
+using parthenon::RegionSize;
 using parthenon::ParthenonManager;
 using parthenon::ParthenonStatus;
 using parthenon::LogicalLocation;
@@ -124,6 +129,20 @@ int main(int argc, char *argv[]) {
     z++;
   }
   fclose(pfile);
+  
+  RegionSize mesh_size({0.0, 0.0, 0.0},
+                       {1.0, 1.0, 1.0},
+                       {1.0, 1.0, 1.0},
+                       {64, 128, 1},
+                       {false, false, true}); 
+  RegionSize block_size(mesh_size); 
+  block_size.nx(X1DIR) = 8; 
+  block_size.nx(X2DIR) = 8;
 
+  auto forest = Forest::AthenaXX(mesh_size, block_size, {false, false, false});
+  
+  printf("ntrees: %i\n", forest.trees.size());
+  auto block_list = forest.GetMeshBlockList(); 
+  printf("number of blocks = %i\n", block_list.size()); 
   return 0;
 }
