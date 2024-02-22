@@ -207,8 +207,8 @@ RegionSize Tree::GetBlockDomain(LogicalLocation loc) const {
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!domain.symmetry(dir)) {
       int n = 1 << loc.level();
-      out.xmin(dir) = domain.LogicalToActualPosition(loc.l(dir - 1) / n, dir);
-      out.xmax(dir) = domain.LogicalToActualPosition((loc.l(dir - 1) + 1) / n, dir);
+      out.xmin(dir) = domain.LogicalToActualPosition((double)loc.l(dir - 1) / n, dir);
+      out.xmax(dir) = domain.LogicalToActualPosition((double)(loc.l(dir - 1) + 1) / n, dir);
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
     // tree in that direction.
@@ -270,17 +270,23 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     RegionSize tree_domain = block_size;
-    tree_domain.xmin(X1DIR) = mesh_size.LogicalToActualPosition(ix1 / ntree[0], X1DIR);
+    tree_domain.xmin(X1DIR) = mesh_size.LogicalToActualPosition((double)ix1 / ntree[0], X1DIR);
     tree_domain.xmax(X1DIR) =
-        mesh_size.LogicalToActualPosition((ix1 + 1) / ntree[0], X1DIR);
-    tree_domain.xmin(X2DIR) = mesh_size.LogicalToActualPosition(ix2 / ntree[1], X2DIR);
+        mesh_size.LogicalToActualPosition((double)(ix1 + 1) / ntree[0], X1DIR);
+
+    tree_domain.xmin(X2DIR) = mesh_size.LogicalToActualPosition((double)ix2 / ntree[1], X2DIR);
     tree_domain.xmax(X2DIR) =
-        mesh_size.LogicalToActualPosition((ix2 + 1) / ntree[1], X2DIR);
-    tree_domain.xmin(X3DIR) = mesh_size.LogicalToActualPosition(ix3 / ntree[2], X3DIR);
+        mesh_size.LogicalToActualPosition((double)(ix2 + 1) / ntree[1], X2DIR);
+    
+    tree_domain.xmin(X3DIR) = mesh_size.LogicalToActualPosition((double)ix3 / ntree[2], X3DIR);
     tree_domain.xmax(X3DIR) =
-        mesh_size.LogicalToActualPosition((ix3 + 1) / ntree[2], X3DIR);
+        mesh_size.LogicalToActualPosition((double)(ix3 + 1) / ntree[2], X3DIR);
     loc_tree.emplace_back(p_loc_tree_t{LogicalLocation(level, ix1, ix2, ix3),
                                        Tree::create(ndim, ref_level, tree_domain)});
+    auto &dmn = tree_domain;
+    printf("[%i, %i, %i], %e, %e, %e, %e\n", ix1, ix2, ix3, 
+        dmn.xmin(X1DIR), dmn.xmax(X1DIR),
+        dmn.xmin(X2DIR), dmn.xmax(X2DIR));
   }
 
   // Connect the trees to each other

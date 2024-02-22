@@ -126,6 +126,8 @@ class Forest {
     return count;
   }
 
+  // Build a logically hyper-rectangular forest that mimics the grid 
+  // setups available in Athena++
   static Forest AthenaXX(RegionSize mesh_size, RegionSize block_size,
                          std::array<bool, 3> periodic);
 };

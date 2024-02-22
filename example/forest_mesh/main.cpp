@@ -149,5 +149,14 @@ int main(int argc, char *argv[]) {
   printf("ntrees: %i\n", forest.trees.size());
   auto block_list = forest.GetMeshBlockList();
   printf("number of blocks = %i\n", block_list.size());
+  for (int gid = 0; gid < block_list.size(); ++gid) { 
+    auto dmn = forest.GetBlockDomain(block_list[gid]); 
+    printf("%i, %e, %e, %e, %e, %e, %e, %e, %e\n", gid, 
+        dmn.xmin(X1DIR), dmn.xmin(X2DIR),
+        dmn.xmax(X1DIR), dmn.xmin(X2DIR),
+        dmn.xmin(X1DIR), dmn.xmax(X2DIR),
+        dmn.xmax(X1DIR), dmn.xmax(X2DIR));
+  }
+
   return 0;
 }
