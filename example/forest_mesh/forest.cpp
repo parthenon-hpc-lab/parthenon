@@ -14,6 +14,7 @@
 #include <array>
 #include <map>
 #include <set>
+#include <stack>
 #include <vector>
 #include <memory>
 #include <tuple> 
@@ -51,7 +52,7 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) co
   return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-Tree::Tree(int ndim, int root_level, RegionSize domain) : ndim(ndim), domain(domain) { 
+Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain) : ndim(ndim), domain(domain) { 
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) { 
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) { 
@@ -68,7 +69,28 @@ Tree::Tree(int ndim, int root_level, RegionSize domain) : ndim(ndim), domain(dom
   }
 }
 
-int Tree::Refine(const LogicalLocation &ref_loc) {
+int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
+  if (internal_nodes.count(loc)) return -1; 
+  if (leaves.count(loc)) return 0; 
+
+  std::stack<LogicalLocation> refinement_locs;
+  auto parent = loc.GetParent(); 
+  for (int l = loc.level() - 1; l >= 0; --l) { 
+    refinement_locs.push(parent);
+    if (leaves.count(parent)) break; 
+    parent = parent.GetParent(); 
+  } 
+
+  int added = 0;
+  while(!refinement_locs.empty()) {
+    added += Refine(refinement_locs.top(), enforce_proper_nesting);
+    refinement_locs.pop();
+  }
+
+  return added;
+}
+
+int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   // Check that this is a valid refinement location 
   if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
   
@@ -79,23 +101,19 @@ int Tree::Refine(const LogicalLocation &ref_loc) {
   leaves.insert(daughters.begin(), daughters.end());
   int nadded = daughters.size();
 
-  // Enforce internal proper nesting
-  LogicalLocation parent = ref_loc.GetParent();
-  int ox1 = ref_loc.lx1() - (parent.lx1() << 1); 
-  int ox2 = ref_loc.lx2() - (parent.lx2() << 1); 
-  int ox3 = ref_loc.lx3() - (parent.lx3() << 1); 
+  if (enforce_proper_nesting) {
+    LogicalLocation parent = ref_loc.GetParent();
+    int ox1 = ref_loc.lx1() - (parent.lx1() << 1); 
+    int ox2 = ref_loc.lx2() - (parent.lx2() << 1); 
+    int ox3 = ref_loc.lx3() - (parent.lx3() << 1); 
 
-  for (int k = 0; k < (ndim > 2 ? 2 : 1); ++k) {
-    for (int j = 0; j < (ndim > 1 ? 2 : 1); ++j) {
-      for (int i = 0; i < (ndim > 0 ? 2 : 1); ++i) {
-        LogicalLocation neigh = parent.GetSameLevelNeighbor(i + ox1 - 1, j + ox2 - (ndim > 1), k + ox3 - (ndim > 2));
-        if (leaves.count(neigh)) {
-          nadded += Refine(neigh);
-        }
-        if (!neigh.IsInTree()) {
+    for (int k = 0; k < (ndim > 2 ? 2 : 1); ++k) {
+      for (int j = 0; j < (ndim > 1 ? 2 : 1); ++j) {
+        for (int i = 0; i < (ndim > 0 ? 2 : 1); ++i) {
+          LogicalLocation neigh = parent.GetSameLevelNeighbor(i + ox1 - 1, j + ox2 - (ndim > 1), k + ox3 - (ndim > 2));
           // Need to communicate this refinement action to possible neighboring tree(s) and 
           // trigger refinement there
-          int n_idx = neigh.NeighborTreeIndex(); 
+          int n_idx = neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
           for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
             nadded += neighbor_tree->Refine(orientation.Transform(neigh));
           }
@@ -106,7 +124,27 @@ int Tree::Refine(const LogicalLocation &ref_loc) {
   return nadded;
 }
 
-int Tree::Derefine(const LogicalLocation &ref_loc) { 
+std::vector<ForestLocation> Tree::FindNeighbor(const LogicalLocation &loc, int ox1, int ox2, int ox3) const {
+  PARTHENON_REQUIRE(leaves.count(loc) == 1, "Location must be a leaf to find neighbors.");
+  std::vector<ForestLocation> neighbor_locs; 
+  auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
+  int n_idx = neigh.NeighborTreeIndex();
+  for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
+    auto tneigh = orientation.Transform(neigh); 
+    if (neighbor_tree->leaves.count(tneigh)) { 
+      neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), tneigh});
+    } else if (neighbor_tree->internal_nodes.count(tneigh)) {
+      auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
+      for (auto & n : daughters)
+          neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), n}); 
+    } else if (neighbor_tree->leaves.count(tneigh.GetParent())) { 
+      neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()});
+    }
+  }
+  return neighbor_locs;
+}
+
+int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) { 
   // ref_loc is the block to be added and its daughters are the blocks to be removed 
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
 
@@ -118,16 +156,15 @@ int Tree::Derefine(const LogicalLocation &ref_loc) {
     // Check that removing these blocks doesn't break proper nesting, that just means that any of the daughters 
     // same level neighbors can't be in the internal node list (which would imply that the daughter abuts a finer block) 
     // Note: these loops check more than is necessary, but as written are simpler than the minimal set
-    const std::vector<int> active{-1, 0, 1};
-    const std::vector<int> inactive{0};
-    for (int k : (ndim > 2) ? active : inactive) {
-      for (int j : (ndim > 1) ? active : inactive) {
-        for (int i : (ndim > 0) ? active : inactive) {
-          LogicalLocation neigh = d.GetSameLevelNeighbor(i, j, k);
-          if (internal_nodes.count(neigh)) return 0; 
-          if (!neigh.IsInTree()) { 
+    if (enforce_proper_nesting) {
+      const std::vector<int> active{-1, 0, 1};
+      const std::vector<int> inactive{0};
+      for (int k : (ndim > 2) ? active : inactive) {
+        for (int j : (ndim > 1) ? active : inactive) {
+          for (int i : (ndim > 0) ? active : inactive) {
+            LogicalLocation neigh = d.GetSameLevelNeighbor(i, j, k);
             // Need to check that this derefinement doesn't break proper nesting with
-            // a neighboring tree as well
+            // a neighboring tree or this tree
             int n_idx = neigh.NeighborTreeIndex(); 
             for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
               if (neighbor_tree->internal_nodes.count(orientation.Transform(neigh))) return 0;

@@ -49,28 +49,37 @@ namespace forest {
    using ForestLocation = std::pair<std::uint64_t, LogicalLocation>; 
 
   // We don't allow for periodic boundaries, since we can encode periodicity through connectivity in the forest
-  class Tree { 
+  class Tree : public std::enable_shared_from_this<Tree> {
+    // This allows us to ensure that Trees are only created as shared_ptrs 
+    struct private_t{}; 
    public: 
-    Tree(int ndim, int root_level, RegionSize domain = RegionSize());
+    Tree(private_t, int ndim, int root_level, RegionSize domain = RegionSize());
 
     template <class... Ts> 
     static std::shared_ptr<Tree> create(Ts&&... args) {
-      return std::make_shared<Tree>(std::forward<Ts>(args)...);
+      auto ptree = std::make_shared<Tree>(private_t(), std::forward<Ts>(args)...);
+      // Make the tree its own central neighbor to reduce code duplication 
+      ptree->neighbors[13] = {std::make_pair(ptree, RelativeOrientation())};
+      return ptree;
     }
 
-    // Methods for modifying the tree  
-    int Refine(const LogicalLocation &ref_loc);
-    int Derefine(const LogicalLocation &ref_loc);
+    // Methods for modifying the tree 
+    int AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting = true);
+    int Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting = true);
+    int Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting = true);
 
     // Methods for getting block properties 
     std::vector<ForestLocation> GetMeshBlockList() const;
-    RegionSize GetBlockDomain(LogicalLocation loc) const;    
+    RegionSize GetBlockDomain(LogicalLocation loc) const;   
+    std::vector<ForestLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2, int ox3) const; 
+    std::size_t CountMeshBlock() const {return leaves.size();}
 
     // Methods for building tree connectivity
     void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree, RelativeOrientation orient) { 
       neighbors[location_idx].push_back(std::make_pair(neighbor_tree, orient));   
     }
     void SetId(std::uint64_t id) {my_id = id;}
+    std::uint64_t GetId() {return my_id;}
 
     const std::unordered_set<LogicalLocation>& GetLeaves() const { return leaves;}
 
