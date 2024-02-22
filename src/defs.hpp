@@ -86,7 +86,10 @@ struct RegionSize {
 
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
-
+  
+  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const { 
+    return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
+  }
   // A "symmetry" direction is a a direction that posesses a translational symmetry
   // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given
   // problem. In practice, this mean that the Parthenon mesh was setup to have only
