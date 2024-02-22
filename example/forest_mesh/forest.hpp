@@ -61,7 +61,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   static std::shared_ptr<Tree> create(Ts &&...args) {
     auto ptree = std::make_shared<Tree>(private_t(), std::forward<Ts>(args)...);
     // Make the tree its own central neighbor to reduce code duplication
-    ptree->neighbors[13] = {std::make_pair(ptree, RelativeOrientation())};
+    ptree->neighbors[13].insert({ptree, RelativeOrientation()});
     return ptree;
   }
 
@@ -80,7 +80,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // Methods for building tree connectivity
   void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree,
                    RelativeOrientation orient) {
-    neighbors[location_idx].push_back(std::make_pair(neighbor_tree, orient));
+    neighbors[location_idx].insert({neighbor_tree, orient});
   }
   void SetId(std::uint64_t id) { my_id = id; }
   std::uint64_t GetId() { return my_id; }
@@ -92,7 +92,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::uint64_t my_id;
   std::unordered_set<LogicalLocation> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
-  std::array<std::vector<std::pair<std::shared_ptr<Tree>, RelativeOrientation>>, 27>
+  std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
       neighbors;
   RegionSize domain;
 };
@@ -124,6 +124,10 @@ class Forest {
     for (auto &tree : trees)
       count += tree->CountMeshBlock();
     return count;
+  }
+
+  std::size_t CountTrees() const { 
+    return trees.size();
   }
 
   // Build a logically hyper-rectangular forest that mimics the grid 

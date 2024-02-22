@@ -141,22 +141,41 @@ int main(int argc, char *argv[]) {
   RegionSize mesh_size({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, {1.0, 1.0, 1.0}, {64, 128, 1},
                        {false, false, true});
   RegionSize block_size(mesh_size);
-  block_size.nx(X1DIR) = 8;
-  block_size.nx(X2DIR) = 8;
+  block_size.nx(X1DIR) = 16;
+  block_size.nx(X2DIR) = 16;
 
   auto forest = Forest::AthenaXX(mesh_size, block_size, {false, false, false});
 
   printf("ntrees: %i\n", forest.trees.size());
   auto block_list = forest.GetMeshBlockList();
   printf("number of blocks = %i\n", block_list.size());
-  for (int gid = 0; gid < block_list.size(); ++gid) { 
+  pfile = fopen("faces.txt", "w");
+  std::vector<std::unordered_map<LogicalLocation, std::uint64_t>> gid_map(forest.CountTrees());
+  for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
+    gid_map[block_list[gid].first][block_list[gid].second] = gid; 
     auto dmn = forest.GetBlockDomain(block_list[gid]); 
-    printf("%i, %e, %e, %e, %e, %e, %e, %e, %e\n", gid, 
+    fprintf(pfile, "%i, %e, %e, %e, %e, %e, %e, %e, %e\n", gid, 
         dmn.xmin(X1DIR), dmn.xmin(X2DIR),
         dmn.xmax(X1DIR), dmn.xmin(X2DIR),
         dmn.xmin(X1DIR), dmn.xmax(X2DIR),
         dmn.xmax(X1DIR), dmn.xmax(X2DIR));
   }
+
+  for (uint64_t gid = 0; gid < block_list.size(); ++gid) { 
+    for (int ox1 : {-1, 0, 1}) {
+      for (int ox2 : {-1, 0, 1}) { 
+        auto neigh_vec = forest.FindNeighbor(block_list[gid], ox1, ox2, 0);
+        for (auto &neigh : neigh_vec) { 
+          auto ngid = gid_map[neigh.first][neigh.second]; 
+          if (ngid != gid) {
+            printf("%i -> %i\n", gid, ngid);
+          }
+        }
+      }
+    }
+  }
+
+  fclose(pfile);
 
   return 0;
 }
