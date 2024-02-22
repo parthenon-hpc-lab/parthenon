@@ -14,6 +14,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "forest.hpp"
+#include "forest_topology.hpp"
 #include "mesh/logical_location.hpp"
 #include "parthenon_manager.hpp"
 
@@ -37,7 +38,7 @@ struct mesh_t {
       for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
         auto neighbors = FindEdgeNeighbors(zone, side); 
         for (auto &n : neighbors) { 
-          auto orient = RelativeOrientation::FromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
+          auto orient = RelativeOrientationFromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
           zone->tree->AddNeighbor(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
         } 
       }

@@ -51,19 +51,6 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) co
   return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-RelativeOrientation RelativeOrientation::FromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor, int orientation) { 
-  if (origin.dir == Direction::K || neighbor.dir == Direction::K) { 
-    PARTHENON_FAIL("In 2D we shouldn't have explicit edges in the Z direction.");
-  }
-
-  RelativeOrientation out;
-  out.dir_connection[static_cast<uint>(origin.dir)] = static_cast<uint>(neighbor.dir);
-  out.dir_flip[static_cast<uint>(origin.dir)] = orientation == -1;
-  out.dir_connection[(static_cast<uint>(origin.dir) + 1) % 2] = (static_cast<uint>(neighbor.dir) + 1) % 2; 
-  out.dir_flip[(static_cast<uint>(origin.dir) + 1) % 2] = (neighbor.lower == origin.lower);
-  return out;
-}
-
 Tree::Tree(int ndim, int root_level, RegionSize domain) : ndim(ndim), domain(domain) { 
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) { 
