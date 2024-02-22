@@ -36,8 +36,6 @@ namespace forest {
   template <class T, int SIZE>
   using sptr_vec_t = std::array<std::shared_ptr<T>, SIZE>;
   
-
-  
   struct EdgeLoc { 
     Direction dir; 
     bool lower;

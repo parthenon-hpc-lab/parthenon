@@ -46,6 +46,8 @@ struct mesh_t {
   } 
 };
 
+
+
 mesh_t two_blocks() { 
   mesh_t mesh; 
   mesh.nodes[0] = Node::create(0, {0.0, 0.0});
@@ -112,6 +114,14 @@ mesh_t squared_circle() {
   return mesh;
 }
 
+void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) { 
+  FILE * pFile;
+  pFile = fopen(fname.c_str(), "w");
+  for (const auto &l : tree->GetLeaves()) 
+    fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
+  fclose(pFile);
+}
+
 int main(int argc, char *argv[]) {
   auto mesh = squared_circle();
   
@@ -126,7 +136,7 @@ int main(int argc, char *argv[]) {
     }
     fprintf(pfile, "\n");
 
-    zone->tree->Print("tree" + std::to_string(z) + ".txt");
+    PrintBlockStructure("tree" + std::to_string(z) + ".txt", zone->tree);
     z++;
   }
   fclose(pfile);

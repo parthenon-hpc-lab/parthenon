@@ -72,16 +72,8 @@ namespace forest {
     }
     void SetId(std::uint64_t id) {my_id = id;}
 
-    // TODO: Remove this function, only here for testing
-    void Print(std::string fname) const {
-      FILE * pFile;
-      pFile = fopen(fname.c_str(), "w");
-      for (const auto &l : leaves) 
-        fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
-      fclose(pFile);
-    }
     const std::unordered_set<LogicalLocation>& GetLeaves() const { return leaves;}
-    
+
    private:
     int ndim;
     std::uint64_t my_id;  
