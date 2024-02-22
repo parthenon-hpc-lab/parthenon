@@ -59,8 +59,8 @@ namespace forest {
     }
 
     // Methods for modifying the tree  
-    int Refine(LogicalLocation ref_loc);
-    int Derefine(LogicalLocation ref_loc);
+    int Refine(const LogicalLocation &ref_loc);
+    int Derefine(const LogicalLocation &ref_loc);
 
     // Methods for getting block properties 
     std::vector<ForestLocation> GetMeshBlockList() const;
@@ -86,6 +86,14 @@ namespace forest {
   class Forest { 
    public: 
     std::vector<std::shared_ptr<Tree>> trees;
+    
+    int Refine(const ForestLocation &loc) { 
+      return trees[loc.first]->Refine(loc.second);
+    }
+    
+    int Derefine(const ForestLocation &loc) { 
+      return trees[loc.first]->Derefine(loc.second);
+    }
 
     std::vector<ForestLocation> GetMeshBlockList() const;
     RegionSize GetBlockDomain(ForestLocation loc) const {

@@ -68,7 +68,7 @@ Tree::Tree(int ndim, int root_level, RegionSize domain) : ndim(ndim), domain(dom
   }
 }
 
-int Tree::Refine(LogicalLocation ref_loc) {
+int Tree::Refine(const LogicalLocation &ref_loc) {
   // Check that this is a valid refinement location 
   if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
   
@@ -106,7 +106,7 @@ int Tree::Refine(LogicalLocation ref_loc) {
   return nadded;
 }
 
-int Tree::Derefine(LogicalLocation ref_loc) { 
+int Tree::Derefine(const LogicalLocation &ref_loc) { 
   // ref_loc is the block to be added and its daughters are the blocks to be removed 
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
 
@@ -127,7 +127,11 @@ int Tree::Derefine(LogicalLocation ref_loc) {
           if (internal_nodes.count(neigh)) return 0; 
           if (!neigh.IsInTree()) { 
             // Need to check that this derefinement doesn't break proper nesting with
-            // a neighboring tree
+            // a neighboring tree as well
+            int n_idx = neigh.NeighborTreeIndex(); 
+            for (auto & [neighbor_tree, orientation] : neighbors[n_idx]) {
+              if (neighbor_tree->internal_nodes.count(orientation.Transform(neigh))) return 0;
+            }
           }
         }
       }
