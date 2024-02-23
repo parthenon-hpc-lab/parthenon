@@ -30,6 +30,7 @@
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
+#include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -127,6 +128,17 @@ template <typename T>
 using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
 using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
+
+// Used for ParArrayND
+// TODO(JMM): Should all of parthenon_arrays.hpp
+// be moved here? Or should all of the above stuff be moved to
+// parthenon_arrays.hpp?
+inline constexpr std::size_t MAX_VARIABLE_DIMENSION = 7;
+template <typename T, typename Layout = LayoutWrapper>
+using device_view_t =
+    Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
+template <typename T, typename Layout = LayoutWrapper>
+using host_view_t = typename device_view_t<T, Layout>::HostMirror;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 
@@ -959,5 +971,29 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
 }
 
 } // namespace parthenon
+
+#ifdef PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
+namespace Kokkos {
+
+// the most common ones
+#define PARTHENON_VIEW_TYPE_DECLARATION(T)                                               \
+  extern template class View<T *, parthenon::LayoutWrapper, parthenon::DevMemSpace>;     \
+  extern template class View<T **, parthenon::LayoutWrapper, parthenon::DevMemSpace>;    \
+  extern template class View<T ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;   \
+  extern template class View<T ****, parthenon::LayoutWrapper, parthenon::DevMemSpace>;  \
+  extern template class View<                                                            \
+      parthenon::multi_pointer_t<T, parthenon::MAX_VARIABLE_DIMENSION>,                  \
+      parthenon::LayoutWrapper, parthenon::DevMemSpace>
+
+PARTHENON_VIEW_TYPE_DECLARATION(float);
+PARTHENON_VIEW_TYPE_DECLARATION(double);
+PARTHENON_VIEW_TYPE_DECLARATION(int32_t);
+PARTHENON_VIEW_TYPE_DECLARATION(int64_t);
+PARTHENON_VIEW_TYPE_DECLARATION(uint32_t);
+PARTHENON_VIEW_TYPE_DECLARATION(uint64_t);
+
+#undef PARTHENON_VIEW_TYPE_DECLARATION
+} // namespace Kokkos
+#endif // PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
 
 #endif // KOKKOS_ABSTRACTION_HPP_

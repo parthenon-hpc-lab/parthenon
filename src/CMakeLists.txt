@@ -267,6 +267,8 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
+  parthenon_arrays.cpp
+  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
