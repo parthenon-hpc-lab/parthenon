@@ -211,7 +211,7 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   auto *pdata = view.data();
   auto view_h = Kokkos::create_mirror_view(view);
   if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
-    Kokkos::deep_copy(view_h, view);
+    //Kokkos::deep_copy(view_h, view); // JMM: Pretty sure this deep copy is unnecessary
     pdata = view_h.data();
   }
 
