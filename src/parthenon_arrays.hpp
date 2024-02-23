@@ -46,8 +46,7 @@ using ParArrayHost = ParArrayGeneric<host_view_t<T, Layout>, State>;
 #define PARTHENON_ARRAY_DECL(T)                                                          \
   extern template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
 
-PARTHENON_ARRAY_DECL(float);
-PARTHENON_ARRAY_DECL(double);
+PARTHENON_ARRAY_DECL(Real);
 
 #undef PARTHENON_ARRAY_DECL
 

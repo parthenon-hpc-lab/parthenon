@@ -131,6 +131,7 @@ add_library(parthenon
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
+  interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm.cpp
   interface/swarm.hpp

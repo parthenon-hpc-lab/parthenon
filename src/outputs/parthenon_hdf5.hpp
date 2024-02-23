@@ -29,9 +29,9 @@
 // that into function calls. Preprocessor seems easier, given we're
 // not manipulating this list in any way.
 #define PARTHENON_ATTR_VALID_VEC_TYPES(T)                                                \
-  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, ParArray4D<T>,         \
-      HostArray1D<T>, HostArray2D<T>, HostArray3D<T>, HostArray4D<T>, Kokkos::View<T *>, \
-      Kokkos::View<T **>, ParArrayND<T>, ParArrayHost<T>
+  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, HostArray1D<T>,        \
+      HostArray2D<T>, HostArray3D<T>, Kokkos::View<T *>, Kokkos::View<T **>,             \
+      ParArrayND<T>, ParArrayHost<T>
 // JMM: This is the list of template specializations we
 // "pre-instantiate" We only pre-instantiate device memory, not host
 // memory. The reason is that when building with the Kokkos serial
@@ -42,8 +42,7 @@
   PARTHENON_ATTR_APPLY(Kokkos::View<T *, LayoutWrapper, DevMemSpace>);                   \
   PARTHENON_ATTR_APPLY(Kokkos::View<T **, LayoutWrapper, DevMemSpace>);                  \
   PARTHENON_ATTR_APPLY(Kokkos::View<T ***, LayoutWrapper, DevMemSpace>);                 \
-  PARTHENON_ATTR_APPLY(Kokkos::View<T ****, LayoutWrapper, DevMemSpace>);                \
-  PARTHENON_ATTR_APPLY(Kokkos::View<T *******, LayoutWrapper, DevMemSpace>)
+  PARTHENON_ATTR_APPLY(device_view_t<T>)
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 

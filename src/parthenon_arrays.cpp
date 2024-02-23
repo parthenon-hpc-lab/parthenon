@@ -16,14 +16,14 @@
 //========================================================================================
 
 #include "parthenon_arrays.hpp"
+#include "basic_types.hpp"
 
 namespace parthenon {
 
 #define PARTHENON_ARRAY_SPEC(T)                                                          \
   template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
 
-PARTHENON_ARRAY_SPEC(float);
-PARTHENON_ARRAY_SPEC(double);
+PARTHENON_ARRAY_SPEC(Real);
 
 #undef PARTHENON_ARRAY_SPEC
 
@@ -36,12 +36,10 @@ namespace Kokkos {
   template class View<T *, parthenon::LayoutWrapper, parthenon::DevMemSpace>;            \
   template class View<T **, parthenon::LayoutWrapper, parthenon::DevMemSpace>;           \
   template class View<T ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;          \
-  template class View<T ****, parthenon::LayoutWrapper, parthenon::DevMemSpace>;         \
   template class View<parthenon::multi_pointer_t<T, parthenon::MAX_VARIABLE_DIMENSION>,  \
                       parthenon::LayoutWrapper, parthenon::DevMemSpace>
 
-PARTHENON_VIEW_TYPE_INSTANTIATION(float);
-PARTHENON_VIEW_TYPE_INSTANTIATION(double);
+PARTHENON_VIEW_TYPE_INSTANTIATION(parthenon::Real);
 
 #undef PARTHENON_VIEW_TYPE_INSTANTIATION
 } // namespace Kokkos

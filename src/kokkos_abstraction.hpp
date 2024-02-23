@@ -27,6 +27,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "basic_types.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
@@ -980,13 +981,11 @@ namespace Kokkos {
   extern template class View<T *, parthenon::LayoutWrapper, parthenon::DevMemSpace>;     \
   extern template class View<T **, parthenon::LayoutWrapper, parthenon::DevMemSpace>;    \
   extern template class View<T ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;   \
-  extern template class View<T ****, parthenon::LayoutWrapper, parthenon::DevMemSpace>;  \
   extern template class View<                                                            \
       parthenon::multi_pointer_t<T, parthenon::MAX_VARIABLE_DIMENSION>,                  \
       parthenon::LayoutWrapper, parthenon::DevMemSpace>
 
-PARTHENON_VIEW_TYPE_DECLARATION(float);
-PARTHENON_VIEW_TYPE_DECLARATION(double);
+PARTHENON_VIEW_TYPE_DECLARATION(parthenon::Real);
 
 #undef PARTHENON_VIEW_TYPE_DECLARATION
 } // namespace Kokkos
