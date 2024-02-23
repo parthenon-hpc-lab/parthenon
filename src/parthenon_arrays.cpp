@@ -20,12 +20,12 @@
 
 namespace parthenon {
 
-// #define PARTHENON_ARRAY_SPEC(T)                                                          \
-//   template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
-// 
-// PARTHENON_ARRAY_SPEC(Real);
-// 
-// #undef PARTHENON_ARRAY_SPEC
+#define PARTHENON_ARRAY_SPEC(T)                                                          \
+  template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
+
+PARTHENON_ARRAY_SPEC(Real);
+
+#undef PARTHENON_ARRAY_SPEC
 
 } // namespace parthenon
 

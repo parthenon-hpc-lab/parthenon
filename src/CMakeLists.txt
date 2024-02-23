@@ -187,6 +187,7 @@ add_library(parthenon
   outputs/parthenon_hdf5_attributes.cpp
   outputs/parthenon_hdf5_attributes_read.cpp
   outputs/parthenon_hdf5_attributes_write.cpp
+  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
