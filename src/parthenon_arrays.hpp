@@ -48,10 +48,6 @@ using ParArrayHost = ParArrayGeneric<host_view_t<T, Layout>, State>;
 
 PARTHENON_ARRAY_DECL(float);
 PARTHENON_ARRAY_DECL(double);
-PARTHENON_ARRAY_DECL(int32_t);
-PARTHENON_ARRAY_DECL(int64_t);
-PARTHENON_ARRAY_DECL(uint32_t);
-PARTHENON_ARRAY_DECL(uint64_t);
 
 #undef PARTHENON_ARRAY_DECL
 
