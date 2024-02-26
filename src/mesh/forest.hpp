@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef FOREST_HPP_
-#define FOREST_HPP_
+#ifndef MESH_FOREST_HPP_
+#define MESH_FOREST_HPP_
 
 #include <array>
 #include <map>
@@ -20,6 +20,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -126,11 +127,9 @@ class Forest {
     return count;
   }
 
-  std::size_t CountTrees() const { 
-    return trees.size();
-  }
+  std::size_t CountTrees() const { return trees.size(); }
 
-  // Build a logically hyper-rectangular forest that mimics the grid 
+  // Build a logically hyper-rectangular forest that mimics the grid
   // setups available in Athena++
   static Forest AthenaXX(RegionSize mesh_size, RegionSize block_size,
                          std::array<bool, 3> periodic);
@@ -139,4 +138,4 @@ class Forest {
 } // namespace forest
 } // namespace parthenon
 
-#endif // FOREST_HPP_
+#endif // MESH_FOREST_HPP_
