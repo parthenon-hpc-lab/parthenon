@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef FOREST_TOPOLOGY_HPP_
-#define FOREST_TOPOLOGY_HPP_
+#ifndef EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
+#define EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
 
 #include <array>
 #include <map>
@@ -20,6 +20,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -45,10 +46,10 @@ struct EdgeLoc {
     return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
   }
 
-  const static EdgeLoc South;
-  const static EdgeLoc North;
-  const static EdgeLoc West;
-  const static EdgeLoc East;
+  static const EdgeLoc South;
+  static const EdgeLoc North;
+  static const EdgeLoc West;
+  static const EdgeLoc East;
 };
 inline const EdgeLoc EdgeLoc::South{Direction::I, true};
 inline const EdgeLoc EdgeLoc::North{Direction::I, false};
@@ -189,7 +190,7 @@ class Node {
 class Edge {
  public:
   Edge() = default;
-  Edge(sptr_vec_t<Node, 2> nodes_in) : nodes(nodes_in) {}
+  explicit Edge(sptr_vec_t<Node, 2> nodes_in) : nodes(nodes_in) {}
 
   Edge(sptr_vec_t<Node, 2> nodes_in, const ParentCellLoc &ploc)
       : nodes{nodes_in}, loc{ploc} {
@@ -221,7 +222,7 @@ class Face : public std::enable_shared_from_this<Face> {
   struct Private_t {};
 
  public:
-  Face() : tree(Tree::create(NDIM, 0)){};
+  Face() : tree(Tree::create(NDIM, 0)) {}
 
   // Constructor that can only be called internally
   Face(sptr_vec_t<Node, 4> nodes_in, Private_t)
@@ -358,4 +359,4 @@ inline std::vector<NeighborDesc> FindEdgeNeighbors(const std::shared_ptr<Face> &
 } // namespace forest
 } // namespace parthenon
 
-#endif // FOREST_TOPOLOGY_HPP_
+#endif // EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
