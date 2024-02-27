@@ -492,6 +492,7 @@ void Mesh::UpdateCostList() {
 
 void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   PARTHENON_INSTRUMENT
+  int nnew_f{0}, ndel_f{0};
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
@@ -611,6 +612,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < tnref; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
     bt->Refine(nnew);
+    nnew_f += forest.Refine({0, lref[n]});
   }
   if (tnref != 0) delete[] lref;
 
@@ -618,7 +620,16 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < ctnd; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
     bt->Derefine(ndel);
+    ndel_f += forest.Derefine({0, clderef[n]});
+    
   }
+  printf("old: (%i, %i) new:(%i, %i)\n", nnew, ndel, nnew_f, ndel_f);
+  int tcount{0};
+  tree.CountMeshBlock(tcount);
+  printf("block num old: %i new: %i\n", tcount, forest.CountMeshBlock());
+  PARTHENON_REQUIRE(ndel == ndel_f, "Different change in blocks. (Add)");
+  PARTHENON_REQUIRE(nnew == nnew_f, "Different change in blocks. (Delete)");
+  
   if (tnderef >= nleaf) delete[] clderef;
 }
 
@@ -685,6 +696,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   { // Construct new list region
     PARTHENON_INSTRUMENT
     tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
+    auto new_loc_f = forest.GetMeshBlockList();
+    PARTHENON_REQUIRE(nbtotal == new_loc_f.size(), "New block lists aren't the same size.");
+    for (int ib = 0; ib < new_loc_f.size(); ++ib) { 
+      if (new_loc_f[ib].second != newloc[ib]) {
+        printf ("bad location [%s != %s]\n", new_loc_f[ib].second.label().c_str(), newloc[ib].label().c_str());
+        PARTHENON_FAIL("Block lists disagree.");
+      }
+    }
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -952,6 +971,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // No buffers are different when we switch to the final precedence order.
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
                           0, newly_refined);
+    SetForestNeighbors(block_list, nbs, newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
 
@@ -965,6 +985,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // like any other blocks at their level.
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
                           false);
+    SetForestNeighbors(block_list, nbs);
     for (auto &pmb : block_list) {
       pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
     }

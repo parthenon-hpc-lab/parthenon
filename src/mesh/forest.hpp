@@ -42,12 +42,30 @@ struct RelativeOrientation {
   }
 
   LogicalLocation Transform(const LogicalLocation &loc_in) const;
+  LogicalLocation TransformBack(const LogicalLocation &loc_in) const;
 
-  int dir_connection[3];
-  bool dir_flip[3];
+  bool use_offset = false; 
+  std::array<int, 3> offset; 
+  std::array<int, 3> dir_connection;
+  std::array<bool, 3> dir_flip;
 };
 
 using ForestLocation = std::pair<std::uint64_t, LogicalLocation>;
+struct NeighborLocation { 
+  ForestLocation global_loc; // Global location of neighboring block 
+  LogicalLocation origin_loc; // Logical location of neighboring block in index space of origin block
+};
+
+
+inline bool operator<(const ForestLocation &lhs, const ForestLocation &rhs) { 
+  if (lhs.first < rhs.first) return true; 
+  return lhs.second < rhs.second;
+}
+
+inline bool operator==(const ForestLocation &lhs, const ForestLocation &rhs) { 
+  if (lhs.first != rhs.first) return false; 
+  return lhs.second == rhs.second;
+}
 
 // We don't allow for periodic boundaries, since we can encode periodicity through
 // connectivity in the forest
@@ -74,7 +92,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // Methods for getting block properties
   std::vector<ForestLocation> GetMeshBlockList() const;
   RegionSize GetBlockDomain(LogicalLocation loc) const;
-  std::vector<ForestLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
+  std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const;
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
@@ -116,12 +134,12 @@ class Forest {
   RegionSize GetBlockDomain(const ForestLocation &loc) const {
     return trees[loc.first]->GetBlockDomain(loc.second);
   }
-  std::vector<ForestLocation> FindNeighbor(const ForestLocation &loc, int ox1, int ox2,
+  std::vector<NeighborLocation> FindNeighbor(const ForestLocation &loc, int ox1, int ox2,
                                            int ox3) const {
     return trees[loc.first]->FindNeighbor(loc.second, ox1, ox2, ox3);
   }
   std::size_t CountMeshBlock() const {
-    std::size_t count;
+    std::size_t count{0};
     for (auto &tree : trees)
       count += tree->CountMeshBlock();
     return count;
@@ -137,5 +155,16 @@ class Forest {
 
 } // namespace forest
 } // namespace parthenon
+
+template<>
+struct std::hash<parthenon::forest::ForestLocation> {
+  std::size_t operator()(
+      const parthenon::forest::ForestLocation &key) const noexcept {
+    // TODO(LFR): Think more carefully about what the best choice for this key is,
+    // probably the least significant sizeof(size_t) * 8 bits of the morton number
+    // with 3 * (level - 21) trailing bits removed.
+    return key.second.morton().bits[0];
+  }
+};
 
 #endif // MESH_FOREST_HPP_

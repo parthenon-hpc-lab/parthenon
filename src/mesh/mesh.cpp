@@ -236,6 +236,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   current_level = root_level;
 
   tree.CreateRootGrid();
+  forest = forest::Forest::AthenaXX(mesh_size, block_size, 
+      {mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
+       mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
+       mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic});
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -357,8 +361,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // initial mesh hierarchy construction is completed here
   tree.CountMeshBlock(nbtotal);
+  // TODO (LFR): Remove this when done testing
+  printf("Block number old = %i new = %i (ntrees = %i)\n", nbtotal, forest.CountMeshBlock(), forest.CountTrees());
+  PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(), "Old and new tree block numbers don't agree.");
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
+  auto blist = forest.GetMeshBlockList(); 
+  for (int ib = 0; ib < blist.size(); ++ib) { 
+    if (blist[ib].second != loclist[ib]) printf ("bad location [%s != %s]\n", blist[ib].second.label().c_str(), loclist[ib].label().c_str());
+  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
@@ -431,6 +442,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                                nslist.data());
   }
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+  SetForestNeighbors(block_list, nbs);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }
@@ -605,6 +617,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   // rebuild the Block Tree
   tree.CreateRootGrid();
+  forest = forest::Forest::AthenaXX(mesh_size, block_size, 
+      {mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
+       mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
+       mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic});
 
   for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);

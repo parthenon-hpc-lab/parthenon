@@ -32,6 +32,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
+#include "mesh/forest.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -48,6 +49,50 @@ void Mesh::PopulateLeafLocationMap() {
   leaf_grid_locs.clear();
   for (int ib = 0; ib < nbtot; ++ib) {
     leaf_grid_locs[loclist[ib]] = std::make_pair(ib, ranklist[ib]);
+  }
+}
+
+void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unordered_set<LogicalLocation> &newly_refined) {
+  Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
+                    {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
+                    {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
+  for (auto &pmb : block_list) {
+    std::vector<NeighborBlock> all_neighbors; 
+    std::unordered_map<forest::ForestLocation, LogicalLocation> neighbor_locs; 
+    // Find the unique neighbors 
+    for (int o = 0; o < offsets.size(); ++o) {
+      auto [ox1, ox2, ox3] = offsets(o);    
+      if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
+      auto neighbors = forest.FindNeighbor(forest::ForestLocation{0, pmb->loc}, ox1, ox2, ox3);
+      for (auto &neigh : neighbors) {
+        neighbor_locs[neigh.global_loc] = neigh.origin_loc; 
+      }
+    }
+
+    // Build NeighborBlocks for unique neighbors 
+    for (auto &[nfloc, nlloc] : neighbor_locs) {
+      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nlloc); 
+      all_neighbors.emplace_back(
+                pmb->pmy_mesh, nfloc.second, 0, 0,
+                0, offsets, NeighborConnect::edge, 0, 0, 0, 0); 
+    }
+
+    // Just check that we agree for now
+    PARTHENON_REQUIRE(all_neighbors.size() == pmb->neighbors.size(), "Didn't find the same number of neighbors.");
+    for (auto &onb : pmb->neighbors) { 
+      bool found = false;
+      for (auto &nb : all_neighbors)
+          if (nb.loc == onb.loc) {
+            PARTHENON_REQUIRE(nb.ni.ox1 == onb.ni.ox1, "Bad x1 offset relative to old neighbor finding");
+            PARTHENON_REQUIRE(nb.ni.ox2 == onb.ni.ox2, "Bad x2 offset relative to old neighbor finding");
+            PARTHENON_REQUIRE(nb.ni.ox3 == onb.ni.ox3, "Bad x3 offset relative to old neighbor finding");
+            found = true;
+          }
+      PARTHENON_REQUIRE(found, "Neighbor lists don't agree.");
+    }
+
+    // TODO (LFR): Update the neighbor list here 
+
   }
 }
 

@@ -42,7 +42,12 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) co
     // First shift the logical location index back into the interior
     // of a bordering tree assuming they have the same coordinate
     // orientation
-    l_in = (l_in + nblock) % nblock;
+    // TODO (LFR): Probably remove the offset option and assume it is always true
+    if (use_offset) {
+      l_in -= offset[dir] * nblock;
+    } else {
+      l_in = (l_in + nblock) % nblock;
+    }
     // Then permute (and possibly flip) the coordinate indices
     // to move to the logical coordinate system of the new tree
     if (dir_flip[dir]) {
@@ -53,6 +58,33 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) co
   }
   return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
+
+LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in) const {
+  std::array<std::int64_t, 3> l_out;
+  int nblock = 1LL << loc_in.level();
+  for (int dir = 0; dir < 3; ++dir) {
+    std::int64_t l_in = loc_in.l(abs(dir_connection[dir]));
+    
+    // Then permute (and possibly flip) the coordinate indices
+    // to move to the logical coordinate system of the new tree
+    if (dir_flip[dir]) {
+      l_out[dir] = nblock - 1 - l_in;
+    } else {
+      l_out[dir] = l_in;
+    }
+    
+    // First shift the logical location index back into the interior
+    // of a bordering tree assuming they have the same coordinate
+    // orientation
+    // TODO (LFR): Probably remove the offset option and assume it is always true
+    if (use_offset) {
+      l_out[dir] += offset[dir] * nblock;
+    } else {
+      l_out[dir] = (l_out[dir] + nblock) % nblock;
+    }
+  }
+  return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
+} 
 
 Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain)
     : ndim(ndim), domain(domain) {
@@ -102,7 +134,7 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   leaves.erase(ref_loc);
   internal_nodes.insert(ref_loc);
   leaves.insert(daughters.begin(), daughters.end());
-  int nadded = daughters.size();
+  int nadded = daughters.size() - 1;
 
   if (enforce_proper_nesting) {
     LogicalLocation parent = ref_loc.GetParent();
@@ -129,22 +161,26 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   return nadded;
 }
 
-std::vector<ForestLocation> Tree::FindNeighbor(const LogicalLocation &loc, int ox1,
+std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int ox1,
                                                int ox2, int ox3) const {
   PARTHENON_REQUIRE(leaves.count(loc) == 1, "Location must be a leaf to find neighbors.");
-  std::vector<ForestLocation> neighbor_locs;
+  std::vector<NeighborLocation> neighbor_locs;
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
   int n_idx = neigh.NeighborTreeIndex();
   for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
     auto tneigh = orientation.Transform(neigh);
+    auto tloc = orientation.Transform(loc);
+    PARTHENON_REQUIRE(orientation.TransformBack(tloc) == loc, "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh)) {
-      neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), tneigh});
+      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh}, orientation.TransformBack(tneigh)});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
-      for (auto &n : daughters)
-        neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), n});
+      for (auto &n : daughters) {
+        if (tloc.IsNeighborForest(n))
+          neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), n}, orientation.TransformBack(n)});
+      }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent())) {
-      neighbor_locs.push_back(ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()});
+      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()}, orientation.TransformBack(tneigh.GetParent())});
     }
   }
   return neighbor_locs;
@@ -188,7 +224,7 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
     leaves.erase(d);
   internal_nodes.erase(ref_loc);
   leaves.insert(ref_loc);
-  return daughters.size();
+  return daughters.size() - 1;
 }
 
 std::vector<ForestLocation> Tree::GetMeshBlockList() const {
@@ -322,8 +358,10 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
       if (add) {
         int neigh_idx = nx[0] + ntree[0] * (nx[1] + ntree[1] * nx[2]);
         int loc_idx = (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1);
-        loc_tree[n].second->AddNeighbor(loc_idx, loc_tree[neigh_idx].second,
-                                        RelativeOrientation());
+        RelativeOrientation orient;
+        orient.use_offset = true;
+        orient.offset = {ox1, ox2, ox3}; 
+        loc_tree[n].second->AddNeighbor(loc_idx, loc_tree[neigh_idx].second, orient);
       }
     }
   }

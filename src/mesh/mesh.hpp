@@ -45,6 +45,7 @@
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -274,6 +275,7 @@ class Mesh {
 
   std::vector<LogicalLocation> loclist;
   MeshBlockTree tree;
+  forest::Forest forest;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
   std::array<int, 3> nrbx;
@@ -309,6 +311,7 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unordered_set<LogicalLocation> &newly_refined = {});
   void
   SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
                         RootGridInfo root_grid, int nbs, bool gmg_neighbors,
