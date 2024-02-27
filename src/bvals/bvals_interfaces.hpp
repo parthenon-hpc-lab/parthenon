@@ -118,7 +118,7 @@ struct SimpleNeighborBlock { // aggregate and POD
 struct NeighborIndexes { // aggregate and POD
   int ox1, ox2, ox3;     // 3-vec of offsets in {-1,0,+1} relative to this block's (i,j,k)
   int fi1, fi2; // 2-vec for identifying refined neighbors (up to 4x face neighbors
-                // in 3D), entries in {0, 1}={smaller, larger} LogicalLcation::lxi
+                // in 3D), entries in {0, 1}={smaller, larger} LogicalLocation::lxi
   NeighborConnect type;
   // User-provided ctor is unnecessary and prevents the type from being POD and aggregate.
   // This struct's implicitly-defined or defaulted default ctor is trivial, implying that
