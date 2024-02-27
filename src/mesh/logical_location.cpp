@@ -78,6 +78,17 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
   return offset;
 }
 
+std::array<int, 3> LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const { 
+  std::array<int, 3> offsets; 
+  const int level_shift_neigh = std::max(neighbor.level() - level(), 0);
+  const int level_shift_me = std::max(level() - neighbor.level(), 0); 
+  for (int dir = 0; dir < 3; ++dir) {
+    // coarsen locations to the same level 
+    offsets[dir] = (neighbor.l(dir) >> level_shift_neigh) - (l(dir) >> level_shift_me); 
+  }
+  return offsets;
+}
+
 std::array<std::vector<int>, 3>
 LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
                                      const RootGridInfo &rg_info) const {
@@ -106,6 +117,26 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   }
 
   return offsets;
+}
+
+bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const { 
+  const int max_level = std::max(in.level(), level()); 
+  const int level_shift_in = max_level - in.level(); 
+  const int level_shift_this = max_level - level(); 
+  const auto block_size_in = 1 << level_shift_in;
+  const auto block_size_this = 1 << level_shift_this; 
+
+  bool neighbors = true; 
+  for (int dir = 0; dir < 3; ++dir) { 
+    auto low = (l(dir) << level_shift_this) - 1; 
+    auto hi = low + block_size_this + 1;
+
+    auto low_in = (in.l(dir) << level_shift_in);
+    auto hi_in = low_in + block_size_in - 1; 
+    neighbors = neighbors && !(hi < low_in || low > hi_in);
+
+  }
+  return neighbors;
 }
 
 template <bool TENeighbor>

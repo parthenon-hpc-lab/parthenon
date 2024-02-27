@@ -116,7 +116,7 @@ class LogicalLocation { // aggregate and POD type
 
   std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
                                const RootGridInfo &rg_info = RootGridInfo()) const;
-
+  std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
   std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
                                                       const RootGridInfo &rg_info) const;
   // Being a neighbor implies that you share a face, edge, or node and don't share a
@@ -125,6 +125,8 @@ class LogicalLocation { // aggregate and POD type
                   const RootGridInfo &rg_info = RootGridInfo()) const {
     return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info);
   }
+
+  bool IsNeighborForest(const LogicalLocation &in) const;
 
   bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
                       const RootGridInfo &rg_info = RootGridInfo()) const {
@@ -200,6 +202,10 @@ inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
           (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()));
+}
+
+inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
+  return !(lhs == rhs);
 }
 
 struct block_ownership_t {
