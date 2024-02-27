@@ -696,7 +696,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   { // Construct new list region
     PARTHENON_INSTRUMENT
     tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
-    auto new_loc_f = forest.GetMeshBlockList();
+    auto new_loc_f = forest.GetMeshBlockListAndResolveGids();
     PARTHENON_REQUIRE(nbtotal == new_loc_f.size(), "New block lists aren't the same size.");
     for (int ib = 0; ib < new_loc_f.size(); ++ib) { 
       if (new_loc_f[ib].second != newloc[ib]) {

@@ -71,10 +71,14 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unord
 
     // Build NeighborBlocks for unique neighbors 
     for (auto &[nfloc, nlloc] : neighbor_locs) {
+      auto gid = forest.GetGid(nfloc);
       auto offsets = pmb->loc.GetSameLevelOffsetsForest(nlloc); 
+      // TODO (LFR): Get the rank and lid here correctly
+      int rank = 0;
+      int lid = gid;
       all_neighbors.emplace_back(
-                pmb->pmy_mesh, nfloc.second, 0, 0,
-                0, offsets, NeighborConnect::edge, 0, 0, 0, 0); 
+                pmb->pmy_mesh, nfloc.second, rank, gid,
+                lid, offsets, NeighborConnect::edge, 0, 0, 0, 0); 
     }
 
     // Just check that we agree for now
@@ -86,10 +90,12 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unord
             PARTHENON_REQUIRE(nb.ni.ox1 == onb.ni.ox1, "Bad x1 offset relative to old neighbor finding");
             PARTHENON_REQUIRE(nb.ni.ox2 == onb.ni.ox2, "Bad x2 offset relative to old neighbor finding");
             PARTHENON_REQUIRE(nb.ni.ox3 == onb.ni.ox3, "Bad x3 offset relative to old neighbor finding");
+            PARTHENON_REQUIRE(nb.snb.gid == onb.snb.gid, "Old neighbor finding and new neighbor finding gids don't agree.");
             found = true;
           }
       PARTHENON_REQUIRE(found, "Neighbor lists don't agree.");
     }
+    // TODO (LFR): Set ownership
 
     // TODO (LFR): Update the neighbor list here 
 

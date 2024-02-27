@@ -104,12 +104,18 @@ class Tree : public std::enable_shared_from_this<Tree> {
   void SetId(std::uint64_t id) { my_id = id; }
   std::uint64_t GetId() { return my_id; }
 
-  const std::unordered_set<LogicalLocation> &GetLeaves() const { return leaves; }
-
- private:
+  const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const { return leaves; }
+  
+  void InsertGid(const LogicalLocation &loc, std::uint64_t gid) { 
+    PARTHENON_REQUIRE(leaves.count(loc) == 1, "Trying to add gid for non-existent location.");
+    leaves[loc] = gid;
+  }
+  
+  std::uint64_t GetGid(const LogicalLocation &loc) const {return leaves.at(loc);}
+ private: 
   int ndim;
   std::uint64_t my_id;
-  std::unordered_set<LogicalLocation> leaves;
+  std::unordered_map<LogicalLocation, std::uint64_t> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
   std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
       neighbors;
@@ -117,20 +123,25 @@ class Tree : public std::enable_shared_from_this<Tree> {
 };
 
 class Forest {
+  bool gids_resolved = false;
  public:
   std::vector<std::shared_ptr<Tree>> trees;
 
   int AddMeshBlock(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+    gids_resolved = false;
     return trees[loc.first]->AddMeshBlock(loc.second, enforce_proper_nesting);
   }
   int Refine(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+    gids_resolved = false;
     return trees[loc.first]->Refine(loc.second, enforce_proper_nesting);
   }
   int Derefine(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+    gids_resolved = false;
     return trees[loc.first]->Derefine(loc.second, enforce_proper_nesting);
   }
 
-  std::vector<ForestLocation> GetMeshBlockList() const;
+  std::vector<ForestLocation> GetMeshBlockListAndResolveGids();
+
   RegionSize GetBlockDomain(const ForestLocation &loc) const {
     return trees[loc.first]->GetBlockDomain(loc.second);
   }
@@ -146,6 +157,11 @@ class Forest {
   }
 
   std::size_t CountTrees() const { return trees.size(); }
+
+  std::uint64_t GetGid(const ForestLocation &loc) const { 
+    PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
+    return trees[loc.first]->GetGid(loc.second);
+  }
 
   // Build a logically hyper-rectangular forest that mimics the grid
   // setups available in Athena++

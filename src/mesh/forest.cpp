@@ -94,7 +94,7 @@ Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain)
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
           if (l == root_level) {
-            leaves.emplace(l, i, j, k);
+            leaves.emplace(std::make_pair(LogicalLocation(l, i, j, k), 0));
           } else {
             internal_nodes.emplace(l, i, j, k);
           }
@@ -133,7 +133,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
   leaves.erase(ref_loc);
   internal_nodes.insert(ref_loc);
-  leaves.insert(daughters.begin(), daughters.end());
+  for (auto &d : daughters) { 
+    leaves.insert(std::make_pair(d, 0));
+  }
   int nadded = daughters.size() - 1;
 
   if (enforce_proper_nesting) {
@@ -223,14 +225,14 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   for (auto &d : daughters)
     leaves.erase(d);
   internal_nodes.erase(ref_loc);
-  leaves.insert(ref_loc);
+  leaves.insert(std::make_pair(ref_loc, 0));
   return daughters.size() - 1;
 }
 
 std::vector<ForestLocation> Tree::GetMeshBlockList() const {
   std::vector<ForestLocation> mb_list;
   mb_list.reserve(leaves.size());
-  for (auto &loc : leaves)
+  for (auto &[loc, gid] : leaves)
     mb_list.push_back({my_id, loc});
   std::sort(mb_list.begin(), mb_list.end(),
             [](const auto &a, const auto &b) { return a.second < b.second; });
@@ -253,14 +255,20 @@ RegionSize Tree::GetBlockDomain(LogicalLocation loc) const {
   return out;
 }
 
-std::vector<ForestLocation> Forest::GetMeshBlockList() const {
+std::vector<ForestLocation> Forest::GetMeshBlockListAndResolveGids() {
   std::vector<ForestLocation> mb_list;
+  std::uint64_t gid{0};
   for (auto &tree : trees) {
+    std::size_t start = mb_list.size(); 
     auto tree_mbs = tree->GetMeshBlockList();
     mb_list.insert(mb_list.end(), std::make_move_iterator(tree_mbs.begin()),
                    std::make_move_iterator(tree_mbs.end()));
+    std::size_t end = mb_list.size(); 
+    for (int i = start; i < end; ++i) 
+        tree->InsertGid(mb_list[i].second, gid++);
   }
   // The index of blocks in this list corresponds to their gid
+  gids_resolved = true;
   return mb_list;
 }
 

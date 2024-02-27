@@ -366,7 +366,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(), "Old and new tree block numbers don't agree.");
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
-  auto blist = forest.GetMeshBlockList(); 
+  auto blist = forest.GetMeshBlockListAndResolveGids(); 
   for (int ib = 0; ib < blist.size(); ++ib) { 
     if (blist[ib].second != loclist[ib]) printf ("bad location [%s != %s]\n", blist[ib].second.label().c_str(), loclist[ib].label().c_str());
   }
