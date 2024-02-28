@@ -174,15 +174,15 @@ std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int
     auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
     PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc, "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh)) {
-      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh}, orientation.TransformBack(tneigh, GetId())});
+      neighbor_locs.push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
       for (auto &n : daughters) {
         if (tloc.IsNeighborForest(n))
-          neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), n}, orientation.TransformBack(n, GetId())});
+          neighbor_locs.push_back({n, orientation.TransformBack(n, GetId())});
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent())) {
-      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()}, orientation.TransformBack(tneigh.GetParent(), GetId())});
+      neighbor_locs.push_back({tneigh.GetParent(), orientation.TransformBack(tneigh.GetParent(), GetId())});
     }
   }
   return neighbor_locs;
@@ -229,13 +229,13 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   return daughters.size() - 1;
 }
 
-std::vector<ForestLocation> Tree::GetMeshBlockList() const {
-  std::vector<ForestLocation> mb_list;
+std::vector<LogicalLocation> Tree::GetMeshBlockList() const {
+  std::vector<LogicalLocation> mb_list;
   mb_list.reserve(leaves.size());
   for (auto &[loc, gid] : leaves)
-    mb_list.push_back({my_id, loc});
+    mb_list.push_back(loc);
   std::sort(mb_list.begin(), mb_list.end(),
-            [](const auto &a, const auto &b) { return a.second < b.second; });
+            [](const auto &a, const auto &b) { return a < b; });
   return mb_list;
 }
 
@@ -255,8 +255,8 @@ RegionSize Tree::GetBlockDomain(LogicalLocation loc) const {
   return out;
 }
 
-std::vector<ForestLocation> Forest::GetMeshBlockListAndResolveGids() {
-  std::vector<ForestLocation> mb_list;
+std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
+  std::vector<LogicalLocation> mb_list;
   std::uint64_t gid{0};
   for (auto &tree : trees) {
     std::size_t start = mb_list.size(); 
@@ -265,7 +265,7 @@ std::vector<ForestLocation> Forest::GetMeshBlockListAndResolveGids() {
                    std::make_move_iterator(tree_mbs.end()));
     std::size_t end = mb_list.size(); 
     for (int i = start; i < end; ++i) 
-        tree->InsertGid(mb_list[i].second, gid++);
+        tree->InsertGid(mb_list[i], gid++);
   }
   // The index of blocks in this list corresponds to their gid
   gids_resolved = true;

@@ -141,20 +141,20 @@ class LogicalLocation { // aggregate and POD type
   LogicalLocation
   GetSameLevelNeighbor(int ox1, int ox2, int ox3,
                        const RootGridInfo &rg_info = RootGridInfo()) const {
-    return LogicalLocation(level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
+    return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
   LogicalLocation GetParent(int nlevel = 1) const {
-    if (level() - nlevel < 0) return LogicalLocation(level() - nlevel, 0, 0, 0);
-    return LogicalLocation(level() - nlevel, lx1() >> nlevel, lx2() >> nlevel,
+    if (level() - nlevel < 0) return LogicalLocation(tree(), level() - nlevel, 0, 0, 0);
+    return LogicalLocation(tree(), level() - nlevel, lx1() >> nlevel, lx2() >> nlevel,
                            lx3() >> nlevel);
   }
 
   std::vector<LogicalLocation> GetDaughters(int ndim = 3) const;
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
-    if (level() < 0) return LogicalLocation(level() + 1, 0, 0, 0);
-    return LogicalLocation(level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
+    if (level() < 0) return LogicalLocation(tree(), level() + 1, 0, 0, 0);
+    return LogicalLocation(tree(), level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
                            (lx3() << 1) + ox3);
   }
 
@@ -195,18 +195,20 @@ class LogicalLocation { // aggregate and POD type
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.morton() == rhs.morton()) return lhs.level() < rhs.level();
-  return lhs.morton() < rhs.morton();
+  if (lhs.tree() != rhs.tree()) return lhs.tree() < rhs.tree(); 
+  if (lhs.morton() != rhs.morton()) return lhs.morton() < rhs.morton(); 
+  return lhs.level() < rhs.level(); 
 }
 
 inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.morton() == rhs.morton()) return lhs.level() > rhs.level();
-  return lhs.morton() > rhs.morton();
+  if (lhs.tree() != rhs.tree()) return lhs.tree() > rhs.tree(); 
+  if (lhs.morton() != rhs.morton()) return lhs.morton() > rhs.morton(); 
+  return lhs.level() > rhs.level(); 
 }
 
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
-          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()));
+          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()) && (lhs.tree() == rhs.tree()));
 }
 
 inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {

@@ -58,12 +58,12 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unord
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors; 
-    std::unordered_map<forest::ForestLocation, LogicalLocation> neighbor_locs; 
+    std::unordered_map<LogicalLocation, LogicalLocation> neighbor_locs; 
     // Find the unique neighbors 
     for (int o = 0; o < offsets.size(); ++o) {
       auto [ox1, ox2, ox3] = offsets(o);    
       if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
-      auto neighbors = forest.FindNeighbor(forest::ForestLocation{0, pmb->loc}, ox1, ox2, ox3);
+      auto neighbors = forest.FindNeighbor(pmb->loc, ox1, ox2, ox3);
       for (auto &neigh : neighbors) {
         neighbor_locs[neigh.global_loc] = neigh.origin_loc; 
       }
@@ -77,7 +77,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unord
       int rank = 0;
       int lid = gid;
       all_neighbors.emplace_back(
-                pmb->pmy_mesh, nfloc.second, rank, gid,
+                pmb->pmy_mesh, nfloc, rank, gid,
                 lid, offsets, NeighborConnect::edge, 0, 0, 0, 0); 
     }
 

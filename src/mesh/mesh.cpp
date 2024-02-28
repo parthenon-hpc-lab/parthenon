@@ -368,7 +368,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
   auto blist = forest.GetMeshBlockListAndResolveGids(); 
   for (int ib = 0; ib < blist.size(); ++ib) { 
-    if (blist[ib].second != loclist[ib]) printf ("bad location [%s != %s]\n", blist[ib].second.label().c_str(), loclist[ib].label().c_str());
+    if (blist[ib] != loclist[ib]) printf ("bad location [%s != %s]\n", blist[ib].label().c_str(), loclist[ib].label().c_str());
   }
 
 #ifdef MPI_PARALLEL

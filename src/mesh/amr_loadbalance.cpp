@@ -612,7 +612,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < tnref; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
     bt->Refine(nnew);
-    nnew_f += forest.Refine({0, lref[n]});
+    nnew_f += forest.Refine(lref[n]);
   }
   if (tnref != 0) delete[] lref;
 
@@ -620,7 +620,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < ctnd; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
     bt->Derefine(ndel);
-    ndel_f += forest.Derefine({0, clderef[n]});
+    ndel_f += forest.Derefine(clderef[n]);
     
   }
   printf("old: (%i, %i) new:(%i, %i)\n", nnew, ndel, nnew_f, ndel_f);
@@ -699,8 +699,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     auto new_loc_f = forest.GetMeshBlockListAndResolveGids();
     PARTHENON_REQUIRE(nbtotal == new_loc_f.size(), "New block lists aren't the same size.");
     for (int ib = 0; ib < new_loc_f.size(); ++ib) { 
-      if (new_loc_f[ib].second != newloc[ib]) {
-        printf ("bad location [%s != %s]\n", new_loc_f[ib].second.label().c_str(), newloc[ib].label().c_str());
+      if (new_loc_f[ib] != newloc[ib]) {
+        printf ("bad location [%s != %s]\n", new_loc_f[ib].label().c_str(), newloc[ib].label().c_str());
         PARTHENON_FAIL("Block lists disagree.");
       }
     }

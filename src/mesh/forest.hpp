@@ -50,22 +50,11 @@ struct RelativeOrientation {
   std::array<bool, 3> dir_flip;
 };
 
-using ForestLocation = std::pair<std::uint64_t, LogicalLocation>;
 struct NeighborLocation { 
-  ForestLocation global_loc; // Global location of neighboring block 
+  LogicalLocation global_loc; // Global location of neighboring block 
   LogicalLocation origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
-
-inline bool operator<(const ForestLocation &lhs, const ForestLocation &rhs) { 
-  if (lhs.first < rhs.first) return true; 
-  return lhs.second < rhs.second;
-}
-
-inline bool operator==(const ForestLocation &lhs, const ForestLocation &rhs) { 
-  if (lhs.first != rhs.first) return false; 
-  return lhs.second == rhs.second;
-}
 
 // We don't allow for periodic boundaries, since we can encode periodicity through
 // connectivity in the forest
@@ -90,7 +79,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   int Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting = true);
 
   // Methods for getting block properties
-  std::vector<ForestLocation> GetMeshBlockList() const;
+  std::vector<LogicalLocation> GetMeshBlockList() const;
   RegionSize GetBlockDomain(LogicalLocation loc) const;
   std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const;
@@ -101,7 +90,24 @@ class Tree : public std::enable_shared_from_this<Tree> {
                    RelativeOrientation orient) {
     neighbors[location_idx].insert({neighbor_tree, orient});
   }
-  void SetId(std::uint64_t id) { my_id = id; }
+
+  void SetId(std::uint64_t id) { 
+    my_id = id; 
+    auto old_leaves = leaves; 
+    auto old_internal_nodes = internal_nodes; 
+    leaves.clear();
+    internal_nodes.clear(); 
+    for (const auto &[k, v] : old_leaves) { 
+      LogicalLocation new_loc(my_id, k.level(), k.lx1(), k.lx2(), k.lx3());
+      leaves[new_loc] = v;
+    }
+
+    for (auto k : old_internal_nodes) { 
+      LogicalLocation new_loc(my_id, k.level(), k.lx1(), k.lx2(), k.lx3()); 
+      internal_nodes.insert(new_loc);
+    }
+  }
+
   std::uint64_t GetId() const { return my_id; }
 
   const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const { return leaves; }
@@ -127,27 +133,27 @@ class Forest {
  public:
   std::vector<std::shared_ptr<Tree>> trees;
 
-  int AddMeshBlock(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+  int AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting = true) {
     gids_resolved = false;
-    return trees[loc.first]->AddMeshBlock(loc.second, enforce_proper_nesting);
+    return trees[loc.tree()]->AddMeshBlock(loc, enforce_proper_nesting);
   }
-  int Refine(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+  int Refine(const LogicalLocation &loc, bool enforce_proper_nesting = true) {
     gids_resolved = false;
-    return trees[loc.first]->Refine(loc.second, enforce_proper_nesting);
+    return trees[loc.tree()]->Refine(loc, enforce_proper_nesting);
   }
-  int Derefine(const ForestLocation &loc, bool enforce_proper_nesting = true) {
+  int Derefine(const LogicalLocation &loc, bool enforce_proper_nesting = true) {
     gids_resolved = false;
-    return trees[loc.first]->Derefine(loc.second, enforce_proper_nesting);
+    return trees[loc.tree()]->Derefine(loc, enforce_proper_nesting);
   }
 
-  std::vector<ForestLocation> GetMeshBlockListAndResolveGids();
+  std::vector<LogicalLocation> GetMeshBlockListAndResolveGids();
 
-  RegionSize GetBlockDomain(const ForestLocation &loc) const {
-    return trees[loc.first]->GetBlockDomain(loc.second);
+  RegionSize GetBlockDomain(const LogicalLocation &loc) const {
+    return trees[loc.tree()]->GetBlockDomain(loc);
   }
-  std::vector<NeighborLocation> FindNeighbor(const ForestLocation &loc, int ox1, int ox2,
+  std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const {
-    return trees[loc.first]->FindNeighbor(loc.second, ox1, ox2, ox3);
+    return trees[loc.tree()]->FindNeighbor(loc, ox1, ox2, ox3);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};
@@ -158,9 +164,9 @@ class Forest {
 
   std::size_t CountTrees() const { return trees.size(); }
 
-  std::uint64_t GetGid(const ForestLocation &loc) const { 
+  std::uint64_t GetGid(const LogicalLocation &loc) const { 
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
-    return trees[loc.first]->GetGid(loc.second);
+    return trees[loc.tree()]->GetGid(loc);
   }
 
   // Build a logically hyper-rectangular forest that mimics the grid
@@ -172,15 +178,5 @@ class Forest {
 } // namespace forest
 } // namespace parthenon
 
-template<>
-struct std::hash<parthenon::forest::ForestLocation> {
-  std::size_t operator()(
-      const parthenon::forest::ForestLocation &key) const noexcept {
-    // TODO(LFR): Think more carefully about what the best choice for this key is,
-    // probably the least significant sizeof(size_t) * 8 bits of the morton number
-    // with 3 * (level - 21) trailing bits removed.
-    return key.second.morton().bits[0];
-  }
-};
 
 #endif // MESH_FOREST_HPP_
