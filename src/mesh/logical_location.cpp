@@ -120,6 +120,7 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
 }
 
 bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const { 
+  PARTHENON_REQUIRE(tree() == in.tree(), "Trying to compare locations not in the same octree.");
   const int max_level = std::max(in.level(), level()); 
   const int level_shift_in = max_level - in.level(); 
   const int level_shift_this = max_level - level(); 
@@ -136,6 +137,33 @@ bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const {
     neighbors = neighbors && !(hi < low_in || low > hi_in);
 
   }
+  return neighbors;
+}
+
+bool LogicalLocation::IsNeighborOfTEForest(const LogicalLocation &in, const std::array<int, 3> &te_offset) const { 
+  PARTHENON_REQUIRE(tree() == in.tree(), "Trying to compare locations not in the same octree.");
+  const int max_level = std::max(in.level(), level()); 
+  const int level_shift_in = max_level - in.level(); 
+  const int level_shift_this = max_level - level(); 
+  const auto block_size_in = 1 << level_shift_in;
+  const auto block_size_this = 1 << level_shift_this; 
+
+  bool neighbors = true; 
+  for (int dir = 0; dir < 3; ++dir) { 
+    auto low = (l(dir) << level_shift_this); 
+    auto hi = low + block_size_this - 1;
+    if (te_offset[dir] == -1) {
+      low -= 1;
+      hi = low + 1; 
+    } else if (te_offset[dir] == 1) { 
+      hi += 1; 
+      low = hi - 1;
+    } 
+
+    auto low_in = (in.l(dir) << level_shift_in);
+    auto hi_in = low_in + block_size_in - 1; 
+    neighbors = neighbors && !(hi < low_in || low > hi_in);
+  } 
   return neighbors;
 }
 
@@ -327,6 +355,7 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
   return unique_locs;
 }
 
+// TODO (LFR): Remove this
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
@@ -358,6 +387,49 @@ DetermineOwnership(const LogicalLocation &main_block,
         for (auto &n : allowed_neighbors) {
           if (ownership_less_than(main_block, n) &&
               main_block.IsNeighborOfTE(n, ox1, ox2, ox3, rg_info)) {
+            main_owns(ox1, ox2, ox3) = false;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return main_owns;
+}
+
+block_ownership_t
+DetermineOwnershipForest(const LogicalLocation &main_block,
+                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
+                   const std::unordered_set<LogicalLocation> &newly_refined) {
+  block_ownership_t main_owns;
+
+  auto ownership_level = [&](const LogicalLocation &a) {
+    // Newly-refined blocks are treated as higher-level than blocks at their
+    // parent level, but lower-level than previously-refined blocks at their
+    // current level.
+    if (newly_refined.count(a)) return 2 * a.level() - 1;
+    return 2 * a.level();
+  };
+
+  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
+                                               const LogicalLocation &b) {
+    // Ownership is first determined by block with the highest level, then by maximum
+    // Morton number this is reversed in precedence from the normal comparators where
+    // Morton number takes precedence
+    if (ownership_level(a) == ownership_level(b)) {
+      if (a.tree() == b.tree()) return a.morton() < b.morton();
+      return a.tree() < b.tree();
+    }
+    return ownership_level(a) < ownership_level(b);
+  };
+
+  for (int ox1 : {-1, 0, 1}) {
+    for (int ox2 : {-1, 0, 1}) {
+      for (int ox3 : {-1, 0, 1}) {
+        main_owns(ox1, ox2, ox3) = true;
+        for (auto &n : allowed_neighbors) {
+          if (ownership_less_than(main_block, n) &&
+              main_block.IsNeighborOfTEForest(n, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }

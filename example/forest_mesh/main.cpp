@@ -114,7 +114,7 @@ mesh_t squared_circle() {
 void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
   FILE *pFile;
   pFile = fopen(fname.c_str(), "w");
-  for (const auto &l : tree->GetLeaves())
+  for (const auto & [l, gid] : tree->GetLeaves())
     fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
   fclose(pFile);
 }
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
   auto forest = Forest::AthenaXX(mesh_size, block_size, {false, false, false});
 
   printf("ntrees: %i\n", forest.trees.size());
-  auto block_list = forest.GetMeshBlockList();
+  auto block_list = forest.GetMeshBlockListAndResolveGids();
   printf("number of blocks = %i\n", block_list.size());
   pfile = fopen("faces.txt", "w");
   std::vector<std::unordered_map<LogicalLocation, std::uint64_t>> gid_map(
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
       for (int ox2 : {-1, 0, 1}) {
         auto neigh_vec = forest.FindNeighbor(block_list[gid], ox1, ox2, 0);
         for (auto &neigh : neigh_vec) {
-          auto ngid = gid_map[neigh.first][neigh.second];
+          auto ngid = gid_map[neigh.global_loc.first][neigh.global_loc.second];
           if (ngid != gid) {
             printf("%i -> %i\n", gid, ngid);
           }

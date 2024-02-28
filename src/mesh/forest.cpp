@@ -34,7 +34,7 @@
 namespace parthenon {
 namespace forest {
 
-LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) const {
+LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in, std::int64_t destination) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << loc_in.level();
   for (int dir = 0; dir < 3; ++dir) {
@@ -56,10 +56,10 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in) co
       l_out[abs(dir_connection[dir])] = l_in;
     }
   }
-  return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
+  return LogicalLocation(destination, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in) const {
+LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << loc_in.level();
   for (int dir = 0; dir < 3; ++dir) {
@@ -83,7 +83,7 @@ LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in
       l_out[dir] = (l_out[dir] + nblock) % nblock;
     }
   }
-  return LogicalLocation(loc_in.level(), l_out[0], l_out[1], l_out[2]);
+  return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 } 
 
 Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain)
@@ -154,7 +154,7 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
           int n_idx =
               neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
           for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
-            nadded += neighbor_tree->Refine(orientation.Transform(neigh));
+            nadded += neighbor_tree->Refine(orientation.Transform(neigh, neighbor_tree->GetId()));
           }
         }
       }
@@ -170,19 +170,19 @@ std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
   int n_idx = neigh.NeighborTreeIndex();
   for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
-    auto tneigh = orientation.Transform(neigh);
-    auto tloc = orientation.Transform(loc);
-    PARTHENON_REQUIRE(orientation.TransformBack(tloc) == loc, "Inverse transform not working.");
+    auto tneigh = orientation.Transform(neigh, neighbor_tree->GetId());
+    auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
+    PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc, "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh)) {
-      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh}, orientation.TransformBack(tneigh)});
+      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh}, orientation.TransformBack(tneigh, GetId())});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
       for (auto &n : daughters) {
         if (tloc.IsNeighborForest(n))
-          neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), n}, orientation.TransformBack(n)});
+          neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), n}, orientation.TransformBack(n, GetId())});
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent())) {
-      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()}, orientation.TransformBack(tneigh.GetParent())});
+      neighbor_locs.push_back({ForestLocation{neighbor_tree->GetId(), tneigh.GetParent()}, orientation.TransformBack(tneigh.GetParent(), GetId())});
     }
   }
   return neighbor_locs;
@@ -212,7 +212,7 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
             // a neighboring tree or this tree
             int n_idx = neigh.NeighborTreeIndex();
             for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
-              if (neighbor_tree->internal_nodes.count(orientation.Transform(neigh)))
+              if (neighbor_tree->internal_nodes.count(orientation.Transform(neigh, neighbor_tree->GetId())))
                 return 0;
             }
           }

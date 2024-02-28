@@ -69,6 +69,7 @@ class LogicalLocation { // aggregate and POD type
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
   std::array<std::int64_t, 3> l_;
+  std::int64_t tree_idx_;
   MortonNumber morton_;
   int level_;
 
@@ -76,7 +77,9 @@ class LogicalLocation { // aggregate and POD type
   // No check is provided that the requested LogicalLocation is in the allowed
   // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
-      : l_{l1, l2, l3}, level_(lev), morton_(lev, l1, l2, l3) {}
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{0}, morton_(lev, l1, l2, l3) {}
+  LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   std::string label() const {
@@ -89,6 +92,7 @@ class LogicalLocation { // aggregate and POD type
   const auto &lx3() const { return l_[2]; }
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
+  const auto &tree() const { return tree_idx_; }
 
   bool IsInTree() const {
     return (l_[0] >= 0) && (l_[0] < (1LL << level())) && (l_[1] >= 0) &&
@@ -127,6 +131,7 @@ class LogicalLocation { // aggregate and POD type
   }
 
   bool IsNeighborForest(const LogicalLocation &in) const;
+  bool IsNeighborOfTEForest(const LogicalLocation &in, const std::array<int, 3> &te_offset) const;
 
   bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
                       const RootGridInfo &rg_info = RootGridInfo()) const {
@@ -243,6 +248,11 @@ block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
                    const RootGridInfo &rg_info = RootGridInfo(),
+                   const std::unordered_set<LogicalLocation> &newly_refined = {});
+
+block_ownership_t
+DetermineOwnershipForest(const LogicalLocation &main_block,
+                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
                    const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices

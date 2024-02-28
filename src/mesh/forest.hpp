@@ -41,9 +41,9 @@ struct RelativeOrientation {
     dir_flip[static_cast<uint>(origin)] = reversed;
   }
 
-  LogicalLocation Transform(const LogicalLocation &loc_in) const;
-  LogicalLocation TransformBack(const LogicalLocation &loc_in) const;
-
+  LogicalLocation Transform(const LogicalLocation &loc_in, std::int64_t destination) const;
+  LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
+  
   bool use_offset = false; 
   std::array<int, 3> offset; 
   std::array<int, 3> dir_connection;
@@ -102,7 +102,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     neighbors[location_idx].insert({neighbor_tree, orient});
   }
   void SetId(std::uint64_t id) { my_id = id; }
-  std::uint64_t GetId() { return my_id; }
+  std::uint64_t GetId() const { return my_id; }
 
   const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const { return leaves; }
   
