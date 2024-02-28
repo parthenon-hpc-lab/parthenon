@@ -83,14 +83,14 @@ class Tree : public std::enable_shared_from_this<Tree> {
   RegionSize GetBlockDomain(const LogicalLocation& loc) const;
   std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const;
+  
+  std::vector<LogicalLocation> IsNeighborLocation(const LogicalLocation &loc);
+
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
-
   // Methods for building tree connectivity
-  void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree,
-                   RelativeOrientation orient) {
-    neighbors[location_idx].insert({neighbor_tree, orient});
-  }
+  void AddNeighborTree(int location_idx, std::shared_ptr<Tree> neighbor_tree,
+                   RelativeOrientation orient);
 
   std::uint64_t GetId() const { return my_id; }
 
@@ -102,13 +102,26 @@ class Tree : public std::enable_shared_from_this<Tree> {
   }
   
   std::uint64_t GetGid(const LogicalLocation &loc) const {return leaves.at(loc);}
+
  private: 
   int ndim;
   const std::uint64_t my_id;
   std::unordered_map<LogicalLocation, std::uint64_t> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
+  
+  // This contains all of the neighbor information for this tree, for each of the 
+  // 3^3 possible neighbor connections. Since an edge or node connection can have 
+  // multiple neighbors generally, we keep a map at each neighbor location from 
+  // the tree sptr to the relative logical coordinate orientation of the neighbor 
+  // block. 
   std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
       neighbors;
+
+  // Helper maps for going from tree ids to neighbor connections to those trees 
+  // as well as from tree id to the tree sptr. More or less inverts the neighbors 
+  // object above. 
+  std::unordered_map<std::uint64_t, std::set<int>> tid_to_connection_set;
+  std::unordered_map<std::uint64_t, std::shared_ptr<Tree>> tid_to_tree_sptr;
   RegionSize domain;
 };
 

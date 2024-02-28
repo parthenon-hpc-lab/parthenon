@@ -93,10 +93,20 @@ class LogicalLocation { // aggregate and POD type
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
   const auto &tree() const { return tree_idx_; }
-
-  bool IsInTree() const {
-    return (l_[0] >= 0) && (l_[0] < (1LL << level())) && (l_[1] >= 0) &&
-           (l_[1] < (1LL << level())) && (l_[2] >= 0) && (l_[2] < (1LL << level()));
+  
+  // Check if this logical location is actually in the domain of the tree,
+  // possibly including a ghost halo around the tree
+  bool IsInTree(int nghost = 0) const { 
+    const int low = -nghost;
+    const int up  = 1LL << level() + nghost; 
+    return (l_[0] >= low) && (l_[0] < up) && 
+           (l_[1] >= low) && (l_[1] < up) && 
+           (l_[2] >= low) && (l_[2] < up); 
+  }
+  
+  // Check if a LL is in the ghost halo of the tree it is associated with
+  bool IsInHalo(int nghost) const { 
+    return IsInTree(nghost) && !IsInTree(0);
   }
 
   int NeighborTreeIndex() const {

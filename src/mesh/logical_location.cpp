@@ -399,7 +399,7 @@ DetermineOwnership(const LogicalLocation &main_block,
 
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
-                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
+                   const std::unordered_map<LogicalLocation, LogicalLocation> &allowed_neighbors,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
@@ -414,22 +414,20 @@ DetermineOwnershipForest(const LogicalLocation &main_block,
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
                                                const LogicalLocation &b) {
     // Ownership is first determined by block with the highest level, then by maximum
-    // Morton number this is reversed in precedence from the normal comparators where
-    // Morton number takes precedence
-    if (ownership_level(a) == ownership_level(b)) {
-      if (a.tree() == b.tree()) return a.morton() < b.morton();
-      return a.tree() < b.tree();
-    }
-    return ownership_level(a) < ownership_level(b);
+    // (tree, Morton) number this is reversed in precedence from the normal comparators where
+    // (tree, Morton) number takes precedence
+    if (ownership_level(a) != ownership_level(b)) return ownership_level(a) < ownership_level(b);
+    if (a.tree() != b.tree()) return a.tree() < b.tree();
+    return a.morton() < b.morton();
   };
 
   for (int ox1 : {-1, 0, 1}) {
     for (int ox2 : {-1, 0, 1}) {
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
-        for (auto &n : allowed_neighbors) {
+        for (auto & [n, n_in_local_index_space] : allowed_neighbors) {
           if (ownership_less_than(main_block, n) &&
-              main_block.IsNeighborOfTEForest(n, {ox1, ox2, ox3})) {
+              main_block.IsNeighborOfTEForest(n_in_local_index_space, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }

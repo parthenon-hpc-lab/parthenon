@@ -260,6 +260,32 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation& loc) const {
   return out;
 }
 
+std::vector<LogicalLocation> Tree::IsNeighborLocation(const LogicalLocation &loc) {
+  // Transform a location on a possibly neighboring tree to all of its 
+  // halo positions on this tree
+  std::vector<LogicalLocation> locs{};
+  if (tid_to_connection_set.count(loc.tree())) { 
+    auto ptree = tid_to_tree_sptr[loc.tree()];
+    for (auto ncidx : tid_to_connection_set[loc.tree()]) { 
+      auto tloc = neighbors[ncidx][ptree].TransformBack(loc, my_id); 
+      if (tloc.IsInHalo(1)) locs.push_back(tloc);
+    }
+  }
+  return locs;
+}
+
+void Tree::AddNeighborTree(int location_idx, std::shared_ptr<Tree> neighbor_tree,
+                 RelativeOrientation orient) {
+  if (tid_to_connection_set.count(neighbor_tree->GetId())) {
+    tid_to_connection_set[neighbor_tree->GetId()].insert(location_idx);
+  } else {
+    tid_to_connection_set[neighbor_tree->GetId()] = {location_idx}; 
+  }
+  tid_to_tree_sptr[neighbor_tree->GetId()] = neighbor_tree;
+  neighbors[location_idx].insert({neighbor_tree, orient});
+}
+
+
 std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
   std::vector<LogicalLocation> mb_list;
   std::uint64_t gid{0};
@@ -382,7 +408,7 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
         RelativeOrientation orient;
         orient.use_offset = true;
         orient.offset = {ox1, ox2, ox3}; 
-        ll_map[loc].second->AddNeighbor(loc_idx, ll_map[nloc].second, orient);
+        ll_map[loc].second->AddNeighborTree(loc_idx, ll_map[nloc].second, orient);
       }
     }
   }
