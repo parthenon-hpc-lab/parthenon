@@ -86,17 +86,17 @@ LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 } 
 
-Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain)
-    : ndim(ndim), domain(domain) {
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain)
+    : my_id(id), ndim(ndim), domain(domain) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
           if (l == root_level) {
-            leaves.emplace(std::make_pair(LogicalLocation(l, i, j, k), 0));
+            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k), 0));
           } else {
-            internal_nodes.emplace(l, i, j, k);
+            internal_nodes.emplace(my_id, l, i, j, k);
           }
         }
       }
@@ -105,6 +105,7 @@ Tree::Tree(Tree::private_t, int ndim, int root_level, RegionSize domain)
 }
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
+  PARTHENON_REQUIRE(loc.tree() == my_id, "Trying to add a meshblock to a tree with a LogicalLocation on a different tree.");
   if (internal_nodes.count(loc)) return -1;
   if (leaves.count(loc)) return 0;
 
@@ -126,6 +127,7 @@ int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) 
 }
 
 int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
+  PARTHENON_REQUIRE(ref_loc.tree() == my_id, "Trying to refine a tree with a LogicalLocation on a different tree.");
   // Check that this is a valid refinement location
   if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
 
@@ -165,6 +167,7 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
 
 std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int ox1,
                                                int ox2, int ox3) const {
+  PARTHENON_REQUIRE(loc.tree() == my_id, "Trying to find neighbors in a tree with a LogicalLocation on a different tree.");
   PARTHENON_REQUIRE(leaves.count(loc) == 1, "Location must be a leaf to find neighbors.");
   std::vector<NeighborLocation> neighbor_locs;
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
@@ -189,6 +192,8 @@ std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int
 }
 
 int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
+  PARTHENON_REQUIRE(ref_loc.tree() == my_id, "Trying to derefine a tree with a LogicalLocation on a different tree.");
+
   // ref_loc is the block to be added and its daughters are the blocks to be removed
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
 
@@ -310,8 +315,9 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   // so we can put them in z-order. This should insure that block gids are the
   // same as they were for an athena++ style base grid.
   Indexer3D idxer({0, ntree[0] - 1}, {0, ntree[1] - 1}, {0, ntree[2] - 1});
-  using p_loc_tree_t = std::pair<LogicalLocation, std::shared_ptr<Tree>>;
-  std::vector<p_loc_tree_t> loc_tree;
+
+  std::map<LogicalLocation, std::pair<RegionSize, std::shared_ptr<Tree>>> ll_map;
+
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     RegionSize tree_domain = block_size;
@@ -335,11 +341,17 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
         mesh_size.LogicalToActualPosition(LLCoordLeft(ix3, ntree[2]), X3DIR);
     tree_domain.xmax(X3DIR) =
         mesh_size.LogicalToActualPosition(LLCoordRight(ix3, ntree[2]), X3DIR);
-    loc_tree.emplace_back(p_loc_tree_t{LogicalLocation(level, ix1, ix2, ix3),
-                                       Tree::create(ndim, ref_level, tree_domain)});
+    LogicalLocation loc(level, ix1, ix2, ix3);
+    ll_map[loc] = std::make_pair(tree_domain, std::shared_ptr<Tree>());
     auto &dmn = tree_domain;
     printf("[%i, %i, %i], %e, %e, %e, %e\n", ix1, ix2, ix3, dmn.xmin(X1DIR),
            dmn.xmax(X1DIR), dmn.xmin(X2DIR), dmn.xmax(X2DIR));
+  }
+
+  // Initialize the trees in macro-morton order 
+  std::int64_t tid{0}; 
+  for (auto & [loc, p] : ll_map) { 
+    p.second = Tree::create(tid, ndim, ref_level, p.first);
   }
 
   // Connect the trees to each other
@@ -348,6 +360,7 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
+    LogicalLocation loc(level, ix1, ix2, ix3);
     std::array<int, 3> ix{ix1, ix2, ix3};
     for (int o = 0; o < offsets.size(); ++o) {
       auto [ox1, ox2, ox3] = offsets(o);
@@ -364,26 +377,21 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
         }
       }
       if (add) {
-        int neigh_idx = nx[0] + ntree[0] * (nx[1] + ntree[1] * nx[2]);
+        LogicalLocation nloc(level, nx[0], nx[1], nx[2]);
         int loc_idx = (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1);
         RelativeOrientation orient;
         orient.use_offset = true;
         orient.offset = {ox1, ox2, ox3}; 
-        loc_tree[n].second->AddNeighbor(loc_idx, loc_tree[neigh_idx].second, orient);
+        ll_map[loc].second->AddNeighbor(loc_idx, ll_map[nloc].second, orient);
       }
     }
   }
+
   // Sort trees by their logical location in the tree mesh
   Forest fout;
-  std::sort(loc_tree.begin(), loc_tree.end(),
-            [](const auto &a, const auto &b) { return a.first < b.first; });
-  for (auto &[loc, tree] : loc_tree)
-    fout.trees.push_back(tree);
+  for (auto &[loc, p] : ll_map)
+    fout.trees.push_back(p.second);
 
-  // Assign tree ids
-  std::uint64_t id = 0;
-  for (auto &tree : fout.trees)
-    tree->SetId(id++);
   return fout;
 }
 

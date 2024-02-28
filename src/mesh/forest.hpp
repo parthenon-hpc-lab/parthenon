@@ -63,7 +63,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   struct private_t {};
 
  public:
-  Tree(private_t, int ndim, int root_level, RegionSize domain = RegionSize());
+  Tree(private_t, std::int64_t id, int ndim, int root_level, RegionSize domain = RegionSize());
 
   template <class... Ts>
   static std::shared_ptr<Tree> create(Ts &&...args) {
@@ -85,27 +85,11 @@ class Tree : public std::enable_shared_from_this<Tree> {
                                            int ox3) const;
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
+
   // Methods for building tree connectivity
   void AddNeighbor(int location_idx, std::shared_ptr<Tree> neighbor_tree,
                    RelativeOrientation orient) {
     neighbors[location_idx].insert({neighbor_tree, orient});
-  }
-
-  void SetId(std::uint64_t id) { 
-    my_id = id; 
-    auto old_leaves = leaves; 
-    auto old_internal_nodes = internal_nodes; 
-    leaves.clear();
-    internal_nodes.clear(); 
-    for (const auto &[k, v] : old_leaves) { 
-      LogicalLocation new_loc(my_id, k.level(), k.lx1(), k.lx2(), k.lx3());
-      leaves[new_loc] = v;
-    }
-
-    for (auto k : old_internal_nodes) { 
-      LogicalLocation new_loc(my_id, k.level(), k.lx1(), k.lx2(), k.lx3()); 
-      internal_nodes.insert(new_loc);
-    }
   }
 
   std::uint64_t GetId() const { return my_id; }
@@ -120,7 +104,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::uint64_t GetGid(const LogicalLocation &loc) const {return leaves.at(loc);}
  private: 
   int ndim;
-  std::uint64_t my_id;
+  const std::uint64_t my_id;
   std::unordered_map<LogicalLocation, std::uint64_t> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
   std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>

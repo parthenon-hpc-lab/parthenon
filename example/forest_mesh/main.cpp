@@ -56,8 +56,8 @@ mesh_t two_blocks() {
   mesh.nodes[5] = Node::create(5, {2.0, 1.0});
 
   auto &n = mesh.nodes;
-  mesh.zones.emplace_back(Face::create({n[3], n[0], n[2], n[1]}));
-  mesh.zones.emplace_back(Face::create({n[1], n[4], n[2], n[5]}));
+  mesh.zones.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
+  mesh.zones.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
 
   mesh.SetTreeConnections();
   // Do some refinements that should propagate into tree 1
@@ -84,19 +84,19 @@ mesh_t squared_circle() {
 
   auto &n = mesh.nodes;
   // South block
-  mesh.zones.emplace_back(Face::create({n[0], n[1], n[4], n[5]}));
+  mesh.zones.emplace_back(Face::create(0, {n[0], n[1], n[4], n[5]}));
 
   // West block
-  mesh.zones.emplace_back(Face::create({n[0], n[4], n[2], n[6]}));
+  mesh.zones.emplace_back(Face::create(1, {n[0], n[4], n[2], n[6]}));
 
   // North block
-  mesh.zones.emplace_back(Face::create({n[6], n[7], n[2], n[3]}));
+  mesh.zones.emplace_back(Face::create(2, {n[6], n[7], n[2], n[3]}));
 
   // East block
-  mesh.zones.emplace_back(Face::create({n[5], n[1], n[7], n[3]}));
+  mesh.zones.emplace_back(Face::create(3, {n[5], n[1], n[7], n[3]}));
 
   // Center block
-  mesh.zones.emplace_back(Face::create({n[4], n[5], n[6], n[7]}));
+  mesh.zones.emplace_back(Face::create(4, {n[4], n[5], n[6], n[7]}));
 
   mesh.SetTreeConnections();
 
@@ -150,22 +150,21 @@ int main(int argc, char *argv[]) {
   auto block_list = forest.GetMeshBlockListAndResolveGids();
   printf("number of blocks = %i\n", block_list.size());
   pfile = fopen("faces.txt", "w");
-  std::vector<std::unordered_map<LogicalLocation, std::uint64_t>> gid_map(
-      forest.CountTrees());
   for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
-    gid_map[block_list[gid].first][block_list[gid].second] = gid;
     auto dmn = forest.GetBlockDomain(block_list[gid]);
     fprintf(pfile, "%i, %e, %e, %e, %e, %e, %e, %e, %e\n", gid, dmn.xmin(X1DIR),
             dmn.xmin(X2DIR), dmn.xmax(X1DIR), dmn.xmin(X2DIR), dmn.xmin(X1DIR),
             dmn.xmax(X2DIR), dmn.xmax(X1DIR), dmn.xmax(X2DIR));
   }
+  fclose(pfile);
 
+  /* 
   for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
     for (int ox1 : {-1, 0, 1}) {
       for (int ox2 : {-1, 0, 1}) {
         auto neigh_vec = forest.FindNeighbor(block_list[gid], ox1, ox2, 0);
         for (auto &neigh : neigh_vec) {
-          auto ngid = gid_map[neigh.global_loc.first][neigh.global_loc.second];
+          auto ngid = gid_map[neigh.global_loc.global_loc][neigh.global_loc.origin_loc];
           if (ngid != gid) {
             printf("%i -> %i\n", gid, ngid);
           }
@@ -173,8 +172,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-
-  fclose(pfile);
+  */
 
   return 0;
 }
