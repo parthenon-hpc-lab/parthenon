@@ -244,7 +244,7 @@ std::vector<LogicalLocation> Tree::GetMeshBlockList() const {
   return mb_list;
 }
 
-RegionSize Tree::GetBlockDomain(LogicalLocation loc) const {
+RegionSize Tree::GetBlockDomain(const LogicalLocation& loc) const {
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!domain.symmetry(dir)) {

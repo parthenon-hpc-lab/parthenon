@@ -80,7 +80,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for getting block properties
   std::vector<LogicalLocation> GetMeshBlockList() const;
-  RegionSize GetBlockDomain(LogicalLocation loc) const;
+  RegionSize GetBlockDomain(const LogicalLocation& loc) const;
   std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const;
   std::size_t CountMeshBlock() const { return leaves.size(); }
