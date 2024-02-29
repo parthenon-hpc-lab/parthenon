@@ -236,7 +236,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   current_level = root_level;
 
   tree.CreateRootGrid();
-  forest = forest::Forest::AthenaXX(mesh_size, block_size, 
+  forest = forest::Forest::AthenaXX(
+      mesh_size, block_size,
       {mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic});
@@ -361,14 +362,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // initial mesh hierarchy construction is completed here
   tree.CountMeshBlock(nbtotal);
-  // TODO (LFR): Remove this when done testing
-  printf("Block number old = %i new = %i (ntrees = %i)\n", nbtotal, forest.CountMeshBlock(), forest.CountTrees());
-  PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(), "Old and new tree block numbers don't agree.");
+  // TODO(LFR): Remove this when done testing
+  printf("Block number old = %i new = %i (ntrees = %i)\n", nbtotal,
+         forest.CountMeshBlock(), forest.CountTrees());
+  PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(),
+                    "Old and new tree block numbers don't agree.");
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
-  auto blist = forest.GetMeshBlockListAndResolveGids(); 
-  for (int ib = 0; ib < blist.size(); ++ib) { 
-    if (blist[ib] != loclist[ib]) printf ("bad location [%s != %s]\n", blist[ib].label().c_str(), loclist[ib].label().c_str());
+  auto blist = forest.GetMeshBlockListAndResolveGids();
+  for (int ib = 0; ib < blist.size(); ++ib) {
+    if (blist[ib] != loclist[ib])
+      printf("bad location [%s != %s]\n", blist[ib].label().c_str(),
+             loclist[ib].label().c_str());
   }
 
 #ifdef MPI_PARALLEL
@@ -617,7 +622,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   // rebuild the Block Tree
   tree.CreateRootGrid();
-  forest = forest::Forest::AthenaXX(mesh_size, block_size, 
+  forest = forest::Forest::AthenaXX(
+      mesh_size, block_size,
       {mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic});

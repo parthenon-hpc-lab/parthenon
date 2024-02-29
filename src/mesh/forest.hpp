@@ -41,17 +41,15 @@ struct RelativeOrientation {
     dir_flip[static_cast<uint>(origin)] = reversed;
   }
 
-  LogicalLocation Transform(const LogicalLocation &loc_in, std::int64_t destination) const;
+  LogicalLocation Transform(const LogicalLocation &loc_in,
+                            std::int64_t destination) const;
   LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
-  
-  bool use_offset = false; 
-  std::array<int, 3> offset; 
+
+  bool use_offset = false;
+  std::array<int, 3> offset;
   std::array<int, 3> dir_connection;
   std::array<bool, 3> dir_flip;
 };
-
-
-
 
 // We don't allow for periodic boundaries, since we can encode periodicity through
 // connectivity in the forest
@@ -60,7 +58,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
   struct private_t {};
 
  public:
-  Tree(private_t, std::int64_t id, int ndim, int root_level, RegionSize domain = RegionSize());
+  Tree(private_t, std::int64_t id, int ndim, int root_level,
+       RegionSize domain = RegionSize());
 
   template <class... Ts>
   static std::shared_ptr<Tree> create(Ts &&...args) {
@@ -77,48 +76,54 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for getting block properties
   std::vector<LogicalLocation> GetMeshBlockList() const;
-  RegionSize GetBlockDomain(const LogicalLocation& loc) const;
+  RegionSize GetBlockDomain(const LogicalLocation &loc) const;
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const;
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1, int ox2, int ox3) const;
-  
-  std::vector<LogicalLocation> GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc);
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
+                                              int ox2, int ox3) const;
+
+  std::vector<LogicalLocation>
+  GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc);
 
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
   // Methods for building tree connectivity
   void AddNeighborTree(int location_idx, std::shared_ptr<Tree> neighbor_tree,
-                   RelativeOrientation orient);
+                       RelativeOrientation orient);
 
   std::uint64_t GetId() const { return my_id; }
 
-  const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const { return leaves; }
-  
-  void InsertGid(const LogicalLocation &loc, std::uint64_t gid) { 
-    PARTHENON_REQUIRE(leaves.count(loc) == 1, "Trying to add gid for non-existent location.");
+  const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const {
+    return leaves;
+  }
+
+  void InsertGid(const LogicalLocation &loc, std::uint64_t gid) {
+    PARTHENON_REQUIRE(leaves.count(loc) == 1,
+                      "Trying to add gid for non-existent location.");
     leaves[loc] = gid;
   }
-  
-  std::uint64_t GetGid(const LogicalLocation &loc) const {return leaves.at(loc);}
 
- private: 
-  void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3, std::vector<NeighborLocation> *neighbor_locs) const;
+  std::uint64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc); }
+
+ private:
+  void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
+                         std::vector<NeighborLocation> *neighbor_locs) const;
 
   int ndim;
   const std::uint64_t my_id;
   std::unordered_map<LogicalLocation, std::uint64_t> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
-  
-  // This contains all of the neighbor information for this tree, for each of the 
-  // 3^3 possible neighbor connections. Since an edge or node connection can have 
-  // multiple neighbors generally, we keep a map at each neighbor location from 
-  // the tree sptr to the relative logical coordinate orientation of the neighbor 
-  // block. 
+
+  // This contains all of the neighbor information for this tree, for each of the
+  // 3^3 possible neighbor connections. Since an edge or node connection can have
+  // multiple neighbors generally, we keep a map at each neighbor location from
+  // the tree sptr to the relative logical coordinate orientation of the neighbor
+  // block.
   std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
       neighbors;
 
-  // Helper maps for going from tree ids to neighbor connections to those trees 
-  // as well as from tree id to the tree sptr. More or less inverts the neighbors 
-  // object above. 
+  // Helper maps for going from tree ids to neighbor connections to those trees
+  // as well as from tree id to the tree sptr. More or less inverts the neighbors
+  // object above.
   std::unordered_map<std::uint64_t, std::set<int>> tid_to_connection_set;
   std::unordered_map<std::uint64_t, std::shared_ptr<Tree>> tid_to_tree_sptr;
   RegionSize domain;
@@ -126,6 +131,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
 class Forest {
   bool gids_resolved = false;
+
  public:
   std::vector<std::shared_ptr<Tree>> trees;
 
@@ -147,11 +153,11 @@ class Forest {
   RegionSize GetBlockDomain(const LogicalLocation &loc) const {
     return trees[loc.tree()]->GetBlockDomain(loc);
   }
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1, int ox2,
-                                           int ox3) const {
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
+                                              int ox2, int ox3) const {
     return trees[loc.tree()]->FindNeighbors(loc, ox1, ox2, ox3);
   }
-  
+
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
     return trees[loc.tree()]->FindNeighbors(loc);
   }
@@ -164,7 +170,7 @@ class Forest {
 
   std::size_t CountTrees() const { return trees.size(); }
 
-  std::uint64_t GetGid(const LogicalLocation &loc) const { 
+  std::uint64_t GetGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees[loc.tree()]->GetGid(loc);
   }
@@ -177,6 +183,5 @@ class Forest {
 
 } // namespace forest
 } // namespace parthenon
-
 
 #endif // MESH_FOREST_HPP_

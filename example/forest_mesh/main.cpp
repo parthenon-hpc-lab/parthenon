@@ -114,7 +114,7 @@ mesh_t squared_circle() {
 void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
   FILE *pFile;
   pFile = fopen(fname.c_str(), "w");
-  for (const auto & [l, gid] : tree->GetLeaves())
+  for (const auto &[l, gid] : tree->GetLeaves())
     fprintf(pFile, "%i, %i, %i\n", l.level(), l.lx1(), l.lx2());
   fclose(pFile);
 }
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   }
   fclose(pfile);
 
-  /* 
+  /*
   for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
     for (int ox1 : {-1, 0, 1}) {
       for (int ox2 : {-1, 0, 1}) {

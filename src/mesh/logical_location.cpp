@@ -78,13 +78,14 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
   return offset;
 }
 
-std::array<int, 3> LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const { 
-  std::array<int, 3> offsets; 
+std::array<int, 3>
+LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const {
+  std::array<int, 3> offsets;
   const int level_shift_neigh = std::max(neighbor.level() - level(), 0);
-  const int level_shift_me = std::max(level() - neighbor.level(), 0); 
+  const int level_shift_me = std::max(level() - neighbor.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
-    // coarsen locations to the same level 
-    offsets[dir] = (neighbor.l(dir) >> level_shift_neigh) - (l(dir) >> level_shift_me); 
+    // coarsen locations to the same level
+    offsets[dir] = (neighbor.l(dir) >> level_shift_neigh) - (l(dir) >> level_shift_me);
   }
   return offsets;
 }
@@ -119,51 +120,53 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   return offsets;
 }
 
-bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const { 
-  PARTHENON_REQUIRE(tree() == in.tree(), "Trying to compare locations not in the same octree.");
-  const int max_level = std::max(in.level(), level()); 
-  const int level_shift_in = max_level - in.level(); 
-  const int level_shift_this = max_level - level(); 
+bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const {
+  PARTHENON_REQUIRE(tree() == in.tree(),
+                    "Trying to compare locations not in the same octree.");
+  const int max_level = std::max(in.level(), level());
+  const int level_shift_in = max_level - in.level();
+  const int level_shift_this = max_level - level();
   const auto block_size_in = 1 << level_shift_in;
-  const auto block_size_this = 1 << level_shift_this; 
+  const auto block_size_this = 1 << level_shift_this;
 
-  bool neighbors = true; 
-  for (int dir = 0; dir < 3; ++dir) { 
-    auto low = (l(dir) << level_shift_this) - 1; 
+  bool neighbors = true;
+  for (int dir = 0; dir < 3; ++dir) {
+    auto low = (l(dir) << level_shift_this) - 1;
     auto hi = low + block_size_this + 1;
 
     auto low_in = (in.l(dir) << level_shift_in);
-    auto hi_in = low_in + block_size_in - 1; 
+    auto hi_in = low_in + block_size_in - 1;
     neighbors = neighbors && !(hi < low_in || low > hi_in);
-
   }
   return neighbors;
 }
 
-bool LogicalLocation::IsNeighborOfTEForest(const LogicalLocation &in, const std::array<int, 3> &te_offset) const { 
-  PARTHENON_REQUIRE(tree() == in.tree(), "Trying to compare locations not in the same octree.");
-  const int max_level = std::max(in.level(), level()); 
-  const int level_shift_in = max_level - in.level(); 
-  const int level_shift_this = max_level - level(); 
+bool LogicalLocation::IsNeighborOfTEForest(const LogicalLocation &in,
+                                           const std::array<int, 3> &te_offset) const {
+  PARTHENON_REQUIRE(tree() == in.tree(),
+                    "Trying to compare locations not in the same octree.");
+  const int max_level = std::max(in.level(), level());
+  const int level_shift_in = max_level - in.level();
+  const int level_shift_this = max_level - level();
   const auto block_size_in = 1 << level_shift_in;
-  const auto block_size_this = 1 << level_shift_this; 
+  const auto block_size_this = 1 << level_shift_this;
 
-  bool neighbors = true; 
-  for (int dir = 0; dir < 3; ++dir) { 
-    auto low = (l(dir) << level_shift_this); 
+  bool neighbors = true;
+  for (int dir = 0; dir < 3; ++dir) {
+    auto low = (l(dir) << level_shift_this);
     auto hi = low + block_size_this - 1;
     if (te_offset[dir] == -1) {
       low -= 1;
-      hi = low + 1; 
-    } else if (te_offset[dir] == 1) { 
-      hi += 1; 
+      hi = low + 1;
+    } else if (te_offset[dir] == 1) {
+      hi += 1;
       low = hi - 1;
-    } 
+    }
 
     auto low_in = (in.l(dir) << level_shift_in);
-    auto hi_in = low_in + block_size_in - 1; 
+    auto hi_in = low_in + block_size_in - 1;
     neighbors = neighbors && !(hi < low_in || low > hi_in);
-  } 
+  }
   return neighbors;
 }
 
@@ -355,7 +358,7 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
   return unique_locs;
 }
 
-// TODO (LFR): Remove this
+// TODO(LFR): Remove this
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
@@ -399,8 +402,8 @@ DetermineOwnership(const LogicalLocation &main_block,
 
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
-                   const std::vector<NeighborLocation> &allowed_neighbors,
-                   const std::unordered_set<LogicalLocation> &newly_refined) {
+                         const std::vector<NeighborLocation> &allowed_neighbors,
+                         const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
   auto ownership_level = [&](const LogicalLocation &a) {
@@ -414,9 +417,10 @@ DetermineOwnershipForest(const LogicalLocation &main_block,
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
                                                const LogicalLocation &b) {
     // Ownership is first determined by block with the highest level, then by maximum
-    // (tree, Morton) number this is reversed in precedence from the normal comparators where
-    // (tree, Morton) number takes precedence
-    if (ownership_level(a) != ownership_level(b)) return ownership_level(a) < ownership_level(b);
+    // (tree, Morton) number this is reversed in precedence from the normal comparators
+    // where (tree, Morton) number takes precedence
+    if (ownership_level(a) != ownership_level(b))
+      return ownership_level(a) < ownership_level(b);
     if (a.tree() != b.tree()) return a.tree() < b.tree();
     return a.morton() < b.morton();
   };

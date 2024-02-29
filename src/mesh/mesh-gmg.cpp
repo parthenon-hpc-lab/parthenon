@@ -52,65 +52,74 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
-void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unordered_set<LogicalLocation> &newly_refined) {
+void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
+                              const std::unordered_set<LogicalLocation> &newly_refined) {
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
   printf("Calling set neighbors\n");
   for (auto &pmb : block_list) {
-    std::vector<NeighborBlock> all_neighbors; 
-    auto neighbors = forest.FindNeighbors(pmb->loc); 
-    
-    // TODO (LFR): Remove the next three lines when done comparing to old results
+    std::vector<NeighborBlock> all_neighbors;
+    auto neighbors = forest.FindNeighbors(pmb->loc);
+
+    // TODO(LFR): Remove the next three lines when done comparing to old results
     std::unordered_set<LogicalLocation> old_possible_neighbor_set;
     old_possible_neighbor_set.insert(pmb->loc);
-    for (auto &n : neighbors) old_possible_neighbor_set.insert(n.global_loc);
+    for (auto &n : neighbors)
+      old_possible_neighbor_set.insert(n.global_loc);
 
-    // Build NeighborBlocks for unique neighbors 
+    // Build NeighborBlocks for unique neighbors
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
-      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nloc.origin_loc); 
-      // TODO (LFR): Get the rank here correctly
+      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nloc.origin_loc);
+      // TODO(LFR): Get the rank here correctly
       int rank = 0;
-      auto f = pmb->loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0], f[1]); 
+      auto f = pmb->loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1],
+                                               offsets[2]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0],
+                                 f[1]);
 
-      // Set neighbor block ownership 
+      // Set neighbor block ownership
       auto &nb = all_neighbors.back();
-      auto neighbor_neighbors = forest.FindNeighbors(nb.loc); 
+      auto neighbor_neighbors = forest.FindNeighbors(nb.loc);
 
-      // TODO (LFR): Remove the next six lines once done testing. This is only 
-      // to ensure compatibility with the old infrastructure which 
-      // didn't bother to set neighbor ownership correctly where it 
-      // is unused. 
-      std::vector<NeighborLocation> reduced_neighbor_neighbors;       
-      for (const auto &n : neighbor_neighbors) { 
-        if (old_possible_neighbor_set.count(n.global_loc)) { 
+      // TODO(LFR): Remove the next six lines once done testing. This is only
+      // to ensure compatibility with the old infrastructure which
+      // didn't bother to set neighbor ownership correctly where it
+      // is unused.
+      std::vector<NeighborLocation> reduced_neighbor_neighbors;
+      for (const auto &n : neighbor_neighbors) {
+        if (old_possible_neighbor_set.count(n.global_loc)) {
           reduced_neighbor_neighbors.push_back(n);
         }
       }
-      nb.ownership = DetermineOwnershipForest(nb.loc, reduced_neighbor_neighbors, newly_refined);
+      nb.ownership =
+          DetermineOwnershipForest(nb.loc, reduced_neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
-    
-    // TODO (LFR): Remove these checks
+
+    // TODO(LFR): Remove these checks
     // Just check that we agree for now
-    PARTHENON_REQUIRE(all_neighbors.size() == pmb->neighbors.size(), "Didn't find the same number of neighbors.");
-    for (auto &onb : pmb->neighbors) { 
+    PARTHENON_REQUIRE(all_neighbors.size() == pmb->neighbors.size(),
+                      "Didn't find the same number of neighbors.");
+    for (auto &onb : pmb->neighbors) {
       bool found = false;
       for (auto &nb : all_neighbors)
-          if (nb.loc == onb.loc) {
-            PARTHENON_REQUIRE(nb.ni == onb.ni, "Bad neighbor indices relative to old neighbor finding");
-            PARTHENON_REQUIRE(nb.snb == onb.snb, "Old neighbor finding and new neighbor finding simple neighbor blocks don't agree.");
-            PARTHENON_REQUIRE(nb.ownership == onb.ownership, "Old neighbor finding and new neighbor finding ownership don't agree.");
-            found = true;
-          }
+        if (nb.loc == onb.loc) {
+          PARTHENON_REQUIRE(nb.ni == onb.ni,
+                            "Bad neighbor indices relative to old neighbor finding");
+          PARTHENON_REQUIRE(nb.snb == onb.snb,
+                            "Old neighbor finding and new neighbor finding simple "
+                            "neighbor blocks don't agree.");
+          PARTHENON_REQUIRE(
+              nb.ownership == onb.ownership,
+              "Old neighbor finding and new neighbor finding ownership don't agree.");
+          found = true;
+        }
       PARTHENON_REQUIRE(found, "Neighbor lists don't agree.");
     }
-    
 
-    // TODO (LFR): Update the neighbor list here 
-
+    // TODO(LFR): Update the neighbor list here
   }
 }
 

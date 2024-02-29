@@ -78,7 +78,8 @@ class LogicalLocation { // aggregate and POD type
   // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
       : l_{l1, l2, l3}, level_{lev}, tree_idx_{0}, morton_(lev, l1, l2, l3) {}
-  LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
+  LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2,
+                  std::int64_t l3)
       : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
@@ -93,21 +94,18 @@ class LogicalLocation { // aggregate and POD type
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
   const auto &tree() const { return tree_idx_; }
-  
+
   // Check if this logical location is actually in the domain of the tree,
   // possibly including a ghost halo around the tree
-  bool IsInTree(int nghost = 0) const { 
+  bool IsInTree(int nghost = 0) const {
     const int low = -nghost;
-    const int up  = 1LL << level() + nghost; 
-    return (l_[0] >= low) && (l_[0] < up) && 
-           (l_[1] >= low) && (l_[1] < up) && 
-           (l_[2] >= low) && (l_[2] < up); 
+    const int up = 1LL << level() + nghost;
+    return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
+           (l_[2] >= low) && (l_[2] < up);
   }
-  
+
   // Check if a LL is in the ghost halo of the tree it is associated with
-  bool IsInHalo(int nghost) const { 
-    return IsInTree(nghost) && !IsInTree(0);
-  }
+  bool IsInHalo(int nghost) const { return IsInTree(nghost) && !IsInTree(0); }
 
   int NeighborTreeIndex() const {
     int i1 = (l_[0] >= 0) - (l_[0] < (1LL << level())) + 1;
@@ -141,7 +139,8 @@ class LogicalLocation { // aggregate and POD type
   }
 
   bool IsNeighborForest(const LogicalLocation &in) const;
-  bool IsNeighborOfTEForest(const LogicalLocation &in, const std::array<int, 3> &te_offset) const;
+  bool IsNeighborOfTEForest(const LogicalLocation &in,
+                            const std::array<int, 3> &te_offset) const;
 
   bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
                       const RootGridInfo &rg_info = RootGridInfo()) const {
@@ -205,20 +204,21 @@ class LogicalLocation { // aggregate and POD type
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.tree() != rhs.tree()) return lhs.tree() < rhs.tree(); 
-  if (lhs.morton() != rhs.morton()) return lhs.morton() < rhs.morton(); 
-  return lhs.level() < rhs.level(); 
+  if (lhs.tree() != rhs.tree()) return lhs.tree() < rhs.tree();
+  if (lhs.morton() != rhs.morton()) return lhs.morton() < rhs.morton();
+  return lhs.level() < rhs.level();
 }
 
 inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.tree() != rhs.tree()) return lhs.tree() > rhs.tree(); 
-  if (lhs.morton() != rhs.morton()) return lhs.morton() > rhs.morton(); 
-  return lhs.level() > rhs.level(); 
+  if (lhs.tree() != rhs.tree()) return lhs.tree() > rhs.tree();
+  if (lhs.morton() != rhs.morton()) return lhs.morton() > rhs.morton();
+  return lhs.level() > rhs.level();
 }
 
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
-          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()) && (lhs.tree() == rhs.tree()));
+          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()) &&
+          (lhs.tree() == rhs.tree()));
 }
 
 inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
@@ -251,7 +251,7 @@ struct block_ownership_t {
   }
 
   bool initialized;
-  
+
   bool operator==(const block_ownership_t &rhs) const {
     bool same = initialized == rhs.initialized;
     for (int i = 0; i < 3; ++i) {
@@ -260,7 +260,7 @@ struct block_ownership_t {
           same = same && (ownership[i][j][k] == rhs.ownership[i][j][k]);
         }
       }
-    } 
+    }
     return same;
   }
 
@@ -268,11 +268,10 @@ struct block_ownership_t {
   bool ownership[3][3][3];
 };
 
-
-
-struct NeighborLocation { 
-  LogicalLocation global_loc; // Global location of neighboring block 
-  LogicalLocation origin_loc; // Logical location of neighboring block in index space of origin block
+struct NeighborLocation {
+  LogicalLocation global_loc; // Global location of neighboring block
+  LogicalLocation
+      origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
 block_ownership_t
@@ -283,8 +282,8 @@ DetermineOwnership(const LogicalLocation &main_block,
 
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
-                   const std::vector<NeighborLocation> &allowed_neighbors,
-                   const std::unordered_set<LogicalLocation> &newly_refined = {});
+                         const std::vector<NeighborLocation> &allowed_neighbors,
+                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
 // defining the location of an index region within the block (i.e. the ghost zones passed

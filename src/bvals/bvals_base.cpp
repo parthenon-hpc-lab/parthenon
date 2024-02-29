@@ -97,8 +97,9 @@ void NeighborBlock::SetNeighbor(LogicalLocation inloc, int irank, int ilevel, in
   return;
 }
 
-NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) { 
-  int connect_indicator = std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);
+NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
+  int connect_indicator =
+      std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);
   NeighborConnect nc = NeighborConnect::none;
   if (connect_indicator == 1) {
     nc = NeighborConnect::face;
@@ -111,9 +112,9 @@ NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
 }
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                             std::array<int, 3> offsets, int fi1, int fi2) 
-                             : NeighborBlock(mesh, loc, rank, gid, 0, offsets, NCFromOffsets(offsets), 0, 0, fi1, fi2) 
-                             {}
+                             std::array<int, 3> offsets, int fi1, int fi2)
+    : NeighborBlock(mesh, loc, rank, gid, 0, offsets, NCFromOffsets(offsets), 0, 0, fi1,
+                    fi2) {}
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
                              std::array<int, 3> offsets, NeighborConnect type, int bid,
