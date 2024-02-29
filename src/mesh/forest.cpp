@@ -294,11 +294,13 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
             domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Left), dir);
         out.xmax(dir) =
             domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Right), dir);
-      } else { 
-        // Negative logical levels correspond to reduced block sizes covering the entire domain.
+      } else {
+        // Negative logical levels correspond to reduced block sizes covering the entire
+        // domain.
         auto reduction_fac = 1LL << (-loc.level());
         out.nx(dir) = domain.nx(dir) / reduction_fac;
-        PARTHENON_REQUIRE(out.nx(dir) % reduction_fac == 0, "Trying to go to too large of a negative level.");
+        PARTHENON_REQUIRE(out.nx(dir) % reduction_fac == 0,
+                          "Trying to go to too large of a negative level.");
       }
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
@@ -470,7 +472,7 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   Forest fout;
   for (auto &[loc, p] : ll_map)
     fout.trees.push_back(p.second);
-  printf("ll_map.size() = %i\n fout.trees.size() = %i fout.CountMeshBlock() = %i\n", 
+  printf("ll_map.size() = %i\n fout.trees.size() = %i fout.CountMeshBlock() = %i\n",
          ll_map.size(), fout.trees.size(), fout.CountMeshBlock());
   return fout;
 }

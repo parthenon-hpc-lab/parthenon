@@ -700,8 +700,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                       "New block lists aren't the same size.");
     for (int ib = 0; ib < new_loc_f.size(); ++ib) {
       if (forest.GetAthenaCompositeLocation(new_loc_f[ib]) != newloc[ib]) {
-        printf("bad location %s [%s != %s]\n", 
-               new_loc_f[ib].label().c_str(),
+        printf("bad location %s [%s != %s]\n", new_loc_f[ib].label().c_str(),
                forest.GetAthenaCompositeLocation(new_loc_f[ib]).label().c_str(),
                newloc[ib].label().c_str());
         PARTHENON_FAIL("Block lists disagree.");
@@ -974,9 +973,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // No buffers are different when we switch to the final precedence order.
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
                           0, newly_refined);
-    std::unordered_set<LogicalLocation> forest_newly_refined; 
-    for (auto & aloc : newly_refined) { 
-      forest_newly_refined.insert(forest.GetForestLocationFromAthenaCompositeLocation(aloc));
+    std::unordered_set<LogicalLocation> forest_newly_refined;
+    for (auto &aloc : newly_refined) {
+      forest_newly_refined.insert(
+          forest.GetForestLocationFromAthenaCompositeLocation(aloc));
     }
     SetForestNeighbors(block_list, nbs, forest_newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);

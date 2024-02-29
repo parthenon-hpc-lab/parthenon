@@ -96,7 +96,7 @@ inline uint IntegerLog2Ceil(uint in) {
   while (in_temp >>= 1) {
     log2++;
   }
-  uint pow = 1U << log2; 
+  uint pow = 1U << log2;
   return log2 + (pow != in);
 }
 

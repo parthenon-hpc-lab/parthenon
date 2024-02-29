@@ -75,8 +75,8 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
       // TODO(LFR): Get the rank here correctly
       int rank = 0;
-      auto f = loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1],
-                                               offsets[2]);
+      auto f =
+          loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
       all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0],
                                  f[1]);
 
