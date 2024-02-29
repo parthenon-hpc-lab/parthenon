@@ -50,10 +50,7 @@ struct RelativeOrientation {
   std::array<bool, 3> dir_flip;
 };
 
-struct NeighborLocation { 
-  LogicalLocation global_loc; // Global location of neighboring block 
-  LogicalLocation origin_loc; // Logical location of neighboring block in index space of origin block
-};
+
 
 
 // We don't allow for periodic boundaries, since we can encode periodicity through
@@ -81,10 +78,10 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // Methods for getting block properties
   std::vector<LogicalLocation> GetMeshBlockList() const;
   RegionSize GetBlockDomain(const LogicalLocation& loc) const;
-  std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
-                                           int ox3) const;
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const;
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1, int ox2, int ox3) const;
   
-  std::vector<LogicalLocation> IsNeighborLocation(const LogicalLocation &loc);
+  std::vector<LogicalLocation> GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc);
 
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
@@ -104,6 +101,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::uint64_t GetGid(const LogicalLocation &loc) const {return leaves.at(loc);}
 
  private: 
+  void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3, std::vector<NeighborLocation> *neighbor_locs) const;
+
   int ndim;
   const std::uint64_t my_id;
   std::unordered_map<LogicalLocation, std::uint64_t> leaves;
@@ -148,9 +147,13 @@ class Forest {
   RegionSize GetBlockDomain(const LogicalLocation &loc) const {
     return trees[loc.tree()]->GetBlockDomain(loc);
   }
-  std::vector<NeighborLocation> FindNeighbor(const LogicalLocation &loc, int ox1, int ox2,
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1, int ox2,
                                            int ox3) const {
-    return trees[loc.tree()]->FindNeighbor(loc, ox1, ox2, ox3);
+    return trees[loc.tree()]->FindNeighbors(loc, ox1, ox2, ox3);
+  }
+  
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
+    return trees[loc.tree()]->FindNeighbors(loc);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};

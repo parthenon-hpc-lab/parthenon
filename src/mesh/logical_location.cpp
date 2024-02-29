@@ -399,7 +399,7 @@ DetermineOwnership(const LogicalLocation &main_block,
 
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
-                   const std::unordered_map<LogicalLocation, LogicalLocation> &allowed_neighbors,
+                   const std::vector<NeighborLocation> &allowed_neighbors,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
@@ -425,9 +425,9 @@ DetermineOwnershipForest(const LogicalLocation &main_block,
     for (int ox2 : {-1, 0, 1}) {
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
-        for (auto & [n, n_in_local_index_space] : allowed_neighbors) {
-          if (ownership_less_than(main_block, n) &&
-              main_block.IsNeighborOfTEForest(n_in_local_index_space, {ox1, ox2, ox3})) {
+        for (const auto &n : allowed_neighbors) {
+          if (ownership_less_than(main_block, n.global_loc) &&
+              main_block.IsNeighborOfTEForest(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }

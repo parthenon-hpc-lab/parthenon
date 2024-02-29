@@ -109,6 +109,11 @@ struct SimpleNeighborBlock { // aggregate and POD
   int level;                 // refinement (logical, not physical) level of neighbor
   int lid;                   // local ID of neighbor
   int gid;                   // global ID of neighbor
+  bool operator==(const SimpleNeighborBlock& rhs) const { 
+    return (rank == rhs.rank) &&
+           (level == rhs.level) &&
+           (gid == rhs.gid);
+  }
 };
 
 //----------------------------------------------------------------------------------------
@@ -128,6 +133,14 @@ struct NeighborIndexes { // aggregate and POD
   //   - Aggregate type: supports aggregate initialization {}
   //   - POD type: safely copy objects via memcpy, no memory padding in the beginning of
   //     object, C portability, supports static initialization
+  bool operator==(const NeighborIndexes& rhs) const { 
+    return (ox1 == rhs.ox1) &&
+           (ox2 == rhs.ox2) &&
+           (ox3 == rhs.ox3) &&
+           (fi1 == rhs.fi1) &&
+           (fi2 == rhs.fi2) &&
+           (type == type);
+  }
 };
 
 //----------------------------------------------------------------------------------------
@@ -153,6 +166,8 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
                 std::array<int, 3> offsets, NeighborConnect type, int bid, int target_id,
                 int ifi1, int ifi2);
+  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, 
+                std::array<int, 3> offsets, int ifi1, int ifi2);
 };
 
 //----------------------------------------------------------------------------------------

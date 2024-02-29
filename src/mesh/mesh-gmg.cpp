@@ -56,46 +56,58 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs, const std::unord
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
+  printf("Calling set neighbors\n");
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors; 
-    std::unordered_map<LogicalLocation, LogicalLocation> neighbor_locs; 
-    // Find the unique neighbors 
-    for (int o = 0; o < offsets.size(); ++o) {
-      auto [ox1, ox2, ox3] = offsets(o);    
-      if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
-      auto neighbors = forest.FindNeighbor(pmb->loc, ox1, ox2, ox3);
-      for (auto &neigh : neighbors) {
-        neighbor_locs[neigh.global_loc] = neigh.origin_loc; 
-      }
-    }
+    auto neighbors = forest.FindNeighbors(pmb->loc); 
+    
+    // TODO (LFR): Remove the next three lines when done comparing to old results
+    std::unordered_set<LogicalLocation> old_possible_neighbor_set;
+    old_possible_neighbor_set.insert(pmb->loc);
+    for (auto &n : neighbors) old_possible_neighbor_set.insert(n.global_loc);
 
     // Build NeighborBlocks for unique neighbors 
-    for (auto &[nfloc, nlloc] : neighbor_locs) {
-      auto gid = forest.GetGid(nfloc);
-      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nlloc); 
-      // TODO (LFR): Get the rank and lid here correctly
+    for (const auto &nloc : neighbors) {
+      auto gid = forest.GetGid(nloc.global_loc);
+      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nloc.origin_loc); 
+      // TODO (LFR): Get the rank here correctly
       int rank = 0;
-      int lid = gid;
-      all_neighbors.emplace_back(
-                pmb->pmy_mesh, nfloc, rank, gid,
-                lid, offsets, NeighborConnect::edge, 0, 0, 0, 0); 
-    }
+      auto f = pmb->loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0], f[1]); 
 
+      // Set neighbor block ownership 
+      auto &nb = all_neighbors.back();
+      auto neighbor_neighbors = forest.FindNeighbors(nb.loc); 
+
+      // TODO (LFR): Remove the next six lines once done testing. This is only 
+      // to ensure compatibility with the old infrastructure which 
+      // didn't bother to set neighbor ownership correctly where it 
+      // is unused. 
+      std::vector<NeighborLocation> reduced_neighbor_neighbors;       
+      for (const auto &n : neighbor_neighbors) { 
+        if (old_possible_neighbor_set.count(n.global_loc)) { 
+          reduced_neighbor_neighbors.push_back(n);
+        }
+      }
+      nb.ownership = DetermineOwnershipForest(nb.loc, reduced_neighbor_neighbors, newly_refined);
+      nb.ownership.initialized = true;
+    }
+    
+    // TODO (LFR): Remove these checks
     // Just check that we agree for now
     PARTHENON_REQUIRE(all_neighbors.size() == pmb->neighbors.size(), "Didn't find the same number of neighbors.");
     for (auto &onb : pmb->neighbors) { 
       bool found = false;
       for (auto &nb : all_neighbors)
           if (nb.loc == onb.loc) {
-            PARTHENON_REQUIRE(nb.ni.ox1 == onb.ni.ox1, "Bad x1 offset relative to old neighbor finding");
-            PARTHENON_REQUIRE(nb.ni.ox2 == onb.ni.ox2, "Bad x2 offset relative to old neighbor finding");
-            PARTHENON_REQUIRE(nb.ni.ox3 == onb.ni.ox3, "Bad x3 offset relative to old neighbor finding");
-            PARTHENON_REQUIRE(nb.snb.gid == onb.snb.gid, "Old neighbor finding and new neighbor finding gids don't agree.");
+            PARTHENON_REQUIRE(nb.ni == onb.ni, "Bad neighbor indices relative to old neighbor finding");
+            PARTHENON_REQUIRE(nb.snb == onb.snb, "Old neighbor finding and new neighbor finding simple neighbor blocks don't agree.");
+            PARTHENON_REQUIRE(nb.ownership == onb.ownership, "Old neighbor finding and new neighbor finding ownership don't agree.");
             found = true;
           }
       PARTHENON_REQUIRE(found, "Neighbor lists don't agree.");
     }
-    // TODO (LFR): Set ownership
+    
 
     // TODO (LFR): Update the neighbor list here 
 

@@ -39,7 +39,7 @@ struct mesh_t {
         for (auto &n : neighbors) {
           auto orient =
               RelativeOrientationFromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
-          zone->tree->AddNeighbor(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
+          zone->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, orient);
         }
       }
     }

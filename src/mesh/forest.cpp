@@ -165,11 +165,33 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   return nadded;
 }
 
-std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int ox1,
-                                               int ox2, int ox3) const {
+std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc) const {
+  const Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
+                          {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
+                          {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0}); 
+  std::vector<NeighborLocation> neighbor_locs; 
+  for (int o = 0; o < offsets.size(); ++o) {
+    auto [ox1, ox2, ox3] = offsets(o); 
+    if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
+    FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs);
+  }
+
+  
+  const int clev = loc.level() - 1; 
+  
+  
+  return neighbor_locs;
+}
+
+std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc, int ox1, int ox2, int ox3) const {
+  std::vector<NeighborLocation> neighbor_locs; 
+  FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs);
+  return neighbor_locs;
+}
+
+void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3, std::vector<NeighborLocation> *neighbor_locs) const {
   PARTHENON_REQUIRE(loc.tree() == my_id, "Trying to find neighbors in a tree with a LogicalLocation on a different tree.");
   PARTHENON_REQUIRE(leaves.count(loc) == 1, "Location must be a leaf to find neighbors.");
-  std::vector<NeighborLocation> neighbor_locs;
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
   int n_idx = neigh.NeighborTreeIndex();
   for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
@@ -177,18 +199,23 @@ std::vector<NeighborLocation> Tree::FindNeighbor(const LogicalLocation &loc, int
     auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
     PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc, "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh)) {
-      neighbor_locs.push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
+      neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
       for (auto &n : daughters) {
         if (tloc.IsNeighborForest(n))
-          neighbor_locs.push_back({n, orientation.TransformBack(n, GetId())});
+          neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent())) {
-      neighbor_locs.push_back({tneigh.GetParent(), orientation.TransformBack(tneigh.GetParent(), GetId())});
+      auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());
+      // Since coarser neighbors can cover multiple elements of the origin block and because our 
+      // communication algorithm packs this extra data by hand, we do not wish to duplicate coarser 
+      // blocks in the neighbor list. Therefore, we only include the coarse block in one offset position  
+      auto sl_offset = loc.GetSameLevelOffsetsForest(neighp);
+      if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
+          neighbor_locs->push_back({tneigh.GetParent(), neighp});
     }
   }
-  return neighbor_locs;
 }
 
 int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
@@ -260,7 +287,11 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation& loc) const {
   return out;
 }
 
-std::vector<LogicalLocation> Tree::IsNeighborLocation(const LogicalLocation &loc) {
+// TODO (LFR): Maybe remove this along with tid_to_connection_set and tid_to_tree_sptr. Originally I 
+// I thought it was useful for setting neighbor ownership, but I found a cleaner way by just searching 
+// for neighbors. 
+std::vector<LogicalLocation> Tree::GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc) {
+  PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   // Transform a location on a possibly neighboring tree to all of its 
   // halo positions on this tree
   std::vector<LogicalLocation> locs{};

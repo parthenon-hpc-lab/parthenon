@@ -251,9 +251,28 @@ struct block_ownership_t {
   }
 
   bool initialized;
+  
+  bool operator==(const block_ownership_t &rhs) const {
+    bool same = initialized == rhs.initialized;
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          same = same && (ownership[i][j][k] == rhs.ownership[i][j][k]);
+        }
+      }
+    } 
+    return same;
+  }
 
  private:
   bool ownership[3][3][3];
+};
+
+
+
+struct NeighborLocation { 
+  LogicalLocation global_loc; // Global location of neighboring block 
+  LogicalLocation origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
 block_ownership_t
@@ -264,7 +283,7 @@ DetermineOwnership(const LogicalLocation &main_block,
 
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
-                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
+                   const std::vector<NeighborLocation> &allowed_neighbors,
                    const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
