@@ -170,12 +170,15 @@ class Variable {
   /// (Metadata::FillGhost is set)
   void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
 
-  VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
+  VariableState MakeVariableState() const {
+    return VariableState(m_, sparse_id_, pmb_gid_, dims_);
+  }
 
   Metadata m_;
   const std::string base_name_;
   const int sparse_id_;
   const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
+  int pmb_gid_;
 
   // Machinery for giving each variable a unique ID that is faster to
   // evaluate than a string. Safe so long as the number of MPI ranks

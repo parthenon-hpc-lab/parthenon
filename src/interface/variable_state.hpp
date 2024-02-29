@@ -29,7 +29,7 @@ static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
 
 struct VariableState : public empty_state_t {
   explicit VariableState(
-      const Metadata &md, int sparse_id = InvalidSparseID,
+      const Metadata &md, int sparse_id = InvalidSparseID, int pmb_gid = -1,
       const std::array<int, MAX_VARIABLE_DIMENSION> &dims = [] {
         std::array<int, MAX_VARIABLE_DIMENSION> d;
         for (int i = 0; i < MAX_VARIABLE_DIMENSION; ++i)
@@ -39,26 +39,27 @@ struct VariableState : public empty_state_t {
 
   KOKKOS_INLINE_FUNCTION
   VariableState(Real alloc, Real dealloc, Real sparse_default_val = 0.0,
-                int sparse_id = InvalidSparseID)
+                int sparse_id = InvalidSparseID, int pmb_gid = -1)
       : allocation_threshold(alloc), deallocation_threshold(dealloc),
-        sparse_default_val(sparse_default_val), sparse_id(sparse_id) {}
+        sparse_default_val(sparse_default_val), sparse_id(sparse_id), pmb_gid(pmb_gid) {}
 
   KOKKOS_INLINE_FUNCTION
-  VariableState(Real alloc, Real dealloc, int sparse_id)
+  VariableState(Real alloc, Real dealloc, int sparse_id, int pmb_gid)
       : allocation_threshold(alloc), deallocation_threshold(dealloc),
-        sparse_default_val(0.0), sparse_id(sparse_id) {}
+        sparse_default_val(0.0), sparse_id(sparse_id), pmb_gid(pmb_gid) {}
 
   KOKKOS_DEFAULTED_FUNCTION
   VariableState() = default;
 
   KOKKOS_INLINE_FUNCTION
   explicit VariableState(const empty_state_t &)
-      : VariableState(0.0, 0.0, 0.0, InvalidSparseID) {}
+      : VariableState(0.0, 0.0, 0.0, InvalidSparseID, -1) {}
 
   Real allocation_threshold;
   Real deallocation_threshold;
   Real sparse_default_val;
   int sparse_id;
+  int pmb_gid;
   int vector_component = NODIR;
   bool initialized = true;
 

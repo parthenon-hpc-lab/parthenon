@@ -16,12 +16,13 @@
 
 namespace parthenon {
 
-VariableState::VariableState(const Metadata &md, int sparse_id,
+VariableState::VariableState(const Metadata &md, int sparse_id, int pmb_gid,
                              const std::array<int, MAX_VARIABLE_DIMENSION> &dims) {
   allocation_threshold = md.GetAllocationThreshold();
   deallocation_threshold = md.GetDeallocationThreshold();
   sparse_default_val = md.GetDefaultValue();
   this->sparse_id = sparse_id;
+  this->pmb_gid = pmb_gid;
 
   tensor_shape[0] = dims[3];
   tensor_shape[1] = dims[4];

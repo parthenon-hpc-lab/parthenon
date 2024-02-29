@@ -39,6 +39,8 @@ Variable<T>::Variable(const std::string &base_name, const Metadata &metadata,
                            "Mismatch between sparse flag and sparse ID");
   uid_ = get_uid_(label());
 
+  pmb_gid_ = wpmb.lock().get()->gid;
+
   if (m_.getAssociated() == "") {
     m_.Associate(label());
   }
