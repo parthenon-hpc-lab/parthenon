@@ -384,8 +384,9 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
 
   printf("ntree = {%i, %i, %i}\n", ntree[0], ntree[1], ntree[2]);
 
-  auto ref_level = IntegerLog2(max_common_power2_divisor);
-  auto level = IntegerLog2(max_ntree);
+  auto ref_level = IntegerLog2Floor(max_common_power2_divisor);
+  auto level = IntegerLog2Ceil(max_ntree);
+  printf("level = %i ref_level = %i\n", level, ref_level);
 
   // Create the trees and the tree logical locations in the forest (which
   // works here since we assume the trees are layed out as a hyper rectangle)
@@ -469,7 +470,8 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   Forest fout;
   for (auto &[loc, p] : ll_map)
     fout.trees.push_back(p.second);
-
+  printf("ll_map.size() = %i\n fout.trees.size() = %i fout.CountMeshBlock() = %i\n", 
+         ll_map.size(), fout.trees.size(), fout.CountMeshBlock());
   return fout;
 }
 
