@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -45,11 +45,11 @@ using Real = double;
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 enum class BlockLocation { Left = 0, Center = 1, Right = 2 };
-enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
+enum class TaskStatus { complete, incomplete, iterate };
 
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
-
+enum class CellLevel : int { coarse = -1, same = 0, fine = 1 };
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
 constexpr int NUM_BNDRY_TYPES = 10;
@@ -152,16 +152,17 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
   if (tt == TT::Face) return {TE::F1, TE::F2, TE::F3};
   return {TE::CC};
 }
+
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
+inline constexpr int TopologicalOffsetI(TE el) {
   return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
+inline constexpr int TopologicalOffsetJ(TE el) {
   return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
+inline constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 

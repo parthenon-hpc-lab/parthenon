@@ -113,12 +113,19 @@ several useful features and functions.
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
 - ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
-  &tm)`` performs a per-package, mesh-wide calculation after the mesh
-  has been generated, and problem generators called, but before any
-  time evolution. This work is done both on first initialization and
-  on restart. If you would like to avoid doing the work upon restart,
-  you can check for the const ``is_restart`` member field of the ``Mesh``
-  object.
+  &tm)`` performs a per-package, mesh-wide calculation after (1) the mesh
+  has been generated, (2) problem generators are called, and (3) comms
+  are executed, but before any time evolution. This work is done both on
+  first initialization and on restart. If you would like to avoid doing the
+  work upon restart, you can check for the const ``is_restart`` member
+  field of the ``Mesh`` object.  It is worth making a clear distinction
+  between ``UserWorkBeforeLoopMesh`` and ``ApplicationInput``s
+  ``PostInitialization``.  ``PostInitialization`` is very much so tied to
+  initialization, and will not be called upon restarts.  ``PostInitialization``
+  is also carefully positioned after ``ProblemGenerator`` and before
+  ``PreCommFillDerived`` (and hence communications).  In practice, when
+  additional granularity is required inbetween initialization and communication,
+  ``PostInitialization`` may be the desired hook.
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and

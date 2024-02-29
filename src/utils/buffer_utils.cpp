@@ -44,7 +44,7 @@ void PackData(ParArray4D<T> &src, BufArray1D<T> &buf, int sn, int en, int si, in
   const int nn = en + 1 - sn;
 
   pmb->par_for(
-      "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      PARTHENON_AUTO_LABEL, sn, en, sk, ek, sj, ej, si, ei,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
             src(n, k, j, i);
@@ -62,7 +62,7 @@ void PackZero(BufArray1D<T> &buf, int sn, int en, int si, int ei, int sj, int ej
   const int nn = en + 1 - sn;
 
   pmb->par_for(
-      "PackZero 4D", sn, en, sk, ek, sj, ej, si, ei,
+      PARTHENON_AUTO_LABEL, sn, en, sk, ek, sj, ej, si, ei,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) = 0.0;
       });
@@ -84,7 +84,7 @@ void PackData(ParArray3D<T> &src, BufArray1D<T> &buf, int si, int ei, int sj, in
   const int nk = ek + 1 - sk;
 
   pmb->par_for(
-      "PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+      PARTHENON_AUTO_LABEL, sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
         buf(offset + i - si + ni * (j - sj + nj * (k - sk))) = src(k, j, i);
       });
 
@@ -107,7 +107,7 @@ void UnpackData(BufArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
   const int nn = en + 1 - sn;
 
   pmb->par_for(
-      "UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      PARTHENON_AUTO_LABEL, sn, en, sk, ek, sj, ej, si, ei,
       KOKKOS_LAMBDA(int n, int k, int j, int i) {
         dst(n, k, j, i) =
             buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn))));
@@ -131,7 +131,7 @@ void UnpackData(BufArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, 
   const int nk = ek + 1 - sk;
 
   pmb->par_for(
-      "UnpackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+      PARTHENON_AUTO_LABEL, sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
         dst(k, j, i) = buf(offset + i - si + ni * (j - sj + nj * (k - sk)));
       });
 

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -114,6 +114,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     // Only set default block pgen when no mesh pgen is set
   } else if (app_in->MeshProblemGenerator == nullptr) {
     ProblemGenerator = &ProblemGeneratorDefault;
+  }
+  if (app_in->PostInitialization != nullptr) {
+    PostInitialization = app_in->PostInitialization;
+    // Only set default post-init when no mesh post-init is set
+  } else if (app_in->MeshPostInitialization == nullptr) {
+    PostInitialization = &PostInitializationDefault;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
