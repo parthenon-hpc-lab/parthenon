@@ -84,7 +84,7 @@ class LogicalLocation { // aggregate and POD type
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   std::string label() const {
-    return "(" + std::to_string(level_) + ": " + std::to_string(l_[0]) + ", " +
+    return "([" + std::to_string(tree_idx_) + "] " + std::to_string(level_) + ": " + std::to_string(l_[0]) + ", " +
            std::to_string(l_[1]) + ", " + std::to_string(l_[2]) + ")";
   }
   const auto &l(int i) const { return l_[i]; }
