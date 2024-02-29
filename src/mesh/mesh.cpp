@@ -631,6 +631,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);
+    forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(loclist[i]), false);
   }
 
   int nnb;
