@@ -104,6 +104,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   std::uint64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc); }
 
+  // TODO(LFR): Eventually remove this. 
+  LogicalLocation athena_forest_loc;
+
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
                          std::vector<NeighborLocation> *neighbor_locs) const;
@@ -166,6 +169,31 @@ class Forest {
     for (auto &tree : trees)
       count += tree->CountMeshBlock();
     return count;
+  }
+  
+  // TODO(LFR): Probably eventually remove this. This is only meaningful for simply oriented grids
+  LogicalLocation GetAthenaCompositeLocation(const LogicalLocation& loc) { 
+    auto parent_loc = trees[loc.tree()]->athena_forest_loc; 
+    int composite_level = parent_loc.level() + loc.level();
+    int lx1 = (parent_loc.lx1() << loc.level()) + loc.lx1();
+    int lx2 = (parent_loc.lx2() << loc.level()) + loc.lx2();
+    int lx3 = (parent_loc.lx3() << loc.level()) + loc.lx3();
+    return LogicalLocation(composite_level, lx1, lx2, lx3);
+  }
+
+  LogicalLocation GetForestLocationFromAthenaCompositeLocation(const LogicalLocation& loc) { 
+    int macro_level = trees[0]->athena_forest_loc.level(); 
+    auto forest_loc = loc.GetParent(loc.level() - macro_level);
+    for (auto &t : trees) { 
+      if (t->athena_forest_loc == forest_loc) { 
+        return LogicalLocation(t->GetId(), loc.level() - macro_level, 
+                               loc.lx1() - (forest_loc.lx1() << (loc.level() - macro_level)),
+                               loc.lx2() - (forest_loc.lx2() << (loc.level() - macro_level)),
+                               loc.lx3() - (forest_loc.lx3() << (loc.level() - macro_level)));
+      }
+    }
+    PARTHENON_FAIL("Somehow didn't find a tree.");
+    return LogicalLocation();
   }
 
   std::size_t CountTrees() const { return trees.size(); }

@@ -422,7 +422,8 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   // Initialize the trees in macro-morton order
   std::int64_t tid{0};
   for (auto &[loc, p] : ll_map) {
-    p.second = Tree::create(tid, ndim, ref_level, p.first);
+    p.second = Tree::create(tid++, ndim, ref_level, p.first);
+    p.second->athena_forest_loc = loc;
   }
 
   // Connect the trees to each other
