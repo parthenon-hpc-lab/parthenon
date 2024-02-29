@@ -612,7 +612,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < tnref; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
     bt->Refine(nnew);
-    nnew_f += forest.Refine(lref[n]);
+    auto flref = forest.GetForestLocationFromAthenaCompositeLocation(lref[n]);
+    nnew_f += forest.Refine(flref);
   }
   if (tnref != 0) delete[] lref;
 
@@ -620,7 +621,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < ctnd; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
     bt->Derefine(ndel);
-    ndel_f += forest.Derefine(clderef[n]);
+    auto fclderef = forest.GetForestLocationFromAthenaCompositeLocation(clderef[n]);
+    ndel_f += forest.Derefine(fclderef);
   }
   printf("old: (%i, %i) new:(%i, %i)\n", nnew, ndel, nnew_f, ndel_f);
   int tcount{0};
@@ -699,8 +701,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_REQUIRE(nbtotal == new_loc_f.size(),
                       "New block lists aren't the same size.");
     for (int ib = 0; ib < new_loc_f.size(); ++ib) {
-      if (new_loc_f[ib] != newloc[ib]) {
-        printf("bad location [%s != %s]\n", new_loc_f[ib].label().c_str(),
+      if (forest.GetAthenaCompositeLocation(new_loc_f[ib]) != newloc[ib]) {
+        printf("bad location %s [%s != %s]\n", 
+               new_loc_f[ib].label().c_str(),
+               forest.GetAthenaCompositeLocation(new_loc_f[ib]).label().c_str(),
                newloc[ib].label().c_str());
         PARTHENON_FAIL("Block lists disagree.");
       }
