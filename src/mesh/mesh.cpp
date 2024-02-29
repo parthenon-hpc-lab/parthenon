@@ -363,17 +363,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initial mesh hierarchy construction is completed here
   tree.CountMeshBlock(nbtotal);
   // TODO(LFR): Remove this when done testing
-  printf("Block number old = %i new = %i (ntrees = %i)\n", nbtotal,
-         forest.CountMeshBlock(), forest.CountTrees());
   PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(),
                     "Old and new tree block numbers don't agree.");
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
   auto blist = forest.GetMeshBlockListAndResolveGids();
   for (int ib = 0; ib < blist.size(); ++ib) {
-    if (blist[ib] != loclist[ib])
-      printf("bad location [%s != %s]\n", blist[ib].label().c_str(),
+    if (forest.GetAthenaCompositeLocation(blist[ib]) != loclist[ib]) {
+      printf("bad location %s [%s != %s]\n", blist[ib].label().c_str(),
+             forest.GetAthenaCompositeLocation(blist[ib]).label().c_str(),
              loclist[ib].label().c_str());
+      PARTHENON_FAIL("Bad bad bad");
+    }
   }
 
 #ifdef MPI_PARALLEL
