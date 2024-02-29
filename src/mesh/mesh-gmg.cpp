@@ -60,21 +60,22 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
   printf("Calling set neighbors\n");
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
-    auto neighbors = forest.FindNeighbors(pmb->loc);
+    auto loc = forest.GetForestLocationFromAthenaCompositeLocation(pmb->loc);
+    auto neighbors = forest.FindNeighbors(loc);
 
     // TODO(LFR): Remove the next three lines when done comparing to old results
     std::unordered_set<LogicalLocation> old_possible_neighbor_set;
-    old_possible_neighbor_set.insert(pmb->loc);
+    old_possible_neighbor_set.insert(loc);
     for (auto &n : neighbors)
       old_possible_neighbor_set.insert(n.global_loc);
 
     // Build NeighborBlocks for unique neighbors
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
-      auto offsets = pmb->loc.GetSameLevelOffsetsForest(nloc.origin_loc);
+      auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
       // TODO(LFR): Get the rank here correctly
       int rank = 0;
-      auto f = pmb->loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1],
+      auto f = loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1],
                                                offsets[2]);
       all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0],
                                  f[1]);
@@ -105,7 +106,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
     for (auto &onb : pmb->neighbors) {
       bool found = false;
       for (auto &nb : all_neighbors)
-        if (nb.loc == onb.loc) {
+        if (forest.GetAthenaCompositeLocation(nb.loc) == onb.loc) {
           PARTHENON_REQUIRE(nb.ni == onb.ni,
                             "Bad neighbor indices relative to old neighbor finding");
           PARTHENON_REQUIRE(nb.snb == onb.snb,
