@@ -65,7 +65,10 @@ class Tree : public std::enable_shared_from_this<Tree> {
   static std::shared_ptr<Tree> create(Ts &&...args) {
     auto ptree = std::make_shared<Tree>(private_t(), std::forward<Ts>(args)...);
     // Make the tree its own central neighbor to reduce code duplication
-    ptree->neighbors[13].insert({ptree, RelativeOrientation()});
+    RelativeOrientation orient;
+    orient.use_offset = true;
+    orient.offset = {0, 0, 0};
+    ptree->neighbors[13].insert({ptree, orient});
     return ptree;
   }
 
