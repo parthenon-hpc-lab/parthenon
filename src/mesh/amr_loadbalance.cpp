@@ -624,10 +624,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     auto fclderef = forest.GetForestLocationFromAthenaCompositeLocation(clderef[n]);
     ndel_f += forest.Derefine(fclderef);
   }
-  printf("old: (%i, %i) new:(%i, %i)\n", nnew, ndel, nnew_f, ndel_f);
   int tcount{0};
   tree.CountMeshBlock(tcount);
-  printf("block num old: %i new: %i\n", tcount, forest.CountMeshBlock());
   PARTHENON_REQUIRE(ndel == ndel_f, "Different change in blocks. (Add)");
   PARTHENON_REQUIRE(nnew == nnew_f, "Different change in blocks. (Delete)");
 
