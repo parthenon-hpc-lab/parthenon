@@ -1207,6 +1207,9 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 //        logical location loc
 
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
+  // TODO(LFR): Update this 
+  if (loc.tree() >= 0) // Implies this is a location in a forest, not in the old Athena tree 
+    return forest.GetBlockDomain(loc);
   RegionSize block_size = GetBlockSize();
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);

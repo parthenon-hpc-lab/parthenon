@@ -289,11 +289,17 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!domain.symmetry(dir)) {
-      int n = 1 << loc.level();
-      out.xmin(dir) =
-          domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Left), dir);
-      out.xmax(dir) =
-          domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Right), dir);
+      if (loc.level() >= 0) {
+        out.xmin(dir) =
+            domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Left), dir);
+        out.xmax(dir) =
+            domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Right), dir);
+      } else { 
+        // Negative logical levels correspond to reduced block sizes covering the entire domain.
+        auto reduction_fac = 1LL << (-loc.level());
+        out.nx(dir) = domain.nx(dir) / reduction_fac;
+        PARTHENON_REQUIRE(out.nx(dir) % reduction_fac == 0, "Trying to go to too large of a negative level.");
+      }
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
     // tree in that direction.
