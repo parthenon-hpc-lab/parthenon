@@ -57,7 +57,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
-  printf("Calling set neighbors\n");
+
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
     auto loc = forest.GetForestLocationFromAthenaCompositeLocation(pmb->loc);
@@ -106,10 +106,13 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
     for (auto &onb : pmb->neighbors) {
       bool found = false;
       for (auto &nb : all_neighbors)
-        if (forest.GetAthenaCompositeLocation(nb.loc) == onb.loc) {
+        // Need to check location and offset since neighbors can show up multiple times
+        // in periodic domains
+        if (forest.GetAthenaCompositeLocation(nb.loc) == onb.loc && nb.ni == onb.ni) {
           PARTHENON_REQUIRE(nb.ni == onb.ni,
                             "Bad neighbor indices relative to old neighbor finding");
-          PARTHENON_REQUIRE(nb.snb == onb.snb,
+          // The rest of snb is not going to be the same
+          PARTHENON_REQUIRE(nb.snb.gid == onb.snb.gid,
                             "Old neighbor finding and new neighbor finding simple "
                             "neighbor blocks don't agree.");
           PARTHENON_REQUIRE(

@@ -976,7 +976,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // No buffers are different when we switch to the final precedence order.
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
                           0, newly_refined);
-    SetForestNeighbors(block_list, nbs, newly_refined);
+    std::unordered_set<LogicalLocation> forest_newly_refined; 
+    for (auto & aloc : newly_refined) { 
+      forest_newly_refined.insert(forest.GetForestLocationFromAthenaCompositeLocation(aloc));
+    }
+    SetForestNeighbors(block_list, nbs, forest_newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
 
