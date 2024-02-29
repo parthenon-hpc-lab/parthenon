@@ -248,7 +248,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new AscentOutput(op);
       } else if (op.file_type == "openpmd") {
 #ifdef PARTHENON_ENABLE_OPENPMD
-        pnew_type = new OpenPMDOutput(op, pin);
+        pnew_type = new OpenPMDOutput(op);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
