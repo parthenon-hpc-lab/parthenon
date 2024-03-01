@@ -54,9 +54,6 @@
 // define PARTHENON_ENABLE_ASCENT or not at all
 #cmakedefine PARTHENON_ENABLE_ASCENT
 
-// define PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
-#cmakedefine PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
-
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout

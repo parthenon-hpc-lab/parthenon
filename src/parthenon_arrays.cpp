@@ -28,19 +28,3 @@ PARTHENON_ARRAY_SPEC(Real);
 #undef PARTHENON_ARRAY_SPEC
 
 } // namespace parthenon
-
-#ifdef PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
-namespace Kokkos {
-// the most common ones
-#define PARTHENON_VIEW_TYPE_INSTANTIATION(T)                                             \
-  template class View<T *, parthenon::LayoutWrapper, parthenon::DevMemSpace>;            \
-  template class View<T **, parthenon::LayoutWrapper, parthenon::DevMemSpace>;           \
-  template class View<T ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;          \
-  template class View<parthenon::multi_pointer_t<T, parthenon::MAX_VARIABLE_DIMENSION>,  \
-                      parthenon::LayoutWrapper, parthenon::DevMemSpace>
-
-PARTHENON_VIEW_TYPE_INSTANTIATION(parthenon::Real);
-
-#undef PARTHENON_VIEW_TYPE_INSTANTIATION
-} // namespace Kokkos
-#endif // PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS

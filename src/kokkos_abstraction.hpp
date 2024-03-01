@@ -973,22 +973,4 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
 
 } // namespace parthenon
 
-#ifdef PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
-namespace Kokkos {
-
-// the most common ones
-#define PARTHENON_VIEW_TYPE_DECLARATION(T)                                               \
-  extern template class View<T *, parthenon::LayoutWrapper, parthenon::DevMemSpace>;     \
-  extern template class View<T **, parthenon::LayoutWrapper, parthenon::DevMemSpace>;    \
-  extern template class View<T ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;   \
-  extern template class View<                                                            \
-      parthenon::multi_pointer_t<T, parthenon::MAX_VARIABLE_DIMENSION>,                  \
-      parthenon::LayoutWrapper, parthenon::DevMemSpace>
-
-PARTHENON_VIEW_TYPE_DECLARATION(parthenon::Real);
-
-#undef PARTHENON_VIEW_TYPE_DECLARATION
-} // namespace Kokkos
-#endif // PARTHENON_PRE_INSTANTIATE_KOKKOS_VIEWS
-
 #endif // KOKKOS_ABSTRACTION_HPP_
