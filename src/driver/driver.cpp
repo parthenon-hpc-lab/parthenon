@@ -170,6 +170,10 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   if(num_partitions != 1) PARTHENON_FAIL("num_partitions != 1");
   #endif
 
+  #ifdef ENABLE_MM_LOG_TIME
+    logger::global_logger->start_timer_build_comm();
+  #endif
+
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
@@ -179,6 +183,10 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
     pmesh->neigh_token.build_neigh_comm(MPI_COMM_WORLD);
     //pmesh->neigh_token.print_neigh();
+  #endif
+
+  #ifdef ENABLE_MM_LOG_TIME
+    logger::global_logger->end_timer_build_comm();
   #endif
 }
 

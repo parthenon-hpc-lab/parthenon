@@ -39,9 +39,12 @@
 #include "utils/utils.hpp"
 #include "utils/mm_logger.hpp"
 
-#ifdef ENABLE_MM_LOGGER
+#if defined(ENABLE_MM_LOGGER)
 std::shared_ptr<logger::My_Logger> logger::global_logger = std::make_shared<logger::My_Logger>() ; // Moraru
+#elif defined(ENABLE_MM_LOG_TIME)
+std::shared_ptr<logger::My_Logger> logger::global_logger = std::make_shared<logger::My_Logger>(true) ; // Moraru
 #endif
+
 
 namespace parthenon {
 
@@ -70,7 +73,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     return ParthenonStatus::error;
   }
 
-  #ifdef ENABLE_MM_LOGGER
+  #if defined(ENABLE_MM_LOGGER) && defined(ENABLE_MM_LOG_TIME)
+  PARTHENON_FAIL("LOGGER and LOG_TIME can not be used simultaneously"); // Moraru
+  #endif 
+
+  #if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
   logger::global_logger->init_logger(Globals::my_rank); // Moraru
   #endif
   

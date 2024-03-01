@@ -96,12 +96,6 @@ namespace neigh_comm{
              */
             void alloc_comm_buffers(){
                 if(building_token_on){
-                    /*if(send_comm_buffer.extent(0) < total_buf_size)
-                        new(&send_comm_buffer) Kokkos::View<parthenon::Real*>("send_comm_buffer", total_buf_size);
-
-                    if(recv_comm_buffer.extent(0) < total_buf_size)
-                        new(&recv_comm_buffer) Kokkos::View<parthenon::Real*>("recv_comm_buffer", total_buf_size);*/
-
                     if(send_comm_buffer.extent(0) < total_buf_size)
                         realloc(send_comm_buffer, total_buf_size);
 
@@ -119,14 +113,15 @@ namespace neigh_comm{
             }
             
             /*
-             * end_data_exchange_neigh_alltoallv()
+             * test_data_exchange_neigh_alltoallv()
              */
-            bool end_data_exchange_neigh_alltoallv(){
+            bool test_data_exchange_neigh_alltoallv(){
                 int flag = 0;
                 //if(neigh_request)
-                //MPI_Test(&neigh_request,&flag, MPI_STATUS_IGNORE);
-                MPI_Wait(&neigh_request, MPI_STATUS_IGNORE);
-                return true;
+                MPI_Test(&neigh_request, &flag, MPI_STATUS_IGNORE);
+                //MPI_Wait(&neigh_request, MPI_STATUS_IGNORE);
+                //return true;
+                return flag;
             }
 
         public:

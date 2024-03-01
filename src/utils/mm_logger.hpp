@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 //#define ENABLE_MM_LOGGER
-
+#define ENABLE_MM_LOG_TIME
 namespace logger{
     
     // COMM_TYPE
@@ -21,25 +21,70 @@ namespace logger{
         public:
             My_Logger(): filename("mm_logger.log"), is_init(false), time_recv_bound_bufs(0),\
                         time_send_bound_bufs(0), time_recv_flux_corr(0), time_send_flux_corr(0),\
-                        time_token_creation(0), token_id(0)  {
+                        time_token_creation(0), token_id(0), print_only(false), log_times(false), rank(-1)  {
                 const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
                 if(env_filename != NULL) filename = env_filename;
                 _start_timer(total_exec_time);
             }
 
+            #ifdef ENABLE_MM_LOG_TIME
+            /* Only used for logging time info */
+            My_Logger(bool _print_only): filename("mm_logger.log"), is_init(false), time_recv_bound_bufs(0),\
+                        time_send_bound_bufs(0), time_recv_flux_corr(0), time_send_flux_corr(0),\
+                        time_token_creation(0), token_id(0), print_only(_print_only), log_times(true),\
+                        log_time_sends(0), log_time_recvs(0), log_time_build_comm(0), rank(-1)   {
+                const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
+                if(!print_only && env_filename != NULL) filename = env_filename;
+                _start_timer(total_exec_time);
+            }
+
+            /* Sends */
+            void start_timer_sends(){_start_timer(log_time_sends);}
+            void end_timer_sends(){_end_timer(log_time_sends);}
+
+            /* Recv */
+            void start_timer_recvs(){_start_timer(log_time_recvs);}
+            void end_timer_recvs(){_end_timer(log_time_recvs);}
+
+            /* Build communicaiton token */
+            void start_timer_build_comm(){_start_timer(log_time_build_comm);}
+            void end_timer_build_comm(){_end_timer(log_time_build_comm);}
+
+            #endif
+
             ~My_Logger() { 
                 if(is_init){
                     _end_timer(total_exec_time);
-                    log_stream<<"#END:"<<total_exec_time<<std::endl;
-                    log_file << log_stream.rdbuf();
-                    log_file.close();
+                    #ifdef ENABLE_MM_LOG_TIME
+                    double compute_time = total_exec_time - log_time_recvs - log_time_sends - log_time_build_comm;
+                    #endif 
+                    if(!print_only){
+                        log_stream<<"#END:"<<total_exec_time<<std::endl;
+                        #ifdef ENABLE_MM_LOG_TIME
+                        log_stream<<"# RANK "<<rank<<" t_exec_time="<<total_exec_time
+                        << " sends="<<log_time_sends<<" recvs="<<log_time_recvs
+                        <<" comm_build="<<log_time_build_comm<<" compute="<<compute_time<<std::endl;
+                        #endif
+                        log_file << log_stream.rdbuf();
+                        log_file.close();
+                    }
+                    #ifdef ENABLE_MM_LOG_TIME
+                    else{
+                        std::cout<<"# RANK "<<rank<<" t_exec_time="<<total_exec_time
+                        << " sends="<<log_time_sends<<" recvs="<<log_time_recvs
+                        <<" comm_build="<<log_time_build_comm<<" compute="<<compute_time<<std::endl;
+                    }
+                    #endif
                 }
             }
 
-            void init_logger( const int & rank){
+            void init_logger( const int & _rank){
                 if(!is_init){
-                    filename = filename + "_" + std::to_string(rank);
-                    log_file.open(filename);
+                    rank = _rank;
+                    if(!print_only){
+                        filename = filename + "_" + std::to_string(rank);
+                        log_file.open(filename);
+                    }
                     is_init=true;
                 }
             }
@@ -92,6 +137,12 @@ namespace logger{
 
         private:
             bool is_init;
+            bool print_only; // used only when ENABLE_MM_LOG_TIME is on
+            bool log_times;  // used only when ENABLE_MM_LOG_TIME is on
+            double log_time_sends;
+            double log_time_recvs;
+            double log_time_build_comm;
+
             std::string filename;
             std::stringstream log_stream;
             std::ofstream log_file;
@@ -105,10 +156,12 @@ namespace logger{
             double total_exec_time;
             int token_id;
 
+            int rank;
+
             void _start_timer(double & t){t -= MPI_Wtime();}
             void _end_timer(double & t){t += MPI_Wtime();}
     };
-    #ifdef ENABLE_MM_LOGGER
+    #if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
     extern std::shared_ptr<My_Logger> global_logger;
     #endif
 }

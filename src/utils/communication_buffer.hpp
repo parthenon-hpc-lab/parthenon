@@ -342,8 +342,8 @@ bool CommBuffer<T>::TryReceive(const logger::COMM_TYPE & prof_comm_type) noexcep
       *comm_type_ == BuffCommType::sparse_receiver) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
-                      "MPI probably hanging after 1e8 receive tries.");
+    /*PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
+                      "MPI probably hanging after 1e8 receive tries.");*/
 
     TryStartReceive();
 

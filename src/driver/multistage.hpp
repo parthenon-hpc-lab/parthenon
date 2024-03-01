@@ -41,14 +41,17 @@ class MultiStageDriverGeneric : public EvolutionDriver {
     using DriverUtils::ConstructAndExecuteTaskLists;
     TaskListStatus status;
     integrator->dt = tm.dt;
+    //int steps = 0; // Moraru
     for (int stage = 1; stage <= integrator->nstages; stage++) {
       // Clear any initialization info. We should be relying
       // on only the immediately preceding stage to contain
       // reasonable data
+      //steps++; // Moraru
       pmesh->SetAllVariablesToInitialized();
       status = ConstructAndExecuteTaskLists<>(this, stage);
       if (status != TaskListStatus::complete) break;
     }
+    //if (Globals::my_rank == 0) std::cout<<" -- Steppps "<<steps<<" stages "<<integrator->nstages<<std::endl; // Moraru
     Kokkos::Profiling::popRegion(); // MultiStage_Step
     return status;
   }

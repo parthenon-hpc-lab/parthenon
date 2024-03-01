@@ -39,9 +39,9 @@
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
-//#ifdef ENABLE_MM_LOGGER
+#ifdef ENABLE_MM_LOGGER
 #include "utils/mm_logger.hpp"
-//#endif
+#endif
 
 namespace parthenon {
 
@@ -126,6 +126,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
 
+  #ifdef ENABLE_MM_LOG_TIME
+    if(bound_type == BoundaryType::nonlocal) logger::global_logger->start_timer_recvs();
+  #endif
   // Moraru 
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
   if(bound_type == BoundaryType::nonlocal){
@@ -215,7 +218,7 @@ StartReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &)
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundBufs");
-
+  
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
@@ -229,7 +232,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   // Moraru 
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
     if(bound_type == BoundaryType::nonlocal){
-      all_received = pmesh->neigh_token.end_data_exchange_neigh_alltoallv();
+      all_received = pmesh->neigh_token.test_data_exchange_neigh_alltoallv();
 
       if(all_received){
           std::for_each(
@@ -268,6 +271,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if(bound_type == BoundaryType::nonlocal) logger::global_logger->end_timer_recv_bound_bufs();
   #endif
 
+  #ifdef ENABLE_MM_LOG_TIME
+    if(bound_type == BoundaryType::nonlocal && all_received) logger::global_logger->end_timer_recvs();
+  #endif
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
     ForEachBoundary<bound_type>(
@@ -301,6 +307,9 @@ ReceiveBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetInternalBoundaries");
+  /*#ifdef ENABLE_MM_LOG_TIME
+    if(bound_type == BoundaryType::nonlocal) logger::global_logger->start_timer_sends();
+  #endif*/
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -364,6 +373,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                          pmb->c_cellbounds);
   }
   Kokkos::Profiling::popRegion(); // Task_SetInternalBoundaries
+  /*#ifdef ENABLE_MM_LOG_TIME
+  if(bound_type == BoundaryType::nonlocal) logger::global_logger->end_timer_sends();
+  #endif*/
   return TaskStatus::complete;
 }
 
