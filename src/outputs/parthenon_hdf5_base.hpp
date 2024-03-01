@@ -101,3 +101,6 @@ using H5S = H5Handle<&H5Sclose>;
 
 } // namespace HDF5
 } // namespace parthenon
+
+#endif // ENABLE_HDF5
+#endif // OUTPUTS_PARTHENON_HDF5_BASE_HPP_
