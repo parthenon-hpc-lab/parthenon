@@ -423,7 +423,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
          ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
           (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
       if (first && ptype->output_params.file_type != "hst") {
-        pm->ApplyUserWorkBeforeOutput(pin);
+        pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
         first = false;
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);

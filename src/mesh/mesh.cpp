@@ -165,6 +165,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
     PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
   }
+  if (app_in->UserMeshWorkBeforeOutput != nullptr) {
+    UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -928,7 +931,12 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
-void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
+void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
+                                     SimTime const &time) {
+  // call Mesh version
+  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+
+  // call MeshBlock version
   for (auto &pmb : block_list) {
     pmb->UserWorkBeforeOutput(pmb.get(), pin);
   }

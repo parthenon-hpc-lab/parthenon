@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
 - [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
 - [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) New tasking infrastructure and capabilities
@@ -11,6 +12,7 @@
 - [[PR 983]](https://github.com/parthenon-hpc-lab/parthenon/pull/983) Add Contains to SparsePack
 - [[PR 968]](https://github.com/parthenon-hpc-lab/parthenon/pull/968) Add per package registration of boundary conditions
 - [[PR 948]](https://github.com/parthenon-hpc-lab/parthenon/pull/948) Add solver interface and update Poisson geometric multi-grid example
+- [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 ### Changed (changing behavior/API/variables/...)
 
@@ -21,6 +23,7 @@
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1007]](https://github.com/parthenon-hpc-lab/parthenon/pull/1007) Split template instantiations for HDF5 Read/Write attributes to speed up compile times
 - [[PR 990]](https://github.com/parthenon-hpc-lab/parthenon/pull/990) Partial refactor of HDF5 I/O code for readability/extendability
 - [[PR 982]](https://github.com/parthenon-hpc-lab/parthenon/pull/982) add some gut check testing for parthenon-VIBE
 
@@ -29,6 +32,7 @@
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) Change the API for what was IterativeTasks
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
+- [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 
 ## Release 23.11
