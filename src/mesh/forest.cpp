@@ -96,7 +96,7 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
           if (l == root_level) {
-            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k), 0));
+            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k), std::make_pair(-1, -1)));
           } else {
             internal_nodes.emplace(my_id, l, i, j, k);
           }
@@ -142,7 +142,7 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   leaves.erase(ref_loc);
   internal_nodes.insert(ref_loc);
   for (auto &d : daughters) {
-    leaves.insert(std::make_pair(d, 0));
+    leaves.insert(std::make_pair(d, std::make_pair(-1, -1)));
   }
   int nadded = daughters.size() - 1;
 
@@ -268,10 +268,13 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   }
 
   // Derefinement is ok
-  for (auto &d : daughters)
-    leaves.erase(d);
+  std::int64_t dgid = std::numeric_limits<std::int64_t>::max();
+  for (auto &d : daughters) {
+    auto node = leaves.extract(d);
+    dgid = std::min(dgid, node.mapped().first); 
+  }
   internal_nodes.erase(ref_loc);
-  leaves.insert(std::make_pair(ref_loc, 0));
+  leaves.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
   return daughters.size() - 1;
 }
 

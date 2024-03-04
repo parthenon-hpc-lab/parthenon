@@ -95,17 +95,19 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   std::uint64_t GetId() const { return my_id; }
 
-  const std::unordered_map<LogicalLocation, std::uint64_t> &GetLeaves() const {
+  const std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> &GetLeaves() const {
     return leaves;
   }
 
-  void InsertGid(const LogicalLocation &loc, std::uint64_t gid) {
+  void InsertGid(const LogicalLocation &loc, std::int64_t gid) {
     PARTHENON_REQUIRE(leaves.count(loc) == 1,
                       "Trying to add gid for non-existent location.");
-    leaves[loc] = gid;
+    leaves[loc].second = leaves[loc].first;
+    leaves[loc].first = gid;
   }
 
-  std::uint64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc); }
+  std::int64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc).first; }
+  std::int64_t GetOldGid(const LogicalLocation &loc) const { return leaves.at(loc).second; }
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;
@@ -116,7 +118,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   int ndim;
   const std::uint64_t my_id;
-  std::unordered_map<LogicalLocation, std::uint64_t> leaves;
+  std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
 
   // This contains all of the neighbor information for this tree, for each of the
@@ -204,9 +206,14 @@ class Forest {
 
   std::size_t CountTrees() const { return trees.size(); }
 
-  std::uint64_t GetGid(const LogicalLocation &loc) const {
+  std::int64_t GetGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees[loc.tree()]->GetGid(loc);
+  }
+  
+  std::int64_t GetOldGid(const LogicalLocation &loc) const {
+    PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
+    return trees[loc.tree()]->GetOldGid(loc);
   }
 
   // Build a logically hyper-rectangular forest that mimics the grid
