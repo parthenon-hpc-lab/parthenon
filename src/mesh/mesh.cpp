@@ -355,6 +355,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
               LogicalLocation nloc(lrlev, i, j, k);
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
+              forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(nloc));
             }
           }
         }
