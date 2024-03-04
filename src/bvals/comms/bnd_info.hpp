@@ -53,6 +53,9 @@ struct BndInfo {
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
 
+  // TODO(BRR) For swarms, instead (for now at least) get a view into the swarm buffers created by
+  // the swarm
+
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
 
@@ -70,6 +73,8 @@ struct BndInfo {
   static BndInfo GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                  std::shared_ptr<Variable<Real>> v,
                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+  static BndInfo GetSendSwarmBndInfo();
+  static BndInfo GetSetSwarmBndInfo();
 };
 
 struct ProResInfo {

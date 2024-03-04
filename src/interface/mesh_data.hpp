@@ -282,6 +282,8 @@ class MeshData {
     return status;
   }
 
+  // TODO(BRR) add method to return some kind of SwarmPack, or even just the swarm for each MeshBlock?
+
  private:
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
