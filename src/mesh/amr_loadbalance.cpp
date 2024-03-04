@@ -704,8 +704,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     std::vector<std::int64_t> newtoold_f(new_loc_f.size()); 
     for (int ib = 0; ib < new_loc_f.size(); ++ib) {
       newtoold_f[ib] = forest.GetOldGid(new_loc_f[ib]);
-      printf("gid = %i (%i) old-gid = %i %i\n", ib, forest.GetGid(new_loc_f[ib]), newtoold[ib], forest.GetOldGid(new_loc_f[ib]));
-      //PARTHENON_REQUIRE(newtoold_f[ib] == newtoold[ib], "Old gid mapping doesn't agree.");
+      PARTHENON_REQUIRE(newtoold_f[ib] == newtoold[ib], "Old gid mapping doesn't agree.");
       if (forest.GetAthenaCompositeLocation(new_loc_f[ib]) != newloc[ib]) {
         printf("bad location %s [%s != %s]\n", new_loc_f[ib].label().c_str(),
                forest.GetAthenaCompositeLocation(new_loc_f[ib]).label().c_str(),

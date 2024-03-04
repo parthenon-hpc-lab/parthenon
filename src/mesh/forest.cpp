@@ -139,10 +139,11 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
 
   // Perform the refinement for this block
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
+  auto gid_parent = leaves[ref_loc].first;
   leaves.erase(ref_loc);
   internal_nodes.insert(ref_loc);
   for (auto &d : daughters) {
-    leaves.insert(std::make_pair(d, std::make_pair(-1, -1)));
+    leaves.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
   }
   int nadded = daughters.size() - 1;
 
