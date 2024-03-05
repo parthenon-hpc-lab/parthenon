@@ -611,11 +611,11 @@ class phdf:
                             for i in range(vShape[1]):
                                 for j in range(vShape[2]):
                                     for k in range(vShape[3]):
-                                        ret[i + vShape[1] * (j + vShape[2] * k)] = (
-                                            self.varData[variable][
-                                                :, i, j, k, :, :, :
-                                            ].ravel()
-                                        )
+                                        ret[
+                                            i + vShape[1] * (j + vShape[2] * k)
+                                        ] = self.varData[variable][
+                                            :, i, j, k, :, :, :
+                                        ].ravel()
                             assert (ret != np.nan).all()
                             return ret
                 else:
