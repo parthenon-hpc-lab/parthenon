@@ -88,8 +88,8 @@ LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, 
-           RegionSize domain, std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
+           std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
     : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
@@ -97,7 +97,8 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
           if (l == root_level) {
-            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k), std::make_pair(-1, -1)));
+            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
+                                          std::make_pair(-1, -1)));
           } else {
             internal_nodes.emplace(my_id, l, i, j, k);
           }
@@ -273,7 +274,7 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   std::int64_t dgid = std::numeric_limits<std::int64_t>::max();
   for (auto &d : daughters) {
     auto node = leaves.extract(d);
-    dgid = std::min(dgid, node.mapped().first); 
+    dgid = std::min(dgid, node.mapped().first);
   }
   internal_nodes.erase(ref_loc);
   leaves.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
@@ -315,7 +316,8 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
   return out;
 }
 
-std::array<BoundaryFlag, BOUNDARY_NFACES> Tree::GetBlockBCs(const LogicalLocation &loc) const {
+std::array<BoundaryFlag, BOUNDARY_NFACES>
+Tree::GetBlockBCs(const LogicalLocation &loc) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   std::array<BoundaryFlag, BOUNDARY_NFACES> block_bcs = boundary_conditions;
   const int nblock = 1 << std::max(loc.level(), 0);
@@ -358,8 +360,7 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
   tid_to_tree_sptr[neighbor_tree->GetId()] = neighbor_tree;
   neighbors[location_idx].insert({neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
-  if (fidx >= 0) 
-      boundary_conditions[fidx] = BoundaryFlag::block;
+  if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
 }
 
 std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
@@ -383,7 +384,8 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
                         std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs) {
   std::array<bool, 3> periodic{mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
                                mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
-                               mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic};
+                               mesh_bcs[BoundaryFace::inner_x3] ==
+                                   BoundaryFlag::periodic};
 
   std::array<int, 3> nblock, ntree;
   int ndim = 0;

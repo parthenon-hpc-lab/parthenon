@@ -239,8 +239,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   current_level = root_level;
 
   tree.CreateRootGrid();
-  forest = forest::Forest::AthenaXX(
-      mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -352,7 +351,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
               LogicalLocation nloc(lrlev, i, j, k);
               int nnew;
               tree.AddMeshBlock(nloc, nnew);
-              forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(nloc));
+              forest.AddMeshBlock(
+                  forest.GetForestLocationFromAthenaCompositeLocation(nloc));
             }
           }
         }
@@ -624,8 +624,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   // rebuild the Block Tree
   tree.CreateRootGrid();
-  forest = forest::Forest::AthenaXX(
-      mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
 
   for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);
@@ -1186,9 +1185,10 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
   block_size = GetBlockSize(loc);
-  if (loc.tree() >= 0) { 
-    auto bcs = forest.GetBlockBCs(loc); 
-    for (int i = 0; i < BOUNDARY_NFACES; ++i) block_bcs[i] = bcs[i];
+  if (loc.tree() >= 0) {
+    auto bcs = forest.GetBlockBCs(loc);
+    for (int i = 0; i < BOUNDARY_NFACES; ++i)
+      block_bcs[i] = bcs[i];
     return valid_region;
   }
 

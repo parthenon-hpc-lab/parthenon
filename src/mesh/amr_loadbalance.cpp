@@ -628,7 +628,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   tree.CountMeshBlock(tcount);
   PARTHENON_REQUIRE(ndel == ndel_f, "Different change in blocks. (Add)");
   PARTHENON_REQUIRE(nnew == nnew_f, "Different change in blocks. (Delete)");
-  PARTHENON_REQUIRE(tcount == forest.CountMeshBlock(), "Different numbers of total blocks.");
+  PARTHENON_REQUIRE(tcount == forest.CountMeshBlock(),
+                    "Different numbers of total blocks.");
 
   if (tnderef >= nleaf) delete[] clderef;
 }
@@ -698,11 +699,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_INSTRUMENT
     tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
     newloc_f = forest.GetMeshBlockListAndResolveGids();
-    
+
     PARTHENON_REQUIRE(nbtotal == newloc_f.size(),
                       "New block lists aren't the same size.");
-    
-    std::vector<std::int64_t> newtoold_f(newloc_f.size()); 
+
+    std::vector<std::int64_t> newtoold_f(newloc_f.size());
     for (int ib = 0; ib < newloc_f.size(); ++ib) {
       newtoold_f[ib] = forest.GetOldGid(newloc_f[ib]);
       PARTHENON_REQUIRE(newtoold_f[ib] == newtoold[ib], "Old gid mapping doesn't agree.");

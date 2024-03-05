@@ -41,28 +41,28 @@ enum class Direction : uint { I = 0, J = 1, K = 2 };
 // is turned into an unsigned index 0...27 via
 // (x_offset + 1) + 3 * (y_offset + 1) + 9 * (z_offset + 1)
 
-// TODO(LFR): Consider switching this to C-style enum within a namespace to avoid static_cast
+// TODO(LFR): Consider switching this to C-style enum within a namespace to avoid
+// static_cast
 enum class Offset : int { Low = -1, Middle = 0, Up = 1 };
-inline int operator+(Offset a, int b) { 
-  return static_cast<int>(a) + b;
-}
-inline int operator+(int b, Offset a) { 
-  return static_cast<int>(a) + b;
-}
+inline int operator+(Offset a, int b) { return static_cast<int>(a) + b; }
+inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
 
 struct CellCentOffsets {
   std::array<Offset, 3> u;
 
-  explicit CellCentOffsets(const std::array<int, 3>& in) : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]), static_cast<Offset>(in[2])} {} 
-  Offset &operator[](int idx) {return u[idx];}
-  operator std::array<int, 3>() const { return {static_cast<int>(u[0]),
-                                                static_cast<int>(u[1]),
-                                                static_cast<int>(u[2])};}
-  
-  BoundaryFace Face() const { 
+  explicit CellCentOffsets(const std::array<int, 3> &in)
+      : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
+          static_cast<Offset>(in[2])} {}
+  Offset &operator[](int idx) { return u[idx]; }
+  operator std::array<int, 3>() const {
+    return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
+  }
+
+  BoundaryFace Face() const {
     if (!IsFace()) return BoundaryFace::undef;
-    for (int dir = 0; dir < 3; ++dir) { 
-      if (static_cast<int>(u[dir])) return static_cast<BoundaryFace>((1 + static_cast<int>(u[dir])) / 2  + 2 * dir);
+    for (int dir = 0; dir < 3; ++dir) {
+      if (static_cast<int>(u[dir]))
+        return static_cast<BoundaryFace>((1 + static_cast<int>(u[dir])) / 2 + 2 * dir);
     }
     return BoundaryFace::undef; // Shouldn't get here
   }
@@ -159,10 +159,10 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
  public:
   Tree(private_t, std::int64_t id, int ndim, int root_level,
-       RegionSize domain = RegionSize(), 
-       std::array<BoundaryFlag, BOUNDARY_NFACES> bcs = {BoundaryFlag::block, BoundaryFlag::block, 
-                                                        BoundaryFlag::block, BoundaryFlag::block,
-                                                        BoundaryFlag::block, BoundaryFlag::block});
+       RegionSize domain = RegionSize(),
+       std::array<BoundaryFlag, BOUNDARY_NFACES> bcs = {
+           BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block,
+           BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block});
 
   template <class... Ts>
   static std::shared_ptr<Tree> create(Ts &&...args) {
@@ -199,7 +199,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   std::uint64_t GetId() const { return my_id; }
 
-  const std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> &GetLeaves() const {
+  const std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> &
+  GetLeaves() const {
     return leaves;
   }
 
@@ -211,7 +212,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
   }
 
   std::int64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc).first; }
-  std::int64_t GetOldGid(const LogicalLocation &loc) const { return leaves.at(loc).second; }
+  std::int64_t GetOldGid(const LogicalLocation &loc) const {
+    return leaves.at(loc).second;
+  }
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;
@@ -268,7 +271,8 @@ class Forest {
     return trees[loc.tree()]->GetBlockDomain(loc);
   }
 
-  std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const { 
+  std::array<BoundaryFlag, BOUNDARY_NFACES>
+  GetBlockBCs(const LogicalLocation &loc) const {
     return trees[loc.tree()]->GetBlockBCs(loc);
   }
 
@@ -321,7 +325,7 @@ class Forest {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees[loc.tree()]->GetGid(loc);
   }
-  
+
   std::int64_t GetOldGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees[loc.tree()]->GetOldGid(loc);

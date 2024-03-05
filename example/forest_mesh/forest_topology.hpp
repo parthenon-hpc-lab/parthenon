@@ -43,12 +43,12 @@ struct EdgeLoc {
 
   // In 2D we can ignore connectivity of K-direction faces,
   CellCentOffsets GetFaceIdx2D() const {
-    if (dir == Direction::I && lower) return CellCentOffsets({0, -1, 0}); 
-    if (dir == Direction::I && !lower) return CellCentOffsets({0, 1, 0}); 
-    if (dir == Direction::J && lower) return CellCentOffsets({-1, 0, 0}); 
-    if (dir == Direction::J && !lower) return CellCentOffsets({1, 0, 0}); 
+    if (dir == Direction::I && lower) return CellCentOffsets({0, -1, 0});
+    if (dir == Direction::I && !lower) return CellCentOffsets({0, 1, 0});
+    if (dir == Direction::J && lower) return CellCentOffsets({-1, 0, 0});
+    if (dir == Direction::J && !lower) return CellCentOffsets({1, 0, 0});
     return CellCentOffsets({0, 0, 0});
-    //return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
+    // return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
   }
 
   static const EdgeLoc South;
