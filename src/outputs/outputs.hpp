@@ -58,6 +58,7 @@ struct OutputParameters {
   std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
+  std::vector<std::string> packages;
   Real next_time, dt;
   int file_number;
   bool include_ghost_zones, cartesian_vector;

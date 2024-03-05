@@ -51,9 +51,27 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
   std::vector<std::string> all_labels = {};
   std::vector<Real> all_results = {};
+  std::vector<Real> local_results = {};
+  std::vector<int> history_sizes = {}; // TODO(BRR) do we need this or just create labels when we make pools of everything?
+  std::vector<UserHistoryOperation> history_ops = {};
+
+  // If "packages" not provided, loop over all packages
+  //std::vector<std::string> packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages", std::vector<std::string>());
+  auto &requested_packages = output_params.packages;
+  printf("packages size: %i\n", packages.size());
+  bool all_packages = packages.empty();
+
 
   // Loop over all packages of the application
+  // TODO(BRR) loop over specified packages for this output
   for (const auto &pkg : pm->packages.AllPackages()) {
+
+    if (!all_packages) {
+      if (std::find(requested_packages.begin(), requested_packages.end(), pkg.label()) == requested_packages.end()) {
+        continue;
+      }
+    }
+
     // Check if the package has enrolled functions which are stored in the
     // Params under the `hist_param_key` name.
     const auto &params = pkg.second->AllParams();
@@ -75,7 +93,10 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
             "that the modification was intentional and is compatible with this reset.")
         md_base->Set(pm->block_list, pm);
       }
-      auto result = hist_var.hst_fun(md_base.get());
+      //auto result = hist_var.hst_fun(md_base.get());
+      local_results.push_back(hist_var.hst_fun(md_base.get()));
+      history_sizes.push_back(1); // TODO(BRR) get from user input
+      history_ops.push_back(hist_var.hst_op);
 #ifdef MPI_PARALLEL
       // need fence so that the result is ready prior to the MPI call
       Kokkos::fence();
@@ -92,19 +113,31 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         usr_op = MPI_MIN;
         break;
       }
-      if (Globals::my_rank == 0) {
-        PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &result, 1, MPI_PARTHENON_REAL,
-                                       usr_op, 0, MPI_COMM_WORLD));
-      } else {
-        PARTHENON_MPI_CHECK(MPI_Reduce(&result, &result, 1, MPI_PARTHENON_REAL, usr_op, 0,
-                                       MPI_COMM_WORLD));
-      }
+      //if (Globals::my_rank == 0) {
+      //  PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &result, 1, MPI_PARTHENON_REAL,
+      //                                 usr_op, 0, MPI_COMM_WORLD));
+      //} else {
+      //  PARTHENON_MPI_CHECK(MPI_Reduce(&result, &result, 1, MPI_PARTHENON_REAL, usr_op, 0,
+      //                                 MPI_COMM_WORLD));
+      //}
 #endif
 
-      all_results.emplace_back(result);
+      //all_results.emplace_back(result);
       all_labels.emplace_back(hist_var.label);
     }
   }
+
+  const int nresults = local_results.size();
+  //results.resize(nresults);
+  MPI_Op usr_op = MPI_SUM; // TODO(BRR) placeholder
+  if (Globals::my_rank == 0) {
+        PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &local_results[0], nresults, MPI_PARTHENON_REAL,
+                                       usr_op, 0, MPI_COMM_WORLD));
+  } else {
+        PARTHENON_MPI_CHECK(MPI_Reduce(&local_results[0], &local_results[0], 1, MPI_PARTHENON_REAL, usr_op, 0,
+                                       MPI_COMM_WORLD));
+  }
+
 
   // only the master rank writes the file
   // create filename: "file_basename" + ".hst".  There is no file number.

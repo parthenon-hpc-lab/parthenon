@@ -196,6 +196,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
 
+      if (op.file_type == "hst") {
+        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages", std::vector<std::string>());
+      }
+
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
           (op.file_type != "ascent") && (op.file_type != "histogram")) {
@@ -291,10 +295,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pib = pib->pnext; // move to next input block name
   }
 
-  // check there were no more than one history or restart files requested
-  if (num_hst_outputs > 1 || num_rst_outputs > 1) {
+  // check there were no more than one restart file requested
+  if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
-        << "More than one history or restart output block detected in input file"
+        << "More than one restart output block detected in input file"
         << std::endl;
     PARTHENON_FAIL(msg);
   }
