@@ -371,11 +371,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                     "Old and new tree block numbers don't agree.");
   loclist.resize(nbtotal);
   tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
-  auto blist = forest.GetMeshBlockListAndResolveGids();
-  for (int ib = 0; ib < blist.size(); ++ib) {
-    if (forest.GetAthenaCompositeLocation(blist[ib]) != loclist[ib]) {
-      printf("bad location %s [%s != %s]\n", blist[ib].label().c_str(),
-             forest.GetAthenaCompositeLocation(blist[ib]).label().c_str(),
+  auto loclist_f = forest.GetMeshBlockListAndResolveGids();
+  for (int ib = 0; ib < loclist_f.size(); ++ib) {
+    if (forest.GetAthenaCompositeLocation(loclist_f[ib]) != loclist[ib]) {
+      printf("bad location %s [%s != %s]\n", loclist_f[ib].label().c_str(),
+             forest.GetAthenaCompositeLocation(loclist_f[ib]).label().c_str(),
              loclist[ib].label().c_str());
       PARTHENON_FAIL("Bad bad bad");
     }
