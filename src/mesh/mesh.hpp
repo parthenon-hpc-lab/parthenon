@@ -106,7 +106,7 @@ class Mesh {
   const bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
-  BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
+  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   const int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;

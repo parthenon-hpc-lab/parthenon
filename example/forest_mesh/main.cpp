@@ -143,8 +143,13 @@ int main(int argc, char *argv[]) {
   RegionSize block_size(mesh_size);
   block_size.nx(X1DIR) = 16;
   block_size.nx(X2DIR) = 16;
-
-  auto forest = Forest::AthenaXX(mesh_size, block_size, {false, false, false});
+  
+  std::array<parthenon::BoundaryFlag, parthenon::BOUNDARY_NFACES> bcs{
+    parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow,
+    parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow,
+    parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow};
+    
+  auto forest = Forest::AthenaXX(mesh_size, block_size, bcs);
 
   printf("ntrees: %i\n", forest.trees.size());
   auto block_list = forest.GetMeshBlockListAndResolveGids();

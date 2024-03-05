@@ -112,6 +112,9 @@ struct RegionSize {
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // tasks.hpp, ???
 
+// identifiers for boundary conditions
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
+
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
 enum BoundaryFace {

@@ -42,8 +42,13 @@ struct EdgeLoc {
   bool lower;
 
   // In 2D we can ignore connectivity of K-direction faces,
-  int GetFaceIdx2D() const {
-    return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
+  CellCentOffsets GetFaceIdx2D() const {
+    if (dir == Direction::I && lower) return CellCentOffsets({0, -1, 0}); 
+    if (dir == Direction::I && !lower) return CellCentOffsets({0, 1, 0}); 
+    if (dir == Direction::J && lower) return CellCentOffsets({-1, 0, 0}); 
+    if (dir == Direction::J && !lower) return CellCentOffsets({1, 0, 0}); 
+    return CellCentOffsets({0, 0, 0});
+    //return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
   }
 
   static const EdgeLoc South;
@@ -75,82 +80,6 @@ RelativeOrientation RelativeOrientationFromSharedEdge2D(EdgeLoc origin, EdgeLoc 
   return out;
 }
 
-// ParentCellLoc defines the position of a topological element
-// within a cell via offsets from the cell center. The center of
-// cell is defined by zero offsets in each direction. The faces have
-// a Offset::Low or Offset::Up in one direction and Offset::Middle
-// in the others, etc. The topological position of an element in the
-// is turned into an unsigned index 0...27 via
-// (x_offset + 1) + 3 * (y_offset + 1) + 9 * (z_offset + 1)
-enum class Offset : int { Low = -1, Middle = 0, Up = 1 };
-struct ParentCellLoc {
-  std::array<Offset, 3> u;
-
-  // Get the logical diretions that are tangent to this element
-  // (in cyclic order, XY, YZ, ZX, XYZ)
-  std::vector<Direction> GetTangentDirections() const {
-    std::vector<Direction> dirs;
-    Direction missed;
-    for (auto dir : {Direction::I, Direction::J, Direction::K}) {
-      uint dir_idx = static_cast<uint>(dir);
-      if (!static_cast<int>(
-              u[dir_idx])) { // This direction has no offset, so must be tangent direction
-        dirs.push_back(dir);
-      } else {
-        missed = dir;
-      }
-    }
-    if (dirs.size() == 2 && missed == Direction::J) {
-      dirs = {Direction::K, Direction::I}; // Make sure we are in cyclic order
-    }
-    return dirs;
-  }
-
-  // Get the logical directions that are normal to this element
-  // (in cyclic order, XY, YZ, ZX, XYZ) along with the offset of the
-  // element in that direction from the cell center.
-  std::vector<std::pair<Direction, Offset>> GetNormals() const {
-    std::vector<std::pair<Direction, Offset>> dirs;
-    Direction missed;
-    for (auto dir : {Direction::I, Direction::J, Direction::K}) {
-      uint dir_idx = static_cast<uint>(dir);
-      if (static_cast<int>(u[dir_idx])) {
-        dirs.push_back({dir, u[dir_idx]});
-      } else {
-        missed = dir;
-      }
-    }
-    if (dirs.size() == 2 && missed == Direction::J) {
-      dirs = {dirs[1], dirs[0]}; // Make sure we are in cyclic order
-    }
-    return dirs;
-  }
-
-  bool IsNode() const {
-    return 3 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +
-                    abs(static_cast<int>(u[2]));
-  }
-
-  bool IsEdge() const {
-    return 2 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +
-                    abs(static_cast<int>(u[2]));
-  }
-
-  bool IsFace() const {
-    return 1 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +
-                    abs(static_cast<int>(u[2]));
-  }
-
-  bool IsCell() const {
-    return 0 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +
-                    abs(static_cast<int>(u[2]));
-  }
-
-  int GetIdx() const {
-    return (static_cast<int>(u[0]) + 1) + 3 * (static_cast<int>(u[1]) + 1) +
-           9 * (static_cast<int>(u[2]) + 1);
-  }
-};
 } // namespace forest
 } // namespace parthenon
 
@@ -163,9 +92,9 @@ class std::hash<parthenon::forest::EdgeLoc> {
 };
 
 template <>
-class std::hash<parthenon::forest::ParentCellLoc> {
+class std::hash<parthenon::forest::CellCentOffsets> {
  public:
-  std::size_t operator()(const parthenon::forest::ParentCellLoc &key) const noexcept {
+  std::size_t operator()(const parthenon::forest::CellCentOffsets &key) const noexcept {
     return key.GetIdx();
   }
 };
@@ -192,7 +121,7 @@ class Edge {
   Edge() = default;
   explicit Edge(sptr_vec_t<Node, 2> nodes_in) : nodes(nodes_in) {}
 
-  Edge(sptr_vec_t<Node, 2> nodes_in, const ParentCellLoc &ploc)
+  Edge(sptr_vec_t<Node, 2> nodes_in, const CellCentOffsets &ploc)
       : nodes{nodes_in}, loc{ploc} {
     PARTHENON_REQUIRE(loc->IsEdge(), "Trying to pass a non-edge location to an edge.");
     auto dirs = loc->GetTangentDirections();
@@ -204,7 +133,7 @@ class Edge {
   sptr_vec_t<Node, 2> nodes;
   Direction dir;
   std::array<std::pair<Direction, Offset>, 2> normals;
-  std::optional<ParentCellLoc> loc{};
+  std::optional<CellCentOffsets> loc{};
 
   int RelativeOrientation(const Edge &e2) const {
     if (nodes[0] == e2.nodes[0] && nodes[1] == e2.nodes[1]) {

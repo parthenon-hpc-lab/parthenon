@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -88,8 +88,9 @@ LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain)
-    : my_id(id), ndim(ndim), domain(domain) {
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, 
+           RegionSize domain, std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
+    : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -290,6 +291,7 @@ std::vector<LogicalLocation> Tree::GetMeshBlockList() const {
 }
 
 RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
+  PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!domain.symmetry(dir)) {
@@ -313,6 +315,19 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
   return out;
 }
 
+std::array<BoundaryFlag, BOUNDARY_NFACES> Tree::GetBlockBCs(const LogicalLocation &loc) const {
+  PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
+  std::array<BoundaryFlag, BOUNDARY_NFACES> block_bcs = boundary_conditions;
+  const int nblock = 1 << std::max(loc.level(), 0);
+  if (loc.lx1() != 0) block_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
+  if (loc.lx1() != nblock - 1) block_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
+  if (loc.lx2() != 0) block_bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
+  if (loc.lx2() != nblock - 1) block_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
+  if (loc.lx3() != 0) block_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
+  if (loc.lx3() != nblock - 1) block_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
+  return block_bcs;
+}
+
 // TODO(LFR): Maybe remove this along with tid_to_connection_set and tid_to_tree_sptr.
 // Originally I I thought it was useful for setting neighbor ownership, but I found a
 // cleaner way by just searching for neighbors.
@@ -332,8 +347,9 @@ Tree::GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc) {
   return locs;
 }
 
-void Tree::AddNeighborTree(int location_idx, std::shared_ptr<Tree> neighbor_tree,
+void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                            RelativeOrientation orient) {
+  int location_idx = offset.GetIdx();
   if (tid_to_connection_set.count(neighbor_tree->GetId())) {
     tid_to_connection_set[neighbor_tree->GetId()].insert(location_idx);
   } else {
@@ -341,6 +357,9 @@ void Tree::AddNeighborTree(int location_idx, std::shared_ptr<Tree> neighbor_tree
   }
   tid_to_tree_sptr[neighbor_tree->GetId()] = neighbor_tree;
   neighbors[location_idx].insert({neighbor_tree, orient});
+  BoundaryFace fidx = offset.Face();
+  if (fidx >= 0) 
+      boundary_conditions[fidx] = BoundaryFlag::block;
 }
 
 std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
@@ -361,7 +380,11 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
 }
 
 Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
-                        std::array<bool, 3> periodic) {
+                        std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs) {
+  std::array<bool, 3> periodic{mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
+                               mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
+                               mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic};
+
   std::array<int, 3> nblock, ntree;
   int ndim = 0;
   int max_common_power2_divisor = std::numeric_limits<int>::max();
@@ -435,7 +458,14 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   // Initialize the trees in macro-morton order
   std::int64_t tid{0};
   for (auto &[loc, p] : ll_map) {
-    p.second = Tree::create(tid++, ndim, ref_level, p.first);
+    auto tree_bcs = mesh_bcs;
+    if (loc.lx1() != 0) tree_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
+    if (loc.lx1() != ntree[0] - 1) tree_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
+    if (loc.lx2() != 0) tree_bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
+    if (loc.lx2() != ntree[1] - 1) tree_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
+    if (loc.lx3() != 0) tree_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
+    if (loc.lx3() != ntree[2] - 1) tree_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
+    p.second = Tree::create(tid++, ndim, ref_level, p.first, tree_bcs);
     p.second->athena_forest_loc = loc;
   }
 
@@ -448,8 +478,8 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
     LogicalLocation loc(level, ix1, ix2, ix3);
     std::array<int, 3> ix{ix1, ix2, ix3};
     for (int o = 0; o < offsets.size(); ++o) {
-      auto [ox1, ox2, ox3] = offsets(o);
-      std::array<int, 3> ox{ox1, ox2, ox3}, nx;
+      CellCentOffsets ox(offsets.GetIdxArray(o));
+      std::array<int, 3> nx;
       bool add = true;
       for (int dir = 0; dir < 3; ++dir) {
         nx[dir] = ix[dir] + ox[dir];
@@ -463,11 +493,10 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
       }
       if (add) {
         LogicalLocation nloc(level, nx[0], nx[1], nx[2]);
-        int loc_idx = (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1);
         RelativeOrientation orient;
         orient.use_offset = true;
-        orient.offset = {ox1, ox2, ox3};
-        ll_map[loc].second->AddNeighborTree(loc_idx, ll_map[nloc].second, orient);
+        orient.offset = ox;
+        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, orient);
       }
     }
   }
