@@ -128,10 +128,186 @@ struct NeighborIndexes { // aggregate and POD
   //   - Aggregate type: supports aggregate initialization {}
   //   - POD type: safely copy objects via memcpy, no memory padding in the beginning of
   //     object, C portability, supports static initialization
+  int typeidx() const { return std::abs(ox1) + std::abs(ox2) + std::abs(ox3); }
+  int offset_idx() const { return (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1); }
+  int refine_idx() const { return fi1 + 2 * fi2; }
   bool operator==(const NeighborIndexes &rhs) const {
     return (ox1 == rhs.ox1) && (ox2 == rhs.ox2) && (ox3 == rhs.ox3) && (fi1 == rhs.fi1) &&
            (fi2 == rhs.fi2) && (type == rhs.type);
   }
+};
+
+inline bool operator<(const NeighborIndexes &lhs, NeighborIndexes &rhs) {
+  if (lhs.typeidx() != rhs.typeidx()) return lhs.typeidx() < rhs.typeidx(); 
+  if (lhs.offset_idx() != rhs.offset_idx()) return lhs.offset_idx() < rhs.offset_idx();
+  return lhs.refine_idx() < rhs.refine_idx();
+}
+
+class BufferID {
+  std::vector<NeighborIndexes> nis;
+ public: 
+  BufferID(int dim, bool multilevel) { 
+    /*
+    std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+    std::vector<int> x2offsets = dim > 1 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+    std::vector<int> x3offsets = dim > 2 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+    for (int ctype = 1; ctype <= dim; ++ctype) {
+      for (auto ox3 : x3offsets) { 
+        for (auto ox2 : x2offsets) { 
+          for (auto ox1 : x1offsets) { 
+            const int type = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
+            if (type != ctype) continue;
+            std::vector<int> f1s = (dim - type) > 0 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+            std::vector<int> f2s = (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+            for (auto f1 : f1s) {
+              for (auto f2 : f2s) { 
+                NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face}; 
+                nis.push_back(ni);
+              }
+            }
+          }
+        }
+      }
+    }
+    //std::sort(nis.begin(), nis.end());
+    */
+
+    
+    int nf1 = 1, nf2 = 1;
+    if (multilevel) {
+      if (dim >= 2) nf1 = 2;
+      if (dim >= 3) nf2 = 2;
+    }
+    int b = 0;
+    // x1 face
+    for (int n = -1; n <= 1; n += 2) {
+      for (int f2 = 0; f2 < nf2; f2++) {
+        for (int f1 = 0; f1 < nf1; f1++) {
+          nis.emplace_back();
+          nis[b].ox1 = n;
+          nis[b].ox2 = 0;
+          nis[b].ox3 = 0;
+          nis[b].fi1 = f1;
+          nis[b].fi2 = f2;
+          nis[b].type = NeighborConnect::face;
+          b++;
+        }
+      }
+    }
+    // x2 face
+    if (dim >= 2) {
+      for (int n = -1; n <= 1; n += 2) {
+        for (int f2 = 0; f2 < nf2; f2++) {
+          for (int f1 = 0; f1 < nf1; f1++) {
+            nis.emplace_back();
+            nis[b].ox1 = 0;
+            nis[b].ox2 = n;
+            nis[b].ox3 = 0;
+            nis[b].fi1 = f1;
+            nis[b].fi2 = f2;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+    }
+    if (dim == 3) {
+      // x3 face
+      for (int n = -1; n <= 1; n += 2) {
+        for (int f2 = 0; f2 < nf2; f2++) {
+          for (int f1 = 0; f1 < nf1; f1++) {
+            nis.emplace_back();
+            nis[b].ox1 = 0;
+            nis[b].ox2 = 0;
+            nis[b].ox3 = n;
+            nis[b].fi1 = f1;
+            nis[b].fi2 = f2;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+    }
+    // edges
+    // x1x2
+    if (dim >= 2) {
+      for (int m = -1; m <= 1; m += 2) {
+        for (int n = -1; n <= 1; n += 2) {
+          for (int f1 = 0; f1 < nf2; f1++) {
+            nis.emplace_back();
+            nis[b].ox1 = n;
+            nis[b].ox2 = m;
+            nis[b].ox3 = 0;
+            nis[b].fi1 = f1;
+            nis[b].fi2 = 0;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+    }
+    if (dim == 3) {
+      // x1x3
+      for (int m = -1; m <= 1; m += 2) {
+        for (int n = -1; n <= 1; n += 2) {
+          for (int f1 = 0; f1 < nf1; f1++) {
+            nis.emplace_back();
+            nis[b].ox1 = n;
+            nis[b].ox2 = 0;
+            nis[b].ox3 = m;
+            nis[b].fi1 = f1;
+            nis[b].fi2 = 0;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+      // x2x3
+      for (int m = -1; m <= 1; m += 2) {
+        for (int n = -1; n <= 1; n += 2) {
+          for (int f1 = 0; f1 < nf1; f1++) {
+            nis.emplace_back();
+            nis[b].ox1 = 0;
+            nis[b].ox2 = n;
+            nis[b].ox3 = m;
+            nis[b].fi1 = f1;
+            nis[b].fi2 = 0;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+      // corners
+      for (int l = -1; l <= 1; l += 2) {
+        for (int m = -1; m <= 1; m += 2) {
+          for (int n = -1; n <= 1; n += 2) {
+            nis.emplace_back(); 
+            nis[b].ox1 = n;
+            nis[b].ox2 = m;
+            nis[b].ox3 = l;
+            nis[b].fi1 = 0;
+            nis[b].fi2 = 0;
+            nis[b].type = NeighborConnect::face;
+            b++;
+          }
+        }
+      }
+    }
+    for (int i=0; i<nis.size(); ++i) { 
+      auto &ni = nis[i];
+      printf("[%i] (%i, %i, %i)(%i, %i)\n", i, ni.ox1, ni.ox2, ni.ox3, ni.fi1, ni.fi2);
+    }
+  }
+
+  int GetID(int ox1, int ox2, int ox3, int f1, int f2) const { 
+    NeighborIndexes in{ox1, ox2, ox3, f1, f2, NeighborConnect::face};
+    for (int i = 0; i < nis.size(); ++i) { 
+      if (nis[i] == in) return i;
+    }
+    return -1;
+  }
+
+  int size() const {return nis.size();}
 };
 
 //----------------------------------------------------------------------------------------

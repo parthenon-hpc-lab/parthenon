@@ -132,6 +132,8 @@ void Mesh::SetSameLevelNeighbors(
     BlockList_t &block_list, const LogicalLocMap_t &loc_map, RootGridInfo root_grid,
     int nbs, bool gmg_neighbors, int composite_logical_level,
     const std::unordered_set<LogicalLocation> &newly_refined) {
+  BufferID buffer_id(ndim, multilevel);
+  
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -196,15 +198,24 @@ void Mesh::SetSameLevelNeighbors(
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
                                                   root_grid);
+              auto fn = pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2, -ox3,
+                                                  root_grid);
+              int bid = buffer_id.GetID(ox1, ox2, ox3, f[0], f[1]);
+              int tid = buffer_id.GetID(-ox1, -ox2, -ox3, fn[0], fn[1]);
               neighbor_list->emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
-                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, buf_id++, 0, f[0],
+                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, bid, tid, f[0],
                   f[1]);
             }
           }
         }
       }
     }
+
+    std::sort(neighbor_list->begin(), neighbor_list->end(), [](auto lhs, auto rhs){
+      return lhs.bufid < rhs.bufid;
+    });
+
     // Set neighbor block ownership
     std::unordered_set<LogicalLocation> allowed_neighbors;
     allowed_neighbors.insert(pmb->loc);
