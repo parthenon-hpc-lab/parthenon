@@ -100,7 +100,7 @@ class LogicalLocation { // aggregate and POD type
   // possibly including a ghost halo around the tree
   bool IsInTree(int nghost = 0) const {
     const int low = -nghost;
-    const int up = 1LL << level() + nghost;
+    const int up = (1LL << level()) + nghost;
     return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
            (l_[2] >= low) && (l_[2] < up);
   }
