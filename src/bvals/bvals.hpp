@@ -105,7 +105,7 @@ class BoundaryBase {
 //----------------------------------------------------------------------------------------
 //! \class BoundarySwarms
 //  \brief centralized class for interacting with each individual swarm boundary data
-class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
+class BoundarySwarms : public BoundaryCommunication {
  public:
   BoundarySwarms(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
                  ParameterInput *pin);
@@ -132,6 +132,7 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
   int nface_, nedge_;
+  BoundaryFlag block_bcs[6];
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries

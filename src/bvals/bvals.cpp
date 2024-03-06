@@ -129,9 +129,7 @@ void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
 // dirs of a MeshBlock
 BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *input_bcs,
                                ParameterInput *pin)
-    : BoundaryBase(wpmb.lock()->pmy_mesh, wpmb.lock()->loc, wpmb.lock()->block_size,
-                   input_bcs),
-      pmy_block_(wpmb) {
+    : pmy_block_(wpmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
   // TODO(BRR) Add physical particle boundary conditions, maybe using the below code
   /*for (int i = 0; i < 6; i++) {
@@ -144,6 +142,8 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
       break;
     }
   }*/
+  for (int i = 0; i < 6; ++i) block_bcs[i] = input_bcs[i];
+
   // Inner x1
   nface_ = 2;
   nedge_ = 0;
