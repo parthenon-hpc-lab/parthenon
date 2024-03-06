@@ -635,6 +635,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nnb;
   // check the tree structure, and assign GID
   tree.GetMeshBlockList(loclist.data(), nullptr, nnb);
+  auto loclist_f = forest.GetMeshBlockListAndResolveGids();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
