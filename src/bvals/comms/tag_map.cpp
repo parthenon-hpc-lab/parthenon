@@ -35,13 +35,28 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
 }
 template <BoundaryType BOUND>
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
-  ForEachBoundary<BOUND>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    const int other_rank = nb.snb.rank;
-    if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
-    auto &pair_map = map_[other_rank];
-    // Add channel key with an invalid tag
-    pair_map[MakeChannelPair(pmb, nb)] = -1;
-  });
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    auto *neighbors = [&pmb, &md]{
+      if constexpr (BOUND == BoundaryType::gmg_restrict_send) return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_restrict_recv) return &(pmb->gmg_finer_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_send) return &(pmb->gmg_finer_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv) return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv) return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_same) return pmb->loc.level() == md->grid.logical_level
+                                                            ? &(pmb->gmg_same_neighbors)
+                                                            : &(pmb->gmg_composite_finer_neighbors);
+      return &(pmb->neighbors);
+    }();
+    for (auto &nb : *neighbors) { 
+      const int other_rank = nb.snb.rank;
+      if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
+      auto &pair_map = map_[other_rank];
+      // Add channel key with an invalid tag
+      pair_map[MakeChannelPair(pmb, nb)] = -1;
+    }
+  }
 }
 template void
 TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
@@ -80,7 +95,9 @@ void TagMap::ResolveMap() {
 int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
   const int other_rank = nb.snb.rank;
   auto &pair_map = map_[other_rank];
-  return pair_map[MakeChannelPair(pmb, nb)];
+  auto cpair = MakeChannelPair(pmb, nb);
+  PARTHENON_REQUIRE(pair_map.count(cpair) == 1, "Trying to get tag for key that hasn't been entered.\n");
+  return pair_map[cpair];
 }
 
 } // namespace parthenon
