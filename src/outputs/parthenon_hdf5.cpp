@@ -314,7 +314,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
     vinfo.FillShape(&(local_count[1]));
     vinfo.FillShape(&(global_count[1]));
-    all_dims = vinfo.GetShape<hsize_t>();
+    auto alldims = vinfo.GetShape<hsize_t>();
 
     int ndim = -1;
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
