@@ -137,7 +137,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
         PARTHENON_MPI_CHECK(
-            MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], swarm_comm, &test, &status));
+            MPI_Iprobe(nb.snb.rank, recv_tag[nb.bufid], swarm_comm, &test, &status));
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
