@@ -130,7 +130,7 @@ struct NeighborIndexes { // aggregate and POD
   //     object, C portability, supports static initialization
   bool operator==(const NeighborIndexes &rhs) const {
     return (ox1 == rhs.ox1) && (ox2 == rhs.ox2) && (ox3 == rhs.ox3) && (fi1 == rhs.fi1) &&
-           (fi2 == rhs.fi2) && (type == type);
+           (fi2 == rhs.fi2) && (type == rhs.type);
   }
 };
 
