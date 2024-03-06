@@ -112,8 +112,8 @@ NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
 }
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                             std::array<int, 3> offsets, int fi1, int fi2)
-    : NeighborBlock(mesh, loc, rank, gid, 0, offsets, NCFromOffsets(offsets), 0, 0, fi1,
+                             std::array<int, 3> offsets, int bufid_in, int fi1, int fi2)
+    : NeighborBlock(mesh, loc, rank, gid, 0, offsets, NCFromOffsets(offsets), bufid_in, 0, fi1,
                     fi2) {}
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,

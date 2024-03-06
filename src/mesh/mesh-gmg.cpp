@@ -70,6 +70,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       old_possible_neighbor_set.insert(n.global_loc);
 
     // Build NeighborBlocks for unique neighbors
+    int buf_id = 0;
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
       auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
@@ -77,7 +78,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       int rank = 0;
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, f[0],
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, buf_id++, f[0],
                                  f[1]);
 
       // Set neighbor block ownership
@@ -146,6 +147,7 @@ void Mesh::SetSameLevelNeighbors(
     *neighbor_list = {};
 
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
+    int buf_id = 0;
     for (auto &pos_neighbor_location : possible_neighbors) {
       if (gmg_neighbors && loc.level() == composite_logical_level - 1 &&
           loc.level() == pos_neighbor_location.level())
@@ -196,7 +198,7 @@ void Mesh::SetSameLevelNeighbors(
                                                   root_grid);
               neighbor_list->emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
-                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, 0, 0, f[0],
+                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, buf_id++, 0, f[0],
                   f[1]);
             }
           }

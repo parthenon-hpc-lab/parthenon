@@ -158,7 +158,7 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
                 std::array<int, 3> offsets, NeighborConnect type, int bid, int target_id,
                 int ifi1, int ifi2);
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                std::array<int, 3> offsets, int ifi1, int ifi2);
+                std::array<int, 3> offsets, int bufid_in, int ifi1, int ifi2);
 };
 
 //----------------------------------------------------------------------------------------
