@@ -138,5 +138,26 @@ NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
   }
 }
 
+BufferID::BufferID(int dim, bool multilevel) { 
+  std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+  std::vector<int> x2offsets = dim > 1 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+  std::vector<int> x3offsets = dim > 2 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
+  for (auto ox3 : x3offsets) { 
+    for (auto ox2 : x2offsets) { 
+      for (auto ox1 : x1offsets) { 
+        const int type = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
+        if (type == 0) continue;
+        std::vector<int> f1s = (dim - type) > 0 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+        std::vector<int> f2s = (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+        for (auto f1 : f1s) {
+          for (auto f2 : f2s) { 
+            NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face}; 
+            nis.push_back(ni);
+          }
+        }
+      }
+    }
+  }
+}
 
 } // namespace parthenon

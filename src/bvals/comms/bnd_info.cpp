@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "config.hpp"
 #include "globals.hpp"

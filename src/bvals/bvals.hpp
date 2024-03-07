@@ -27,7 +27,7 @@
 #include "basic_types.hpp"
 #include "parthenon_mpi.hpp"
 
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "defs.hpp"
@@ -39,7 +39,7 @@ namespace parthenon {
 
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
-// Can #include "./bvals_interfaces.hpp" suffice?
+// Can #include "./neighbor_block.hpp" suffice?
 template <typename T>
 class Variable;
 class Mesh;
@@ -53,6 +53,91 @@ BoundaryFlag GetBoundaryFlag(const std::string &input_string);
 std::string GetBoundaryString(BoundaryFlag input_flag);
 // + confirming that the MeshBlock's boundaries are all valid selections
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
+
+// identifiers for status of MPI boundary communications
+enum class BoundaryStatus { waiting, arrived, completed };
+
+//----------------------------------------------------------------------------------------
+//! \struct BoundaryData
+//  \brief structure storing boundary information
+
+template <int n = NMAX_NEIGHBORS>
+struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
+  static constexpr int kMaxNeighbor = n;
+  // KGF: "nbmax" only used in bvals_var.cpp, Init/DestroyBoundaryData()
+  int nbmax; // actual maximum number of neighboring MeshBlocks
+  // currently, sflag[] is only used by Multgrid (send buffers are reused each stage in
+  // red-black comm. pattern; need to check if they are available)
+  BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
+  BufArray1D<Real> buffers;
+  BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
+  // host mirror view of recv
+  BufArray1D<Real>::host_mirror_type recv_h[kMaxNeighbor];
+  int recv_size[kMaxNeighbor];
+#ifdef MPI_PARALLEL
+  MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
+#endif
+};
+
+//----------------------------------------------------------------------------------------
+//! \class BoundaryCommunication
+//  \brief contains methods for managing BoundaryStatus flags and MPI requests
+
+class BoundaryCommunication {
+ public:
+  BoundaryCommunication() {}
+  virtual ~BoundaryCommunication() {}
+  // create unique tags for each MeshBlock/buffer/quantity and initialize MPI requests:
+  virtual void SetupPersistentMPI() = 0;
+  // call MPI_Start() on req_recv[]
+  virtual void StartReceiving(BoundaryCommSubset phase) = 0;
+  // call MPI_Wait() on req_send[] and set flag[] to BoundaryStatus::waiting
+  virtual void ClearBoundary(BoundaryCommSubset phase) = 0;
+};
+
+//----------------------------------------------------------------------------------------
+//! \class BoundarySwarm
+class BoundarySwarm : public BoundaryCommunication {
+ public:
+  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label);
+  ~BoundarySwarm() = default;
+
+  std::vector<ParArrayND<int>> vars_int;
+  std::vector<ParArrayND<Real>> vars_real;
+
+  // (usuallly the std::size_t unsigned integer type)
+  std::vector<BoundaryCommunication *>::size_type bswarm_index;
+
+  // BoundaryCommunication
+  void SetupPersistentMPI() final;
+  void StartReceiving(BoundaryCommSubset phase) final{};
+  void ClearBoundary(BoundaryCommSubset phase) final{};
+  void Receive(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
+
+  BoundaryData<> bd_var_;
+  std::weak_ptr<MeshBlock> pmy_block;
+  Mesh *pmy_mesh_;
+  int send_tag[NMAX_NEIGHBORS], recv_tag[NMAX_NEIGHBORS];
+  int particle_size, send_size[NMAX_NEIGHBORS], recv_size[NMAX_NEIGHBORS];
+
+ protected:
+  int nl_, nu_;
+  void InitBoundaryData(BoundaryData<> &bd);
+
+ private:
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
+
+#ifdef MPI_PARALLEL
+  // Unique communicator for this swarm.
+  MPI_Comm swarm_comm;
+#endif
+};
 
 //----------------------------------------------------------------------------------------
 //! \class BoundarySwarms

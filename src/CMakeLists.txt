@@ -111,8 +111,8 @@ add_library(parthenon
 
   bvals/bvals.cpp
   bvals/bvals.hpp
-  bvals/bvals_base.cpp
-  bvals/bvals_interfaces.hpp
+  bvals/neighbor_block.cpp
+  bvals/neighbor_block.hpp
   bvals/boundary_flag.cpp
   bvals/bvals_swarm.cpp
 

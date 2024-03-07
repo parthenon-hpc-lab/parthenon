@@ -16,7 +16,7 @@
 //========================================================================================
 #ifndef BVALS_BVALS_INTERFACES_HPP_
 #define BVALS_BVALS_INTERFACES_HPP_
-//! \file bvals_interfaces.hpp
+//! \file neighbor_block.hpp
 //  \brief defines enums, structs, and abstract classes
 
 // TODO(felker): deduplicate forward declarations
@@ -91,9 +91,6 @@ enum class NeighborConnect {
   corner
 }; // degenerate/shared part of block
 
-// identifiers for status of MPI boundary communications
-enum class BoundaryStatus { waiting, arrived, completed };
-
 //----------------------------------------------------------------------------------------
 //! \struct SimpleNeighborBlock
 //  \brief Struct storing only the basic info about a MeshBlocks neighbors. Typically used
@@ -133,49 +130,11 @@ struct NeighborIndexes { // aggregate and POD
   }
 };
 
-class BufferID {
-  std::vector<NeighborIndexes> nis;
- public: 
-  BufferID(int dim, bool multilevel) { 
-    std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
-    std::vector<int> x2offsets = dim > 1 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
-    std::vector<int> x3offsets = dim > 2 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
-    for (auto ox3 : x3offsets) { 
-      for (auto ox2 : x2offsets) { 
-        for (auto ox1 : x1offsets) { 
-          const int type = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
-          if (type == 0) continue;
-          std::vector<int> f1s = (dim - type) > 0 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
-          std::vector<int> f2s = (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
-          for (auto f1 : f1s) {
-            for (auto f2 : f2s) { 
-              NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face}; 
-              nis.push_back(ni);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  int GetID(int ox1, int ox2, int ox3, int f1, int f2) const { 
-    NeighborIndexes in{ox1, ox2, ox3, f1, f2, NeighborConnect::face};
-    for (int i = 0; i < nis.size(); ++i) { 
-      if (nis[i] == in) return i;
-    }
-    return -1;
-  }
-
-  int size() const {return nis.size();}
-};
-
 //----------------------------------------------------------------------------------------
 //! \struct NeighborBlock
 //  \brief
 
-struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-layout-> POD
-                       // : SimpleNeighborBlock, NeighborIndexes {
-  // composition:
+struct NeighborBlock {
   SimpleNeighborBlock snb;
   NeighborIndexes ni;
 
@@ -197,98 +156,23 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
 };
 
 //----------------------------------------------------------------------------------------
-//! \struct BoundaryData
-//  \brief structure storing boundary information
+//! \class BufferID
+//  \brief Class for determining unique indices for communication buffers based on offsets
+// TODO(LFR): This is only necessary for swarm communication and can go away when that is updated.
+class BufferID {
+  std::vector<NeighborIndexes> nis;
+ public: 
+  BufferID(int dim, bool multilevel); 
 
-template <int n = NMAX_NEIGHBORS>
-struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
-  static constexpr int kMaxNeighbor = n;
-  // KGF: "nbmax" only used in bvals_var.cpp, Init/DestroyBoundaryData()
-  int nbmax; // actual maximum number of neighboring MeshBlocks
-  // currently, sflag[] is only used by Multgrid (send buffers are reused each stage in
-  // red-black comm. pattern; need to check if they are available)
-  BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
-  BufArray1D<Real> buffers;
-  BufArray1D<Real> send[kMaxNeighbor], recv[kMaxNeighbor];
-  // host mirror view of recv
-  BufArray1D<Real>::host_mirror_type recv_h[kMaxNeighbor];
-  int recv_size[kMaxNeighbor];
-#ifdef MPI_PARALLEL
-  MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
-#endif
-};
-
-//----------------------------------------------------------------------------------------
-// Interfaces = abstract classes containing ONLY pure virtual functions
-//              Merely lists functions and their argument lists that must be implemented
-//              in derived classes to form a somewhat-strict contract for functionality
-//              (can always implement as a do-nothing/no-op function if a derived class
-//              instance is the exception to the rule and does not use a particular
-//              interface function)
-//----------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------
-//! \class BoundaryCommunication
-//  \brief contains methods for managing BoundaryStatus flags and MPI requests
-
-class BoundaryCommunication {
- public:
-  BoundaryCommunication() {}
-  virtual ~BoundaryCommunication() {}
-  // create unique tags for each MeshBlock/buffer/quantity and initialize MPI requests:
-  virtual void SetupPersistentMPI() = 0;
-  // call MPI_Start() on req_recv[]
-  virtual void StartReceiving(BoundaryCommSubset phase) = 0;
-  // call MPI_Wait() on req_send[] and set flag[] to BoundaryStatus::waiting
-  virtual void ClearBoundary(BoundaryCommSubset phase) = 0;
-};
-
-//----------------------------------------------------------------------------------------
-// Concrete classes
-//----------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------
-//! \class BoundarySwarm
-class BoundarySwarm : public BoundaryCommunication {
- public:
-  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label);
-  ~BoundarySwarm() = default;
-
-  std::vector<ParArrayND<int>> vars_int;
-  std::vector<ParArrayND<Real>> vars_real;
-
-  // (usuallly the std::size_t unsigned integer type)
-  std::vector<BoundaryCommunication *>::size_type bswarm_index;
-
-  // BoundaryCommunication
-  void SetupPersistentMPI() final;
-  void StartReceiving(BoundaryCommSubset phase) final{};
-  void ClearBoundary(BoundaryCommSubset phase) final{};
-  void Receive(BoundaryCommSubset phase);
-  void Send(BoundaryCommSubset phase);
-
-  BoundaryData<> bd_var_;
-  std::weak_ptr<MeshBlock> pmy_block;
-  Mesh *pmy_mesh_;
-  int send_tag[NMAX_NEIGHBORS], recv_tag[NMAX_NEIGHBORS];
-  int particle_size, send_size[NMAX_NEIGHBORS], recv_size[NMAX_NEIGHBORS];
-
- protected:
-  int nl_, nu_;
-  void InitBoundaryData(BoundaryData<> &bd);
-
- private:
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
-    if (pmy_block.expired()) {
-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+  int GetID(int ox1, int ox2, int ox3, int f1, int f2) const { 
+    NeighborIndexes in{ox1, ox2, ox3, f1, f2, NeighborConnect::face};
+    for (int i = 0; i < nis.size(); ++i) { 
+      if (nis[i] == in) return i;
     }
-    return pmy_block.lock();
+    return -1;
   }
 
-#ifdef MPI_PARALLEL
-  // Unique communicator for this swarm.
-  MPI_Comm swarm_comm;
-#endif
+  int size() const {return nis.size();}
 };
 
 } // namespace parthenon
