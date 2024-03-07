@@ -57,6 +57,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
+  BufferID buffer_id(ndim, multilevel);
 
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
@@ -78,12 +79,21 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       int rank = 0;
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets,
-                                 buf_id++, f[0], f[1]);
+      int bid = buffer_id.GetID(offsets[0], offsets[1], offsets[2], f[0], f[1]);
+      
+      // TODO(LFR): This will only give the correct buffer index if the two trees have the same 
+      // coordinate orientation. We really need to transform loc into the logical coord system 
+      // of the tree nloc.global_loc to get the true tid
+      auto fn = nloc.origin_loc.GetAthenaXXFaceOffsets(loc, -offsets[0], -offsets[1], -offsets[2]);
+      int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
+
+      // TODO(LFR): Remove the AthenaCompositeLocation 
+      all_neighbors.emplace_back(pmb->pmy_mesh, forest.GetAthenaCompositeLocation(nloc.global_loc), 
+                                 rank, gid, offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
-      auto neighbor_neighbors = forest.FindNeighbors(nb.loc);
+      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
 
       // TODO(LFR): Remove the next six lines once done testing. This is only
       // to ensure compatibility with the old infrastructure which
