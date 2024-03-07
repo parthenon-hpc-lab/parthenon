@@ -14,7 +14,6 @@
 add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
 add_subdirectory(calculate_pi)
-add_subdirectory(forest_mesh)
 add_subdirectory(kokkos_pi)
 add_subdirectory(particles)
 add_subdirectory(particle_leapfrog)
