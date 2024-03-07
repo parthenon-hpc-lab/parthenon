@@ -293,7 +293,9 @@ class Forest {
 
   // TODO(LFR): Probably eventually remove this. This is only meaningful for simply
   // oriented grids
-  LogicalLocation GetAthenaCompositeLocation(const LogicalLocation &loc) {
+  LogicalLocation GetAthenaCompositeLocation(const LogicalLocation &loc) const {
+    if (loc.tree() < 0)
+      return loc; // This is already presumed to be an Athena++ tree location
     auto parent_loc = trees[loc.tree()]->athena_forest_loc;
     int composite_level = parent_loc.level() + loc.level();
     int lx1 = (parent_loc.lx1() << loc.level()) + loc.lx1();
@@ -303,7 +305,10 @@ class Forest {
   }
 
   LogicalLocation
-  GetForestLocationFromAthenaCompositeLocation(const LogicalLocation &loc) {
+  GetForestLocationFromAthenaCompositeLocation(const LogicalLocation &loc) const {
+    if (loc.tree() >= 0)
+      return loc; // This location is already associated with a tree in the Parthenon
+                  // forest
     int macro_level = trees[0]->athena_forest_loc.level();
     auto forest_loc = loc.GetParent(loc.level() - macro_level);
     for (auto &t : trees) {

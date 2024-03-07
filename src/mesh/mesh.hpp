@@ -97,6 +97,8 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const;
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
+  const forest::Forest &Forest() const { return forest; }
+
   // data
   bool modified;
   const bool is_restart;
@@ -310,8 +312,10 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
-  void SetMeshBlockNeighbors(BlockList_t &block_list, int nbs, const std::vector<int> &ranklist, 
-                          const std::unordered_set<LogicalLocation> &newly_refined = {});
+  void
+  SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
+                        const std::vector<int> &ranklist,
+                        const std::unordered_set<LogicalLocation> &newly_refined = {});
   void
   SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
                         RootGridInfo root_grid, int nbs, bool gmg_neighbors,

@@ -359,9 +359,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initial mesh hierarchy construction is completed here
   loclist = forest.GetMeshBlockListAndResolveGids();
   nbtotal = loclist.size();
-  for (int ib = 0; ib < loclist.size(); ++ib) {
-    loclist[ib] = forest.GetAthenaCompositeLocation(loclist[ib]);
-  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
@@ -603,17 +600,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       current_level = loclist[i].level();
     }
   }
+
   // rebuild the Block Tree
   forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
-
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(loclist[i]),
                         false);
   }
 
   loclist = forest.GetMeshBlockListAndResolveGids();
-  for (auto &loc : loclist)
-    loc = forest.GetAthenaCompositeLocation(loc);
   int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl

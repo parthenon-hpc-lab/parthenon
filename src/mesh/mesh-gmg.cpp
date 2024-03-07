@@ -51,9 +51,9 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
-void Mesh::SetMeshBlockNeighbors(BlockList_t &block_list, int nbs, 
-                                 const std::vector<int> &ranklist, 
-                                 const std::unordered_set<LogicalLocation> &newly_refined) {
+void Mesh::SetMeshBlockNeighbors(
+    BlockList_t &block_list, int nbs, const std::vector<int> &ranklist,
+    const std::unordered_set<LogicalLocation> &newly_refined) {
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
@@ -61,7 +61,7 @@ void Mesh::SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
 
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
-    auto loc = forest.GetForestLocationFromAthenaCompositeLocation(pmb->loc);
+    const auto &loc = pmb->loc;
     auto neighbors = forest.FindNeighbors(loc);
 
     // Build NeighborBlocks for unique neighbors
@@ -80,10 +80,8 @@ void Mesh::SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
                                                        -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
 
-      // TODO(LFR): Remove the AthenaCompositeLocation
-      all_neighbors.emplace_back(pmb->pmy_mesh,
-                                 forest.GetAthenaCompositeLocation(nloc.global_loc),
-                                 ranklist[gid], gid, offsets, bid, tid, f[0], f[1]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[gid], gid,
+                                 offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();

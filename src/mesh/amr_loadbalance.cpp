@@ -606,15 +606,13 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   // Start tree manipulation
   // Step 1. perform refinement
   for (int n = 0; n < tnref; n++) {
-    auto flref = forest.GetForestLocationFromAthenaCompositeLocation(lref[n]);
-    nnew += forest.Refine(flref);
+    nnew += forest.Refine(lref[n]);
   }
   if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
-    auto fclderef = forest.GetForestLocationFromAthenaCompositeLocation(clderef[n]);
-    ndel += forest.Derefine(fclderef);
+    ndel += forest.Derefine(clderef[n]);
   }
 
   if (tnderef >= nleaf) delete[] clderef;
@@ -684,10 +682,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_INSTRUMENT
     newloc = forest.GetMeshBlockListAndResolveGids();
     nbtotal = newloc.size();
-    for (int ib = 0; ib < nbtotal; ++ib) {
+    for (int ib = 0; ib < nbtotal; ++ib)
       newtoold[ib] = forest.GetOldGid(newloc[ib]);
-      newloc[ib] = forest.GetAthenaCompositeLocation(newloc[ib]);
-    }
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -806,9 +802,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         new_block_list[n - nbs] = FindMeshBlock(on);
         if (!new_block_list[n - nbs]) {
           BoundaryFlag block_bcs[6];
-          SetBlockSizeAndBoundaries(
-              forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size,
-              block_bcs);
+          SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
           new_block_list[n - nbs] =
               MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                               app_in, packages, resolved_packages, gflag);
@@ -816,9 +810,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(
-            forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size,
-            block_bcs);
+        SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
         // append new block to list of MeshBlocks
         new_block_list[n - nbs] =
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
@@ -955,10 +947,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // Re-initialize the mesh with our temporary ownership/neighbor configurations.
     // No buffers are different when we switch to the final precedence order.
     std::unordered_set<LogicalLocation> forest_newly_refined;
-    for (auto &aloc : newly_refined) {
-      forest_newly_refined.insert(
-          forest.GetForestLocationFromAthenaCompositeLocation(aloc));
-    }
+    for (auto &aloc : newly_refined)
+      forest_newly_refined.insert(aloc);
     SetMeshBlockNeighbors(block_list, nbs, ranklist, forest_newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
