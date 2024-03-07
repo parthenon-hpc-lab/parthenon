@@ -12,9 +12,3 @@ BoundaryCommunication
 
 Pure abstract base class, defines interfaces for managing
 ``BoundaryStatus`` flags and MPI requests
-
-BoundaryBuffer
---------------
-
-Pure abstract base class, defines interfaces for managing MPI
-send/receive and loading/storing data from communication buffers.
