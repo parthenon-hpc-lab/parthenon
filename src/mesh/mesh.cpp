@@ -101,8 +101,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -362,7 +361,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   nbtotal = loclist.size();
   for (int ib = 0; ib < loclist.size(); ++ib) {
     loclist[ib] = forest.GetAthenaCompositeLocation(loclist[ib]);
-  } 
+  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
@@ -483,8 +482,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -614,9 +612,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   loclist = forest.GetMeshBlockListAndResolveGids();
-  for (auto &loc : loclist) 
+  for (auto &loc : loclist)
     loc = forest.GetAthenaCompositeLocation(loc);
-  int nnb = loclist.size(); 
+  int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("

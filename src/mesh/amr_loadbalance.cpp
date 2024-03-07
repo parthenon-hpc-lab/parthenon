@@ -679,31 +679,15 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // store old nbstart and nbend before load balancing.
   int onbs = nslist[Globals::my_rank];
   int onbe = onbs + nblist[Globals::my_rank] - 1;
-  //std::vector<LogicalLocation> newloc_f;
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
-    //tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
     newloc = forest.GetMeshBlockListAndResolveGids();
     nbtotal = newloc.size();
-    for (int ib = 0; ib < nbtotal; ++ib) { 
+    for (int ib = 0; ib < nbtotal; ++ib) {
       newtoold[ib] = forest.GetOldGid(newloc[ib]);
       newloc[ib] = forest.GetAthenaCompositeLocation(newloc[ib]);
     }
-    //PARTHENON_REQUIRE(nbtotal == newloc_f.size(),
-    //                  "New block lists aren't the same size.");
-
-    //std::vector<std::int64_t> newtoold_f(newloc_f.size());
-    //for (int ib = 0; ib < newloc_f.size(); ++ib) {
-    //  newtoold_f[ib] = forest.GetOldGid(newloc_f[ib]);
-    //  PARTHENON_REQUIRE(newtoold_f[ib] == newtoold[ib], "Old gid mapping doesn't agree.");
-    //  if (forest.GetAthenaCompositeLocation(newloc_f[ib]) != newloc[ib]) {
-    //    printf("bad location %s [%s != %s]\n", newloc_f[ib].label().c_str(),
-    //           forest.GetAthenaCompositeLocation(newloc_f[ib]).label().c_str(),
-    //           newloc[ib].label().c_str());
-    //    PARTHENON_FAIL("Block lists disagree.");
-    //  }
-    //}
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -822,7 +806,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         new_block_list[n - nbs] = FindMeshBlock(on);
         if (!new_block_list[n - nbs]) {
           BoundaryFlag block_bcs[6];
-          SetBlockSizeAndBoundaries(forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size, block_bcs);
+          SetBlockSizeAndBoundaries(
+              forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size,
+              block_bcs);
           new_block_list[n - nbs] =
               MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                               app_in, packages, resolved_packages, gflag);
@@ -830,7 +816,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size, block_bcs);
+        SetBlockSizeAndBoundaries(
+            forest.GetForestLocationFromAthenaCompositeLocation(newloc[n]), block_size,
+            block_bcs);
         // append new block to list of MeshBlocks
         new_block_list[n - nbs] =
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,

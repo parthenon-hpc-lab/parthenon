@@ -73,16 +73,18 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
       int bid = buffer_id.GetID(offsets[0], offsets[1], offsets[2], f[0], f[1]);
-      
-      // TODO(LFR): This will only give the correct buffer index if the two trees have the same 
-      // coordinate orientation. We really need to transform loc into the logical coord system 
-      // of the tree nloc.global_loc to get the true tid
-      auto fn = nloc.origin_loc.GetAthenaXXFaceOffsets(loc, -offsets[0], -offsets[1], -offsets[2]);
+
+      // TODO(LFR): This will only give the correct buffer index if the two trees have the
+      // same coordinate orientation. We really need to transform loc into the logical
+      // coord system of the tree nloc.global_loc to get the true tid
+      auto fn = nloc.origin_loc.GetAthenaXXFaceOffsets(loc, -offsets[0], -offsets[1],
+                                                       -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
 
-      // TODO(LFR): Remove the AthenaCompositeLocation 
-      all_neighbors.emplace_back(pmb->pmy_mesh, forest.GetAthenaCompositeLocation(nloc.global_loc), 
-                                 rank, gid, offsets, bid, tid, f[0], f[1]);
+      // TODO(LFR): Remove the AthenaCompositeLocation
+      all_neighbors.emplace_back(pmb->pmy_mesh,
+                                 forest.GetAthenaCompositeLocation(nloc.global_loc), rank,
+                                 gid, offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();

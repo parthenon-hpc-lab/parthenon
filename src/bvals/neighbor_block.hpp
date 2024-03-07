@@ -151,7 +151,7 @@ struct NeighborBlock {
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
                 std::array<int, 3> offsets, NeighborConnect type, int bid, int target_id,
                 int ifi1, int ifi2);
-  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, 
+  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
                 std::array<int, 3> offsets, int bid, int target_id, int ifi1, int ifi2);
 };
 
