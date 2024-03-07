@@ -238,11 +238,6 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;
 
-  // Helper maps for going from tree ids to neighbor connections to those trees
-  // as well as from tree id to the tree sptr. More or less inverts the neighbors
-  // object above.
-  std::unordered_map<std::uint64_t, std::set<int>> tid_to_connection_set;
-  std::unordered_map<std::uint64_t, std::shared_ptr<Tree>> tid_to_tree_sptr;
   RegionSize domain;
 };
 

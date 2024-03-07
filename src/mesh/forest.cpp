@@ -330,34 +330,9 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
   return block_bcs;
 }
 
-// TODO(LFR): Maybe remove this along with tid_to_connection_set and tid_to_tree_sptr.
-// Originally I I thought it was useful for setting neighbor ownership, but I found a
-// cleaner way by just searching for neighbors.
-std::vector<LogicalLocation>
-Tree::GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc) {
-  PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
-  // Transform a location on a possibly neighboring tree to all of its
-  // halo positions on this tree
-  std::vector<LogicalLocation> locs{};
-  if (tid_to_connection_set.count(loc.tree())) {
-    auto ptree = tid_to_tree_sptr[loc.tree()];
-    for (auto ncidx : tid_to_connection_set[loc.tree()]) {
-      auto tloc = neighbors[ncidx][ptree].TransformBack(loc, my_id);
-      if (tloc.IsInHalo(1)) locs.push_back(tloc);
-    }
-  }
-  return locs;
-}
-
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                            RelativeOrientation orient) {
   int location_idx = offset.GetIdx();
-  if (tid_to_connection_set.count(neighbor_tree->GetId())) {
-    tid_to_connection_set[neighbor_tree->GetId()].insert(location_idx);
-  } else {
-    tid_to_connection_set[neighbor_tree->GetId()] = {location_idx};
-  }
-  tid_to_tree_sptr[neighbor_tree->GetId()] = neighbor_tree;
   neighbors[location_idx].insert({neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
   if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
