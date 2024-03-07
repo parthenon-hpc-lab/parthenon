@@ -78,8 +78,8 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       int rank = 0;
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets, buf_id++, f[0],
-                                 f[1]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, rank, gid, offsets,
+                                 buf_id++, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
@@ -133,7 +133,7 @@ void Mesh::SetSameLevelNeighbors(
     int nbs, bool gmg_neighbors, int composite_logical_level,
     const std::unordered_set<LogicalLocation> &newly_refined) {
   BufferID buffer_id(ndim, multilevel);
-  
+
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -198,23 +198,22 @@ void Mesh::SetSameLevelNeighbors(
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
                                                   root_grid);
-              auto fn = pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2, -ox3,
-                                                  root_grid);
+              auto fn = pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2,
+                                                                     -ox3, root_grid);
               int bid = buffer_id.GetID(ox1, ox2, ox3, f[0], f[1]);
               int tid = buffer_id.GetID(-ox1, -ox2, -ox3, fn[0], fn[1]);
               neighbor_list->emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
-                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, bid, tid, f[0],
-                  f[1]);
+                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, bid, tid,
+                  f[0], f[1]);
             }
           }
         }
       }
     }
 
-    std::sort(neighbor_list->begin(), neighbor_list->end(), [](auto lhs, auto rhs){
-      return lhs.bufid < rhs.bufid;
-    });
+    std::sort(neighbor_list->begin(), neighbor_list->end(),
+              [](auto lhs, auto rhs) { return lhs.bufid < rhs.bufid; });
 
     // Set neighbor block ownership
     std::unordered_set<LogicalLocation> allowed_neighbors;

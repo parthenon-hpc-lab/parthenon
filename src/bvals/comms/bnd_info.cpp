@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/neighbor_block.hpp"
 #include "bvals/comms/bnd_info.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"

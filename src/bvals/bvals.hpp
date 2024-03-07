@@ -17,7 +17,7 @@
 #ifndef BVALS_BVALS_HPP_
 #define BVALS_BVALS_HPP_
 //! \file bvals.hpp
-//  \brief defines BoundarySwarms 
+//  \brief defines BoundarySwarms
 
 #include <memory>
 #include <string>
@@ -27,9 +27,9 @@
 #include "basic_types.hpp"
 #include "parthenon_mpi.hpp"
 
-#include "bvals/neighbor_block.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "defs.hpp"
 #include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"

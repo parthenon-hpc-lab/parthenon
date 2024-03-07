@@ -90,8 +90,8 @@ std::string GetBoundaryString(BoundaryFlag input_flag) {
 //! \fn CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir)
 //  \brief Called in each MeshBlock's BoundaryValues() constructor. Mesh() ctor only
 //  checks the validity of user's input mesh/ixn_bc, oxn_bc string values corresponding to
-//  a BoundaryFlag enumerator before passing it to a MeshBlock. However, not all BoundaryFlag enumerators can be used in all directions as a
-//  valid MeshBlock boundary.
+//  a BoundaryFlag enumerator before passing it to a MeshBlock. However, not all
+//  BoundaryFlag enumerators can be used in all directions as a valid MeshBlock boundary.
 
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   std::stringstream msg;

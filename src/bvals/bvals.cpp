@@ -180,7 +180,8 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
       break;
     }
   }*/
-  for (int i = 0; i < 6; ++i) block_bcs[i] = input_bcs[i];
+  for (int i = 0; i < 6; ++i)
+    block_bcs[i] = input_bcs[i];
 
   // Inner x1
   nface_ = 2;

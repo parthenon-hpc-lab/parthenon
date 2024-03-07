@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BVALS_BVALS_INTERFACES_HPP_
-#define BVALS_BVALS_INTERFACES_HPP_
+#ifndef BVALS_NEIGHBOR_BLOCK_HPP_
+#define BVALS_NEIGHBOR_BLOCK_HPP_
 //! \file neighbor_block.hpp
 //  \brief defines enums, structs, and abstract classes
 
@@ -158,23 +158,25 @@ struct NeighborBlock {
 //----------------------------------------------------------------------------------------
 //! \class BufferID
 //  \brief Class for determining unique indices for communication buffers based on offsets
-// TODO(LFR): This is only necessary for swarm communication and can go away when that is updated.
+// TODO(LFR): This is only necessary for swarm communication and can go away when that is
+// updated.
 class BufferID {
   std::vector<NeighborIndexes> nis;
- public: 
-  BufferID(int dim, bool multilevel); 
 
-  int GetID(int ox1, int ox2, int ox3, int f1, int f2) const { 
+ public:
+  BufferID(int dim, bool multilevel);
+
+  int GetID(int ox1, int ox2, int ox3, int f1, int f2) const {
     NeighborIndexes in{ox1, ox2, ox3, f1, f2, NeighborConnect::face};
-    for (int i = 0; i < nis.size(); ++i) { 
+    for (int i = 0; i < nis.size(); ++i) {
       if (nis[i] == in) return i;
     }
     return -1;
   }
 
-  int size() const {return nis.size();}
+  int size() const { return nis.size(); }
 };
 
 } // namespace parthenon
 
-#endif // BVALS_BVALS_INTERFACES_HPP_
+#endif // BVALS_NEIGHBOR_BLOCK_HPP_

@@ -38,18 +38,24 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    auto *neighbors = [&pmb, &md]{
-      if constexpr (BOUND == BoundaryType::gmg_restrict_send) return &(pmb->gmg_coarser_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_restrict_recv) return &(pmb->gmg_finer_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_prolongate_send) return &(pmb->gmg_finer_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv) return &(pmb->gmg_coarser_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv) return &(pmb->gmg_coarser_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_same) return pmb->loc.level() == md->grid.logical_level
-                                                            ? &(pmb->gmg_same_neighbors)
-                                                            : &(pmb->gmg_composite_finer_neighbors);
+    auto *neighbors = [&pmb, &md] {
+      if constexpr (BOUND == BoundaryType::gmg_restrict_send)
+        return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
+        return &(pmb->gmg_finer_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
+        return &(pmb->gmg_finer_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
+        return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
+        return &(pmb->gmg_coarser_neighbors);
+      if constexpr (BOUND == BoundaryType::gmg_same)
+        return pmb->loc.level() == md->grid.logical_level
+                   ? &(pmb->gmg_same_neighbors)
+                   : &(pmb->gmg_composite_finer_neighbors);
       return &(pmb->neighbors);
     }();
-    for (auto &nb : *neighbors) { 
+    for (auto &nb : *neighbors) {
       const int other_rank = nb.snb.rank;
       if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
       auto &pair_map = map_[other_rank];
@@ -96,7 +102,8 @@ int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
   const int other_rank = nb.snb.rank;
   auto &pair_map = map_[other_rank];
   auto cpair = MakeChannelPair(pmb, nb);
-  PARTHENON_REQUIRE(pair_map.count(cpair) == 1, "Trying to get tag for key that hasn't been entered.\n");
+  PARTHENON_REQUIRE(pair_map.count(cpair) == 1,
+                    "Trying to get tag for key that hasn't been entered.\n");
   return pair_map[cpair];
 }
 
