@@ -431,7 +431,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
-  SetMeshBlockNeighbors(block_list, nbs);
+  SetMeshBlockNeighbors(block_list, nbs, ranklist);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }
@@ -691,7 +691,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
   }
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+  SetMeshBlockNeighbors(block_list, nbs, ranklist);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }
