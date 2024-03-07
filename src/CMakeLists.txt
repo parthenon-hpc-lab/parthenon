@@ -108,13 +108,11 @@ add_library(parthenon
   bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
-
   bvals/bvals.cpp
   bvals/bvals.hpp
   bvals/neighbor_block.cpp
   bvals/neighbor_block.hpp
   bvals/boundary_flag.cpp
-  bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp

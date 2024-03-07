@@ -14,10 +14,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file bvals_base.cpp
+//! \file neighbor_block.cpp
 //  \brief utility functions for neighbors and buffers
 
-#include "bvals/bvals.hpp"
+#include "bvals/neighbor_block.hpp"
 
 #include <cmath>
 #include <cstdlib>
