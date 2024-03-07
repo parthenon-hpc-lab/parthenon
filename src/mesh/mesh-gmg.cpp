@@ -36,7 +36,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/buffer_utils.hpp"
@@ -64,12 +63,6 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
     auto loc = forest.GetForestLocationFromAthenaCompositeLocation(pmb->loc);
     auto neighbors = forest.FindNeighbors(loc);
 
-    // TODO(LFR): Remove the next three lines when done comparing to old results
-    std::unordered_set<LogicalLocation> old_possible_neighbor_set;
-    old_possible_neighbor_set.insert(loc);
-    for (auto &n : neighbors)
-      old_possible_neighbor_set.insert(n.global_loc);
-
     // Build NeighborBlocks for unique neighbors
     int buf_id = 0;
     for (const auto &nloc : neighbors) {
@@ -95,46 +88,11 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       auto &nb = all_neighbors.back();
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
 
-      // TODO(LFR): Remove the next six lines once done testing. This is only
-      // to ensure compatibility with the old infrastructure which
-      // didn't bother to set neighbor ownership correctly where it
-      // is unused.
-      std::vector<NeighborLocation> reduced_neighbor_neighbors;
-      for (const auto &n : neighbor_neighbors) {
-        if (old_possible_neighbor_set.count(n.global_loc)) {
-          reduced_neighbor_neighbors.push_back(n);
-        }
-      }
       nb.ownership =
-          DetermineOwnershipForest(nloc.global_loc, reduced_neighbor_neighbors, newly_refined);
+          DetermineOwnershipForest(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
 
-    // TODO(LFR): Remove these checks
-    // Just check that we agree for now
-    PARTHENON_REQUIRE(all_neighbors.size() == pmb->neighbors.size(),
-                      "Didn't find the same number of neighbors.");
-    for (auto &onb : pmb->neighbors) {
-      bool found = false;
-      for (auto &nb : all_neighbors)
-        // Need to check location and offset since neighbors can show up multiple times
-        // in periodic domains
-        if (nb.loc == onb.loc && nb.ni == onb.ni) {
-          PARTHENON_REQUIRE(nb.ni == onb.ni,
-                            "Bad neighbor indices relative to old neighbor finding");
-          // The rest of snb is not going to be the same
-          PARTHENON_REQUIRE(nb.snb.gid == onb.snb.gid,
-                            "Old neighbor finding and new neighbor finding simple "
-                            "neighbor blocks don't agree.");
-          PARTHENON_REQUIRE(
-              nb.ownership == onb.ownership,
-              "Old neighbor finding and new neighbor finding ownership don't agree.");
-          found = true;
-        }
-      PARTHENON_REQUIRE(found, "Neighbor lists don't agree.");
-    }
-
-    // TODO(LFR): Update the neighbor list here
     pmb->neighbors = all_neighbors;
   }
 }

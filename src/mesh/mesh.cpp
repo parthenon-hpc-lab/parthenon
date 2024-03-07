@@ -46,7 +46,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -102,7 +101,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
@@ -238,7 +237,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
   current_level = root_level;
 
-  tree.CreateRootGrid();
   forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
 
   // Load balancing flag and parameters
@@ -349,8 +347,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
             for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
               LogicalLocation nloc(lrlev, i, j, k);
-              int nnew;
-              tree.AddMeshBlock(nloc, nnew);
               forest.AddMeshBlock(
                   forest.GetForestLocationFromAthenaCompositeLocation(nloc));
             }
@@ -362,21 +358,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // initial mesh hierarchy construction is completed here
-  tree.CountMeshBlock(nbtotal);
-  // TODO(LFR): Remove this when done testing
-  PARTHENON_REQUIRE(nbtotal == forest.CountMeshBlock(),
-                    "Old and new tree block numbers don't agree.");
-  loclist.resize(nbtotal);
-  tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
-  auto loclist_f = forest.GetMeshBlockListAndResolveGids();
-  for (int ib = 0; ib < loclist_f.size(); ++ib) {
-    if (forest.GetAthenaCompositeLocation(loclist_f[ib]) != loclist[ib]) {
-      printf("bad location %s [%s != %s]\n", loclist_f[ib].label().c_str(),
-             forest.GetAthenaCompositeLocation(loclist_f[ib]).label().c_str(),
-             loclist[ib].label().c_str());
-      PARTHENON_FAIL("Bad bad bad");
-    }
-  }
+  loclist = forest.GetMeshBlockListAndResolveGids();
+  nbtotal = loclist.size();
+  for (int ib = 0; ib < loclist.size(); ++ib) {
+    loclist[ib] = forest.GetAthenaCompositeLocation(loclist[ib]);
+  } 
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
@@ -446,7 +432,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   SetForestNeighbors(block_list, nbs);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
@@ -498,7 +483,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
@@ -621,19 +606,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     }
   }
   // rebuild the Block Tree
-  tree.CreateRootGrid();
   forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
 
   for (int i = 0; i < nbtotal; i++) {
-    tree.AddMeshBlockWithoutRefine(loclist[i]);
     forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(loclist[i]),
                         false);
   }
 
-  int nnb;
-  // check the tree structure, and assign GID
-  tree.GetMeshBlockList(loclist.data(), nullptr, nnb);
-  auto loclist_f = forest.GetMeshBlockListAndResolveGids();
+  loclist = forest.GetMeshBlockListAndResolveGids();
+  for (auto &loc : loclist) 
+    loc = forest.GetAthenaCompositeLocation(loc);
+  int nnb = loclist.size(); 
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("

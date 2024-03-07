@@ -47,7 +47,6 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -275,7 +274,6 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;
-  MeshBlockTree tree;
   forest::Forest forest;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)

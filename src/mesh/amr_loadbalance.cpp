@@ -39,7 +39,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
@@ -490,7 +489,6 @@ void Mesh::UpdateCostList() {
 
 void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   PARTHENON_INSTRUMENT
-  int nnew_f{0}, ndel_f{0};
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
@@ -608,26 +606,16 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   // Start tree manipulation
   // Step 1. perform refinement
   for (int n = 0; n < tnref; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
-    bt->Refine(nnew);
     auto flref = forest.GetForestLocationFromAthenaCompositeLocation(lref[n]);
-    nnew_f += forest.Refine(flref);
+    nnew += forest.Refine(flref);
   }
   if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
-    bt->Derefine(ndel);
     auto fclderef = forest.GetForestLocationFromAthenaCompositeLocation(clderef[n]);
-    ndel_f += forest.Derefine(fclderef);
+    ndel += forest.Derefine(fclderef);
   }
-  int tcount{0};
-  tree.CountMeshBlock(tcount);
-  PARTHENON_REQUIRE(ndel == ndel_f, "Different change in blocks. (Add)");
-  PARTHENON_REQUIRE(nnew == nnew_f, "Different change in blocks. (Delete)");
-  PARTHENON_REQUIRE(tcount == forest.CountMeshBlock(),
-                    "Different numbers of total blocks.");
 
   if (tnderef >= nleaf) delete[] clderef;
 }
@@ -978,8 +966,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 #endif
     // Re-initialize the mesh with our temporary ownership/neighbor configurations.
     // No buffers are different when we switch to the final precedence order.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
-                          0, newly_refined);
     std::unordered_set<LogicalLocation> forest_newly_refined;
     for (auto &aloc : newly_refined) {
       forest_newly_refined.insert(
@@ -997,8 +983,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
-                          false);
     SetForestNeighbors(block_list, nbs);
   } // AMR Recv and unpack data
 
