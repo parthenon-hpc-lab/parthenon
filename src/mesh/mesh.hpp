@@ -188,6 +188,8 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
+  int GetAthenaCompositeRootLevel() const noexcept { return forest.root_level + forest.forest_level;}
+  
   RootGridInfo GetRootGridInfo() const noexcept {
     return RootGridInfo(
         root_level, nrbx[0], nrbx[1], nrbx[2],
@@ -205,8 +207,9 @@ class Mesh {
     std::vector<std::int64_t> levels, logicalLocations;
     levels.reserve(nbtotal);
     logicalLocations.reserve(nbtotal * 3);
-    for (const auto &loc : loclist) {
-      levels.push_back(loc.level() - GetRootLevel());
+    for (auto loc : loclist) {
+      loc = forest.GetAthenaCompositeLocation(loc);
+      levels.push_back(loc.level() - GetAthenaCompositeRootLevel());
       logicalLocations.push_back(loc.lx1());
       logicalLocations.push_back(loc.lx2());
       logicalLocations.push_back(loc.lx3());

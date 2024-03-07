@@ -231,12 +231,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
+  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
+  root_level = forest.root_level;
   // calculate the logical root level and maximum level
-  for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
-  }
+  //for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
+  //}
   current_level = root_level;
 
-  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -287,7 +288,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         }
         int ref_lev = pin->GetInteger(pib->block_name, "level");
         int lrlev = ref_lev + root_level;
-        if (lrlev > current_level) current_level = lrlev;
         // range check
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -359,7 +359,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initial mesh hierarchy construction is completed here
   loclist = forest.GetMeshBlockListAndResolveGids();
   nbtotal = loclist.size();
-
+  current_level = -1;
+  for (const auto &loc : loclist) {
+    if (loc.level() > current_level)
+        current_level = loc.level();
+  }
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {

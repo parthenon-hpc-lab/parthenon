@@ -398,11 +398,9 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
     // Add error checking
     ndim = dir;
     nblock[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
-    printf("dir: %i nblock: %i\n", dir, nblock[dir - 1]);
     max_common_power2_divisor =
         std::min(max_common_power2_divisor, MaximumPowerOf2Divisor(nblock[dir - 1]));
   }
-  printf("max common divisor = %i\n", max_common_power2_divisor);
   int max_ntree = 0;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (mesh_size.symmetry(dir)) {
@@ -413,11 +411,10 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
     max_ntree = std::max(ntree[dir - 1], max_ntree);
   }
 
-  printf("ntree = {%i, %i, %i}\n", ntree[0], ntree[1], ntree[2]);
 
   auto ref_level = IntegerLog2Floor(max_common_power2_divisor);
   auto level = IntegerLog2Ceil(max_ntree);
-  printf("level = %i ref_level = %i\n", level, ref_level);
+  
 
   // Create the trees and the tree logical locations in the forest (which
   // works here since we assume the trees are layed out as a hyper rectangle)
@@ -453,8 +450,6 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
     LogicalLocation loc(level, ix1, ix2, ix3);
     ll_map[loc] = std::make_pair(tree_domain, std::shared_ptr<Tree>());
     auto &dmn = tree_domain;
-    printf("[%i, %i, %i], %e, %e, %e, %e\n", ix1, ix2, ix3, dmn.xmin(X1DIR),
-           dmn.xmax(X1DIR), dmn.xmin(X2DIR), dmn.xmax(X2DIR));
   }
 
   // Initialize the trees in macro-morton order
@@ -505,10 +500,10 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
 
   // Sort trees by their logical location in the tree mesh
   Forest fout;
+  fout.root_level = ref_level;
+  fout.forest_level = level;
   for (auto &[loc, p] : ll_map)
     fout.trees.push_back(p.second);
-  printf("ll_map.size() = %i\n fout.trees.size() = %i fout.CountMeshBlock() = %i\n",
-         ll_map.size(), fout.trees.size(), fout.CountMeshBlock());
   return fout;
 }
 
