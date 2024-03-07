@@ -411,10 +411,8 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
     max_ntree = std::max(ntree[dir - 1], max_ntree);
   }
 
-
   auto ref_level = IntegerLog2Floor(max_common_power2_divisor);
   auto level = IntegerLog2Ceil(max_ntree);
-  
 
   // Create the trees and the tree logical locations in the forest (which
   // works here since we assume the trees are layed out as a hyper rectangle)

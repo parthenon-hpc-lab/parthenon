@@ -234,10 +234,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
   root_level = forest.root_level;
   // calculate the logical root level and maximum level
-  //for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
+  // for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
   //}
   current_level = root_level;
-
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -361,8 +360,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   nbtotal = loclist.size();
   current_level = -1;
   for (const auto &loc : loclist) {
-    if (loc.level() > current_level)
-        current_level = loc.level();
+    if (loc.level() > current_level) current_level = loc.level();
   }
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks

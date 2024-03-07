@@ -188,8 +188,10 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetAthenaCompositeRootLevel() const noexcept { return forest.root_level + forest.forest_level;}
-  
+  int GetAthenaCompositeRootLevel() const noexcept {
+    return forest.root_level + forest.forest_level;
+  }
+
   RootGridInfo GetRootGridInfo() const noexcept {
     return RootGridInfo(
         root_level, nrbx[0], nrbx[1], nrbx[2],
