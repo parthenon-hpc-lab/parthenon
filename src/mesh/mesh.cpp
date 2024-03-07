@@ -431,7 +431,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
-  SetForestNeighbors(block_list, nbs);
+  SetMeshBlockNeighbors(block_list, nbs);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }

@@ -959,7 +959,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       forest_newly_refined.insert(
           forest.GetForestLocationFromAthenaCompositeLocation(aloc));
     }
-    SetForestNeighbors(block_list, nbs, forest_newly_refined);
+    SetMeshBlockNeighbors(block_list, nbs, forest_newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);
     Initialize(false, pin, app_in);
 
@@ -971,7 +971,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetForestNeighbors(block_list, nbs);
+    SetMeshBlockNeighbors(block_list, nbs);
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

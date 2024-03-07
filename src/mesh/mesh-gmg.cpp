@@ -51,7 +51,7 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
-void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
+void Mesh::SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
                               const std::unordered_set<LogicalLocation> &newly_refined) {
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},

@@ -310,7 +310,7 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
-  void SetForestNeighbors(BlockList_t &block_list, int nbs,
+  void SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
                           const std::unordered_set<LogicalLocation> &newly_refined = {});
   void
   SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
