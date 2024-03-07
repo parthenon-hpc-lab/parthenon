@@ -40,7 +40,6 @@ class MeshBlock;
 class MeshBlockTree;
 class Field;
 class ParameterInput;
-class BoundaryValues;
 struct RegionSize;
 
 // TODO(felker): nest these enum definitions inside bvals/ classes, when possible.
@@ -128,174 +127,34 @@ struct NeighborIndexes { // aggregate and POD
   //   - Aggregate type: supports aggregate initialization {}
   //   - POD type: safely copy objects via memcpy, no memory padding in the beginning of
   //     object, C portability, supports static initialization
-  int typeidx() const { return std::abs(ox1) + std::abs(ox2) + std::abs(ox3); }
-  int offset_idx() const { return (ox1 + 1) + 3 * (ox2 + 1) + 9 * (ox3 + 1); }
-  int refine_idx() const { return fi1 + 2 * fi2; }
   bool operator==(const NeighborIndexes &rhs) const {
     return (ox1 == rhs.ox1) && (ox2 == rhs.ox2) && (ox3 == rhs.ox3) && (fi1 == rhs.fi1) &&
            (fi2 == rhs.fi2) && (type == rhs.type);
   }
 };
 
-inline bool operator<(const NeighborIndexes &lhs, NeighborIndexes &rhs) {
-  if (lhs.typeidx() != rhs.typeidx()) return lhs.typeidx() < rhs.typeidx(); 
-  if (lhs.offset_idx() != rhs.offset_idx()) return lhs.offset_idx() < rhs.offset_idx();
-  return lhs.refine_idx() < rhs.refine_idx();
-}
-
 class BufferID {
   std::vector<NeighborIndexes> nis;
  public: 
   BufferID(int dim, bool multilevel) { 
-    /*
     std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
     std::vector<int> x2offsets = dim > 1 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
     std::vector<int> x3offsets = dim > 2 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
-    for (int ctype = 1; ctype <= dim; ++ctype) {
-      for (auto ox3 : x3offsets) { 
-        for (auto ox2 : x2offsets) { 
-          for (auto ox1 : x1offsets) { 
-            const int type = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
-            if (type != ctype) continue;
-            std::vector<int> f1s = (dim - type) > 0 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
-            std::vector<int> f2s = (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
-            for (auto f1 : f1s) {
-              for (auto f2 : f2s) { 
-                NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face}; 
-                nis.push_back(ni);
-              }
+    for (auto ox3 : x3offsets) { 
+      for (auto ox2 : x2offsets) { 
+        for (auto ox1 : x1offsets) { 
+          const int type = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
+          if (type == 0) continue;
+          std::vector<int> f1s = (dim - type) > 0 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+          std::vector<int> f2s = (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
+          for (auto f1 : f1s) {
+            for (auto f2 : f2s) { 
+              NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face}; 
+              nis.push_back(ni);
             }
           }
         }
       }
-    }
-    //std::sort(nis.begin(), nis.end());
-    */
-
-    
-    int nf1 = 1, nf2 = 1;
-    if (multilevel) {
-      if (dim >= 2) nf1 = 2;
-      if (dim >= 3) nf2 = 2;
-    }
-    int b = 0;
-    // x1 face
-    for (int n = -1; n <= 1; n += 2) {
-      for (int f2 = 0; f2 < nf2; f2++) {
-        for (int f1 = 0; f1 < nf1; f1++) {
-          nis.emplace_back();
-          nis[b].ox1 = n;
-          nis[b].ox2 = 0;
-          nis[b].ox3 = 0;
-          nis[b].fi1 = f1;
-          nis[b].fi2 = f2;
-          nis[b].type = NeighborConnect::face;
-          b++;
-        }
-      }
-    }
-    // x2 face
-    if (dim >= 2) {
-      for (int n = -1; n <= 1; n += 2) {
-        for (int f2 = 0; f2 < nf2; f2++) {
-          for (int f1 = 0; f1 < nf1; f1++) {
-            nis.emplace_back();
-            nis[b].ox1 = 0;
-            nis[b].ox2 = n;
-            nis[b].ox3 = 0;
-            nis[b].fi1 = f1;
-            nis[b].fi2 = f2;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-    }
-    if (dim == 3) {
-      // x3 face
-      for (int n = -1; n <= 1; n += 2) {
-        for (int f2 = 0; f2 < nf2; f2++) {
-          for (int f1 = 0; f1 < nf1; f1++) {
-            nis.emplace_back();
-            nis[b].ox1 = 0;
-            nis[b].ox2 = 0;
-            nis[b].ox3 = n;
-            nis[b].fi1 = f1;
-            nis[b].fi2 = f2;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-    }
-    // edges
-    // x1x2
-    if (dim >= 2) {
-      for (int m = -1; m <= 1; m += 2) {
-        for (int n = -1; n <= 1; n += 2) {
-          for (int f1 = 0; f1 < nf2; f1++) {
-            nis.emplace_back();
-            nis[b].ox1 = n;
-            nis[b].ox2 = m;
-            nis[b].ox3 = 0;
-            nis[b].fi1 = f1;
-            nis[b].fi2 = 0;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-    }
-    if (dim == 3) {
-      // x1x3
-      for (int m = -1; m <= 1; m += 2) {
-        for (int n = -1; n <= 1; n += 2) {
-          for (int f1 = 0; f1 < nf1; f1++) {
-            nis.emplace_back();
-            nis[b].ox1 = n;
-            nis[b].ox2 = 0;
-            nis[b].ox3 = m;
-            nis[b].fi1 = f1;
-            nis[b].fi2 = 0;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-      // x2x3
-      for (int m = -1; m <= 1; m += 2) {
-        for (int n = -1; n <= 1; n += 2) {
-          for (int f1 = 0; f1 < nf1; f1++) {
-            nis.emplace_back();
-            nis[b].ox1 = 0;
-            nis[b].ox2 = n;
-            nis[b].ox3 = m;
-            nis[b].fi1 = f1;
-            nis[b].fi2 = 0;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-      // corners
-      for (int l = -1; l <= 1; l += 2) {
-        for (int m = -1; m <= 1; m += 2) {
-          for (int n = -1; n <= 1; n += 2) {
-            nis.emplace_back(); 
-            nis[b].ox1 = n;
-            nis[b].ox2 = m;
-            nis[b].ox3 = l;
-            nis[b].fi1 = 0;
-            nis[b].fi2 = 0;
-            nis[b].type = NeighborConnect::face;
-            b++;
-          }
-        }
-      }
-    }
-    for (int i=0; i<nis.size(); ++i) { 
-      auto &ni = nis[i];
-      printf("[%i] (%i, %i, %i)(%i, %i)\n", i, ni.ox1, ni.ox2, ni.ox3, ni.fi1, ni.fi2);
     }
   }
 
@@ -341,9 +200,6 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
 //! \struct BoundaryData
 //  \brief structure storing boundary information
 
-// TODO(felker): consider renaming/be more specific--- what kind of data/info?
-// one for each type of "BoundaryQuantity" corresponding to BoundaryVariable
-
 template <int n = NMAX_NEIGHBORS>
 struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   static constexpr int kMaxNeighbor = n;
@@ -388,89 +244,6 @@ class BoundaryCommunication {
 };
 
 //----------------------------------------------------------------------------------------
-//! \class BoundaryBuffer
-//  \brief contains methods for managing MPI send/recvs and associated loads/stores from
-//  communication buffers.
-
-// TODO(KGF): Merge with above BoundaryCommunication interface?
-
-class BoundaryBuffer {
- public:
-  BoundaryBuffer() {}
-  virtual ~BoundaryBuffer() {}
-
-  // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR)
-  virtual bool ReceiveBoundaryBuffers(bool is_allocated) = 0;
-
-  virtual void SendFluxCorrection(bool is_allocated) = 0;
-  virtual bool ReceiveFluxCorrection(bool is_allocated) = 0;
-};
-
-//----------------------------------------------------------------------------------------
-// Abstract classes containing mix of pure virtual, virtual, and concrete functions
-//----------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------
-//! \class BoundaryVariable (abstract)
-//  \brief
-
-class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
- public:
-  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb, bool is_sparse,
-                            const std::string &label);
-  virtual ~BoundaryVariable() = default;
-
-#ifdef ENABLE_SPARSE
-  // to flag indicating if a particular neighbor has this variable allocated, only
-  // applicable for sparse variables (dense variables will always have all true)
-  std::array<bool, NMAX_NEIGHBORS> local_neighbor_allocated;
-
-  inline bool IsLocalNeighborAllocated(int n) const {
-    return local_neighbor_allocated[n];
-  }
-#else
-  inline constexpr bool IsLocalNeighborAllocated(int /*n*/) const { return true; }
-#endif
-
-  bool IsSparse() const { return is_sparse_; }
-  // the label of the variable this BoundaryVariable belongs to
-  const auto &label() const { return label_; }
-
-  virtual int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) = 0;
-  virtual int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) = 0;
-
-  // BoundaryBuffer public functions with shared implementations
-  bool ReceiveBoundaryBuffers(bool is_allocated) override;
-  auto GetPBdVar() { return &bd_var_; }
-
- protected:
-  // deferred initialization of BoundaryData objects in derived class constructors
-  BoundaryData<> bd_var_, bd_var_flcor_;
-  // derived class dtors are also responsible for calling DestroyBoundaryData(bd_var_)
-
-  // ptr to MeshBlock containing this BoundaryVariable
-  std::weak_ptr<MeshBlock> pmy_block_;
-  Mesh *pmy_mesh_;
-
-  /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
-    if (pmy_block_.expired()) {
-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
-    }
-    return pmy_block_.lock();
-  }
-
-  void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb);
-
-  void InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type);
-  void DestroyBoundaryData(BoundaryData<> &bd);
-
- private:
-  const bool is_sparse_;
-  const std::string label_;
-};
-
-//----------------------------------------------------------------------------------------
 // Concrete classes
 //----------------------------------------------------------------------------------------
 
@@ -485,7 +258,7 @@ class BoundarySwarm : public BoundaryCommunication {
   std::vector<ParArrayND<Real>> vars_real;
 
   // (usuallly the std::size_t unsigned integer type)
-  std::vector<BoundaryVariable *>::size_type bswarm_index;
+  std::vector<BoundaryCommunication *>::size_type bswarm_index;
 
   // BoundaryCommunication
   void SetupPersistentMPI() final;

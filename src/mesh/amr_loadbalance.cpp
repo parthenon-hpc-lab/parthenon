@@ -53,8 +53,6 @@ namespace parthenon {
 // tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
 //       + physics(5 bits)
 
-// See comments on BoundaryBase::CreateBvalsMPITag()
-
 int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // the trailing zero is used as "id" to indicate an AMR related tag
   return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
@@ -967,10 +965,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // in order to maintain a consistent global state.
     // Thus we rebuild and synchronize the mesh now, but using a unique
     // neighbor precedence favoring the "old" fine blocks over "new" ones
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
-                                        newly_refined);
-    }
+
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
@@ -1001,9 +996,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
                           false);
     SetForestNeighbors(block_list, nbs);
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
-    }
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

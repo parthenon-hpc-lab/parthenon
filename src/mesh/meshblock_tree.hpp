@@ -34,7 +34,6 @@ class Mesh;
 class MeshBlockTree {
   friend class Mesh;
   friend class MeshBlock;
-  friend class BoundaryBase;
 
  public:
   explicit MeshBlockTree(Mesh *pmesh);

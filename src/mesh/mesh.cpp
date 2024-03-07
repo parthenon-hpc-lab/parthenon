@@ -445,8 +445,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
-    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
-                                               nslist.data());
   }
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   SetForestNeighbors(block_list, nbs);
@@ -711,8 +709,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
-    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
-                                               nslist.data());
   }
   SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
   BuildGMGHierarchy(nbs, pin, app_in);

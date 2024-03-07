@@ -17,7 +17,7 @@
 #ifndef BVALS_BVALS_HPP_
 #define BVALS_BVALS_HPP_
 //! \file bvals.hpp
-//  \brief defines BoundaryBase, BoundaryValues classes used for setting BCs on all data
+//  \brief defines BoundarySwarms 
 
 #include <memory>
 #include <string>
@@ -55,54 +55,6 @@ std::string GetBoundaryString(BoundaryFlag input_flag);
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
 
 //----------------------------------------------------------------------------------------
-//! \class BoundaryBase
-//  \brief Base class for all BoundaryValues classes (BoundaryValues and MGBoundaryValues)
-
-class BoundaryBase {
- public:
-  BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize, BoundaryFlag *input_bcs);
-  virtual ~BoundaryBase() = default;
-  // 1x pair (neighbor index, buffer ID) per entire SET of separate variable buffers
-  // (Field, Passive Scalar, etc.). Greedy allocation for worst-case
-  // of refined 3D; only 26 entries needed/initialized if unrefined 3D, e.g.
-  static NeighborIndexes ni[NMAX_NEIGHBORS];
-  static int bufid[NMAX_NEIGHBORS];
-
-  NeighborBlock neighbor[NMAX_NEIGHBORS];
-  int nneighbor;
-  int nblevel[3][3][3];
-  LogicalLocation loc;
-  BoundaryFlag block_bcs[6];
-
-  static int CreateBvalsMPITag(int lid, int bufid);
-  static int CreateBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
-  static int BufferID(int dim, bool multilevel);
-  static int FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2);
-
-  void
-  SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist, int *nslist,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
-
- protected:
-  // 1D refined or unrefined=2
-  // 2D refined=12, unrefined=8
-  // 3D refined=56, unrefined=26. Refinement adds: 3*6 faces + 1*12 edges = +30 neighbors
-  static int maxneighbor_;
-
-  Mesh *pmy_mesh_;
-  RegionSize block_size_;
-  ParArrayND<Real> sarea_[2];
-
-  void
-  SetNeighborOwnership(const std::unordered_set<LogicalLocation> &newly_refined = {});
-
- private:
-  // calculate 3x shared static data members when constructing only the 1st class instance
-  // int maxneighbor_=BufferID() computes ni[] and then calls bufid[]=CreateBufferID()
-  static bool called_;
-};
-
-//----------------------------------------------------------------------------------------
 //! \class BoundarySwarms
 //  \brief centralized class for interacting with each individual swarm boundary data
 class BoundarySwarms : public BoundaryCommunication {
@@ -119,7 +71,7 @@ class BoundarySwarms : public BoundaryCommunication {
     }
   }
 
-  // inherited functions (interface shared with BoundaryVariable objects):
+  // inherited functions:
   // ------
   // called before time-stepper:
   void SetupPersistentMPI() final; // setup MPI requests
@@ -129,7 +81,7 @@ class BoundarySwarms : public BoundaryCommunication {
   void ClearBoundary(BoundaryCommSubset phase) final {}
 
  private:
-  // ptr to MeshBlock containing this BoundaryValues
+  // ptr to MeshBlock containing this BoundarySwarms
   std::weak_ptr<MeshBlock> pmy_block_;
   int nface_, nedge_;
   BoundaryFlag block_bcs[6];
@@ -150,63 +102,6 @@ class BoundarySwarms : public BoundaryCommunication {
   friend class Mesh;
   // currently, this class friendship is required for copying send/recv buffers between
   // BoundarySwarm objects within different MeshBlocks on the same MPI rank:
-  friend class BoundarySwarm;
-};
-
-//----------------------------------------------------------------------------------------
-//! \class BoundaryValues
-//  \brief centralized class for interacting with each individual variable boundary data
-//         (design pattern ~ mediator)
-
-class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
-                       public BoundaryCommunication {
- public:
-  BoundaryValues(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
-                 ParameterInput *pin);
-
-  // Dictionary of boundary variable pointers indexed by the variable label
-  Dictionary<std::shared_ptr<BoundaryVariable>> bvars;
-
-  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
-    for (int i = 0; i < 6; i++)
-      bc_flag[i] = block_bcs[i];
-  }
-
-  // inherited functions (interface shared with BoundaryVariable objects):
-  // ------
-  // called before time-stepper:
-  void SetupPersistentMPI() final; // setup MPI requests
-
-  // called before and during time-stepper:
-  void StartReceiving(BoundaryCommSubset phase) final;
-  void ClearBoundary(BoundaryCommSubset phase) final;
-
- private:
-  // ptr to MeshBlock containing this BoundaryValues
-  std::weak_ptr<MeshBlock> pmy_block_;
-  int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
-
-  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
-  // false --> e.g. block, polar, periodic boundaries
-  bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
-  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
-
-  /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
-    if (pmy_block_.expired()) {
-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
-    }
-    return pmy_block_.lock();
-  }
-
-  // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
-  // TODO(KGF): consider removing this friendship designation
-  friend class Mesh;
-  // currently, this class friendship is required for copying send/recv buffers between
-  // BoundaryVariable objects within different MeshBlocks on the same MPI rank:
-  friend class BoundaryVariable;
-  friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
-  // TODO(KGF): consider removing these friendship designations:
   friend class BoundarySwarm;
 };
 

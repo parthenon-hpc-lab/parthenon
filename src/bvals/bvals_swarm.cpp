@@ -51,8 +51,6 @@ void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
   BufferID buffer_id(pmb->pmy_mesh->ndim, pmb->pmy_mesh->multilevel);
   bd.nbmax = buffer_id.size();
 
-  bd.nbmax = pmb->pbval->maxneighbor_;
-
   for (int n = 0; n < bd.nbmax; n++) {
     bd.flag[n] = BoundaryStatus::waiting;
 #ifdef MPI_PARALLEL

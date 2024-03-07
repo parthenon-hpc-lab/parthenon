@@ -153,8 +153,6 @@ inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
 // strongly typed / scoped enums (C++11):
 //------------------
 // KGF: Except for the 2x MG* enums, these may be unnessary w/ the new class inheritance
-// Now, only passed to BoundaryVariable::InitBoundaryData(); could replace w/ bool switch
-enum class BoundaryQuantity { cc, fc, cc_flcor, fc_flcor };
 enum class BoundaryCommSubset { mesh_init, all };
 // TODO(felker): consider generalizing/renaming to QuantityFormulation
 enum class UserHistoryOperation { sum, max, min };

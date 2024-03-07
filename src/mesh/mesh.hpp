@@ -59,7 +59,6 @@
 namespace parthenon {
 
 // Forward declarations
-class BoundaryValues;
 class MeshBlock;
 class MeshRefinement;
 class ParameterInput;
@@ -77,8 +76,6 @@ class Mesh {
   friend class HistoryOutput;
   friend class MeshBlock;
   friend class MeshBlockTree;
-  friend class BoundaryBase;
-  friend class BoundaryValues;
   friend class MeshRefinement;
 
  public:

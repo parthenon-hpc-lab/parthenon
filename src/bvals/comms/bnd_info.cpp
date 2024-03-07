@@ -408,12 +408,8 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   // regions that were filled by coarser neighbors
   bool restricted = false;
   if (mylevel > 0) {
-    for (int k = 0; k < 3; ++k) {
-      for (int j = 0; j < 3; ++j) {
-        for (int i = 0; i < 3; ++i) {
-          restricted = restricted || (pmb->pbval->nblevel[k][j][i] == (mylevel - 1));
-        }
-      }
+    for (const auto &nb : pmb->neighbors) {
+      restricted = restricted || (nb.loc.level() == (mylevel - 1));
     }
   }
 

@@ -389,11 +389,7 @@ int Swarm::CountParticlesToSend_() {
   // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
   auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
-  PARTHENON_REQUIRE(pmb->pbval->nneighbor == pmb->neighbors.size(), "neighbor sizes don't agree.");
   for (int n = 0; n < pmb->neighbors.size(); n++) {
-    printf("%i %i (%i %i)\n",
-      pmb->pbval->neighbor[n].bufid, pmb->neighbors[n].bufid,
-      pmb->pbval->neighbor[n].targetid, pmb->neighbors[n].targetid);
     num_particles_to_send_h(n) = 0;
   }
   const int particle_size = GetParticleDataSize();

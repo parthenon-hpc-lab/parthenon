@@ -155,17 +155,7 @@ In practice, we denote each channel by a unique key
 so that the ``Mesh`` can contain a map from these keys to communication
 channels. Then, at each remesh, sending blocks and blocks that are
 receiving from blocks on a different rank can create new communication
-channels and register them in this map. *Implementation detail:* To
-build these keys, we currently rely on the
-``MeshBlock::std::unique_ptr<BoundaryValues> pbval`` object to get
-information about the neighboring blocks and build the channels and
-keys. ``BoundaryValues`` has its own communication methods defined, but
-none of these are used for the sparse communication. We really only rely
-on the information stored in ``BoundaryBase`` (which contains general
-information about all of the neighboring blocks on the mesh), which
-``BoundaryValues`` inherits from. Eventually, I think ``pbval`` should
-be turned into a ``BoundaryBase`` object and ``BoundaryValues`` should
-be removed from the code base.
+channels and register them in this map. 
 
 MPI Communication IDs
 ~~~~~~~~~~~~~~~~~~~~~
