@@ -106,7 +106,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
         }
       }
       nb.ownership =
-          DetermineOwnershipForest(nb.loc, reduced_neighbor_neighbors, newly_refined);
+          DetermineOwnershipForest(nloc.global_loc, reduced_neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
 
@@ -119,7 +119,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
       for (auto &nb : all_neighbors)
         // Need to check location and offset since neighbors can show up multiple times
         // in periodic domains
-        if (forest.GetAthenaCompositeLocation(nb.loc) == onb.loc && nb.ni == onb.ni) {
+        if (nb.loc == onb.loc && nb.ni == onb.ni) {
           PARTHENON_REQUIRE(nb.ni == onb.ni,
                             "Bad neighbor indices relative to old neighbor finding");
           // The rest of snb is not going to be the same
@@ -135,6 +135,7 @@ void Mesh::SetForestNeighbors(BlockList_t &block_list, int nbs,
     }
 
     // TODO(LFR): Update the neighbor list here
+    pmb->neighbors = all_neighbors;
   }
 }
 
