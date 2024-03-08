@@ -308,8 +308,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
     const std::string var_name = vinfo.label;
-    hsize_t local_offset[H5_NDIM] = {my_offset, 0, 0, 0, 0, 0, 0}, local_count[H5_NDIM],
-            global_count[H5_NDIM];
+    hsize_t local_offset[H5_NDIM], local_count[H5_NDIM], global_count[H5_NDIM];
+    local_offset[0] = my_offset;
+    for (int i = 1; i < H5_NDIM; ++i) {
+      local_offset[i] = 0;
+    }
     local_count[0] = static_cast<hsize_t>(num_blocks_local);
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
     vinfo.FillShape(&(local_count[1]));
@@ -319,7 +322,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     int ndim = -1;
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     // we need chunks to enable compression
-    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+    std::array<hsize_t, H5_NDIM> chunk_size;
+    chunk_size.fill(1);
 #endif
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
       ndim = 3 + vinfo.tensor_rank + 1;
@@ -401,11 +405,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         if (vinfo.is_sparse) {
           hsize_t varSize{};
           if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-            varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
+            varSize = vinfo.TensorSize() * (out_kb.e - out_kb.s + 1) *
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
           } else {
-            varSize =
-                vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+            varSize = vinfo.Size();
           }
           auto fill_val =
               output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;

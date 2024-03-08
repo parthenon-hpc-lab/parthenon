@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <sstream>
 #include <string>
@@ -32,6 +33,7 @@
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -41,47 +43,43 @@ namespace parthenon {
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
+  static constexpr int VNDIM = MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
-  int nx6;
-  int nx5;
-  int nx4;
-  int nx3;
-  int nx2;
-  int nx1;
+  std::array<int, VNDIM> nx;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
-  int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
+  int Size() const {
+    return std::accumulate(nx.begin(), nx.end(), 1, std::multiplies<int>());
+  }
+  int GetDim(int i) const {
+    return nx[i - 1];
+  }
+  int TensorSize() const { return Size()/(GetDim(3)*GetDim(2)*GetDim(1)); }
 
   template<typename T>
-  void FillShape(T *shape) {
-    shape[0] = static_cast<T>(nx6);
-    shape[1] = static_cast<T>(nx5);
-    shape[2] = static_cast<T>(nx4);
-    shape[3] = static_cast<T>(nx3);
-    shape[4] = static_cast<T>(nx2);
-    shape[5] = static_cast<T>(nx1);
-    return;
+  void FillShape(T *shape, int start=0) const {
+    for (int i = start; i < VNDIM; ++i) {
+      shape[i-start] = static_cast<T>(nx[i]);
+    }
   }
   template<typename T>
-  auto GetShape() {
-    return std::vector<T>({static_cast<T>(nx6), static_cast<T>(nx5), static_cast<T>(nx4),
-                           static_cast<T>(nx3), static_cast<T>(nx2),
-                           static_cast<T>(nx1)});
+  auto GetShape() const {
+    return std::vector<T>(nx.begin(), nx.end());
   }
 
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+          int num_components, const std::array<int, VNDIM> &nx_,
           Metadata metadata, bool is_sparse, bool is_vector)
-      : label(label), num_components(num_components), nx6(nx6), nx5(nx5), nx4(nx4),
-        nx3(nx3), nx2(nx2), nx1(nx1), tensor_rank(metadata.Shape().size()),
+    : label(label), num_components(num_components), nx(nx_),
+      tensor_rank(metadata.Shape().size()),
         where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
     if (num_components <= 0) {
       std::stringstream msg;
@@ -115,8 +113,7 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<Variable<Real>> &var)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
-                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
+                var->GetDims(), var->metadata(), var->IsSparse(),
                 var->IsSet(Metadata::Vector)) {}
 };
 

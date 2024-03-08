@@ -85,6 +85,10 @@ class Variable {
     return dims_[i - 1];
   }
 
+  auto GetDims() const { // Deep copy!
+    return dims_;
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated

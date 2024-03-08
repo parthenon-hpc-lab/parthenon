@@ -34,13 +34,15 @@
 #include <tuple>
 #include <vector>
 
+#include "kokkos_abstraction.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 namespace HDF5 {
 
-// Number of dimension of HDF5 field data sets (block x nv x nu x nt x nz x ny x nx)
-static constexpr size_t H5_NDIM = 7;
+// Number of dimension of HDF5 field data sets
+// (block x topological_elem x tensor_incides x nz x ny x nx)
+static constexpr size_t H5_NDIM = MAX_VARIABLE_DIMENSION + 1;
 
 static constexpr int OUTPUT_VERSION_FORMAT = 3;
 
