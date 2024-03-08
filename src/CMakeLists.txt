@@ -131,6 +131,7 @@ add_library(parthenon
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
+  interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm.cpp
   interface/swarm.hpp
@@ -184,6 +185,10 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
+  outputs/parthenon_hdf5_attributes.cpp
+  outputs/parthenon_hdf5_attributes_read.cpp
+  outputs/parthenon_hdf5_attributes_write.cpp
+  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
@@ -265,6 +270,8 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
+  parthenon_arrays.cpp
+  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
