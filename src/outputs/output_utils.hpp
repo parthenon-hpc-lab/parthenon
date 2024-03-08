@@ -56,18 +56,16 @@ struct VarInfo {
   int Size() const {
     return std::accumulate(nx.begin(), nx.end(), 1, std::multiplies<int>());
   }
-  int GetDim(int i) const {
-    return nx[i - 1];
-  }
-  int TensorSize() const { return Size()/(GetDim(3)*GetDim(2)*GetDim(1)); }
+  int GetDim(int i) const { return nx[i - 1]; }
+  int TensorSize() const { return Size() / (GetDim(3) * GetDim(2) * GetDim(1)); }
 
-  template<typename T>
-  void FillShape(T *shape, int start=0) const {
+  template <typename T>
+  void FillShape(T *shape, int start = 0) const {
     for (int i = start; i < VNDIM; ++i) {
-      shape[i-start] = static_cast<T>(nx[i]);
+      shape[i - start] = static_cast<T>(nx[i]);
     }
   }
-  template<typename T>
+  template <typename T>
   auto GetShape() const {
     return std::vector<T>(nx.begin(), nx.end());
   }
@@ -76,11 +74,11 @@ struct VarInfo {
 
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int num_components, const std::array<int, VNDIM> &nx_,
-          Metadata metadata, bool is_sparse, bool is_vector)
-    : label(label), num_components(num_components), nx(nx_),
-      tensor_rank(metadata.Shape().size()),
-        where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
+          int num_components, const std::array<int, VNDIM> &nx_, Metadata metadata,
+          bool is_sparse, bool is_vector)
+      : label(label), num_components(num_components), nx(nx_),
+        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_sparse(is_sparse), is_vector(is_vector) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
