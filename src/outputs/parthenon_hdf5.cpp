@@ -239,28 +239,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
-    if (restart_) {
-      // get all vars with flag Independent OR restart
-      return GetAnyVariables(
-          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else {
-      return GetAnyVariables(var_vec, output_params.variables);
-    }
-  };
-
   // get list of all vars, just use the first block since the list is the same for all
   // blocks
-  std::vector<VarInfo> all_vars_info;
-  const auto vars = get_vars(pm->block_list.front());
-  for (auto &v : vars) {
-    all_vars_info.emplace_back(v);
-  }
-
-  // sort alphabetically
-  std::sort(all_vars_info.begin(), all_vars_info.end(),
-            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+  auto all_vars_info = GetAllVarsInfo(
+      GetVarsToWrite(pm->block_list.front(), restart_, output_params.variables));
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
@@ -391,7 +373,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       bool is_allocated = false;
 
       // for each variable that this local meshblock actually has
-      const auto vars = get_vars(pmb);
+      const auto vars = GetVarsToWrite(pmb, restart_, output_params.variables);
       for (auto &v : vars) {
         // For reference, if we update the logic here, there's also
         // a similar block in parthenon_manager.cpp

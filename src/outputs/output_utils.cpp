@@ -208,5 +208,33 @@ std::size_t MPISum(std::size_t val) {
   return val;
 }
 
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables) {
+  const auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+  auto vars_to_write = GetAnyVariables(var_vec, variables);
+  if (restart) {
+    // get all vars with flag Independent OR restart
+    auto restart_vars = GetAnyVariables(
+        var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+    for (auto restart_var : restart_vars) {
+      vars_to_write.emplace_back(restart_var);
+    }
+  }
+  return vars_to_write;
+}
+
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars) {
+  std::vector<VarInfo> all_vars_info;
+  for (auto &v : vars) {
+    all_vars_info.emplace_back(v);
+  }
+
+  // sort alphabetically
+  std::sort(all_vars_info.begin(), all_vars_info.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+  return all_vars_info;
+}
+
 } // namespace OutputUtils
 } // namespace parthenon

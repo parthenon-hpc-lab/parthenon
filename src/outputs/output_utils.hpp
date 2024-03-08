@@ -263,6 +263,16 @@ std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
 
+// Return all variables to write, i.e., for restarts all indpendent variables and ones
+// with explicit Restart flag, but also variables explicitly defined to output in the
+// input file.
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables);
+
+// Returns a sorted vector of VarInfo associated with vars
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars);
+
 } // namespace OutputUtils
 } // namespace parthenon
 
