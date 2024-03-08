@@ -242,7 +242,7 @@ class TestManager:
         print(" ".join(run_command))
         sys.stdout.flush()
         try:
-            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
+            proc = subprocess.run(run_command, check=True)
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
             print("\n*****************************************************************")
