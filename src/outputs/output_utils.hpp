@@ -61,9 +61,9 @@ struct VarInfo {
   int TensorSize() const { return Size() / (GetDim(3) * GetDim(2) * GetDim(1)); }
 
   template <typename T>
-  void FillShape(T *shape, int start = 0) const {
+  void FillShape(T *shape) const {
     for (int i = start; i < VNDIM; ++i) {
-      shape[i - start] = static_cast<T>(nx[i]);
+      shape[i] = static_cast<T>(nx[VNDIM - i]);
     }
   }
   // Note this iterates through backwards
