@@ -66,9 +66,10 @@ struct VarInfo {
       shape[i - start] = static_cast<T>(nx[i]);
     }
   }
+  // Note this iterates through backwards
   template <typename T>
   auto GetShape() const {
-    return std::vector<T>(nx.begin(), nx.end());
+    return std::vector<T>(nx.rbegin(), nx.rend());
   }
 
   VarInfo() = delete;
