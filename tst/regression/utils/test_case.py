@@ -17,7 +17,7 @@
 import os
 from shutil import rmtree
 import subprocess
-from subprocess import PIPE
+from subprocess import PIPE, STDOUT
 import sys
 from shutil import which
 
@@ -242,7 +242,8 @@ class TestManager:
         print(" ".join(run_command))
         sys.stdout.flush()
         try:
-            proc = subprocess.run(run_command, check=True)
+            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=STDOUT)
+            print(proc.stdout.decode())
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
             print("\n*****************************************************************")
