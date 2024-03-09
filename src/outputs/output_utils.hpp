@@ -62,7 +62,7 @@ struct VarInfo {
 
   template <typename T>
   void FillShape(T *shape) const {
-    for (int i = start; i < VNDIM; ++i) {
+    for (int i = 0; i < VNDIM; ++i) {
       shape[i] = static_cast<T>(nx[VNDIM - i]);
     }
   }
