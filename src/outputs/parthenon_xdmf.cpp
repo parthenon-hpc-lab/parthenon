@@ -85,7 +85,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   }
   std::string filename_aux = hdfFile + ".xdmf";
   std::ofstream xdmf;
-  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0, 0, 0};
+  hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
