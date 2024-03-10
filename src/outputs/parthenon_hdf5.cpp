@@ -308,9 +308,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
 
     const std::string var_name = vinfo.label;
-    const hsize_t nx6 = vinfo.nx6;
-    const hsize_t nx5 = vinfo.nx5;
-    const hsize_t nx4 = vinfo.nx4;
 
     hsize_t local_offset[H5_NDIM];
     std::fill(local_offset + 1, local_offset + H5_NDIM, 0);

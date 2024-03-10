@@ -150,10 +150,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     // write graphics variables
     int ndim;
     for (const auto &vinfo : var_list) {
-      std::vector<hsize_t> alldims(
-          {static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5),
-           static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
-           static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
+      std::vector<hsize_t> alldims = vinfo.GetShape<hsize_t>();
       // Only cell-based data currently supported for visualization
       if (vinfo.where == MetadataFlag(Metadata::Cell)) {
         ndim = 3 + vinfo.tensor_rank + 1;
