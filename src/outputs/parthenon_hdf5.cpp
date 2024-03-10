@@ -409,7 +409,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         if (vinfo.is_sparse) {
           hsize_t varSize{};
           if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-            varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
+            varSize = vinfo.TensorSize() * (out_kb.e - out_kb.s + 1) *
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
           } else {
             varSize = vinfo.Size();

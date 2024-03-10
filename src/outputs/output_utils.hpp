@@ -56,6 +56,7 @@ struct VarInfo {
   bool is_vector;
   std::vector<std::string> component_labels;
   int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
+  int TensorSize() const { return nx6 * nx5 * nx4; }
 
   template<typename T>
   void FillShape(T *shape) const {
