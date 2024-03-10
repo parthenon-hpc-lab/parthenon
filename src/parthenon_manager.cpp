@@ -293,9 +293,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   for (auto &v_info : indep_restart_vars) {
     const auto vlen = v_info->NumComponents();
     const auto &label = v_info->label();
-    const auto &Nv = v_info->GetDim(4);
-    const auto &Nu = v_info->GetDim(5);
-    const auto &Nt = v_info->GetDim(6);
 
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen << std::endl;
