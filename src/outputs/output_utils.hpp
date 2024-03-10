@@ -67,6 +67,13 @@ struct VarInfo {
     shape[5] = static_cast<T>(nx1);
   }
 
+  template<typename T>
+  auto GetShape() const {
+    return std::vector<T>({
+	static_cast<T>(nx6), static_cast<T>(nx5), static_cast<T>(nx4),
+	static_cast<T>(nx3), static_cast<T>(nx2), static_cast<T>(nx1)});
+  }
+
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?

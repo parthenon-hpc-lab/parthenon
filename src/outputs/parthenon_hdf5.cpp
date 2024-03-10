@@ -312,25 +312,25 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
 
-    hsize_t local_offset[H5_NDIM] = {0};
+    hsize_t local_offset[H5_NDIM];
+    std::fill(local_offset + 1, local_offset + H5_NDIM, 0);
     local_offset[0] = my_offset;
 
-    hsize_t local_count[H5_NDIM] = {1};
+    hsize_t local_count[H5_NDIM];;
     local_count[0] = static_cast<hsize_t>(num_blocks_local);
     vinfo.FillShape<hsize_t>(&(local_count[1]));
 
-    hsize_t global_count[H5_NDIM] = {1};
+    hsize_t global_count[H5_NDIM];
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
     vinfo.FillShape<hsize_t>(&(global_count[1]));
 
-    std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
-                                  static_cast<hsize_t>(vinfo.nx2),
-                                  static_cast<hsize_t>(vinfo.nx1)});
+    auto alldims = vinfo.GetShape<hsize_t>();
 
     int ndim = -1;
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     // we need chunks to enable compression
-    std::array<hsize_t, H5_NDIM> chunk_size({1, 1, 1, 1, 1, 1, 1});
+    std::array<hsize_t, H5_NDIM> chunk_size;
+    std::fill(chunk_size.begin(), chunk_size.end(), 1);
 #endif
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
       ndim = 3 + vinfo.tensor_rank + 1;
