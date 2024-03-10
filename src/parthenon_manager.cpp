@@ -233,17 +233,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
             << std::endl;
 
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver == -1) {
+  if (file_output_format_ver != HDF5::OUTPUT_VERSION_FORMAT) {
     // Being extra stringent here so that we don't forget to update the machinery when
     // another change happens.
-    PARTHENON_REQUIRE_THROWS(
-        HDF5::OUTPUT_VERSION_FORMAT == 2 || HDF5::OUTPUT_VERSION_FORMAT == 3,
-        "Auto conversion from original to format 2 or 3 not implemented yet.")
-
-    if (Globals::my_rank == 0) {
-      PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
-                     "this binary will use new format.")
-    }
+    PARTHENON_THROW("Deprecated file format");
   }
 
   // Get an iterator on block 0 for variable listing
@@ -336,25 +329,12 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      if (file_output_format_ver == -1) {
-        PARTHENON_WARN("This file output format version is deprecrated and will be "
-                       "removed in a future release.");
-        for (int k = out_kb.s; k <= out_kb.e; ++k) {
-          for (int j = out_jb.s; j <= out_jb.e; ++j) {
-            for (int i = out_ib.s; i <= out_ib.e; ++i) {
-              for (int l = 0; l < vlen; ++l) {
-                v_h(l, k, j, i) = tmp[index++];
-              }
-            }
-          }
-        }
-      } else if (file_output_format_ver == 2 ||
-                 file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
+      if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
         OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
                                      [&](auto index, int t, int u, int v, int k, int j,
                                          int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
       } else {
-        PARTHENON_THROW("Unknown output format version in restart file.")
+        PARTHENON_THROW("Unsupported output format version in restart file.")
       }
 
       v->data.DeepCopy(v_h);
