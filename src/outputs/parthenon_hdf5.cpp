@@ -412,8 +412,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
             varSize = vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * (out_kb.e - out_kb.s + 1) *
                       (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
           } else {
-            varSize =
-                vinfo.nx6 * vinfo.nx5 * vinfo.nx4 * vinfo.nx3 * vinfo.nx2 * vinfo.nx1;
+            varSize = vinfo.Size();
           }
           auto fill_val =
               output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;
