@@ -312,21 +312,16 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const hsize_t nx5 = vinfo.nx5;
     const hsize_t nx4 = vinfo.nx4;
 
-    hsize_t local_offset[H5_NDIM] = {my_offset, 0, 0, 0, 0, 0, 0};
-    hsize_t local_count[H5_NDIM] = {static_cast<hsize_t>(num_blocks_local),
-                                    static_cast<hsize_t>(nx6),
-                                    static_cast<hsize_t>(nx5),
-                                    static_cast<hsize_t>(nx4),
-                                    static_cast<hsize_t>(nx3),
-                                    static_cast<hsize_t>(nx2),
-                                    static_cast<hsize_t>(nx1)};
-    hsize_t global_count[H5_NDIM] = {static_cast<hsize_t>(max_blocks_global),
-                                     static_cast<hsize_t>(nx6),
-                                     static_cast<hsize_t>(nx5),
-                                     static_cast<hsize_t>(nx4),
-                                     static_cast<hsize_t>(nx3),
-                                     static_cast<hsize_t>(nx2),
-                                     static_cast<hsize_t>(nx1)};
+    hsize_t local_offset[H5_NDIM] = {0};
+    local_offset[0] = my_offset;
+
+    hsize_t local_count[H5_NDIM] = {1};
+    local_count[0] = static_cast<hsize_t>(num_blocks_local);
+    vinfo.FillShape<hsize_t>(&(local_count[1]));
+
+    hsize_t global_count[H5_NDIM] = {1};
+    global_count[0] = static_cast<hsize_t>(max_blocks_global);
+    vinfo.FillShape<hsize_t>(&(global_count[1]));
 
     std::vector<hsize_t> alldims({nx6, nx5, nx4, static_cast<hsize_t>(vinfo.nx3),
                                   static_cast<hsize_t>(vinfo.nx2),

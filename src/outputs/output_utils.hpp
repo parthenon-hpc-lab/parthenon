@@ -57,6 +57,16 @@ struct VarInfo {
   std::vector<std::string> component_labels;
   int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
 
+  template<typename T>
+  void FillShape(T *shape) const {
+    shape[0] = static_cast<T>(nx6);
+    shape[1] = static_cast<T>(nx5);
+    shape[2] = static_cast<T>(nx4);
+    shape[3] = static_cast<T>(nx3);
+    shape[4] = static_cast<T>(nx2);
+    shape[5] = static_cast<T>(nx1);
+  }
+
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?
