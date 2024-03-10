@@ -472,12 +472,12 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
     using namespace HDF5;
     H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
 
-    // As we're reusing the interface from the existing hdf5 output, we have to define
-    // everything as 7D arrays.
-    // Counts will be set for each histogram individually below.
-    const std::array<hsize_t, H5_NDIM> local_offset({0, 0, 0, 0, 0, 0, 0});
-    std::array<hsize_t, H5_NDIM> local_count({0, 0, 0, 0, 0, 0, 0});
-    std::array<hsize_t, H5_NDIM> global_count({0, 0, 0, 0, 0, 0, 0});
+    // As we're reusing the interface from the existing hdf5 output,
+    // we have to define everything as H5_NDIM-D arrays. Counts will
+    // be set for each histogram individually below.
+    const std::array<hsize_t, H5_NDIM> local_offset = {0};
+    std::array<hsize_t, H5_NDIM> local_count = {0};
+    std::array<hsize_t, H5_NDIM> global_count = {0};
 
     // create/open HDF5 file
     const std::string filename = GenerateFilename_(pin, tm, signal);

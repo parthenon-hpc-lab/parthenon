@@ -152,38 +152,12 @@ class RestartReader {
 #else  // HDF5 enabled
     auto hdl = OpenDataset<T>(name);
 
-    constexpr int CHUNK_MAX_DIM = 7;
-
     /** Select hyperslab in dataset **/
-    hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0};
-    hsize_t count[CHUNK_MAX_DIM];
+    hsize_t offset[H5_NDIM] = {0};
+    offset[0] = static_cast<hsize_t>(range.s);
+    hsize_t count[H5_NDIM];
     int total_dim = 0;
-    if (file_output_format_version == -1) {
-      size_t vlen = 1;
-      for (int i = 0; i < shape.size(); i++) {
-        vlen *= shape[i];
-      }
-      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-      count[1] = bsize[2];
-      count[2] = bsize[1];
-      count[3] = bsize[0];
-      count[4] = vlen;
-      total_dim = 5;
-    } else if (file_output_format_version == 2) {
-      PARTHENON_REQUIRE(
-          shape.size() <= 1,
-          "Higher than vector datatypes are unstable in output versions < 3");
-      size_t vlen = 1;
-      for (int i = 0; i < shape.size(); i++) {
-        vlen *= shape[i];
-      }
-      count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-      count[1] = vlen;
-      count[2] = bsize[2];
-      count[3] = bsize[1];
-      count[4] = bsize[0];
-      total_dim = 5;
-    } else if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
+    if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
       count[0] = static_cast<hsize_t>(range.e - range.s + 1);
       const int ndim = shape.size();
       if (where == MetadataFlag(Metadata::Cell)) {
@@ -203,7 +177,7 @@ class RestartReader {
         PARTHENON_THROW("Only Cell and None locations supported!");
       }
     } else {
-      PARTHENON_THROW("Unknown output format version in restart file.")
+      PARTHENON_THROW("Unsupported output format version in restart file.")
     }
 
     hsize_t total_count = 1;
@@ -240,14 +214,13 @@ class RestartReader {
 #else
     auto hdl = OpenDataset<T>(swarmname + "/SwarmVars/" + varname);
 
-    constexpr int CHUNK_MAX_DIM = 6;
-    hsize_t h5_offset[CHUNK_MAX_DIM];
-    hsize_t h5_count[CHUNK_MAX_DIM];
+    hsize_t h5_offset[H5_NDIM];
+    hsize_t h5_count[H5_NDIM];
     const auto &shape = m.Shape();
     const int rank = shape.size();
     const bool is_vector = m.IsSet(Metadata::Vector);
     std::size_t total_count = count;
-    for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
+    for (int i = 0; i < H5_NDIM; ++i) {
       h5_offset[i] = h5_count[i] = 0;
     }
     for (int i = 0; i < rank; ++i) {

@@ -342,16 +342,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 #endif
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
+      const int mxrnk = alldims.size();
       ndim = vinfo.tensor_rank + 1;
       for (int i = 0; i < vinfo.tensor_rank; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.tensor_rank + i];
+        local_count[1 + i] = global_count[1 + i] = alldims[mxrnk - vinfo.tensor_rank + i];
       }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
       if (output_params.hdf5_compression_level > 0) {
         int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
         for (int i = ndim - nchunk_indices; i < ndim; i++) {
-          chunk_size[i] = alldims[6 - nchunk_indices + i];
+          chunk_size[i] = alldims[mxrnk - nchunk_indices + i];
         }
       }
 #endif

@@ -81,7 +81,8 @@ class Variable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION,
+			    "Index out of bounds");
     return dims_[i - 1];
   }
 
@@ -92,7 +93,8 @@ class Variable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION,
+			    "Index out of bounds");
     return coarse_dims_[i - 1];
   }
 
