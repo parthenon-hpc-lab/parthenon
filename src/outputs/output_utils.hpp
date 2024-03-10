@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <sstream>
 #include <string>
@@ -41,38 +42,33 @@ namespace parthenon {
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
+  static constexpr int VNDIM = 6; // soon to be 7
   std::string label;
   int num_components;
-  int nx6;
-  int nx5;
-  int nx4;
-  int nx3;
-  int nx2;
-  int nx1;
+  std::array<int, VNDIM> nx;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
   std::vector<std::string> component_labels;
-  int Size() const { return nx6 * nx5 * nx4 * nx3 * nx2 * nx1; }
-  int TensorSize() const { return nx6 * nx5 * nx4; }
+  int Size() const {
+    return std::accumulate(nx.begin(), nx.end(), 1, std::multiplies<int>());
+  }
+  int TensorSize() const {
+    return nx[5]*nx[4]*nx[3];//std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
+  }
 
   template<typename T>
   void FillShape(T *shape) const {
-    shape[0] = static_cast<T>(nx6);
-    shape[1] = static_cast<T>(nx5);
-    shape[2] = static_cast<T>(nx4);
-    shape[3] = static_cast<T>(nx3);
-    shape[4] = static_cast<T>(nx2);
-    shape[5] = static_cast<T>(nx1);
+    for (int i = 0; i < VNDIM; ++i) {
+      shape[i] = static_cast<T>(nx[VNDIM - i]);
+    }
   }
 
   template<typename T>
   auto GetShape() const {
-    return std::vector<T>({
-	static_cast<T>(nx6), static_cast<T>(nx5), static_cast<T>(nx4),
-	static_cast<T>(nx3), static_cast<T>(nx2), static_cast<T>(nx1)});
+    return std::vector<T>(nx.rbegin(), nx.rend());
   }
 
   VarInfo() = delete;
@@ -81,8 +77,9 @@ struct VarInfo {
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector)
-      : label(label), num_components(num_components), nx6(nx6), nx5(nx5), nx4(nx4),
-        nx3(nx3), nx2(nx2), nx1(nx1), tensor_rank(metadata.Shape().size()),
+    : label(label), num_components(num_components),
+      nx({nx1,nx2,nx3,nx4,nx5,nx6}),
+      tensor_rank(metadata.Shape().size()),
         where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
     if (num_components <= 0) {
       std::stringstream msg;
