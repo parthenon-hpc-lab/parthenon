@@ -20,6 +20,7 @@
 
 // C++
 #include <array>
+#include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
