@@ -129,6 +129,7 @@ class LogicalLocation { // aggregate and POD type
 
   std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
                                const RootGridInfo &rg_info = RootGridInfo()) const;
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
   std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
                                                       const RootGridInfo &rg_info) const;
@@ -139,7 +140,9 @@ class LogicalLocation { // aggregate and POD type
     return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info);
   }
 
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   bool IsNeighborForest(const LogicalLocation &in) const;
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   bool IsNeighborOfTEForest(const LogicalLocation &in,
                             const std::array<int, 3> &te_offset) const;
 
