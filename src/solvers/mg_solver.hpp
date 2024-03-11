@@ -163,8 +163,7 @@ class MGSolver {
   int GetCurrentIterations() const { return iter_counter; }
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
- 
- 
+
  protected:
   MGParams params_;
   int iter_counter;
