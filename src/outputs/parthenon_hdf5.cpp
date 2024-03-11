@@ -313,7 +313,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     std::fill(local_offset + 1, local_offset + H5_NDIM, 0);
     local_offset[0] = my_offset;
 
-    hsize_t local_count[H5_NDIM];;
+    hsize_t local_count[H5_NDIM];
+    ;
     local_count[0] = static_cast<hsize_t>(num_blocks_local);
     vinfo.FillShape<hsize_t>(&(local_count[1]));
 

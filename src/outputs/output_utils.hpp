@@ -56,17 +56,18 @@ struct VarInfo {
     return std::accumulate(nx.begin(), nx.end(), 1, std::multiplies<int>());
   }
   int TensorSize() const {
-    return nx[5]*nx[4]*nx[3];//std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
+    return nx[5] * nx[4] *
+           nx[3]; // std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
   }
 
-  template<typename T>
+  template <typename T>
   void FillShape(T *shape) const {
     for (int i = 0; i < VNDIM; ++i) {
       shape[i] = static_cast<T>(nx[VNDIM - i]);
     }
   }
 
-  template<typename T>
+  template <typename T>
   auto GetShape() const {
     return std::vector<T>(nx.rbegin(), nx.rend());
   }
@@ -77,10 +78,9 @@ struct VarInfo {
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector)
-    : label(label), num_components(num_components),
-      nx({nx1,nx2,nx3,nx4,nx5,nx6}),
-      tensor_rank(metadata.Shape().size()),
-        where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector) {
+      : label(label), num_components(num_components), nx({nx1, nx2, nx3, nx4, nx5, nx6}),
+        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_sparse(is_sparse), is_vector(is_vector) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
