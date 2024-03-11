@@ -101,9 +101,11 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto solve = zero_u;
     auto &itl = tl.AddIteration("Solver");
     if (solver == "BiCGSTAB") {
-      solve = bicgstab_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
+      auto setup = bicgstab_solver->AddSetupTasks(region, tl, zero_u, i, reg_dep_id, pmesh);
+      solve = bicgstab_solver->AddTasks(tl, itl, setup, i, pmesh, region, reg_dep_id);
     } else if (solver == "MG") {
-      solve = mg_solver->AddTasks(tl, itl, zero_u, i, pmesh, region, reg_dep_id);
+      auto setup = mg_solver->AddSetupTasks(region, tl, zero_u, i, reg_dep_id, pmesh);
+      solve = mg_solver->AddTasks(tl, itl, solve, i, pmesh, region, reg_dep_id);
     } else {
       PARTHENON_FAIL("Unknown solver type.");
     }

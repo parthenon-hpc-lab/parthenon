@@ -72,7 +72,7 @@ class BiCGSTABSolver {
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
       : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
-        iter_counter(0), eqs_(eq_in), presidual_tolerance(&params_in.residual_tolerance) {
+        iter_counter(0), eqs_(eq_in), presidual_tolerance(nullptr) {
     using namespace refinement_ops;
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
@@ -260,6 +260,7 @@ class BiCGSTABSolver {
 
     // 14. rhat0r_old <- rhat0r, zero all reductions
     region.AddRegionalDependencies(reg_dep_id, i, update_p | correct_x);
+    Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance) : presidual_tolerance;
     auto check = itl.SetCompletionTask(
         update_p | correct_x,
         [](BiCGSTABSolver *solver, Mesh *pmesh, int partition, int max_iter,
@@ -280,7 +281,7 @@ class BiCGSTABSolver {
           solver->residual.val = 0.0;
           return TaskStatus::iterate;
         },
-        this, pmesh, i, params_.max_iters, presidual_tolerance);
+        this, pmesh, i, params_.max_iters, ptol);
     region.AddGlobalDependencies(reg_dep_id, i, check);
     reg_dep_id++;
 
