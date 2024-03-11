@@ -238,7 +238,7 @@ class MGSolver {
             for (int c = 0; c < nvars; ++c) {
               Real *Ax = &pack(b, te, Axold_t(c), k, jb.s, ib.s); 
               Real *diag = &pack(b, te, D_t(c), k, jb.s, ib.s); 
-              Real *rhs = &pack(b, te, rhs_t(c), k, jb.s, ib.s);
+              Real *prhs = &pack(b, te, rhs_t(c), k, jb.s, ib.s);
               Real *xo = &pack(b, te, xold_t(c), k, jb.s, ib.s);
               Real *xn = &pack(b, te, xnew_t(c), k, jb.s, ib.s);
               const int npoints = (jb.e - jb.s + 1) 
@@ -246,7 +246,7 @@ class MGSolver {
                                 - 2 * Globals::nghost;
               parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
                 const Real off_diag = Ax[idx] - diag[idx] * xo[idx];
-                const Real val = rhs[idx] - off_diag; 
+                const Real val = prhs[idx] - off_diag; 
                 xn[idx] = weight * val / diag[idx] + (1.0 - weight) * xo[idx];
               });
             }
