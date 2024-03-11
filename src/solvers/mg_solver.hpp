@@ -147,15 +147,15 @@ class MGSolver {
   }
   
   template <class TL_t>
-  TaskID AddSetupTasks(TaskRegion &region, TL_t &tl, TaskID dependence,
-                                int partition, int &reg_dep_id, Mesh *pmesh) {
+  TaskID AddSetupTasks(TL_t &tl, TaskID dependence,
+                       int partition, Mesh *pmesh) {
     using namespace utils;
 
     int min_level = 0;
     int max_level = pmesh->GetGMGMaxLevel();
 
-    return AddMultiGridSetupPartitionLevel(region, tl, dependence, partition, reg_dep_id,
-                                           max_level, min_level, max_level, pmesh);
+    return AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
+                                           min_level, max_level, pmesh);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
@@ -297,8 +297,7 @@ class MGSolver {
   }
 
   template <class TL_t>
-  TaskID AddMultiGridSetupPartitionLevel(TaskRegion &region, TL_t &tl, TaskID dependence,
-                                         int partition, int &reg_dep_id, int level,
+  TaskID AddMultiGridSetupPartitionLevel(TL_t &tl, TaskID dependence, int partition, int level,
                                          int min_level, int max_level, Mesh *pmesh) {
     using namespace utils;
 
@@ -318,8 +317,7 @@ class MGSolver {
     if (level > min_level) {
       task_out =
           tl.AddTask(task_out, SendBoundBufs<BoundaryType::gmg_restrict_send>, md);
-      task_out = AddMultiGridSetupPartitionLevel(region, tl, task_out,
-                                                 partition, reg_dep_id, level - 1,
+      task_out = AddMultiGridSetupPartitionLevel(tl, task_out, partition, level - 1,
                                                  min_level, max_level, pmesh);
     }
 

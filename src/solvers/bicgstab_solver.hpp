@@ -87,9 +87,9 @@ class BiCGSTABSolver {
   }
 
   template <class TL_t>
-  TaskID AddSetupTasks(TaskRegion &region, TL_t &tl, TaskID dependence,
-                                int partition, int &reg_dep_id, Mesh *pmesh) { 
-    return preconditioner.AddSetupTasks(region, tl, dependence, partition, reg_dep_id, pmesh);
+  TaskID AddSetupTasks(TL_t &tl, TaskID dependence,
+                       int partition, Mesh *pmesh) { 
+    return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {

@@ -79,7 +79,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   const int num_partitions = pmesh->DefaultNumPartitions();
   TaskRegion &region = tc.AddRegion(num_partitions);
-  int reg_dep_id = 0;
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
@@ -100,10 +99,10 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     auto solve = zero_u;
     if (solver == "BiCGSTAB") {
-      auto setup = bicgstab_solver->AddSetupTasks(region, tl, zero_u, i, reg_dep_id, pmesh);
+      auto setup = bicgstab_solver->AddSetupTasks(tl, zero_u, i, pmesh);
       solve = bicgstab_solver->AddTasks(tl, setup, pmesh, i);
     } else if (solver == "MG") {
-      auto setup = mg_solver->AddSetupTasks(region, tl, zero_u, i, reg_dep_id, pmesh);
+      auto setup = mg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
       solve = mg_solver->AddTasks(tl, setup, pmesh, i);
     } else {
       PARTHENON_FAIL("Unknown solver type.");
