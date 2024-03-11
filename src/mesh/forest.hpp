@@ -225,6 +225,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   int ndim;
   const std::uint64_t my_id;
+  // Location of block in this tree, current gid, previous gid
   std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> leaves;
   std::unordered_set<LogicalLocation> internal_nodes;
 
