@@ -58,7 +58,7 @@ class BiCGSTABSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, r);
   PARTHENON_INTERNALSOLVERVARIABLE(u, p);
   PARTHENON_INTERNALSOLVERVARIABLE(u, x);
-  
+
   std::vector<std::string> GetInternalVariableNames() const {
     std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
                                    t::name(),     r::name(), p::name(), x::name()};
@@ -87,8 +87,7 @@ class BiCGSTABSolver {
   }
 
   template <class TL_t>
-  TaskID AddSetupTasks(TL_t &tl, TaskID dependence,
-                       int partition, Mesh *pmesh) { 
+  TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
     return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
   }
 
@@ -97,7 +96,8 @@ class BiCGSTABSolver {
     TaskID none;
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
     std::string label = "bicg_comm_" + std::to_string(partition);
-    auto &md_comm = pmesh->mesh_data.AddShallow(label, md, std::vector<std::string>{u::name()});
+    auto &md_comm =
+        pmesh->mesh_data.AddShallow(label, md, std::vector<std::string>{u::name()});
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
 
@@ -143,7 +143,8 @@ class BiCGSTABSolver {
     }
 
     // 2. v <- A u
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_comm, multilevel);
+    auto comm =
+        AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_comm, multilevel);
     auto get_v = eqs_.template Ax<u, v>(itl, comm, md);
 
     // 3. rhat0v <- (rhat0, v)
@@ -192,7 +193,8 @@ class BiCGSTABSolver {
     }
 
     // 7. t <- A u
-    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_comm, multilevel);
+    auto pre_t_comm =
+        AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_comm, multilevel);
     auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md);
 
     // 8. omega <- (t,s) / (t,t)
@@ -248,7 +250,8 @@ class BiCGSTABSolver {
         this, md);
 
     // 14. rhat0r_old <- rhat0r, zero all reductions
-    Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance) : presidual_tolerance;
+    Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance)
+                                                : presidual_tolerance;
     auto check = itl.AddTask(
         TaskQualifier::completion | TaskQualifier::once_per_region |
             TaskQualifier::global_sync,

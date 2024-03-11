@@ -13,6 +13,8 @@
 #ifndef SOLVERS_SOLVER_UTILS_HPP_
 #define SOLVERS_SOLVER_UTILS_HPP_
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -156,20 +158,19 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
 
   static auto desc = parthenon::MakePackDescriptor<in_t, out_t>(md.get());
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
-  const int scratch_size = 0; 
+  const int scratch_size = 0;
   const int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level, 
-      0, pack.GetNBlocks() - 1, 
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        const int nvars = pack.GetUpperBound(b, in_t()) - pack.GetLowerBound(b, in_t()) + 1;
-        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1); 
+      DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level,
+      0, pack.GetNBlocks() - 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+        const int nvars =
+            pack.GetUpperBound(b, in_t()) - pack.GetLowerBound(b, in_t()) + 1;
+        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
         for (int c = 0; c < nvars; ++c) {
           Real *in = &pack(b, te, in_t(c), kb.s, jb.s, ib.s);
           Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
-          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
-            out[idx] = in[idx];
-          });
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1,
+                                   [&](const int idx) { out[idx] = in[idx]; });
         }
       });
   return TaskStatus::complete;
@@ -195,11 +196,11 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
 
   static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out_t>(md.get());
   auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
-  const int scratch_size = 0; 
+  const int scratch_size = 0;
   const int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size, scratch_level, 
-      0, pack.GetNBlocks() - 1,
+      DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size,
+      scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
         const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
@@ -207,9 +208,9 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
           Real *avar = &pack(b, te, a_t(c), kb.s, jb.s, ib.s);
           Real *bvar = &pack(b, te, b_t(c), kb.s, jb.s, ib.s);
           Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
-          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
-            out[idx] = wa * avar[idx] + wb * bvar[idx];
-          });
+          parthenon::par_for_inner(
+              DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1,
+              [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
         }
       });
   return TaskStatus::complete;
@@ -303,7 +304,7 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
 
 template <class a_t>
 TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
-                           AllReduce<Real> *amin) {
+                          AllReduce<Real> *amin) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -331,7 +332,7 @@ TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
 
 template <class a_t>
 TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
-                  const std::shared_ptr<MeshData<Real>> &md) {
+                 const std::shared_ptr<MeshData<Real>> &md) {
   using namespace impl;
   auto max_amin = tl.AddTask(
       TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
@@ -340,10 +341,11 @@ TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
         return TaskStatus::complete;
       },
       amin);
-  auto get_amin = tl.AddTask(TaskQualifier::local_sync, max_amin, GlobalMinLocal<a_t>, md, amin);
-  auto start_global_amin = tl.AddTask(TaskQualifier::once_per_region, get_amin, 
+  auto get_amin =
+      tl.AddTask(TaskQualifier::local_sync, max_amin, GlobalMinLocal<a_t>, md, amin);
+  auto start_global_amin = tl.AddTask(TaskQualifier::once_per_region, get_amin,
                                       &AllReduce<Real>::StartReduce, amin, MPI_MIN);
-  return tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync, 
+  return tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                     start_global_amin, &AllReduce<Real>::CheckReduce, amin);
 }
 
