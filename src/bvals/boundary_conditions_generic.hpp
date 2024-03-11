@@ -112,7 +112,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   const int offsetin = INNER;
   const int offsetout = !INNER;
   pmb->par_for_bndry(
-      label, nb, domain, el, coarse,
+      PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
         if (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);

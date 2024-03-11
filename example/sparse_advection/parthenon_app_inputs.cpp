@@ -97,8 +97,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       }
 
       pmb->par_for(
-          "SparseAdvection::ProblemGenerator", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e,
-          ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          PARTHENON_AUTO_LABEL, 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
             auto x = coords.Xc<1>(i) - x0;
             auto y = coords.Xc<2>(j) - y0;
             auto z = coords.Xc<3>(k);

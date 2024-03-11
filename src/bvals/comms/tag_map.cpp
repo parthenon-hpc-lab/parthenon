@@ -57,13 +57,23 @@ template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(
     std::shared_ptr<MeshData<Real>> &md);
 
 void TagMap::ResolveMap() {
+#ifdef MPI_PARALLEL
+  int flag;
+  void *max_tag; // largest supported MPI tag value
+  PARTHENON_MPI_CHECK(MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag));
+  if (!flag) {
+    PARTHENON_FAIL("MPI error, cannot query largest supported MPI tag value.");
+  }
+#endif
   for (auto it = map_.begin(); it != map_.end(); ++it) {
     auto &pair_map = it->second;
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
-    if (idx > 32767)
-      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by the MPI standard.");
+#ifdef MPI_PARALLEL
+    if (idx > (*reinterpret_cast<int *>(max_tag)) && it->first != Globals::my_rank)
+      PARTHENON_FAIL("Number of tags exceeds the maximum allowed by this MPI version.");
+#endif
   }
 }
 

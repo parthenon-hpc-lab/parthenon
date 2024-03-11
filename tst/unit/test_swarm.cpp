@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -26,6 +26,7 @@
 
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/swarm.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 
 #include <parthenon/driver.hpp>
@@ -41,6 +42,7 @@ using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
+using parthenon::ParArray1D;
 using parthenon::ParArrayND;
 using parthenon::ParticleBound;
 using parthenon::Swarm;
@@ -118,8 +120,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
 
-  ParArrayND<int> new_indices;
-  auto new_mask = swarm->AddEmptyParticles(1, new_indices);
+  swarm->AddEmptyParticles(1);
   swarm_d = swarm->GetDeviceContext();
   auto x_d = swarm->Get<Real>("x").Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
@@ -132,7 +133,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   x_d.DeepCopy(x_h);
   i_d.DeepCopy(i_h);
 
-  new_mask = swarm->AddEmptyParticles(11, new_indices);
+  swarm->AddEmptyParticles(11);
   swarm_d = swarm->GetDeviceContext();
   x_d = swarm->Get<Real>("x").Get();
   i_d = swarm->Get<int>("i").Get();
@@ -212,7 +213,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(i_h(1) == 2);
 
   // "Transport" a particle across the IX1 (custom) boundary
-  ParArrayND<int> bc_indices("Boundary indices", 1);
+  ParArray1D<int> bc_indices("Boundary indices", 1);
   meshblock->par_for(
       "Transport", 0, 0, KOKKOS_LAMBDA(const int n) {
         x_d(0) = -0.6;

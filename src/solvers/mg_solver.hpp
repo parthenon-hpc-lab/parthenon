@@ -23,8 +23,8 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "solvers/solver_utils.hpp"
-#include "tasks/task_id.hpp"
-#include "tasks/task_list.hpp"
+
+#include "tasks/tasks.hpp"
 
 namespace parthenon {
 
@@ -94,62 +94,56 @@ class MGSolver {
     pkg->AddField(D::name(), mD);
   }
 
-  TaskID AddTasks(TaskList & /*tl*/, IterativeTasks &itl, TaskID dependence,
-                  int partition, Mesh *pmesh, TaskRegion &region, int &reg_dep_id) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
     using namespace utils;
+    TaskID none;
+    auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
     iter_counter = 0;
     itl.AddTask(
-        dependence,
-        [](int partition, int *iter_counter) {
-          if (partition != 0 || *iter_counter > 0 || Globals::my_rank != 0)
-            return TaskStatus::complete;
+        TaskQualifier::once_per_region, none,
+        [](int *iter_counter) {
+          if (*iter_counter > 0 || Globals::my_rank != 0) return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
         },
-        partition, &iter_counter);
-    auto mg_finest =
-        AddLinearOperatorTasks(region, itl, dependence, partition, reg_dep_id, pmesh);
+        &iter_counter);
+    auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md, true);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
     calc_pointwise_res = itl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
         1.0, -1.0, false);
-    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, region, itl,
-                                                partition, reg_dep_id, &residual, md);
+    auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, itl, &residual, md);
 
-    auto check = itl.SetCompletionTask(
+    auto check = itl.AddTask(
+        TaskQualifier::once_per_region | TaskQualifier::completion |
+            TaskQualifier::global_sync,
         get_res,
-        [](MGSolver *solver, int part, Mesh *pmesh) {
-          if (part != 0) return TaskStatus::complete;
+        [](MGSolver *solver, Mesh *pmesh) {
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter, rms_res);
-          if (rms_res > solver->params_.residual_tolerance &&
-              solver->iter_counter < solver->params_.max_iters)
-            return TaskStatus::iterate;
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
+          if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
           return TaskStatus::complete;
         },
-        this, partition, pmesh);
-    region.AddGlobalDependencies(reg_dep_id, partition, check);
-    reg_dep_id++;
+        this, pmesh);
 
-    return check;
+    return solve_id;
   }
 
-  template <class TL_t>
-  TaskID AddLinearOperatorTasks(TaskRegion &region, TL_t &tl, TaskID dependence,
-                                int partition, int &reg_dep_id, Mesh *pmesh) {
+  TaskID AddLinearOperatorTasks(TaskList &tl, TaskID dependence, int partition,
+                                Mesh *pmesh) {
     using namespace utils;
     iter_counter = 0;
 
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings, 0);
     int max_level = pmesh->GetGMGMaxLevel();
 
-    return AddMultiGridTasksPartitionLevel(region, tl, dependence, partition, reg_dep_id,
-                                           max_level, min_level, max_level, pmesh);
+    return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
+                                           min_level, max_level, pmesh);
   }
   
   template <class TL_t>
@@ -333,10 +327,9 @@ class MGSolver {
     return task_out;
   }
 
-  template <class TL_t>
-  TaskID AddMultiGridTasksPartitionLevel(TaskRegion &region, TL_t &tl, TaskID dependence,
-                                         int partition, int &reg_dep_id, int level,
-                                         int min_level, int max_level, Mesh *pmesh) {
+  TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, int partition,
+                                         int level, int min_level, int max_level,
+                                         Mesh *pmesh) {
     using namespace utils;
     auto smoother = params_.smoother;
     bool do_FAS = params_.do_FAS;
@@ -369,10 +362,8 @@ class MGSolver {
       // Fill fields with restricted values
       auto recv_from_finer =
           tl.AddTask(dependence, ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>, md_comm);
-      set_from_finer =
-          tl.AddTask(recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md_comm);
-      region.AddRegionalDependencies(reg_dep_id, partition, set_from_finer);
-      reg_dep_id++;
+      set_from_finer = tl.AddTask( // TaskQualifier::local_sync, // is this required?
+          recv_from_finer, SetBounds<BoundaryType::gmg_restrict_recv>, md_comm);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
       if (!do_FAS) {
@@ -421,19 +412,16 @@ class MGSolver {
       auto communicate_to_coarse =
           tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md_comm);
 
-      auto coarser = AddMultiGridTasksPartitionLevel(region, tl, communicate_to_coarse,
-                                                     partition, reg_dep_id, level - 1,
-                                                     min_level, max_level, pmesh);
+      auto coarser = AddMultiGridTasksPartitionLevel(
+          tl, communicate_to_coarse, partition, level - 1, min_level, max_level, pmesh);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser =
           tl.AddTask(coarser, ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>, md_comm);
       auto set_from_coarser =
           tl.AddTask(recv_from_coarser, SetBounds<BoundaryType::gmg_prolongate_recv>, md_comm);
-      auto prolongate = tl.AddTask(
+      auto prolongate = tl.AddTask( // TaskQualifier::local_sync, // is this required?
           set_from_coarser, ProlongateBounds<BoundaryType::gmg_prolongate_recv>, md_comm);
-      region.AddRegionalDependencies(reg_dep_id, partition, prolongate);
-      reg_dep_id++;
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field

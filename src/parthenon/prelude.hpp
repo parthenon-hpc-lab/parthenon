@@ -33,6 +33,7 @@ namespace prelude {
 using ::parthenon::BoundaryCommSubset;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
+using ::parthenon::KokkosTimer;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockData;
 using ::parthenon::MeshData;

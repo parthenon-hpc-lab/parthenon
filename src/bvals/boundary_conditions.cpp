@@ -33,7 +33,7 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
-  Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
+  PARTHENON_INSTRUMENT
   using namespace boundary_cond_impl;
   MeshBlock *pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
@@ -50,7 +50,6 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_ApplyBoundaryConditionsOnCoarseOrFine
   return TaskStatus::complete;
 }
 
