@@ -238,8 +238,7 @@ class MGSolver {
               Real *xo = &pack(b, te, xold_t(c), k, jb.s, ib.s);
               Real *xn = &pack(b, te, xnew_t(c), k, jb.s, ib.s);
               const int npoints =
-                  (jb.e - jb.s + 1) * (ib.e - ib.s + 1 + 2 * nghost) -
-                  2 * nghost;
+                  (jb.e - jb.s + 1) * (ib.e - ib.s + 1 + 2 * nghost) - 2 * nghost;
               parthenon::par_for_inner(
                   DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
                     const Real off_diag = Ax[idx] - diag[idx] * xo[idx];
