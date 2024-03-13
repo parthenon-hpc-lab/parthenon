@@ -276,7 +276,7 @@ class BiCGSTABSolver {
         },
         this, pmesh, params_.max_iters, ptol);
 
-    return tl.AddTask(check, CopyData<x, u>, md);
+    return tl.AddTask(solver_id, CopyData<x, u>, md);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
