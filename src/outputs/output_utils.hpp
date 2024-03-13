@@ -34,6 +34,7 @@
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -43,7 +44,7 @@ namespace parthenon {
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
-  static constexpr int VNDIM = 6; // soon to be 7
+  static constexpr int VNDIM = 6; // MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
   std::array<int, VNDIM> nx;
@@ -79,7 +80,7 @@ struct VarInfo {
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector)
-      : label(label), num_components(num_components), nx({nx1, nx2, nx3, nx4, nx5, nx6}),
+    : label(label), num_components(num_components), nx({nx1, nx2, nx3, nx4, nx5, nx6}),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         is_sparse(is_sparse), is_vector(is_vector) {
     if (num_components <= 0) {
