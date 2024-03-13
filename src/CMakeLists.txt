@@ -243,6 +243,7 @@ add_library(parthenon
   utils/index_split.hpp
   utils/indexer.hpp
   utils/instrument.hpp
+  utils/interpolation.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
   utils/mpi_types.hpp
@@ -251,6 +252,7 @@ add_library(parthenon
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
+  utils/robust.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/sort.hpp
