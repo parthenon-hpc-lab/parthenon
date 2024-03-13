@@ -315,11 +315,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     hsize_t local_count[H5_NDIM];
     local_count[0] = static_cast<hsize_t>(num_blocks_local);
-    vinfo.FillShape<hsize_t>(&(local_count[1]));
 
     hsize_t global_count[H5_NDIM];
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
-    vinfo.FillShape<hsize_t>(&(global_count[1]));
 
     auto alldims = vinfo.GetShape<hsize_t>();
 
@@ -332,7 +330,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     if (vinfo.where == MetadataFlag(Metadata::Cell)) {
       ndim = 3 + vinfo.tensor_rank + 1;
       for (int i = 0; i < vinfo.tensor_rank; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+        local_count[1 + i] = global_count[1 + i] = alldims[alldims.size() - 3 - vinfo.tensor_rank + i];
       }
       local_count[vinfo.tensor_rank + 1] = global_count[vinfo.tensor_rank + 1] = nx3;
       local_count[vinfo.tensor_rank + 2] = global_count[vinfo.tensor_rank + 2] = nx2;
@@ -348,7 +346,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     } else if (vinfo.where == MetadataFlag(Metadata::None)) {
       ndim = vinfo.tensor_rank + 1;
       for (int i = 0; i < vinfo.tensor_rank; i++) {
-        local_count[1 + i] = global_count[1 + i] = alldims[6 - vinfo.tensor_rank + i];
+        local_count[1 + i] = global_count[1 + i] = alldims[alldims.size() - vinfo.tensor_rank + i];
       }
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
