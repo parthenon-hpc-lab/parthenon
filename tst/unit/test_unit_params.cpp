@@ -147,6 +147,9 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     Real scalar = 3.0;
     params.Add("scalar", scalar, restart);
 
+    bool boolscalar = false;
+    params.Add("boolscalar", boolscalar, restart);
+
     std::vector<int> vector = {0, 1, 2};
     params.Add("vector", vector, only_mutable);
 
@@ -217,6 +220,9 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         Real test_scalar = 0.0;
         rparams.Add("scalar", test_scalar, restart);
 
+        bool test_bool = true;
+        rparams.Add("boolscalar", test_bool, restart);
+
         std::vector<int> test_vector;
         rparams.Add("vector", test_vector, only_mutable);
 
@@ -234,6 +240,10 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         AND_THEN("The values for the restartable params are updated to match the file") {
           auto test_scalar = rparams.Get<Real>("scalar");
           REQUIRE(std::abs(test_scalar - scalar) <= 1e-10);
+
+          auto test_bool = rparams.Get<bool>("boolscalar");
+          REQUIRE(test_bool == boolscalar);
+
           auto test_hostarr = params.Get<parthenon::HostArray2D<Real>>("hostarr2d");
           REQUIRE(test_hostarr.extent_int(0) == hostarr.extent_int(0));
           REQUIRE(test_hostarr.extent_int(1) == hostarr.extent_int(1));
