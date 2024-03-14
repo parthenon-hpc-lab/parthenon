@@ -119,6 +119,7 @@ class BiCGSTABSolver {
           solver->ts.val = 0.0;
           solver->tt.val = 0.0;
           solver->residual.val = 0.0;
+          solver->iter_counter = 0;
           return TaskStatus::complete;
         },
         this);
