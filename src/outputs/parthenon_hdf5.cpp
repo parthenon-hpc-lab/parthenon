@@ -320,31 +320,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     hsize_t global_count[H5_NDIM];
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
 
-    auto alldims = vinfo.GetShape<hsize_t>();
-
     int ndim = vinfo.FillShape(theDomain, &(local_count[1]), &(global_count[1]));
+
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
-    // we need chunks to enable compression
-    std::array<hsize_t, H5_NDIM> chunk_size;
-    std::fill(chunk_size.begin(), chunk_size.end(), 1);
-    if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-      if (output_params.hdf5_compression_level > 0) {
-        for (int i = ndim - 3; i < ndim; i++) {
-          chunk_size[i] = local_count[i];
-        }
-      }
-    } else if (vinfo.where == MetadataFlag(Metadata::None)) {
-      if (output_params.hdf5_compression_level > 0) {
-        int nchunk_indices = std::min<int>(vinfo.tensor_rank, 3);
-        for (int i = ndim - nchunk_indices; i < ndim; i++) {
-          chunk_size[i] = alldims[alldims.size() - nchunk_indices + i];
-        }
-      }
-    }
-    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
-    // Do not run the pipeline if compression is soft disabled.
-    // By default data would still be passed, which may result in slower output.
+    // we need chunks to enable compression. Do not run the pipeline
+    // if compression is soft disabled.  By default data would still
+    // be passed, which may result in slower output.
     if (output_params.hdf5_compression_level > 0) {
+      std::array<hsize_t, H5_NDIM> chunk_size;
+      std::fill(chunk_size.begin(), chunk_size.end(), 1);
+      for (int i = 1; i < ndim; ++i) {
+        chunk_size[i] = local_count[i];
+      }
+      if (vinfo.where != MetadataFlag(Metadata::None)) {
+        std::fill(&(chunk_size[0]), &(chunk_size[0]) + ndim - 3, 1);
+      }
+      PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, ndim, chunk_size.data()));
       PARTHENON_HDF5_CHECK(
           H5Pset_deflate(pl_dcreate, std::min(9, output_params.hdf5_compression_level)));
     }
