@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 // Parthenon
@@ -44,34 +45,61 @@ namespace parthenon {
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
+ public:
   static constexpr int VNDIM = 6; // MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
-  std::array<int, VNDIM> nx;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
+  IndexShape cellbounds;
   std::vector<std::string> component_labels;
   int Size() const {
-    return std::accumulate(nx.begin(), nx.end(), 1, std::multiplies<int>());
+    return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
   }
   int TensorSize() const {
-    return nx[5] * nx[4] *
-           nx[3]; // std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
+    // std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
+    return nx_[5] * nx_[4] * nx_[3];
   }
 
   template <typename T>
-  void FillShape(T *shape) const {
-    for (int i = 0; i < VNDIM; ++i) {
-      shape[i] = static_cast<T>(nx[VNDIM - i]);
+  int FillShape(const IndexDomain domain, T *data) {
+    int ndim = -1;
+    int nx3 = cellbounds.ncellsk(domain);
+    int nx2 = cellbounds.ncellsj(domain);
+    int nx1 = cellbounds.ncellsi(domain);
+    if (where == MetadataFlag({Metadata::None})) {
+      ndim = tensor_rank + 1;
+      for (int i = 0; i < tensor_rank; ++i) {
+        data[i] = static_cast<T>(rnx_[rnx_.size() - tensor_rank + i]);
+      }
+    } else if (where == MetadataFlag({Metadata::Cell})) {
+      ndim = 3 + tensor_rank + 1;
+      for (int i = 0; i < tensor_rank; ++i) {
+        data[i] = static_cast<T>(rnx_[rnx_.size() - 3 - tensor_rank + i]);
+      }
+      data[tensor_rank] = static_cast<T>(nx3);
+      data[tensor_rank + 1] = static_cast<T>(nx2);
+      data[tensor_rank + 2] = static_cast<T>(nx1);
     }
+    return ndim;
+  }
+
+  template <typename T, typename... Args>
+  int FillShape(const IndexDomain domain, T *head, Args... args) {
+    int ndim_head = FillShape(domain, head);
+    int ndim_tail = FillShape(domain, std::forward<Args>(args)...);
+    // this check should be impossible to trigger but... just to be safe
+    PARTHENON_DEBUG_REQUIRE(ndim_head == ndim_tail,
+                            "Shape can't change for different arrays");
+    return ndim_tail;
   }
 
   template <typename T>
   auto GetShape() const {
-    return std::vector<T>(nx.rbegin(), nx.rend());
+    return std::vector<T>(nx_.rbegin(), nx_.rend());
   }
 
   VarInfo() = delete;
@@ -79,10 +107,11 @@ struct VarInfo {
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
-          Metadata metadata, bool is_sparse, bool is_vector)
-    : label(label), num_components(num_components), nx({nx1, nx2, nx3, nx4, nx5, nx6}),
+          Metadata metadata, bool is_sparse, bool is_vector, const IndexShape &cellbounds)
+      : label(label), num_components(num_components), nx_({nx1, nx2, nx3, nx4, nx5, nx6}),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
-        is_sparse(is_sparse), is_vector(is_vector) {
+        is_sparse(is_sparse), is_vector(is_vector), cellbounds(cellbounds),
+        rnx_(nx_.rbegin(), nx_.rend()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
@@ -113,11 +142,16 @@ struct VarInfo {
     }
   }
 
-  explicit VarInfo(const std::shared_ptr<Variable<Real>> &var)
+  explicit VarInfo(const std::shared_ptr<Variable<Real>> &var,
+                   const IndexShape &cellbounds)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
                 var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
                 var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
-                var->IsSet(Metadata::Vector)) {}
+                var->IsSet(Metadata::Vector), cellbounds) {}
+
+ private:
+  std::array<int, VNDIM> nx_;
+  std::vector<int> rnx_;
 };
 
 struct SwarmVarInfo {

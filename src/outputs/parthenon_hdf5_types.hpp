@@ -34,8 +34,8 @@
 #include <tuple>
 #include <vector>
 
-#include "utils/error_checking.hpp"
 #include "kokkos_abstraction.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 namespace HDF5 {
