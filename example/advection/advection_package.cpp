@@ -213,6 +213,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, HostExecSpace>>,
       "min_advected"));
 
+  // Enroll example vector history output
+  parthenon::HstVec_list hst_vecs = {} hst_vecs.emplace_back(
+      parthenon::HistoryOutputVec(UserHistoryOperation::sum, "max_adv_component"));
+
   // add callbacks for HST output identified by the `hist_param_key`
   pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
 
@@ -373,6 +377,45 @@ void PostFill(MeshBlockData<Real> *rc) {
           v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
         });
   }
+}
+
+template <typename T>
+std::vector<Real> AdvectionVecHst(MeshData<Real> *md) {
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+
+  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
+  // collection of blocks
+  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
+
+  const int nvec = 3;
+
+  std::vector<Real> result(nvec, 0);
+
+  // We choose to apply volume weighting when using the sum reduction.
+  // Downstream this choice will be done on a variable by variable basis and volume
+  // weighting needs to be applied in the reduction region.
+  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
+
+  for (int n = 0; n < ndim; n++) {
+    T reducer(result[n]);
+    pmb->par_reduce(
+        PARTHENON_AUTO_LABEL, 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
+          const auto &coords = advected_pack.GetCoords(b);
+          // `join` is a function of the Kokkos::ReducerConecpt that allows to use the
+          // same call for different reductions
+          const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
+          reducer.join(lresult, pow(advected_pack(b, 0, k, j, i), n + 1) * vol);
+        },
+        reducer);
+  }
+
+  return result;
 }
 
 // Example of how to enroll a history function.
