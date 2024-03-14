@@ -46,7 +46,7 @@ namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
  public:
-  static constexpr int VNDIM = 6; // MAX_VARIABLE_DIMENSION;
+  static constexpr int VNDIM = MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
@@ -108,10 +108,10 @@ struct VarInfo {
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
           Metadata metadata, bool is_sparse, bool is_vector, const IndexShape &cellbounds)
-      : label(label), num_components(num_components), nx_({nx1, nx2, nx3, nx4, nx5, nx6}),
-        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
-        is_sparse(is_sparse), is_vector(is_vector), cellbounds(cellbounds),
-        rnx_(nx_.rbegin(), nx_.rend()) {
+      : label(label), num_components(num_components),
+        nx_({nx1, nx2, nx3, nx4, nx5, nx6, 1}), tensor_rank(metadata.Shape().size()),
+        where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector),
+        cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
