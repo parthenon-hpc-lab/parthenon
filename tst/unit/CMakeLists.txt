@@ -28,6 +28,7 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_index_split.cpp
     test_logical_location.cpp
+    test_interpolation.cpp
     test_metadata.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
