@@ -45,7 +45,6 @@ namespace parthenon {
 
 void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                     const SignalHandler::OutputSignal signal) {
-  printf("Write history block_name: %s\n", output_params.block_name.c_str());
   // Don't update history log for `output_now` file based outputs.
   if (signal == SignalHandler::OutputSignal::now) {
     return;
