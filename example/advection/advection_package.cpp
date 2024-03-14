@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -214,11 +214,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       "min_advected"));
 
   // Enroll example vector history output
-  parthenon::HstVec_list hst_vecs = {} hst_vecs.emplace_back(
-      parthenon::HistoryOutputVec(UserHistoryOperation::sum, "max_adv_component"));
+  parthenon::HstVec_list hst_vecs = {};
+  hst_vecs.emplace_back(parthenon::HistoryOutputVec(
+      UserHistoryOperation::sum, AdvectionVecHst<Kokkos::Sum<Real, HostExecSpace>>,
+      "advected_powers"));
 
   // add callbacks for HST output identified by the `hist_param_key`
   pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
+  pkg->AddParam<>(parthenon::hist_vec_param_key, hst_vecs);
 
   if (fill_derived) {
     pkg->FillDerivedBlock = SquareIt;
@@ -400,7 +403,7 @@ std::vector<Real> AdvectionVecHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
-  for (int n = 0; n < ndim; n++) {
+  for (int n = 0; n < nvec; n++) {
     T reducer(result[n]);
     pmb->par_reduce(
         PARTHENON_AUTO_LABEL, 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e,

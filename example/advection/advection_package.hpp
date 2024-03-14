@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -30,6 +30,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 template <typename T>
 Real AdvectionHst(MeshData<Real> *md);
+template <typename T>
+std::vector<Real> AdvectionVecHst(MeshData<Real> *md);
 } // namespace advection_package
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

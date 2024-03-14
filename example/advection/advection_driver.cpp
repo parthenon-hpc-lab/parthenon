@@ -29,7 +29,6 @@
 using namespace parthenon::driver::prelude;
 
 namespace advection_example {
-using parthenon::UserHistoryOperation;
 
 // *************************************************//
 // define the application driver. in this case,    *//

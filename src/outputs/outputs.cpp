@@ -7,7 +7,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -197,7 +197,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (op.file_type == "hst") {
-        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages", std::vector<std::string>());
+        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
+                                                       std::vector<std::string>());
       }
 
       // set output variable and optional data format string used in formatted writes
@@ -298,8 +299,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // check there were no more than one restart file requested
   if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
-        << "More than one restart output block detected in input file"
-        << std::endl;
+        << "More than one restart output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 

@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
 - [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
 - [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
 - [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
