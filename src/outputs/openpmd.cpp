@@ -274,9 +274,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                   pmb->loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
                   pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                   pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-              openPMD::Extent chunk_extent = {static_cast<uint64_t>(vinfo.nx3),
-                                              static_cast<uint64_t>(vinfo.nx2),
-                                              static_cast<uint64_t>(vinfo.nx1)};
+              openPMD::Extent chunk_extent = {
+                  static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                  static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                  static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
               mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset, chunk_extent);
               idx_component += 1;
             }
