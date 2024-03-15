@@ -64,6 +64,7 @@ DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
     // TODO(someone) add caching of partitions to Mesh at some point
     const int pack_size = pmy_mesh_->DefaultPackSize();
     auto partitions = partition::ToSizeN(pmy_mesh_->block_list, pack_size);
+
     for (auto i = 0; i < partitions.size(); i++) {
       const std::string md_label = mbd_label + "_part-" + std::to_string(i);
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);

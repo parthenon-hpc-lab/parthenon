@@ -54,7 +54,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
-
+  
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
                                       true);
@@ -62,6 +62,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
+  auto &bnd_tmp = cache.bnd_info;
+  //if (Globals::my_rank == 0) std::cout<< "Before : "<<bnd_tmp.size()<<std::endl;
+  
   if (nbound == 0) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::complete;
@@ -70,7 +73,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::Profiling::popRegion(); // Task_LoadAndSendBoundBufs
     return TaskStatus::incomplete;
   }
-
+  
   if (rebuild)
     RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                          ProResInfo::GetSend);
@@ -83,9 +86,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
+  //if (Globals::my_rank == 0) std::cout<< "After : "<<bnd_info.size()<<" | "<<nbound<<std::endl;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
+  double tmp_time = MPI_Wtime(); // Moraru
   Kokkos::parallel_for(
       "SendBoundBufs",
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
@@ -117,7 +122,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
         });
       });
-
+  double tmp_end = MPI_Wtime();
+  //std::cout<<"##### "<< tmp_end - tmp_time<<std::endl; // Moraru (MUCH slower for Neigh Collectives)
   // Send buffers
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);

@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 //#define ENABLE_MM_LOGGER
-#define ENABLE_MM_LOG_TIME
+//#define ENABLE_MM_LOG_TIME
 namespace logger{
     
     // COMM_TYPE

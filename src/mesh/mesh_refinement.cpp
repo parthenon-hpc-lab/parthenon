@@ -82,7 +82,6 @@ void MeshRefinement::CheckRefinementCondition() {
 void MeshRefinement::SetRefinement(AmrTag flag) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int aret = std::max(-1, static_cast<int>(flag));
-
   if (aret == 0) refine_flag_ = 0;
 
   if (aret >= 0) deref_count_ = 0;

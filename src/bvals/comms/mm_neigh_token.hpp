@@ -1,13 +1,14 @@
 #ifndef BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 #define BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 
-#define USE_NEIGHBORHOOD_COLLECTIVES
+//#define USE_NEIGHBORHOOD_COLLECTIVES
 #include <parthenon_mpi.hpp>
 #include <utils/error_checking.hpp>
 #include <stdlib.h> 
-#include "globals.hpp"
+#include <globals.hpp>
 #include "kokkos_abstraction.hpp"
 #include "basic_types.hpp"
+
 
 namespace neigh_comm{
     class NeighToken{
@@ -21,16 +22,28 @@ namespace neigh_comm{
             /*
              * add_buff_info()
              */
-            void add_buff_info(int neigh_mpi_rank, const int & buff_size){
+            void add_buff_info(int neigh_mpi_rank, const int buff_size, const int tag){
                 if(neigh_mpi_rank >= 0 ){
                     if(building_token_on){
                         mpi_neighbors.insert(neigh_mpi_rank);
                         total_buff_size_per_rank[neigh_mpi_rank] += buff_size;
                         total_buf_size += buff_size;
+                        buff_info_per_rank[neigh_mpi_rank].push_back({tag,buff_size});
                     }
                 }
                 else
                     PARTHENON_FAIL("trying to add a negative mpi rank in NeighToken::add_neighbor (neigh_mpi_rank < 0)");
+            }
+
+            void print_info(){
+                for(auto const& [rank, info] : buff_info_per_rank){
+                    std::cout<<rank<<": ";
+                    for(auto & buff_info: info ){
+                         std::cout<< "("<<buff_info.first<<","<<buff_info.second<<")";
+                    }
+                    std::cout<<std::endl;
+                }
+                std::cout<<std::endl;
             }
 
             /*
@@ -45,6 +58,8 @@ namespace neigh_comm{
                 offsets.clear();
                 counts.clear();
                 total_buff_size_per_rank.clear();
+                buff_info_per_rank.clear();
+                per_tag_offsets.clear();
                 total_buf_size=0;
             }
 
@@ -60,10 +75,11 @@ namespace neigh_comm{
              */
             void build_neigh_comm(MPI_Comm comm_){
                 std::vector<int> mpi_procs;
+                int tmp_rank;
+                MPI_Comm_rank(MPI_COMM_WORLD,&tmp_rank);
                 for(int rank : mpi_neighbors){
                     mpi_procs.push_back(rank);
                 }
-                
                 // create the neigh communicator
                 MPI_Dist_graph_create_adjacent(comm_, mpi_procs.size(), mpi_procs.data(), MPI_UNWEIGHTED,
                                    mpi_procs.size(), mpi_procs.data(), MPI_UNWEIGHTED,
@@ -74,8 +90,9 @@ namespace neigh_comm{
              * calculate_off_prefix_sum()
              * calculate offsets
              */
-            void calculate_off_prefix_sum(){
+            void calculate_off_prefix_sum(bool debug_info=false){
                 if(building_token_on){
+                
                     displs.reserve(mpi_neighbors.size());
                     displs.push_back(0);
                     int indx = 1;
@@ -88,6 +105,36 @@ namespace neigh_comm{
                         counts.push_back(buff_size_curr_neigh);
                         indx++;
                     }
+
+                    // sort buffer info for each rank
+                    for(auto & [neigh, info_v] : buff_info_per_rank){
+                        std::sort(info_v.begin(), info_v.end(), [](auto &left, auto &right) {
+                            return left.first < right.first;
+                        });
+
+                        int global_offset = offsets[neigh];
+                        int curr_offset = global_offset;
+                        for(auto& [tag, buff_size] : info_v){ // sorted tags
+                            int end_offset = curr_offset + buff_size - 1;
+                            per_tag_offsets[neigh][tag] = {curr_offset,end_offset};
+                            curr_offset += buff_size;
+                        }
+                    }
+
+                    if(debug_info){
+                        std::cout<<std::endl<<std::endl;
+                        for(auto & [neigh, info_v] : buff_info_per_rank){
+                            std::cout<<"["<<neigh<<"]"<<"orig offset : "<<offsets[neigh]<<std::endl;
+                            std::cout<<"["<<neigh<<"]"<<"new offsets :";
+                            for(auto& [tag, buff_size] : info_v){
+                                std::cout<<"("<<tag<<","<<per_tag_offsets[neigh][tag].first<<
+                                ","<<per_tag_offsets[neigh][tag].second<<"),";
+                            }
+                            std::cout<<std::endl;
+                        }
+                        std::cout<<std::endl<<std::endl;
+                    }
+
                 }
             }
 
@@ -116,12 +163,12 @@ namespace neigh_comm{
              * test_data_exchange_neigh_alltoallv()
              */
             bool test_data_exchange_neigh_alltoallv(){
-                int flag = 0;
+                int flag_nc = 0;
                 //if(neigh_request)
-                MPI_Test(&neigh_request, &flag, MPI_STATUS_IGNORE);
+                MPI_Test(&neigh_request, &flag_nc, MPI_STATUS_IGNORE);
                 //MPI_Wait(&neigh_request, MPI_STATUS_IGNORE);
                 //return true;
-                return flag;
+                return flag_nc;
             }
 
         public:
@@ -131,7 +178,9 @@ namespace neigh_comm{
             std::vector<int> displs;
             std::vector<int> counts;
             std::map<int, int> offsets;
+            std::map<int, std::map<int, std::pair<int,int>>> per_tag_offsets;
             std::map<int, int> total_buff_size_per_rank;
+            std::map<int, std::vector<std::pair<int,int>>> buff_info_per_rank;
             int total_buf_size;
 
             MPI_Request neigh_request;

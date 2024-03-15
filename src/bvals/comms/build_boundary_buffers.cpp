@@ -63,12 +63,20 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb,
                                   const sp_cv_t v) {
       int receiver_rank = nb.snb.rank;
-      pmesh->neigh_token.add_buff_info(nb.snb.rank,GetBufferSize(pmb, nb, v));
+      pmesh->neigh_token.add_buff_info(nb.snb.rank,GetBufferSize(pmb, nb, v),pmesh->tag_map.GetTag(pmb, nb));
+      int tagg = pmesh->tag_map.GetTag(pmb, nb);
+      auto comm_label = v->label();
+      mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
+      //if(Globals::my_rank == 18) std::cout<<tagg<<comm_label<<nb.snb.rank<<",";
 
     });
+    
     // TODO allocate memory (Kokkos view)
-    pmesh->neigh_token.calculate_off_prefix_sum();
+    int tmptmp = false;
+    //if(Globals::my_rank == 18) tmptmp=true;
+    pmesh->neigh_token.calculate_off_prefix_sum(tmptmp);
     pmesh->neigh_token.alloc_comm_buffers();
+    
   }
   #endif //USE_NEIGHBORHOOD_COLLECTIVES
 
@@ -120,8 +128,12 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     int neigh_offset = -1;
     int end_neigh_offset = -1;
     if(BTYPE == BoundaryType::nonlocal){
-      neigh_offset = pmesh->neigh_token.offsets[receiver_rank];
-      end_neigh_offset   = neigh_offset + buf_size - 1;
+      //neigh_offset = pmesh->neigh_token.offsets[receiver_rank];
+      //end_neigh_offset   = neigh_offset + buf_size - 1;
+      auto offset_info = pmesh->neigh_token.per_tag_offsets[receiver_rank][tag];
+      neigh_offset = offset_info.first;
+      end_neigh_offset   = offset_info.second;
+
       //std::cout<<"["<<receiver_rank<<"]"<<" neigh offset "<<neigh_offset<<" , end : "<<end_neigh_offset<< " ,max: "\
       //<< pmesh->neigh_token.send_comm_buffer.extent(0)<<" : "<< pmesh->neigh_token.recv_comm_buffer.extent(0)<<std::endl;
       //pmesh->neigh_token.send_comm_buffer[end_neigh_offset] = 0;
