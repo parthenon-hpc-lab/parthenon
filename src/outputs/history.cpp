@@ -65,10 +65,11 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   if (requested_packages.empty()) {
     packages = pm->packages.AllPackages();
   } else {
-    for (const auto &pkg : pm->packages.AllPackages()) {
-      if (std::find(requested_packages.begin(), requested_packages.end(), pkg.first) !=
-          requested_packages.end()) {
-        packages[pkg.first] = pkg.second;
+    const auto &all_packages = pm->packages.AllPackages();
+    for (const auto &pkg_name : requested_packages) {
+      const auto &it = all_packages.find(pkg_name);
+      if (it != all_packages.end()) {
+        packages[(*it).first] = (*it).second;
       }
     }
   }
@@ -153,7 +154,8 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   if (Globals::my_rank == 0) {
     std::string fname;
     fname.assign(output_params.file_basename);
-    fname.append(".out" + std::to_string(output_params.block_number));
+    fname.append(".");
+    fname.append(output_params.file_id);
     fname.append(".hst");
 
     // open file for output

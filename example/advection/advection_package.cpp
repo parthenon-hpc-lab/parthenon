@@ -405,9 +405,9 @@ std::vector<Real> AdvectionVecHst(MeshData<Real> *md) {
 
   for (int n = 0; n < nvec; n++) {
     T reducer(result[n]);
-    pmb->par_reduce(
-        PARTHENON_AUTO_LABEL, 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e,
-        ib.s, ib.e,
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+        advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
           const auto &coords = advected_pack.GetCoords(b);
           // `join` is a function of the Kokkos::ReducerConecpt that allows to use the
@@ -446,9 +446,9 @@ Real AdvectionHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
         const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
