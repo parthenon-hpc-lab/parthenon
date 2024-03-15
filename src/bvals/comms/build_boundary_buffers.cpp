@@ -44,18 +44,6 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  /*
-    KOKKOS API stuff
-    Kokkos::View<Real*> v("name", size); // makes 1D view. new allocation
-    v2 = Kokkos::Subview(v, std::make_pair(start, end)); // subview of v. shallow copy.
-  */
-
-  /*
-  int total_buf_size = 0; // number of doubles
-  ForEachBoundary<BTYPE>(md, [&](blah){
-    total_buf_size += GetBufferSize(pmb, nb, v);
-  });
-  */
 
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
   if(BTYPE == BoundaryType::nonlocal){
@@ -67,8 +55,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       int tagg = pmesh->tag_map.GetTag(pmb, nb);
       auto comm_label = v->label();
       mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
-      //if(Globals::my_rank == 18) std::cout<<tagg<<comm_label<<nb.snb.rank<<",";
-
     });
     
     // TODO allocate memory (Kokkos view)
@@ -86,6 +72,22 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     int buf_size = GetBufferSize(pmb, nb, v);
 
     // Add a buffer pool if one does not exist for this size
+    #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+    if (BTYPE != BoundaryType::nonlocal && pmesh->pool_map.count(buf_size) == 0) {
+      pmesh->pool_map.emplace(std::make_pair(
+          buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
+            using buf_t = buf_pool_t<Real>::base_t;
+            // TODO(LFR): Make nbuf a user settable parameter
+            const int nbuf = 200;
+            buf_t chunk("pool buffer", buf_size * nbuf);
+            for (int i = 1; i < nbuf; ++i) {
+              pool->AddFreeObjectToPool(
+                  buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
+            }
+            return buf_t(chunk, std::make_pair(0, buf_size));
+          })));
+    }
+    #else
     if (pmesh->pool_map.count(buf_size) == 0) {
       pmesh->pool_map.emplace(std::make_pair(
           buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
@@ -100,6 +102,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
             return buf_t(chunk, std::make_pair(0, buf_size));
           })));
     }
+    #endif
 
     const int receiver_rank = nb.snb.rank;
     const int sender_rank = Globals::my_rank;
@@ -128,17 +131,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     int neigh_offset = -1;
     int end_neigh_offset = -1;
     if(BTYPE == BoundaryType::nonlocal){
-      //neigh_offset = pmesh->neigh_token.offsets[receiver_rank];
-      //end_neigh_offset   = neigh_offset + buf_size - 1;
       auto offset_info = pmesh->neigh_token.per_tag_offsets[receiver_rank][tag];
       neigh_offset = offset_info.first;
       end_neigh_offset   = offset_info.second;
-
-      //std::cout<<"["<<receiver_rank<<"]"<<" neigh offset "<<neigh_offset<<" , end : "<<end_neigh_offset<< " ,max: "\
-      //<< pmesh->neigh_token.send_comm_buffer.extent(0)<<" : "<< pmesh->neigh_token.recv_comm_buffer.extent(0)<<std::endl;
-      //pmesh->neigh_token.send_comm_buffer[end_neigh_offset] = 0;
-      //pmesh->neigh_token.recv_comm_buffer[end_neigh_offset] = 0;
-
     }
     #endif
 

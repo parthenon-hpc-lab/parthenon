@@ -1,7 +1,7 @@
 #ifndef BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 #define BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 
-//#define USE_NEIGHBORHOOD_COLLECTIVES
+#define USE_NEIGHBORHOOD_COLLECTIVES
 #include <parthenon_mpi.hpp>
 #include <utils/error_checking.hpp>
 #include <stdlib.h> 
@@ -33,17 +33,6 @@ namespace neigh_comm{
                 }
                 else
                     PARTHENON_FAIL("trying to add a negative mpi rank in NeighToken::add_neighbor (neigh_mpi_rank < 0)");
-            }
-
-            void print_info(){
-                for(auto const& [rank, info] : buff_info_per_rank){
-                    std::cout<<rank<<": ";
-                    for(auto & buff_info: info ){
-                         std::cout<< "("<<buff_info.first<<","<<buff_info.second<<")";
-                    }
-                    std::cout<<std::endl;
-                }
-                std::cout<<std::endl;
             }
 
             /*
@@ -121,7 +110,7 @@ namespace neigh_comm{
                         }
                     }
 
-                    if(debug_info){
+                    /*if(debug_info){
                         std::cout<<std::endl<<std::endl;
                         for(auto & [neigh, info_v] : buff_info_per_rank){
                             std::cout<<"["<<neigh<<"]"<<"orig offset : "<<offsets[neigh]<<std::endl;
@@ -133,7 +122,7 @@ namespace neigh_comm{
                             std::cout<<std::endl;
                         }
                         std::cout<<std::endl<<std::endl;
-                    }
+                    }*/
 
                 }
             }
