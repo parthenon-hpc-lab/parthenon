@@ -17,6 +17,7 @@
 #include <algorithm>
 
 #include "basic_types.hpp"
+#include <utils/robust.hpp>
 using parthenon::Real;
 
 namespace recon {
@@ -45,7 +46,7 @@ void WENO5Z(const Real q0, const Real q1, const Real q2, const Real q3, const Re
                                   {-1.0 / 6.0, 5.0 / 6.0, 1.0 / 3.0},
                                   {1.0 / 3.0, 5.0 / 6.0, -1.0 / 6.0}};
   constexpr Real w5gamma[3] = {0.1, 0.6, 0.3};
-  constexpr Real eps = 1e-100;
+  constexpr Real eps = parthenon::robust::EPS();
   constexpr Real thirteen_thirds = 13.0 / 3.0;
 
   Real a = q0 - 2 * q1 + q2;
