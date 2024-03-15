@@ -34,6 +34,7 @@
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
+#include "driver/driver.hpp"
 #include "globals.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
@@ -47,6 +48,7 @@
 #include "outputs/outputs.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/instrument.hpp"
 
 // OpenPMD headers
 #ifdef PARTHENON_ENABLE_OPENPMD
@@ -76,7 +78,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // but an interation) This just describes the pattern of the filename. The correct file
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
-  Series series = Series("adios_test_%05T.bp", Access::CREATE);
+  Series series = Series("opmd.%05T.bp", Access::CREATE);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
@@ -101,8 +103,86 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto it = series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
 
-  it.setTime(tm->time);
-  it.setDt(tm->dt);
+  auto const &first_block = *(pm->block_list.front());
+
+  // TODO(?) in principle, we could abstract this to a more general WriteAttributes place
+  // and reuse for hdf5 and OpenPMD output with corresponing calls
+  // -------------------------------------------------------------------------------- //
+  //   WRITING ATTRIBUTES                                                             //
+  // -------------------------------------------------------------------------------- //
+
+  // Note, that profiling is likely skewed as data is actually written to disk/flushed
+  // only later.
+  Kokkos::Profiling::pushRegion("write Attributes");
+  // First the ones required by the OpenPMD standard
+  if (tm != nullptr) {
+    it.setTime(tm->time);
+    it.setDt(tm->dt);
+    it.setAttribute("NCycle", tm->ncycle);
+  } else {
+    it.setTime(-1.0);
+    it.setDt(-1.0);
+  }
+  // Then our own
+  {
+    PARTHENON_INSTRUMENT_REGION("write input");
+    // write input key-value pairs
+    std::ostringstream oss;
+    pin->ParameterDump(oss);
+    it.setAttribute("InputFile", oss.str());
+  }
+
+  {
+    it.setAttribute("WallTime", Driver::elapsed_main());
+    it.setAttribute("NumDims", pm->ndim);
+    it.setAttribute("NumMeshBlocks", pm->nbtotal);
+    it.setAttribute("MaxLevel", pm->GetCurrentLevel() - pm->GetRootLevel());
+    // write whether we include ghost cells or not
+    it.setAttribute("IncludesGhost", output_params.include_ghost_zones ? 1 : 0);
+    // write number of ghost cells in simulation
+    it.setAttribute("NGhost", Globals::nghost);
+    it.setAttribute("Coordinates", std::string(first_block.coords.Name()).c_str());
+
+    // restart info, write always
+    it.setAttribute("NBNew", pm->nbnew);
+    it.setAttribute("NBDel", pm->nbdel);
+    it.setAttribute("RootLevel", pm->GetRootLevel());
+    it.setAttribute("Refine", pm->adaptive ? 1 : 0);
+    it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
+
+    it.setAttribute("BlocksPerPE", pm->GetNbList());
+
+    // Mesh block size
+    const auto base_block_size = pm->GetBlockSize();
+    it.setAttribute("MeshBlockSize",
+                    std::vector<int>{base_block_size.nx(X1DIR), base_block_size.nx(X2DIR),
+                                     base_block_size.nx(X3DIR)});
+
+    // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
+    it.setAttribute(
+        "RootGridDomain",
+        std::vector<Real>{pm->mesh_size.xmin(X1DIR), pm->mesh_size.xmax(X1DIR),
+                          pm->mesh_size.xrat(X1DIR), pm->mesh_size.xmin(X2DIR),
+                          pm->mesh_size.xmax(X2DIR), pm->mesh_size.xrat(X2DIR),
+                          pm->mesh_size.xmin(X3DIR), pm->mesh_size.xmax(X3DIR),
+                          pm->mesh_size.xrat(X3DIR)});
+
+    // Root grid size (number of cells at root level)
+    it.setAttribute("RootGridSize",
+                    std::vector<int>{pm->mesh_size.nx(X1DIR), pm->mesh_size.nx(X2DIR),
+                                     pm->mesh_size.nx(X3DIR)});
+
+    // Boundary conditions
+    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
+    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
+      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
+    }
+
+    it.setAttribute("BoundaryConditions", boundary_condition_str);
+    Kokkos::Profiling::popRegion(); // write Info
+  }                                 // Info section
+
+  Kokkos::Profiling::popRegion(); // write Attributes
 
   // TODO(pgrete) check var name standard compatiblity
   // e.g., description: names of records and their components are only allowed to contain
