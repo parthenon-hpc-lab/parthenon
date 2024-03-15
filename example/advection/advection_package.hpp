@@ -14,6 +14,7 @@
 #define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
+#include <vector>
 
 #include <parthenon/package.hpp>
 
