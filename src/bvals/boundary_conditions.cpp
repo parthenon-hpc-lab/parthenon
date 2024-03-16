@@ -116,6 +116,10 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   GenericBC<X3DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
+void SwarmOutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &c) {
+  // TODO(BRR) get swarm? All swarms? How to enroll
+}
+
 } // namespace BoundaryFunction
 
 namespace boundary_cond_impl {
