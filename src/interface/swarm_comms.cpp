@@ -26,55 +26,57 @@ namespace parthenon {
 
 template <class BOutflow, class BPeriodic, int iFace>
 void Swarm::AllocateBoundariesImpl_(MeshBlock *pmb) {
-  std::stringstream msg;
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
-  if (bcs[iFace] == BoundaryFlag::outflow) {
-    bounds_uptrs[iFace] = DeviceAllocate<BOutflow>();
-  } else if (bcs[iFace] == BoundaryFlag::periodic) {
-    bounds_uptrs[iFace] = DeviceAllocate<BPeriodic>();
-  } else if (bcs[iFace] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->SwarmBndryFnctn[iFace] != nullptr) {
-      bounds_uptrs[iFace] = pmb->pmy_mesh->SwarmBndryFnctn[iFace]();
-    } else {
-      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
-          << " user boundary requested but provided function is null!";
-      PARTHENON_THROW(msg);
-    }
-  } else {
-    msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
-        << static_cast<int>(bcs[iFace]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
+  PARTHENON_FAIL("Not implemented!");
+  // std::stringstream msg;
+  // auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  // if (bcs[iFace] == BoundaryFlag::outflow) {
+  //  bounds_uptrs[iFace] = DeviceAllocate<BOutflow>();
+  //} else if (bcs[iFace] == BoundaryFlag::periodic) {
+  //  bounds_uptrs[iFace] = DeviceAllocate<BPeriodic>();
+  //} else if (bcs[iFace] == BoundaryFlag::user) {
+  //  if (pmb->pmy_mesh->SwarmBndryFnctn[iFace] != nullptr) {
+  //    bounds_uptrs[iFace] = pmb->pmy_mesh->SwarmBndryFnctn[iFace]();
+  //  } else {
+  //    msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
+  //        << " user boundary requested but provided function is null!";
+  //    PARTHENON_THROW(msg);
+  //  }
+  //} else {
+  //  msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
+  //      << static_cast<int>(bcs[iFace]) << " not supported!";
+  //  PARTHENON_THROW(msg);
+  //}
 }
 
 void Swarm::AllocateBoundaries() {
-  auto pmb = GetBlockPointer();
-  std::stringstream msg;
+  PARTHENON_FAIL("Not implemented!");
+  // auto pmb = GetBlockPointer();
+  // std::stringstream msg;
 
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  // auto &bcs = pmb->pmy_mesh->mesh_bcs;
 
-  AllocateBoundariesImpl_<ParticleBoundIX1Outflow, ParticleBoundIX1Periodic, 0>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX1Outflow, ParticleBoundOX1Periodic, 1>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundIX2Outflow, ParticleBoundIX2Periodic, 2>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX2Outflow, ParticleBoundOX2Periodic, 3>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundIX3Outflow, ParticleBoundIX3Periodic, 4>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX3Outflow, ParticleBoundOX3Periodic, 5>(
-      pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundIX1Outflow, ParticleBoundIX1Periodic, 0>(
+  //    pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundOX1Outflow, ParticleBoundOX1Periodic, 1>(
+  //    pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundIX2Outflow, ParticleBoundIX2Periodic, 2>(
+  //    pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundOX2Outflow, ParticleBoundOX2Periodic, 3>(
+  //    pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundIX3Outflow, ParticleBoundIX3Periodic, 4>(
+  //    pmb.get());
+  // AllocateBoundariesImpl_<ParticleBoundOX3Outflow, ParticleBoundOX3Periodic, 5>(
+  //    pmb.get());
 
-  for (int n = 0; n < 6; n++) {
-    bounds_d.bounds[n] = bounds_uptrs[n].get();
-    std::stringstream msg;
-    msg << "Boundary condition on face " << n << " missing.\n"
-        << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
-        << "If you set it to user, you must also manually set "
-        << "the swarm boundary pointer in your application." << std::endl;
-    PARTHENON_REQUIRE(bounds_d.bounds[n] != nullptr, msg);
-  }
+  // for (int n = 0; n < 6; n++) {
+  //  bounds_d.bounds[n] = bounds_uptrs[n].get();
+  //  std::stringstream msg;
+  //  msg << "Boundary condition on face " << n << " missing.\n"
+  //      << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
+  //      << "If you set it to user, you must also manually set "
+  //      << "the swarm boundary pointer in your application." << std::endl;
+  //  PARTHENON_REQUIRE(bounds_d.bounds[n] != nullptr, msg);
+  //}
 }
 
 ///

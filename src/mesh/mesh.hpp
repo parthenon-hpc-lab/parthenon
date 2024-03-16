@@ -154,8 +154,9 @@ class Mesh {
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
-  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES];
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
