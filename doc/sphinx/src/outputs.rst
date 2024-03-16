@@ -149,7 +149,10 @@ History Files
 
 In the input file, include a ``<parthenon/output*>`` block and specify
 ``file_type = hst``. A ``dt`` parameter controls the frequency of
-outputs for simulations involving evolution. A ``<parthenon/output*>``
+outputs for simulations involving evolution. The default behavior is to provide
+all enrolled history outputs, but output can be limited to a specific set of
+packages with an optional comma-separated list argument
+``packages =  package_a, package_b``. A ``<parthenon/output*>``
 block might look like
 
 ::
@@ -157,10 +160,11 @@ block might look like
    <parthenon/output8>
    file_type = hst
    dt = 1.0
+   packages = advection_app
 
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
-enrolled by a specific package, see :ref:`state history output`.
+enrolled by specific packages, see :ref:`state history output`.
 
 Histograms
 ----------
@@ -171,7 +175,7 @@ Currently supported are
 
 - 1D and 2D histograms (see examples below)
 - binning by variable or coordinate (x1, x2, x3 and radial distance)
-- counting samples and or summing a variable  
+- counting samples and or summing a variable
 - weighting by volume and/or variable
 
 The output format follows ``numpy`` convention, so that plotting data
@@ -322,7 +326,7 @@ The following is a minimal example to plot a 1D and 2D histogram from the output
       y = infile["other_name/y_edges"][:]
       z = infile["other_name/data"][:].T   # note the transpose here (so that the data matches the axis for the pcolormesh)
       plt.pcolormesh(x,y,z,)
-      plt.show()   
+      plt.show()
 
 Ascent (optional)
 -----------------

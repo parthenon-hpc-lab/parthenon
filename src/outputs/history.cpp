@@ -119,10 +119,10 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
   }
 
+#ifdef MPI_PARALLEL
   // Need fence so result is ready prior to MPI call
   Kokkos::fence();
 
-#ifdef MPI_PARALLEL
   for (auto &op : ops) {
     if (results[op].size() == 0) {
       continue;

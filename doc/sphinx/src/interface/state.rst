@@ -159,7 +159,7 @@ functions that are all called at the interval according to the input
 parameters, see :ref:`output documention <output hist files>`.
 
 To enroll functions create a list of callback function with the
-appropriate reduction operation:
+appropriate reduction operations for either scalar data:
 
 .. code:: cpp
 
@@ -171,6 +171,19 @@ appropriate reduction operation:
 
    // add callbacks for HST output identified by the `hist_param_key`
    pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
+
+or vector data:
+
+.. code:: cpp
+
+   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
+   parthenon::HstVec_list hst_vecs = {};
+
+   // Add a callback function
+   hst_vecs.emplace_back(parthenon::HistoryOutputVec(UserHistoryOperation::sum, MyHstVecFunction, "my vector label"));
+
+   // add callbacks for HST output identified by the `hist_vec_param_key`
+   pkg->AddParam<>(parthenon::hist_vec_param_key, hst_vecs);
 
 Here, ``HistoryOutputVar`` is a ``struct`` containing the global (over
 all blocks of all ranks) reduction operation, ``MyHstFunction`` is a
@@ -194,6 +207,7 @@ Callback functions need to have the following signature
 .. code:: cpp
 
    Real MyHstFunction(MeshData<Real> *md);
+   std::vector<Real> MyHstVecFunction(MeshData<Real> *md);
 
 i.e., they will always work on ``MeshData``. *Note*, currently history
 output will always be calculated for the “base” container. More
