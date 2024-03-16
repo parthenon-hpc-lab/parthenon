@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
 - [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
 - [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
 - [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
@@ -15,6 +16,7 @@
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
