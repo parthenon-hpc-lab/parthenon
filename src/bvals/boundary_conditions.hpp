@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,8 +28,7 @@ namespace parthenon {
 // Physical boundary conditions
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<
-    std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
+using SBValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &)>;
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
@@ -42,6 +41,10 @@ TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
                                                    bool coarse);
+
+inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+TaskStatus ApplySwarmBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
 
 namespace BoundaryFunction {
 
@@ -57,6 +60,13 @@ void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+
+void SwarmOutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace BoundaryFunction
 } // namespace parthenon
