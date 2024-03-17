@@ -35,8 +35,6 @@
 using Real = double;
 using parthenon::ApplicationInput;
 using parthenon::BoundaryFlag;
-using parthenon::DeviceAllocate;
-using parthenon::DeviceDeleter;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
@@ -50,21 +48,6 @@ using parthenon::SwarmDeviceContext;
 using std::endl;
 
 constexpr int NUMINIT = 10;
-
-class ParticleBoundIX1User : public ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                    const SwarmDeviceContext &swarm_d) const override {
-    if (x < swarm_d.x_min_global_) {
-      swarm_d.MarkParticleForRemoval(n);
-    }
-  }
-};
-
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIX1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1User>();
-}
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
   std::stringstream is;
@@ -85,8 +68,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
   mesh->mesh_bcs[0] = BoundaryFlag::user;
-  mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
-  for (int i = 1; i < 6; i++) {
+  PARTHENON_FAIL("Test new BC enrollment");
+  // mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
+  for (int i = 0; i < 6; i++) {
     mesh->mesh_bcs[i] = BoundaryFlag::outflow;
   }
   meshblock->pmy_mesh = mesh.get();

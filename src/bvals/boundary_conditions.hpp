@@ -21,6 +21,7 @@
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/swarm_boundaries.hpp"
+#include "interface/swarm_container.hpp"
 #include "mesh/domain.hpp"
 
 namespace parthenon {
@@ -28,7 +29,7 @@ namespace parthenon {
 // Physical boundary conditions
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &)>;
+using SBValFunc = std::function<void(std::shared_ptr<SwarmContainer> &)>;
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
@@ -61,12 +62,12 @@ void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 
-void SwarmOutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc);
-void SwarmOutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc);
-void SwarmOutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc);
-void SwarmOutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc);
-void SwarmOutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc);
-void SwarmOutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SwarmOutflowInnerX1(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowOuterX1(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowInnerX2(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowOuterX2(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowInnerX3(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowOuterX3(std::shared_ptr<SwarmContainer> &rc);
 
 } // namespace BoundaryFunction
 } // namespace parthenon

@@ -34,6 +34,25 @@ namespace BoundaryFunction {
 enum class BCSide { Inner, Outer };
 enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
 
+// TODO(BRR) add support for specific swarms?
+template <CoordinateDirection DIR, BCSide SIDE>
+void GenericSwarmBC(std::shared_ptr<SwarmContainer> &sc) {
+  // make sure DIR is X[123]DIR so we don't have to check again
+  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  // convenient shorthands
+  constexpr bool X1 = (DIR == X1DIR);
+  constexpr bool X2 = (DIR == X2DIR);
+  constexpr bool X3 = (DIR == X3DIR);
+  constexpr bool INNER = (SIDE == BCSide::Inner);
+
+  const auto &sv = sc->GetSwarmVector();
+
+  for (auto &swarm : sv) {
+    printf("swarm name: %s\n", swarm->label());
+  }
+}
+
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                TopologicalElement el, Real val) {

@@ -41,18 +41,20 @@ int main(int argc, char *argv[]) {
     // custom boundary conditions for either cell variables or swarms, the parthenon
     // boundary must be set to "user" and both cell variable and swarm boundaries provided
     // as here.
-    pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-        parthenon::BoundaryFunction::OutflowInnerX1;
-    pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-        particles_example::SetSwarmIX1UserBC;
+    // pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
+    //    parthenon::BoundaryFunction::OutflowInnerX1;
+    // pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::inner_x1] =
+    //    particles_example::SetSwarmIX1UserBC;
+    PARTHENON_FAIL("Update BC set");
   }
   if (pman.pinput->GetString("parthenon/mesh", "ox1_bc") == "user") {
     // Again, we use a default parthenon boundary condition for cell variables but a
     // custom swarm boundary condition.
-    pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-        parthenon::BoundaryFunction::OutflowOuterX1;
-    pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-        particles_example::SetSwarmOX1UserBC;
+    // pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
+    //    parthenon::BoundaryFunction::OutflowOuterX1;
+    // pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::outer_x1] =
+    //    particles_example::SetSwarmOX1UserBC;
+    PARTHENON_FAIL("Update BC set");
   }
   pman.ParthenonInitPackagesAndMesh();
 

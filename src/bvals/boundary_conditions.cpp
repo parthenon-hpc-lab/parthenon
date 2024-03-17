@@ -116,8 +116,28 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   GenericBC<X3DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
-void SwarmOutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &c) {
-  // TODO(BRR) get swarm? All swarms? How to enroll
+void SwarmOutflowInnerX1(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X1DIR, BCSide::Inner>(sc);
+}
+
+void SwarmOutflowOuterX1(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X1DIR, BCSide::Outer>(sc);
+}
+
+void SwarmOutflowInnerX2(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X2DIR, BCSide::Inner>(sc);
+}
+
+void SwarmOutflowOuterX2(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X2DIR, BCSide::Outer>(sc);
+}
+
+void SwarmOutflowInnerX3(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X3DIR, BCSide::Inner>(sc);
+}
+
+void SwarmOutflowOuterX3(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X3DIR, BCSide::Outer>(sc);
 }
 
 } // namespace BoundaryFunction
