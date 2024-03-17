@@ -22,6 +22,39 @@
 
 namespace parthenon {
 
+void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                                const std::shared_ptr<MeshBlock> pmb) {
+  SetBlockPointer(pmb);
+
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = Get(q.first);
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
+    }
+  }
+
+  std::stringstream msg;
+  auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  // Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
+  // are not being used
+  for (int iFace = 0; iFace < 6; iFace++) {
+    if (bcs[iFace] == BoundaryFlag::user) {
+      if (pmb->pmy_mesh->MeshSwarmBndryFnctn[iFace] == nullptr) {
+        msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
+            << " user boundary requested but provided function is null!";
+        PARTHENON_THROW(msg);
+      }
+    } else if (bcs[iFace] != BoundaryFlag::outflow &&
+               bcs[iFace] != BoundaryFlag::periodic) {
+      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
+          << static_cast<int>(bcs[iFace]) << " not supported!";
+      PARTHENON_THROW(msg);
+    }
+  }
+}
+
 void SwarmContainer::Add(const std::vector<std::string> &labelArray,
                          const Metadata &metadata) {
   // generate the vector and call Add
@@ -136,12 +169,6 @@ bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
 void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
-
-void SwarmContainer::AllocateBoundaries() {
-  for (auto &s : swarmVector_) {
-    s->AllocateBoundaries();
-  }
-}
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   PARTHENON_INSTRUMENT

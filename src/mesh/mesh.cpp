@@ -863,6 +863,10 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
       BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
       BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
     switch (mesh_bcs[f]) {
@@ -888,6 +892,12 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     }
 
     switch (mesh_bcs[f]) {
+    case BoundaryFlag::outflow:
+      MeshSwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      MeshSwarmBndryFnctn[f] = speriodic[f];
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user

@@ -117,27 +117,51 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
 }
 
 void SwarmOutflowInnerX1(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X1DIR, BCSide::Inner>(sc);
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(sc);
 }
 
 void SwarmOutflowOuterX1(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X1DIR, BCSide::Outer>(sc);
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(sc);
 }
 
 void SwarmOutflowInnerX2(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X2DIR, BCSide::Inner>(sc);
+  GenericSwarmBC<X2DIR, BCSide::Inner, BCType::Outflow>(sc);
 }
 
 void SwarmOutflowOuterX2(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X2DIR, BCSide::Outer>(sc);
+  GenericSwarmBC<X2DIR, BCSide::Outer, BCType::Outflow>(sc);
 }
 
 void SwarmOutflowInnerX3(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X3DIR, BCSide::Inner>(sc);
+  GenericSwarmBC<X3DIR, BCSide::Inner, BCType::Outflow>(sc);
 }
 
 void SwarmOutflowOuterX3(std::shared_ptr<SwarmContainer> &sc) {
-  GenericSwarmBC<X3DIR, BCSide::Outer>(sc);
+  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Outflow>(sc);
+}
+
+void SwarmPeriodicInnerX1(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(sc);
+}
+
+void SwarmPeriodicOuterX1(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Periodic>(sc);
+}
+
+void SwarmPeriodicInnerX2(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X2DIR, BCSide::Inner, BCType::Periodic>(sc);
+}
+
+void SwarmPeriodicOuterX2(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X2DIR, BCSide::Outer, BCType::Periodic>(sc);
+}
+
+void SwarmPeriodicInnerX3(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X3DIR, BCSide::Inner, BCType::Periodic>(sc);
+}
+
+void SwarmPeriodicOuterX3(std::shared_ptr<SwarmContainer> &sc) {
+  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Outflow>(sc);
 }
 
 } // namespace BoundaryFunction

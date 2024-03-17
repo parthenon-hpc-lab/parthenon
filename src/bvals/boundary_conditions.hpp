@@ -68,6 +68,12 @@ void SwarmOutflowInnerX2(std::shared_ptr<SwarmContainer> &rc);
 void SwarmOutflowOuterX2(std::shared_ptr<SwarmContainer> &rc);
 void SwarmOutflowInnerX3(std::shared_ptr<SwarmContainer> &rc);
 void SwarmOutflowOuterX3(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicInnerX1(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicOuterX1(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicInnerX2(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicOuterX2(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicInnerX3(std::shared_ptr<SwarmContainer> &rc);
+void SwarmPeriodicOuterX3(std::shared_ptr<SwarmContainer> &rc);
 
 } // namespace BoundaryFunction
 } // namespace parthenon

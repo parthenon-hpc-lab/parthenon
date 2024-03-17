@@ -87,6 +87,9 @@ class SwarmContainer {
   ///
   void Add(const std::vector<std::string> &labelArray, const Metadata &metadata);
 
+  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                  const std::shared_ptr<MeshBlock> pmb);
+
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
@@ -115,8 +118,6 @@ class SwarmContainer {
     }
     return -1;
   }
-
-  void AllocateBoundaries();
 
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }

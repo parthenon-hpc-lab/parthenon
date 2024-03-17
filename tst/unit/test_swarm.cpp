@@ -77,7 +77,6 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
-  swarm->AllocateBoundaries();
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
   REQUIRE(swarm->GetMaxActiveIndex() == 0);

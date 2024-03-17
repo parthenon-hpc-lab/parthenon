@@ -373,6 +373,8 @@ ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
+// TODO(BRR) Add a AddSwarmBoundaryExchangeTasks function
+
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,

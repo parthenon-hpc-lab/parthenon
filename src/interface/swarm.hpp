@@ -104,7 +104,7 @@ class Swarm {
 
   SwarmDeviceContext GetDeviceContext() const;
 
-  void AllocateBoundaries();
+  // void AllocateBoundaries();
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -263,8 +263,8 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
-  template <class BOutflow, class BPeriodic, int iFace>
-  void AllocateBoundariesImpl_(MeshBlock *pmb);
+  // template <class BOutflow, class BPeriodic, int iFace>
+  // void AllocateBoundariesImpl_(MeshBlock *pmb);
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
