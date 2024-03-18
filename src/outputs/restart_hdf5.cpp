@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -31,6 +31,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #endif
 #include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -38,7 +39,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
-RestartReader::RestartReader(const char *filename) : filename_(filename) {
+RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename) {
 #ifndef ENABLE_HDF5
   std::stringstream msg;
   msg << "### FATAL ERROR in Restart (Reader) constructor" << std::endl
@@ -54,7 +55,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 #endif // ENABLE_HDF5
 }
 
-int RestartReader::GetOutputFormatVersion() const {
+int RestartReaderHDF5::GetOutputFormatVersion() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -69,7 +70,7 @@ int RestartReader::GetOutputFormatVersion() const {
 #endif // ENABLE_HDF5
 }
 
-RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
+RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -107,7 +108,7 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
 
 // Gets the counts and offsets for MPI ranks for the meshblocks set
 // by the indexrange. Returns the total count on this rank.
-std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
+std::size_t RestartReaderHDF5::GetSwarmCounts(const std::string &swarm,
                                           const IndexRange &range,
                                           std::vector<std::size_t> &counts,
                                           std::vector<std::size_t> &offsets) {
@@ -141,7 +142,7 @@ std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
 #endif // ENABLE_HDF5
 }
 
-void RestartReader::ReadParams(const std::string &name, Params &p) {
+void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 #ifdef ENABLE_HDF5
   p.ReadFromRestart(name, params_group_);
 #endif // ENABLE_HDF5

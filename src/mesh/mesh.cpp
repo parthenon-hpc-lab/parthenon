@@ -48,6 +48,7 @@
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
