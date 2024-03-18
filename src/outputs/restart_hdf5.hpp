@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "config.hpp"
+#include "outputs/restart.hpp"
 #ifdef ENABLE_HDF5
 #include <hdf5.h>
 
@@ -54,9 +55,9 @@ namespace parthenon {
 class Mesh;
 class Param;
 
-class RestartReader {
+class RestartReaderHDF5 : public RestartReader{
  public:
-  explicit RestartReader(const char *theFile);
+  RestartReaderHDF5(const char *theFile);
 
   struct SparseInfo {
     // labels of sparse fields (full label, i.e. base name and sparse id)

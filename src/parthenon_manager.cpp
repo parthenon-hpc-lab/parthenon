@@ -29,6 +29,9 @@
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include "driver/driver.hpp"
+#include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
+#include FS_HEADER
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
@@ -37,6 +40,8 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -100,7 +105,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
   } else if (arg.res_flag != 0) {
     // Read input from restart file
-    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+      restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+    } else {
+      PARTHENON_FAIL("HELP!");
+    }
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
