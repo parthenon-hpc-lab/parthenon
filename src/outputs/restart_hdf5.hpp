@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef OUTPUTS_RESTART_HPP_
-#define OUTPUTS_RESTART_HPP_
+#ifndef OUTPUTS_RESTART_HDF5_HPP_
+#define OUTPUTS_RESTART_HDF5_HPP_
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
@@ -342,4 +342,4 @@ class RestartReader {
 };
 
 } // namespace parthenon
-#endif // OUTPUTS_RESTART_HPP_
+#endif // OUTPUTS_RESTART_HDF5_HPP_

@@ -31,6 +31,7 @@
 #include <vector>
 
 // Parthenon headers
+#include "Kokkos_Core_fwd.hpp"
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -122,6 +123,15 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   } else {
     it.setTime(-1.0);
     it.setDt(-1.0);
+  }
+  { // TESTING REMOVE
+    const auto view_d = Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5,3);
+    // Map a view onto a host allocation (so that we can call deep_copy)
+    auto host_vec = std::vector<Real>(view_d.size());
+    Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+        view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
+    Kokkos::deep_copy(view_h, view_d);
+    it.setAttribute("blub", host_vec);
   }
   // Then our own
   {
