@@ -1,14 +1,13 @@
 #ifndef BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 #define BVALS_COMMS_MM_NEIGH_TOKEN_HPP_
 
-#define USE_NEIGHBORHOOD_COLLECTIVES
+//#define USE_NEIGHBORHOOD_COLLECTIVES
 #include <parthenon_mpi.hpp>
 #include <utils/error_checking.hpp>
 #include <stdlib.h> 
 #include <globals.hpp>
 #include "kokkos_abstraction.hpp"
 #include "basic_types.hpp"
-
 
 namespace neigh_comm{
     class NeighToken{

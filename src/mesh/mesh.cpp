@@ -1103,11 +1103,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     boundary_comm_map.clear();
     boundary_comm_flxcor_map.clear();
+    #ifdef ENABLE_MM_LOG_TIME
+    logger::global_logger->start_timer_build_comm();
+    #endif
 
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
     }
+
+    #ifdef ENABLE_MM_LOG_TIME
+    logger::global_logger->end_timer_build_comm();
+    #endif
 
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;

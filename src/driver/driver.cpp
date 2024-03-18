@@ -28,8 +28,14 @@
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/utils.hpp"
-#include "bvals/comms/mm_neigh_token.hpp" // Moraru
 
+#ifdef USE_NEIGHBORHOOD_COLLECTIVES
+#include "bvals/comms/mm_neigh_token.hpp" // Moraru
+#endif 
+
+#if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
+#include "utils/mm_logger.hpp" // Moraru
+#endif
 
 namespace parthenon {
 using SignalHandler::OutputSignal;
@@ -59,6 +65,11 @@ void Driver::PostExecute(DriverStatus status) {
     std::cout << "zone-cycles/wallsecond = " << static_cast<double>(zonecycles) / wtime
               << std::endl;
   }
+  #if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
+  if (status == DriverStatus::complete){
+    logger::global_logger->end_logger();
+  }
+  #endif
 }
 
 DriverStatus EvolutionDriver::Execute() {
@@ -180,14 +191,16 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
     BuildBoundaryBuffers(mbase);
   }
 
+  #ifdef ENABLE_MM_LOG_TIME
+    logger::global_logger->end_timer_build_comm();
+  #endif
+
   #ifdef USE_NEIGHBORHOOD_COLLECTIVES
     pmesh->neigh_token.build_neigh_comm(MPI_COMM_WORLD);
     //pmesh->neigh_token.print_neigh();
   #endif
 
-  #ifdef ENABLE_MM_LOG_TIME
-    logger::global_logger->end_timer_build_comm();
-  #endif
+  
 }
 
 //----------------------------------------------------------------------------------------

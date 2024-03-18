@@ -1,8 +1,9 @@
 #ifndef UTILS_MM_LOGGER_HPP_
 #define UTILS_MM_LOGGER_HPP_
-#include <mpi.h>
+#include <parthenon_mpi.hpp>
 #include <fstream>
 #include <cstdlib>
+#include <globals.hpp>
 
 //#define ENABLE_MM_LOGGER
 //#define ENABLE_MM_LOG_TIME
@@ -24,7 +25,7 @@ namespace logger{
                         time_token_creation(0), token_id(0), print_only(false), log_times(false), rank(-1)  {
                 const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
                 if(env_filename != NULL) filename = env_filename;
-                _start_timer(total_exec_time);
+                //_start_timer(total_exec_time);
             }
 
             #ifdef ENABLE_MM_LOG_TIME
@@ -35,7 +36,7 @@ namespace logger{
                         log_time_sends(0), log_time_recvs(0), log_time_build_comm(0), rank(-1)   {
                 const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
                 if(!print_only && env_filename != NULL) filename = env_filename;
-                _start_timer(total_exec_time);
+                
             }
 
             /* Sends */
@@ -52,7 +53,21 @@ namespace logger{
 
             #endif
 
-            ~My_Logger() { 
+            ~My_Logger() { }
+
+            void init_logger( const int & _rank){
+                if(!is_init){
+                    rank = _rank;
+                    if(!print_only){
+                        filename = filename + "_" + std::to_string(rank);
+                        log_file.open(filename);
+                    }
+                    is_init=true;
+                    _start_timer(total_exec_time);
+                }
+            }
+
+            void end_logger(){
                 if(is_init){
                     _end_timer(total_exec_time);
                     #ifdef ENABLE_MM_LOG_TIME
@@ -70,22 +85,37 @@ namespace logger{
                     }
                     #ifdef ENABLE_MM_LOG_TIME
                     else{
-                        std::cout<<"# RANK "<<rank<<" t_exec_time="<<total_exec_time
-                        << " sends="<<log_time_sends<<" recvs="<<log_time_recvs
-                        <<" comm_build="<<log_time_build_comm<<" compute="<<compute_time<<std::endl;
+                        double avg_exec_time=0.0, avg_time_recvs, avg_time_build_comm, avg_compute_time; // avg_time_sends (sends are always 0 in our case)
+                        int root_rank = 0;
+
+                        // avg exec time
+                        MPI_Reduce(&total_exec_time, &avg_exec_time, 1, MPI_DOUBLE, MPI_SUM, root_rank, MPI_COMM_WORLD);
+                        if(parthenon::Globals::my_rank == root_rank) avg_exec_time /= parthenon::Globals::nranks;
+
+                        // avg recvs time
+                        MPI_Reduce(&log_time_recvs, &avg_time_recvs, 1, MPI_DOUBLE, MPI_SUM, root_rank, MPI_COMM_WORLD);
+                        if(parthenon::Globals::my_rank == root_rank) avg_time_recvs /= parthenon::Globals::nranks;
+
+                        // avg build comm time
+                        MPI_Reduce(&log_time_build_comm, &avg_time_build_comm, 1, MPI_DOUBLE, MPI_SUM, root_rank, MPI_COMM_WORLD);
+                        if(parthenon::Globals::my_rank == root_rank) avg_time_build_comm /= parthenon::Globals::nranks;
+
+                        // avg compute time
+                        MPI_Reduce(&compute_time, &avg_compute_time, 1, MPI_DOUBLE, MPI_SUM, root_rank, MPI_COMM_WORLD);
+                        if(parthenon::Globals::my_rank == root_rank) avg_compute_time /= parthenon::Globals::nranks;
+
+                        if(parthenon::Globals::my_rank == root_rank){
+                            std::cout<<"# AVG_TIMES: avg_exec_time="<<avg_exec_time
+                           <<" recvs="<<avg_time_recvs<<" comm_build="<<avg_time_build_comm
+                           <<" compute="<<avg_compute_time<<std::endl;
+                        }
+                        if(false){
+                            std::cout<<"# RANK "<<rank<<" t_exec_time="<<total_exec_time
+                            << " sends="<<log_time_sends<<" recvs="<<log_time_recvs
+                            <<" comm_build="<<log_time_build_comm<<" compute="<<compute_time<<std::endl;
+                        }
                     }
                     #endif
-                }
-            }
-
-            void init_logger( const int & _rank){
-                if(!is_init){
-                    rank = _rank;
-                    if(!print_only){
-                        filename = filename + "_" + std::to_string(rank);
-                        log_file.open(filename);
-                    }
-                    is_init=true;
                 }
             }
 

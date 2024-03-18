@@ -73,13 +73,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     return ParthenonStatus::error;
   }
 
-  #if defined(ENABLE_MM_LOGGER) && defined(ENABLE_MM_LOG_TIME)
-  PARTHENON_FAIL("LOGGER and LOG_TIME can not be used simultaneously"); // Moraru
-  #endif 
-
-  #if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
-  logger::global_logger->init_logger(Globals::my_rank); // Moraru
-  #endif
+  
   
   // Get total number of MPI processes (ranks)
   if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
@@ -94,6 +88,14 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
+  
+  #if defined(ENABLE_MM_LOGGER) && defined(ENABLE_MM_LOG_TIME)
+  PARTHENON_FAIL("LOGGER and LOG_TIME can not be used simultaneously"); // Moraru
+  #endif 
+
+  #if defined(ENABLE_MM_LOGGER) || defined(ENABLE_MM_LOG_TIME)
+  logger::global_logger->init_logger(Globals::my_rank); // Moraru
+  #endif
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
