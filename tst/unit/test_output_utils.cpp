@@ -55,6 +55,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     constexpr int NG = 2;
     constexpr int NSIDE = 16;
     constexpr int NDIM = 3;
+    constexpr int NFULL = (NSIDE + 2 * NG);
 
     constexpr auto interior = parthenon::IndexDomain::interior;
     constexpr auto entire = parthenon::IndexDomain::entire;
@@ -116,6 +117,10 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
           REQUIRE(shape[i] == NSIDE + 2 * NG);
         }
       }
+      THEN("The size and tensorsize are correct") {
+        REQUIRE(info.Size() == NFULL * NFULL * NFULL);
+        REQUIRE(info.TensorSize() == 1);
+      }
     }
 
     WHEN("We initialize VarInfo on a tensor cell var") {
@@ -140,6 +145,10 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
           REQUIRE(shape[i] == NSIDE + 2 * NG);
         }
       }
+      THEN("The size and tensorsize are correct") {
+        REQUIRE(info.Size() == 3 * 4 * NFULL * NFULL * NFULL);
+        REQUIRE(info.TensorSize() == 3 * 4);
+      }
     }
 
     WHEN("We initialize VarInfo on a tensor no-centering var") {
@@ -157,6 +166,10 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         REQUIRE(ndim == 2);
         REQUIRE(shape[0] == 4);
         REQUIRE(shape[1] == 3);
+      }
+      THEN("The size and tensorsize are correct") {
+        REQUIRE(info.Size() == 3 * 4);
+        REQUIRE(info.TensorSize() == 3 * 4);
       }
     }
 
@@ -178,6 +191,10 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
           REQUIRE(shape[i] == NSIDE + 2 * NG + 1);
         }
       }
+      THEN("The size and tensorsize are correct") {
+        REQUIRE(info.Size() == 3 * 4 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
+        REQUIRE(info.TensorSize() == 3 * 4);
+      }
     }
 
     WHEN("We initialize VarInfo on a scaler edge var") {
@@ -196,6 +213,10 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         for (int i = 1; i < ndim; ++i) {
           REQUIRE(shape[i] == NSIDE + 2 * NG + 1);
         }
+      }
+      THEN("The size and tensorsize are correct") {
+        REQUIRE(info.Size() == 3 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
+        REQUIRE(info.TensorSize() == 3);
       }
     }
   }

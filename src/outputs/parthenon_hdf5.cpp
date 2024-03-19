@@ -376,13 +376,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
       if (!is_allocated) {
         if (vinfo.is_sparse) {
-          hsize_t varSize{};
-          if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-            varSize = vinfo.TensorSize() * (out_kb.e - out_kb.s + 1) *
-                      (out_jb.e - out_jb.s + 1) * (out_ib.e - out_ib.s + 1);
-          } else {
-            varSize = vinfo.Size();
-          }
+          hsize_t varSize = vinfo.FillSize(theDomain);
           auto fill_val =
               output_params.sparse_seed_nans ? std::numeric_limits<OutT>::quiet_NaN() : 0;
           std::fill(tmpData.data() + index, tmpData.data() + index + varSize, fill_val);

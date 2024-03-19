@@ -61,12 +61,51 @@ struct VarInfo {
   int ntop_elems;
   bool element_matters;
 
+  auto GetNKJI(const IndexDomain domain) const {
+    int nx3 = 1, nx2 = 1, nx1 = 1;
+    for (auto el : topological_elements) {
+      nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
+      nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
+      nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
+    }
+    return std::make_tuple(nx3, nx2, nx1);
+  }
+  auto GetPaddedBoundsKJI(const IndexDomain domain) const {
+    int ks = 1, ke = 1, js = 1, je = 1, is = 1, ie = 1;
+    for (auto el : topological_elements) {
+      auto kb = cellbounds.GetBoundsK(domain);
+      auto jb = cellbounds.GetBoundsJ(domain);
+      auto ib = cellbounds.GetBoundsI(domain);
+      ks = kb.s; // pads are only upper indices
+      js = jb.s;
+      is = ib.s;
+      ke = std::min(ke, kb.e);
+      je = std::min(je, jb.e);
+      ie = std::min(ie, ib.e);
+    }
+    IndexRange kb{ks, ke}, jb{is, ie}, ib{is, ie};
+    return std::make_tuple(kb, jb, ib);
+  }
+
   int Size() const {
     return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
   }
+  // Includes topological element shape
   int TensorSize() const {
-    // std::accumulate(nx.begin(), nx.end() - 3, 1, std::multiplies<int>());
-    return nx_[5] * nx_[4] * nx_[3];
+    if (where == MetadataFlag({Metadata::None})) {
+      return Size();
+    } else {
+      return std::accumulate(rnx_.begin(), rnx_.end() - 3, 1, std::multiplies<int>());
+    }
+    // return nx_[5] * nx_[4] * nx_[3];
+  }
+  int FillSize(const IndexDomain domain) const {
+    if (where == MetadataFlag({Metadata::None})) {
+      return Size();
+    } else {
+      auto [n3, n2, n1] = GetNKJI(domain);
+      return TensorSize() * n3 * n2 * n1;
+    }
   }
 
   template <typename T>
@@ -82,12 +121,7 @@ struct VarInfo {
       // For nx1,nx2,nx3 find max storage required in each direction
       // accross topological elements. Unused indices will be written but
       // empty.
-      int nx3 = 1, nx2 = 1, nx1 = 1;
-      for (auto el : topological_elements) {
-        nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
-        nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
-        nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
-      }
+      auto [nx3, nx2, nx1] = GetNKJI(domain);
       // 3 cell indices, tensor rank, topological element index if needed
       ndim = 3 + tensor_rank + element_matters;
       // fill topological element, if relevant
