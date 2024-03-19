@@ -111,7 +111,8 @@ class MGSolver {
         &iter_counter);
     auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
     auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md, true);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
+                                                            pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
     calc_pointwise_res = itl.AddTask(
         calc_pointwise_res, AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>, md,
@@ -152,7 +153,7 @@ class MGSolver {
   TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
     using namespace utils;
 
-    int min_level = 0;
+    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings, 0);
     int max_level = pmesh->GetGMGMaxLevel();
 
     return AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
@@ -237,8 +238,9 @@ class MGSolver {
               Real *prhs = &pack(b, te, rhs_t(c), k, jb.s, ib.s);
               Real *xo = &pack(b, te, xold_t(c), k, jb.s, ib.s);
               Real *xn = &pack(b, te, xnew_t(c), k, jb.s, ib.s);
-              const int npoints =
-                  (jb.e - jb.s + 1) * (ib.e - ib.s + 1 + 2 * nghost) - 2 * nghost;
+              // Use ptr arithmetic to get the number of points we need to go over
+              // (including ghost zones) to get from (k, jb.s, ib.s) to (k, jb.e, ib.e)
+              const int npoints = &pack(b, te, Axold_t(c), k, jb.e, ib.e) - Ax + 1;
               parthenon::par_for_inner(
                   DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
                     const Real off_diag = Ax[idx] - diag[idx] * xo[idx];

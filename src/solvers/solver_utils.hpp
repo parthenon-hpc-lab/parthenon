@@ -160,16 +160,18 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
+  // Warning: This inner loop strategy only works because we are using IndexDomain::entire
+  const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level,
       0, pack.GetNBlocks() - 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars =
             pack.GetUpperBound(b, in_t()) - pack.GetLowerBound(b, in_t()) + 1;
-        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
         for (int c = 0; c < nvars; ++c) {
           Real *in = &pack(b, te, in_t(c), kb.s, jb.s, ib.s);
           Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
-          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1,
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
+                                   npoints_inner - 1,
                                    [&](const int idx) { out[idx] = in[idx]; });
         }
       });
@@ -198,18 +200,19 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   auto pack = desc.GetPack(md.get(), include_block, only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
+  // Warning: This inner loop strategy only works because we are using IndexDomain::entire
+  const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size,
       scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
-        const int npoints = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
         for (int c = 0; c < nvars; ++c) {
           Real *avar = &pack(b, te, a_t(c), kb.s, jb.s, ib.s);
           Real *bvar = &pack(b, te, b_t(c), kb.s, jb.s, ib.s);
           Real *out = &pack(b, te, out_t(c), kb.s, jb.s, ib.s);
           parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1,
+              DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints_inner - 1,
               [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
         }
       });
