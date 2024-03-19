@@ -74,6 +74,16 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     m = Metadata({Metadata::None, Metadata::Independent}, std::vector<int>{3, 4});
     pkg->AddField(tensor_none, m);
 
+    // four-vector-valued var with a vector at each face
+    const std::string vector_face = "four_vector_face";
+    m = Metadata({Metadata::Face, Metadata::Independent}, std::vector<int>{4});
+    pkg->AddField(vector_face, m);
+
+    // vector-valued var with a single value at each edge
+    const std::string scalar_edge = "scalar_edge";
+    m = Metadata({Metadata::Edge, Metadata::Independent});
+    pkg->AddField(scalar_edge, m);
+
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
     auto pmbd = pmb->meshblock_data.Get();
     pmbd->Initialize(pkg, pmb);
@@ -147,6 +157,45 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         REQUIRE(ndim == 2);
         REQUIRE(shape[0] == 4);
         REQUIRE(shape[1] == 3);
+      }
+    }
+
+    WHEN("We initialize VarInfo on a vector face var") {
+      auto v = pmbd->GetVarPtr(vector_face);
+      VarInfo info(v, cellbounds);
+
+      THEN("The shape is correct over both interior and entire") {
+        std::vector<int> shape(10);
+        int ndim = info.FillShape<int>(interior, shape.data());
+        REQUIRE(ndim == 5);
+        REQUIRE(shape[0] == 3);
+        REQUIRE(shape[1] == 4);
+        for (int i = 2; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 1);
+        }
+        info.FillShape<int>(entire, shape.data());
+        for (int i = 2; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 2 * NG + 1);
+        }
+      }
+    }
+
+    WHEN("We initialize VarInfo on a scaler edge var") {
+      auto v = pmbd->GetVarPtr(scalar_edge);
+      VarInfo info(v, cellbounds);
+
+      THEN("The shape is correct over both interior and entire") {
+        std::vector<int> shape(10);
+        int ndim = info.FillShape<int>(interior, shape.data());
+        REQUIRE(ndim == 4);
+        REQUIRE(shape[0] == 3);
+        for (int i = 1; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 1);
+        }
+        info.FillShape<int>(entire, shape.data());
+        for (int i = 1; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 2 * NG + 1);
+        }
       }
     }
   }

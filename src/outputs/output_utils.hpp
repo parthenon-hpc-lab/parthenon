@@ -19,6 +19,7 @@
 #define OUTPUTS_OUTPUT_UTILS_HPP_
 
 // C++
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <map>
@@ -56,6 +57,10 @@ struct VarInfo {
   bool is_vector;
   IndexShape cellbounds;
   std::vector<std::string> component_labels;
+  std::vector<TopologicalElement> topological_elements;
+  int ntop_elems;
+  bool element_matters;
+
   int Size() const {
     return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
   }
@@ -68,22 +73,36 @@ struct VarInfo {
   int FillShape(const IndexDomain domain, T *data) {
     int ndim = -1; // number of elements of data that describe
                    // variable shape
-    int nx3 = cellbounds.ncellsk(domain);
-    int nx2 = cellbounds.ncellsj(domain);
-    int nx1 = cellbounds.ncellsi(domain);
     if (where == MetadataFlag({Metadata::None})) {
       ndim = tensor_rank;
       for (int i = 0; i < tensor_rank; ++i) {
         data[i] = static_cast<T>(rnx_[rnx_.size() - tensor_rank + i]);
       }
-    } else if (where == MetadataFlag({Metadata::Cell})) {
-      ndim = 3 + tensor_rank;
-      for (int i = 0; i < tensor_rank; ++i) {
-        data[i] = static_cast<T>(rnx_[rnx_.size() - 3 - tensor_rank + i]);
+    } else {
+      // For nx1,nx2,nx3 find max storage required in each direction
+      // accross topological elements. Unused indices will be written but
+      // empty.
+      int nx3 = 1, nx2 = 1, nx1 = 1;
+      for (auto el : topological_elements) {
+        nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
+        nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
+        nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
       }
-      data[tensor_rank] = static_cast<T>(nx3);
-      data[tensor_rank + 1] = static_cast<T>(nx2);
-      data[tensor_rank + 2] = static_cast<T>(nx1);
+      // 3 cell indices, tensor rank, topological element index if needed
+      ndim = 3 + tensor_rank + element_matters;
+      // fill topological element, if relevant
+      if (element_matters) {
+        data[0] = ntop_elems;
+      }
+      // fill the tensor rank
+      for (int i = 0; i < tensor_rank; ++i) {
+        data[i + element_matters] =
+            static_cast<T>(rnx_[rnx_.size() - 3 - tensor_rank + i]);
+      }
+      // fill cell indices
+      data[tensor_rank + element_matters] = static_cast<T>(nx3);
+      data[tensor_rank + element_matters + 1] = static_cast<T>(nx2);
+      data[tensor_rank + element_matters + 2] = static_cast<T>(nx1);
     }
     return ndim;
   }
@@ -102,17 +121,24 @@ struct VarInfo {
   auto GetShape() const {
     return std::vector<T>(nx_.rbegin(), nx_.rend());
   }
+  template <typename T = int>
+  auto GetDim(int i) const {
+    PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
+    return static_cast<T>(nx_[i - 1]);
+  }
 
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
           int num_components, std::array<int, VNDIM> nx, Metadata metadata,
-          bool is_sparse, bool is_vector, const IndexShape &cellbounds)
+          const std::vector<TopologicalElement> topological_elements, bool is_sparse,
+          bool is_vector, const IndexShape &cellbounds)
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
-        is_sparse(is_sparse), is_vector(is_vector), cellbounds(cellbounds),
-        rnx_(nx_.rbegin(), nx_.rend()) {
+        topological_elements(topological_elements), is_sparse(is_sparse),
+        is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
+        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
@@ -146,10 +172,12 @@ struct VarInfo {
   explicit VarInfo(const std::shared_ptr<Variable<Real>> &var,
                    const IndexShape &cellbounds)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(), var->metadata(), var->IsSparse(),
-                var->IsSet(Metadata::Vector), cellbounds) {}
+                var->GetDim(), var->metadata(), var->GetTopologicalElements(),
+                var->IsSparse(), var->IsSet(Metadata::Vector), cellbounds) {}
 
  private:
+  // TODO(JMM): Probably nx_ and rnx_ both not necessary... but it was
+  // easiest for me to reason about it this way.
   std::array<int, VNDIM> nx_;
   std::vector<int> rnx_;
 };
