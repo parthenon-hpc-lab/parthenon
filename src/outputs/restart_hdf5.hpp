@@ -55,39 +55,22 @@ namespace parthenon {
 class Mesh;
 class Param;
 
-class RestartReaderHDF5 : public RestartReader{
+class RestartReaderHDF5 : public RestartReader {
  public:
-  RestartReaderHDF5(const char *theFile);
+  RestartReaderHDF5(const char *filename);
 
-  struct SparseInfo {
-    // labels of sparse fields (full label, i.e. base name and sparse id)
-    std::vector<std::string> labels;
+  [[nodiscard]] SparseInfo GetSparseInfo() const override;
 
-    // allocation status of sparse fields (2D array outer dimension: block, inner
-    // dimension: sparse field)
-    // can't use std::vector here because std::vector<hbool_t> is the same as
-    // std::vector<bool> and it doesn't have .data() member
-    std::unique_ptr<hbool_t[]> allocated;
+  [[nodiscard]] MeshInfo GetMeshInfo() const override;
 
-    int num_blocks = 0;
-    int num_sparse = 0;
+  [[nodiscard]] TimeInfo GetTimeInfo() const override;
 
-    bool IsAllocated(int block, int sparse_field_idx) const {
-      PARTHENON_REQUIRE_THROWS(allocated != nullptr,
-                               "Tried to get allocation status but no data present");
-      PARTHENON_REQUIRE_THROWS((block >= 0) && (block < num_blocks),
-                               "Invalid block index in SparseInfo::IsAllocated");
-      PARTHENON_REQUIRE_THROWS((sparse_field_idx >= 0) && (sparse_field_idx < num_sparse),
-                               "Invalid sparse field index in SparseInfo::IsAllocated");
-
-      return allocated[block * num_sparse + sparse_field_idx];
-    }
+  [[nodiscard]] std::string GetInputString() const override {
+    return GetAttr<std::string>("Input", "File");
   };
 
-  SparseInfo GetSparseInfo() const;
-
   // Return output format version number. Return -1 if not existent.
-  int GetOutputFormatVersion() const;
+  [[nodiscard]] int GetOutputFormatVersion() const override;
 
  private:
   struct DatasetHandle {
@@ -144,14 +127,13 @@ class RestartReaderHDF5 : public RestartReader{
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
-  template <typename T>
-  void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
+  void ReadBlocks(const std::string &name, IndexRange range, std::vector<Real> &dataVec,
                   const std::vector<size_t> &bsize, int file_output_format_version,
-                  MetadataFlag where, const std::vector<int> &shape = {}) const {
+                  MetadataFlag where, const std::vector<int> &shape = {}) const override {
 #ifndef ENABLE_HDF5
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
-    auto hdl = OpenDataset<T>(name);
+    auto hdl = OpenDataset<Real>(name);
 
     constexpr int CHUNK_MAX_DIM = 7;
 
@@ -315,14 +297,25 @@ class RestartReaderHDF5 : public RestartReader{
 
     return res[0];
   }
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<Real> &dataVec) override {
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<int> &dataVec) override {
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
 
   // Gets the counts and offsets for MPI ranks for the meshblocks set
   // by the indexrange. Returns the total count on this rank.
-  std::size_t GetSwarmCounts(const std::string &swarm, const IndexRange &range,
-                             std::vector<std::size_t> &counts,
-                             std::vector<std::size_t> &offsets);
+  [[nodiscard]] std::size_t GetSwarmCounts(const std::string &swarm,
+                                           const IndexRange &range,
+                                           std::vector<std::size_t> &counts,
+                                           std::vector<std::size_t> &offsets) override;
 
-  void ReadParams(const std::string &name, Params &p);
+  void ReadParams(const std::string &name, Params &p) override;
 
   // closes out the restart file
   // perhaps belongs in a destructor?

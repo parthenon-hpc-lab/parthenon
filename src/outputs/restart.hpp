@@ -35,7 +35,7 @@ class Param;
 
 class RestartReader {
  public:
-  RestartReader();
+  RestartReader() = default;
   virtual ~RestartReader() = default;
 
   struct SparseInfo {
@@ -63,45 +63,55 @@ class RestartReader {
     }
   };
 
-  SparseInfo GetSparseInfo() const;
+  [[nodiscard]] virtual SparseInfo GetSparseInfo() const = 0;
+
+  struct MeshInfo {
+    int nbnew, nbdel, nbtotal, root_level, includes_ghost, n_ghost;
+    std::vector<std::string> bound_cond;
+    std::vector<int> block_size;
+    std::vector<Real> grid_dim;
+    std::vector<int64_t> lx123;
+    std::vector<int> level_gid_lid_cnghost_gflag; // what's this?!
+  };
+  [[nodiscard]] virtual MeshInfo GetMeshInfo() const = 0;
+
+  struct TimeInfo {
+    Real time, dt;
+    int ncycle;
+  };
+  [[nodiscard]] virtual TimeInfo GetTimeInfo() const = 0;
+
+  [[nodiscard]] virtual std::string GetInputString() const = 0;
 
   // Return output format version number. Return -1 if not existent.
-  int GetOutputFormatVersion() const;
+  [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
 
- public:
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
-  template <typename T>
-  void ReadBlocks(const std::string &name, IndexRange range, std::vector<T> &dataVec,
-                  const std::vector<size_t> &bsize, int file_output_format_version,
-                  MetadataFlag where, const std::vector<int> &shape = {}) const;
+  virtual void ReadBlocks(const std::string &name, IndexRange range,
+                          std::vector<Real> &dataVec, const std::vector<size_t> &bsize,
+                          int file_output_format_version, MetadataFlag where,
+                          const std::vector<int> &shape = {}) const = 0;
 
   // Gets the data from a swarm var on current rank. Assumes all
   // blocks are contiguous. Fills dataVec based on shape from swarmvar
   // metadata.
-  template <typename T>
-  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
-                    const std::size_t count, const std::size_t offset, const Metadata &m,
-                    std::vector<T> &dataVec);
-
-  // Reads an array dataset from file as a 1D vector.
-  template <typename T>
-  std::vector<T> ReadDataset(const std::string &name) const;
-
-  template <typename T>
-  std::vector<T> GetAttrVec(const std::string &location, const std::string &name) const;
-
-  template <typename T>
-  T GetAttr(const std::string &location, const std::string &name) const;
+  virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                            const std::size_t count, const std::size_t offset,
+                            const Metadata &m, std::vector<Real> &dataVec) = 0;
+  virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                            const std::size_t count, const std::size_t offset,
+                            const Metadata &m, std::vector<int> &dataVec) = 0;
 
   // Gets the counts and offsets for MPI ranks for the meshblocks set
   // by the indexrange. Returns the total count on this rank.
-  std::size_t GetSwarmCounts(const std::string &swarm, const IndexRange &range,
-                             std::vector<std::size_t> &counts,
-                             std::vector<std::size_t> &offsets);
+  [[nodiscard]] virtual std::size_t GetSwarmCounts(const std::string &swarm,
+                                                   const IndexRange &range,
+                                                   std::vector<std::size_t> &counts,
+                                                   std::vector<std::size_t> &offsets) = 0;
 
-  void ReadParams(const std::string &name, Params &p);
+  virtual void ReadParams(const std::string &name, Params &p) = 0;
 
   // closes out the restart file
   // perhaps belongs in a destructor?

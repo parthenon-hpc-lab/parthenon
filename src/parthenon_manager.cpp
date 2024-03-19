@@ -113,7 +113,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
+    auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -176,13 +176,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
         std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
     // Read simulation time and cycle from restart file and set in input
-    Real tNow = restartReader->GetAttr<Real>("Info", "Time");
+    const auto time_info = restartReader->GetTimeInfo();
+    Real tNow = time_info.time;
     pinput->SetReal("parthenon/time", "start_time", tNow);
 
-    Real dt = restartReader->GetAttr<Real>("Info", "dt");
+    Real dt = time_info.dt;
     pinput->SetReal("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
+    int ncycle = time_info.ncycle;
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
