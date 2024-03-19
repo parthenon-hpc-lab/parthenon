@@ -320,7 +320,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     hsize_t global_count[H5_NDIM];
     global_count[0] = static_cast<hsize_t>(max_blocks_global);
 
-    int ndim = vinfo.FillShape(theDomain, &(local_count[1]), &(global_count[1]));
+    // block index + variable on block dimensions
+    int ndim = 1 + vinfo.FillShape(theDomain, &(local_count[1]), &(global_count[1]));
 
 #ifndef PARTHENON_DISABLE_HDF5_COMPRESSION
     // we need chunks to enable compression. Do not run the pipeline

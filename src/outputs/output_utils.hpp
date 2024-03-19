@@ -66,17 +66,18 @@ struct VarInfo {
 
   template <typename T>
   int FillShape(const IndexDomain domain, T *data) {
-    int ndim = -1;
+    int ndim = -1; // number of elements of data that describe
+                   // variable shape
     int nx3 = cellbounds.ncellsk(domain);
     int nx2 = cellbounds.ncellsj(domain);
     int nx1 = cellbounds.ncellsi(domain);
     if (where == MetadataFlag({Metadata::None})) {
-      ndim = tensor_rank + 1;
+      ndim = tensor_rank;
       for (int i = 0; i < tensor_rank; ++i) {
         data[i] = static_cast<T>(rnx_[rnx_.size() - tensor_rank + i]);
       }
     } else if (where == MetadataFlag({Metadata::Cell})) {
-      ndim = 3 + tensor_rank + 1;
+      ndim = 3 + tensor_rank;
       for (int i = 0; i < tensor_rank; ++i) {
         data[i] = static_cast<T>(rnx_[rnx_.size() - 3 - tensor_rank + i]);
       }
