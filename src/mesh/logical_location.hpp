@@ -97,7 +97,7 @@ class LogicalLocation { // aggregate and POD type
   const auto &tree() const { return tree_idx_; }
 
   // Check if this logical location is actually in the domain of the tree,
-  // possibly including a ghost halo around the tree
+  // possibly including a ghost block halo around the tree
   bool IsInTree(int nghost = 0) const {
     const int low = -nghost;
     const int up = (1LL << level()) + nghost;
@@ -105,7 +105,7 @@ class LogicalLocation { // aggregate and POD type
            (l_[2] >= low) && (l_[2] < up);
   }
 
-  // Check if a LL is in the ghost halo of the tree it is associated with
+  // Check if a LL is in the ghost block halo of the tree it is associated with
   bool IsInHalo(int nghost) const { return IsInTree(nghost) && !IsInTree(0); }
 
   int NeighborTreeIndex() const {
