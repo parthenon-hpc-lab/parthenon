@@ -65,6 +65,16 @@ std::string StringPrintf(const std::string &fmt, Args... args) {
   return StringPrintf(fmt.c_str(), std::forward<Args>(args)...);
 }
 
+// Utility for making a std::array from a tuple where everything in the 
+// tuple is of the same type
+template <typename tuple_t>
+constexpr auto get_array_from_tuple(tuple_t &&tuple) {
+  constexpr auto get_array = [](auto &&...x) {
+    return std::array{std::forward<decltype(x)>(x)...};
+  };
+  return std::apply(get_array, std::forward<tuple_t>(tuple));
+}
+
 //----------------------------------------------------------------------------------------
 //! SignalHandler
 //  \brief static data and functions that implement a simple signal handling system
