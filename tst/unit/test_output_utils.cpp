@@ -37,6 +37,7 @@
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
 using parthenon::IndexDomain;
+using parthenon::IndexShape;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
@@ -46,7 +47,6 @@ using parthenon::PackIndexMap;
 using parthenon::par_for;
 using parthenon::Real;
 using parthenon::StateDescriptor;
-using parthenon::IndexShape;
 
 using namespace parthenon::OutputUtils;
 
@@ -60,11 +60,19 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     constexpr auto entire = parthenon::IndexDomain::entire;
     parthenon::Globals::nghost = NG;
 
-    const std::string scalar_cell = "scalar_cell";
-
-    Metadata m({Metadata::Cell, Metadata::Independent});
     auto pkg = std::make_shared<StateDescriptor>("Test package");
-    pkg->AddField("scalar_cell", m);
+
+    const std::string scalar_cell = "scalar_cell";
+    Metadata m({Metadata::Cell, Metadata::Independent});
+    pkg->AddField(scalar_cell, m);
+
+    const std::string tensor_cell = "tensor_cell";
+    m = Metadata({Metadata::Cell, Metadata::Independent}, std::vector<int>{3, 4});
+    pkg->AddField(tensor_cell, m);
+
+    const std::string tensor_none = "tensor_none";
+    m = Metadata({Metadata::None, Metadata::Independent}, std::vector<int>{3, 4});
+    pkg->AddField(tensor_none, m);
 
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
     auto pmbd = pmb->meshblock_data.Get();
@@ -72,25 +80,73 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
 
     IndexShape cellbounds = pmb->cellbounds;
     THEN("The CellBounds object is reasonable") {
-      REQUIRE(cellbounds.ncellsk(entire) == NSIDE + 2*NG);
+      REQUIRE(cellbounds.ncellsk(entire) == NSIDE + 2 * NG);
       REQUIRE(cellbounds.ncellsk(interior) == NSIDE);
-      REQUIRE(cellbounds.ncellsj(entire) == NSIDE + 2*NG);
+      REQUIRE(cellbounds.ncellsj(entire) == NSIDE + 2 * NG);
       REQUIRE(cellbounds.ncellsj(interior) == NSIDE);
-      REQUIRE(cellbounds.ncellsi(entire) == NSIDE + 2*NG);
+      REQUIRE(cellbounds.ncellsi(entire) == NSIDE + 2 * NG);
       REQUIRE(cellbounds.ncellsi(interior) == NSIDE);
     }
 
-    WHEN("We Initialize VarInfo on a scalar cell var") {
+    WHEN("We initialize VarInfo on a scalar cell var") {
       auto v = pmbd->GetVarPtr(scalar_cell);
       VarInfo info(v, cellbounds);
 
       THEN("The shape is correct over both interior and entire") {
         std::vector<int> shape(10);
         int ndim = info.FillShape<int>(interior, shape.data());
-        REQUIRE(ndim == 3 + 1); // block index + k,j,i
-        for (int i = 0; i < ndim - 1; ++i) { // don't think about block index
+        REQUIRE(ndim == 3);
+        for (int i = 0; i < ndim; ++i) {
           REQUIRE(shape[i] == NSIDE);
         }
+
+        ndim = info.FillShape<int>(entire, shape.data());
+        REQUIRE(ndim == 3);
+        for (int i = 0; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 2 * NG);
+        }
+      }
+    }
+
+    WHEN("We initialize VarInfo on a tensor cell var") {
+      auto v = pmbd->GetVarPtr(tensor_cell);
+      VarInfo info(v, cellbounds);
+
+      THEN("The shape is correct over both interior and entire") {
+        std::vector<int> shape(10);
+        int ndim = info.FillShape<int>(interior, shape.data());
+        REQUIRE(ndim == 5);
+        REQUIRE(shape[0] == 4);
+        REQUIRE(shape[1] == 3);
+        for (int i = 2; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE);
+        }
+
+        ndim = info.FillShape<int>(entire, shape.data());
+        REQUIRE(ndim == 5);
+        REQUIRE(shape[0] == 4);
+        REQUIRE(shape[1] == 3);
+        for (int i = 2; i < ndim; ++i) {
+          REQUIRE(shape[i] == NSIDE + 2 * NG);
+        }
+      }
+    }
+
+    WHEN("We initialize VarInfo on a tensor no-centering var") {
+      auto v = pmbd->GetVarPtr(tensor_none);
+      VarInfo info(v, cellbounds);
+
+      THEN("The shape is correct over both interior and entire") {
+        std::vector<int> shape(10);
+        int ndim = info.FillShape<int>(interior, shape.data());
+        REQUIRE(ndim == 2);
+        REQUIRE(shape[0] == 4);
+        REQUIRE(shape[1] == 3);
+
+        ndim = info.FillShape<int>(entire, shape.data());
+        REQUIRE(ndim == 2);
+        REQUIRE(shape[0] == 4);
+        REQUIRE(shape[1] == 3);
       }
     }
   }
