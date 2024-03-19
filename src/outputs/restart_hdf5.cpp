@@ -106,12 +106,43 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 #endif // ENABLE_HDF5
 }
 
+RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+  RestartReaderHDF5::MeshInfo mesh_info;
+  mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
+  mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
+  mesh_info.nbtotal = GetAttr<int>("Info", "NumMeshBlocks");
+  mesh_info.root_level = GetAttr<int>("Info", "RootLevel");
+
+  mesh_info.bound_cond = GetAttrVec<std::string>("Info", "BoundaryConditions");
+
+  mesh_info.block_size = GetAttrVec<int>("Info", "MeshBlockSize");
+  mesh_info.includes_ghost = GetAttr<int>("Info", "IncludesGhost");
+  mesh_info.n_ghost = GetAttr<int>("Info", "NGhost");
+
+  mesh_info.grid_dim = GetAttrVec<Real>("Info", "RootGridDomain");
+
+  mesh_info.lx123 = ReadDataset<int64_t>("/Blocks/loc.lx123");
+  mesh_info.level_gid_lid_cnghost_gflag =
+      ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+
+  return mesh_info;
+}
+
+RestartReaderHDF5::TimeInfo RestartReaderHDF5::GetTimeInfo() const {
+  RestartReaderHDF5::TimeInfo time_info;
+
+  time_info.time = GetAttr<Real>("Info", "Time");
+  time_info.dt = GetAttr<Real>("Info", "dt");
+  time_info.ncycle = GetAttr<Real>("Info", "NCycle");
+
+  return time_info;
+}
 // Gets the counts and offsets for MPI ranks for the meshblocks set
 // by the indexrange. Returns the total count on this rank.
 std::size_t RestartReaderHDF5::GetSwarmCounts(const std::string &swarm,
-                                          const IndexRange &range,
-                                          std::vector<std::size_t> &counts,
-                                          std::vector<std::size_t> &offsets) {
+                                              const IndexRange &range,
+                                              std::vector<std::size_t> &counts,
+                                              std::vector<std::size_t> &offsets) {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
   return 0;
