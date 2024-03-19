@@ -86,6 +86,11 @@ class Variable {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim() const { // TODO(JMM): should this be host-only?
+    return dims_;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
     PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION, "Index out of bounds");

@@ -107,12 +107,12 @@ struct VarInfo {
 
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int num_components, int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
-          Metadata metadata, bool is_sparse, bool is_vector, const IndexShape &cellbounds)
-      : label(label), num_components(num_components),
-        nx_({nx1, nx2, nx3, nx4, nx5, nx6, 1}), tensor_rank(metadata.Shape().size()),
-        where(metadata.Where()), is_sparse(is_sparse), is_vector(is_vector),
-        cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()) {
+          int num_components, std::array<int, VNDIM> nx, Metadata metadata,
+          bool is_sparse, bool is_vector, const IndexShape &cellbounds)
+      : label(label), num_components(num_components), nx_(nx),
+        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_sparse(is_sparse), is_vector(is_vector), cellbounds(cellbounds),
+        rnx_(nx_.rbegin(), nx_.rend()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
@@ -146,8 +146,7 @@ struct VarInfo {
   explicit VarInfo(const std::shared_ptr<Variable<Real>> &var,
                    const IndexShape &cellbounds)
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(6), var->GetDim(5), var->GetDim(4), var->GetDim(3),
-                var->GetDim(2), var->GetDim(1), var->metadata(), var->IsSparse(),
+                var->GetDim(), var->metadata(), var->IsSparse(),
                 var->IsSet(Metadata::Vector), cellbounds) {}
 
  private:
