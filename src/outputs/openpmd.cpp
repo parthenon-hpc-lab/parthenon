@@ -124,8 +124,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setTime(-1.0);
     it.setDt(-1.0);
   }
-  { // TESTING REMOVE
-    const auto view_d = Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5,3);
+  { // FIXME move this to dump params
+    const auto view_d =
+        Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
     // Map a view onto a host allocation (so that we can call deep_copy)
     auto host_vec = std::vector<Real>(view_d.size());
     Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
@@ -193,6 +194,15 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }                                 // Info section
 
   Kokkos::Profiling::popRegion(); // write Attributes
+
+  // Write block metadata
+  {
+    // TODO(pgrete) FIXME this is collective, so should be a dataset!
+    const int n_blocks_global = pm->nbtotal;
+    const int n_blocks_local = static_cast<int>(pm->block_list.size());
+    std::vector<int64_t> loc = OutputUtils::ComputeLocs(pm);
+    it.setAttribute("loc.lx123", loc);
+  }
 
   // TODO(pgrete) check var name standard compatiblity
   // e.g., description: names of records and their components are only allowed to contain
