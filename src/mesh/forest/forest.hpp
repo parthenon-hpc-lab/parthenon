@@ -41,6 +41,10 @@ class Forest {
   int root_level;
   int forest_level;
 
+  void AddTree(const std::shared_ptr<Tree>& in) { 
+    trees.push_back(in);
+  }
+
   int AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting = true) {
     gids_resolved = false;
     return trees[loc.tree()]->AddMeshBlock(loc, enforce_proper_nesting);
