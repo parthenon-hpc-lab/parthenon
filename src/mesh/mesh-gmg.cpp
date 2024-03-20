@@ -32,7 +32,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
-#include "mesh/forest.hpp"
+#include "mesh/forest/forest.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"

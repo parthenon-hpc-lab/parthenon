@@ -158,8 +158,8 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
-  mesh/forest.cpp
-  mesh/forest.hpp
+  mesh/forest/forest.cpp
+  mesh/forest/forest.hpp
   mesh/logical_location.cpp
   mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
