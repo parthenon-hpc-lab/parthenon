@@ -30,7 +30,7 @@
 #include <hdf5.h>
 
 #include "interface/metadata.hpp"
-#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/parthenon_hdf5_types.hpp"
 
 using namespace parthenon::HDF5;
 // TODO(someone) the following "else" is very ugly but fixes missing types when not

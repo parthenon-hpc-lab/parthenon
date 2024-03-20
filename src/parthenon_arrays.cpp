@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// Athena++ astrophysical MHD code
+// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,41 +15,16 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TASKS_TASK_ID_HPP_
-#define TASKS_TASK_ID_HPP_
-
-#include <bitset>
-#include <string>
-#include <vector>
-
+#include "parthenon_arrays.hpp"
 #include "basic_types.hpp"
 
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-//! \class TaskID
-//  \brief generalization of bit fields for Task IDs, status, and dependencies.
+#define PARTHENON_ARRAY_SPEC(T)                                                          \
+  template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
 
-#define BITBLOCK 16
+PARTHENON_ARRAY_SPEC(Real);
 
-class TaskID {
- public:
-  TaskID() { Set(0); }
-  explicit TaskID(int id);
-
-  void Set(int id);
-  void clear();
-  bool CheckDependencies(const TaskID &rhs) const;
-  void SetFinished(const TaskID &rhs);
-  bool operator==(const TaskID &rhs) const;
-  bool operator!=(const TaskID &rhs) const;
-  TaskID operator|(const TaskID &rhs) const;
-  std::string to_string() const;
-
- private:
-  std::vector<std::bitset<BITBLOCK>> bitblocks;
-};
+#undef PARTHENON_ARRAY_SPEC
 
 } // namespace parthenon
-
-#endif // TASKS_TASK_ID_HPP_

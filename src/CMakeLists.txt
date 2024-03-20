@@ -131,6 +131,7 @@ add_library(parthenon
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
+  interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm.cpp
   interface/swarm.hpp
@@ -183,6 +184,10 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
+  outputs/parthenon_hdf5_attributes.cpp
+  outputs/parthenon_hdf5_attributes_read.cpp
+  outputs/parthenon_hdf5_attributes_write.cpp
+  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
@@ -213,10 +218,8 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
-  tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
+  tasks/tasks.hpp
+  tasks/thread_pool.hpp
 
   time_integration/butcher_integrator.cpp
   time_integration/low_storage_integrator.cpp
@@ -266,6 +269,8 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
+  parthenon_arrays.cpp
+  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
@@ -312,7 +317,7 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
-target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)

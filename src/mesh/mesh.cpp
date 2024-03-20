@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -156,11 +156,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->MeshProblemGenerator != nullptr) {
     ProblemGenerator = app_in->MeshProblemGenerator;
   }
+  if (app_in->MeshPostInitialization != nullptr) {
+    PostInitialization = app_in->MeshPostInitialization;
+  }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
   }
   if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
     PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
+  }
+  if (app_in->UserMeshWorkBeforeOutput != nullptr) {
+    UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
@@ -900,7 +906,12 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
-void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
+void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
+                                     SimTime const &time) {
+  // call Mesh version
+  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+
+  // call MeshBlock version
   for (auto &pmb : block_list) {
     pmb->UserWorkBeforeOutput(pmb.get(), pin);
   }
@@ -930,6 +941,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       PARTHENON_REQUIRE_THROWS(
           !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
+      PARTHENON_REQUIRE_THROWS(
+          !(PostInitialization != nullptr &&
+            block_list[0]->PostInitialization != nullptr),
+          "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
@@ -946,6 +961,23 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
+
+      // Call Mesh PostInitialization
+      if (PostInitialization != nullptr) {
+        PARTHENON_REQUIRE(num_partitions == 1,
+                          "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
+                          "during first initialization.");
+
+        auto &md = mesh_data.GetOrAdd("base", 0);
+        PostInitialization(this, pin, md.get());
+        // Call individual MeshBlock PostInitialization
+      } else {
+        for (int i = 0; i < nmb; ++i) {
+          auto &pmb = block_list[i];
+          pmb->PostInitialization(pmb.get(), pin);
+        }
+      }
+
       std::for_each(block_list.begin(), block_list.end(),
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
@@ -1201,6 +1233,22 @@ int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
 const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
+
+const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  // TODO(JMM): Luke this is for your Metadata::fine stuff.
+  PARTHENON_DEBUG_REQUIRE(level != CellLevel::fine,
+                          "Currently no access to finer cellbounds");
+  MeshBlock *pmb = block_list[0].get();
+  if (level == CellLevel::same) {
+    return pmb->cellbounds;
+    // TODO(JMM):
+    // } else if (level == CellLevel::fine) {
+    //   return pmb->fine_cellbounds;
+    // }
+  } else { // if (level == CellLevel::coarse) {
+    return pmb->c_cellbounds;
+  }
+}
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {

@@ -27,9 +27,11 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "basic_types.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
+#include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -127,6 +129,17 @@ template <typename T>
 using ScratchPad5D = Kokkos::View<T *****, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
 template <typename T>
 using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace, MemUnmanaged>;
+
+// Used for ParArrayND
+// TODO(JMM): Should all of parthenon_arrays.hpp
+// be moved here? Or should all of the above stuff be moved to
+// parthenon_arrays.hpp?
+inline constexpr std::size_t MAX_VARIABLE_DIMENSION = 7;
+template <typename T, typename Layout = LayoutWrapper>
+using device_view_t =
+    Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
+template <typename T, typename Layout = LayoutWrapper>
+using host_view_t = typename device_view_t<T, Layout>::HostMirror;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 

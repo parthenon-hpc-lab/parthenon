@@ -42,13 +42,13 @@ To add particles to a ``Swarm``, one calls
 
 .. code:: cpp
 
-   ParArray1D<bool> new_particles_mask = swarm->AddEmptyParticles(num_to_add, new_indices)
+   NewParticlesContext context = swarm->AddEmptyParticles(num_to_add);
 
 This call automatically resizes the memory pools as necessary and
-returns a ``ParArray1D<bool>`` mask indicating which indices in the
-``ParticleVariable``\ s are newly available. ``new_indices`` is a
-reference to a ``ParArrayND<int>`` of size ``num_to_add`` which contains
-the indices of each newly added particle.
+returns a ``NewParticlesContext`` object that provides the methods
+``int GetNewParticlesMaxIndex()`` to get the max index of the contiguous block
+of indices into the swarm, and ``int GetNewParticleIndex(const int n)`` to
+convert a new particle index into the swarm index.
 
 To remove particles from a ``Swarm``, one first calls
 
