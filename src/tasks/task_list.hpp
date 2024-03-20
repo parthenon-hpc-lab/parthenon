@@ -34,6 +34,16 @@
 #include "utils/error_checking.hpp"
 #include "utils/reductions.hpp"
 
+#ifdef ENABLE_CALIPER
+#include <adiak.h>
+#include <caliper/cali.h>
+#else
+#define CALI_MARK_BEGIN(x)
+#define CALI_MARK_END(x)
+#define CALI_CXX_MARK_FUNCTION()
+#endif
+
+
 namespace parthenon {
 
 enum class TaskListStatus { running, stuck, complete, nothing_to_do };
@@ -53,23 +63,37 @@ class IterativeTasks {
   // overload to add member functions of class T to task list
   // NOTE: we must capture the object pointer
   template <class T, class U, class... Args1, class... Args2>
-  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
+  TaskID AddTask(std::string name, TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
                  Args2 &&...args) {
-    return this->AddTask_(TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
+    return this->AddTask_(name, TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
       return (obj->*func)(std::forward<Args2>(args)...);
     });
   }
 
+  template <class T, class U, class... Args1, class... Args2>
+  TaskID AddTask(TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
+                 Args2 &&...args) {
+    return this->AddTask_(std::string("anon_task"), TaskType::iterative, 1, dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args2>(args)...);
+    });
+  }
+
+template <class T, class... Args>
+  TaskID AddTask(std::string name, TaskID const &dep, T &&func, Args &&...args) {
+    return AddTask_(name, TaskType::iterative, 1, dep, std::forward<T>(func),
+                    std::forward<Args>(args)...);
+  }
+
   template <class T, class... Args>
   TaskID AddTask(TaskID const &dep, T &&func, Args &&...args) {
-    return AddTask_(TaskType::iterative, 1, dep, std::forward<T>(func),
+    return AddTask_(std::string("anon_task"), TaskType::iterative, 1, dep, std::forward<T>(func),
                     std::forward<Args>(args)...);
   }
 
   template <class T, class U, class... Args>
   TaskID SetCompletionTask(TaskID const &dep, TaskStatus (T::*func)(Args...), U *obj,
                            Args &&...args) {
-    return AddTask_(TaskType::completion_criteria, check_interval_, dep,
+    return AddTask_(std::string("anon_task"), TaskType::completion_criteria, check_interval_, dep,
                     [=]() mutable -> TaskStatus {
                       return (obj->*func)(std::forward<Args>(args)...);
                     });
@@ -77,7 +101,7 @@ class IterativeTasks {
 
   template <class T, class... Args>
   TaskID SetCompletionTask(TaskID const &dep, T &&func, Args &&...args) {
-    return AddTask_(TaskType::completion_criteria, check_interval_, dep,
+    return AddTask_(std::string("anon_task"), TaskType::completion_criteria, check_interval_, dep,
                     std::forward<T>(func), std::forward<Args>(args)...);
   }
 
@@ -101,7 +125,7 @@ class IterativeTasks {
 
  private:
   template <class F, class... Args>
-  TaskID AddTask_(const TaskType &type, const int interval, TaskID const &dep, F &&func,
+  TaskID AddTask_(std::string name, const TaskType &type, const int interval, TaskID const &dep, F &&func,
                   Args &&...args) {
     TaskID id(0);
     id = task_list_impl::AddTaskHelper(
@@ -110,7 +134,7 @@ class IterativeTasks {
                  [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
                    return func(std::forward<Args>(args)...);
                  },
-                 type, key_));
+                 type, key_, name));
     return id;
   }
   TaskList *tl_;
@@ -260,7 +284,10 @@ class TaskList {
       }
       auto dep = task->GetDependency();
       if (CheckDependencies(dep)) {
+        CALI_MARK_BEGIN(task->GetName().c_str());
         (*task)();
+        CALI_MARK_END(task->GetName().c_str());
+
         if (task->GetStatus() == TaskStatus::complete && !task->IsRegional()) {
           MarkTaskComplete(task->GetID());
         } else if (task->GetStatus() == TaskStatus::skip &&
@@ -313,6 +340,23 @@ class TaskList {
       return (obj->*func)(std::forward<Args2>(args)...);
     });
   }
+  template <class T, class U, class... Args1, class... Args2>
+  TaskID AddTask(const std::string name, TaskID const &dep, TaskStatus (T::*func)(Args1...), U *obj,
+                 Args2 &&...args) {
+    return this->AddTask(dep, [=]() mutable -> TaskStatus {
+      return (obj->*func)(std::forward<Args2>(args)...);
+    });
+  }
+  template <class F, class... Args>
+  TaskID AddTask(const std::string name, TaskID const &dep, F &&func, Args &&...args) {
+    TaskID id(tasks_added_ + 1);
+    task_list_.push_back(
+        Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
+          return func(std::forward<Args>(args)...);
+        }, name));
+    tasks_added_++;
+    return id;
+  }
 
   template <class F, class... Args>
   TaskID AddTask(TaskID const &dep, F &&func, Args &&...args) {
@@ -320,7 +364,7 @@ class TaskList {
     task_list_.push_back(
         Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
-        }));
+        }, std::string("anon task")));
     tasks_added_++;
     return id;
   }

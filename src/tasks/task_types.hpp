@@ -32,9 +32,19 @@ class Task {
   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func)
       : myid_(id), dep_(dep), type_(TaskType::single), key_(-1), func_(std::move(func)),
         interval_(1) {}
+   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func, const std::string name)
+      : myid_(id), dep_(dep), type_(TaskType::single), key_(-1), func_(std::move(func)), name_(name),
+        interval_(1) {}
   Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
        const TaskType &type, const int key)
       : myid_(id), dep_(dep), type_(type), key_(key), func_(std::move(func)),
+        interval_(1) {
+    assert(key_ >= 0);
+    assert(type_ != TaskType::single);
+  }
+  Task(const TaskID &id, const TaskID &dep, std::function<TaskStatus()> func,
+       const TaskType &type, const int key, const std::string name)
+      : myid_(id), dep_(dep), type_(type), key_(key), name_(name), func_(std::move(func)),
         interval_(1) {
     assert(key_ >= 0);
     assert(type_ != TaskType::single);
@@ -79,6 +89,8 @@ class Task {
   int GetKey() const { return key_; }
   void SetRegional() { regional_ = true; }
   bool IsRegional() const { return regional_; }
+  void SetName(const std::string name) { name_ = name; }
+  std::string GetName() const {return name_; }
 
  private:
   TaskID myid_;
@@ -91,6 +103,7 @@ class Task {
   std::function<TaskStatus()> func_;
   int calls_ = 0;
   const int interval_;
+  std::string name_; 
 
   // this is used to record the start time of the task so that we can check for how long
   // the task been running and detect potential hangs, infinite loops, etc.

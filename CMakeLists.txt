@@ -116,6 +116,42 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 
+
+##############################################################################
+# Caliper
+##############################################################################
+if( NOT TARGET caliper )
+  #=============================================================================
+  # If the user has provided ``CALIPER_ROOT_DIR``, use it!  Choose items found
+  # at this location over system locations.
+  if( EXISTS "$ENV{CALIPER_ROOT_DIR}" )
+    file( TO_CMAKE_PATH "$ENV{CALIPER_ROOT_DIR}" CALIPER_ROOT_DIR )
+    set( CALIPER_ROOT_DIR "${CALIPER_ROOT_DIR}" CACHE PATH
+      "Prefix for Caliper installation." )
+  endif()
+
+  message( STATUS "Looking for caliper..." )
+  find_package( caliper CONFIG )
+  if( caliper_FOUND )
+    set( ENABLE_CALIPER ON )
+    add_compile_definitions(ENABLE_CALIPER) 
+    message( STATUS "Looking for caliper.....found ${CALIPER_LIBRARY}" )
+    include_directories("${caliper_INCLUDE_DIR}")
+  else()
+    message( STATUS "Looking for caliper.....not found" )
+  endif()
+
+  if (WITH_ADIAK)
+    find_package(adiak)
+    if (adiak_FOUND)
+      message( STATUS "Looking for adiak.....found ${adiak_LIBRARIES} lib.. ${adiak_INCLUDE_DIR}")
+      include_directories("${adiak_INCLUDE_DIR}")
+    else()
+      message(WARNING "Adiak support was requested but Adiak was not found")
+    endif()
+  endif()
+endif()
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)

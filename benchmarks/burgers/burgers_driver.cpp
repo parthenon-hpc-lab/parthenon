@@ -85,44 +85,44 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     const auto any = parthenon::BoundaryType::any;
 
-    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
-    auto start_flx_recv = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
+    auto start_bnd = tl.AddTask("StartReceiveBoundBufs", none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    auto start_flx_recv = tl.AddTask("StartReceiveFluxCorrections", none, parthenon::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
-    auto flx = tl.AddTask(none, burgers_package::CalculateFluxes, mc0.get());
+    auto flx = tl.AddTask("CalculateFluxes", none, burgers_package::CalculateFluxes, mc0.get());
 
-    auto send_flx = tl.AddTask(flx, parthenon::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(start_flx_recv, parthenon::ReceiveFluxCorrections, mc0);
-    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
+    auto send_flx = tl.AddTask("LoadAndSendFluxCorrections",flx, parthenon::LoadAndSendFluxCorrections, mc0);
+    auto recv_flx = tl.AddTask("ReceiveFluxCorrections", start_flx_recv, parthenon::ReceiveFluxCorrections, mc0);
+    auto set_flx = tl.AddTask("SetFluxCorrections", recv_flx, parthenon::SetFluxCorrections, mc0);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
         tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
-    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+    auto avg_data = tl.AddTask("AverageIndependentData", flux_div, AverageIndependentData<MeshData<Real>>,
                                mc0.get(), mbase.get(), beta);
     // apply du/dt to all independent fields in the container
-    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
+    auto update = tl.AddTask("UpdateIndependentData", avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
     const auto local = parthenon::BoundaryType::local;
     const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    auto send = tl.AddTask(update, parthenon::SendBoundBufs<nonlocal>, mc1);
+    auto send = tl.AddTask("SendBoundBufs", update, parthenon::SendBoundBufs<nonlocal>, mc1);
 
-    auto send_local = tl.AddTask(update, parthenon::SendBoundBufs<local>, mc1);
-    auto recv_local = tl.AddTask(update, parthenon::ReceiveBoundBufs<local>, mc1);
-    auto set_local = tl.AddTask(recv_local, parthenon::SetBounds<local>, mc1);
+    auto send_local = tl.AddTask("SendBoundBufs", update, parthenon::SendBoundBufs<local>, mc1);
+    auto recv_local = tl.AddTask("ReceiveBoundBufs", update, parthenon::ReceiveBoundBufs<local>, mc1);
+    auto set_local = tl.AddTask("SetBounds", recv_local, parthenon::SetBounds<local>, mc1);
 
     auto recv =
-        tl.AddTask(start_bnd | update, parthenon::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::SetBounds<nonlocal>, mc1);
+        tl.AddTask("ReceiveBoundBufs", start_bnd | update, parthenon::ReceiveBoundBufs<nonlocal>, mc1);
+    auto set = tl.AddTask("SetBounds", recv, parthenon::SetBounds<nonlocal>, mc1);
 
-    auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
+    auto fill_deriv = tl.AddTask("FillDerived", update, FillDerived<MeshData<Real>>, mc1.get());
 
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
+      auto new_dt = tl.AddTask("EstimateTimestep", update, EstimateTimestep<MeshData<Real>>, mc1.get());
     }
   }
 
@@ -134,12 +134,12 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
     // set physical boundaries
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask("ApplyBoundaryConditions", none, parthenon::ApplyBoundaryConditions, sc1);
 
     if (stage == integrator->nstages) {
       // Update refinement
       if (pmesh->adaptive) {
-        auto tag_refine = tl.AddTask(
+        auto tag_refine = tl.AddTask("UpdateRefinement",
             set_bc, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
       }
     }

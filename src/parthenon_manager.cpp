@@ -38,6 +38,11 @@
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
+#ifdef ENABLE_CALIPER
+#include <adiak.h>
+#include <caliper/cali.h>
+#endif
+
 namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
@@ -68,12 +73,19 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     // MPI_Finalize();
     return ParthenonStatus::error;
   }
+  #ifdef ENABLE_CALIPER
+    MPI_Comm comm = MPI_COMM_WORLD;
+    adiak_init(&comm);
+    adiak_collect_all();
+  #endif
+
 #else  // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
+
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
