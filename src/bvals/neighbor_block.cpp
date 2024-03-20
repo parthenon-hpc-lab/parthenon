@@ -30,7 +30,7 @@
 #include <unordered_set>
 
 #include "globals.hpp"
-#include "mesh/logical_location.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/mesh.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"

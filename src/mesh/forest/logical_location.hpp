@@ -49,6 +49,8 @@ struct std::hash<parthenon::LogicalLocation> {
 
 namespace parthenon {
 
+// TODO(LFR): This can go away once MG is fixed for forests, and probably any routine that 
+// depends on it.
 struct RootGridInfo {
   int level;
   std::array<int, 3> n;
@@ -127,8 +129,6 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
-                               const RootGridInfo &rg_info = RootGridInfo()) const;
   // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
   std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
@@ -152,8 +152,7 @@ class LogicalLocation { // aggregate and POD type
   }
 
   LogicalLocation
-  GetSameLevelNeighbor(int ox1, int ox2, int ox3,
-                       const RootGridInfo &rg_info = RootGridInfo()) const {
+  GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
@@ -175,8 +174,7 @@ class LogicalLocation { // aggregate and POD type
   // Athena++, which are stored in the NeighborBlock struct. I believe that these are
   // currently only required for flux correction and can eventually be removed when flux
   // correction is combined with boundary communication.
-  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3,
-                              const RootGridInfo &rg_info = RootGridInfo()) const {
+  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3) const {
     // The neighbor block struct should only use the first two, but we have three to allow
     // for this being a parent of neighbor, this should be checked for elsewhere
     std::array<int, 3> f{0, 0, 0};

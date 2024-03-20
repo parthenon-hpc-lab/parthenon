@@ -30,7 +30,7 @@
 #include <utility>
 #include <vector>
 
-#include "mesh/logical_location.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 
@@ -51,31 +51,6 @@ bool LogicalLocation::Contains(const LogicalLocation &containee) const {
   const std::int64_t shifted_lx2 = containee.lx2() >> (containee.level() - level());
   const std::int64_t shifted_lx3 = containee.lx3() >> (containee.level() - level());
   return (shifted_lx1 == lx1()) && (shifted_lx2 == lx2()) && (shifted_lx3 == lx3());
-}
-
-std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
-                                              const RootGridInfo &rg_info) const {
-  std::array<int, 3> offset;
-  const int level_diff_1 = std::max(neighbor.level() - level(), 0);
-  const int level_diff_2 = std::max(level() - neighbor.level(), 0);
-  const int n_per_root_block = 1 << (std::min(level(), neighbor.level()) - rg_info.level);
-  const int root_block_per_n =
-      1 << std::max(rg_info.level - std::min(level(), neighbor.level()), 0);
-  for (int i = 0; i < 3; ++i) {
-    offset[i] = (neighbor.l(i) >> level_diff_1) - (l(i) >> level_diff_2);
-    if (rg_info.periodic[i]) {
-      int n_cells_level = std::max(n_per_root_block * rg_info.n[i], 1);
-      if (root_block_per_n > 1)
-        n_cells_level =
-            rg_info.n[i] / root_block_per_n + (rg_info.n[i] % root_block_per_n != 0);
-      if (std::abs(offset[i]) > (n_cells_level / 2)) {
-        offset[i] %= n_cells_level;
-        offset[i] += offset[i] > 0 ? -n_cells_level : n_cells_level;
-      }
-    }
-  }
-
-  return offset;
 }
 
 std::array<int, 3>

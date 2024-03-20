@@ -165,8 +165,8 @@ add_library(parthenon
   mesh/forest/relative_orientation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
-  mesh/logical_location.cpp
-  mesh/logical_location.hpp
+  mesh/forest/logical_location.cpp
+  mesh/forest/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
   mesh/mesh-gmg.cpp
