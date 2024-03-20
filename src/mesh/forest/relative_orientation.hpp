@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_FOREST_HPP_
-#define MESH_FOREST_HPP_
+#ifndef MESH_FOREST_RELATIVE_ORIENTATION_HPP_
+#define MESH_FOREST_RELATIVE_ORIENTATION_HPP_
 
 #include <array>
 #include <map>
@@ -53,4 +53,4 @@ struct RelativeOrientation {
 } // namespace forest
 } // namespace parthenon
 
-#endif // MESH_FOREST_HPP_
+#endif // MESH_FOREST_RELATIVE_ORIENTATION_HPP_

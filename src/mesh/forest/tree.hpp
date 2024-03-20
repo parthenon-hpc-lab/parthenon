@@ -34,8 +34,8 @@
 namespace parthenon {
 namespace forest {
 
-// We don't explicitly allow for periodic boundaries, since we can encode periodicity through
-// connectivity in the forest
+// We don't explicitly allow for periodic boundaries, since we can encode periodicity
+// through connectivity in the forest
 class Tree : public std::enable_shared_from_this<Tree> {
   // This allows us to ensure that Trees are only created as shared_ptrs
   struct private_t {};
