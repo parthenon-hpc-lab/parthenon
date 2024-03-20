@@ -165,7 +165,8 @@ void Mesh::SetSameLevelNeighbors(
                 nc = NeighborConnect::corner;
               }
               auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3);
-              auto fn = pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2, -ox3);
+              auto fn =
+                  pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2, -ox3);
               int bid = buffer_id.GetID(ox1, ox2, ox3, f[0], f[1]);
               int tid = buffer_id.GetID(-ox1, -ox2, -ox3, fn[0], fn[1]);
               neighbor_list->emplace_back(

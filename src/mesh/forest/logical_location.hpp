@@ -18,8 +18,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_LOGICAL_LOCATION_HPP_
-#define MESH_LOGICAL_LOCATION_HPP_
+#ifndef MESH_FOREST_LOGICAL_LOCATION_HPP_
+#define MESH_FOREST_LOGICAL_LOCATION_HPP_
 
 #include <algorithm>
 #include <cmath>
@@ -49,7 +49,7 @@ struct std::hash<parthenon::LogicalLocation> {
 
 namespace parthenon {
 
-// TODO(LFR): This can go away once MG is fixed for forests, and probably any routine that 
+// TODO(LFR): This can go away once MG is fixed for forests, and probably any routine that
 // depends on it.
 struct RootGridInfo {
   int level;
@@ -151,8 +151,7 @@ class LogicalLocation { // aggregate and POD type
     return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info);
   }
 
-  LogicalLocation
-  GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
+  LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
@@ -174,7 +173,8 @@ class LogicalLocation { // aggregate and POD type
   // Athena++, which are stored in the NeighborBlock struct. I believe that these are
   // currently only required for flux correction and can eventually be removed when flux
   // correction is combined with boundary communication.
-  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3) const {
+  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2,
+                              int ox3) const {
     // The neighbor block struct should only use the first two, but we have three to allow
     // for this being a parent of neighbor, this should be checked for elsewhere
     std::array<int, 3> f{0, 0, 0};
@@ -245,4 +245,4 @@ inline std::size_t std::hash<parthenon::LogicalLocation>::operator()(
   return key.morton().bits[0];
 }
 
-#endif // MESH_LOGICAL_LOCATION_HPP_
+#endif // MESH_FOREST_LOGICAL_LOCATION_HPP_
