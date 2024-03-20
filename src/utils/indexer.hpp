@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "mesh/forest/block_ownership.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 

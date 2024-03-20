@@ -158,6 +158,8 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/forest/block_ownership.cpp
+  mesh/forest/block_ownership.hpp
   mesh/forest/cell_center_offsets.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
