@@ -156,7 +156,6 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
 
-  mesh/amr_loadbalance.cpp
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
@@ -171,6 +170,7 @@ add_library(parthenon
   mesh/forest/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-amr_loadbalance.cpp
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
