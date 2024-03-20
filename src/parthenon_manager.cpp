@@ -35,6 +35,7 @@
 #include "outputs/output_utils.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "outputs/restart_opmd.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -104,6 +105,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+    } else if (fs::path(arg.restart_filename).extension() == ".bp") {
+      restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
     } else {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
