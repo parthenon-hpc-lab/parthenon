@@ -64,7 +64,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   int Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting = true);
 
   // Methods for getting block properties
-  int count(const LogicalLocation &loc) const {return leaves.count(loc);}
+  int count(const LogicalLocation &loc) const { return leaves.count(loc); }
   std::vector<LogicalLocation> GetMeshBlockList() const;
   RegionSize GetBlockDomain(const LogicalLocation &loc) const;
   std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const;

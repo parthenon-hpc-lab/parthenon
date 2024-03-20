@@ -41,7 +41,7 @@ class Forest {
   int root_level;
   int forest_level;
 
-  void AddTree(const std::shared_ptr<Tree>& in) { 
+  void AddTree(const std::shared_ptr<Tree> &in) {
     if (trees.count(in->GetId())) {
       PARTHENON_WARN("Adding tree to forest twice.");
     }
@@ -63,8 +63,8 @@ class Forest {
 
   std::vector<LogicalLocation> GetMeshBlockListAndResolveGids();
 
-  int count(const LogicalLocation &loc) const { 
-    if (trees.count(loc.tree()) > 0) { 
+  int count(const LogicalLocation &loc) const {
+    if (trees.count(loc.tree()) > 0) {
       return trees.at(loc.tree())->count(loc);
     }
     return 0;
@@ -73,7 +73,7 @@ class Forest {
   RegionSize GetBlockDomain(const LogicalLocation &loc) const {
     return trees.at(loc.tree())->GetBlockDomain(loc);
   }
-  
+
   std::array<BoundaryFlag, BOUNDARY_NFACES>
   GetBlockBCs(const LogicalLocation &loc) const {
     return trees.at(loc.tree())->GetBlockBCs(loc);
