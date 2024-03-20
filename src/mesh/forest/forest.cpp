@@ -39,7 +39,7 @@ namespace forest {
 std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
   std::vector<LogicalLocation> mb_list;
   std::uint64_t gid{0};
-  for (auto &tree : trees) {
+  for (auto &[id, tree] : trees) {
     std::size_t start = mb_list.size();
     auto tree_mbs = tree->GetMeshBlockList();
     mb_list.insert(mb_list.end(), std::make_move_iterator(tree_mbs.begin()),
@@ -174,7 +174,7 @@ Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
   fout.root_level = ref_level;
   fout.forest_level = level;
   for (auto &[loc, p] : ll_map)
-    fout.trees.push_back(p.second);
+    fout.AddTree(p.second);
   return fout;
 }
 

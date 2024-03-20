@@ -35,14 +35,17 @@ namespace forest {
 
 class Forest {
   bool gids_resolved = false;
+  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
 
  public:
-  std::vector<std::shared_ptr<Tree>> trees;
   int root_level;
   int forest_level;
 
   void AddTree(const std::shared_ptr<Tree>& in) { 
-    trees.push_back(in);
+    if (trees.count(in->GetId())) {
+      PARTHENON_WARN("Adding tree to forest twice.");
+    }
+    trees[in->GetId()] = in;
   }
 
   int AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting = true) {
@@ -60,26 +63,33 @@ class Forest {
 
   std::vector<LogicalLocation> GetMeshBlockListAndResolveGids();
 
-  RegionSize GetBlockDomain(const LogicalLocation &loc) const {
-    return trees[loc.tree()]->GetBlockDomain(loc);
+  int count(const LogicalLocation &loc) const { 
+    if (trees.count(loc.tree()) > 0) { 
+      return trees.at(loc.tree())->count(loc);
+    }
+    return 0;
   }
 
+  RegionSize GetBlockDomain(const LogicalLocation &loc) const {
+    return trees.at(loc.tree())->GetBlockDomain(loc);
+  }
+  
   std::array<BoundaryFlag, BOUNDARY_NFACES>
   GetBlockBCs(const LogicalLocation &loc) const {
-    return trees[loc.tree()]->GetBlockBCs(loc);
+    return trees.at(loc.tree())->GetBlockBCs(loc);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
                                               int ox2, int ox3) const {
-    return trees[loc.tree()]->FindNeighbors(loc, ox1, ox2, ox3);
+    return trees.at(loc.tree())->FindNeighbors(loc, ox1, ox2, ox3);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
-    return trees[loc.tree()]->FindNeighbors(loc);
+    return trees.at(loc.tree())->FindNeighbors(loc);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};
-    for (auto &tree : trees)
+    for (auto &[id, tree] : trees)
       count += tree->CountMeshBlock();
     return count;
   }
@@ -89,7 +99,7 @@ class Forest {
   LogicalLocation GetAthenaCompositeLocation(const LogicalLocation &loc) const {
     if (loc.tree() < 0)
       return loc; // This is already presumed to be an Athena++ tree location
-    auto parent_loc = trees[loc.tree()]->athena_forest_loc;
+    auto parent_loc = trees.at(loc.tree())->athena_forest_loc;
     int composite_level = parent_loc.level() + loc.level();
     int lx1 = (parent_loc.lx1() << loc.level()) + loc.lx1();
     int lx2 = (parent_loc.lx2() << loc.level()) + loc.lx2();
@@ -102,9 +112,9 @@ class Forest {
     if (loc.tree() >= 0)
       return loc; // This location is already associated with a tree in the Parthenon
                   // forest
-    int macro_level = trees[0]->athena_forest_loc.level();
+    int macro_level = (*trees.begin()).second->athena_forest_loc.level();
     auto forest_loc = loc.GetParent(loc.level() - macro_level);
-    for (auto &t : trees) {
+    for (auto &[id, t] : trees) {
       if (t->athena_forest_loc == forest_loc) {
         return LogicalLocation(
             t->GetId(), loc.level() - macro_level,
@@ -121,12 +131,12 @@ class Forest {
 
   std::int64_t GetGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
-    return trees[loc.tree()]->GetGid(loc);
+    return trees.at(loc.tree())->GetGid(loc);
   }
 
   std::int64_t GetOldGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
-    return trees[loc.tree()]->GetOldGid(loc);
+    return trees.at(loc.tree())->GetOldGid(loc);
   }
 
   // Build a logically hyper-rectangular forest that mimics the grid
