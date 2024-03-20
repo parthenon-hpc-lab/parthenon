@@ -28,16 +28,13 @@
 
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
-#include "driver/driver.hpp"
-#include "outputs/restart.hpp"
-#include "outputs/restart_hdf5.hpp"
 #include FS_HEADER
 #include "globals.hpp"
-#include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
-#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -108,7 +105,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
     } else {
-      PARTHENON_FAIL("HELP!");
+      PARTHENON_FAIL("Unsupported restart file format.");
     }
 
     // Load input stream
