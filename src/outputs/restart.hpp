@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "interface/metadata.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
 
@@ -122,4 +123,4 @@ class RestartReader {
 };
 
 } // namespace parthenon
-#endif // OUTPUTS_RESTART_HDF5_HPP_
+#endif // OUTPUTS_RESTART_HPP_
