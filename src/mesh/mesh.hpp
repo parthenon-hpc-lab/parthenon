@@ -45,7 +45,7 @@
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/forest.hpp"
+#include "mesh/forest/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"

@@ -1,6 +1,6 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2023 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
 # (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 23.11 LANGUAGES C CXX)
+project(parthenon VERSION 24.03 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)

@@ -37,7 +37,7 @@
 #include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/forest.hpp"
+#include "mesh/forest/forest.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"

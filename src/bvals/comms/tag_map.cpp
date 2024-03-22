@@ -38,6 +38,8 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
+    // type_t var = []{...}() pattern defines and uses a lambda that
+    // returns  to reduce initializations of var
     auto *neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
         return &(pmb->gmg_coarser_neighbors);
