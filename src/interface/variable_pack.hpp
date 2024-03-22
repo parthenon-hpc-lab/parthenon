@@ -716,6 +716,7 @@ template <typename T>
 VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
                                  const VarListWithKeys<T> &flux_var_list,
                                  PackIndexMap *pvmap) {
+  printf("Making a FluxPack\n");
   const auto &vars = var_list.vars();           // for convenience
   const auto &flux_vars = flux_var_list.vars(); // for convenience
 
@@ -777,6 +778,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
 template <typename T>
 VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
                          PackIndexMap *pvmap) {
+  printf("Making a Pack\n");
   const auto &vars = var_list.vars(); // for convenience
 
   if (vars.empty()) {

@@ -399,8 +399,8 @@ class TaskRegion {
 
   TaskListStatus Execute(ThreadPool &pool) {
     // for now, require a pool with one thread
-    PARTHENON_REQUIRE_THROWS(pool.size() == 1,
-                             "ThreadPool size != 1 is not currently supported.")
+    //PARTHENON_REQUIRE_THROWS(pool.size() == 1,
+                             //"ThreadPool size != 1 is not currently supported.")
 
     // first, if needed, finish building the graph
     if (!graph_built) BuildGraph();

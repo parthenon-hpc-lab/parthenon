@@ -288,7 +288,7 @@ template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
                                      const std::vector<bool> &include_block) {
   auto cache_tuple_itr = GetFromMap(desc.identifier);
-  if (cache_tuple_itr != pack_map.end()) {
+  if (false && cache_tuple_itr != pack_map.end()) {
     auto &cache_tuple = cache_tuple_itr->second;
     auto &pack = std::get<0>(cache_tuple);
     auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
