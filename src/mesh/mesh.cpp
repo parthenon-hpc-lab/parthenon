@@ -856,6 +856,14 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
       BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
       BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+  static const SBValFunc soutflow[6] = {
+      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
+      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
+      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
     switch (mesh_bcs[f]) {
@@ -864,6 +872,7 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       break;
     case BoundaryFlag::outflow:
       MeshBndryFnctn[f] = outflow[f];
+      MeshSwarmBndryFnctn[f] = soutflow[f];
       break;
     case BoundaryFlag::user:
       if (app_in->boundary_conditions[f] != nullptr) {
@@ -880,11 +889,17 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     }
 
     switch (mesh_bcs[f]) {
+    case BoundaryFlag::outflow:
+      MeshSwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      MeshSwarmBndryFnctn[f] = speriodic[f];
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
         // boundaries are requested but no swarms are used.
-        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
       }
       break;
     default: // Default BCs handled elsewhere

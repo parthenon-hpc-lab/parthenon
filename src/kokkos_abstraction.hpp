@@ -935,42 +935,6 @@ struct SpaceInstance<Kokkos::Cuda> {
 };
 #endif
 
-// Design from "Runtime Polymorphism in Kokkos Applications", SAND2019-0279PE
-template <typename MS = DevMemSpace>
-struct DeviceDeleter {
-  template <typename T>
-  void operator()(T *ptr) {
-    Kokkos::kokkos_free<MS>(ptr);
-  }
-};
-
-template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
-std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
-  static_assert(std::is_trivially_destructible<T>::value,
-                "DeviceAllocate only supports trivially destructible classes!");
-  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
-      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
-  auto p = up.get();
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
-  Kokkos::fence();
-  return up;
-}
-
-template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
-std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
-  static_assert(std::is_trivially_destructible<T>::value,
-                "DeviceCopy only supports trivially destructible classes!");
-  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
-      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
-  auto p = up.get();
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<ES>(0, 1),
-      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
-  Kokkos::fence();
-  return up;
-}
-
 } // namespace parthenon
 
 #endif // KOKKOS_ABSTRACTION_HPP_

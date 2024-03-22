@@ -104,7 +104,7 @@ class Swarm {
 
   SwarmDeviceContext GetDeviceContext() const;
 
-  void AllocateBoundaries();
+  // void AllocateBoundaries();
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -126,13 +126,13 @@ class Swarm {
   void Remove(const std::string &label);
 
   /// Set a custom boundary condition
-  void SetBoundary(
-      const int n,
-      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
-          bc) {
-    bounds_uptrs[n] = std::move(bc);
-    bounds_d.bounds[n] = bounds_uptrs[n].get();
-  }
+  void SetBoundary() { PARTHENON_FAIL("Not implemented!\n"); }
+  //    const int n,
+  //    std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
+  //        bc) {
+  //  bounds_uptrs[n] = std::move(bc);
+  //  bounds_d.bounds[n] = bounds_uptrs[n].get();
+  //}
 
   /// Get particle variable
   template <typename T>
@@ -249,7 +249,8 @@ class Swarm {
 
   void ApplyBoundaries_(const int nparticles, ParArray1D<int> indices);
 
-  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
+  // std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
+  // bounds_uptrs[6];
 
   template <typename T>
   const auto &GetVariableVector() const {
@@ -262,8 +263,8 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
-  template <class BOutflow, class BPeriodic, int iFace>
-  void AllocateBoundariesImpl_(MeshBlock *pmb);
+  // template <class BOutflow, class BPeriodic, int iFace>
+  // void AllocateBoundariesImpl_(MeshBlock *pmb);
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();

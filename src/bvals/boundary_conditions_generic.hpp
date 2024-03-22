@@ -35,7 +35,22 @@ namespace parthenon {
 namespace BoundaryFunction {
 
 enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
+enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace, Periodic };
+
+// TODO(BRR) add support for specific swarms?
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
+void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
+  // make sure DIR is X[123]DIR so we don't have to check again
+  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  // convenient shorthands
+  constexpr bool X1 = (DIR == X1DIR);
+  constexpr bool X2 = (DIR == X2DIR);
+  constexpr bool X3 = (DIR == X3DIR);
+  constexpr bool INNER = (SIDE == BCSide::Inner);
+
+  PARTHENON_FAIL("Implement generic BC!");
+}
 
 namespace impl {
 using desc_key_t = std::tuple<bool, TopologicalType>;
