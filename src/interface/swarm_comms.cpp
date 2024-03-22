@@ -514,6 +514,7 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("%s:%i Send\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
@@ -607,12 +608,14 @@ void Swarm::UnloadBuffers_() {
   auto &bdvar = vbswarm->bd_var_;
 
   if (total_received_particles_ > 0) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
     auto &recv_neighbor_index = recv_neighbor_index_;
     auto &recv_buffer_index = recv_buffer_index_;
     UpdateNeighborBufferReceiveIndices_(recv_neighbor_index, recv_buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     auto &int_vector = std::get<getType<int>()>(vectors_);
     auto &real_vector = std::get<getType<Real>()>(vectors_);
@@ -622,11 +625,13 @@ void Swarm::UnloadBuffers_() {
     auto vint = PackAllVariables_<int>(int_imap);
     int realPackDim = vreal.GetDim(2);
     int intPackDim = vint.GetDim(2);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // construct map from buffer index to swarm index (or just return vector of
     // indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
@@ -645,12 +650,16 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
         });
+    Kokkos::fence(); // TODO(BRR) debugging -- remove!
+    printf("%s:%i\n", __FILE__, __LINE__);
 
-    ApplyBoundaries_(total_received_particles_, new_indices_);
+    // ApplyBoundaries_(total_received_particles_, new_indices_);
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
 }
 
 void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
+  PARTHENON_FAIL("NO LONGER SUPPORTED!");
   auto pmb = GetBlockPointer();
   auto &x = Get<Real>("x").Get();
   auto &y = Get<Real>("y").Get();
@@ -670,26 +679,32 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  printf("%s:%i Receive\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 
   if (nneighbor == 0) {
     // Do nothing; no boundaries to receive
+    printf("no bcs to recv\n");
     return true;
   } else {
     // Ensure all local deep copies marked BoundaryStatus::completed are actually
     // received
     pmb->exec_space.fence();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Populate buffers
     vbswarm->Receive(phase);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Transfer data from buffers to swarm memory pool
     UnloadBuffers_();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     auto &bdvar = vbswarm->bd_var_;
     bool all_boundaries_received = true;
     for (int n = 0; n < nneighbor; n++) {
+      printf("n: %i (%i)\n", n, nneighbor);
       NeighborBlock &nb = pmb->neighbors[n];
       if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
         bdvar.flag[nb.bufid] = BoundaryStatus::completed;
@@ -697,6 +712,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         all_boundaries_received = false;
       }
     }
+    printf("all bcs received? %i\n", static_cast<int>(all_boundaries_received));
 
     return all_boundaries_received;
   }

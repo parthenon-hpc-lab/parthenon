@@ -187,9 +187,12 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
       success++;
+      ApplySwarmBoundaryConditions(s);
+      s->RemoveMarkedParticles();
     }
     total++;
   }
+  printf("here?\n");
 
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;

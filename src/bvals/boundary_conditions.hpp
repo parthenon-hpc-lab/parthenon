@@ -29,7 +29,7 @@ namespace parthenon {
 // Physical boundary conditions
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<void(std::shared_ptr<SwarmContainer> &)>;
+using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
@@ -47,6 +47,8 @@ inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &
 
 TaskStatus ApplySwarmBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
 
+TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm);
+
 namespace BoundaryFunction {
 
 void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
@@ -62,18 +64,18 @@ void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 
-void SwarmOutflowInnerX1(std::shared_ptr<SwarmContainer> &rc);
-void SwarmOutflowOuterX1(std::shared_ptr<SwarmContainer> &rc);
-void SwarmOutflowInnerX2(std::shared_ptr<SwarmContainer> &rc);
-void SwarmOutflowOuterX2(std::shared_ptr<SwarmContainer> &rc);
-void SwarmOutflowInnerX3(std::shared_ptr<SwarmContainer> &rc);
-void SwarmOutflowOuterX3(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicInnerX1(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicOuterX1(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicInnerX2(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicOuterX2(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicInnerX3(std::shared_ptr<SwarmContainer> &rc);
-void SwarmPeriodicOuterX3(std::shared_ptr<SwarmContainer> &rc);
+void SwarmOutflowInnerX1(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX1(std::shared_ptr<Swarm> &s);
+void SwarmOutflowInnerX2(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX2(std::shared_ptr<Swarm> &s);
+void SwarmOutflowInnerX3(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX3(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX1(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX1(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX2(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX2(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX3(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX3(std::shared_ptr<Swarm> &s);
 
 } // namespace BoundaryFunction
 } // namespace parthenon

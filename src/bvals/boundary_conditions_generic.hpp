@@ -39,7 +39,7 @@ enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace, Periodic 
 
 // TODO(BRR) add support for specific swarms?
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
-void GenericSwarmBC(std::shared_ptr<SwarmContainer> &sc) {
+void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -49,11 +49,7 @@ void GenericSwarmBC(std::shared_ptr<SwarmContainer> &sc) {
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
-  const auto &sv = sc->GetSwarmVector();
-
-  for (auto &swarm : sv) {
-    printf("swarm name: %s\n", swarm->label());
-  }
+  PARTHENON_FAIL("Implement generic BC!");
 }
 
 namespace impl {
