@@ -290,31 +290,35 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 
 // mirror must be provided because copying done externally
 template <typename Data_t, typename idx_t, typename Function_t>
-void PackOrUnpackVar(MeshBlock *pmb, Variable<Real> *pvar, bool do_ghosts, idx_t &idx,
-                     std::vector<Data_t> &data, Function_t f) {
-  const auto &Nt = pvar->GetDim(6);
-  const auto &Nu = pvar->GetDim(5);
-  const auto &Nv = pvar->GetDim(4);
+void PackOrUnpackVar(const VarInfo &info, Variable<Real> *pvar, bool do_ghosts,
+                     idx_t &idx, std::vector<Data_t> &data, Function_t f) {
   const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
-  IndexRange kb, jb, ib;
-  if (pvar->metadata().Where() == MetadataFlag(Metadata::Cell)) {
-    kb = pmb->cellbounds.GetBoundsK(domain);
-    jb = pmb->cellbounds.GetBoundsJ(domain);
-    ib = pmb->cellbounds.GetBoundsI(domain);
-    // TODO(JMM): Add topological elements here
-  } else { // metadata none
-    kb = {0, pvar->GetDim(3) - 1};
-    jb = {0, pvar->GetDim(2) - 1};
-    ib = {0, pvar->GetDim(1) - 1};
+  // shape as written to or read from. contains additional padding
+  // in orthogonal directions.
+  // e.g., Face1-centered var is shape (N1+1)x(N2+1)x(N3+1)
+  // format is
+  // topological_elems x tensor_elems x block_elems
+  const auto shape = info.GetPaddedShapeReversed(domain);
+  // TODO(JMM): Should I hide this inside VarInfo?
+  auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
+  if (info.where == MetadataFlag({Metadata::None})) {
+    kb.s = 0;
+    kb.e = shape[4];
+    jb.s = 0;
+    jb.e = shape[5];
+    ib.s = 0;
+    ib.e = shape[6];
   }
-  for (int t = 0; t < Nt; ++t) {
-    for (int u = 0; u < Nu; ++u) {
-      for (int v = 0; v < Nv; ++v) {
-        for (int k = kb.s; k <= kb.e; ++k) {
-          for (int j = jb.s; j <= jb.e; ++j) {
-            for (int i = ib.s; i <= ib.e; ++i) {
-              f(idx, t, u, v, k, j, i);
-              idx++;
+  for (int topo = 0; topo < shape[0]; ++topo) {
+    for (int t = 0; t < shape[1]; ++t) {
+      for (int u = 0; u < shape[2]; ++u) {
+        for (int v = 0; v < shape[3]; ++v) {
+          for (int k = kb.s; k <= kb.e; ++k) {
+            for (int j = jb.s; j <= jb.e; ++j) {
+              for (int i = ib.s; i <= ib.e; ++i) {
+                f(idx, topo, t, u, v, k, j, i);
+                idx++;
+              }
             }
           }
         }

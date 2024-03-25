@@ -224,6 +224,16 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         }
         REQUIRE(padded_shape[ND - 1] == 3);
       }
+
+      THEN("The padded bounds are correct") {
+        auto [kb, jb, ib] = info.GetPaddedBoundsKJI(interior);
+        REQUIRE(kb.s == NG);
+        REQUIRE(kb.e == NSIDE + NG);
+        REQUIRE(jb.s == NG);
+        REQUIRE(jb.e == NSIDE + NG);
+        REQUIRE(ib.s == NG);
+        REQUIRE(ib.e == NSIDE + NG);
+      }
     }
 
     WHEN("We initialize VarInfo on a scaler edge var") {

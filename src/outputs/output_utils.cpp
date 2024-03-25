@@ -35,6 +35,8 @@ namespace OutputUtils {
 
 Triple_t<int> VarInfo::GetNKJI(const IndexDomain domain) const {
   int nx3 = 1, nx2 = 1, nx1 = 1;
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
   for (auto el : topological_elements) {
     nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
     nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
@@ -44,17 +46,19 @@ Triple_t<int> VarInfo::GetNKJI(const IndexDomain domain) const {
 }
 
 Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const {
-  int ks = 1, ke = 1, js = 1, je = 1, is = 1, ie = 1;
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
+  int ks = 0, ke = 0, js = 0, je = 0, is = 0, ie = 0;
   for (auto el : topological_elements) {
-    auto kb = cellbounds.GetBoundsK(domain);
-    auto jb = cellbounds.GetBoundsJ(domain);
-    auto ib = cellbounds.GetBoundsI(domain);
+    auto kb = cellbounds.GetBoundsK(domain, el);
+    auto jb = cellbounds.GetBoundsJ(domain, el);
+    auto ib = cellbounds.GetBoundsI(domain, el);
     ks = kb.s; // pads are only upper indices
     js = jb.s;
     is = ib.s;
-    ke = std::min(ke, kb.e);
-    je = std::min(je, jb.e);
-    ie = std::min(ie, ib.e);
+    ke = std::max(ke, kb.e);
+    je = std::max(je, jb.e);
+    ie = std::max(ie, ib.e);
   }
   IndexRange kb{ks, ke}, jb{is, ie}, ib{is, ie};
   return std::make_tuple(kb, jb, ib);
@@ -85,9 +89,8 @@ int VarInfo::FillSize(const IndexDomain domain) const {
 // number of elements of data that describe variable shape
 int VarInfo::GetNDim() const {
   // 3 cell indices, tensor rank, topological element index if needed
-  return (where == MetadataFlag({Metadata::None}))
-    ? tensor_rank
-    : (3 + tensor_rank + element_matters);
+  return (where == MetadataFlag({Metadata::None})) ? tensor_rank
+                                                   : (3 + tensor_rank + element_matters);
 }
 
 // Returns full shape as read to/written from I/O, with 1-padding.
@@ -116,7 +119,6 @@ int VarInfo::GetDim(int i) const {
   PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
   return nx_[i - 1];
 }
-
 
 std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
                                      const IndexShape &cellbounds) {
