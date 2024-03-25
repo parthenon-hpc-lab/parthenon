@@ -930,42 +930,51 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     costlist = std::move(newcost);
     PopulateLeafLocationMap();
 
-    // A block newly refined and prolongated may have neighbors which were
-    // already refined to the new level.
-    // If so, the prolongated versions of shared elements will not reflect
-    // the true, finer versions present in the neighbor block.
-    // We must create any new fine buffers and fill them from these neighbors
-    // in order to maintain a consistent global state.
-    // Thus we rebuild and synchronize the mesh now, but using a unique
-    // neighbor precedence favoring the "old" fine blocks over "new" ones
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
-                                        newly_refined);
-    }
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-    // Re-initialize the mesh with our temporary ownership/neighbor configurations.
-    // No buffers are different when we switch to the final precedence order.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
-                          0, newly_refined);
-    BuildGMGHierarchy(nbs, pin, app_in);
-    BuildCommunicationBuffers();
-    
+
     // Internal refinement relies on the fine shared values, which are only consistent
     // after being updated with any previously fine versions
-    CommunicateBoundaries(); // Called to make sure shared values are correct, ghosts 
-                             // of non-cell centered vars may get some junk
-    refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                               block_list[0]->cellbounds,
-                               block_list[0]->c_cellbounds);
-    // Call to fill ghosts with real data and fill derived quantities
-    PreCommFillDerived();
-    CommunicateBoundaries(); 
-    FillDerived(); 
+    Metadata::FlagCollection fc; 
+    fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node); 
+    fc.TakeIntersection(Metadata::FillGhost);
+    std::vector<std::string> noncc_names = GetVariableNames(fc);
+    
+    if (noncc_names.size() > 0) {
+      // A block newly refined and prolongated may have neighbors which were
+      // already refined to the new level.
+      // If so, the prolongated versions of shared elements will not reflect
+      // the true, finer versions present in the neighbor block.
+      // We must create any new fine buffers and fill them from these neighbors
+      // in order to maintain a consistent global state.
+      // Thus we rebuild and synchronize the mesh now, but using a unique
+      // neighbor precedence favoring the "old" fine blocks over "new" ones
+      for (auto &pmb : block_list) {
+        pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
+                                          newly_refined);
+      }
+
+      // Re-initialize the mesh with our temporary ownership/neighbor configurations.
+      // No buffers are different when we switch to the final precedence order.
+      SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
+                            0, newly_refined);
+      BuildCommunicationBuffers();
+      std::string noncc = "mesh_internal_noncc";
+      for (int i = 0; i < DefaultNumPartitions(); ++i) {
+        auto &md = mesh_data.GetOrAdd("base", i);
+        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names); 
+      }
+
+      CommunicateBoundaries(noncc); // Called to make sure shared values are correct, ghosts 
+                                    // of non-cell centered vars may get some junk
+      refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                 block_list[0]->cellbounds,
+                                 block_list[0]->c_cellbounds);
+    }
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
@@ -974,6 +983,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (auto &pmb : block_list) {
       pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
     }
+    BuildGMGHierarchy(nbs, pin, app_in);
+    if (noncc_names.size() == 0) BuildCommunicationBuffers();
 
     // Clear the boundary caches so they rebuild on next communication with the 
     // correct ownership
@@ -982,6 +993,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto &md = mesh_data.GetOrAdd("base", i);
       md->GetBvarsCache().clear();
     }
+
+    // Call to fill ghosts with real data and fill derived quantities
+    PreCommFillDerived();
+    CommunicateBoundaries(); 
+    FillDerived(); 
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();
