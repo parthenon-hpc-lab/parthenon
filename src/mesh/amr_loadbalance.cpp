@@ -953,13 +953,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
                           0, newly_refined);
     BuildGMGHierarchy(nbs, pin, app_in);
-    Initialize(false, pin, app_in);
-
+    BuildCommunicationBuffers();
+    
     // Internal refinement relies on the fine shared values, which are only consistent
     // after being updated with any previously fine versions
+    CommunicateBoundaries(); // Called to make sure shared values are correct, ghosts 
+                             // of non-cell centered vars may get some junk
     refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                   block_list[0]->cellbounds,
-                                   block_list[0]->c_cellbounds);
+                               block_list[0]->cellbounds,
+                               block_list[0]->c_cellbounds);
+    // Call to fill ghosts with real data and fill derived quantities
+    PreCommFillDerived();
+    CommunicateBoundaries(); 
+    FillDerived(); 
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
@@ -967,6 +973,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                           false);
     for (auto &pmb : block_list) {
       pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
+    }
+
+    // Clear the boundary caches so they rebuild on next communication with the 
+    // correct ownership
+    const int num_partitions = DefaultNumPartitions();
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      md->GetBvarsCache().clear();
     }
   } // AMR Recv and unpack data
 
