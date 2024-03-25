@@ -82,6 +82,42 @@ int VarInfo::FillSize(const IndexDomain domain) const {
   }
 }
 
+// number of elements of data that describe variable shape
+int VarInfo::GetNDim() const {
+  // 3 cell indices, tensor rank, topological element index if needed
+  return (where == MetadataFlag({Metadata::None}))
+    ? tensor_rank
+    : (3 + tensor_rank + element_matters);
+}
+
+// Returns full shape as read to/written from I/O, with 1-padding.
+std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
+  std::vector<int> out = GetRawShape();
+  auto [nx3, nx2, nx1] = GetNKJI(domain);
+  out[0] = nx3;
+  out[1] = nx2;
+  out[2] = nx1;
+  return out;
+}
+std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
+  std::vector<int> out(rnx_.begin(), rnx_.end());
+  auto [nx3, nx2, nx1] = GetNKJI(domain);
+  out[VNDIM - 3] = nx3;
+  out[VNDIM - 2] = nx2;
+  out[VNDIM - 1] = nx1;
+  return out;
+}
+
+std::vector<int> VarInfo::GetRawShape() const {
+  return std::vector<int>(nx_.begin(), nx_.end());
+}
+
+int VarInfo::GetDim(int i) const {
+  PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
+  return nx_[i - 1];
+}
+
+
 std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
                                      const IndexShape &cellbounds) {
   std::vector<VarInfo> out;

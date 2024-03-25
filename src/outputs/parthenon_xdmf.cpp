@@ -150,12 +150,13 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     // write graphics variables
     int ndim;
     for (const auto &vinfo : var_list) {
-      std::vector<hsize_t> alldims = vinfo.GetShape<hsize_t>();
+      // TODO(JMM): This is crazy and needs to be fixed given otehr cleanup.
+      std::vector<int> alldims = vinfo.GetRawShape();
       // Only cell-based data currently supported for visualization
       if (vinfo.where == MetadataFlag(Metadata::Cell)) {
         ndim = 3 + vinfo.tensor_rank + 1;
         for (int i = 0; i < vinfo.tensor_rank; i++) {
-          dims[1 + i] = alldims[3 - vinfo.tensor_rank + i];
+          dims[1 + i] = static_cast<hsize_t>(alldims[3 - vinfo.tensor_rank + i]);
         }
         dims[vinfo.tensor_rank + 1] = nx3;
         dims[vinfo.tensor_rank + 2] = nx2;

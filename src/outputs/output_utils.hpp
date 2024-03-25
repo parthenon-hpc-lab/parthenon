@@ -69,13 +69,12 @@ struct VarInfo {
   int TensorSize() const;
   // Size of region that needs to be filled with 0s if not allocated
   int FillSize(const IndexDomain domain) const;
+  // number of elements of data that describe variable shape
+  int GetNDim() const;
 
   template <typename T>
-  int FillShape(const IndexDomain domain, T *data) {
-    int ndim = -1; // number of elements of data that describe
-                   // variable shape
+  int FillShape(const IndexDomain domain, T *data) const {
     if (where == MetadataFlag({Metadata::None})) {
-      ndim = tensor_rank;
       for (int i = 0; i < tensor_rank; ++i) {
         data[i] = static_cast<T>(rnx_[rnx_.size() - tensor_rank + i]);
       }
@@ -84,8 +83,6 @@ struct VarInfo {
       // accross topological elements. Unused indices will be written but
       // empty.
       auto [nx3, nx2, nx1] = GetNKJI(domain);
-      // 3 cell indices, tensor rank, topological element index if needed
-      ndim = 3 + tensor_rank + element_matters;
       // fill topological element, if relevant
       if (element_matters) {
         data[0] = ntop_elems;
@@ -100,11 +97,11 @@ struct VarInfo {
       data[tensor_rank + element_matters + 1] = static_cast<T>(nx2);
       data[tensor_rank + element_matters + 2] = static_cast<T>(nx1);
     }
-    return ndim;
+    return GetNDim();
   }
 
   template <typename T, typename... Args>
-  int FillShape(const IndexDomain domain, T *head, Args... args) {
+  int FillShape(const IndexDomain domain, T *head, Args... args) const {
     int ndim_head = FillShape(domain, head);
     int ndim_tail = FillShape(domain, std::forward<Args>(args)...);
     // this check should be impossible to trigger but... just to be safe
@@ -113,15 +110,12 @@ struct VarInfo {
     return ndim_tail;
   }
 
-  template <typename T>
-  auto GetShape() const {
-    return std::vector<T>(nx_.rbegin(), nx_.rend());
-  }
-  template <typename T = int>
-  auto GetDim(int i) const {
-    PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
-    return static_cast<T>(nx_[i - 1]);
-  }
+  // Returns full shape as read to/written from I/O, with 1-padding.
+  std::vector<int> GetPaddedShape(IndexDomain domain) const;
+  std::vector<int> GetPaddedShapeReversed(IndexDomain domain) const;
+  // nx accessors
+  std::vector<int> GetRawShape() const;
+  int GetDim(int i) const;
 
   VarInfo() = delete;
 

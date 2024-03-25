@@ -198,6 +198,32 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         REQUIRE(info.Size() == 3 * 4 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
         REQUIRE(info.TensorSize() == 3 * 4);
       }
+      THEN("Requesting reversed padded shape provides correctly shaped object") {
+        constexpr int ND = VarInfo::VNDIM;
+        auto padded_shape = info.GetPaddedShapeReversed(interior);
+        REQUIRE(padded_shape.size() == ND);
+        REQUIRE(padded_shape[ND - 1] == NSIDE + 1);
+        REQUIRE(padded_shape[ND - 2] == NSIDE + 1);
+        REQUIRE(padded_shape[ND - 3] == NSIDE + 1);
+        REQUIRE(padded_shape[ND - 4] == 4);
+        REQUIRE(padded_shape[0] == 3);
+        for (int i = 1; i < ND - 5; ++i) {
+          REQUIRE(padded_shape[i] == 1);
+        }
+      }
+      THEN("Requesting padded shape provides correctly shaped object") {
+        constexpr int ND = VarInfo::VNDIM;
+        auto padded_shape = info.GetPaddedShape(interior);
+        REQUIRE(padded_shape.size() == ND);
+        REQUIRE(padded_shape[0] == NSIDE + 1);
+        REQUIRE(padded_shape[1] == NSIDE + 1);
+        REQUIRE(padded_shape[2] == NSIDE + 1);
+        REQUIRE(padded_shape[3] == 4);
+        for (int i = 4; i < ND - 1; ++i) {
+          REQUIRE(padded_shape[i] == 1);
+        }
+        REQUIRE(padded_shape[ND - 1] == 3);
+      }
     }
 
     WHEN("We initialize VarInfo on a scaler edge var") {
