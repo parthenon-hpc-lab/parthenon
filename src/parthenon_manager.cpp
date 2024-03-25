@@ -240,7 +240,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
             << std::endl;
 
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver != HDF5::OUTPUT_VERSION_FORMAT) {
+  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
     // Being extra stringent here so that we don't forget to update the machinery when
     // another change happens.
     PARTHENON_THROW("Deprecated file format");
@@ -334,7 +334,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
+      if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
             v_info, v.get(), resfile.hasGhost, index, tmp,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {

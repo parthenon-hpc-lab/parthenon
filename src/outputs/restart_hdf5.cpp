@@ -188,19 +188,19 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 #else  // HDF5 enabled
   auto hdl = OpenDataset<Real>(name);
 
-  constexpr int CHUNK_MAX_DIM = info.VNDIM;
+  const int VNDIM = info.VNDIM;
 
   /** Select hyperslab in dataset **/
   int total_dim = 0;
-  hsize_t offset[CHUNK_MAX_DIM], count[CHUNK_MAX_DIM];
-  std::fill(offset + 1, offset + CHUNK_MAX_DIM, 0);
-  std::fill(count + 1, count + CHUNK_MAX_DIM, 1);
+  hsize_t offset[VNDIM], count[VNDIM];
+  std::fill(offset + 1, offset + VNDIM, 0);
+  std::fill(count + 1, count + VNDIM, 1);
 
   offset[0] = static_cast<hsize_t>(range.s);
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
   const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
 
-  if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
+  if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
     total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
   } else {
     PARTHENON_THROW("Unknown output format version in restart file.")

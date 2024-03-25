@@ -153,17 +153,14 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     // write graphics variables
     int ndim;
     for (const auto &vinfo : var_list) {
-      if (vinfo.where != MetadataFlag({Metadata::Cell})) {
-        continue; // TODO(JMM): Fixme. Haven't checked other element shapes
+      // JMM: I can't figure out how to get faces/edges to work and
+      // I'm not going try any longer. More eyes appreciated.
+      if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
+          (vinfo.where != MetadataFlag({Metadata::Node}))) {
+        continue;
       }
-      // if (vinfo.where == MetadataFlag({Metadata::None})) {
-      //   // TODO(JMM): Technically other centering is supported. But
-      //   // lets ignore that.
-      //   continue;
-      // }
       ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
       const int num_components = vinfo.num_components;
-      // TODO(JMM): Will need to fix this too.
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                num_components, ndim, dims, dims321, vinfo.is_vector,
                                vinfo.where);
@@ -243,7 +240,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
-  // TODO(JMM): Fix this hardcoded nonsense.
+  // TODO(JMM): this is not generic
   if (num_components == 1 || isVector) {
     // we only make one entry, because either num_components == 1, or we write this as a
     // vector

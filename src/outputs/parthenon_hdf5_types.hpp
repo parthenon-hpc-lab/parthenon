@@ -43,7 +43,7 @@ namespace HDF5 {
 // Number of dimension of HDF5 field data sets (block x nv x nu x nt x nz x ny x nx)
 static constexpr size_t H5_NDIM = MAX_VARIABLE_DIMENSION + 1;
 
-static constexpr int OUTPUT_VERSION_FORMAT = 3;
+static constexpr int OUTPUT_VERSION_FORMAT = 4;
 
 /**
  * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
