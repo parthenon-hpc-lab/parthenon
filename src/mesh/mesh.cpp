@@ -917,10 +917,9 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
-
 void Mesh::BuildCommunicationBuffers() {
   const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank); 
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
   // Build densely populated communication tags
   tag_map.clear();
@@ -939,13 +938,13 @@ void Mesh::BuildCommunicationBuffers() {
   }
   tag_map.ResolveMap();
 
-  // Create send/recv MPI_Requests for swarms 
+  // Create send/recv MPI_Requests for swarms
   for (int i = 0; i < nmb; ++i) {
     auto &pmb = block_list[i];
     pmb->swarm_data.Get()->SetupPersistentMPI();
   }
 
-  // Wait for boundary buffers to be no longer in use 
+  // Wait for boundary buffers to be no longer in use
   bool can_delete;
   std::int64_t test_iters = 0;
   constexpr std::int64_t max_it = 1e10;
@@ -959,7 +958,7 @@ void Mesh::BuildCommunicationBuffers() {
   PARTHENON_REQUIRE(
       test_iters < max_it,
       "Too many iterations waiting to delete boundary communication buffers.");
-  
+
   // Clear boundary communication buffers
   boundary_comm_map.clear();
   boundary_comm_flxcor_map.clear();
@@ -973,12 +972,12 @@ void Mesh::BuildCommunicationBuffers() {
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }
-  } 
+  }
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name) {
   const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);  
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   constexpr std::int64_t max_it = 1e10;
   std::vector<bool> sent(num_partitions, false);
   bool all_sent;
@@ -1045,7 +1044,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
 
 void Mesh::PreCommFillDerived() {
   const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank); 
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   // Pre comm fill derived
   for (int i = 0; i < nmb; ++i) {
     auto &mbd = block_list[i]->meshblock_data.Get();
@@ -1138,13 +1137,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    PreCommFillDerived();    
+    PreCommFillDerived();
 
     BuildCommunicationBuffers();
 
-    CommunicateBoundaries();  
-    
-    FillDerived(); 
+    CommunicateBoundaries();
+
+    FillDerived();
 
     if (init_problem && adaptive) {
       for (int i = 0; i < nmb; ++i) {

@@ -939,11 +939,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Internal refinement relies on the fine shared values, which are only consistent
     // after being updated with any previously fine versions
-    Metadata::FlagCollection fc; 
-    fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node); 
+    Metadata::FlagCollection fc;
+    fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node);
     fc.TakeIntersection(Metadata::FillGhost);
     std::vector<std::string> noncc_names = GetVariableNames(fc);
-    
+
     if (noncc_names.size() > 0) {
       // A block newly refined and prolongated may have neighbors which were
       // already refined to the new level.
@@ -960,20 +960,20 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
       // Re-initialize the mesh with our temporary ownership/neighbor configurations.
       // No buffers are different when we switch to the final precedence order.
-      SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
-                            0, newly_refined);
+      SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
+                            false, 0, newly_refined);
       BuildCommunicationBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names); 
+        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
       }
 
-      CommunicateBoundaries(noncc); // Called to make sure shared values are correct, ghosts 
-                                    // of non-cell centered vars may get some junk
+      CommunicateBoundaries(noncc); // Called to make sure shared values are correct,
+                                    // ghosts of non-cell centered vars may get some junk
       refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds,
-                                 block_list[0]->c_cellbounds);
+                                     block_list[0]->cellbounds,
+                                     block_list[0]->c_cellbounds);
     }
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
@@ -986,7 +986,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BuildGMGHierarchy(nbs, pin, app_in);
     if (noncc_names.size() == 0) BuildCommunicationBuffers();
 
-    // Clear the boundary caches so they rebuild on next communication with the 
+    // Clear the boundary caches so they rebuild on next communication with the
     // correct ownership
     const int num_partitions = DefaultNumPartitions();
     for (int i = 0; i < num_partitions; i++) {
@@ -996,8 +996,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Call to fill ghosts with real data and fill derived quantities
     PreCommFillDerived();
-    CommunicateBoundaries(); 
-    FillDerived(); 
+    CommunicateBoundaries();
+    FillDerived();
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();
