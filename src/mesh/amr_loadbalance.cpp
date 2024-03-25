@@ -939,7 +939,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // init meshblock data
     for (auto &pmb : block_list)
-      pmb->InitMeshBlockUserData(pmb, pin);
+      pmb->InitMeshBlockUserData(pmb.get(), pin);
 
     // Internal refinement relies on the fine shared values, which are only consistent
     // after being updated with any previously fine versions
@@ -989,14 +989,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
     BuildGMGHierarchy(nbs, pin, app_in);
     if (noncc_names.size() == 0) BuildCommunicationBuffers();
-
-    // Clear the boundary caches so they rebuild on next communication with the
-    // correct ownership
-    const int num_partitions = DefaultNumPartitions();
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      md->GetBvarsCache().clear();
-    }
 
     // Call to fill ghosts with real data and fill derived quantities
     PreCommFillDerived();
