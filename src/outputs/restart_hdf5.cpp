@@ -26,6 +26,7 @@
 #include "interface/params.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #ifdef ENABLE_HDF5
 #include "outputs/parthenon_hdf5.hpp"
@@ -179,40 +180,28 @@ void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 #endif // ENABLE_HDF5
 }
 void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
+                                   const OutputUtils::VarInfo &info,
                                    std::vector<Real> &dataVec,
-                                   const std::vector<size_t> &bsize,
-                                   int file_output_format_version, MetadataFlag where,
-                                   const std::vector<int> &shape) const {
+                                   int file_output_format_version) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
   auto hdl = OpenDataset<Real>(name);
 
-  constexpr int CHUNK_MAX_DIM = 7;
+  constexpr int CHUNK_MAX_DIM = info.VNDIM;
 
   /** Select hyperslab in dataset **/
-  hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0};
-  hsize_t count[CHUNK_MAX_DIM];
   int total_dim = 0;
+  hsize_t offset[CHUNK_MAX_DIM], count[CHUNK_MAX_DIM];
+  std::fill(offset + 1, offset + CHUNK_MAX_DIM, 0);
+  std::fill(count + 1, count + CHUNK_MAX_DIM, 1);
+
+  offset[0] = static_cast<hsize_t>(range.s);
+  count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+  const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
+
   if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
-    count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-    const int ndim = shape.size();
-    if (where == MetadataFlag(Metadata::Cell)) {
-      for (int i = 0; i < ndim; i++) {
-        count[1 + i] = shape[ndim - i - 1];
-      }
-      count[ndim + 1] = bsize[2];
-      count[ndim + 2] = bsize[1];
-      count[ndim + 3] = bsize[0];
-      total_dim = 3 + ndim + 1;
-    } else if (where == MetadataFlag(Metadata::None)) {
-      for (int i = 0; i < ndim; i++) {
-        count[1 + i] = shape[ndim - i - 1];
-      }
-      total_dim = ndim + 1;
-    } else {
-      PARTHENON_THROW("Only Cell and None locations supported!");
-    }
+    total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
   } else {
     PARTHENON_THROW("Unknown output format version in restart file.")
   }

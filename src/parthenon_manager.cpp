@@ -263,6 +263,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   const auto indep_restart_vars =
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+  const auto all_vars_info =
+      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -274,11 +276,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Allocate space based on largest vector
   int max_vlen = 1;
   int num_sparse = 0;
-  for (auto &v_info : indep_restart_vars) {
-    const auto &label = v_info->label();
+  for (const auto &v_info : all_vars_info) {
+    const auto &label = v_info.label;
 
     // check that variable is in the list of sparse fields if and only if it is sparse
-    if (v_info->IsSparse()) {
+    if (v_info.is_sparse) {
       ++num_sparse;
       PARTHENON_REQUIRE_THROWS(sparse_idxs.count(label) == 1,
                                "Sparse field " + label +
@@ -288,7 +290,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info->NumComponents());
+    max_vlen = std::max(max_vlen, v_info.num_components);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -297,17 +299,16 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       "Mismatch between sparse fields in simulation and restart file");
 
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
-  for (auto &v_info : indep_restart_vars) {
-    const auto vlen = v_info->NumComponents();
-    const auto &label = v_info->label();
+  for (const auto &v_info : all_vars_info) {
+    const auto vlen = v_info.num_components;
+    const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen << std::endl;
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver,
-                         v_info->metadata().Where(), v_info->metadata().Shape());
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -317,7 +318,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
-      if (v_info->IsSparse()) {
+      if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
         if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
           pmb->AllocateSparse(label);
@@ -334,9 +335,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
       if (file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
-        OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
-                                     [&](auto index, int t, int u, int v, int k, int j,
-                                         int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
+        OutputUtils::PackOrUnpackVar(
+            v_info, v.get(), resfile.hasGhost, index, tmp,
+            [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+              v_h(topo, t, u, v, k, j, i) = tmp[index];
+            });
       } else {
         PARTHENON_THROW("Unsupported output format version in restart file.")
       }
