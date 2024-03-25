@@ -936,9 +936,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-    
+
     // init meshblock data
-    for (auto &pmb : block_list) 
+    for (auto &pmb : block_list)
       pmb->InitMeshBlockUserData(pmb, pin);
 
     // Internal refinement relies on the fine shared values, which are only consistent
@@ -1005,7 +1005,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Initialize the "base" MeshData object
     mesh_data.Get()->Set(block_list, this);
-  
+
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();
