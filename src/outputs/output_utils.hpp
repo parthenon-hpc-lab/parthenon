@@ -61,52 +61,14 @@ struct VarInfo {
   int ntop_elems;
   bool element_matters;
 
-  auto GetNKJI(const IndexDomain domain) const {
-    int nx3 = 1, nx2 = 1, nx1 = 1;
-    for (auto el : topological_elements) {
-      nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
-      nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
-      nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
-    }
-    return std::make_tuple(nx3, nx2, nx1);
-  }
-  auto GetPaddedBoundsKJI(const IndexDomain domain) const {
-    int ks = 1, ke = 1, js = 1, je = 1, is = 1, ie = 1;
-    for (auto el : topological_elements) {
-      auto kb = cellbounds.GetBoundsK(domain);
-      auto jb = cellbounds.GetBoundsJ(domain);
-      auto ib = cellbounds.GetBoundsI(domain);
-      ks = kb.s; // pads are only upper indices
-      js = jb.s;
-      is = ib.s;
-      ke = std::min(ke, kb.e);
-      je = std::min(je, jb.e);
-      ie = std::min(ie, ib.e);
-    }
-    IndexRange kb{ks, ke}, jb{is, ie}, ib{is, ie};
-    return std::make_tuple(kb, jb, ib);
-  }
+  Triple_t<int> GetNKJI(const IndexDomain domain) const;
+  Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
-  int Size() const {
-    return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
-  }
+  int Size() const;
   // Includes topological element shape
-  int TensorSize() const {
-    if (where == MetadataFlag({Metadata::None})) {
-      return Size();
-    } else {
-      return std::accumulate(rnx_.begin(), rnx_.end() - 3, 1, std::multiplies<int>());
-    }
-    // return nx_[5] * nx_[4] * nx_[3];
-  }
-  int FillSize(const IndexDomain domain) const {
-    if (where == MetadataFlag({Metadata::None})) {
-      return Size();
-    } else {
-      auto [n3, n2, n1] = GetNKJI(domain);
-      return TensorSize() * n3 * n2 * n1;
-    }
-  }
+  int TensorSize() const;
+  // Size of region that needs to be filled with 0s if not allocated
+  int FillSize(const IndexDomain domain) const;
 
   template <typename T>
   int FillShape(const IndexDomain domain, T *data) {
@@ -208,6 +170,11 @@ struct VarInfo {
       : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
                 var->GetDim(), var->metadata(), var->GetTopologicalElements(),
                 var->IsSparse(), var->IsSet(Metadata::Vector), cellbounds) {}
+
+  static std::vector<VarInfo> GetAll(const VariableVector<Real> &vars,
+                                     const IndexShape &cellbounds);
+
+  bool operator==(const std::string &other) const { return other == label; }
 
  private:
   // TODO(JMM): Probably nx_ and rnx_ both not necessary... but it was

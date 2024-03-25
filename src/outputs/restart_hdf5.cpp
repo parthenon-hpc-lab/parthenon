@@ -181,8 +181,7 @@ void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                                    std::vector<Real> &dataVec,
                                    const std::vector<size_t> &bsize,
-                                   int file_output_format_version,
-                                   MetadataFlag where,
+                                   int file_output_format_version, MetadataFlag where,
                                    const std::vector<int> &shape) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");

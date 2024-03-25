@@ -85,6 +85,9 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     m = Metadata({Metadata::Edge, Metadata::Independent});
     pkg->AddField(scalar_edge, m);
 
+    const std::vector<std::string> var_names = {scalar_cell, tensor_cell, tensor_none,
+                                                vector_face, scalar_edge};
+
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
     auto pmbd = pmb->meshblock_data.Get();
     pmbd->Initialize(pkg, pmb);
@@ -217,6 +220,18 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == 3 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
         REQUIRE(info.TensorSize() == 3);
+      }
+    }
+
+    WHEN("We request info from all vars") {
+      auto vars = parthenon::GetAnyVariables(pmbd->GetVariableVector(),
+                                             {parthenon::Metadata::Independent});
+      auto all_info = VarInfo::GetAll(vars, cellbounds);
+      THEN("The labels are all present") {
+        for (const std::string &name : var_names) {
+          auto pinfo = std::find(all_info.begin(), all_info.end(), name);
+          REQUIRE(pinfo != all_info.end());
+        }
       }
     }
   }

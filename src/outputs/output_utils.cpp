@@ -33,6 +33,67 @@
 namespace parthenon {
 namespace OutputUtils {
 
+Triple_t<int> VarInfo::GetNKJI(const IndexDomain domain) const {
+  int nx3 = 1, nx2 = 1, nx1 = 1;
+  for (auto el : topological_elements) {
+    nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
+    nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
+    nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
+  }
+  return std::make_tuple(nx3, nx2, nx1);
+}
+
+Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const {
+  int ks = 1, ke = 1, js = 1, je = 1, is = 1, ie = 1;
+  for (auto el : topological_elements) {
+    auto kb = cellbounds.GetBoundsK(domain);
+    auto jb = cellbounds.GetBoundsJ(domain);
+    auto ib = cellbounds.GetBoundsI(domain);
+    ks = kb.s; // pads are only upper indices
+    js = jb.s;
+    is = ib.s;
+    ke = std::min(ke, kb.e);
+    je = std::min(je, jb.e);
+    ie = std::min(ie, ib.e);
+  }
+  IndexRange kb{ks, ke}, jb{is, ie}, ib{is, ie};
+  return std::make_tuple(kb, jb, ib);
+}
+
+int VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
+}
+
+// Includes topological element shape
+int VarInfo::TensorSize() const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  } else {
+    return std::accumulate(rnx_.begin(), rnx_.end() - 3, 1, std::multiplies<int>());
+  }
+}
+
+int VarInfo::FillSize(const IndexDomain domain) const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  } else {
+    auto [n3, n2, n1] = GetNKJI(domain);
+    return TensorSize() * n3 * n2 * n1;
+  }
+}
+
+std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
+                                     const IndexShape &cellbounds) {
+  std::vector<VarInfo> out;
+  for (const auto &v : vars) {
+    out.emplace_back(v, cellbounds);
+  }
+  std::sort(out.begin(), out.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+
+  return out;
+}
+
 void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
   std::size_t count = swarm->GetNumActive();
   std::size_t offset = (offsets.size() > 0) ? offsets.back() : 0;
