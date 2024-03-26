@@ -917,7 +917,7 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
-void Mesh::BuildCommunicationBuffers() {
+void Mesh::BuildBoundaryBuffers() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
@@ -1138,7 +1138,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     PreCommFillDerived();
 
-    BuildCommunicationBuffers();
+    BuildBoundaryBuffers();
 
     CommunicateBoundaries();
 
