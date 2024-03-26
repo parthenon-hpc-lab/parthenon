@@ -120,10 +120,11 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   LogicalLocMap_t leaf_grid_locs;
-  std::vector<LogicalLocMap_t> gmg_grid_locs;
-  std::vector<BlockList_t> gmg_block_lists;
-  std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
-  int GetGMGMaxLevel() { return gmg_grid_locs.size() - 1; }
+  std::map<int, LogicalLocMap_t> gmg_grid_locs;
+  std::map<int, BlockList_t> gmg_block_lists;
+  std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
+  int GetGMGMaxLevel() { return current_level; }
+  int GetGMGMinLevel() { return gmg_min_logical_level_; }
   int GetGMGMinLogicalLevel() { return gmg_min_logical_level_; }
 
   // functions

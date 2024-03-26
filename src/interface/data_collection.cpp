@@ -58,9 +58,9 @@ std::shared_ptr<MeshData<Real>> &
 GetOrAdd_impl(Mesh *pmy_mesh_,
               std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
               BlockList_t &block_list, const std::string &mbd_label,
-              const int &partition_id, const int gmg_level) {
+              const int &partition_id, const std::optional<int> gmg_level) {
   std::string label = mbd_label + "_part-" + std::to_string(partition_id);
-  if (gmg_level >= 0) label = label + "_gmg-" + std::to_string(gmg_level);
+  if (gmg_level) label = label + "_gmg-" + std::to_string(*gmg_level);
   auto it = containers_.find(label);
   if (it == containers_.end()) {
     // TODO(someone) add caching of partitions to Mesh at some point
@@ -70,13 +70,12 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
     if (partitions.size() == 0) partitions = std::vector<BlockList_t>(1);
     for (auto i = 0; i < partitions.size(); i++) {
       std::string md_label = mbd_label + "_part-" + std::to_string(i);
-      if (gmg_level >= 0) md_label = md_label + "_gmg-" + std::to_string(gmg_level);
+      if (gmg_level) md_label = md_label + "_gmg-" + std::to_string(*gmg_level);
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
       containers_[md_label]->Set(partitions[i], pmy_mesh_);
-      if (gmg_level >= 0) {
-        int min_gmg_logical_level = pmy_mesh_->GetGMGMinLogicalLevel();
-        containers_[md_label]->grid = GridIdentifier{GridType::two_level_composite,
-                                                     gmg_level + min_gmg_logical_level};
+      if (gmg_level) {
+        containers_[md_label]->grid =
+            GridIdentifier{GridType::two_level_composite, *gmg_level};
       } else {
         containers_[md_label]->grid = GridIdentifier{GridType::leaf, 0};
       }
@@ -90,7 +89,7 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
   return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label,
-                       partition_id, -1);
+                       partition_id, {});
 }
 
 template <>

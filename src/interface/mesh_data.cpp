@@ -28,10 +28,10 @@ void MeshData<T>::Initialize(const MeshData<T> *src,
 
   grid = src->grid;
   if (grid.type == GridType::two_level_composite) {
-    int gmg_level = src->grid.logical_level - pmy_mesh_->GetGMGMinLogicalLevel();
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = pmy_mesh_->gmg_block_lists[gmg_level][i]->meshblock_data.Add(
-          stage_name_, src->GetBlockData(i), names, shallow);
+      block_data_[i] =
+          pmy_mesh_->gmg_block_lists[src->grid.logical_level][i]->meshblock_data.Add(
+              stage_name_, src->GetBlockData(i), names, shallow);
     }
   } else {
     for (int i = 0; i < nblocks; i++) {
