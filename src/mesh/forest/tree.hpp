@@ -109,8 +109,12 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   int ndim;
   const std::uint64_t my_id;
-  // Location of block in this tree, current gid, previous gid
-  std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> leaves;
+  // Structure mapping location of block in this tree to current gid and previous gid
+  using LocMap_t = std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>>;
+  LocMap_t leaves;
+  // Two-level composite grids for geometric multigrid
+  std::vector<LocMap_t> gmg_tlc_grids; 
+
   std::unordered_set<LogicalLocation> internal_nodes;
 
   // This contains all of the neighbor information for this tree, for each of the

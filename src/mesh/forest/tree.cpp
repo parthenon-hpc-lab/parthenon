@@ -37,7 +37,7 @@ namespace forest {
 
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
            std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
-    : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
+    : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs), gmg_tlc_grids(50) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -49,10 +49,14 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
           } else {
             internal_nodes.emplace(my_id, l, i, j, k);
           }
+          gmg_tlc_grids[l].emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
+                                                  std::make_pair(-1, -1)))     
         }
       }
     }
   }
+  // Pre-populate the next finest two-level composite grid with coarser blocks
+  gmg_tlc_grid[l + 1] = gmg_tlc_grid[l];
 }
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
@@ -95,6 +99,17 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
     leaves.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
   }
   int nadded = daughters.size() - 1;
+  
+  // Update multigrid levels
+  auto& gmg_grid_1 = gmg_tlc_grids[ref_loc.level() + 1];
+  auto& gmg_grid_2 = gmg_tlc_grids[ref_loc.level() + 2];
+  if (gmg_grid_1.count(ref_loc)) gmg_grid_1.erase(ref_loc); 
+  for (auto &d : daughters) {
+    // Insert as fine leaf blocks on coarser two-level grid
+    gmg_grid_1.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+    // Insert as coarse leaf blocks on finer two-level grid
+    gmg_grid_2.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+  }
 
   if (enforce_proper_nesting) {
     LogicalLocation parent = ref_loc.GetParent();
@@ -218,13 +233,16 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   }
 
   // Derefinement is ok
+  auto& gmg_grid = gmg_tlc_grids[ref_loc.level() + 1];
   std::int64_t dgid = std::numeric_limits<std::int64_t>::max();
   for (auto &d : daughters) {
+    gmg_grid.erase(d);
     auto node = leaves.extract(d);
     dgid = std::min(dgid, node.mapped().first);
   }
   internal_nodes.erase(ref_loc);
   leaves.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
+  gmg_grid.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
   return daughters.size() - 1;
 }
 
