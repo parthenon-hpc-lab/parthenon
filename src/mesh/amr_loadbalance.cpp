@@ -997,7 +997,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Initialize the "base" MeshData object
     mesh_data.Get()->Set(block_list, this);
-
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();
