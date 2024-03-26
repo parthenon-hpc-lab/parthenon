@@ -961,9 +961,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
                                           newly_refined);
       }
-
-      // Re-initialize the mesh with our temporary ownership/neighbor configurations.
-      // No buffers are different when we switch to the final precedence order.
       SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
                             false, 0, newly_refined);
       BuildCommunicationBuffers();
@@ -975,6 +972,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
       CommunicateBoundaries(noncc); // Called to make sure shared values are correct,
                                     // ghosts of non-cell centered vars may get some junk
+      // Now there is the correct data for prolongating on un-shared topological elements
+      // on the new fine blocks
       refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
                                      block_list[0]->cellbounds,
                                      block_list[0]->c_cellbounds);
@@ -988,6 +987,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
     }
     BuildGMGHierarchy(nbs, pin, app_in);
+    // Ownership does not impact anything about the buffers, so we don't need to
+    // rebuild them if they were built above
     if (noncc_names.size() == 0) BuildCommunicationBuffers();
 
     // Call to fill ghosts with real data and fill derived quantities
