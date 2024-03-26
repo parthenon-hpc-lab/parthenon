@@ -962,7 +962,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       }
       SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
                             false, 0, newly_refined);
-      BuildBoundaryBuffers();
+      BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
         auto &md = mesh_data.GetOrAdd("base", i);
@@ -988,7 +988,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BuildGMGHierarchy(nbs, pin, app_in);
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
-    if (noncc_names.size() == 0) BuildBoundaryBuffers();
+    if (noncc_names.size() == 0) BuildTagMapAndBoundaryBuffers();
 
     // Call to fill ghosts with real data and fill derived quantities
     PreCommFillDerived();

@@ -917,7 +917,7 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
-void Mesh::BuildBoundaryBuffers() {
+void Mesh::BuildTagMapAndBoundaryBuffers() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
