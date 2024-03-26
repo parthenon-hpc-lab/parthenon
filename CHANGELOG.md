@@ -12,6 +12,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 
 
 ### Removed (removing behavior/API/varaibles/...)
@@ -47,7 +48,6 @@ Date: 2024-03-21
 - [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 - [[PR 1017]](https://github.com/parthenon-hpc-lab/parthenon/pull/1017) Make regression tests more verbose on failure
 - [[PR 1007]](https://github.com/parthenon-hpc-lab/parthenon/pull/1007) Split template instantiations for HDF5 Read/Write attributes to speed up compile times
 - [[PR 990]](https://github.com/parthenon-hpc-lab/parthenon/pull/990) Partial refactor of HDF5 I/O code for readability/extendability
