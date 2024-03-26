@@ -1138,7 +1138,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     PreCommFillDerived();
 
-    BuildBoundaryBuffers();
+    BuildTagMapAndBoundaryBuffers();
 
     CommunicateBoundaries();
 
