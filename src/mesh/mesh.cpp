@@ -997,8 +997,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-      for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+      for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
         // tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
@@ -1036,8 +1036,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       BuildBoundaryBuffers(md);
-      for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-        auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+      for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
       }

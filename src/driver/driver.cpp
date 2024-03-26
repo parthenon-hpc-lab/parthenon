@@ -186,8 +186,8 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
     BuildBoundaryBuffers(mbase);
-    for (int gmg_level = 0; gmg_level < pmesh->gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = pmesh->gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : pmesh->gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }

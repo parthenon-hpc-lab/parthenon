@@ -157,39 +157,39 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   const int gmg_min_level = root_level - gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
 
-  const int gmg_levels = current_level - gmg_min_level + 1;
-  gmg_grid_locs = std::vector<LogicalLocMap_t>(gmg_levels);
-  gmg_block_lists = std::vector<BlockList_t>(gmg_levels);
+  for (int level = gmg_min_level; level <= current_level; ++level) {
+    gmg_grid_locs[level] = LogicalLocMap_t();
+    gmg_block_lists[level] = BlockList_t();
+    gmg_mesh_data[level] = DataCollection<MeshData<Real>>();
+  }
 
   // Create MeshData objects for GMG
-  gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(gmg_levels);
-  for (auto &mdc : gmg_mesh_data)
+  for (auto &[l, mdc] : gmg_mesh_data)
     mdc.SetMeshPointer(this);
 
   // Add leaf grid locations to GMG grid levels
   int gmg_gid = 0;
   for (auto loc : loclist) {
-    const int gmg_level = gmg_levels - 1 + loc.level() - current_level;
+    const int gmg_level = loc.level();
     gmg_grid_locs[gmg_level].insert(
         {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
-    if (gmg_level < gmg_levels - 1) {
+    if (gmg_level < current_level) {
       gmg_grid_locs[gmg_level + 1].insert(
           {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
     }
     if (ranklist[gmg_gid] == Globals::my_rank) {
       const int lid = gmg_gid - nslist[Globals::my_rank];
       gmg_block_lists[gmg_level].push_back(block_list[lid]);
-      if (gmg_level < gmg_levels - 1)
+      if (gmg_level < current_level)
         gmg_block_lists[gmg_level + 1].push_back(block_list[lid]);
     }
     gmg_gid++;
   }
 
   // Fill in internal nodes for GMG grid levels from levels on finer GMG grid
-  for (int gmg_level = gmg_levels - 2; gmg_level >= 0; --gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
+  for (int gmg_level = current_level - 1; gmg_level >= gmg_min_level; --gmg_level) {
     for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
-      if (loc.level() == grid_logical_level + 1) {
+      if (loc.level() == gmg_level + 1) {
         auto parent = loc.GetParent();
         if (parent.morton() == loc.morton()) {
           gmg_grid_locs[gmg_level].insert(
@@ -210,17 +210,15 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
 
   // Find same level neighbors on all GMG levels
   auto root_grid = this->GetRootGridInfo();
-  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
+  for (int gmg_level = gmg_min_level; gmg_level <= current_level; ++gmg_level) {
     SetSameLevelNeighbors(gmg_block_lists[gmg_level], gmg_grid_locs[gmg_level], root_grid,
-                          nbs, true, grid_logical_level);
+                          nbs, true, gmg_level);
   }
 
   // Now find GMG coarser neighbor
-  for (int gmg_level = 1; gmg_level < gmg_levels; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
+  for (int gmg_level = gmg_min_level + 1; gmg_level <= current_level; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
-      if (pmb->loc.level() != grid_logical_level) continue;
+      if (pmb->loc.level() != gmg_level) continue;
       auto parent_loc = pmb->loc.GetParent();
       auto loc = pmb->loc;
       auto gid = pmb->gid;
@@ -239,10 +237,9 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   }
 
   // Now find finer GMG neighbors
-  for (int gmg_level = 0; gmg_level < gmg_levels - 1; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
+  for (int gmg_level = gmg_min_level; gmg_level <= current_level - 1; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
-      if (pmb->loc.level() != grid_logical_level) continue;
+      if (pmb->loc.level() != gmg_level) continue;
       auto daughter_locs = pmb->loc.GetDaughters();
       for (auto &daughter_loc : daughter_locs) {
         if (gmg_grid_locs[gmg_level + 1].count(daughter_loc) > 0) {
