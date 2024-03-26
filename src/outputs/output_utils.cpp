@@ -96,18 +96,22 @@ int VarInfo::GetNDim() const {
 // Returns full shape as read to/written from I/O, with 1-padding.
 std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
   std::vector<int> out = GetRawShape();
-  auto [nx3, nx2, nx1] = GetNumKJI(domain);
-  out[0] = nx3;
-  out[1] = nx2;
-  out[2] = nx1;
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    out[0] = nx3;
+    out[1] = nx2;
+    out[2] = nx1;
+  }
   return out;
 }
 std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
   std::vector<int> out(rnx_.begin(), rnx_.end());
-  auto [nx3, nx2, nx1] = GetNumKJI(domain);
-  out[VNDIM - 3] = nx3;
-  out[VNDIM - 2] = nx2;
-  out[VNDIM - 1] = nx1;
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    out[VNDIM - 3] = nx3;
+    out[VNDIM - 2] = nx2;
+    out[VNDIM - 1] = nx1;
+  }
   return out;
 }
 
