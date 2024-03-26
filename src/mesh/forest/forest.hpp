@@ -35,7 +35,7 @@ namespace forest {
 
 class Forest {
   bool gids_resolved = false;
-  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
+  std::map<std::int64_t, std::shared_ptr<Tree>> trees;
 
  public:
   int root_level;
