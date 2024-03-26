@@ -57,11 +57,15 @@ struct VarInfo {
   bool is_vector;
   IndexShape cellbounds;
   std::vector<std::string> component_labels;
+  // list of topological elements in variable... e.g., Face1, Face2, etc
   std::vector<TopologicalElement> topological_elements;
+  // how many topological elements are stored in variable, e.g., 3 for
+  // face and edge vars.
   int ntop_elems;
+  // whether or not topological element matters.
   bool element_matters;
 
-  Triple_t<int> GetNKJI(const IndexDomain domain) const;
+  Triple_t<int> GetNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
   int Size() const;
@@ -82,7 +86,7 @@ struct VarInfo {
       // For nx1,nx2,nx3 find max storage required in each direction
       // accross topological elements. Unused indices will be written but
       // empty.
-      auto [nx3, nx2, nx1] = GetNKJI(domain);
+      auto [nx3, nx2, nx1] = GetNumKJI(domain);
       // fill topological element, if relevant
       if (element_matters) {
         data[0] = ntop_elems;
@@ -289,9 +293,8 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 }
 
 // mirror must be provided because copying done externally
-template <typename Data_t, typename idx_t, typename Function_t>
-void PackOrUnpackVar(const VarInfo &info, Variable<Real> *pvar, bool do_ghosts,
-                     idx_t &idx, std::vector<Data_t> &data, Function_t f) {
+template <typename idx_t, typename Function_t>
+void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t f) {
   const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
   // shape as written to or read from. contains additional padding
   // in orthogonal directions.

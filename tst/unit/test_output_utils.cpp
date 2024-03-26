@@ -122,7 +122,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       }
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == NFULL * NFULL * NFULL);
-        REQUIRE(info.TensorSize() == 1);
+        REQUIRE(info.TensorSize() * info.ntop_elems == 1);
       }
     }
 
@@ -150,7 +150,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       }
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == 3 * 4 * NFULL * NFULL * NFULL);
-        REQUIRE(info.TensorSize() == 3 * 4);
+        REQUIRE(info.TensorSize() * info.ntop_elems == 3 * 4);
       }
     }
 
@@ -172,7 +172,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       }
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == 3 * 4);
-        REQUIRE(info.TensorSize() == 3 * 4);
+        REQUIRE(info.TensorSize() * info.ntop_elems == 3 * 4);
       }
     }
 
@@ -196,7 +196,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       }
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == 3 * 4 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
-        REQUIRE(info.TensorSize() == 3 * 4);
+        REQUIRE(info.TensorSize() * info.ntop_elems == 3 * 4);
       }
       THEN("Requesting reversed padded shape provides correctly shaped object") {
         constexpr int ND = VarInfo::VNDIM;
@@ -255,7 +255,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
       }
       THEN("The size and tensorsize are correct") {
         REQUIRE(info.Size() == 3 * (NFULL + 1) * (NFULL + 1) * (NFULL + 1));
-        REQUIRE(info.TensorSize() == 3);
+        REQUIRE(info.TensorSize() * info.ntop_elems == 3);
       }
     }
 

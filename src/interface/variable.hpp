@@ -85,10 +85,7 @@ class Variable {
     return dims_[i - 1];
   }
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  auto GetDim() const { // TODO(JMM): should this be host-only?
-    return dims_;
-  }
+  auto GetDim() const { return dims_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {

@@ -336,7 +336,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // we update the HDF5 infrastructure!
       if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, v.get(), resfile.hasGhost, index, tmp,
+            v_info, resfile.hasGhost, index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });

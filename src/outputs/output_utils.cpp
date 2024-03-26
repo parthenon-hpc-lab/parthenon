@@ -33,7 +33,7 @@
 namespace parthenon {
 namespace OutputUtils {
 
-Triple_t<int> VarInfo::GetNKJI(const IndexDomain domain) const {
+Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
   int nx3 = 1, nx2 = 1, nx1 = 1;
   // TODO(JMM): I know that this could be done by hand, but I'd rather
   // rely on the loop bounds machinery and this should be cheap.
@@ -73,7 +73,7 @@ int VarInfo::TensorSize() const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
-    return std::accumulate(rnx_.begin(), rnx_.end() - 3, 1, std::multiplies<int>());
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, 1, std::multiplies<int>());
   }
 }
 
@@ -81,8 +81,8 @@ int VarInfo::FillSize(const IndexDomain domain) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
-    auto [n3, n2, n1] = GetNKJI(domain);
-    return TensorSize() * n3 * n2 * n1;
+    auto [n3, n2, n1] = GetNumKJI(domain);
+    return ntop_elems * TensorSize() * n3 * n2 * n1;
   }
 }
 
@@ -96,7 +96,7 @@ int VarInfo::GetNDim() const {
 // Returns full shape as read to/written from I/O, with 1-padding.
 std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
   std::vector<int> out = GetRawShape();
-  auto [nx3, nx2, nx1] = GetNKJI(domain);
+  auto [nx3, nx2, nx1] = GetNumKJI(domain);
   out[0] = nx3;
   out[1] = nx2;
   out[2] = nx1;
@@ -104,7 +104,7 @@ std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
 }
 std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
   std::vector<int> out(rnx_.begin(), rnx_.end());
-  auto [nx3, nx2, nx1] = GetNKJI(domain);
+  auto [nx3, nx2, nx1] = GetNumKJI(domain);
   out[VNDIM - 3] = nx3;
   out[VNDIM - 2] = nx2;
   out[VNDIM - 1] = nx1;

@@ -350,7 +350,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
         if (v->IsAllocated() && (var_name == v->label())) {
           auto v_h = v->data.GetHostMirrorAndCopy();
           OutputUtils::PackOrUnpackVar(
-              vinfo, v.get(), output_params.include_ghost_zones, index, tmpData,
+              vinfo, output_params.include_ghost_zones, index,
               [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
                 tmpData[index] = static_cast<OutT>(v_h(topo, t, u, v, k, j, i));
               });
