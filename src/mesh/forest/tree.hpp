@@ -65,7 +65,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for getting block properties
   int count(const LogicalLocation &loc) const { return leaves.count(loc); }
-  std::vector<LogicalLocation> GetMeshBlockList() const;
+  std::vector<LogicalLocation> GetSortedMeshBlockList() const;
+  std::vector<LogicalLocation> GetSortedInternalNodeList() const;
   RegionSize GetBlockDomain(const LogicalLocation &loc) const;
   std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const;
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const;
@@ -89,15 +90,41 @@ class Tree : public std::enable_shared_from_this<Tree> {
   }
 
   void InsertGid(const LogicalLocation &loc, std::int64_t gid) {
-    PARTHENON_REQUIRE(leaves.count(loc) == 1,
-                      "Trying to add gid for non-existent location.");
-    leaves[loc].second = leaves[loc].first;
-    leaves[loc].first = gid;
+    if (leaves.count(loc)) {
+      leaves[loc].second = leaves[loc].first;
+      leaves[loc].first = gid;
+    } else if (internal_nodes.count(loc)) { 
+      internal_nodes[loc].second = internal_nodes[loc].first; 
+      internal_nodes[loc].first = gid;
+    }
+    PARTHENON_FAIL("Tried to assign gid to non-existent block.");
   }
 
-  std::int64_t GetGid(const LogicalLocation &loc) const { return leaves.at(loc).first; }
-  std::int64_t GetOldGid(const LogicalLocation &loc) const {
-    return leaves.at(loc).second;
+  std::int64_t GetGid(const LogicalLocation &loc) const { 
+    if (leaves.count(loc)) {
+      return leaves.at(loc).first;
+    } else if (internal_nodes.count(loc)) {
+      return internal_nodes.at(loc).first;
+    } 
+    PARTHENON_FAIL("Asking for GID of non-existent location.");
+  }
+
+  std::int64_t GetLeafGid(const LogicalLocation &loc) const { 
+    if (leaves.count(loc)) {
+      return leaves.at(loc).first;
+    } else if (internal_nodes.count(loc)) {
+      return GetLeafGid(loc.GetDaughter(0, 0, 0));
+    } 
+    PARTHENON_FAIL("Asking for GID of non-existent location.");
+  }
+
+  std::int64_t GetOldGid(const LogicalLocation &loc) const { 
+    if (leaves.count(loc)) {
+      return leaves.at(loc).second;
+    } else if (internal_nodes.count(loc)) {
+      return internal_nodes.at(loc).second;
+    } 
+    PARTHENON_FAIL("Asking for GID of non-existent location.");
   }
 
   // TODO(LFR): Eventually remove this.
@@ -111,11 +138,17 @@ class Tree : public std::enable_shared_from_this<Tree> {
   const std::uint64_t my_id;
   // Structure mapping location of block in this tree to current gid and previous gid
   using LocMap_t = std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>>;
+  static std::pair<LogicalLocation, std::pair<std::int64_t, std::int64_t>> 
+  LocMapEntry(const LogicalLocation& loc, const int gid, const int gid_old) {
+    return std::make_pair(loc, std::make_pair(gid, gid_old));
+  }
+
   LocMap_t leaves;
+  LocMap_t internal_nodes;
+  
   // Two-level composite grids for geometric multigrid
   std::vector<LocMap_t> gmg_tlc_grids; 
 
-  std::unordered_set<LogicalLocation> internal_nodes;
 
   // This contains all of the neighbor information for this tree, for each of the
   // 3^3 possible neighbor connections. Since an edge or node connection can have

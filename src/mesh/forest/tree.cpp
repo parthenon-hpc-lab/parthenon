@@ -43,14 +43,13 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
+          LogicalLocation loc(my_id, l, i, j, k);
           if (l == root_level) {
-            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
-                                          std::make_pair(-1, -1)));
+            leaves.emplace(LocMapEntry(loc, -1, -1));
           } else {
-            internal_nodes.emplace(my_id, l, i, j, k);
+            internal_nodes.emplace(LocMapEntry(loc, -1, -1));
           }
-          gmg_tlc_grids[l].emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
-                                                  std::make_pair(-1, -1)));     
+          gmg_tlc_grids[l].emplace(LocMapEntry(loc, -1, -1));
         }
       }
     }
@@ -94,9 +93,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
   auto gid_parent = leaves[ref_loc].first;
   leaves.erase(ref_loc);
-  internal_nodes.insert(ref_loc);
+  internal_nodes.insert(LocMapEntry(ref_loc, -1, -1));
   for (auto &d : daughters) {
-    leaves.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+    leaves.insert(LocMapEntry(d, gid_parent, -1));
   }
   int nadded = daughters.size() - 1;
   
@@ -106,9 +105,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   if (gmg_grid_1.count(ref_loc)) gmg_grid_1.erase(ref_loc); 
   for (auto &d : daughters) {
     // Insert as fine leaf blocks on coarser two-level grid
-    gmg_grid_1.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+    gmg_grid_1.insert(LocMapEntry(d, gid_parent, -1));
     // Insert as coarse leaf blocks on finer two-level grid
-    gmg_grid_2.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+    gmg_grid_2.insert(LocMapEntry(d, gid_parent, -1));
   }
 
   if (enforce_proper_nesting) {
@@ -241,15 +240,25 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
     dgid = std::min(dgid, node.mapped().first);
   }
   internal_nodes.erase(ref_loc);
-  leaves.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
-  gmg_grid.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
+  leaves.insert(LocMapEntry(ref_loc, dgid, -1));
+  gmg_grid.insert(LocMapEntry(ref_loc, dgid, -1));
   return daughters.size() - 1;
 }
 
-std::vector<LogicalLocation> Tree::GetMeshBlockList() const {
+std::vector<LogicalLocation> Tree::GetSortedMeshBlockList() const {
   std::vector<LogicalLocation> mb_list;
   mb_list.reserve(leaves.size());
   for (auto &[loc, gid] : leaves)
+    mb_list.push_back(loc);
+  std::sort(mb_list.begin(), mb_list.end(),
+            [](const auto &a, const auto &b) { return a < b; });
+  return mb_list;
+}
+
+std::vector<LogicalLocation> Tree::GetSortedInternalNodeList() const {
+  std::vector<LogicalLocation> mb_list;
+  mb_list.reserve(internal_nodes.size());
+  for (auto &[loc, gid] : internal_nodes)
     mb_list.push_back(loc);
   std::sort(mb_list.begin(), mb_list.end(),
             [](const auto &a, const auto &b) { return a < b; });
