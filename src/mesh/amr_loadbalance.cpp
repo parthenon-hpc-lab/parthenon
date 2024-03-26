@@ -941,7 +941,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (auto &pmb : block_list)
       pmb->InitMeshBlockUserData(pmb.get(), pin);
 
-    // Find the non-cell centered fields that are communicated  
+    // Find the non-cell centered fields that are communicated
     Metadata::FlagCollection fc;
     fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node);
     fc.TakeIntersection(Metadata::FillGhost);
