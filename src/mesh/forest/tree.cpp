@@ -50,13 +50,13 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
             internal_nodes.emplace(my_id, l, i, j, k);
           }
           gmg_tlc_grids[l].emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
-                                                  std::make_pair(-1, -1)))     
+                                                  std::make_pair(-1, -1)));     
         }
       }
     }
   }
   // Pre-populate the next finest two-level composite grid with coarser blocks
-  gmg_tlc_grid[l + 1] = gmg_tlc_grid[l];
+  gmg_tlc_grids[root_level + 1] = gmg_tlc_grids[root_level];
 }
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {

@@ -71,7 +71,10 @@ level that are neighbors to finer blocks, which implies that below the root grid
 level the blocks may not cover the entire mesh. For levels above the root grid, 
 blocks may change shape so that they only cover the domain of the root grid. Note 
 that leaf blocks may be contained in multiple blocklists, and the lists all point
-to the same block (not a separate copy). To be explicit, when ``parthenon/mesh/multigrid`` is set to ``true`` blocks corresponding to *all* internal nodes of the refinement tree are created, in addition to the leaf node blocks that are normally created.
+to the same block (not a separate copy). To be explicit, when 
+``parthenon/mesh/multigrid`` is set to ``true`` blocks corresponding to *all* 
+internal nodes of the refinement tree are created, in addition to the leaf node blocks 
+that are normally created.
 
 *GMG Implementation Note:*
 The reason for including two levels in the GMG block lists is for dealing with 
