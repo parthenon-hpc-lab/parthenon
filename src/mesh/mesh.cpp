@@ -1064,7 +1064,7 @@ void Mesh::FillDerived() {
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop as well as during remeshing
+// \brief  initialization before the main loop
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
@@ -1192,26 +1192,16 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   return valid_region;
 }
 
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::GetBlockSize(const LogicalLocation &loc) const
-// \brief Find the (hyper-)rectangular region of the grid covered by the block at
-//        logical location loc
-
-RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
-  // TODO(LFR): Update this
-  return forest.GetBlockDomain(loc);
-}
-
 std::int64_t Mesh::GetTotalCells() {
   auto &pmb = block_list.front();
   return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
          pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
 }
+
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetDefaultBlockSize() const { return base_block_size; }
 
 const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   // TODO(JMM): Luke this is for your Metadata::fine stuff.
