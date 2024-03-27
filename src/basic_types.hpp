@@ -71,8 +71,10 @@ struct GridIdentifier {
   GridType type = GridType::none;
   int logical_level = 0;
 
-  static GridIdentifier leaf() {return GridIdentifier{GridType::leaf, 0};}
-  static GridIdentifier two_level_composite(int level) {return GridIdentifier{GridType::two_level_composite, level};}
+  static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
+  static GridIdentifier two_level_composite(int level) {
+    return GridIdentifier{GridType::two_level_composite, level};
+  }
 };
 
 constexpr bool IsSender(BoundaryType btype) {

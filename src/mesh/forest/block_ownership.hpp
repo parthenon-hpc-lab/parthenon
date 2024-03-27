@@ -84,8 +84,8 @@ struct block_ownership_t {
 
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
-                         const std::vector<NeighborLocation> &allowed_neighbors,
-                         const std::unordered_set<LogicalLocation> &newly_refined = {});
+                   const std::vector<NeighborLocation> &allowed_neighbors,
+                   const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
 // defining the location of an index region within the block (i.e. the ghost zones passed

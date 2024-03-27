@@ -122,7 +122,7 @@ class LogicalLocation { // aggregate and POD type
   // volume
   bool IsNeighbor(const LogicalLocation &in) const;
   bool IsNeighborOfTE(const LogicalLocation &in,
-                            const std::array<int, 3> &te_offset) const;
+                      const std::array<int, 3> &te_offset) const;
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);

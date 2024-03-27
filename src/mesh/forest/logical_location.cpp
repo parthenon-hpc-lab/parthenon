@@ -87,7 +87,7 @@ bool LogicalLocation::IsNeighbor(const LogicalLocation &in) const {
 }
 
 bool LogicalLocation::IsNeighborOfTE(const LogicalLocation &in,
-                                           const std::array<int, 3> &te_offset) const {
+                                     const std::array<int, 3> &te_offset) const {
   PARTHENON_REQUIRE(tree() == in.tree(),
                     "Trying to compare locations not in the same octree.");
   const int max_level = std::max(in.level(), level());
@@ -134,6 +134,5 @@ std::vector<LogicalLocation> LogicalLocation::GetDaughters(int ndim) const {
   }
   return daughters;
 }
-
 
 } // namespace parthenon

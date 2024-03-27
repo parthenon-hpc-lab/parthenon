@@ -56,7 +56,7 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
   }
 
   // Build in negative levels
-  for (int l = -20; l < 0; ++l) { 
+  for (int l = -20; l < 0; ++l) {
     internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
   }
 
@@ -142,7 +142,8 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   return nadded;
 }
 
-std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc, GridIdentifier grid_id) const {
+std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc,
+                                                  GridIdentifier grid_id) const {
   const Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                           {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                           {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
@@ -166,31 +167,32 @@ std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc, in
 }
 
 void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
-                             std::vector<NeighborLocation> *neighbor_locs, 
+                             std::vector<NeighborLocation> *neighbor_locs,
                              GridIdentifier grid_id) const {
   PARTHENON_REQUIRE(
       loc.tree() == my_id,
       "Trying to find neighbors in a tree with a LogicalLocation on a different tree.");
-  PARTHENON_REQUIRE((leaves.count(loc) == 1 || internal_nodes.count(loc) == 1), "Location must be in the tree to find neighbors.");
+  PARTHENON_REQUIRE((leaves.count(loc) == 1 || internal_nodes.count(loc) == 1),
+                    "Location must be in the tree to find neighbors.");
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
   int n_idx = neigh.NeighborTreeIndex();
 
-  bool include_same, include_fine, include_internal, include_coarse; 
+  bool include_same, include_fine, include_internal, include_coarse;
   if (grid_id.type == GridType::leaf) {
     include_same = true;
-    include_fine = true; 
+    include_fine = true;
     include_internal = false;
     include_coarse = true;
-  } else if (grid_id.type == GridType::two_level_composite) { 
-    if (loc.level() == grid_id.logical_level) { 
+  } else if (grid_id.type == GridType::two_level_composite) {
+    if (loc.level() == grid_id.logical_level) {
       include_same = true;
-      include_fine = false; 
+      include_fine = false;
       include_internal = true;
-      include_coarse = true; 
-    } else if (loc.level() == grid_id.logical_level - 1) { 
+      include_coarse = true;
+    } else if (loc.level() == grid_id.logical_level - 1) {
       include_same = false;
-      include_fine = true; 
-      include_internal = false; 
+      include_fine = true;
+      include_internal = false;
       include_coarse = false;
     } else {
       PARTHENON_FAIL("Logic is wrong somewhere.");
@@ -205,14 +207,14 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     if (neighbor_tree->leaves.count(tneigh) && include_same) {
       neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
-      if (include_fine) { 
+      if (include_fine) {
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
           if (tloc.IsNeighbor(n))
             neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
         }
-      } else if (include_internal) { 
-        neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())}); 
+      } else if (include_internal) {
+        neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent()) && include_coarse) {
       auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());

@@ -39,8 +39,8 @@ namespace parthenon {
 
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
-                         const std::vector<NeighborLocation> &allowed_neighbors,
-                         const std::unordered_set<LogicalLocation> &newly_refined) {
+                   const std::vector<NeighborLocation> &allowed_neighbors,
+                   const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
   auto ownership_level = [&](const LogicalLocation &a) {

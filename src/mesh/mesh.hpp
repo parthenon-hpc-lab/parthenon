@@ -94,7 +94,9 @@ class Mesh {
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetDefaultBlockSize() const { return base_block_size; }
-  RegionSize GetBlockSize(const LogicalLocation &loc) const { return forest.GetBlockDomain(loc); }
+  RegionSize GetBlockSize(const LogicalLocation &loc) const {
+    return forest.GetBlockDomain(loc);
+  }
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   const forest::Forest &Forest() const { return forest; }

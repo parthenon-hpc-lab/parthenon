@@ -69,7 +69,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::vector<LogicalLocation> GetSortedInternalNodeList() const;
   RegionSize GetBlockDomain(const LogicalLocation &loc) const;
   std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const;
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, GridIdentifier grid_id = GridIdentifier::leaf()) const;
+  std::vector<NeighborLocation>
+  FindNeighbors(const LogicalLocation &loc,
+                GridIdentifier grid_id = GridIdentifier::leaf()) const;
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
                                               int ox2, int ox3) const;
 
@@ -133,7 +135,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
-                         std::vector<NeighborLocation> *neighbor_locs, 
+                         std::vector<NeighborLocation> *neighbor_locs,
                          GridIdentifier grid_type) const;
 
   int ndim;

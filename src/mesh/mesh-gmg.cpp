@@ -43,8 +43,8 @@
 
 namespace parthenon {
 
-void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
-    BlockList_t &block_list, const std::vector<int> &ranklist,
+void Mesh::SetMeshBlockNeighbors(
+    GridIdentifier grid_id, BlockList_t &block_list, const std::vector<int> &ranklist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
@@ -83,14 +83,14 @@ void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
-    
+
     if (grid_id.type == GridType::leaf) {
       pmb->neighbors = all_neighbors;
-    } else if (grid_id.type == GridType::two_level_composite 
-               && pmb->loc.level() == grid_id.logical_level) { 
+    } else if (grid_id.type == GridType::two_level_composite &&
+               pmb->loc.level() == grid_id.logical_level) {
       pmb->gmg_same_neighbors = all_neighbors;
-    } else if (grid_id.type == GridType::two_level_composite 
-               && pmb->loc.level() == grid_id.logical_level - 1) { 
+    } else if (grid_id.type == GridType::two_level_composite &&
+               pmb->loc.level() == grid_id.logical_level - 1) {
       pmb->gmg_composite_finer_neighbors = all_neighbors;
     }
   }
@@ -98,15 +98,14 @@ void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
 
 void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   if (!multigrid) return;
-  
-  // See how many times we can go below logical level zero based on the 
+
+  // See how many times we can go below logical level zero based on the
   // number of times a blocks zones can be reduced by 2^D
   int gmg_level_offset = std::numeric_limits<int>::max();
   auto block_size_default = GetDefaultBlockSize();
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
-      int dir_allowed_levels =
-          NumberOfBinaryTrailingZeros(block_size_default.nx(dir));
+      int dir_allowed_levels = NumberOfBinaryTrailingZeros(block_size_default.nx(dir));
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
@@ -121,20 +120,20 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Create MeshData objects for GMG
   for (auto &[l, mdc] : gmg_mesh_data)
     mdc.SetMeshPointer(this);
-  
-  // Fill/create gmg block lists based on this ranks block list 
-  for (auto &pmb : block_list) { 
-    const int level = pmb->loc.level(); 
+
+  // Fill/create gmg block lists based on this ranks block list
+  for (auto &pmb : block_list) {
+    const int level = pmb->loc.level();
     // Add the leaf block to its level
     gmg_block_lists[level].push_back(pmb);
-    
+
     // Add the leaf block to the next finer level if required
-    if (level < current_level) { 
+    if (level < current_level) {
       gmg_block_lists[level + 1].push_back(pmb);
     }
 
-    // Create internal blocks that share a Morton number with this block 
-    // and add them to gmg two-level composite grid block lists. This 
+    // Create internal blocks that share a Morton number with this block
+    // and add them to gmg two-level composite grid block lists. This
     // determines which process internal blocks live on
     auto loc = pmb->loc.GetParent();
     while (loc.level() >= gmg_min_level && loc.morton() == pmb->loc.morton()) {
@@ -142,15 +141,15 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
       BoundaryFlag block_bcs[6];
       SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
       gmg_block_lists[loc.level()].push_back(
-                MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
-                                app_in, packages, resolved_packages, gflag)); 
+          MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
+                          app_in, packages, resolved_packages, gflag));
       loc = loc.GetParent();
     }
   }
 
   // Sort the gmg block lists by gid
-  for (auto &[level, bl] : gmg_block_lists) { 
-    std::sort(bl.begin(), bl.end(), [](auto &a, auto &b){ return a->gid < b->gid;});
+  for (auto &[level, bl] : gmg_block_lists) {
+    std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
   }
 }
 
@@ -158,34 +157,36 @@ void Mesh::SetGMGNeighbors() {
   if (!multigrid) return;
   const int gmg_min_level = GetGMGMinLevel();
   // Sort the gmg block lists by gid and find neighbors
-  for (auto &[level, bl] : gmg_block_lists) { 
+  for (auto &[level, bl] : gmg_block_lists) {
     for (auto &pmb : bl) {
-      // Coarser neighbor 
+      // Coarser neighbor
       pmb->gmg_coarser_neighbors.clear();
       if (pmb->loc.level() > gmg_min_level) {
         auto ploc = pmb->loc.GetParent();
         int gid = forest.GetGid(ploc);
-        if (gid >= 0) { 
+        if (gid >= 0) {
           int leaf_gid = forest.GetLeafGid(ploc);
-          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ranklist[leaf_gid], gid,
-                                                  std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ranklist[leaf_gid],
+                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
+                                                  0, 0);
         }
       }
-      
+
       // Finer neighbor(s)
       pmb->gmg_finer_neighbors.clear();
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
-        for (auto &d : dlocs) { 
+        for (auto &d : dlocs) {
           int gid = forest.GetGid(d);
-          if (gid >= 0) { 
+          if (gid >= 0) {
             int leaf_gid = forest.GetLeafGid(d);
-            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid], gid,
-                                                  std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid],
+                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
+                                                  0, 0);
           }
         }
       }
-      
+
       // Same level neighbors
       SetMeshBlockNeighbors(GridIdentifier::two_level_composite(level), bl, ranklist);
     }
