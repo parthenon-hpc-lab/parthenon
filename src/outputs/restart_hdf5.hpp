@@ -31,17 +31,6 @@
 #include "outputs/parthenon_hdf5_types.hpp"
 
 using namespace parthenon::HDF5;
-// TODO(someone) the following "else" is very ugly but fixes missing types when not
-// using hdf5. The issue is that some of the restart machinery lives outside of
-// restart.cpp and restart.hpp and uses the interfaces below. We should overall update
-// the logic to reduce the ifdefs for HDF5 in this (and other restart related) files.
-#else
-class UnusedPlaceholder {};
-using hbool_t = bool;
-using hid_t = int64_t;
-using hsize_t = size_t;
-using H5D = UnusedPlaceholder;
-using H5S = UnusedPlaceholder;
 #endif
 
 #include "mesh/domain.hpp"
@@ -70,6 +59,7 @@ class RestartReaderHDF5 : public RestartReader {
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
  private:
+#ifdef ENABLE_HDF5
   struct DatasetHandle {
     hid_t type;
     H5D dataset;
@@ -83,9 +73,6 @@ class RestartReaderHDF5 : public RestartReader {
   // dimensions
   template <typename T>
   DatasetHandle OpenDataset(const std::string &name) const {
-#ifndef ENABLE_HDF5
-    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
-#else  // HDF5 enabled
     DatasetHandle handle;
 
     // make sure dataset exists
@@ -117,8 +104,8 @@ class RestartReaderHDF5 : public RestartReader {
     }
 
     return handle;
-#endif // ENABLE_HDF5
   }
+#endif // ENABLE_HDF5
 
  public:
   // Gets data for all blocks on current rank.
