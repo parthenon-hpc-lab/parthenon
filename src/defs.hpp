@@ -25,7 +25,7 @@
 
 #include "basic_types.hpp"
 #include "config.hpp"
-#include "mesh/logical_location.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

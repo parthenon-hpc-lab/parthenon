@@ -29,6 +29,8 @@
 #include "parthenon_mpi.hpp"
 
 #include "defs.hpp"
+#include "mesh/forest/block_ownership.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 

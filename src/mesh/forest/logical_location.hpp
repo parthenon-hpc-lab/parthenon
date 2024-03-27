@@ -18,8 +18,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_LOGICAL_LOCATION_HPP_
-#define MESH_LOGICAL_LOCATION_HPP_
+#ifndef MESH_FOREST_LOGICAL_LOCATION_HPP_
+#define MESH_FOREST_LOGICAL_LOCATION_HPP_
 
 #include <algorithm>
 #include <cmath>
@@ -49,6 +49,8 @@ struct std::hash<parthenon::LogicalLocation> {
 
 namespace parthenon {
 
+// TODO(LFR): This can go away once MG is fixed for forests, and probably any routine that
+// depends on it.
 struct RootGridInfo {
   int level;
   std::array<int, 3> n;
@@ -127,8 +129,6 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
-                               const RootGridInfo &rg_info = RootGridInfo()) const;
   // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
   std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
@@ -151,9 +151,7 @@ class LogicalLocation { // aggregate and POD type
     return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info);
   }
 
-  LogicalLocation
-  GetSameLevelNeighbor(int ox1, int ox2, int ox3,
-                       const RootGridInfo &rg_info = RootGridInfo()) const {
+  LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
@@ -175,8 +173,8 @@ class LogicalLocation { // aggregate and POD type
   // Athena++, which are stored in the NeighborBlock struct. I believe that these are
   // currently only required for flux correction and can eventually be removed when flux
   // correction is combined with boundary communication.
-  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2, int ox3,
-                              const RootGridInfo &rg_info = RootGridInfo()) const {
+  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2,
+                              int ox3) const {
     // The neighbor block struct should only use the first two, but we have three to allow
     // for this being a parent of neighbor, this should be checked for elsewhere
     std::array<int, 3> f{0, 0, 0};
@@ -229,49 +227,6 @@ inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return !(lhs == rhs);
 }
 
-struct block_ownership_t {
- public:
-  KOKKOS_FORCEINLINE_FUNCTION
-  const bool &operator()(int ox1, int ox2, int ox3) const {
-    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
-  }
-  KOKKOS_FORCEINLINE_FUNCTION
-  bool &operator()(int ox1, int ox2, int ox3) {
-    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  block_ownership_t() : block_ownership_t(false) {}
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  explicit block_ownership_t(bool value) : initialized(false) {
-    for (int i = 0; i < 3; ++i) {
-      for (int j = 0; j < 3; ++j) {
-        for (int k = 0; k < 3; ++k) {
-          ownership[i][j][k] = value;
-        }
-      }
-    }
-  }
-
-  bool initialized;
-
-  bool operator==(const block_ownership_t &rhs) const {
-    bool same = initialized == rhs.initialized;
-    for (int i = 0; i < 3; ++i) {
-      for (int j = 0; j < 3; ++j) {
-        for (int k = 0; k < 3; ++k) {
-          same = same && (ownership[i][j][k] == rhs.ownership[i][j][k]);
-        }
-      }
-    }
-    return same;
-  }
-
- private:
-  bool ownership[3][3][3];
-};
-
 struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
       : global_loc(g), origin_loc(o) {}
@@ -279,27 +234,6 @@ struct NeighborLocation {
   LogicalLocation
       origin_loc; // Logical location of neighboring block in index space of origin block
 };
-
-block_ownership_t
-DetermineOwnership(const LogicalLocation &main_block,
-                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
-                   const RootGridInfo &rg_info = RootGridInfo(),
-                   const std::unordered_set<LogicalLocation> &newly_refined = {});
-
-block_ownership_t
-DetermineOwnershipForest(const LogicalLocation &main_block,
-                         const std::vector<NeighborLocation> &allowed_neighbors,
-                         const std::unordered_set<LogicalLocation> &newly_refined = {});
-
-// Given a topological element, ownership array of the sending block, and offset indices
-// defining the location of an index region within the block (i.e. the ghost zones passed
-// across the x-face or the ghost zones passed across the z-edge), return the index range
-// masking array required for masking out unowned regions of the index space. ox? defines
-// buffer location on the owner block
-block_ownership_t
-GetIndexRangeMaskFromOwnership(TopologicalElement el,
-                               const block_ownership_t &sender_ownership, int ox1,
-                               int ox2, int ox3);
 
 } // namespace parthenon
 
@@ -311,4 +245,4 @@ inline std::size_t std::hash<parthenon::LogicalLocation>::operator()(
   return key.morton().bits[0];
 }
 
-#endif // MESH_LOGICAL_LOCATION_HPP_
+#endif // MESH_FOREST_LOGICAL_LOCATION_HPP_

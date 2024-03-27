@@ -156,8 +156,9 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
 
-  mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/forest/block_ownership.cpp
+  mesh/forest/block_ownership.hpp
   mesh/forest/cell_center_offsets.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
@@ -165,10 +166,11 @@ add_library(parthenon
   mesh/forest/relative_orientation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
-  mesh/logical_location.cpp
-  mesh/logical_location.hpp
+  mesh/forest/logical_location.cpp
+  mesh/forest/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-amr_loadbalance.cpp
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
