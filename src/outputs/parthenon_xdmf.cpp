@@ -126,24 +126,24 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
          << slabTrailer << std::endl;
 
     dims[1] = nx1 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
-                      swarm_position::x::name(), dims, 2, "Float", 8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "x", dims, 2, "Float",
+                      8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx2 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx2 + 1
          << slabTrailer << std::endl;
 
     dims[1] = nx2 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
-                      swarm_position::y::name(), dims, 2, "Float", 8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "y", dims, 2, "Float",
+                      8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
          << slabTrailer << std::endl;
 
     dims[1] = nx3 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
-                      swarm_position::z::name(), dims, 2, "Float", 8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
+                      8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << "      </Geometry>" << std::endl;
