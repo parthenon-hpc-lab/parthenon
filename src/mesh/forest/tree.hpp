@@ -151,9 +151,6 @@ class Tree : public std::enable_shared_from_this<Tree> {
   LocMap_t leaves;
   LocMap_t internal_nodes;
 
-  // Two-level composite grids for geometric multigrid
-  std::vector<LocMap_t> gmg_tlc_grids;
-
   // This contains all of the neighbor information for this tree, for each of the
   // 3^3 possible neighbor connections. Since an edge or node connection can have
   // multiple neighbors generally, we keep a map at each neighbor location from
