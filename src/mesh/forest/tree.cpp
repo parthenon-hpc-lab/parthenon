@@ -208,7 +208,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
       if (include_fine) { 
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
-          if (tloc.IsNeighborForest(n))
+          if (tloc.IsNeighbor(n))
             neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
         }
       } else if (include_internal) { 
@@ -220,7 +220,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
       // because our communication algorithm packs this extra data by hand, we do not wish
       // to duplicate coarser blocks in the neighbor list. Therefore, we only include the
       // coarse block in one offset position
-      auto sl_offset = loc.GetSameLevelOffsetsForest(neighp);
+      auto sl_offset = loc.GetSameLevelOffsets(neighp);
       if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
         neighbor_locs->push_back({tneigh.GetParent(), neighp});
     }

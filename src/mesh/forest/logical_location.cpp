@@ -54,7 +54,7 @@ bool LogicalLocation::Contains(const LogicalLocation &containee) const {
 }
 
 std::array<int, 3>
-LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const {
+LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor) const {
   std::array<int, 3> offsets;
   const int level_shift_neigh = std::max(neighbor.level() - level(), 0);
   const int level_shift_me = std::max(level() - neighbor.level(), 0);
@@ -65,7 +65,7 @@ LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) cons
   return offsets;
 }
 
-bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const {
+bool LogicalLocation::IsNeighbor(const LogicalLocation &in) const {
   PARTHENON_REQUIRE(tree() == in.tree(),
                     "Trying to compare locations not in the same octree.");
   const int max_level = std::max(in.level(), level());
@@ -86,7 +86,7 @@ bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const {
   return neighbors;
 }
 
-bool LogicalLocation::IsNeighborOfTEForest(const LogicalLocation &in,
+bool LogicalLocation::IsNeighborOfTE(const LogicalLocation &in,
                                            const std::array<int, 3> &te_offset) const {
   PARTHENON_REQUIRE(tree() == in.tree(),
                     "Trying to compare locations not in the same octree.");

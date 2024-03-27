@@ -130,14 +130,12 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
-  std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
+  std::array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
-  bool IsNeighborForest(const LogicalLocation &in) const;
-  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
-  bool IsNeighborOfTEForest(const LogicalLocation &in,
+  bool IsNeighbor(const LogicalLocation &in) const;
+  bool IsNeighborOfTE(const LogicalLocation &in,
                             const std::array<int, 3> &te_offset) const;
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {

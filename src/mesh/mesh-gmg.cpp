@@ -60,7 +60,7 @@ void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
     int buf_id = 0;
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
-      auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
+      auto offsets = loc.GetSameLevelOffsets(nloc.origin_loc);
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
       int bid = buffer_id.GetID(offsets[0], offsets[1], offsets[2], f[0], f[1]);
@@ -80,7 +80,7 @@ void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
 
       nb.ownership =
-          DetermineOwnershipForest(nloc.global_loc, neighbor_neighbors, newly_refined);
+          DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
     

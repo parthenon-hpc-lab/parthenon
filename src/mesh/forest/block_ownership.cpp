@@ -38,7 +38,7 @@
 namespace parthenon {
 
 block_ownership_t
-DetermineOwnershipForest(const LogicalLocation &main_block,
+DetermineOwnership(const LogicalLocation &main_block,
                          const std::vector<NeighborLocation> &allowed_neighbors,
                          const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
@@ -68,7 +68,7 @@ DetermineOwnershipForest(const LogicalLocation &main_block,
         main_owns(ox1, ox2, ox3) = true;
         for (const auto &n : allowed_neighbors) {
           if (ownership_less_than(main_block, n.global_loc) &&
-              main_block.IsNeighborOfTEForest(n.origin_loc, {ox1, ox2, ox3})) {
+              main_block.IsNeighborOfTE(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }
