@@ -74,61 +74,22 @@ class Tree : public std::enable_shared_from_this<Tree> {
                 GridIdentifier grid_id = GridIdentifier::leaf()) const;
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
                                               int ox2, int ox3) const;
-
-  std::vector<LogicalLocation>
-  GetLocalLocationsFromNeighborLocation(const LogicalLocation &loc);
-
   std::size_t CountMeshBlock() const { return leaves.size(); }
+
+  // Gid related methods 
+  void InsertGid(const LogicalLocation &loc, std::int64_t gid);
+  std::int64_t GetGid(const LogicalLocation &loc) const;
+  std::int64_t GetOldGid(const LogicalLocation &loc) const;
+  // Get the gid of the leaf block with the same Morton number 
+  // as loc
+  std::int64_t GetLeafGid(const LogicalLocation &loc) const;
 
   // Methods for building tree connectivity
   void AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                        RelativeOrientation orient);
-
+  
+  // Global id of the tree
   std::uint64_t GetId() const { return my_id; }
-
-  const std::unordered_map<LogicalLocation, std::pair<std::int64_t, std::int64_t>> &
-  GetLeaves() const {
-    return leaves;
-  }
-
-  void InsertGid(const LogicalLocation &loc, std::int64_t gid) {
-    if (leaves.count(loc)) {
-      leaves[loc].second = leaves[loc].first;
-      leaves[loc].first = gid;
-    } else if (internal_nodes.count(loc)) {
-      internal_nodes[loc].second = internal_nodes[loc].first;
-      internal_nodes[loc].first = gid;
-    } else {
-      PARTHENON_FAIL("Tried to assign gid to non-existent block.");
-    }
-  }
-
-  std::int64_t GetGid(const LogicalLocation &loc) const {
-    if (leaves.count(loc)) {
-      return leaves.at(loc).first;
-    } else if (internal_nodes.count(loc)) {
-      return internal_nodes.at(loc).first;
-    }
-    return -1;
-  }
-
-  std::int64_t GetLeafGid(const LogicalLocation &loc) const {
-    if (leaves.count(loc)) {
-      return leaves.at(loc).first;
-    } else if (internal_nodes.count(loc)) {
-      return GetLeafGid(loc.GetDaughter(0, 0, 0));
-    }
-    return -1;
-  }
-
-  std::int64_t GetOldGid(const LogicalLocation &loc) const {
-    if (leaves.count(loc)) {
-      return leaves.at(loc).second;
-    } else if (internal_nodes.count(loc)) {
-      return internal_nodes.at(loc).second;
-    }
-    return -1;
-  }
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;

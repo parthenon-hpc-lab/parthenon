@@ -330,5 +330,46 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
   if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
 }
 
+void Tree::InsertGid(const LogicalLocation &loc, std::int64_t gid) {
+  if (leaves.count(loc)) {
+    leaves[loc].second = leaves[loc].first;
+    leaves[loc].first = gid;
+  } else if (internal_nodes.count(loc)) {
+    internal_nodes[loc].second = internal_nodes[loc].first;
+    internal_nodes[loc].first = gid;
+  } else {
+    PARTHENON_FAIL("Tried to assign gid to non-existent block.");
+  }
+}
+
+std::int64_t Tree::GetGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).first;
+  } else if (internal_nodes.count(loc)) {
+    return internal_nodes.at(loc).first;
+  }
+  return -1;
+}
+
+// Get the gid of the leaf block with the same Morton number 
+// as loc
+std::int64_t Tree::GetLeafGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).first;
+  } else if (internal_nodes.count(loc)) {
+    return GetLeafGid(loc.GetDaughter(0, 0, 0));
+  }
+  return -1;
+}
+
+std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).second;
+  } else if (internal_nodes.count(loc)) {
+    return internal_nodes.at(loc).second;
+  }
+  return -1;
+}
+
 } // namespace forest
 } // namespace parthenon
