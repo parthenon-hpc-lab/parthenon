@@ -18,6 +18,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 * Flexible, plug-in package system
 * Abstract variables controlled via metadata flags
 * Support for particles
+* Support for cell-, node-, face-, and edge-centered fields
 * Multi-stage drivers/integrators with support for task-based parallelism
 
 # Community
