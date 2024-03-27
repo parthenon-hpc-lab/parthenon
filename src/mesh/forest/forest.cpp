@@ -48,8 +48,8 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
     for (int i = start; i < end; ++i)
       tree->InsertGid(mb_list[i], gid++);
   }
-  
-  // Assign gids to the internal nodes 
+
+  // Assign gids to the internal nodes
   for (auto &[id, tree] : trees) {
     std::size_t start = mb_list.size();
     auto tree_int_locs = tree->GetSortedInternalNodeList();

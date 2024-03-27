@@ -918,7 +918,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     auto &md = mesh_data.GetOrAdd("base", i);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
     for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);

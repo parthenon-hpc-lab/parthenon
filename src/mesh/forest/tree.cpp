@@ -98,11 +98,11 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
     leaves.insert(LocMapEntry(d, gid_parent, -1));
   }
   int nadded = daughters.size() - 1;
-  
+
   // Update multigrid levels
-  auto& gmg_grid_1 = gmg_tlc_grids[ref_loc.level() + 1];
-  auto& gmg_grid_2 = gmg_tlc_grids[ref_loc.level() + 2];
-  if (gmg_grid_1.count(ref_loc)) gmg_grid_1.erase(ref_loc); 
+  auto &gmg_grid_1 = gmg_tlc_grids[ref_loc.level() + 1];
+  auto &gmg_grid_2 = gmg_tlc_grids[ref_loc.level() + 2];
+  if (gmg_grid_1.count(ref_loc)) gmg_grid_1.erase(ref_loc);
   for (auto &d : daughters) {
     // Insert as fine leaf blocks on coarser two-level grid
     gmg_grid_1.insert(LocMapEntry(d, gid_parent, -1));
@@ -232,7 +232,7 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
   }
 
   // Derefinement is ok
-  auto& gmg_grid = gmg_tlc_grids[ref_loc.level() + 1];
+  auto &gmg_grid = gmg_tlc_grids[ref_loc.level() + 1];
   std::int64_t dgid = std::numeric_limits<std::int64_t>::max();
   for (auto &d : daughters) {
     gmg_grid.erase(d);
