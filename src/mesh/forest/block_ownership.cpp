@@ -37,48 +37,6 @@
 
 namespace parthenon {
 
-// TODO(LFR): Remove this
-block_ownership_t
-DetermineOwnership(const LogicalLocation &main_block,
-                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
-                   const RootGridInfo &rg_info,
-                   const std::unordered_set<LogicalLocation> &newly_refined) {
-  block_ownership_t main_owns;
-
-  auto ownership_level = [&](const LogicalLocation &a) {
-    // Newly-refined blocks are treated as higher-level than blocks at their
-    // parent level, but lower-level than previously-refined blocks at their
-    // current level.
-    if (newly_refined.count(a)) return 2 * a.level() - 1;
-    return 2 * a.level();
-  };
-
-  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
-                                               const LogicalLocation &b) {
-    // Ownership is first determined by block with the highest level, then by maximum
-    // Morton number this is reversed in precedence from the normal comparators where
-    // Morton number takes precedence
-    if (ownership_level(a) == ownership_level(b)) return a.morton() < b.morton();
-    return ownership_level(a) < ownership_level(b);
-  };
-
-  for (int ox1 : {-1, 0, 1}) {
-    for (int ox2 : {-1, 0, 1}) {
-      for (int ox3 : {-1, 0, 1}) {
-        main_owns(ox1, ox2, ox3) = true;
-        for (auto &n : allowed_neighbors) {
-          if (ownership_less_than(main_block, n) &&
-              main_block.IsNeighborOfTE(n, ox1, ox2, ox3, rg_info)) {
-            main_owns(ox1, ox2, ox3) = false;
-            break;
-          }
-        }
-      }
-    }
-  }
-  return main_owns;
-}
-
 block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
                          const std::vector<NeighborLocation> &allowed_neighbors,

@@ -132,25 +132,13 @@ class LogicalLocation { // aggregate and POD type
 
   // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
-  std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
-                                                      const RootGridInfo &rg_info) const;
+
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
-  bool IsNeighbor(const LogicalLocation &in,
-                  const RootGridInfo &rg_info = RootGridInfo()) const {
-    return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info);
-  }
-
-  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   bool IsNeighborForest(const LogicalLocation &in) const;
   // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
   bool IsNeighborOfTEForest(const LogicalLocation &in,
                             const std::array<int, 3> &te_offset) const;
-
-  bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
-                      const RootGridInfo &rg_info = RootGridInfo()) const {
-    return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info);
-  }
 
   LogicalLocation GetSameLevelNeighbor(int ox1, int ox2, int ox3) const {
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
@@ -187,23 +175,6 @@ class LogicalLocation { // aggregate and POD type
     }
     return f;
   }
-
-  std::unordered_set<LogicalLocation>
-  GetPossibleNeighbors(const RootGridInfo &rg_info = RootGridInfo());
-
-  std::unordered_set<LogicalLocation> GetPossibleBlocksSurroundingTopologicalElement(
-      int ox1, int ox2, int ox3, const RootGridInfo &rg_info = RootGridInfo()) const;
-
- private:
-  template <bool TENeighbor>
-  bool NeighborFindingImpl(const LogicalLocation &in, const std::array<int, 3> &te_offset,
-                           const RootGridInfo &rg_info = RootGridInfo()) const;
-
-  std::unordered_set<LogicalLocation> GetPossibleNeighborsImpl(
-      const std::vector<int> &irange, const std::vector<int> &jrange,
-      const std::vector<int> &krange, const std::vector<int> &daughter_irange,
-      const std::vector<int> &daughter_jrange, const std::vector<int> &daughter_krange,
-      const RootGridInfo &rg_info = RootGridInfo()) const;
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {

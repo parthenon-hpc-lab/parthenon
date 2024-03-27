@@ -83,12 +83,6 @@ struct block_ownership_t {
 };
 
 block_ownership_t
-DetermineOwnership(const LogicalLocation &main_block,
-                   const std::unordered_set<LogicalLocation> &allowed_neighbors,
-                   const RootGridInfo &rg_info = RootGridInfo(),
-                   const std::unordered_set<LogicalLocation> &newly_refined = {});
-
-block_ownership_t
 DetermineOwnershipForest(const LogicalLocation &main_block,
                          const std::vector<NeighborLocation> &allowed_neighbors,
                          const std::unordered_set<LogicalLocation> &newly_refined = {});

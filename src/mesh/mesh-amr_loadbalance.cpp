@@ -927,7 +927,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     loclist = std::move(newloc);
     ranklist = std::move(newrank);
     costlist = std::move(newcost);
-    PopulateLeafLocationMap();
 
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL

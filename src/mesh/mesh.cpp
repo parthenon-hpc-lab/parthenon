@@ -394,7 +394,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output some diagnostic information to terminal
 
@@ -648,7 +647,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {

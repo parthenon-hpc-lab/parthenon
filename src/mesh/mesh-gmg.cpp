@@ -43,14 +43,6 @@
 
 namespace parthenon {
 
-void Mesh::PopulateLeafLocationMap() {
-  const int nbtot = ranklist.size();
-  leaf_grid_locs.clear();
-  for (int ib = 0; ib < nbtot; ++ib) {
-    leaf_grid_locs[loclist[ib]] = std::make_pair(ib, ranklist[ib]);
-  }
-}
-
 void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
     BlockList_t &block_list, const std::vector<int> &ranklist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
