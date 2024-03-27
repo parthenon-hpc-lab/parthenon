@@ -191,13 +191,6 @@ class Mesh {
     return forest.root_level + forest.forest_level;
   }
 
-  RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(
-        root_level, nrbx[0], nrbx[1], nrbx[2],
-        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
-        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
-        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);
-  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
@@ -321,11 +314,7 @@ class Mesh {
   SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
-  void
-  SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                        RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                        int composite_logical_level = 0,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
+
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =

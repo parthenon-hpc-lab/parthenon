@@ -48,20 +48,6 @@ struct std::hash<parthenon::LogicalLocation> {
 };
 
 namespace parthenon {
-
-// TODO(LFR): This can go away once MG is fixed for forests, and probably any routine that
-// depends on it.
-struct RootGridInfo {
-  int level;
-  std::array<int, 3> n;
-  std::array<bool, 3> periodic;
-  // Defaults to root grid of single block at the
-  // coarsest level
-  RootGridInfo() : level(0), n{1, 1, 1}, periodic{false, false, false} {}
-  RootGridInfo(int level, int nx1, int nx2, int nx3, bool p1, bool p2, bool p3)
-      : level(level), n{nx1, nx2, nx3}, periodic{p1, p2, p3} {}
-};
-
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
 //  \brief stores logical location and level of MeshBlock
