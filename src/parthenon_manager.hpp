@@ -94,7 +94,7 @@ class ParthenonManager {
                 for (auto &pmb : block_list) {
                   // 1 deep copy per tensor component per swarmvar per
                   // block, unfortunately. But only at initialization.
-                  auto swarm_container = pmb->swarm_data.Get();
+                  auto swarm_container = pmb->meshblock_data.Get()->swarm_data.Get();
                   auto pswarm_blk = swarm_container->Get(swarmname);
                   auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4,
                                            n3, n2, Kokkos::ALL());

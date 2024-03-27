@@ -59,15 +59,15 @@ class Swarm:
 
     @property
     def x(self):
-        return self.Get("x")
+        return self.Get("swarm.x")
 
     @property
     def y(self):
-        return self.Get("y")
+        return self.Get("swarm.y")
 
     @property
     def z(self):
-        return self.Get("z")
+        return self.Get("swarm.z")
 
     def __getitem__(self, key):
         return self.Get(key)

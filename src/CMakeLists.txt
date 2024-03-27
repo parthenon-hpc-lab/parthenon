@@ -101,10 +101,10 @@ add_library(parthenon
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
-  bvals/comms/flux_correction.cpp 
-  bvals/comms/tag_map.cpp 
-  bvals/comms/tag_map.hpp 
-  
+  bvals/comms/flux_correction.cpp
+  bvals/comms/tag_map.cpp
+  bvals/comms/tag_map.hpp
+
   bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
@@ -131,13 +131,14 @@ add_library(parthenon
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
-  interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm.cpp
   interface/swarm.hpp
   interface/swarm_boundaries.hpp
   interface/swarm_device_context.hpp
+  interface/swarm_variable_types.hpp
   interface/make_pack_descriptor.hpp
+  interface/make_swarm_pack_descriptor.hpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
@@ -150,6 +151,8 @@ add_library(parthenon
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
   interface/state_descriptor.cpp
+  interface/swarm_pack_base.hpp
+  interface/swarm_pack.hpp
   interface/update.cpp
   interface/update.hpp
   interface/var_id.hpp
@@ -184,10 +187,6 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
-  outputs/parthenon_hdf5_attributes.cpp
-  outputs/parthenon_hdf5_attributes_read.cpp
-  outputs/parthenon_hdf5_attributes_write.cpp
-  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
@@ -269,8 +268,6 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
-  parthenon_arrays.cpp
-  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp

@@ -940,7 +940,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   // Create send/recv MPI_Requests for swarms
   for (int i = 0; i < nmb; ++i) {
     auto &pmb = block_list[i];
-    pmb->swarm_data.Get()->SetupPersistentMPI();
+    pmb->meshblock_data.Get()->swarm_data.Get()->SetupPersistentMPI();
   }
 
   // Wait for boundary buffers to be no longer in use

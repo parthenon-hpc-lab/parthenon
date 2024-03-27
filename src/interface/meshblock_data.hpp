@@ -22,6 +22,8 @@
 
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm.hpp"
+#include "interface/swarm_container.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -207,6 +209,18 @@ class MeshBlockData {
   }
   std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}) {
     return GetAllVariables(sparse_ids).unique_ids();
+  }
+
+  DataCollection<SwarmContainer> swarm_data;
+  std::vector<std::shared_ptr<Swarm>> GetAllSwarms() {
+    return swarm_data.Get()->GetSwarmVector();
+  }
+  std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
+    auto swarm_map = swarm_data.Get()->GetSwarmMap();
+    auto it = swarm_map.find(name);
+    PARTHENON_REQUIRE(it != swarm_map.end(),
+                      "Couldn't find swarm '" + name + "'");
+    return it->second;
   }
 
   /// Queries related to variable packs

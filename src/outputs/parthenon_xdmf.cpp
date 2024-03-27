@@ -18,6 +18,7 @@
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/swarm_variable_types.hpp"
 #include "utils/error_checking.hpp"
 
 // only proceed if HDF5 output enabled
@@ -125,24 +126,24 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
          << slabTrailer << std::endl;
 
     dims[1] = nx1 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "x", dims, 2, "Float",
-                      8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
+                      swarm_position::x::name(), dims, 2, "Float", 8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx2 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx2 + 1
          << slabTrailer << std::endl;
 
     dims[1] = nx2 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "y", dims, 2, "Float",
-                      8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
+                      swarm_position::y::name(), dims, 2, "Float", 8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
          << slabTrailer << std::endl;
 
     dims[1] = nx3 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
-                      8);
+    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/",
+                      swarm_position::z::name(), dims, 2, "Float", 8);
     xdmf << "        </DataItem>" << std::endl;
 
     xdmf << "      </Geometry>" << std::endl;
@@ -187,15 +188,17 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
         "      <Geometry GeometryType=\"VXVYVZ\">\n",
         swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
         swmname.c_str());
-    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float", "",
-                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::x::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::y::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::z::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
     xdmf << "      </Geometry>" << std::endl;
     for (const auto &[varname, varinfo] : swminfo.var_info) {
-      if ((varname == "id") || (varname == "x") || (varname == "y") || (varname == "z")) {
+      if ((varname == "id") || (varname == swarm_position::x::name()) ||
+          (varname == swarm_position::y::name()) ||
+          (varname == swarm_position::z::name())) {
         continue; // We already did this one!
       }
       ParticleVariableRef(xdmf, varname, varinfo, swmname, hdfFile, swminfo.global_count);

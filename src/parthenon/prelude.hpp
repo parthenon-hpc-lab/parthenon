@@ -22,6 +22,7 @@
 #include <interface/meshblock_data.hpp>
 #include <interface/swarm_container.hpp>
 #include <interface/variable.hpp>
+#include <interface/swarm_variable_types.hpp>
 #include <mesh/domain.hpp>
 #include <mesh/mesh.hpp>
 #include <parthenon_arrays.hpp>

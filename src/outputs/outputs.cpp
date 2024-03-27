@@ -71,6 +71,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/swarm_variable_types.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
@@ -229,7 +230,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
               op.swarms[swname].insert(varnames.begin(), varnames.end());
             }
             // Always output x, y, and z for swarms so that they work with vis tools.
-            std::vector<std::string> coords = {"x", "y", "z"};
+            std::vector<std::string> coords = {swarm_position::x::name(),
+                                               swarm_position::y::name(),
+                                               swarm_position::z::name()};
             op.swarms[swname].insert(coords.begin(), coords.end());
           }
         }

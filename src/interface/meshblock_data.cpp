@@ -54,6 +54,18 @@ void MeshBlockData<T>::Initialize(
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
 
+  auto &swarm_container = swarm_data.Get();
+  swarm_container->SetBlockPointer(pmb);
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    swarm_container->Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = swarm_container->Get(q.first);
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
+    }
+  }
+  swarm_container->AllocateBoundaries();
+
   Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
   auto vars = GetVariablesByFlag(flags);
   for (auto &v : vars.vars()) {

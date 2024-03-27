@@ -133,7 +133,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   const auto destroy_particles_frac = pkg->Param<Real>("destroy_particles_frac");
 
@@ -163,7 +163,7 @@ TaskStatus SortParticlesIfUsingPerCellDeposition(MeshBlock *pmb) {
   auto pkg = pmb->packages.Get("particles_package");
   const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
   if (deposition_method == DepositionMethod::per_cell) {
-    auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+    auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
     swarm->SortParticlesByCell();
   }
 
@@ -173,7 +173,7 @@ TaskStatus SortParticlesIfUsingPerCellDeposition(MeshBlock *pmb) {
 TaskStatus DepositParticles(MeshBlock *pmb) {
   PARTHENON_INSTRUMENT
 
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
 
   auto pkg = pmb->packages.Get("particles_package");
   const auto deposition_method = pkg->Param<DepositionMethod>("deposition_method");
@@ -244,7 +244,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto vel = pkg->Param<Real>("particle_speed");
@@ -355,7 +355,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
                               const double t0) {
   PARTHENON_INSTRUMENT
 
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
@@ -499,7 +499,7 @@ TaskListStatus ParticleDriver::Step() {
     for (auto &block : blocks) {
       // TODO(BRR) Despite this "my_particles"-specific call, this function feels like it
       // should be generalized
-      auto swarm = block->swarm_data.Get()->Get("my_particles");
+      auto swarm = block->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
       if (!swarm->finished_transport) {
         particles_update_done = false;
       }
@@ -519,7 +519,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
 
   int num_sent_local = 0;
   for (auto &block : blocks) {
-    auto sc = block->swarm_data.Get();
+    auto sc = block->meshblock_data.Get()->swarm_data.Get();
     auto swarm = sc->Get("my_particles");
     swarm->finished_transport = false;
     num_sent_local += swarm->num_particles_sent_;
@@ -528,7 +528,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   int num_sent_global = num_sent_local; // potentially overwritten by following Allreduce
 #ifdef MPI_PARALLEL
   for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("my_particles");
+    auto swarm = block->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
       // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
@@ -552,7 +552,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   if (num_sent_global == 0) {
     for (auto &block : blocks) {
       auto &pmb = block;
-      auto sc = pmb->swarm_data.Get();
+      auto sc = pmb->meshblock_data.Get()->swarm_data.Get();
       auto swarm = sc->Get("my_particles");
       swarm->finished_transport = true;
     }
@@ -561,7 +561,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   // Reset boundary statuses
   for (auto &block : blocks) {
     auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
+    auto sc = pmb->meshblock_data.Get()->swarm_data.Get();
     auto swarm = sc->Get("my_particles");
     for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
       auto &nb = pmb->pbval->neighbor[n];
@@ -601,7 +601,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -633,7 +633,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
     auto &sc1 = pmb->meshblock_data.Get();
     auto &tl = async_region1[i];
 

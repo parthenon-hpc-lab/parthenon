@@ -19,9 +19,11 @@
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
 #include <interface/make_pack_descriptor.hpp>
+#include <interface/make_swarm_pack_descriptor.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/sparse_pack.hpp>
+#include <interface/swarm_pack.hpp>
 #include <interface/sparse_pool.hpp>
 #include <interface/state_descriptor.hpp>
 #include <interface/variable_pack.hpp>
@@ -59,6 +61,7 @@ using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
 using ::parthenon::SparsePack;
+using ::parthenon::SwarmPack;
 using ::parthenon::SparsePool;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;

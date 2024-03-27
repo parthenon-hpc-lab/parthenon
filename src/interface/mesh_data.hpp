@@ -24,6 +24,7 @@
 
 #include "bvals/comms/bnd_info.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
@@ -435,6 +436,17 @@ class MeshData {
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, Real>::value) {
+      return swarm_pack_real_cache_;
+    } else {
+      PARTHENON_FAIL("SwarmPacks only compatible with int and Real types");
+    }
+  }
+
  private:
   int ndim_;
   Mesh *pmy_mesh_;
@@ -445,6 +457,8 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<Real> swarm_pack_real_cache_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

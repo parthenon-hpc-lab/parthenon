@@ -79,7 +79,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto &cfl = pkg->Param<Real>("cfl");
 
@@ -135,7 +135,7 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -208,7 +208,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
 
   int max_active_index = swarm->GetMaxActiveIndex();
@@ -280,7 +280,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     for (int i = 0; i < blocks.size(); i++) {
       auto &tl = sync_region0[0];
       auto &pmb = blocks[i];
-      auto &sc = pmb->swarm_data.Get();
+      auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
       auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
     }
   }
@@ -289,7 +289,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
 
     auto &tl = async_region0[i];
 
@@ -315,7 +315,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
     auto &tl = async_region1[i];
 
     // Defragment if swarm memory pool occupancy is 90%

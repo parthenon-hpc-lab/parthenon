@@ -19,6 +19,7 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "swarm_variable_types.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -77,9 +78,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
 
   uid_ = get_uid_(label_);
 
-  Add("x", Metadata({Metadata::Real}));
-  Add("y", Metadata({Metadata::Real}));
-  Add("z", Metadata({Metadata::Real}));
+  Add(swarm_position::x::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::y::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::z::name(), Metadata({Metadata::Real}));
   num_active_ = 0;
   max_active_index_ = 0;
 
@@ -403,9 +404,9 @@ void Swarm::Defrag() {
 void Swarm::SortParticlesByCell() {
   auto pmb = GetBlockPointer();
 
-  auto &x = Get<Real>("x").Get();
-  auto &y = Get<Real>("y").Get();
-  auto &z = Get<Real>("z").Get();
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
 
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::entire);

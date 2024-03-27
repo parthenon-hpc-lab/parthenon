@@ -165,7 +165,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 } // namespace particles_package
 
 TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("tracers");
   auto adv_pkg = pmb->packages.Get("advection_package");
 
   int max_active_index = swarm->GetMaxActiveIndex();
@@ -197,7 +197,7 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
 }
 
 TaskStatus DepositTracers(MeshBlock *pmb) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("tracers");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -321,7 +321,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &tr_pkg = pmb->packages.Get("particles_package");
   auto &mbd = pmb->meshblock_data.Get();
   auto &advected = mbd->Get("advected").data;
-  auto &swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto &swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("tracers");
   const auto num_tracers = tr_pkg->Param<int>("num_tracers");
   auto rng_pool = tr_pkg->Param<RNGPool>("rng_pool");
 
@@ -493,7 +493,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       for (int i = 0; i < blocks.size(); i++) {
         auto &tl = sync_region0[0];
         auto &pmb = blocks[i];
-        auto &sc = pmb->swarm_data.Get();
+        auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
         auto reset_comms =
             tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
       }
@@ -503,7 +503,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     for (int n = 0; n < nblocks; n++) {
       auto &tl = async_region1[n];
       auto &pmb = blocks[n];
-      auto &sc = pmb->swarm_data.Get();
+      auto &sc = pmb->meshblock_data.Get()->swarm_data.Get();
       auto tracerAdvect =
           tl.AddTask(none, tracers_example::AdvectTracers, pmb.get(), integrator.get());
 
