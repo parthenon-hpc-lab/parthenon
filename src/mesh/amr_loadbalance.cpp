@@ -935,11 +935,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-
-    std::unordered_set<LogicalLocation> forest_newly_refined;
-    for (auto &aloc : newly_refined)
-      forest_newly_refined.insert(aloc);
-
     // init meshblock data
     for (auto &pmb : block_list)
       pmb->InitMeshBlockUserData(pmb.get(), pin);
@@ -959,13 +954,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      for (auto &pmb : block_list) {
-        pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
-                                          newly_refined);
-      }
-      SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
-                            false, 0, newly_refined);
-      SetMeshBlockNeighbors(block_list, nbs, ranklist, forest_newly_refined);
+      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
