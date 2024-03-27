@@ -93,7 +93,7 @@ class Mesh {
   std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
-  const RegionSize &GetBlockSize() const;
+  const RegionSize &GetDefaultBlockSize() const;
   RegionSize GetBlockSize(const LogicalLocation &loc) const;
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 

@@ -102,7 +102,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   // See how many times we can go below logical level zero based on the 
   // number of times a blocks zones can be reduced by 2^D
   int gmg_level_offset = std::numeric_limits<int>::max();
-  auto block_size_default = GetBlockSize();
+  auto block_size_default = GetDefaultBlockSize();
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
       int dir_allowed_levels =
@@ -138,7 +138,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     // determines which process internal blocks live on
     auto loc = pmb->loc.GetParent();
     while (loc.level() >= gmg_min_level && loc.morton() == pmb->loc.morton()) {
-      RegionSize block_size = GetBlockSize();
+      RegionSize block_size = GetDefaultBlockSize();
       BoundaryFlag block_bcs[6];
       SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
       gmg_block_lists[loc.level()].push_back(

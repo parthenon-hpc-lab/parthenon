@@ -1209,7 +1209,7 @@ std::int64_t Mesh::GetTotalCells() {
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
+const RegionSize &Mesh::GetDefaultBlockSize() const { return base_block_size; }
 
 const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   // TODO(JMM): Luke this is for your Metadata::fine stuff.

@@ -792,7 +792,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   BlockList_t new_block_list(nbe - nbs + 1);
   { // AMR Construct new MeshBlockList region
     PARTHENON_INSTRUMENT
-    RegionSize block_size = GetBlockSize();
+    RegionSize block_size = GetDefaultBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
