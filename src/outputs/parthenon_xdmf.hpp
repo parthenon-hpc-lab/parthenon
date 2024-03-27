@@ -28,8 +28,8 @@
 namespace parthenon {
 // forward declarations
 namespace XDMF {
-void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<OutputUtils::VarInfo> &var_list,
+void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
+             int nx2, int nx3, const std::vector<OutputUtils::VarInfo> &var_list,
              const OutputUtils::AllSwarmInfo &all_swarm_info);
 } // namespace XDMF
 } // namespace parthenon

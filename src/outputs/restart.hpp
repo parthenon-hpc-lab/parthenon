@@ -27,6 +27,7 @@
 
 #include "interface/metadata.hpp"
 #include "mesh/domain.hpp"
+#include "outputs/output_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -87,9 +88,8 @@ class RestartReader {
   // Assumes blocks are contiguous
   // fills internal data for given pointer
   virtual void ReadBlocks(const std::string &name, IndexRange range,
-                          std::vector<Real> &dataVec, const std::vector<size_t> &bsize,
-                          int file_output_format_version, MetadataFlag where,
-                          const std::vector<int> &shape = {}) const = 0;
+                          const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
+                          int file_output_format_version) const = 0;
 
   // Gets the data from a swarm var on current rank. Assumes all
   // blocks are contiguous. Fills dataVec based on shape from swarmvar

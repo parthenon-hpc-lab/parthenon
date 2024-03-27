@@ -59,7 +59,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector);
+                                     const std::string &dims321, bool isVector,
+                                     MetadataFlag where);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -69,10 +70,12 @@ static std::string ParticleDatasetRef(const std::string &prefix,
 static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                 const SwarmVarInfo &varinfo, const std::string &swmname,
                                 const std::string &hdffile, int particle_count);
+static std::string LocationToStringRef(MetadataFlag where);
 } // namespace impl
 
-void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<VarInfo> &var_list, const AllSwarmInfo &all_swarm_info) {
+void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
+             int nx2, int nx3, const std::vector<VarInfo> &var_list,
+             const AllSwarmInfo &all_swarm_info) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;
@@ -85,7 +88,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   }
   std::string filename_aux = hdfFile + ".xdmf";
   std::ofstream xdmf;
-  hsize_t dims[H5_NDIM] = {0, 0, 0, 0, 0, 0, 0};
+  hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -150,26 +153,17 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
     // write graphics variables
     int ndim;
     for (const auto &vinfo : var_list) {
-      std::vector<hsize_t> alldims(
-          {static_cast<hsize_t>(vinfo.nx6), static_cast<hsize_t>(vinfo.nx5),
-           static_cast<hsize_t>(vinfo.nx4), static_cast<hsize_t>(vinfo.nx3),
-           static_cast<hsize_t>(vinfo.nx2), static_cast<hsize_t>(vinfo.nx1)});
-      // Only cell-based data currently supported for visualization
-      if (vinfo.where == MetadataFlag(Metadata::Cell)) {
-        ndim = 3 + vinfo.tensor_rank + 1;
-        for (int i = 0; i < vinfo.tensor_rank; i++) {
-          dims[1 + i] = alldims[3 - vinfo.tensor_rank + i];
-        }
-        dims[vinfo.tensor_rank + 1] = nx3;
-        dims[vinfo.tensor_rank + 2] = nx2;
-        dims[vinfo.tensor_rank + 3] = nx1;
-      } else {
+      // JMM: I can't figure out how to get faces/edges to work and
+      // I'm not going try any longer. More eyes appreciated.
+      if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
+          (vinfo.where != MetadataFlag({Metadata::Node}))) {
         continue;
       }
-
+      ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
       const int num_components = vinfo.num_components;
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               num_components, ndim, dims, dims321, vinfo.is_vector);
+                               num_components, ndim, dims, dims321, vinfo.is_vector,
+                               vinfo.where);
     }
     xdmf << "    </Grid>" << std::endl;
   }
@@ -241,10 +235,12 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector) {
+                                     const std::string &dims321, bool isVector,
+                                     MetadataFlag where) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
+  // TODO(JMM): this is not generic
   if (num_components == 1 || isVector) {
     // we only make one entry, because either num_components == 1, or we write this as a
     // vector
@@ -282,7 +278,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   } else if (tensor_dims == 1) {
     const std::string prefix = "      ";
     for (int i = 0; i < nentries; i++) {
-      fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
+      fid << prefix << R"(<Attribute Name=")" << names[i] << LocationToStringRef(where);
       if (isVector) {
         fid << R"( AttributeType="Vector")"
             << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
@@ -410,6 +406,21 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
     }
   }
 }
+
+static std::string LocationToStringRef(MetadataFlag where) {
+  if (where == MetadataFlag({Metadata::Node})) {
+    return R"(" Center="Node")";
+  } else if (where == MetadataFlag({Metadata::Cell})) {
+    return R"(" Center="Cell")";
+  } else if (where == MetadataFlag({Metadata::Face})) {
+    return R"(" Center="Face")";
+  } else if (where == MetadataFlag({Metadata::Edge})) {
+    return R"(" Center="Edge")";
+  } else { // if (where == MetadataFlag({Metadata::None})) {
+    return R"(" Center="Other")";
+  }
+}
+
 } // namespace impl
 } // namespace XDMF
 } // namespace parthenon
