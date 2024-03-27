@@ -60,7 +60,7 @@ class RestartReaderHDF5 : public RestartReader {
 
   [[nodiscard]] MeshInfo GetMeshInfo() const override;
 
-  [[nodiscard]] TimeInfo GetTimeInfo() const override;
+  [[nodiscard]] SimTime GetTimeInfo() const override;
 
   [[nodiscard]] std::string GetInputString() const override {
     return GetAttr<std::string>("Input", "File");
