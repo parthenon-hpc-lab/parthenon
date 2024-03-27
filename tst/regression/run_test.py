@@ -38,7 +38,6 @@ import utils.test_case as tc
 
 
 def checkRunScriptLocation(run_test_py_path):
-
     """Check that run_test is in the correct folder"""
     if not os.path.normpath(run_test_py_path).endswith(
         os.path.normpath("tst/regression")

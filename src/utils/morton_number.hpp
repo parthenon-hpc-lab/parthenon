@@ -69,6 +69,10 @@ inline bool operator==(const MortonNumber &lhs, const MortonNumber &rhs) {
          (lhs.bits[0] == rhs.bits[0]);
 }
 
+inline bool operator!=(const MortonNumber &lhs, const MortonNumber &rhs) {
+  return !(lhs == rhs);
+}
+
 } // namespace parthenon
 
 #endif // UTILS_MORTON_NUMBER_HPP_

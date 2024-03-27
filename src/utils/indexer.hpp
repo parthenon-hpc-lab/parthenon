@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "utils/concepts_lite.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -49,6 +50,12 @@ struct Indexer {
   KOKKOS_FORCEINLINE_FUNCTION
   std::tuple<Ts...> operator()(int idx) const {
     return GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetIdxArray(int idx) const {
+    return get_array_from_tuple(
+        GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
   }
 
   template <std::size_t I>

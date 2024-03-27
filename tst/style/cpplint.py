@@ -7435,7 +7435,7 @@ def ParseArguments(args):
     counting_style = ""
     recursive = False
 
-    for (opt, val) in opts:
+    for opt, val in opts:
         if opt == "--help":
             PrintUsage(None)
         if opt == "--version":
