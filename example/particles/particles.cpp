@@ -189,9 +189,9 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const Real &minx_j = pmb->coords.Xf<2>(jb.s);
   const Real &minx_k = pmb->coords.Xf<3>(kb.s);
 
-  const auto &x = swarm->Get<Real>("x").Get();
-  const auto &y = swarm->Get<Real>("y").Get();
-  const auto &z = swarm->Get<Real>("z").Get();
+  const auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  const auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  const auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   const auto &weight = swarm->Get<Real>("weight").Get();
   auto swarm_d = swarm->GetDeviceContext();
 
@@ -268,9 +268,9 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const Real &minx_k = pmb->coords.Xf<3>(kb.s);
 
   auto &t = swarm->Get<Real>("t").Get();
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   auto &v = swarm->Get<Real>("v").Get();
   auto &weight = swarm->Get<Real>("weight").Get();
 
@@ -364,9 +364,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   Real dt = integrator->dt;
 
   auto &t = swarm->Get<Real>("t").Get();
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   auto &v = swarm->Get<Real>("v").Get();
 
   const Real &dx_i = pmb->coords.Dxf<1>(pmb->cellbounds.is(IndexDomain::interior));

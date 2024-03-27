@@ -26,6 +26,7 @@
 
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/swarm.hpp"
+#include "interface/swarm_variable_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 
@@ -122,7 +123,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   swarm->AddEmptyParticles(1);
   swarm_d = swarm->GetDeviceContext();
-  auto x_d = swarm->Get<Real>("x").Get();
+  auto x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
   auto i_d = swarm->Get<int>("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
@@ -135,7 +136,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   swarm->AddEmptyParticles(11);
   swarm_d = swarm->GetDeviceContext();
-  x_d = swarm->Get<Real>("x").Get();
+  x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
   i_d = swarm->Get<int>("i").Get();
   x_h = x_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
@@ -154,7 +155,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
   // Check that existing data was successfully copied during pool resize
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(0) == 0.5);
 
   // Remove particles 3 and 5
@@ -182,7 +183,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Enter some data to be moved during defragment
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   x_h(10) = 1.1;
   x_h(11) = 1.2;
   x_d.DeepCopy(x_h);
@@ -206,7 +207,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Check that data was moved during defrag
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(2) == 1.2);
   REQUIRE(x_h(4) == 1.1);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
