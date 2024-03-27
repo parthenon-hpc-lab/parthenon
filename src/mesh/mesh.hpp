@@ -320,7 +320,7 @@ class Mesh {
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
   void
-  SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
+  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
   void

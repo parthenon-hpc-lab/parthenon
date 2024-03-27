@@ -74,10 +74,9 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
       containers_[md_label]->Set(partitions[i], pmy_mesh_);
       if (gmg_level) {
-        containers_[md_label]->grid =
-            GridIdentifier{GridType::two_level_composite, *gmg_level};
+        containers_[md_label]->grid = GridIdentifier::two_level_composite(*gmg_level);
       } else {
-        containers_[md_label]->grid = GridIdentifier{GridType::leaf, 0};
+        containers_[md_label]->grid = GridIdentifier::leaf();
       }
     }
   }

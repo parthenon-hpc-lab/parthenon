@@ -66,6 +66,15 @@ enum class BoundaryType : int {
   gmg_prolongate_recv
 };
 
+enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+struct GridIdentifier {
+  GridType type = GridType::none;
+  int logical_level = 0;
+
+  static GridIdentifier leaf() {return GridIdentifier{GridType::leaf, 0};}
+  static GridIdentifier two_level_composite(int level) {return GridIdentifier{GridType::two_level_composite, level};}
+};
+
 constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
   if (btype == BoundaryType::gmg_restrict_recv) return false;

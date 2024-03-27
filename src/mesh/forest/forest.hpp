@@ -84,8 +84,8 @@ class Forest {
     return trees.at(loc.tree())->FindNeighbors(loc, ox1, ox2, ox3);
   }
 
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
-    return trees.at(loc.tree())->FindNeighbors(loc);
+  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, GridIdentifier grid_id = GridIdentifier::leaf()) const {
+    return trees.at(loc.tree())->FindNeighbors(loc, grid_id);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};

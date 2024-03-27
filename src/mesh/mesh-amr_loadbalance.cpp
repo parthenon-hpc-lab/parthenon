@@ -954,7 +954,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
+      SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
@@ -973,7 +973,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetMeshBlockNeighbors(block_list, nbs, ranklist);
+    SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
     BuildGMGHierarchy(nbs, pin, app_in);
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
