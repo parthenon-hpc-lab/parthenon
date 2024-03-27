@@ -908,6 +908,160 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
+void Mesh::BuildTagMapAndBoundaryBuffers() {
+  const int num_partitions = DefaultNumPartitions();
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+
+  // Build densely populated communication tags
+  tag_map.clear();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.GetOrAdd("base", i);
+    tag_map.AddMeshDataToMap<BoundaryType::any>(md);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+      tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
+      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
+      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
+      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);
+      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(mdg);
+    }
+  }
+  tag_map.ResolveMap();
+
+  // Create send/recv MPI_Requests for swarms
+  for (int i = 0; i < nmb; ++i) {
+    auto &pmb = block_list[i];
+    pmb->swarm_data.Get()->SetupPersistentMPI();
+  }
+
+  // Wait for boundary buffers to be no longer in use
+  bool can_delete;
+  std::int64_t test_iters = 0;
+  constexpr std::int64_t max_it = 1e10;
+  do {
+    can_delete = true;
+    for (auto &[k, comm] : boundary_comm_map) {
+      can_delete = comm.IsSafeToDelete() && can_delete;
+    }
+    test_iters++;
+  } while (!can_delete && test_iters < max_it);
+  PARTHENON_REQUIRE(
+      test_iters < max_it,
+      "Too many iterations waiting to delete boundary communication buffers.");
+
+  // Clear boundary communication buffers
+  boundary_comm_map.clear();
+  boundary_comm_flxcor_map.clear();
+
+  // Build the boundary buffers for the current mesh
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.GetOrAdd("base", i);
+    BuildBoundaryBuffers(md);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+      BuildBoundaryBuffers(mdg);
+      BuildGMGBoundaryBuffers(mdg);
+    }
+  }
+}
+
+void Mesh::CommunicateBoundaries(std::string md_name) {
+  const int num_partitions = DefaultNumPartitions();
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+  constexpr std::int64_t max_it = 1e10;
+  std::vector<bool> sent(num_partitions, false);
+  bool all_sent;
+  std::int64_t send_iters = 0;
+
+  do {
+    all_sent = true;
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd(md_name, i);
+      if (!sent[i]) {
+        if (SendBoundaryBuffers(md) != TaskStatus::complete) {
+          all_sent = false;
+        } else {
+          sent[i] = true;
+        }
+      }
+    }
+    send_iters++;
+  } while (!all_sent && send_iters < max_it);
+  PARTHENON_REQUIRE(
+      send_iters < max_it,
+      "Too many iterations waiting to send boundary communication buffers.");
+
+  // wait to receive FillGhost variables
+  // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
+  // https://github.com/lanl/parthenon/issues/418
+  std::vector<bool> received(num_partitions, false);
+  bool all_received;
+  std::int64_t receive_iters = 0;
+  do {
+    all_received = true;
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd(md_name, i);
+      if (!received[i]) {
+        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+          all_received = false;
+        } else {
+          received[i] = true;
+        }
+      }
+    }
+    receive_iters++;
+  } while (!all_received && receive_iters < max_it);
+  PARTHENON_REQUIRE(
+      receive_iters < max_it,
+      "Too many iterations waiting to receive boundary communication buffers.");
+
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.GetOrAdd(md_name, i);
+    // unpack FillGhost variables
+    SetBoundaries(md);
+  }
+
+  //  Now do prolongation, compute primitives, apply BCs
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.GetOrAdd(md_name, i);
+    if (multilevel) {
+      ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
+      ProlongateBoundaries(md);
+    }
+    ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
+  }
+}
+
+void Mesh::PreCommFillDerived() {
+  const int num_partitions = DefaultNumPartitions();
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+  // Pre comm fill derived
+  for (int i = 0; i < nmb; ++i) {
+    auto &mbd = block_list[i]->meshblock_data.Get();
+    Update::PreCommFillDerived(mbd.get());
+  }
+  for (int i = 0; i < num_partitions; ++i) {
+    auto &md = mesh_data.GetOrAdd("base", i);
+    Update::PreCommFillDerived(md.get());
+  }
+}
+
+void Mesh::FillDerived() {
+  const int num_partitions = DefaultNumPartitions();
+  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.GetOrAdd("base", i);
+    // Call MeshData based FillDerived functions
+    Update::FillDerived(md.get());
+  }
+
+  for (int i = 0; i < nmb; ++i) {
+    auto &mbd = block_list[i]->meshblock_data.Get();
+    // Call MeshBlockData based FillDerived functions
+    Update::FillDerived(mbd.get());
+  }
+}
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop as well as during remeshing
@@ -973,143 +1127,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    // Pre comm fill derived
-    for (int i = 0; i < nmb; ++i) {
-      auto &mbd = block_list[i]->meshblock_data.Get();
-      Update::PreCommFillDerived(mbd.get());
-    }
-    for (int i = 0; i < num_partitions; ++i) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      Update::PreCommFillDerived(md.get());
-    }
+    PreCommFillDerived();
 
-    // Build densely populated communication tags
-    tag_map.clear();
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-      for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
-        // tag_map.AddMeshDataToMap<BoundaryType::any>(mdg);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(mdg);
-      }
-    }
-    tag_map.ResolveMap();
+    BuildTagMapAndBoundaryBuffers();
 
-    // Create send/recv MPI_Requests for all BoundaryData objects
-    for (int i = 0; i < nmb; ++i) {
-      auto &pmb = block_list[i];
-      pmb->swarm_data.Get()->SetupPersistentMPI();
-    }
+    CommunicateBoundaries();
 
-    // send FillGhost variables
-    bool can_delete;
-    std::int64_t test_iters = 0;
-    constexpr std::int64_t max_it = 1e10;
-    do {
-      can_delete = true;
-      for (auto &[k, comm] : boundary_comm_map) {
-        can_delete = comm.IsSafeToDelete() && can_delete;
-      }
-      test_iters++;
-    } while (!can_delete && test_iters < max_it);
-    PARTHENON_REQUIRE(
-        test_iters < max_it,
-        "Too many iterations waiting to delete boundary communication buffers.");
-
-    boundary_comm_map.clear();
-    boundary_comm_flxcor_map.clear();
-
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      BuildBoundaryBuffers(md);
-      for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-        auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
-        BuildBoundaryBuffers(mdg);
-        BuildGMGBoundaryBuffers(mdg);
-      }
-    }
-
-    std::vector<bool> sent(num_partitions, false);
-    bool all_sent;
-    std::int64_t send_iters = 0;
-    do {
-      all_sent = true;
-      for (int i = 0; i < num_partitions; i++) {
-        auto &md = mesh_data.GetOrAdd("base", i);
-        if (!sent[i]) {
-          if (SendBoundaryBuffers(md) != TaskStatus::complete) {
-            all_sent = false;
-          } else {
-            sent[i] = true;
-          }
-        }
-      }
-      send_iters++;
-    } while (!all_sent && send_iters < max_it);
-    PARTHENON_REQUIRE(
-        send_iters < max_it,
-        "Too many iterations waiting to send boundary communication buffers.");
-
-    // wait to receive FillGhost variables
-    // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
-    // https://github.com/lanl/parthenon/issues/418
-    std::vector<bool> received(num_partitions, false);
-    bool all_received;
-    std::int64_t receive_iters = 0;
-    do {
-      all_received = true;
-      for (int i = 0; i < num_partitions; i++) {
-        auto &md = mesh_data.GetOrAdd("base", i);
-        if (!received[i]) {
-          if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-            all_received = false;
-          } else {
-            received[i] = true;
-          }
-        }
-      }
-      receive_iters++;
-    } while (!all_received && receive_iters < max_it);
-    PARTHENON_REQUIRE(
-        receive_iters < max_it,
-        "Too many iterations waiting to receive boundary communication buffers.");
-
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      // unpack FillGhost variables
-      SetBoundaries(md);
-    }
-
-    //  Now do prolongation, compute primitives, apply BCs
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd("base", i);
-      if (multilevel) {
-        ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
-        ProlongateBoundaries(md);
-      }
-      ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
-      // Call MeshData based FillDerived functions
-      Update::FillDerived(md.get());
-    }
-
-    for (int i = 0; i < nmb; ++i) {
-      auto &mbd = block_list[i]->meshblock_data.Get();
-      // Call MeshBlockData based FillDerived functions
-      Update::FillDerived(mbd.get());
-    }
+    FillDerived();
 
     if (init_problem && adaptive) {
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->pmr->CheckRefinementCondition();
       }
-    }
-
-    if (init_problem && adaptive) {
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
       const int nb_before_loadbalance = nbtotal;
