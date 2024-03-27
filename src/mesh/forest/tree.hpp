@@ -96,8 +96,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
     } else if (internal_nodes.count(loc)) { 
       internal_nodes[loc].second = internal_nodes[loc].first; 
       internal_nodes[loc].first = gid;
+    } else {
+      PARTHENON_FAIL("Tried to assign gid to non-existent block.");
     }
-    PARTHENON_FAIL("Tried to assign gid to non-existent block.");
   }
 
   std::int64_t GetGid(const LogicalLocation &loc) const { 
