@@ -96,7 +96,7 @@ void Mesh::SetMeshBlockNeighbors(GridIdentifier grid_id,
   }
 }
 
-void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   if (!multigrid) return;
   
   // See how many times we can go below logical level zero based on the 
@@ -148,12 +148,20 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     }
   }
 
-  // Sort the gmg block lists by gid and find neighbors
+  // Sort the gmg block lists by gid
   for (auto &[level, bl] : gmg_block_lists) { 
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b){ return a->gid < b->gid;});
+  }
+}
 
+void Mesh::SetGMGNeighbors() {
+  if (!multigrid) return;
+  const int gmg_min_level = GetGMGMinLevel();
+  // Sort the gmg block lists by gid and find neighbors
+  for (auto &[level, bl] : gmg_block_lists) { 
     for (auto &pmb : bl) {
       // Coarser neighbor 
+      pmb->gmg_coarser_neighbors.clear();
       if (pmb->loc.level() > gmg_min_level) {
         auto ploc = pmb->loc.GetParent();
         int gid = forest.GetGid(ploc);
@@ -165,6 +173,7 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       }
       
       // Finer neighbor(s)
+      pmb->gmg_finer_neighbors.clear();
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
         for (auto &d : dlocs) { 

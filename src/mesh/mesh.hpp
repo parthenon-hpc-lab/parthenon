@@ -315,7 +315,8 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-  void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
+  void SetGMGNeighbors();
   void
   SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
                         const std::vector<int> &ranklist,

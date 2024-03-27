@@ -426,8 +426,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
+  BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
@@ -683,8 +684,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
   }
+  BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
