@@ -76,18 +76,18 @@ class Tree : public std::enable_shared_from_this<Tree> {
                                               int ox2, int ox3) const;
   std::size_t CountMeshBlock() const { return leaves.size(); }
 
-  // Gid related methods 
+  // Gid related methods
   void InsertGid(const LogicalLocation &loc, std::int64_t gid);
   std::int64_t GetGid(const LogicalLocation &loc) const;
   std::int64_t GetOldGid(const LogicalLocation &loc) const;
-  // Get the gid of the leaf block with the same Morton number 
+  // Get the gid of the leaf block with the same Morton number
   // as loc
   std::int64_t GetLeafGid(const LogicalLocation &loc) const;
 
   // Methods for building tree connectivity
   void AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                        RelativeOrientation orient);
-  
+
   // Global id of the tree
   std::uint64_t GetId() const { return my_id; }
 

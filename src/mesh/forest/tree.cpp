@@ -351,7 +351,7 @@ std::int64_t Tree::GetGid(const LogicalLocation &loc) const {
   return -1;
 }
 
-// Get the gid of the leaf block with the same Morton number 
+// Get the gid of the leaf block with the same Morton number
 // as loc
 std::int64_t Tree::GetLeafGid(const LogicalLocation &loc) const {
   if (leaves.count(loc)) {

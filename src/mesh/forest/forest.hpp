@@ -136,7 +136,7 @@ class Forest {
     return trees.at(loc.tree())->GetGid(loc);
   }
 
-  // Get the gid of the leaf block with the same Morton number 
+  // Get the gid of the leaf block with the same Morton number
   // as loc (on the same tree)
   std::int64_t GetLeafGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
