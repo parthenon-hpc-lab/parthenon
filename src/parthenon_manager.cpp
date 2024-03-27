@@ -28,15 +28,17 @@
 
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
-#include "driver/driver.hpp"
+#include FS_HEADER
 #include "globals.hpp"
-#include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
-#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -100,11 +102,15 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
   } else if (arg.res_flag != 0) {
     // Read input from restart file
-    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+      restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+    } else {
+      PARTHENON_FAIL("Unsupported restart file format.");
+    }
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
+    auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -167,13 +173,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
         std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
     // Read simulation time and cycle from restart file and set in input
-    Real tNow = restartReader->GetAttr<Real>("Info", "Time");
+    const auto time_info = restartReader->GetTimeInfo();
+    Real tNow = time_info.time;
     pinput->SetReal("parthenon/time", "start_time", tNow);
 
-    Real dt = restartReader->GetAttr<Real>("Info", "dt");
+    Real dt = time_info.dt;
     pinput->SetReal("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
+    int ncycle = time_info.ncycle;
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
