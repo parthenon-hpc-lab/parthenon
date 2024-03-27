@@ -107,7 +107,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     } else if (internal_nodes.count(loc)) {
       return internal_nodes.at(loc).first;
     }
-    PARTHENON_FAIL("Asking for GID of non-existent location.");
+    return -1;
   }
 
   std::int64_t GetLeafGid(const LogicalLocation &loc) const {
@@ -116,7 +116,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     } else if (internal_nodes.count(loc)) {
       return GetLeafGid(loc.GetDaughter(0, 0, 0));
     }
-    PARTHENON_FAIL("Asking for GID of non-existent location.");
+    return -1;
   }
 
   std::int64_t GetOldGid(const LogicalLocation &loc) const {
@@ -125,7 +125,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     } else if (internal_nodes.count(loc)) {
       return internal_nodes.at(loc).second;
     }
-    PARTHENON_FAIL("Asking for GID of non-existent location.");
+    return -1;
   }
 
   // TODO(LFR): Eventually remove this.

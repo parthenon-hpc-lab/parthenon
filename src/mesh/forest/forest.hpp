@@ -133,6 +133,10 @@ class Forest {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees.at(loc.tree())->GetGid(loc);
   }
+  std::int64_t GetLeafGid(const LogicalLocation &loc) const {
+    PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
+    return trees.at(loc.tree())->GetLeafGid(loc);
+  }
 
   std::int64_t GetOldGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");

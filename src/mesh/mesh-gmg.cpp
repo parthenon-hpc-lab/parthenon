@@ -221,7 +221,57 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   // Create MeshData objects for GMG
   for (auto &[l, mdc] : gmg_mesh_data)
     mdc.SetMeshPointer(this);
+  
+  // Fill/create gmg block lists based on this ranks block list 
+  for (auto &pmb : block_list) { 
+    const int level = pmb->loc.level(); 
+    // Add the leaf block to its level
+    gmg_block_lists[level].push_back(pmb);
+    
+    // Add the leaf block to the next finer level if required
+    if (level < current_level) { 
+      gmg_block_lists[level + 1].push_back(pmb);
+    }
 
+    // Create internal blocks that share a Morton number with this block 
+    // and add them to gmg two-level composite grid block lists
+    auto loc = pmb->loc.GetParent();
+    while (loc.level() <= gmg_min_level && loc.morton() == pmb->loc.morton()) {
+      RegionSize block_size = GetBlockSize();
+      BoundaryFlag block_bcs[6];
+      SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
+      gmg_block_lists[loc.level()].push_back(
+                MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
+                                app_in, packages, resolved_packages, gflag)); 
+      loc = loc.GetParent();
+    }
+  }
+
+  // Sort the gmg block lists by gid and find coarser and finer neighbors 
+  for (auto &[level, bl] : gmg_block_lists) { 
+    std::sort(bl.begin(), bl.end(), [](auto &a, auto &b){ return a->gid < b->gid;});
+    for (auto &pmb : bl) { 
+      auto ploc = pmb->loc.GetParent();
+      int gid = forest.GetGid(ploc);
+      if (gid >= 0) { 
+        int leaf_gid = forest.GetLeafGid(ploc);
+        pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ranklist[leaf_gid], gid,
+                                                std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+      }
+
+      auto dlocs = pmb->loc.GetDaughters(ndim);
+      for (auto &d : dlocs) { 
+        int gid = forest.GetGid(d);
+        if (gid >= 0) { 
+          int leaf_gid = forest.GetLeafGid(d);
+          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid], gid,
+                                                  std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+        }
+      }
+    }
+  }
+
+/*
   // Add leaf grid locations to GMG grid levels
   int gmg_gid = 0;
   for (auto loc : loclist) {
@@ -262,14 +312,14 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       }
     }
   }
-
+*/
   // Find same level neighbors on all GMG levels
   auto root_grid = this->GetRootGridInfo();
   for (int gmg_level = gmg_min_level; gmg_level <= current_level; ++gmg_level) {
     SetSameLevelNeighbors(gmg_block_lists[gmg_level], gmg_grid_locs[gmg_level], root_grid,
                           nbs, true, gmg_level);
   }
-
+  /*
   // Now find GMG coarser neighbor
   for (int gmg_level = gmg_min_level + 1; gmg_level <= current_level; ++gmg_level) {
     for (auto &pmb : gmg_block_lists[gmg_level]) {
@@ -307,5 +357,6 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
       }
     }
   }
+  */
 }
 } // namespace parthenon
