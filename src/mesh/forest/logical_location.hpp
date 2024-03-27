@@ -102,7 +102,7 @@ class LogicalLocation { // aggregate and POD type
   // possibly including a ghost block halo around the tree
   bool IsInTree(int nghost = 0) const {
     const int low = -nghost;
-    const int up = (1LL << level()) + nghost;
+    const int up = (1LL << std::max(level(), 0)) + nghost;
     return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
            (l_[2] >= low) && (l_[2] < up);
   }
@@ -111,6 +111,7 @@ class LogicalLocation { // aggregate and POD type
   bool IsInHalo(int nghost) const { return IsInTree(nghost) && !IsInTree(0); }
 
   int NeighborTreeIndex() const {
+    int up = 1LL << std::max(level(), 0);
     int i1 = (l_[0] >= 0) - (l_[0] < (1LL << level())) + 1;
     int i2 = (l_[1] >= 0) - (l_[1] < (1LL << level())) + 1;
     int i3 = (l_[2] >= 0) - (l_[2] < (1LL << level())) + 1;

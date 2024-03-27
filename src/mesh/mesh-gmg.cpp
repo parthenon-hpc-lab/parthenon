@@ -212,16 +212,16 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
       int dir_allowed_levels =
-          NumberOfBinaryTrailingZeros(block_size_default.nx(dir) * nrbx[dir - 1]);
+          NumberOfBinaryTrailingZeros(block_size_default.nx(dir));
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
 
-  const int gmg_min_level = root_level - gmg_level_offset;
+  const int gmg_min_level = -gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
-
+  printf("gmg_min_level = %i gmg_max_level = %i\n", gmg_min_level, current_level);
   for (int level = gmg_min_level; level <= current_level; ++level) {
-    gmg_grid_locs[level] = LogicalLocMap_t();
+    //gmg_grid_locs[level] = LogicalLocMap_t();
     gmg_block_lists[level] = BlockList_t();
     gmg_mesh_data[level] = DataCollection<MeshData<Real>>();
   }
@@ -244,7 +244,8 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
     // Create internal blocks that share a Morton number with this block 
     // and add them to gmg two-level composite grid block lists
     auto loc = pmb->loc.GetParent();
-    while (loc.level() <= gmg_min_level && loc.morton() == pmb->loc.morton()) {
+    while (loc.level() >= gmg_min_level && loc.morton() == pmb->loc.morton()) {
+      printf("adding level %i\n", loc.level());
       RegionSize block_size = GetBlockSize();
       BoundaryFlag block_bcs[6];
       SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
@@ -259,7 +260,8 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
   for (auto &[level, bl] : gmg_block_lists) { 
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b){ return a->gid < b->gid;});
 
-    for (auto &pmb : bl) { 
+    for (auto &pmb : bl) {
+      // Coarser neighbor 
       if (pmb->loc.level() > gmg_min_level) {
         auto ploc = pmb->loc.GetParent();
         int gid = forest.GetGid(ploc);
@@ -270,19 +272,22 @@ void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app
         }
       }
       
+      // Finer neighbor(s)
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
         for (auto &d : dlocs) { 
           int gid = forest.GetGid(d);
           if (gid >= 0) { 
             int leaf_gid = forest.GetLeafGid(d);
-            pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid], gid,
-                                                    std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid], gid,
+                                                  std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
           }
         }
       }
       
+      // Same level neighbors
       SetMeshBlockNeighbors(GridIdentifier::two_level_composite(level), bl, ranklist);
+      printf("gid: %i %s coarse: %i fine: %i neighbors: %i\n", pmb->gid, pmb->loc.label().c_str(), pmb->gmg_coarser_neighbors.size(), pmb->gmg_finer_neighbors.size(), pmb->gmg_same_neighbors.size());
     }
   }
 
