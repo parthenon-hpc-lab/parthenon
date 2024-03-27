@@ -224,7 +224,8 @@ class SwarmPackBase {
   }
 
   template <class MBD>
-  static SwarmPackBase<TYPE> GetPack(MBD *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
+  static SwarmPackBase<TYPE> GetPack(MBD *pmd,
+                                     const impl::SwarmPackDescriptor<TYPE> &desc) {
     return Get<MBD>(pmd, desc);
   }
 

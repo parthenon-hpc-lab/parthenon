@@ -29,8 +29,8 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/swarm_pack.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/swarm_pack.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 
@@ -49,10 +49,10 @@ inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {
 
   std::vector<std::string> vars{Ts::name()...};
 
-  return typename SwarmPack<TYPE, Ts...>::Descriptor(static_cast<impl::SwarmPackDescriptor<TYPE>>(
-      MakeSwarmPackDescriptor<TYPE>(swarm_name, vars)));
+  return typename SwarmPack<TYPE, Ts...>::Descriptor(
+      static_cast<impl::SwarmPackDescriptor<TYPE>>(
+          MakeSwarmPackDescriptor<TYPE>(swarm_name, vars)));
 }
-
 
 } // namespace parthenon
 

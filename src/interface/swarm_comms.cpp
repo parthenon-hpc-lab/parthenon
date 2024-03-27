@@ -19,6 +19,7 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "swarm_variable_types.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -653,9 +654,9 @@ void Swarm::UnloadBuffers_() {
 
 void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
   auto pmb = GetBlockPointer();
-  auto &x = Get<Real>("x").Get();
-  auto &y = Get<Real>("y").Get();
-  auto &z = Get<Real>("z").Get();
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
   auto swarm_d = GetDeviceContext();
   auto bcs = this->bounds_d;
 

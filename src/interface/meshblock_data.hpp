@@ -218,8 +218,7 @@ class MeshBlockData {
   std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
     auto swarm_map = swarm_data.Get()->GetSwarmMap();
     auto it = swarm_map.find(name);
-    PARTHENON_REQUIRE(it != swarm_map.end(),
-                      "Couldn't find swarm '" + name + "'");
+    PARTHENON_REQUIRE(it != swarm_map.end(), "Couldn't find swarm '" + name + "'");
     return it->second;
   }
 

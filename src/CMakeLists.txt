@@ -135,6 +135,7 @@ add_library(parthenon
   interface/swarm.cpp
   interface/swarm.hpp
   interface/swarm_boundaries.hpp
+  interface/swarm_comms.cpp
   interface/swarm_device_context.hpp
   interface/swarm_variable_types.hpp
   interface/make_pack_descriptor.hpp
@@ -187,6 +188,10 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
+  outputs/parthenon_hdf5_attributes.cpp
+  outputs/parthenon_hdf5_attributes_read.cpp
+  outputs/parthenon_hdf5_attributes_write.cpp
+  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
@@ -268,6 +273,8 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
+  parthenon_arrays.cpp
+  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp

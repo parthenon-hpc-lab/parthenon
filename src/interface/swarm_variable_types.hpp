@@ -14,6 +14,7 @@
 #define INTERFACE_SWARM_VARIABLE_TYPES_HPP_
 
 #include <string>
+#include <utility>
 
 #include "swarm_pack.hpp"
 
@@ -21,8 +22,8 @@
   struct varname : public parthenon::swarm_variable_names::base_t<false, type> {         \
     template <class... Ts>                                                               \
     KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::swarm_variable_names::base_t<false,                                 \
-                                                  type>(std::forward<Ts>(args)...) {}    \
+        : parthenon::swarm_variable_names::base_t<false, type>(                          \
+              std::forward<Ts>(args)...) {}                                              \
     static std::string name() { return #ns "." #varname; }                               \
   }
 
