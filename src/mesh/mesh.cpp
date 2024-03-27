@@ -1183,31 +1183,10 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
-  block_size = GetBlockSize(loc);
-  if (loc.tree() >= 0) {
-    auto bcs = forest.GetBlockBCs(loc);
-    for (int i = 0; i < BOUNDARY_NFACES; ++i)
-      block_bcs[i] = bcs[i];
-    return valid_region;
-  }
-
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_bcs[GetInnerBoundaryFace(dir)] =
-          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
-      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
-                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
-                                                 : BoundaryFlag::block;
-    } else {
-      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-    }
-  }
+  block_size = forest.GetBlockDomain(loc);
+  auto bcs = forest.GetBlockBCs(loc);
+  for (int i = 0; i < BOUNDARY_NFACES; ++i)
+    block_bcs[i] = bcs[i];
   return valid_region;
 }
 
@@ -1218,39 +1197,7 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
   // TODO(LFR): Update this
-  if (loc.tree() >= 0) {
-    // Implies this is a location in a forest, not in the old Athena tree
-    return forest.GetBlockDomain(loc);
-  }
-  RegionSize block_size = GetBlockSize();
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
-      block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      // Correct for possible overshooting, since the root grid may not cover the
-      // entire logical level zero block of the mesh
-      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
-        // Need integer reduction factor, so transform location back to root level
-        PARTHENON_REQUIRE(loc.level() < root_level, "Something is messed up.");
-        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
-        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        block_size.nx(dir) =
-            block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
-        block_size.xmax(dir) = mesh_size.xmax(dir);
-      }
-    } else {
-      block_size.xmin(dir) = mesh_size.xmin(dir);
-      block_size.xmax(dir) = mesh_size.xmax(dir);
-    }
-  }
-  return block_size;
+  return forest.GetBlockDomain(loc);
 }
 
 std::int64_t Mesh::GetTotalCells() {
