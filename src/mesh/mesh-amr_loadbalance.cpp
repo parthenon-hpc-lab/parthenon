@@ -792,7 +792,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   BlockList_t new_block_list(nbe - nbs + 1);
   { // AMR Construct new MeshBlockList region
     PARTHENON_INSTRUMENT
-    RegionSize block_size = GetBlockSize();
+    RegionSize block_size = GetDefaultBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
@@ -927,7 +927,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     loclist = std::move(newloc);
     ranklist = std::move(newrank);
     costlist = std::move(newcost);
-    PopulateLeafLocationMap();
+
+    BuildGMGBlockLists(pin, app_in);
 
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
@@ -954,7 +955,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
+      SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
@@ -973,8 +975,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetMeshBlockNeighbors(block_list, nbs, ranklist);
-    BuildGMGHierarchy(nbs, pin, app_in);
+    SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+    SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
     if (noncc_names.size() == 0) BuildTagMapAndBoundaryBuffers();
