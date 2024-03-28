@@ -252,7 +252,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     }
   }
   const int tensor_dims = ndims - 1 - 3;
-  wherestring = LocationToStringRef(where);
+  auto wherestring = LocationToStringRef(where);
   if (tensor_dims == 0) {
     const std::string prefix = "      ";
     fid << prefix << R"(<Attribute Name=")" << names[0] << wherestring;
