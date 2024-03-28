@@ -635,7 +635,11 @@ class phdf:
                         + v[..., 1:, :-1, :-1]
                     )
             else:
-                raise ValueError("This topology cannot be averaged")
+                raise ValueError(
+                    "Topology {} for var {} cannot be averaged".format(
+                        self.varTopology[variable], variable
+                    )
+                )
             v = vnew
             self.varData[variable] = v
 
