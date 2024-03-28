@@ -285,7 +285,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     const std::string prefix = "      ";
     for (int i = 0; i < nentries; i++) {
       fid << prefix << R"(<Attribute Name=")" << names[i] << wherestring;
-      if (isVector) {
+      if (isVector && (where == MetadataFlag({Metadata::Cell}))) {
         fid << R"( AttributeType="Vector")"
             << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
       }
