@@ -21,7 +21,7 @@
 #include <interface/mesh_data.hpp>
 #include <interface/meshblock_data.hpp>
 #include <interface/swarm_container.hpp>
-#include <interface/swarm_variable_types.hpp>
+#include <interface/swarm_default_names.hpp>
 #include <interface/variable.hpp>
 #include <mesh/domain.hpp>
 #include <mesh/mesh.hpp>

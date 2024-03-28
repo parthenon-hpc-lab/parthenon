@@ -19,7 +19,7 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
-#include "swarm_variable_types.hpp"
+#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SWARM_VARIABLE_TYPES_HPP_
-#define INTERFACE_SWARM_VARIABLE_TYPES_HPP_
+#ifndef INTERFACE_SWARM_DEFAULT_NAMES_HPP_
+#define INTERFACE_SWARM_DEFAULT_NAMES_HPP_
 
 #include <string>
 #include <utility>
@@ -35,4 +35,4 @@ SWARM_VARIABLE(parthenon::Real, swarm, z);
 
 } // namespace swarm_position
 
-#endif // INTERFACE_SWARM_VARIABLE_TYPES_HPP_
+#endif // INTERFACE_SWARM_DEFAULT_NAMES_HPP_

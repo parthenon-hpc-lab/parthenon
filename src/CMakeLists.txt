@@ -136,8 +136,8 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_boundaries.hpp
   interface/swarm_comms.cpp
+  interface/swarm_default_names.hpp
   interface/swarm_device_context.hpp
-  interface/swarm_variable_types.hpp
   interface/make_pack_descriptor.hpp
   interface/make_swarm_pack_descriptor.hpp
   interface/metadata.cpp

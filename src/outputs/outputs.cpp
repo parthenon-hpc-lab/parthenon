@@ -71,7 +71,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/swarm_variable_types.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
