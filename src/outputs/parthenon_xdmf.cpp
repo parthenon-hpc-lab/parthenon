@@ -252,10 +252,10 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     }
   }
   const int tensor_dims = ndims - 1 - 3;
-
+  wherestring = LocationToStringRef(where);
   if (tensor_dims == 0) {
     const std::string prefix = "      ";
-    fid << prefix << R"(<Attribute Name=")" << names[0] << R"(" Center="Cell")";
+    fid << prefix << R"(<Attribute Name=")" << names[0] << wherestring;
     fid << ">" << std::endl;
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
@@ -278,7 +278,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   } else if (tensor_dims == 1) {
     const std::string prefix = "      ";
     for (int i = 0; i < nentries; i++) {
-      fid << prefix << R"(<Attribute Name=")" << names[i] << LocationToStringRef(where);
+      fid << prefix << R"(<Attribute Name=")" << names[i] << wherestring;
       if (isVector) {
         fid << R"( AttributeType="Vector")"
             << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
