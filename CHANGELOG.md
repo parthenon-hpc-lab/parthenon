@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-
+- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 
 ### Changed (changing behavior/API/variables/...)
 
@@ -18,7 +18,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
-
+- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 
 ## Release 24.03
 Date: 2024-03-21
