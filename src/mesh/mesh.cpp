@@ -47,6 +47,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
@@ -498,13 +499,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
 
+  auto mesh_info = rr.GetMeshInfo();
   // All ranks read HDF file
-  nbnew = rr.GetAttr<int>("Info", "NBNew");
-  nbdel = rr.GetAttr<int>("Info", "NBDel");
-  nbtotal = rr.GetAttr<int>("Info", "NumMeshBlocks");
-  root_level = rr.GetAttr<int>("Info", "RootLevel");
+  nbnew = mesh_info.nbnew;
+  nbdel = mesh_info.nbdel;
+  nbtotal = mesh_info.nbtotal;
+  root_level = mesh_info.root_level;
 
-  const auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
+  const auto bc = mesh_info.bound_cond;
   for (int i = 0; i < 6; i++) {
     block_bcs[i] = GetBoundaryFlag(bc[i]);
   }
@@ -530,7 +532,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   EnrollBndryFncts_(app_in);
 
-  const auto grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
+  const auto grid_dim = mesh_info.grid_dim;
   mesh_size.xmin(X1DIR) = grid_dim[0];
   mesh_size.xmax(X1DIR) = grid_dim[1];
   mesh_size.xrat(X1DIR) = grid_dim[2];
@@ -546,14 +548,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  const auto blockSize = rr.GetAttrVec<int>("Info", "MeshBlockSize");
-  const auto includesGhost = rr.GetAttr<int>("Info", "IncludesGhost");
-  const auto nGhost = rr.GetAttr<int>("Info", "NGhost");
-
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.nx(dir) =
-        blockSize[dir - 1] - (blockSize[dir - 1] > 1) * includesGhost * 2 * nGhost;
+    block_size.nx(dir) = mesh_info.block_size[dir - 1] -
+                         (mesh_info.block_size[dir - 1] > 1) * mesh_info.includes_ghost *
+                             2 * mesh_info.n_ghost;
     if (block_size.nx(dir) == 1) {
       block_size.symmetry(dir) = true;
       mesh_size.symmetry(dir) = true;
@@ -587,9 +586,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   InitUserMeshData(this, pin);
 
   // Populate logical locations
-  auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
-  auto locLevelGidLidCnghostGflag =
-      rr.ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+  auto lx123 = mesh_info.lx123;
+  auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
