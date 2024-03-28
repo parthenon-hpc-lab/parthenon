@@ -207,46 +207,78 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       });
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->meshblock_data.Get()->swarm_data.Get()->Get("my_particles");
-  auto pkg = pmb->packages.Get("particles_package");
+TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integrator) {
+  const auto swarm_name = "my_particles";
+  const Real dt = integrator->dt;
 
-  int max_active_index = swarm->GetMaxActiveIndex();
-
-  Real dt = integrator->dt;
-
-  auto &id = swarm->Get<int>("id").Get();
-  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-  auto &v = swarm->Get<Real>("v").Get();
-
-  auto swarm_d = swarm->GetDeviceContext();
   // keep particles on existing trajectory for now
   const Real ax = 0.0;
   const Real ay = 0.0;
   const Real az = 0.0;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          // drift
-          x(n) += v(0, n) * 0.5 * dt;
-          y(n) += v(1, n) * 0.5 * dt;
-          z(n) += v(2, n) * 0.5 * dt;
 
-          // kick
-          v(0, n) += ax * dt;
-          v(1, n) += ay * dt;
-          v(2, n) += az * dt;
+  // Make a SwarmPack via types to get positions
+  // NOTE(@pdmullen): the data type for Positions (Real) are automatically deduced from
+  // the variable typing
+  static auto desc_pos =
+      MakeSwarmPackDescriptor<swarm_position::x,
+                              swarm_position::y,
+                              swarm_position::z>(swarm_name);
+  auto pack_pos = desc_pos.GetPack(md);
 
-          // drift
-          x(n) += v(0, n) * 0.5 * dt;
-          y(n) += v(1, n) * 0.5 * dt;
-          z(n) += v(2, n) * 0.5 * dt;
+  // Make a SwarmPack via strings to get ids
+  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
+  // the datatype associated with ids (i.e., int).  We also extract an indexing map.
+  std::vector<std::string> vars_id{"id"};
+  static auto desc_id = MakeSwarmPackDescriptor<int>(swarm_name, vars_id);
+  auto pack_id = desc_id.GetPack(md);
+  auto pack_id_map = desc_id.GetMap();
+  parthenon::SwarmPackIdx spi_id(pack_id_map["id"]);
 
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-        }
+  // Make a SwarmPack via strings to get v (note that v is a vector!)
+  std::vector<std::string> vars_v{"v"};
+  static auto desc_v = MakeSwarmPackDescriptor<Real>(swarm_name, vars_v);
+  auto pack_v = desc_v.GetPack(md);
+  auto pack_v_map = desc_v.GetMap();
+  parthenon::SwarmPackIdx spi_v(pack_v_map["v"]);
+
+  parthenon::par_for_outer(
+      parthenon::outer_loop_pattern_teams_tag, "TestSwarmPack", DevExecSpace(),
+      0, 0, 0, md->NumBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
+        // index mapping
+        const int iid = pack_id.GetLowerBound(b, spi_id);
+        const int iv = pack_v.GetLowerBound(b, spi_v);
+        // Max active indices and contexts
+        const int max_active_index = pack_pos.GetMaxActiveIndex(b);
+        const auto swarm_d = pack_pos.GetContext(b);
+        parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, team_member,
+                                 0, max_active_index,
+            [&](const int n) {
+              if (swarm_d.IsActive(n)) {
+                // drift
+                pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+                pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+                pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+                // kick
+                pack_v(b, iv + 0, n) += ax * dt;
+                pack_v(b, iv + 1, n) += ay * dt;
+                pack_v(b, iv + 2, n) += az * dt;
+
+                // drift
+                pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+                pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+                pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+                bool on_current_mesh_block;
+                swarm_d.GetNeighborBlockIndex(n,
+                                              pack_pos(b, swarm_position::x(), n),
+                                              pack_pos(b, swarm_position::y(), n),
+                                              pack_pos(b, swarm_position::z(), n),
+                                              on_current_mesh_block);
+              }
+            });
+        team_member.team_barrier();
       });
 
   return TaskStatus::complete;
@@ -273,7 +305,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
 
-  auto num_task_lists_executed_independently = blocks.size();
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  const int num_task_lists_executed_independently = blocks.size();
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
   {
@@ -285,6 +318,13 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     }
   }
 
+  TaskRegion &tr = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = tr[i];
+    auto transport_particles =
+        tl.AddTask(none, TransportParticles, pmesh->mesh_data.Get().get(), &integrator);
+  }
+
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
@@ -293,10 +333,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
     auto &tl = async_region0[i];
 
-    auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
-
-    auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
+    auto send = tl.AddTask(none, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
