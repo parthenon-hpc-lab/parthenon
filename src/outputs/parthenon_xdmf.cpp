@@ -247,7 +247,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   std::vector<std::string> names;
   int nentries = 1;
   // TODO(JMM): this is not generic
-  if (num_components == 1 || isVector) {
+  bool is_cell_vector = isVector && (where == MetadataFlag({Metadata::Cell}));
+  if (num_components == 1 || is_cell_vector) {
     // we only make one entry, because either num_components == 1, or we write this as a
     // vector
     names.push_back(name);
@@ -285,7 +286,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     const std::string prefix = "      ";
     for (int i = 0; i < nentries; i++) {
       fid << prefix << R"(<Attribute Name=")" << names[i] << wherestring;
-      if (isVector && (where == MetadataFlag({Metadata::Cell}))) {
+      if (is_cell_vector) {
         fid << R"( AttributeType="Vector")"
             << R"( Dimensions=")" << dims[1] << " " << dims321 << R"(")";
       }
