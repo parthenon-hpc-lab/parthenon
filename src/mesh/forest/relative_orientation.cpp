@@ -38,7 +38,7 @@ namespace forest {
 LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in,
                                                std::int64_t destination) const {
   std::array<std::int64_t, 3> l_out;
-  int nblock = 1LL << loc_in.level();
+  int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
     std::int64_t l_in = loc_in.l(dir);
     // First shift the logical location index back into the interior
@@ -64,7 +64,7 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in,
 LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in,
                                                    std::int64_t origin) const {
   std::array<std::int64_t, 3> l_out;
-  int nblock = 1LL << loc_in.level();
+  int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
     std::int64_t l_in = loc_in.l(abs(dir_connection[dir]));
 
