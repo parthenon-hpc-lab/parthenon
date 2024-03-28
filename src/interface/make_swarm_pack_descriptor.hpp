@@ -43,9 +43,10 @@ inline auto MakeSwarmPackDescriptor(const std::string &swarm_name,
   return typename SwarmPack<TYPE>::Descriptor(base_desc);
 }
 
-template <typename TYPE, class... Ts>
+template <class... Ts>
 inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {
   static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
+  using TYPE = typename GetDataType<Ts...>::value;
 
   std::vector<std::string> vars{Ts::name()...};
 
