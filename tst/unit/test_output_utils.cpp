@@ -59,6 +59,9 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
 
     constexpr auto interior = parthenon::IndexDomain::interior;
     constexpr auto entire = parthenon::IndexDomain::entire;
+
+    // JMM: This needs to be reset to 0 when we're done, because other
+    // tests assume it's unset, thus zero-initialized.
     parthenon::Globals::nghost = NG;
 
     auto pkg = std::make_shared<StateDescriptor>("Test package");
@@ -270,5 +273,9 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
         }
       }
     }
+
+    // JMM: This needs to be reset to 0 when we're done, because other
+    // tests assume it's unset, thus zero-initialized.
+    parthenon::Globals::nghost = 0;
   }
 }
