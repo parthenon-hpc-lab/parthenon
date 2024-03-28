@@ -399,7 +399,6 @@ cases, the ``.xdmf`` files should be opened. In ParaView, select the
 “XDMF Reader” when prompted.
 
 .. warning::
-
    Currently parthenon face- and edge- centered data is not supported
    for ParaView and VisIt. However, our python tooling does support
    all mesh locations.
