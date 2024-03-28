@@ -13,7 +13,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 * High performance by
   * device first/device resident approach (work data only in device memory to prevent expensive transfers between host and device)
   * transparent packing of data across blocks (to reduce/hide kernel launch latency)
-  * direct device-to-device communication via asynchronous, one-sided  MPI communication
+  * direct device-to-device communication via asynchronous MPI communication
 * Intermediate abstraction layer to hide complexity of device kernel launches
 * Flexible, plug-in package system
 * Abstract variables controlled via metadata flags
