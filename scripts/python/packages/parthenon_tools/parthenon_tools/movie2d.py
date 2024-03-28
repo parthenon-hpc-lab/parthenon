@@ -208,17 +208,20 @@ def plot_dump(
         ye = yf
 
     # get tensor components
-    if len(q.shape) > 6:
-        raise ValueError(
-            "Tensor rank is higher than I can handle. "
-            + "Please revise the movie2d script"
-        )
-    if len(q.shape) == 6:
-        q = q[:, components[0], components[1], 0, :, :]
-    if len(q.shape) == 5:
-        q = q[:, components[-1], 0, :, :]
-    if len(q.shape) == 4:
-        q = q[:, 0, :, :]
+    ntensors = len(q.shape[1:-3])
+    if components:
+        if len(components) != ntensors:
+            print("value error!", len(components), ntensors, q.shape)
+            raise ValueError(
+                "Tensor rank not the same as number of specified components"
+            )
+        for c in components:
+            if c > (q.shape[1] - 1):
+                print("Value error!", c, q.shape)
+                raise ValueError("Component out of bounds")
+            q = q[:, c]
+    # move to 2d
+    q = q[..., 0, :, :]
 
     fig = plt.figure()
     p = fig.add_subplot(111, aspect=1)
@@ -299,11 +302,11 @@ if __name__ == "__main__":
     args.output_directory.mkdir(0o755, True, True)
     logger.info(f"Total files to process: {len(args.files)}")
 
-    components = [0, 0]
+    components = []
     if args.tc is not None:
         components = args.tc
     if args.vc is not None:
-        components = [0, args.vc]
+        components = [args.vc]
     do_swarm = args.swarm is not None
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
