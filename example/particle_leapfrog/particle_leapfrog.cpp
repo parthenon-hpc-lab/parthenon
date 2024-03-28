@@ -220,9 +220,8 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   // NOTE(@pdmullen): the data type for Positions (Real) are automatically deduced from
   // the variable typing
   static auto desc_pos =
-      MakeSwarmPackDescriptor<swarm_position::x,
-                              swarm_position::y,
-                              swarm_position::z>(swarm_name);
+      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+          swarm_name);
   auto pack_pos = desc_pos.GetPack(md);
 
   // Make a SwarmPack via strings to get ids
@@ -242,17 +241,16 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   parthenon::SwarmPackIdx spi_v(pack_v_map["v"]);
 
   parthenon::par_for_outer(
-      parthenon::outer_loop_pattern_teams_tag, "TestSwarmPack", DevExecSpace(),
-      0, 0, 0, md->NumBlocks() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
+      parthenon::outer_loop_pattern_teams_tag, "TestSwarmPack", DevExecSpace(), 0, 0, 0,
+      md->NumBlocks() - 1, KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
         // index mapping
         const int iid = pack_id.GetLowerBound(b, spi_id);
         const int iv = pack_v.GetLowerBound(b, spi_v);
         // Max active indices and contexts
         const int max_active_index = pack_pos.GetMaxActiveIndex(b);
         const auto swarm_d = pack_pos.GetContext(b);
-        parthenon::par_for_inner(parthenon::inner_loop_pattern_simdfor_tag, team_member,
-                                 0, max_active_index,
+        parthenon::par_for_inner(
+            parthenon::inner_loop_pattern_simdfor_tag, team_member, 0, max_active_index,
             [&](const int n) {
               if (swarm_d.IsActive(n)) {
                 // drift
@@ -271,8 +269,7 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
                 pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
                 bool on_current_mesh_block;
-                swarm_d.GetNeighborBlockIndex(n,
-                                              pack_pos(b, swarm_position::x(), n),
+                swarm_d.GetNeighborBlockIndex(n, pack_pos(b, swarm_position::x(), n),
                                               pack_pos(b, swarm_position::y(), n),
                                               pack_pos(b, swarm_position::z(), n),
                                               on_current_mesh_block);
@@ -333,8 +330,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
     auto &tl = async_region0[i];
 
-    auto send = tl.AddTask(none, &SwarmContainer::Send, sc.get(),
-                           BoundaryCommSubset::all);
+    auto send =
+        tl.AddTask(none, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
