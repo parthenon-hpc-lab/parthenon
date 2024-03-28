@@ -9,7 +9,7 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
-
+- [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
 

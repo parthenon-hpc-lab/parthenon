@@ -77,11 +77,7 @@ class RestartReader {
   };
   [[nodiscard]] virtual MeshInfo GetMeshInfo() const = 0;
 
-  struct TimeInfo {
-    Real time, dt;
-    int ncycle;
-  };
-  [[nodiscard]] virtual TimeInfo GetTimeInfo() const = 0;
+  [[nodiscard]] virtual SimTime GetTimeInfo() const = 0;
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 

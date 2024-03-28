@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 
+#include "basic_types.hpp"
 #include "globals.hpp"
 #include "interface/params.hpp"
 #include "mesh/mesh.hpp"
@@ -129,8 +130,8 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   return mesh_info;
 }
 
-RestartReaderHDF5::TimeInfo RestartReaderHDF5::GetTimeInfo() const {
-  RestartReaderHDF5::TimeInfo time_info;
+SimTime RestartReaderHDF5::GetTimeInfo() const {
+  SimTime time_info{};
 
   time_info.time = GetAttr<Real>("Info", "Time");
   time_info.dt = GetAttr<Real>("Info", "dt");
