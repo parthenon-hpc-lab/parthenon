@@ -98,9 +98,9 @@ class LogicalLocation { // aggregate and POD type
 
   int NeighborTreeIndex() const {
     int up = 1LL << std::max(level(), 0);
-    int i1 = (l_[0] >= 0) - (l_[0] < (1LL << level())) + 1;
-    int i2 = (l_[1] >= 0) - (l_[1] < (1LL << level())) + 1;
-    int i3 = (l_[2] >= 0) - (l_[2] < (1LL << level())) + 1;
+    int i1 = (l_[0] >= 0) - (l_[0] < up) + 1;
+    int i2 = (l_[1] >= 0) - (l_[1] < up) + 1;
+    int i3 = (l_[2] >= 0) - (l_[2] < up) + 1;
     return i1 + 3 * i2 + 9 * i3;
   }
 
