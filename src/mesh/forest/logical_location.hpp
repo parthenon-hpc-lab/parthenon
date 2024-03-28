@@ -37,17 +37,6 @@
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
-class LogicalLocation;
-}
-
-// This must be declared before an unordered_set of LogicalLocation is used
-// below, but must be *implemented* after the class definition
-template <>
-struct std::hash<parthenon::LogicalLocation> {
-  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept;
-};
-
-namespace parthenon {
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
 //  \brief stores logical location and level of MeshBlock
@@ -71,11 +60,7 @@ class LogicalLocation { // aggregate and POD type
       : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
-  std::string label() const {
-    return "([" + std::to_string(tree_idx_) + "] " + std::to_string(level_) + ": " +
-           std::to_string(l_[0]) + ", " + std::to_string(l_[1]) + ", " +
-           std::to_string(l_[2]) + ")";
-  }
+  std::string label() const;
   const auto &l(int i) const { return l_[i]; }
   const auto &lx1() const { return l_[0]; }
   const auto &lx2() const { return l_[1]; }
@@ -86,31 +71,16 @@ class LogicalLocation { // aggregate and POD type
 
   // Check if this logical location is actually in the domain of the tree,
   // possibly including a ghost block halo around the tree
-  bool IsInTree(int nghost = 0) const {
-    const int low = -nghost;
-    const int up = (1LL << std::max(level(), 0)) + nghost;
-    return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
-           (l_[2] >= low) && (l_[2] < up);
-  }
+  bool IsInTree(int nghost = 0) const;
 
   // Check if a LL is in the ghost block halo of the tree it is associated with
   bool IsInHalo(int nghost) const { return IsInTree(nghost) && !IsInTree(0); }
 
-  int NeighborTreeIndex() const {
-    int up = 1LL << std::max(level(), 0);
-    int i1 = (l_[0] >= 0) - (l_[0] < up) + 1;
-    int i2 = (l_[1] >= 0) - (l_[1] < up) + 1;
-    int i3 = (l_[2] >= 0) - (l_[2] < up) + 1;
-    return i1 + 3 * i2 + 9 * i3;
-  }
+  int NeighborTreeIndex() const;
 
   // Returns the coordinate in the range [0, 1] of the left side of
   // a logical location in a given direction on refinement level level
-  Real LLCoord(CoordinateDirection dir, BlockLocation bloc = BlockLocation::Left) const {
-    auto nblocks_tot = 1 << std::max(level(), 0);
-    return (static_cast<Real>(l(dir - 1)) + 0.5 * static_cast<Real>(bloc)) /
-           static_cast<Real>(nblocks_tot);
-  }
+  Real LLCoord(CoordinateDirection dir, BlockLocation bloc = BlockLocation::Left) const;
 
   bool IsContainedIn(const LogicalLocation &container) const;
 
@@ -146,19 +116,8 @@ class LogicalLocation { // aggregate and POD type
   // Athena++, which are stored in the NeighborBlock struct. I believe that these are
   // currently only required for flux correction and can eventually be removed when flux
   // correction is combined with boundary communication.
-  auto GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2,
-                              int ox3) const {
-    // The neighbor block struct should only use the first two, but we have three to allow
-    // for this being a parent of neighbor, this should be checked for elsewhere
-    std::array<int, 3> f{0, 0, 0};
-    if (neighbor.level() == level() + 1) {
-      int idx = 0;
-      if (ox1 == 0) f[idx++] = neighbor.lx1() % 2;
-      if (ox2 == 0) f[idx++] = neighbor.lx2() % 2;
-      if (ox3 == 0) f[idx++] = neighbor.lx3() % 2;
-    }
-    return f;
-  }
+  std::array<int, 3> GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1,
+                                            int ox2, int ox3) const;
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
@@ -193,12 +152,15 @@ struct NeighborLocation {
 
 } // namespace parthenon
 
-inline std::size_t std::hash<parthenon::LogicalLocation>::operator()(
-    const parthenon::LogicalLocation &key) const noexcept {
-  // TODO(LFR): Think more carefully about what the best choice for this key is,
-  // probably the least significant sizeof(size_t) * 8 bits of the morton number
-  // with 3 * (level - 21) trailing bits removed.
-  return key.morton().bits[0];
-}
+// Inject hash function for LogicalLocation into the std namespace
+template <>
+struct std::hash<parthenon::LogicalLocation> {
+  std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
+    // TODO(LFR): Think more carefully about what the best choice for this key is,
+    // probably the least significant sizeof(size_t) * 8 bits of the morton number
+    // with 3 * (level - 21) trailing bits removed.
+    return key.morton().bits[0];
+  }
+};
 
 #endif // MESH_FOREST_LOGICAL_LOCATION_HPP_

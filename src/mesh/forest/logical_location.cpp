@@ -35,6 +35,34 @@
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
+std::string LogicalLocation::label() const {
+  return "([" + std::to_string(tree_idx_) + "] " + std::to_string(level_) + ": " +
+         std::to_string(l_[0]) + ", " + std::to_string(l_[1]) + ", " +
+         std::to_string(l_[2]) + ")";
+}
+
+bool LogicalLocation::IsInTree(int nghost) const {
+  const int low = -nghost;
+  const int up = (1LL << std::max(level(), 0)) + nghost;
+  return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
+         (l_[2] >= low) && (l_[2] < up);
+}
+
+int LogicalLocation::NeighborTreeIndex() const {
+  auto up = 1LL << std::max(level(), 0);
+  int i1 = (l_[0] >= 0) - (l_[0] < (1LL << up) + 1;
+  int i2 = (l_[1] >= 0) - (l_[1] < (1LL << up) + 1;
+  int i3 = (l_[2] >= 0) - (l_[2] < (1LL << up) + 1;
+  int idx = i1 + 3 * i2 + 9 * i3;
+  PARTHENON_REQUIRE(idx >= 0 && idx < 27, "Bad index.");
+  return idx;
+}
+
+Real LogicalLocation::LLCoord(CoordinateDirection dir, BlockLocation bloc) const {
+  auto nblocks_tot = 1 << std::max(level(), 0);
+  return (static_cast<Real>(l(dir - 1)) + 0.5 * static_cast<Real>(bloc)) /
+         static_cast<Real>(nblocks_tot);
+}
 
 bool LogicalLocation::IsContainedIn(const LogicalLocation &container) const {
   if (container.level() > level()) return false;
@@ -133,6 +161,21 @@ std::vector<LogicalLocation> LogicalLocation::GetDaughters(int ndim) const {
     }
   }
   return daughters;
+}
+
+std::array<int, 3>
+LogicalLocation::GetAthenaXXFaceOffsets(const LogicalLocation &neighbor, int ox1, int ox2,
+                                        int ox3) const {
+  // The neighbor block struct should only use the first two, but we have three to allow
+  // for this being a parent of neighbor, this should be checked for elsewhere
+  std::array<int, 3> f{0, 0, 0};
+  if (neighbor.level() == level() + 1) {
+    int idx = 0;
+    if (ox1 == 0) f[idx++] = neighbor.lx1() % 2;
+    if (ox2 == 0) f[idx++] = neighbor.lx2() % 2;
+    if (ox3 == 0) f[idx++] = neighbor.lx3() % 2;
+  }
+  return f;
 }
 
 } // namespace parthenon
