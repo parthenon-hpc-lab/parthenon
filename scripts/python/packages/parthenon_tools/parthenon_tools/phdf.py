@@ -546,6 +546,9 @@ class phdf:
             self.varTopology[variable] = self.fid[variable].attrs["TopologicalLocation"]
         except:
             self.varTopology[variable] = "Cell"
+        if type(self.varTopology[variable]) != str:
+            # This is stupid and seems to be python version dependent.
+            self.varTopology[variable] = self.varTopology[variable].decode("UTF-8")
         average_able = (self.varTopology[variable] != "Cell") and (
             self.varTopology[variable] != "None"
         )
@@ -635,11 +638,12 @@ class phdf:
                         + v[..., 1:, :-1, :-1]
                     )
             else:
-                raise ValueError(
-                    "Topology {} for var {} cannot be averaged".format(
+                print(
+                    "WARNING: Topology {} for var {} cannot be averaged. Resetting.".format(
                         self.varTopology[variable], variable
                     )
                 )
+                vnew = v.copy()
             v = vnew
             self.varData[variable] = v
 
