@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 
+#include "basic_types.hpp"
 #include "globals.hpp"
 #include "interface/params.hpp"
 #include "mesh/mesh.hpp"
@@ -31,6 +32,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #endif
 #include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -38,7 +40,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
-RestartReader::RestartReader(const char *filename) : filename_(filename) {
+RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename) {
 #ifndef ENABLE_HDF5
   std::stringstream msg;
   msg << "### FATAL ERROR in Restart (Reader) constructor" << std::endl
@@ -54,7 +56,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 #endif // ENABLE_HDF5
 }
 
-int RestartReader::GetOutputFormatVersion() const {
+int RestartReaderHDF5::GetOutputFormatVersion() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -69,7 +71,7 @@ int RestartReader::GetOutputFormatVersion() const {
 #endif // ENABLE_HDF5
 }
 
-RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
+RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -105,12 +107,43 @@ RestartReader::SparseInfo RestartReader::GetSparseInfo() const {
 #endif // ENABLE_HDF5
 }
 
+RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+  RestartReaderHDF5::MeshInfo mesh_info;
+  mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
+  mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
+  mesh_info.nbtotal = GetAttr<int>("Info", "NumMeshBlocks");
+  mesh_info.root_level = GetAttr<int>("Info", "RootLevel");
+
+  mesh_info.bound_cond = GetAttrVec<std::string>("Info", "BoundaryConditions");
+
+  mesh_info.block_size = GetAttrVec<int>("Info", "MeshBlockSize");
+  mesh_info.includes_ghost = GetAttr<int>("Info", "IncludesGhost");
+  mesh_info.n_ghost = GetAttr<int>("Info", "NGhost");
+
+  mesh_info.grid_dim = GetAttrVec<Real>("Info", "RootGridDomain");
+
+  mesh_info.lx123 = ReadDataset<int64_t>("/Blocks/loc.lx123");
+  mesh_info.level_gid_lid_cnghost_gflag =
+      ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+
+  return mesh_info;
+}
+
+SimTime RestartReaderHDF5::GetTimeInfo() const {
+  SimTime time_info{};
+
+  time_info.time = GetAttr<Real>("Info", "Time");
+  time_info.dt = GetAttr<Real>("Info", "dt");
+  time_info.ncycle = GetAttr<int>("Info", "NCycle");
+
+  return time_info;
+}
 // Gets the counts and offsets for MPI ranks for the meshblocks set
 // by the indexrange. Returns the total count on this rank.
-std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
-                                          const IndexRange &range,
-                                          std::vector<std::size_t> &counts,
-                                          std::vector<std::size_t> &offsets) {
+std::size_t RestartReaderHDF5::GetSwarmCounts(const std::string &swarm,
+                                              const IndexRange &range,
+                                              std::vector<std::size_t> &counts,
+                                              std::vector<std::size_t> &offsets) {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
   return 0;
@@ -141,9 +174,93 @@ std::size_t RestartReader::GetSwarmCounts(const std::string &swarm,
 #endif // ENABLE_HDF5
 }
 
-void RestartReader::ReadParams(const std::string &name, Params &p) {
+void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 #ifdef ENABLE_HDF5
   p.ReadFromRestart(name, params_group_);
+#endif // ENABLE_HDF5
+}
+void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
+                                   std::vector<Real> &dataVec,
+                                   const std::vector<size_t> &bsize,
+                                   int file_output_format_version, MetadataFlag where,
+                                   const std::vector<int> &shape) const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else  // HDF5 enabled
+  auto hdl = OpenDataset<Real>(name);
+
+  constexpr int CHUNK_MAX_DIM = 7;
+
+  /** Select hyperslab in dataset **/
+  hsize_t offset[CHUNK_MAX_DIM] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0, 0, 0};
+  hsize_t count[CHUNK_MAX_DIM];
+  int total_dim = 0;
+  if (file_output_format_version == -1) {
+    size_t vlen = 1;
+    for (int i = 0; i < shape.size(); i++) {
+      vlen *= shape[i];
+    }
+    count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+    count[1] = bsize[2];
+    count[2] = bsize[1];
+    count[3] = bsize[0];
+    count[4] = vlen;
+    total_dim = 5;
+  } else if (file_output_format_version == 2) {
+    PARTHENON_REQUIRE(shape.size() <= 1,
+                      "Higher than vector datatypes are unstable in output versions < 3");
+    size_t vlen = 1;
+    for (int i = 0; i < shape.size(); i++) {
+      vlen *= shape[i];
+    }
+    count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+    count[1] = vlen;
+    count[2] = bsize[2];
+    count[3] = bsize[1];
+    count[4] = bsize[0];
+    total_dim = 5;
+  } else if (file_output_format_version == HDF5::OUTPUT_VERSION_FORMAT) {
+    count[0] = static_cast<hsize_t>(range.e - range.s + 1);
+    const int ndim = shape.size();
+    if (where == MetadataFlag(Metadata::Cell)) {
+      for (int i = 0; i < ndim; i++) {
+        count[1 + i] = shape[ndim - i - 1];
+      }
+      count[ndim + 1] = bsize[2];
+      count[ndim + 2] = bsize[1];
+      count[ndim + 3] = bsize[0];
+      total_dim = 3 + ndim + 1;
+    } else if (where == MetadataFlag(Metadata::None)) {
+      for (int i = 0; i < ndim; i++) {
+        count[1 + i] = shape[ndim - i - 1];
+      }
+      total_dim = ndim + 1;
+    } else {
+      PARTHENON_THROW("Only Cell and None locations supported!");
+    }
+  } else {
+    PARTHENON_THROW("Unknown output format version in restart file.")
+  }
+
+  hsize_t total_count = 1;
+  for (int i = 0; i < total_dim; ++i) {
+    total_count *= count[i];
+  }
+
+  PARTHENON_REQUIRE_THROWS(dataVec.size() >= total_count,
+                           "Buffer (size " + std::to_string(dataVec.size()) +
+                               ") is too small for dataset " + name + " (size " +
+                               std::to_string(total_count) + ")");
+  PARTHENON_HDF5_CHECK(
+      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
+
+  const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
+  PARTHENON_HDF5_CHECK(
+      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
+
+  // Read data from file
+  PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
+                               H5P_DEFAULT, dataVec.data()));
 #endif // ENABLE_HDF5
 }
 

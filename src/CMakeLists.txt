@@ -193,7 +193,9 @@ add_library(parthenon
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
-  outputs/restart.cpp
+  outputs/restart.hpp
+  outputs/restart_hdf5.cpp
+  outputs/restart_hdf5.hpp
   outputs/vtk.cpp
 
   parthenon/driver.hpp
