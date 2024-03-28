@@ -161,6 +161,12 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       }
       ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
       const int num_components = vinfo.num_components;
+      nx3 = dims[ndim - 3];
+      nx2 = dims[ndim - 2];
+      nx1 = dims[ndim - 1];
+      dims321 =
+          std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
+
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                num_components, ndim, dims, dims321, vinfo.is_vector,
                                vinfo.where);
