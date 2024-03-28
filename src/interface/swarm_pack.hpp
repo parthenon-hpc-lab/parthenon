@@ -123,12 +123,13 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::nblocks_;
 
   explicit SwarmPack(const SwarmPackBase<TYPE> &spb) : SwarmPackBase<TYPE>(spb) {
-    static_assert(sizeof...(Ts) == 0 ||
-                  std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
-                  "Type mismatch in SwarmPack! When passing type-based variables as "
-                  "template argument to SwarmPack, ensure that the first template "
-                  "parameter is a data type (e.g., Real or int) that matches the "
-                  "data type of subsequent variable types!");
+    if constexpr (sizeof...(Ts) != 0) {
+      static_assert(std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
+                    "Type mismatch in SwarmPack! When passing type-based variables as "
+                    "template argument to SwarmPack, ensure that the first template "
+                    "parameter is a data type (e.g., Real or int) that matches the "
+                    "data type of subsequent variable types!");
+    }
   }
 
   class Descriptor : public impl::SwarmPackDescriptor<TYPE> {

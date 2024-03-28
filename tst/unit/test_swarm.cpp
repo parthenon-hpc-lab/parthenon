@@ -26,7 +26,7 @@
 
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/swarm.hpp"
-#include "interface/swarm_variable_types.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 
