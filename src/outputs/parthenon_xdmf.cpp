@@ -120,8 +120,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n"
                          "      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n"
                          "      <Geometry GeometryType=\"%s\">\n",
-                         ib, output_coords ? "3DSMesh" : "3DRectMesh", nx3 + 1, nx2 + 1,
-                         nx1 + 1, output_coords ? "X_Y_Z" : "VXVYVZ");
+                         ib, output_coords ? "3DSMesh" : "3DRectMesh", nx3 + (nx3 > 1),
+                         nx2 + (nx2 > 1), nx1 + (nx1 > 1),
+                         output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
       for (int d = 0; d < 3; ++d) {
@@ -133,7 +134,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                     "            1 1 1 1 1\n"
                     "            1 1 %d %d %d\n"
                     "          </DataItem>\n",
-                    nx3 + 1, nx2 + 1, nx1 + 1, ib, d, nx3 + 1, nx2 + 1, nx1 + 1)
+                    nx3 + (nx3 > 1), nx2 + (nx2 > 1), nx1 + (nx1 > 1), ib, d,
+                    nx3 + (nx3 > 1), nx2 + (nx2 > 1), nx1 + (nx1 > 1))
              << stringXdmfArrayRef("          ", hdfFile + ":/", coords_it->label, dims,
                                    ndim, "Float", 8)
              << "        </DataItem>\n";
@@ -419,7 +421,7 @@ static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,
       "            %d 0 1\n"
       "            1 1 %d\n"
       "          </DataItem>\n",
-      nx + 1, ib, nx + 1);
+      nx + (nx > 1), ib, nx + (nx > 1));
   writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", dir, dims, 2, "Float",
                     8);
   xdmf << "        </DataItem>" << std::endl;
