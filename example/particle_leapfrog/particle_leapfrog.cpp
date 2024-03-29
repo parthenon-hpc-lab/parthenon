@@ -275,7 +275,7 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
                                               on_current_mesh_block);
               }
             });
-        team_member.team_barrier();
+        member.team_barrier();
       });
 
   return TaskStatus::complete;
