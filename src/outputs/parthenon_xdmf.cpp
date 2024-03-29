@@ -114,6 +114,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   }
 
   // Now write Grid for each block
+  int ndim;
   dims[0] = pm->nbtotal;
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n"
@@ -121,16 +122,35 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                          "      <Geometry GeometryType=\"%s\">\n",
                          ib, output_coords ? "3DSMesh" : "3DRectMesh", nx3 + 1, nx2 + 1,
                          nx1 + 1, output_coords ? "X_Y_Z" : "VXVYVZ");
-    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
-    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
-    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+    if (output_coords) {
+      ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
+      for (int d = 0; d < 3; ++d) {
+        xdmf << StringPrintf(
+                    "        <DataItem ItemType=\"Hyperslab\" Dimensions=\"%d %d %d\">\n"
+                    "          <DataItem Dimensions=\"3 5\" NumberType=\"Int\" "
+                    "Format=\"XML\">\n"
+                    "            %d %d 0 0 0\n"
+                    "            1 1 1 1 1\n"
+                    "            1 1 %d %d %d\n"
+                    "          </DataItem>\n",
+                    nx3 + 1, nx2 + 1, nx1 + 1, ib, d, nx3 + 1, nx2 + 1, nx1 + 1)
+             << stringXdmfArrayRef("          ", hdfFile + ":/", coords_it->label, dims,
+                                   ndim, "Float", 8)
+             << "        </DataItem>\n";
+      }
+    } else {
+      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
+      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
+      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+    }
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
-    int ndim;
     for (const auto &vinfo : var_list) {
-      // JMM: I can't figure out how to get faces/edges to work and
-      // I'm not going try any longer. More eyes appreciated.
+      // Skip coordinates field. This is output elsewhere.
+      if (vinfo.is_coordinate_field) continue;
+      // JMM: Faces/Edges in xdmf appear to be not fully supported by
+      // Visit/Paraview.
       if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
           (vinfo.where != MetadataFlag({Metadata::Node}))) {
         continue;
