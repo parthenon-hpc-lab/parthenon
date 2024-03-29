@@ -230,7 +230,8 @@ bool Metadata::IsValid(bool throw_on_fail) const {
     if (shape_[0] != 3) {
       valid = false;
       if (throw_on_fail) {
-        PARTHENON_THROW("Coordinate field must be 3-vector, but not actually a vector");
+        PARTHENON_THROW(
+            "Coordinate field must be 3-vector. (Does not need Vector metadata flag).");
       }
     }
   }
