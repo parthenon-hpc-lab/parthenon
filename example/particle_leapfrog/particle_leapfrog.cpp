@@ -241,9 +241,8 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   parthenon::SwarmPackIdx spi_v(pack_v_map["v"]);
 
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0, 0, 0, 0, 0,
-      md->NumBlocks() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int, const int b) {
+      DEFAULT_OUTER_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0, 0, 0,
+      md->NumBlocks() - 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         // index mapping
         const int iid = pack_id.GetLowerBound(b, spi_id);
         const int iv = pack_v.GetLowerBound(b, spi_v);
