@@ -184,6 +184,87 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   return os;
 }
 
+// Return true if the flags constraints are satisfied, false otherwise. If throw_on_fail
+// is true, throw a descriptive exception when invalid
+bool Metadata::IsValid(bool throw_on_fail) const {
+  bool valid = true;
+
+  // Topology
+  if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one topology flag must be set");
+    }
+  }
+
+  // Role
+  if (CountSet({Private, Provides, Requires, Overridable}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one role flag must be set");
+    }
+  }
+
+  // Shape
+  if (CountSet({Vector, Tensor}) > 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("At most one shape flag can be set");
+    }
+  }
+
+  // Coordinates
+  if (IsSet(CoordinatesVec)) {
+    if (Where() != Node) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be node-centered");
+      }
+    }
+    if (shape_.size() != 1) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be tensor rank 1");
+      }
+    }
+    if (shape_[0] != 3) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be 3-vector, but not actually a vector");
+      }
+    }
+  }
+
+  // Datatype
+  if (CountSet({Boolean, Integer, Real}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one data type flag must be set");
+    }
+  }
+
+  // Independent
+  if (CountSet({Independent, Derived}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Either the Independent or Derived flag must be set");
+    }
+  }
+
+  // Prolongation/restriction
+  if (IsRefined()) {
+    if (refinement_funcs_.label().size() == 0) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW(
+            "Registered for refinment but no prolongation/restriction ops found");
+      }
+    }
+  }
+
+  return valid;
+}
+
 std::vector<MetadataFlag> Metadata::Flags() const {
   std::vector<MetadataFlag> set_flags;
   const auto &flags = metadata_state.AllFlags();
