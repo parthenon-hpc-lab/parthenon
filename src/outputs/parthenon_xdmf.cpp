@@ -70,6 +70,8 @@ static std::string ParticleDatasetRef(const std::string &prefix,
 static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                 const SwarmVarInfo &varinfo, const std::string &swmname,
                                 const std::string &hdffile, int particle_count);
+static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,
+                                 const std::string &hdfFile, const std::string &dir);
 static std::string LocationToStringRef(MetadataFlag where);
 } // namespace impl
 
@@ -111,48 +113,17 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
   }
 
-  std::string blockTopology =
-      R"(      <Topology TopologyType="3DRectMesh" Dimensions=")" +
-      std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) + " " +
-      std::to_string(nx1 + 1) + R"("/>)" + '\n';
-  const std::string slabPreDim = R"(        <DataItem ItemType="HyperSlab" Dimensions=")";
-  const std::string slabPreBlock2D =
-      R"("><DataItem Dimensions="3 2" NumberType="Int" Format="XML">)";
-  const std::string slabTrailer = "</DataItem>";
-
   // Now write Grid for each block
   dims[0] = pm->nbtotal;
-  std::string dims321 =
-      std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
-
   for (int ib = 0; ib < pm->nbtotal; ib++) {
-    xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
-    xdmf << blockTopology;
-    xdmf << R"(      <Geometry GeometryType="VXVYVZ">)" << std::endl;
-    xdmf << slabPreDim << nx1 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx1 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx1 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "x", dims, 2, "Float",
-                      8);
-    xdmf << "        </DataItem>" << std::endl;
-
-    xdmf << slabPreDim << nx2 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx2 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx2 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "y", dims, 2, "Float",
-                      8);
-    xdmf << "        </DataItem>" << std::endl;
-
-    xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
-         << slabTrailer << std::endl;
-
-    dims[1] = nx3 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
-                      8);
-    xdmf << "        </DataItem>" << std::endl;
-
+    xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n"
+                         "      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n"
+                         "      <Geometry GeometryType=\"%s\">\n",
+                         ib, output_coords ? "3DSMesh" : "3DRectMesh", nx3 + 1, nx2 + 1,
+                         nx1 + 1, output_coords ? "X_Y_Z" : "VXVYVZ");
+    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
+    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
+    BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
@@ -169,7 +140,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       nx3 = dims[ndim - 3];
       nx2 = dims[ndim - 2];
       nx1 = dims[ndim - 1];
-      dims321 =
+      std::string dims321 =
           std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
@@ -417,6 +388,21 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
       }
     }
   }
+}
+
+static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,
+                                 const std::string &hdfFile, const std::string &dir) {
+  hsize_t dims[] = {static_cast<hsize_t>(nbtot), static_cast<hsize_t>(nx + 1)};
+  xdmf << StringPrintf(
+      "        <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\">\n"
+      "          <DataItem Dimensions=\"3 2\" NumberType=\"Int\" Format=\"XML\">\n"
+      "            %d 0 1\n"
+      "            1 1 %d\n"
+      "          </DataItem>\n",
+      nx + 1, ib, nx + 1);
+  writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", dir, dims, 2, "Float",
+                    8);
+  xdmf << "        </DataItem>" << std::endl;
 }
 
 static std::string LocationToStringRef(MetadataFlag where) {
