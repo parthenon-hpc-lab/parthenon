@@ -90,6 +90,11 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   std::ofstream xdmf;
   hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
+  // check whether or not coordinates field is provided and find it if it is present
+  auto coords_it = std::find_if(var_list.begin(), var_list.end(),
+                                [](const auto &v) { return v.is_coordinate_field; });
+  const bool output_coords = (coords_it != var_list.end());
+
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
 

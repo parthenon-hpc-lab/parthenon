@@ -449,6 +449,9 @@ class Metadata {
             IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
 
+  // Returns true if this variable is a coords var
+  bool IsCoordinateField() const { return IsSet(CoordinatesVec); }
+
   const std::vector<int> &Shape() const { return shape_; }
 
   /*--------------------------------------------------------*/

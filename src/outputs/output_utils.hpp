@@ -55,6 +55,7 @@ struct VarInfo {
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
+  bool is_coordinate_field;
   IndexShape cellbounds;
   std::vector<std::string> component_labels;
   // list of topological elements in variable... e.g., Face1, Face2, etc
@@ -132,7 +133,8 @@ struct VarInfo {
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
-        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1) {
+        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
+        is_coordinate_field(metadata.IsCoordinateField()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
