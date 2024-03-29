@@ -150,7 +150,10 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     }
   };
 
+  KOKKOS_FORCEINLINE_FUNCTION
   const SwarmDeviceContext &GetContext(const int b = 0) const { return contexts_(b); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
   const int &GetMaxActiveIndex(const int b = 0) const { return max_active_indices_(b); }
 
   // Methods for getting parts of the shape of the pack
