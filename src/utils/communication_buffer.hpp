@@ -279,8 +279,8 @@ bool CommBuffer<T>::IsAvailableForWrite() {
     if (*state_ == BufferState::stale) return true;
     if (*my_request_ == MPI_REQUEST_NULL) return true;
     int flag, test;
-    /*PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                                   MPI_STATUS_IGNORE));*/ // Moraru : remove Iprobe
+    PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                   MPI_STATUS_IGNORE)); // Moraru : remove Iprobe
     PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, MPI_STATUS_IGNORE));
     if (flag) *state_ = BufferState::stale;
     return flag;
@@ -374,7 +374,7 @@ bool CommBuffer<T>::TryReceive(const logger::COMM_TYPE & prof_comm_type) noexcep
       // as the total number of buffers being communicated, I have found this can have
       // anywhere from no impact on the walltime to a factor of a few reduction in the
       // walltime. It seems to be unpredictable as far as I can tell.
-      for (int i = 0; i < 0; ++i) // Moraru : set i=0 (before i=1)
+      for (int i = 0; i < 1; ++i) // Moraru : set i<=>0 (before i<=>1)
         PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,
                                        MPI_STATUS_IGNORE));
       PARTHENON_MPI_CHECK(MPI_Test(my_request_.get(), &flag, &status));

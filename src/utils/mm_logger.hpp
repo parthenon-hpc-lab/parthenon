@@ -22,7 +22,7 @@ namespace logger{
         public:
             My_Logger(): filename("mm_logger.log"), is_init(false), time_recv_bound_bufs(0),\
                         time_send_bound_bufs(0), time_recv_flux_corr(0), time_send_flux_corr(0),\
-                        time_token_creation(0), token_id(0), print_only(false), log_times(false), rank(-1)  {
+                        time_token_creation(0), token_id(0), print_only(false), log_times(false), rank(-1), timer_recvs_in_use(false), timer_comm_build_in_use(false)  {
                 const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
                 if(env_filename != NULL) filename = env_filename;
                 //_start_timer(total_exec_time);
@@ -33,7 +33,7 @@ namespace logger{
             My_Logger(bool _print_only): filename("mm_logger.log"), is_init(false), time_recv_bound_bufs(0),\
                         time_send_bound_bufs(0), time_recv_flux_corr(0), time_send_flux_corr(0),\
                         time_token_creation(0), token_id(0), print_only(_print_only), log_times(true),\
-                        log_time_sends(0), log_time_recvs(0), log_time_build_comm(0), rank(-1)   {
+                        log_time_sends(0), log_time_recvs(0), log_time_build_comm(0), rank(-1), timer_recvs_in_use(false), timer_comm_build_in_use(false)   {
                 const char * env_filename = getenv("MM_LOGGER_OUT_FILE");
                 if(!print_only && env_filename != NULL) filename = env_filename;
                 
@@ -44,12 +44,32 @@ namespace logger{
             void end_timer_sends(){_end_timer(log_time_sends);}
 
             /* Recv */
-            void start_timer_recvs(){_start_timer(log_time_recvs);}
-            void end_timer_recvs(){_end_timer(log_time_recvs);}
+            void start_timer_recvs(){
+                if(!timer_recvs_in_use){
+                    timer_recvs_in_use = true;
+                    _start_timer(log_time_recvs);
+                }
+            }
+            void end_timer_recvs(){
+                if(timer_recvs_in_use){
+                    _end_timer(log_time_recvs);
+                    timer_recvs_in_use = false;
+                }
+            }
 
             /* Build communicaiton token */
-            void start_timer_build_comm(){_start_timer(log_time_build_comm);}
-            void end_timer_build_comm(){_end_timer(log_time_build_comm);}
+            void start_timer_build_comm(){
+                if(!timer_comm_build_in_use){
+                    timer_comm_build_in_use = true;
+                    _start_timer(log_time_build_comm);
+                }
+            }
+            void end_timer_build_comm(){
+                if(!timer_comm_build_in_use){
+                    _end_timer(log_time_build_comm);
+                    timer_comm_build_in_use = false;
+                }
+            }
 
             #endif
 
@@ -169,6 +189,8 @@ namespace logger{
             bool is_init;
             bool print_only; // used only when ENABLE_MM_LOG_TIME is on
             bool log_times;  // used only when ENABLE_MM_LOG_TIME is on
+            bool timer_recvs_in_use; // make sure we measure correctly the time spent in communication
+            bool timer_comm_build_in_use;
             double log_time_sends;
             double log_time_recvs;
             double log_time_build_comm;

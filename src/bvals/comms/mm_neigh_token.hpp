@@ -72,7 +72,7 @@ namespace neigh_comm{
                 MPI_Dist_graph_create_adjacent(comm_, mpi_procs.size(), mpi_procs.data(), MPI_UNWEIGHTED,
                                    mpi_procs.size(), mpi_procs.data(), MPI_UNWEIGHTED,
                                    MPI_INFO_NULL, false, &neigh_comm);
-                
+                nb_of_comm_built++;
             }
             /*
              * calculate_off_prefix_sum()
@@ -143,6 +143,8 @@ namespace neigh_comm{
              * start_data_exchange_neigh_alltoallv()
              */
             void start_data_exchange_neigh_alltoallv(){
+                if(neigh_comm_in_use) PARTHENON_FAIL("trying to launch an alltoallv operation while the communicator is in use");
+                neigh_comm_in_use = true;
                 MPI_Ineighbor_alltoallv(send_comm_buffer.data(), counts.data(), displs.data(), MPI_PARTHENON_REAL, 
                 recv_comm_buffer.data(), counts.data(), displs.data(), MPI_PARTHENON_REAL, neigh_comm, &neigh_request);
             }
@@ -154,13 +156,20 @@ namespace neigh_comm{
                 int flag_nc = 0;
                 //if(neigh_request)
                 MPI_Test(&neigh_request, &flag_nc, MPI_STATUS_IGNORE);
+                if(flag_nc) neigh_comm_in_use = false;
                 //MPI_Wait(&neigh_request, MPI_STATUS_IGNORE);
                 //return true;
                 return flag_nc;
             }
 
+            ~NeighToken(){
+                int root_rank = 0;
+                if(parthenon::Globals::my_rank == root_rank)
+                    std::cout<<"# COMM_BUILD_INFO: Nb_of_comm_build="<<nb_of_comm_built<<std::endl;
+            }
+
         public:
-            NeighToken(): building_token_on(false), neigh_request(), send_comm_buffer("send_neigh_buf",100), recv_comm_buffer("recv_neigh_buf",100) {}
+            NeighToken(): building_token_on(false), neigh_request(), nb_of_comm_built(0), send_comm_buffer("send_neigh_buf",100), recv_comm_buffer("recv_neigh_buf",100), neigh_comm_in_use(false) {}
             
             std::set<int> mpi_neighbors;
             std::vector<int> displs;
@@ -170,11 +179,13 @@ namespace neigh_comm{
             std::map<int, int> total_buff_size_per_rank;
             std::map<int, std::vector<std::pair<int,int>>> buff_info_per_rank;
             int total_buf_size;
+            size_t nb_of_comm_built;
 
             MPI_Request neigh_request;
 
             bool building_token_on;
             bool enable_add_buff;
+            bool neigh_comm_in_use;
             MPI_Comm neigh_comm; // created with MPI_Dist_graph_create_adjacent
 
             //Kokkos::View<parthenon::Real*> 
