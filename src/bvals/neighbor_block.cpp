@@ -37,56 +37,6 @@
 
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-// \!fn void NeighborBlock::SetNeighbor(int irank, int ilevel, int igid, int ilid,
-//                          int iox1, int iox2, int iox3, NeighborConnect itype,
-//                          int ibid, int itargetid, int ifi1=0, int ifi2=0)
-// \brief Set neighbor information
-
-void NeighborBlock::SetNeighbor(LogicalLocation inloc, int irank, int ilevel, int igid,
-                                int ilid, int iox1, int iox2, int iox3,
-                                NeighborConnect itype, int ibid, int itargetid,
-                                int ifi1, // =0
-                                int ifi2  // =0
-) {
-  snb.rank = irank;
-  snb.level = ilevel;
-  snb.gid = igid;
-  snb.lid = ilid;
-  ni.ox1 = iox1;
-  ni.ox2 = iox2;
-  ni.ox3 = iox3;
-  ni.type = itype;
-  ni.fi1 = ifi1;
-  ni.fi2 = ifi2;
-  bufid = ibid;
-  targetid = itargetid;
-  loc = inloc;
-  if (ni.type == NeighborConnect::face) {
-    if (ni.ox1 == -1)
-      fid = BoundaryFace::inner_x1;
-    else if (ni.ox1 == 1)
-      fid = BoundaryFace::outer_x1;
-    else if (ni.ox2 == -1)
-      fid = BoundaryFace::inner_x2;
-    else if (ni.ox2 == 1)
-      fid = BoundaryFace::outer_x2;
-    else if (ni.ox3 == -1)
-      fid = BoundaryFace::inner_x3;
-    else if (ni.ox3 == 1)
-      fid = BoundaryFace::outer_x3;
-  }
-  if (ni.type == NeighborConnect::edge) {
-    if (ni.ox3 == 0)
-      eid = ((((ni.ox1 + 1) >> 1) | ((ni.ox2 + 1) & 2)));
-    else if (ni.ox2 == 0)
-      eid = (4 + (((ni.ox1 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
-    else if (ni.ox1 == 0)
-      eid = (8 + (((ni.ox2 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
-  }
-  return;
-}
-
 NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
   int connect_indicator =
       std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);

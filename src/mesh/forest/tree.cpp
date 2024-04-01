@@ -139,8 +139,6 @@ std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc,
     FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs, grid_id);
   }
 
-  const int clev = loc.level() - 1;
-
   return neighbor_locs;
 }
 
