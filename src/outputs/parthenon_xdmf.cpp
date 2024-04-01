@@ -118,24 +118,42 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   dims[0] = pm->nbtotal;
   const int n3_offset = output_coords ? (nx3 > 1) : 1;
   const int n2_offset = output_coords ? (nx2 > 1) : 1;
+  int ndim_mesh;
   std::string mesh_type;
   if (output_coords) {
     if (nx3 > 1) {
+      ndim_mesh = 3;
       mesh_type = "3DSMesh";
     } else if (nx2 > 1) {
+      ndim_mesh == 2;
       mesh_type = "2DSMesh";
     } else {
+      ndim_mesh == 1;
       mesh_type = "Polyline";
     }
   } else {
     mesh_type = "3DRectMesh";
+    ndim_mesh = 3;
   }
   if (output_coords && (nx3 == 1) && (nx2 == 1)) {
     PARTHENON_WARN("XDMF meshing with custom coords is essentially untested in 1D");
   }
   for (int ib = 0; ib < pm->nbtotal; ib++) {
-    xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n"
-                         "      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n"
+    xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
+    if (ndim_mesh == 1) {
+      // connectivity
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%d\">\n"
+                           "        <DataItem Dimensions=\"%d 2\" NumberType=\"Int\" Precision=\"8\" Format=\"XML\">\n",
+                           mesh_type, nx1, nx1);
+      for (int i = 0; i < nx1 + 1; ++i) {
+        xdmf << StringPrintf("          %d %d\n", i, i + 1);
+      }
+      xdmf << StringPrintf("        </DataItem>\n");
+    } else {
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n",
+                           mesh_type, nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
+    }
+                         
                          "      <Geometry GeometryType=\"%s\">\n",
                          ib, mesh-type, nx3 + n3_offset,
                          nx2 + n2_offset, nx1 + 1,
