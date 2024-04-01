@@ -98,16 +98,12 @@ class LogicalLocation { // aggregate and POD type
     return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
-  LogicalLocation GetParent(int nlevel = 1) const {
-    if (level() - nlevel < 0) return LogicalLocation(tree(), level() - nlevel, 0, 0, 0);
-    return LogicalLocation(tree(), level() - nlevel, lx1() >> nlevel, lx2() >> nlevel,
-                           lx3() >> nlevel);
-  }
+  LogicalLocation GetParent(int nlevel = 1) const;
 
   std::vector<LogicalLocation> GetDaughters(int ndim = 3) const;
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
-    if (level() < 0) return LogicalLocation(tree(), level() + 1, 0, 0, 0);
+    if (level() < 0) return LogicalLocation(tree(), level() + 1, lx1(), lx2(), lx3());
     return LogicalLocation(tree(), level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
                            (lx3() << 1) + ox3);
   }
