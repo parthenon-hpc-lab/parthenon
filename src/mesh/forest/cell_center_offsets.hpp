@@ -53,7 +53,9 @@ struct CellCentOffsets {
   explicit CellCentOffsets(const std::array<int, 3> &in)
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
           static_cast<Offset>(in[2])} {}
+
   Offset &operator[](int idx) { return u[idx]; }
+  
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
   }
@@ -64,7 +66,8 @@ struct CellCentOffsets {
       if (static_cast<int>(u[dir]))
         return static_cast<BoundaryFace>((1 + static_cast<int>(u[dir])) / 2 + 2 * dir);
     }
-    return BoundaryFace::undef; // Shouldn't get here
+    PARTHENON_FAIL("Shouldn't get here.");
+    return BoundaryFace::undef;
   }
 
   // Get the logical directions that are tangent to this element
