@@ -146,9 +146,6 @@ struct NeighborBlock {
   block_ownership_t ownership;
   RegionSize block_size;
 
-  void SetNeighbor(LogicalLocation inloc, int irank, int ilevel, int igid, int ilid,
-                   int iox1, int iox2, int iox3, NeighborConnect itype, int ibid,
-                   int itargetid, int ifi1 = 0, int ifi2 = 0);
   NeighborBlock() = default;
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
                 std::array<int, 3> offsets, NeighborConnect type, int bid, int target_id,
