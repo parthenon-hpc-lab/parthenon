@@ -221,6 +221,10 @@ def plot_dump(
                     len(components), ntensors, q.shape
                 )
             )
+        # The first index of q is block index. Here we walk through
+        # the tensor components, slowest-first and, iteratively, fix
+        # q's slowest moving non-block index to the fixed tensor
+        # component. Then we move to the next index.
         for c in components:
             if c > (q.shape[1] - 1):
                 raise ValueError(

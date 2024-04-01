@@ -117,9 +117,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
 
   // Now write Grid for each block
   dims[0] = pm->nbtotal;
-  std::string dims321 =
-      std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
-
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
@@ -164,7 +161,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       nx3 = dims[ndim - 3];
       nx2 = dims[ndim - 2];
       nx1 = dims[ndim - 1];
-      dims321 =
+      std::string dims321 =
           std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,

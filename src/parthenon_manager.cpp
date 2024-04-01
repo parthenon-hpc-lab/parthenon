@@ -239,11 +239,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
 
+  // Currently supports versions 3 and 4.
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
   if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
-    // Being extra stringent here so that we don't forget to update the machinery when
-    // another change happens.
-    PARTHENON_THROW("Deprecated file format");
+    std::stringstream msg;
+    msg << "File format version " << file_output_format_ver << " not supported. "
+        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+    PARTHENON_THROW(msg)
   }
 
   // Get an iterator on block 0 for variable listing
@@ -341,7 +343,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });
       } else {
-        PARTHENON_THROW("Unsupported output format version in restart file.")
+        std::stringstream msg;
+        msg << "File format version " << file_output_format_ver << " not supported. "
+            << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+        PARTHENON_THROW(msg)
       }
 
       v->data.DeepCopy(v_h);

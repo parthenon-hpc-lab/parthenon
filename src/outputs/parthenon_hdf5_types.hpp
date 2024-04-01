@@ -40,7 +40,8 @@
 namespace parthenon {
 namespace HDF5 {
 
-// Number of dimension of HDF5 field data sets (block x nv x nu x nt x nz x ny x nx)
+// Number of dimension of HDF5 field data sets:
+// (block x n_topological_elements x nv x nu x nt x nz x ny x nx)
 static constexpr size_t H5_NDIM = MAX_VARIABLE_DIMENSION + 1;
 
 static constexpr int OUTPUT_VERSION_FORMAT = 4;
