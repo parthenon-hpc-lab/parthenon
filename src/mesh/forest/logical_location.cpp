@@ -144,25 +144,26 @@ bool LogicalLocation::IsNeighborOfTE(const LogicalLocation &in,
 }
 
 LogicalLocation LogicalLocation::GetParent(int nlevel) const {
-    // Shift all locations so that ghost tree locations have positive values, 
-    // then shift back. Looks overly complicated to deal with ghosts and negative 
-    // levels, but basically boils down to 
-    // return LogicalLocation(tree(), level() - nlevel, lx1() >> nlevel, lx2() >> nlevel, lx3() >> nlevel); 
-    // for most cases
-    const int norig = 1LL << std::max(level(), 0);
-    const int nparent = 1LL << std::max(level() - nlevel, 0);
-    constexpr int nmax_tree_offset = 5;
-    std::array<int, 3> lparent;
-    for (int dir = 0; dir < 3; ++dir) {
-      PARTHENON_DEBUG_REQUIRE((l(dir) >= -norig * nmax_tree_offset && l(dir) < (1 + nmax_tree_offset) * norig), "More than maximum number of tree offset."); 
-      const int offset_l = l(dir) + nmax_tree_offset * norig;
-      lparent[dir] = (offset_l % norig) >> nlevel;
-      lparent[dir] += (offset_l / norig - nmax_tree_offset) * nparent;
-    }
-
-    return LogicalLocation(tree(), level() - nlevel, lparent[0], lparent[1], lparent[2]);
+  // Shift all locations so that ghost tree locations have positive values,
+  // then shift back. Looks overly complicated to deal with ghosts and negative
+  // levels, but basically boils down to
+  // return LogicalLocation(tree(), level() - nlevel, lx1() >> nlevel, lx2() >> nlevel,
+  // lx3() >> nlevel); for most cases
+  const int norig = 1LL << std::max(level(), 0);
+  const int nparent = 1LL << std::max(level() - nlevel, 0);
+  constexpr int nmax_tree_offset = 5;
+  std::array<int, 3> lparent;
+  for (int dir = 0; dir < 3; ++dir) {
+    PARTHENON_DEBUG_REQUIRE(
+        (l(dir) >= -norig * nmax_tree_offset && l(dir) < (1 + nmax_tree_offset) * norig),
+        "More than maximum number of tree offset.");
+    const int offset_l = l(dir) + nmax_tree_offset * norig;
+    lparent[dir] = (offset_l % norig) >> nlevel;
+    lparent[dir] += (offset_l / norig - nmax_tree_offset) * nparent;
   }
 
+  return LogicalLocation(tree(), level() - nlevel, lparent[0], lparent[1], lparent[2]);
+}
 
 std::vector<LogicalLocation> LogicalLocation::GetDaughters(int ndim) const {
   std::vector<LogicalLocation> daughters;
