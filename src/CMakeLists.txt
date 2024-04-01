@@ -158,7 +158,6 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
-  mesh/forest/cell_center_offsets.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
   mesh/forest/relative_orientation.hpp
@@ -236,6 +235,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
   utils/cleantypes.hpp

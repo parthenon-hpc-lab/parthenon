@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
-#define MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
+#ifndef UTILS_CELL_CENTER_OFFSETS_HPP_
+#define UTILS_CELL_CENTER_OFFSETS_HPP_
 
 #include <array>
 #include <map>
@@ -30,7 +30,6 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
-namespace forest {
 enum class Direction : uint { I = 0, J = 1, K = 2 };
 
 // CellCentOffsets defines the position of a topological element
@@ -135,8 +134,6 @@ struct CellCentOffsets {
            9 * (static_cast<int>(u[2]) + 1);
   }
 };
-
-} // namespace forest
 } // namespace parthenon
 
-#endif // MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
+#endif // UTILS_CELL_CENTER_OFFSETS_HPP_
