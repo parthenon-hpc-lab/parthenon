@@ -54,10 +54,10 @@ class LogicalLocation { // aggregate and POD type
   // No check is provided that the requested LogicalLocation is in the allowed
   // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
-      : l_{l1, l2, l3}, level_{lev}, tree_idx_{-1}, morton_(lev, l1, l2, l3) {}
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{-1}, morton_(std::max(lev, 0), l1, l2, l3) {}
   LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2,
                   std::int64_t l3)
-      : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(lev, l1, l2, l3) {}
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(std::max(lev, 0), l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   std::string label() const;
