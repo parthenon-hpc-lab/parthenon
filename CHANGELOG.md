@@ -6,6 +6,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
 
 
 ### Fixed (not changing behavior/API/variables/...)
@@ -37,11 +38,7 @@ Date: 2024-03-21
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 ### Changed (changing behavior/API/variables/...)
-<<<<<<< HEAD
-- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
-=======
 - [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
->>>>>>> a49faf6ddae5708352b879dcd5c9470fc123fc18
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
