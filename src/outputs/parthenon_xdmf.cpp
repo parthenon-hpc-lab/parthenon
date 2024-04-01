@@ -116,12 +116,29 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   // Now write Grid for each block
   int ndim;
   dims[0] = pm->nbtotal;
+  const int n3_offset = output_coords ? (nx3 > 1) : 1;
+  const int n2_offset = output_coords ? (nx2 > 1) : 1;
+  std::string mesh_type;
+  if (output_coords) {
+    if (nx3 > 1) {
+      mesh_type = "3DSMesh";
+    } else if (nx2 > 1) {
+      mesh_type = "2DSMesh";
+    } else {
+      mesh_type = "Polyline";
+    }
+  } else {
+    mesh_type = "3DRectMesh";
+  }
+  if (output_coords && (nx3 == 1) && (nx2 == 1)) {
+    PARTHENON_WARN("XDMF meshing with custom coords is essentially untested in 1D");
+  }
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n"
                          "      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n"
                          "      <Geometry GeometryType=\"%s\">\n",
-                         ib, output_coords ? "3DSMesh" : "3DRectMesh", nx3 + (nx3 > 1),
-                         nx2 + (nx2 > 1), nx1 + (nx1 > 1),
+                         ib, mesh-type, nx3 + n3_offset,
+                         nx2 + n2_offset, nx1 + 1,
                          output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
