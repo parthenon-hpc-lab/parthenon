@@ -60,7 +60,7 @@ Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const
     je = std::max(je, jb.e);
     ie = std::max(ie, ib.e);
   }
-  IndexRange kb{ks, ke}, jb{is, ie}, ib{is, ie};
+  IndexRange kb{ks, ke}, jb{js, je}, ib{is, ie};
   return std::make_tuple(kb, jb, ib);
 }
 
