@@ -232,7 +232,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
-  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
   root_level = forest.root_level;
   current_level = root_level;
 
@@ -343,8 +343,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
             for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
               LogicalLocation nloc(lrlev, i, j, k);
-              forest.AddMeshBlock(
-                  forest.GetForestLocationFromAthenaCompositeLocation(nloc));
+              forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
             }
           }
         }
@@ -599,9 +598,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::AthenaXX(mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
   for (int i = 0; i < nbtotal; i++) {
-    forest.AddMeshBlock(forest.GetForestLocationFromAthenaCompositeLocation(loclist[i]),
+    forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
   }
 

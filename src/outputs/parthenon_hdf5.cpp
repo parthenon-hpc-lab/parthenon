@@ -90,7 +90,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   auto const nx2 = out_jb.e - out_jb.s + 1;
   auto const nx3 = out_kb.e - out_kb.s + 1;
 
-  const int rootLevel = pm->GetAthenaCompositeRootLevel();
+  const int rootLevel = pm->GetLegacyTreeRootLevel();
   const int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
   const auto &nblist = pm->GetNbList();
 

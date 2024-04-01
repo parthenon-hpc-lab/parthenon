@@ -189,7 +189,7 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetAthenaCompositeRootLevel() const noexcept {
+  int GetLegacyTreeRootLevel() const noexcept {
     return forest.root_level + forest.forest_level;
   }
 
@@ -211,8 +211,8 @@ class Mesh {
     levels.reserve(nbtotal);
     logicalLocations.reserve(nbtotal * 3);
     for (auto loc : loclist) {
-      loc = forest.GetAthenaCompositeLocation(loc);
-      levels.push_back(loc.level() - GetAthenaCompositeRootLevel());
+      loc = forest.GetLegacyTreeLocation(loc);
+      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
       logicalLocations.push_back(loc.lx1());
       logicalLocations.push_back(loc.lx2());
       logicalLocations.push_back(loc.lx3());
