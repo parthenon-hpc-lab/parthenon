@@ -53,8 +53,8 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
   return mb_list;
 }
 
-Forest Forest::AthenaXX(RegionSize mesh_size, RegionSize block_size,
-                        std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs) {
+Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
+                                std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs) {
   std::array<bool, 3> periodic{mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
                                mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
                                mesh_bcs[BoundaryFace::inner_x3] ==

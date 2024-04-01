@@ -87,6 +87,8 @@ struct RegionSize {
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
 
+  // Returns global coordinate position within a block based on block local
+  // coordinate u running from zero to one
   Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
     return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
   }
