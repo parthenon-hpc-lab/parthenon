@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Copyright(C) 2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -45,7 +45,7 @@ void DerefineAllPossibleLocations(Forest &forest) {
 }
 
 TEST_CASE("Forest construction", "[forest]") {
-  // Create two trees in two dimensions that have a single block
+  // Create two trees in two dimensions that both have a single block
   auto tree1 = Tree::create(1, 2, 0);
   auto tree2 = Tree::create(2, 2, 0);
 
