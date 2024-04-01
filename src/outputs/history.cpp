@@ -70,6 +70,11 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       const auto &it = all_packages.find(pkg_name);
       if (it != all_packages.end()) {
         packages[(*it).first] = (*it).second;
+      } else {
+        std::stringstream msg;
+        msg << "History output for package \"" << pkg_name
+            << "\" requested but package is not available!" << std::endl;
+        PARTHENON_FAIL(msg);
       }
     }
   }
@@ -112,7 +117,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     for (const auto &hist_vec : hist_vecs) {
       auto result = hist_vec.hst_vec_fun(md_base.get());
       for (int n = 0; n < result.size(); n++) {
-        std::string label = hist_vec.label + std::to_string(n);
+        std::string label = hist_vec.label + "_" + std::to_string(n);
         results[hist_vec.hst_op].push_back(result[n]);
         labels[hist_vec.hst_op].push_back(label);
       }
@@ -176,7 +181,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       std::fprintf(pfile, "[%d]=dt       ", iout++);
       for (auto &op : ops) {
         for (auto &label : labels[op]) {
-          std::fprintf(pfile, "[%d]=%-8s", iout++, label.c_str());
+          std::fprintf(pfile, "[%d]=%-8s ", iout++, label.c_str());
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
