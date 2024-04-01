@@ -51,15 +51,17 @@ TEST_CASE("Forest construction", "[forest]") {
 
   // Periodic connectivity to self
   for (int offy : {-1, 1}) {
-    tree1->AddNeighborTree(CellCentOffsets({0, offy, 0}), tree1, RelativeOrientation());
-    tree2->AddNeighborTree(CellCentOffsets({0, offy, 0}), tree2, RelativeOrientation());
+    tree1->AddNeighborTree(parthenon::CellCentOffsets(0, offy, 0), tree1,
+                           RelativeOrientation());
+    tree2->AddNeighborTree(parthenon::CellCentOffsets(0, offy, 0), tree2,
+                           RelativeOrientation());
   }
   // Connectivity to the other tree (both periodic and internal)
   for (int offy : {-1, 0, 1}) {
     for (int offx : {-1, 1}) {
-      tree1->AddNeighborTree(CellCentOffsets({offx, offy, 0}), tree2,
+      tree1->AddNeighborTree(parthenon::CellCentOffsets(offx, offy, 0), tree2,
                              RelativeOrientation());
-      tree2->AddNeighborTree(CellCentOffsets({offx, offy, 0}), tree1,
+      tree2->AddNeighborTree(parthenon::CellCentOffsets(offx, offy, 0), tree1,
                              RelativeOrientation());
     }
   }

@@ -25,9 +25,9 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "utils/cell_center_offsets.hpp"
 #include "mesh/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
+#include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
 
 namespace parthenon {

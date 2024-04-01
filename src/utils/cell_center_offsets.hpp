@@ -53,8 +53,11 @@ struct CellCentOffsets {
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
           static_cast<Offset>(in[2])} {}
 
+  CellCentOffsets(int ox1, int ox2, int ox3)
+      : u{static_cast<Offset>(ox1), static_cast<Offset>(ox2), static_cast<Offset>(ox3)} {}
+
   Offset &operator[](int idx) { return u[idx]; }
-  
+
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
   }
