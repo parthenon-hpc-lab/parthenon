@@ -137,13 +137,20 @@ class TestCase(utils.test_case.TestCaseAbs):
         ]
         # check header labels
         for fname in ["advection_2d.out1.hst", "advection_3d.out1.hst"]:
-            with open(fname, 'r') as f:
+            with open(fname, "r") as f:
                 f.readline()
                 header = f.readline()[1:].split()
                 for i, val in enumerate(ref_results):
                     col_label = header[i].strip()[4:]
                     if col_label != val[0]:
-                        print("Wrong", val[0], "label in hst output of", fname, ":", col_label)
+                        print(
+                            "Wrong",
+                            val[0],
+                            "label in hst output of",
+                            fname,
+                            ":",
+                            col_label,
+                        )
                         analyze_status = False
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):
