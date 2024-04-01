@@ -131,25 +131,25 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
           for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
-              if (nb.snb.rank != Globals::my_rank) continue;
+              if (nb.rank() != Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::nonlocal) {
               if (!v->IsSet(Metadata::FillGhost)) {
                 continue;
               }
-              if (nb.snb.rank == Globals::my_rank) continue;
+              if (nb.rank() == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
             } else if constexpr (bound == BoundaryType::flxcor_send) {
               if (!v->IsSet(Metadata::WithFluxes)) continue;
               // Check if this boundary requires flux correction
-              if (nb.snb.level != pmb->loc.level() - 1) continue;
+              if (nb.loc.level() != pmb->loc.level() - 1) continue;
               // No flux correction required unless boundaries share a face
               if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
                 continue;
             } else if constexpr (bound == BoundaryType::flxcor_recv) {
               if (!v->IsSet(Metadata::WithFluxes)) continue;
               // Check if this boundary requires flux correction
-              if (nb.snb.level - 1 != pmb->loc.level()) continue;
+              if (nb.loc.level() - 1 != pmb->loc.level()) continue;
               // No flux correction required unless boundaries share a face
               if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
                 continue;

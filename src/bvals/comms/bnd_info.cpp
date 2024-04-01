@@ -245,7 +245,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
   }
-  if (nb.snb.level < mylevel) {
+  if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
   } else {
     out.var = v->data.Get();
@@ -284,7 +284,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
   }
-  if (nb.snb.level < mylevel) {
+  if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
   } else {
     out.var = v->data.Get();
@@ -312,7 +312,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0},
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0},
                    NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
@@ -344,7 +344,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, 0, {0, 0, 0},
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0},
                    NeighborConnect::none, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
@@ -378,7 +378,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
-  if (nb.snb.level < mylevel) {
+  if (nb.loc.level() < mylevel) {
     for (auto el : elements) {
       out.idxer[static_cast<int>(el)] = CalcIndices(
           nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
@@ -416,7 +416,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
-    if (nb.snb.level < mylevel) {
+    if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
@@ -436,7 +436,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      I doubt that the extra calculations matter, but the storage overhead could
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
-  if (nb.snb.level < mylevel) {
+  if (nb.loc.level() < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] = CalcIndices(
           nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});

@@ -30,7 +30,7 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
   const int location_idx_me = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
   const int location_idx_nb = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
   BlockGeometricElementId bgei_me{pmb->gid, location_idx_me};
-  BlockGeometricElementId bgei_nb{nb.snb.gid, location_idx_nb};
+  BlockGeometricElementId bgei_nb{nb.gid(), location_idx_nb};
   return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
 template <BoundaryType BOUND>
@@ -58,7 +58,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
       return &(pmb->neighbors);
     }();
     for (auto &nb : *neighbors) {
-      const int other_rank = nb.snb.rank;
+      const int other_rank = nb.rank();
       if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
       auto &pair_map = map_[other_rank];
       // Add channel key with an invalid tag
@@ -101,7 +101,7 @@ void TagMap::ResolveMap() {
 }
 
 int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
-  const int other_rank = nb.snb.rank;
+  const int other_rank = nb.rank();
   auto &pair_map = map_[other_rank];
   auto cpair = MakeChannelPair(pmb, nb);
   PARTHENON_REQUIRE(pair_map.count(cpair) == 1,

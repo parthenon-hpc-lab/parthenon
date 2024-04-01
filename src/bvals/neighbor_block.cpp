@@ -54,14 +54,13 @@ NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
                              std::array<int, 3> offsets, int ibid, int itargetid, int fi1,
                              int fi2)
-    : NeighborBlock(mesh, loc, rank, gid, 0, offsets, NCFromOffsets(offsets), ibid,
+    : NeighborBlock(mesh, loc, rank, gid, offsets, NCFromOffsets(offsets), ibid,
                     itargetid, fi1, fi2) {}
 
-NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
+NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
                              std::array<int, 3> offsets, NeighborConnect type, int bid,
                              int target_id, int fi1, int fi2)
-    : snb{rank, loc.level(), lid, gid}, ni{offsets[0], offsets[1], offsets[2],
-                                           fi1,        fi2,        type},
+    : rank_(rank), gid_(gid), ni{offsets[0], offsets[1], offsets[2], fi1, fi2, type},
       bufid{bid}, eid{0}, targetid{target_id}, fid{BoundaryFace::undef}, loc{loc},
       ownership(true), block_size(mesh->GetBlockSize(loc)) {
   // TODO(LFR): Look and see if this stuff gets used anywhere

@@ -94,22 +94,6 @@ enum class NeighborConnect {
 }; // degenerate/shared part of block
 
 //----------------------------------------------------------------------------------------
-//! \struct SimpleNeighborBlock
-//  \brief Struct storing only the basic info about a MeshBlocks neighbors. Typically used
-//  for convenience to store redundant info from subset of the more complete NeighborBlock
-//  objects, e.g. for describing neighbors around pole at same radius and polar angle
-
-struct SimpleNeighborBlock { // aggregate and POD
-  int rank;                  // MPI rank of neighbor
-  int level;                 // refinement (logical, not physical) level of neighbor
-  int lid;                   // local ID of neighbor
-  int gid;                   // global ID of neighbor
-  bool operator==(const SimpleNeighborBlock &rhs) const {
-    return (rank == rhs.rank) && (level == rhs.level) && (gid == rhs.gid);
-  }
-};
-
-//----------------------------------------------------------------------------------------
 //! \struct NeighborConnect
 //  \brief data to describe MeshBlock neighbors
 
@@ -137,17 +121,20 @@ struct NeighborIndexes { // aggregate and POD
 //  \brief
 
 struct NeighborBlock {
-  SimpleNeighborBlock snb;
   NeighborIndexes ni;
-
+  
   int bufid, eid, targetid;
   BoundaryFace fid;
   LogicalLocation loc;
   block_ownership_t ownership;
   RegionSize block_size;
 
+  int rank_, gid_; 
+  int rank() const { return rank_; }
+  int gid() const { return gid_; }
+
   NeighborBlock() = default;
-  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid, int lid,
+  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
                 std::array<int, 3> offsets, NeighborConnect type, int bid, int target_id,
                 int ifi1, int ifi2);
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
