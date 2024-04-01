@@ -21,7 +21,12 @@ from phdf import phdf
 
 from argparse import ArgumentParser
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    ProcessPoolExecutor,
+    wait,
+    ALL_COMPLETED,
+)
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -211,14 +216,20 @@ def plot_dump(
     ntensors = len(q.shape[1:-3])
     if components:
         if len(components) != ntensors:
-            print("value error!", len(components), ntensors, q.shape)
             raise ValueError(
-                "Tensor rank not the same as number of specified components"
+                "Tensor rank not the same as number of specified components: {}, {}, {}".format(
+                    len(components), ntensors, q.shape
+                )
             )
+        # The first index of q is block index. Here we walk through
+        # the tensor components, slowest-first and, iteratively, fix
+        # q's slowest moving non-block index to the fixed tensor
+        # component. Then we move to the next index.
         for c in components:
             if c > (q.shape[1] - 1):
-                print("Value error!", c, q.shape)
-                raise ValueError("Component out of bounds")
+                raise ValueError(
+                    "Component {} out of bounds. Shape = {}".format(c, q.shape)
+                )
             q = q[:, c]
     # move to 2d
     q = q[..., 0, :, :]
@@ -311,6 +322,7 @@ if __name__ == "__main__":
 
     _x = ProcessPoolExecutor if args.worker_type == "process" else ThreadPoolExecutor
     with _x(max_workers=args.workers) as pool:
+        futures = []
         for frame_id, file_name in enumerate(args.files):
             data = phdf(file_name)
 
@@ -379,40 +391,49 @@ if __name__ == "__main__":
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
             current_time = format(round(data.Time, 2), ".2f")
             if args.debug_plot:
-                pool.submit(
-                    plot_dump,
-                    data.xg,
-                    data.yg,
-                    q,
-                    current_time,
-                    output_file,
-                    True,
-                    data.gid,
-                    data.xig,
-                    data.yig,
-                    data.xeg,
-                    data.yeg,
-                    components,
-                    swarmx,
-                    swarmy,
-                    swarmcolor,
-                    particlesize,
+                futures.append(
+                    pool.submit(
+                        plot_dump,
+                        data.xg,
+                        data.yg,
+                        q,
+                        current_time,
+                        output_file,
+                        True,
+                        data.gid,
+                        data.xig,
+                        data.yig,
+                        data.xeg,
+                        data.yeg,
+                        components,
+                        swarmx,
+                        swarmy,
+                        swarmcolor,
+                        particlesize,
+                    )
                 )
             else:
-                pool.submit(
-                    plot_dump,
-                    data.xng,
-                    data.yng,
-                    q,
-                    current_time,
-                    output_file,
-                    True,
-                    components=components,
-                    swarmx=swarmx,
-                    swarmy=swarmy,
-                    swarmcolor=swarmcolor,
-                    particlesize=particlesize,
+                futures.append(
+                    pool.submit(
+                        plot_dump,
+                        data.xng,
+                        data.yng,
+                        q,
+                        current_time,
+                        output_file,
+                        True,
+                        components=components,
+                        swarmx=swarmx,
+                        swarmy=swarmy,
+                        swarmcolor=swarmcolor,
+                        particlesize=particlesize,
+                    )
                 )
+        wait(futures, return_when=ALL_COMPLETED)
+        for future in futures:
+            exception = future.exception()
+            if exception:
+                raise exception
 
     if not ERROR_FLAG:
         logger.info("All frames produced.")

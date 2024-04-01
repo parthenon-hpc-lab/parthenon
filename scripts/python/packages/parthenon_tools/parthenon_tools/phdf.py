@@ -99,21 +99,20 @@ class phdf:
        BlockBounds[NumBlocks]: Bounds of all the blocks
 
     Class Functions:
-      Get(variable, flatten=True, interior=False, average=True):
+      Get(variable, flatten=True, interior=False, average_to_cell_centers=True):
            Reads data for the named variable from file.
 
            Returns None if variable is not found in the file or the data
            if found.
 
-           If variable is a vector, each element of the returned numpy
-           array is a vector of that length.
-
-           Default is to return a flat array of length TotalCells.
-           However if flatten is set to False, a 4D (or 5D if vector)
-           array is returned that has dimensions [NumBlocks, Nz, Ny, Nx]
-           where NumBlocks is the total number of blocks, and Nz, Ny, and
-           Nx are the number of cells in the z, y, and x directions
-           respectively.
+           Default is to return a flat array of length
+           TotalCells*total tensor components. However if flatten is
+           set to False, a 4D (or 5D, or 6D if tensorial) array is
+           returned that has dimensions
+           [NumBlocks, tensor_components, Nz, Ny, Nx]
+           where NumBlocks is the total number of blocks, and Nz, Ny,
+           and Nx are the number of cells in the z, y, and x
+           directions respectively.
 
            If flatten is False and interior is True, only non-ghost data
            will be returned. This array will correspond to the coordinates
@@ -121,7 +120,7 @@ class phdf:
 
            By default, node, face, and edge centered variables are
            averaged to cell centers for visualization. This can be
-           disabled by setting average = False.
+           disabled by setting average_to_cell_centers = False.
       ToLocation(index):
            Returns the location as an array [ib, bidx, iz, iy, ix]
            which convets the index into a block, index within that
@@ -502,21 +501,20 @@ class phdf:
             print(f"Block id: {ib} with bounds {myibBounds} not found in {other.file}")
         return None  # block index not found
 
-    def Get(self, variable, flatten=True, interior=False, average=True):
+    def Get(self, variable, flatten=True, interior=False, average_to_cell_centers=True):
         """Reads data for the named variable from file.
 
         Returns None if variable is not found in the file or the data
         if found.
 
-        If variable is a vector, each element of the returned numpy
-        array is a vector of that length.
-
-        If flatten is true, returns a flat array of length TotalCells.
-        If flatten is set to False, a 4D (or 5D if vector)
-        array is returned that has dimensions [NumBlocks, Nz, Ny, Nx]
-        where NumBlocks is the total number of blocks, and Nz, Ny, and
-        Nx are the number of cells in the z, y, and x directions
-        respectively.
+        Default is to return a flat array of length
+        TotalCells*total tensor components. However if flatten is
+        set to False, a 4D (or 5D, or 6D if tensorial) array is
+        returned that has dimensions
+        [NumBlocks, tensor_components, Nz, Ny, Nx]
+        where NumBlocks is the total number of blocks, and Nz, Ny,
+        and Nx are the number of cells in the z, y, and x
+        directions respectively.
 
         If flatten is False and interior is True, only non-ghost data
         will be returned. This array will correspond to the coordinates
@@ -524,7 +522,7 @@ class phdf:
 
         By default, node, face, and edge centered variables are
         averaged to cell centers for visualization. This can be
-        disabled by setting average = False.
+        disabled by setting average_to_cell_centers = False.
         """
         try:
             if self.varData.get(variable) is None:
@@ -543,27 +541,28 @@ class phdf:
             return None
 
         try:
-            self.varTopology[variable] = self.fid[variable].attrs["TopologicalLocation"]
+            self.varTopology[variable] = (
+                self.fid[variable].attrs["TopologicalLocation"].astype(str)
+            )
         except:
             self.varTopology[variable] = "Cell"
-        if type(self.varTopology[variable]) != str:
-            # This is stupid and seems to be python version dependent.
-            self.varTopology[variable] = self.varTopology[variable].decode("UTF-8")
         average_able = (self.varTopology[variable] != "Cell") and (
             self.varTopology[variable] != "None"
         )
 
         vShape = self.varData[variable].shape
         simdim = (vShape[-1] > 1) + (vShape[-2] > 1) + (vShape[-3] > 1)
-        if average and average_able:
+        if average_to_cell_centers and average_able:
             v = self.varData[variable]
             vnew = v.copy()
+            # Make vnew the proper shape to be averaged into
             vnew = vnew[..., :-1]
             if simdim >= 2:
                 vnew = vnew[..., :-1, :]
             if simdim >= 3:
                 vnew = vnew[..., :-1, :, :]
 
+            # Average...
             if self.varTopology[variable] == "Face":
                 if simdim == 1:
                     vnew[:, 0] = 0.5 * (v[:, 0, ..., 1:] + v[:, 0, ..., :-1])
@@ -638,12 +637,11 @@ class phdf:
                         + v[..., 1:, :-1, :-1]
                     )
             else:
-                print(
-                    "WARNING: Topology {} for var {} cannot be averaged. Resetting.".format(
+                raise ValueError(
+                    "Topology {} for var {} cannot be averaged.".format(
                         self.varTopology[variable], variable
                     )
                 )
-                vnew = v.copy()
             v = vnew
             self.varData[variable] = v
 
@@ -659,7 +657,6 @@ class phdf:
 
         if self.IncludesGhost and interior:
             nghost = self.NGhost
-            print(vShape)
             if vShape[-1] == 1:
                 return self.varData[variable][:]
             elif vShape[-2] == 1:

@@ -201,10 +201,14 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
   const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
 
+  // Currently supports versions 3 and 4.
   if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
     total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
   } else {
-    PARTHENON_THROW("Unknown output format version in restart file.")
+    std::stringstream msg;
+    msg << "File format version " << file_output_format_version << " not supported. "
+        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+    PARTHENON_THROW(msg)
   }
 
   hsize_t total_count = 1;
