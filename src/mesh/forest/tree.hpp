@@ -25,7 +25,6 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "utils/cell_center_offsets.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/relative_orientation.hpp"
 #include "utils/bit_hacks.hpp"
