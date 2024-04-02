@@ -45,6 +45,15 @@ struct RelativeOrientation {
                             std::int64_t destination) const;
   LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
 
+  using buf_indices_t = std::tuple<int, int, int, int, int, int, int>; 
+
+  buf_indices_t TransformScalar(int iel, int t, int u, int v, std::vector<int, 3> kji) { 
+    for (int dir = 0; dir < 3; ++dir) { 
+       
+    }
+    return {dir_connection[iel], t, u, v, kji[0], kji[1], kji[2]};
+  }
+
   bool use_offset = false;
   std::array<int, 3> offset;
   std::array<int, 3> dir_connection;
