@@ -153,8 +153,8 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
             bd_var_.recv[nb.bufid] = BufArray1D<Real>("Buffer", recv_size[nb.bufid]);
           }
           PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[nb.bufid].data(), recv_size[nb.bufid],
-                                       MPI_PARTHENON_REAL, nb.rank,
-                                       recv_tag[nb.bufid], swarm_comm, &status));
+                                       MPI_PARTHENON_REAL, nb.rank, recv_tag[nb.bufid],
+                                       swarm_comm, &status));
         }
       }
     }

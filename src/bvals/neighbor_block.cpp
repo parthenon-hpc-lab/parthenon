@@ -38,20 +38,14 @@
 namespace parthenon {
 
 NeighborBlock::NeighborBlock()
-    : rank{-1}, gid{-1}, bufid{-1}, targetid{-1},
-      loc(), fi1{-1}, fi2{-1},
-      block_size(), 
-      offsets(0, 0, 0), 
-      ownership(true) {}
+    : rank{-1}, gid{-1}, bufid{-1}, targetid{-1}, loc(), fi1{-1}, fi2{-1}, block_size(),
+      offsets(0, 0, 0), ownership(true) {}
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                             std::array<int, 3> offsets_in, int bid,
-                             int target_id, int fi1, int fi2)
-    : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id},
-      loc{loc}, fi1{fi1}, fi2{fi2},
-      block_size(mesh->GetBlockSize(loc)), 
-      offsets(offsets_in), 
-      ownership(true) {}
+                             std::array<int, 3> offsets_in, int bid, int target_id,
+                             int fi1, int fi2)
+    : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id}, loc{loc}, fi1{fi1}, fi2{fi2},
+      block_size(mesh->GetBlockSize(loc)), offsets(offsets_in), ownership(true) {}
 
 BufferID::BufferID(int dim, bool multilevel) {
   std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};

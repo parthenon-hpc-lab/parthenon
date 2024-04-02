@@ -47,14 +47,14 @@ struct RegionSize;
 
 struct NeighborBlock {
   // MPI rank and global id of neighbor block
-  int rank, gid; 
+  int rank, gid;
   // Swarm communication buffer identifier
   int bufid, targetid;
   // LogicalLocation of neighbor block
   LogicalLocation loc;
   // offsets of neighbor block if it is on a finer level
-  // TODO(LFR): Remove these 
-  int fi1, fi2; 
+  // TODO(LFR): Remove these
+  int fi1, fi2;
   // Size of the neighbor block
   RegionSize block_size;
   // Offset of the neighbor block relative to origin block
@@ -64,8 +64,7 @@ struct NeighborBlock {
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                std::array<int, 3> offsets, int bid, int target_id,
-                int ifi1, int ifi2);
+                std::array<int, 3> offsets, int bid, int target_id, int ifi1, int ifi2);
 };
 
 //----------------------------------------------------------------------------------------
@@ -74,10 +73,10 @@ struct NeighborBlock {
 // TODO(LFR): This is only necessary for swarm communication and can go away when that is
 // updated.
 class BufferID {
-  //struct NeighborIndexes {
-  //  int ox1, ox2, ox3;
-  //  int fi1, fi2;
-  //};
+  // struct NeighborIndexes {
+  //   int ox1, ox2, ox3;
+  //   int fi1, fi2;
+  // };
   using NeighborIndexes = std::array<int, 5>;
   std::vector<NeighborIndexes> nis;
 

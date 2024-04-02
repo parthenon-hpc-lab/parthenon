@@ -48,7 +48,7 @@ inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
 
 struct CellCentOffsets {
   std::array<Offset, 3> u;
-  
+
   CellCentOffsets() = default;
 
   explicit CellCentOffsets(const std::array<int, 3> &in)
@@ -60,7 +60,7 @@ struct CellCentOffsets {
 
   Offset &operator[](int idx) { return u[idx]; }
   const Offset &operator[](int idx) const { return u[idx]; }
-  int operator()(CoordinateDirection dir) const {return static_cast<int>(u[dir - 1]);}
+  int operator()(CoordinateDirection dir) const { return static_cast<int>(u[dir - 1]); }
 
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};

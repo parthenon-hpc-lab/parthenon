@@ -27,7 +27,7 @@ using namespace loops::shorthands;
 
 TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
                                             const NeighborBlock &nb) {
-  const int location_idx_me = nb.offsets.GetIdx(); 
+  const int location_idx_me = nb.offsets.GetIdx();
   const int location_idx_nb = nb.offsets.GetReverseIdx();
   BlockGeometricElementId bgei_me{pmb->gid, location_idx_me};
   BlockGeometricElementId bgei_nb{nb.gid, location_idx_nb};

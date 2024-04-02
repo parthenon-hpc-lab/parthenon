@@ -215,8 +215,8 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
   const int ksize = cb.ke(in) - cb.ks(in) + 2;
   return (nb.offsets(X1DIR) == 0 ? isize : Globals::nghost + 1) *
          (nb.offsets(X2DIR) == 0 ? jsize : Globals::nghost + 1) *
-         (nb.offsets(X3DIR) == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
-         v->GetDim(4) * topo_comp;
+         (nb.offsets(X3DIR) == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) *
+         v->GetDim(5) * v->GetDim(4) * topo_comp;
 }
 
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
@@ -238,8 +238,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
-  if (nb.offsets.IsCell())
-    idx_range_type = IndexRangeType::InteriorSend;
+  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -277,8 +276,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
-  if (nb.offsets.IsCell())
-    idx_range_type = IndexRangeType::InteriorRecv;
+  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
@@ -464,8 +462,9 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   int ej = sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
   int si = ib.s;
   int ei = si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
-  
-  PARTHENON_REQUIRE(nb.offsets.IsFace(), "Flux corrections only occur on faces for CC variables.");
+
+  PARTHENON_REQUIRE(nb.offsets.IsFace(),
+                    "Flux corrections only occur on faces for CC variables.");
   if (nb.offsets(X1DIR) != 0) {
     out.dir = X1DIR;
     si = nb.offsets(X1DIR) < 0 ? ib.s : ib.e + 1;
@@ -513,7 +512,8 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   int ek = kb.e;
   int ej = jb.e;
   int ei = ib.e;
-  PARTHENON_REQUIRE(nb.offsets.IsFace(), "Flux corrections only occur on faces for CC variables.");
+  PARTHENON_REQUIRE(nb.offsets.IsFace(),
+                    "Flux corrections only occur on faces for CC variables.");
   if (nb.offsets(X1DIR) != 0) {
     out.dir = X1DIR;
     if (nb.offsets(X1DIR) == -1)
