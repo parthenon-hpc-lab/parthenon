@@ -48,10 +48,10 @@ struct RelativeOrientation {
   using buf_indices_t = std::tuple<int, int, int, int, int, int, int>; 
   
   KOKKOS_FORCEINLINE_FUNCTION
-  buf_indices_t Transform(TopologicalType tt, int iel, std::vector<int, 6> tuvkji_in) { 
+  buf_indices_t Transform(TopologicalType tt, int iel, std::array<int, 6> tuvkji_in) { 
     // TODO(LFR): Non-scalar quantities should pick up a possible sign flip due to the coordinate transformation, 
     //            need to thread this through
-    std::vector<int, 6> tuvkji;
+    std::array<int, 6> tuvkji;
     for (int dir = 0; dir < 3; ++dir) { 
       tuvkji[3 + dir] = dir_flip[dir] ? tuvkji_in[3 + dir_connection[dir]] : ncells - tuvkji_in[3 + dir_connection[dir]];
       tuvkji[dir] = tuvkji_in[dir]; 

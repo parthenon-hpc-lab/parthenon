@@ -115,7 +115,9 @@
   /** the variable participate in GMG calculations */                                    \
   PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
-  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)
+  PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
+  /** this variable is the flux for another variable **/                                 \
+  PARTHENON_INTERNAL_FOR_FLAG(Flux)
 namespace parthenon {
 
 namespace internal {
@@ -602,6 +604,9 @@ class Metadata {
   void Associate(const std::string &name) { associated_ = name; }
   const std::string &getAssociated() const { return associated_; }
 
+  void SetFluxName(const std::string &name) { flux_var_ = name; }
+  const std::string &GetFluxName() const { return flux_var_; }
+
   const std::vector<std::string> getComponentLabels() const noexcept {
     return component_labels_;
   }
@@ -613,6 +618,7 @@ class Metadata {
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
+  std::string flux_var_ = "";
 
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;

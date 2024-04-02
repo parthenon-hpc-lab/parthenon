@@ -271,6 +271,19 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
   if (FieldPresent(vid.label()) || SparseBaseNamePresent(vid.label())) {
     return false; // this field has already been added
   } else {
+    if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") { 
+      std::vector<MetadataFlag> mFlags = {Metadata::OneCopy, Metadata::Flux};
+      if (m.IsSet(Metadata::Sparse)) mFlags.push_back(Metadata::Sparse);
+      if (m.IsSet(Metadata::Cell)) mFlags.push_back(Metadata::Face);
+      else if (m.IsSet(Metadata::Face)) mFlags.push_back(Metadata::Edge);
+      else if (m.IsSet(Metadata::Edge)) mFlags.push_back(Metadata::Node);
+      else 
+        PARTHENON_FAIL("Asking for flux on a variable with innapropriate topological type.");
+      Metadata mf(mFlags, m.Shape());
+      auto fId = VarID{vid.base_name + "_bnd_flux", vid.sparse_id}; 
+      AddFieldImpl(fId, mf, control_vid);
+      m.SetFluxName(fId.label());
+    }
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
     allocControllerReverseMap_.insert({vid, control_vid});

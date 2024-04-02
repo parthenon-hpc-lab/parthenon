@@ -44,7 +44,7 @@ class Variable;
 struct BndInfo {
   int ntopological_elements = 1;
   SpatiallyMaskedIndexer6D idxer[3];
-  RelativeOrientation orient; 
+  forest::RelativeOrientation orient; 
 
   CoordinateDirection dir;
   bool allocated = true;

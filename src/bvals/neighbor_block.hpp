@@ -63,7 +63,7 @@ struct NeighborBlock {
   // Ownership of neighbor block of different topological elements
   block_ownership_t ownership;
   // Information about relative orientation 
-  RelativeOrientation orient;
+  forest::RelativeOrientation orient;
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
