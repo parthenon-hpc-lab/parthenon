@@ -122,12 +122,12 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    auto prolong_restrict =
+    auto boundary =
         parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
 
     // if this is the last stage, check if we can deallocate any sparse variables
     if (stage == integrator->nstages) {
-      tl.AddTask(prolong_restrict, SparseDealloc, mc1.get());
+      tl.AddTask(boundary, SparseDealloc, mc1.get());
     }
   }
 
