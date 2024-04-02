@@ -73,10 +73,7 @@ struct NeighborBlock {
 // TODO(LFR): This is only necessary for swarm communication and can go away when that is
 // updated.
 class BufferID {
-  // struct NeighborIndexes {
-  //   int ox1, ox2, ox3;
-  //   int fi1, fi2;
-  // };
+  // Array contains ox1, ox2, ox3, fi1, fi2
   using NeighborIndexes = std::array<int, 5>;
   std::vector<NeighborIndexes> nis;
 
