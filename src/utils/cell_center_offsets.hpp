@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
-#define MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
+#ifndef UTILS_CELL_CENTER_OFFSETS_HPP_
+#define UTILS_CELL_CENTER_OFFSETS_HPP_
 
 #include <array>
 #include <map>
@@ -30,7 +30,6 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
-namespace forest {
 enum class Direction : uint { I = 0, J = 1, K = 2 };
 
 // CellCentOffsets defines the position of a topological element
@@ -53,7 +52,12 @@ struct CellCentOffsets {
   explicit CellCentOffsets(const std::array<int, 3> &in)
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
           static_cast<Offset>(in[2])} {}
+
+  CellCentOffsets(int ox1, int ox2, int ox3)
+      : u{static_cast<Offset>(ox1), static_cast<Offset>(ox2), static_cast<Offset>(ox3)} {}
+
   Offset &operator[](int idx) { return u[idx]; }
+
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
   }
@@ -64,7 +68,8 @@ struct CellCentOffsets {
       if (static_cast<int>(u[dir]))
         return static_cast<BoundaryFace>((1 + static_cast<int>(u[dir])) / 2 + 2 * dir);
     }
-    return BoundaryFace::undef; // Shouldn't get here
+    PARTHENON_FAIL("Shouldn't get here.");
+    return BoundaryFace::undef;
   }
 
   // Get the logical directions that are tangent to this element
@@ -132,8 +137,6 @@ struct CellCentOffsets {
            9 * (static_cast<int>(u[2]) + 1);
   }
 };
-
-} // namespace forest
 } // namespace parthenon
 
-#endif // MESH_FOREST_CELL_CENTER_OFFSETS_HPP_
+#endif // UTILS_CELL_CENTER_OFFSETS_HPP_

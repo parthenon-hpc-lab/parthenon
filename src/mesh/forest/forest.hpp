@@ -96,7 +96,7 @@ class Forest {
 
   // TODO(LFR): Probably eventually remove this. This is only meaningful for simply
   // oriented grids
-  LogicalLocation GetAthenaCompositeLocation(const LogicalLocation &loc) const {
+  LogicalLocation GetLegacyTreeLocation(const LogicalLocation &loc) const {
     if (loc.tree() < 0)
       return loc; // This is already presumed to be an Athena++ tree location
     auto parent_loc = trees.at(loc.tree())->athena_forest_loc;
@@ -108,7 +108,7 @@ class Forest {
   }
 
   LogicalLocation
-  GetForestLocationFromAthenaCompositeLocation(const LogicalLocation &loc) const {
+  GetForestLocationFromLegacyTreeLocation(const LogicalLocation &loc) const {
     if (loc.tree() >= 0)
       return loc; // This location is already associated with a tree in the Parthenon
                   // forest
@@ -141,8 +141,8 @@ class Forest {
 
   // Build a logically hyper-rectangular forest that mimics the grid
   // setups available in Athena++
-  static Forest AthenaXX(RegionSize mesh_size, RegionSize block_size,
-                         std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
+  static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
+                                 std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
 };
 
 } // namespace forest

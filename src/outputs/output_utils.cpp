@@ -119,7 +119,7 @@ std::vector<Real> ComputeXminBlocks(Mesh *pm) {
 std::vector<int64_t> ComputeLocs(Mesh *pm) {
   return FlattenBlockInfo<int64_t>(
       pm, 3, [=](MeshBlock *pmb, std::vector<int64_t> &locs, int &i) {
-        auto loc = pmb->pmy_mesh->Forest().GetAthenaCompositeLocation(pmb->loc);
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
         locs[i++] = loc.lx1();
         locs[i++] = loc.lx2();
         locs[i++] = loc.lx3();
@@ -129,7 +129,7 @@ std::vector<int64_t> ComputeLocs(Mesh *pm) {
 std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
   return FlattenBlockInfo<int>(
       pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
-        auto loc = pmb->pmy_mesh->Forest().GetAthenaCompositeLocation(pmb->loc);
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
         data[i++] = loc.level();
         data[i++] = pmb->gid;
         data[i++] = pmb->lid;

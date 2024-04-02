@@ -128,6 +128,7 @@ class Mesh {
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
+
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
@@ -189,7 +190,7 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetAthenaCompositeRootLevel() const noexcept {
+  int GetLegacyTreeRootLevel() const noexcept {
     return forest.root_level + forest.forest_level;
   }
 
@@ -211,8 +212,8 @@ class Mesh {
     levels.reserve(nbtotal);
     logicalLocations.reserve(nbtotal * 3);
     for (auto loc : loclist) {
-      loc = forest.GetAthenaCompositeLocation(loc);
-      levels.push_back(loc.level() - GetAthenaCompositeRootLevel());
+      loc = forest.GetLegacyTreeLocation(loc);
+      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
       logicalLocations.push_back(loc.lx1());
       logicalLocations.push_back(loc.lx2());
       logicalLocations.push_back(loc.lx3());
@@ -339,6 +340,10 @@ class Mesh {
 
   void SetupMPIComms();
   void PopulateLeafLocationMap();
+  void BuildTagMapAndBoundaryBuffers();
+  void CommunicateBoundaries(std::string md_name = "base");
+  void PreCommFillDerived();
+  void FillDerived();
 
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid
