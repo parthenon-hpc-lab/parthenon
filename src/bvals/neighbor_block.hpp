@@ -31,6 +31,7 @@
 #include "defs.hpp"
 #include "mesh/forest/block_ownership.hpp"
 #include "mesh/forest/logical_location.hpp"
+#include "mesh/forest/relative_orientation.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/error_checking.hpp"
@@ -61,6 +62,8 @@ struct NeighborBlock {
   CellCentOffsets offsets;
   // Ownership of neighbor block of different topological elements
   block_ownership_t ownership;
+  // Information about relative orientation 
+  RelativeOrientation orient;
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,

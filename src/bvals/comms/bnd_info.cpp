@@ -248,6 +248,8 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   } else {
     out.var = v->data.Get();
   }
+  out.orient = nb.orient;
+  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
@@ -287,6 +289,8 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     out.var = v->data.Get();
   }
 
+  out.orient = nb.orient;
+  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
@@ -485,6 +489,9 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   out.idxer[0] = SpatiallyMaskedIndexer6D(
       owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
       {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+
+  out.orient = nb.orient;
+  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
@@ -567,6 +574,8 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   out.idxer[0] = SpatiallyMaskedIndexer6D(
       owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
       {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
+  out.orient = nb.orient;
+  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
