@@ -198,6 +198,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
         if (uid_map.count(uid) > 0) {
           const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
+            std::string flux_name = pv->metadata().GetFluxName();
+            auto &pvf = pmbd->Get(flux_name);
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {
                 for (int v = 0; v < pv->GetDim(4); ++v) {
@@ -234,9 +236,9 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
                       pack_h(0, b, idx).vector_component = v + 1;
 
                     if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-                      pack_h(1, b, idx) = pv->flux[X1DIR].Get(0, t, u, v);
-                      pack_h(2, b, idx) = pv->flux[X2DIR].Get(0, t, u, v);
-                      pack_h(3, b, idx) = pv->flux[X3DIR].Get(0, t, u, v);
+                      pack_h(1, b, idx) = pvf.data.Get(0, t, u, v);
+                      pack_h(2, b, idx) = pvf.data.Get(1, t, u, v);
+                      pack_h(3, b, idx) = pvf.data.Get(2, t, u, v);
                     }
                   }
                   for (auto el :
