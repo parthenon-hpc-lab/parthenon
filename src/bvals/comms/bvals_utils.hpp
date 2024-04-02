@@ -39,8 +39,8 @@ inline std::tuple<int, int, std::string, int>
 SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
         const std::shared_ptr<Variable<Real>> &pcv) {
   const int sender_id = pmb->gid;
-  const int receiver_id = nb.gid();
-  const int location_idx = (1 + nb.ni.ox1) + 3 * (1 + nb.ni.ox2 + 3 * (1 + nb.ni.ox3));
+  const int receiver_id = nb.gid;
+  const int location_idx = nb.offsets.GetIdx();
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
@@ -48,8 +48,8 @@ inline std::tuple<int, int, std::string, int>
 ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
            const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
-  const int sender_id = nb.gid();
-  const int location_idx = (1 - nb.ni.ox1) + 3 * (1 - nb.ni.ox2 + 3 * (1 - nb.ni.ox3));
+  const int sender_id = nb.gid;
+  const int location_idx = nb.offsets.GetReverseIdx();
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 

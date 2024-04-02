@@ -37,56 +37,21 @@
 
 namespace parthenon {
 
-NeighborConnect NCFromOffsets(const std::array<int, 3> offsets) {
-  int connect_indicator =
-      std::abs(offsets[0]) + std::abs(offsets[1]) + std::abs(offsets[2]);
-  NeighborConnect nc = NeighborConnect::none;
-  if (connect_indicator == 1) {
-    nc = NeighborConnect::face;
-  } else if (connect_indicator == 2) {
-    nc = NeighborConnect::edge;
-  } else if (connect_indicator == 3) {
-    nc = NeighborConnect::corner;
-  }
-  return nc;
-}
+NeighborBlock::NeighborBlock()
+    : rank{-1}, gid{-1}, bufid{-1}, targetid{-1},
+      loc(), fi1{-1}, fi2{-1},
+      block_size(), 
+      offsets(0, 0, 0), 
+      ownership(true) {}
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                             std::array<int, 3> offsets, int ibid, int itargetid, int fi1,
-                             int fi2)
-    : NeighborBlock(mesh, loc, rank, gid, offsets, NCFromOffsets(offsets), ibid,
-                    itargetid, fi1, fi2) {}
-
-NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                             std::array<int, 3> offsets, NeighborConnect type, int bid,
+                             std::array<int, 3> offsets_in, int bid,
                              int target_id, int fi1, int fi2)
-    : rank_(rank), gid_(gid), ni{offsets[0], offsets[1], offsets[2], fi1, fi2, type},
-      bufid{bid}, eid{0}, targetid{target_id}, fid{BoundaryFace::undef}, loc{loc},
-      ownership(true), block_size(mesh->GetBlockSize(loc)) {
-  // TODO(LFR): Look and see if this stuff gets used anywhere
-  if (ni.type == NeighborConnect::face) {
-    if (ni.ox1 == -1)
-      fid = BoundaryFace::inner_x1;
-    else if (ni.ox1 == 1)
-      fid = BoundaryFace::outer_x1;
-    else if (ni.ox2 == -1)
-      fid = BoundaryFace::inner_x2;
-    else if (ni.ox2 == 1)
-      fid = BoundaryFace::outer_x2;
-    else if (ni.ox3 == -1)
-      fid = BoundaryFace::inner_x3;
-    else if (ni.ox3 == 1)
-      fid = BoundaryFace::outer_x3;
-  }
-  if (ni.type == NeighborConnect::edge) {
-    if (ni.ox3 == 0)
-      eid = ((((ni.ox1 + 1) >> 1) | ((ni.ox2 + 1) & 2)));
-    else if (ni.ox2 == 0)
-      eid = (4 + (((ni.ox1 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
-    else if (ni.ox1 == 0)
-      eid = (8 + (((ni.ox2 + 1) >> 1) | ((ni.ox3 + 1) & 2)));
-  }
-}
+    : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id},
+      loc{loc}, fi1{fi1}, fi2{fi2},
+      block_size(mesh->GetBlockSize(loc)), 
+      offsets(offsets_in), 
+      ownership(true) {}
 
 BufferID::BufferID(int dim, bool multilevel) {
   std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};
@@ -103,7 +68,7 @@ BufferID::BufferID(int dim, bool multilevel) {
             (dim - type) > 1 && multilevel ? std::vector<int>{0, 1} : std::vector<int>{0};
         for (auto f1 : f1s) {
           for (auto f2 : f2s) {
-            NeighborIndexes ni{ox1, ox2, ox3, f1, f2, NeighborConnect::face};
+            NeighborIndexes ni{ox1, ox2, ox3, f1, f2};
             nis.push_back(ni);
           }
         }

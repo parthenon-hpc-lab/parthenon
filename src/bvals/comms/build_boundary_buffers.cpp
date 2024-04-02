@@ -64,7 +64,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
           })));
     }
 
-    const int receiver_rank = nb.rank();
+    const int receiver_rank = nb.rank;
     const int sender_rank = Globals::my_rank;
 
     int tag = 0;

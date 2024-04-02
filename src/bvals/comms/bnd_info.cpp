@@ -80,7 +80,6 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, std::array<int, 3> tensor_shape) {
-  const auto &ni = nb.ni;
   const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
@@ -114,7 +113,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // the current block in some cases
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
-  std::array<int, 3> block_offset = {ni.ox1, ni.ox2, ni.ox3};
+  std::array<int, 3> block_offset = nb.offsets;
 
   int interior_offset =
       ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
@@ -184,9 +183,9 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // but it is possible to convince oneself that dealing with ownership in
   // only exterior index ranges works correctly
   if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
-    int sox1 = -ni.ox1;
-    int sox2 = -ni.ox2;
-    int sox3 = -ni.ox3;
+    int sox1 = -block_offset[0];
+    int sox2 = -block_offset[1];
+    int sox3 = -block_offset[2];
     if (nb.loc.level() < loc.level()) {
       // For coarse to fine interfaces, we are passing zones from only an
       // interior corner of the cell, never an entire face or edge
@@ -214,9 +213,9 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
   const int isize = cb.ie(in) - cb.is(in) + 2;
   const int jsize = cb.je(in) - cb.js(in) + 2;
   const int ksize = cb.ke(in) - cb.ks(in) + 2;
-  return (nb.ni.ox1 == 0 ? isize : Globals::nghost + 1) *
-         (nb.ni.ox2 == 0 ? jsize : Globals::nghost + 1) *
-         (nb.ni.ox3 == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
+  return (nb.offsets(X1DIR) == 0 ? isize : Globals::nghost + 1) *
+         (nb.offsets(X2DIR) == 0 ? jsize : Globals::nghost + 1) *
+         (nb.offsets(X3DIR) == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) * v->GetDim(5) *
          v->GetDim(4) * topo_comp;
 }
 
@@ -239,7 +238,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
-  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+  if (nb.offsets.IsCell())
     idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
@@ -278,7 +277,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
-  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+  if (nb.offsets.IsCell())
     idx_range_type = IndexRangeType::InteriorRecv;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
@@ -312,8 +311,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0},
-                   NeighborConnect::none, 0, 0, 0, 0);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
@@ -344,8 +342,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
 
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0},
-                   NeighborConnect::none, 0, 0, 0, 0);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
 
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
@@ -467,30 +464,20 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   int ej = sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
   int si = ib.s;
   int ei = si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
-
-  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+  
+  PARTHENON_REQUIRE(nb.offsets.IsFace(), "Flux corrections only occur on faces for CC variables.");
+  if (nb.offsets(X1DIR) != 0) {
     out.dir = X1DIR;
-    if (nb.fid == BoundaryFace::inner_x1)
-      si = ib.s;
-    else
-      si = ib.e + 1;
+    si = nb.offsets(X1DIR) < 0 ? ib.s : ib.e + 1;
     ei = si;
-  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+  } else if (nb.offsets(X2DIR) != 0) {
     out.dir = X2DIR;
-    if (nb.fid == BoundaryFace::inner_x2)
-      sj = jb.s;
-    else
-      sj = jb.e + 1;
+    sj = nb.offsets(X2DIR) < 0 ? jb.s : jb.e + 1;
     ej = sj;
-  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+  } else if (nb.offsets(X3DIR) != 0) {
     out.dir = X3DIR;
-    if (nb.fid == BoundaryFace::inner_x3)
-      sk = kb.s;
-    else
-      sk = kb.e + 1;
+    sk = nb.offsets(X3DIR) < 0 ? kb.s : kb.e + 1;
     ek = sk;
-  } else {
-    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
   out.var = v->flux[out.dir];
@@ -526,45 +513,46 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   int ek = kb.e;
   int ej = jb.e;
   int ei = ib.e;
-  if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
+  PARTHENON_REQUIRE(nb.offsets.IsFace(), "Flux corrections only occur on faces for CC variables.");
+  if (nb.offsets(X1DIR) != 0) {
     out.dir = X1DIR;
-    if (nb.fid == BoundaryFace::inner_x1)
+    if (nb.offsets(X1DIR) == -1)
       ei = si;
     else
       si = ++ei;
-    if (nb.ni.fi1 == 0)
+    if (nb.fi1 == 0)
       ej -= pmb->block_size.nx(X2DIR) / 2;
     else
       sj += pmb->block_size.nx(X2DIR) / 2;
-    if (nb.ni.fi2 == 0)
+    if (nb.fi2 == 0)
       ek -= pmb->block_size.nx(X3DIR) / 2;
     else
       sk += pmb->block_size.nx(X3DIR) / 2;
-  } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
+  } else if (nb.offsets(X2DIR) != 0) {
     out.dir = X2DIR;
-    if (nb.fid == BoundaryFace::inner_x2)
+    if (nb.offsets(X2DIR) == -1)
       ej = sj;
     else
       sj = ++ej;
-    if (nb.ni.fi1 == 0)
+    if (nb.fi1 == 0)
       ei -= pmb->block_size.nx(X1DIR) / 2;
     else
       si += pmb->block_size.nx(X1DIR) / 2;
-    if (nb.ni.fi2 == 0)
+    if (nb.fi2 == 0)
       ek -= pmb->block_size.nx(X3DIR) / 2;
     else
       sk += pmb->block_size.nx(X3DIR) / 2;
-  } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
+  } else if (nb.offsets(X3DIR) != 0) {
     out.dir = X3DIR;
-    if (nb.fid == BoundaryFace::inner_x3)
+    if (nb.offsets(X3DIR) == -1)
       ek = sk;
     else
       sk = ++ek;
-    if (nb.ni.fi1 == 0)
+    if (nb.fi1 == 0)
       ei -= pmb->block_size.nx(X1DIR) / 2;
     else
       si += pmb->block_size.nx(X1DIR) / 2;
-    if (nb.ni.fi2 == 0)
+    if (nb.fi2 == 0)
       ej -= pmb->block_size.nx(X2DIR) / 2;
     else
       sj += pmb->block_size.nx(X2DIR) / 2;

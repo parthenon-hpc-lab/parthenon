@@ -48,6 +48,8 @@ inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
 
 struct CellCentOffsets {
   std::array<Offset, 3> u;
+  
+  CellCentOffsets() = default;
 
   explicit CellCentOffsets(const std::array<int, 3> &in)
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
@@ -57,6 +59,8 @@ struct CellCentOffsets {
       : u{static_cast<Offset>(ox1), static_cast<Offset>(ox2), static_cast<Offset>(ox3)} {}
 
   Offset &operator[](int idx) { return u[idx]; }
+  const Offset &operator[](int idx) const { return u[idx]; }
+  int operator()(CoordinateDirection dir) const {return static_cast<int>(u[dir - 1]);}
 
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
@@ -135,6 +139,11 @@ struct CellCentOffsets {
   int GetIdx() const {
     return (static_cast<int>(u[0]) + 1) + 3 * (static_cast<int>(u[1]) + 1) +
            9 * (static_cast<int>(u[2]) + 1);
+  }
+
+  int GetReverseIdx() const {
+    return (1 - static_cast<int>(u[0])) + 3 * (1 - static_cast<int>(u[1])) +
+           9 * (1 - static_cast<int>(u[2]));
   }
 };
 } // namespace parthenon
