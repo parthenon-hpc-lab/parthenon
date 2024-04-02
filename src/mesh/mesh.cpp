@@ -46,7 +46,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "parameter_input.hpp"
@@ -103,8 +102,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -234,12 +232,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
-  // calculate the logical root level and maximum level
-  for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
-  }
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  root_level = forest.root_level;
   current_level = root_level;
-
-  tree.CreateRootGrid();
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -290,7 +285,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         }
         int ref_lev = pin->GetInteger(pib->block_name, "level");
         int lrlev = ref_lev + root_level;
-        if (lrlev > current_level) current_level = lrlev;
         // range check
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -349,8 +343,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
             for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
               LogicalLocation nloc(lrlev, i, j, k);
-              int nnew;
-              tree.AddMeshBlock(nloc, nnew);
+              forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
             }
           }
         }
@@ -360,10 +353,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // initial mesh hierarchy construction is completed here
-  tree.CountMeshBlock(nbtotal);
-  loclist.resize(nbtotal);
-  tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
-
+  loclist = forest.GetMeshBlockListAndResolveGids();
+  nbtotal = loclist.size();
+  current_level = -1;
+  for (const auto &loc : loclist) {
+    if (loc.level() > current_level) current_level = loc.level();
+  }
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
@@ -431,10 +426,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
-    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
-                                               nslist.data());
   }
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+  SetMeshBlockNeighbors(block_list, nbs, ranklist);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }
@@ -485,8 +478,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
-      lb_automatic_(),
+      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
@@ -604,16 +596,16 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       current_level = loclist[i].level();
     }
   }
-  // rebuild the Block Tree
-  tree.CreateRootGrid();
 
+  // rebuild the Block Tree
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
   for (int i = 0; i < nbtotal; i++) {
-    tree.AddMeshBlockWithoutRefine(loclist[i]);
+    forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
+                        false);
   }
 
-  int nnb;
-  // check the tree structure, and assign GID
-  tree.GetMeshBlockList(loclist.data(), nullptr, nnb);
+  loclist = forest.GetMeshBlockListAndResolveGids();
+  int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
@@ -689,10 +681,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
-    block_list[i - nbs]->SearchAndSetNeighbors(this, tree, ranklist.data(),
-                                               nslist.data());
   }
-  SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false);
+  SetMeshBlockNeighbors(block_list, nbs, ranklist);
   BuildGMGHierarchy(nbs, pin, app_in);
   ResetLoadBalanceVariables();
 }
@@ -1193,6 +1183,13 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
   block_size = GetBlockSize(loc);
+  if (loc.tree() >= 0) {
+    auto bcs = forest.GetBlockBCs(loc);
+    for (int i = 0; i < BOUNDARY_NFACES; ++i)
+      block_bcs[i] = bcs[i];
+    return valid_region;
+  }
+
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     if (!block_size.symmetry(dir)) {
       std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
@@ -1219,6 +1216,11 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 //        logical location loc
 
 RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
+  // TODO(LFR): Update this
+  if (loc.tree() >= 0) {
+    // Implies this is a location in a forest, not in the old Athena tree
+    return forest.GetBlockDomain(loc);
+  }
   RegionSize block_size = GetBlockSize();
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     block_size.xrat(dir) = mesh_size.xrat(dir);
