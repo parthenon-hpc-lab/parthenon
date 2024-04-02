@@ -317,8 +317,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskRegion &tr = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = tr[i];
-    auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmesh->mesh_data.Get().get(), &integrator);
+    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto transport = tl.AddTask(none, TransportParticles, base.get(), &integrator);
   }
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
