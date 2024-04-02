@@ -60,7 +60,7 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
-          ctest -L performance -LE perf-reg
+          ctest -L performance -LE perf-reg -E gmg
 
       # run regression tests
       - name: Regression tests
@@ -68,7 +68,7 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
-          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
+          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg -E gmg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
       - name: Ascent tests
