@@ -94,6 +94,7 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   Indexer3D idxer({0, ntree[0] - 1}, {0, ntree[1] - 1}, {0, ntree[2] - 1});
 
   std::map<LogicalLocation, std::pair<RegionSize, std::shared_ptr<Tree>>> ll_map;
+  printf("num trees: %i\n", idxer.size());
 
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);

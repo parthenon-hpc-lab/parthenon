@@ -1207,7 +1207,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       block_bcs[i] = bcs[i];
       printf("bc[%i]: %i\n", i, static_cast<int>(block_bcs[i]));
     }
-    PARTHENON_FAIL("A!");
     return valid_region;
   }
 
@@ -1228,7 +1227,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
     }
   }
-  PARTHENON_FAIL("B!");
   return valid_region;
 }
 

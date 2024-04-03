@@ -288,8 +288,15 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
   neighbors[location_idx].insert({neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
   printf("ADDING NEIGHBOR TREE! fidx = %i\n", fidx);
-  if (fidx >= 0 && boundary_conditions[fidx] != BoundaryFlag::periodic)
-    boundary_conditions[fidx] = BoundaryFlag::block;
+  printf("ids: %i %i\n", GetId(), neighbor_tree->GetId());
+
+  // Do not update true periodic boundary conditions to block boundary conditions
+  if (GetId() == neighbor_tree->GetId() &&
+      boundary_conditions[fidx] == BoundaryFlag::periodic) {
+    return;
+  }
+
+  if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
 }
 
 } // namespace forest
