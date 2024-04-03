@@ -161,6 +161,8 @@ template TaskStatus
 SendBoundBufs<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -187,6 +189,8 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -235,6 +239,8 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -329,6 +335,8 @@ template TaskStatus
 SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {

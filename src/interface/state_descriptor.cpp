@@ -280,7 +280,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
       else 
         PARTHENON_FAIL("Asking for flux on a variable with innapropriate topological type.");
       Metadata mf(mFlags, m.Shape());
-      auto fId = VarID{vid.base_name + "_bnd_flux", vid.sparse_id}; 
+      auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id}; 
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
     }

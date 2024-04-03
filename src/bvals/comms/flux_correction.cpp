@@ -39,6 +39,7 @@ namespace parthenon {
 using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufs<BoundaryType::flxcor_send>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -118,6 +119,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -132,6 +134,7 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -150,6 +153,7 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SetBounds<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();

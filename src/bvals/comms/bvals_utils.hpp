@@ -103,6 +103,9 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   pcache->buf_vec.clear();
   pcache->idx_vec = std::vector<std::size_t>(key_order.size());
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
+    if (comm_map->count(std::get<2>(t)) == 0) {
+      PARTHENON_FAIL("Asking for buffer that doesn't exist");
+    }
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
   });
@@ -205,10 +208,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   // this.
   Mesh *pmesh = md->GetParentPointer();
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
-  if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
-                  (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-    cache.prores_cache.Initialize(nbound, pkg);
-  }
+  cache.prores_cache.Initialize(nbound, pkg);
 
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
@@ -219,19 +219,13 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
     // subsets ordering is same as in cache.bnd_info
     // RefinementFunctions_t owns all relevant functionality, so
     // only one ParArray2D needed.
-    if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
-                    (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-      cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
-                                            pkg);
-    }
+    cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
+                                          pkg);
 
     ++ibound;
   });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
-  if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
-                  (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-    cache.prores_cache.CopyToDevice();
-  }
+  cache.prores_cache.CopyToDevice();
 }
 
 } // namespace parthenon
