@@ -59,8 +59,9 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector,
-                                     MetadataFlag where);
+                                     const int nx3, const int nx2, const int nx1,
+                                     const bool do_lowerd, const int mesh_dim,
+                                     const bool isVector, MetadataFlag where);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -199,17 +200,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       nx3 = dims[ndim - 3];
       nx2 = dims[ndim - 2];
       nx1 = dims[ndim - 1];
-      // build dims string based on dimension and output mode
-      std::string dims321 = std::to_string(nx1);
-      if (!output_coords || (nx2 > 1)) {
-        dims321 = std::to_string(nx2) + " " + dims321;
-      }
-      if (!output_coords || (nx3 > 1)) {
-        dims321 = std::to_string(nx3) + " " + dims321;
-      }
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               num_components, ndim, dims, dims321, vinfo.is_vector,
-                               vinfo.where);
+                               num_components, ndim, dims, nx3, nx2, nx1, output_coords,
+                               ndim_mesh, vinfo.is_vector, vinfo.where);
     }
     xdmf << "    </Grid>" << std::endl;
   }
@@ -282,8 +275,9 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const std::vector<std::string> &component_labels,
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
-                                     const std::string &dims321, bool isVector,
-                                     MetadataFlag where) {
+                                     const int nx3, const int nx2, const int nx1,
+                                     const bool do_lowerd, const int mesh_dim,
+                                     const bool isVector, MetadataFlag where) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
@@ -299,6 +293,15 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
       names.push_back(component_labels[i]);
     }
   }
+
+  std::string dims321 = std::to_string(nx1);
+  if (!do_lowerd || (mesh_dim > 1)) {
+    dims321 = std::to_string(nx2) + " " + dims321;
+  }
+  if (!do_lowerd || (mesh_dim > 2)) {
+    dims321 = std::to_string(nx3) + " " + dims321;
+  }
+
   const int tensor_dims = ndims - 1 - 3;
   auto wherestring = LocationToStringRef(where);
   if (tensor_dims == 0) {
@@ -317,7 +320,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
         << "\n"
         << prefix << "      " << iblock << " 0 0 0\n"
         << prefix << "      1 1 1 1\n"
-        << prefix << "      1 " << dims321 << "\n"
+        << prefix << "      1 " << nx3 << " " << nx2 << " " << nx1 << "\n"
         << prefix << "    </DataItem>" << std::endl;
     writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                       8);
@@ -334,9 +337,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
       }
       fid << ">" << std::endl;
       fid << prefix << "  "
-          << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
-      fid << dims321 << " ";
-      fid << R"(">)" << std::endl;
+          << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << R"(">)"
+          << std::endl;
       // "3" rows for START, STRIDE, and COUNT for each slab with "5" entries.
       // START: iblock variable(_component)  0   0   0
       // STRIDE: 1               1           1   1   1
@@ -348,7 +350,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
           << prefix << "      "
           << "1 1 1 1 1\n"
           << prefix << "      "
-          << "1 1 " << dims321 << "\n"
+          << "1 1 " << nx3 << " " << nx2 << " " << nx1 << "\n"
           << prefix << "    </DataItem>" << std::endl;
       writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                         8);
