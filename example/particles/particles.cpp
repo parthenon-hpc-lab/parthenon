@@ -529,8 +529,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
 #ifdef MPI_PARALLEL
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my_particles");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
+    for (int n = 0; n < block->neighbors.size(); n++) {
+      NeighborBlock &nb = block->neighbors[n];
       // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
       // if (nb.snb.rank != Globals::my_rank) {
       //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
@@ -563,8 +563,8 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     auto &pmb = block;
     auto sc = pmb->swarm_data.Get();
     auto swarm = sc->Get("my_particles");
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
+    for (int n = 0; n < pmb->neighbors.size(); n++) {
+      auto &nb = block->neighbors[n];
       swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
     }
   }

@@ -222,21 +222,23 @@ std::vector<Real> ComputeXminBlocks(Mesh *pm) {
 std::vector<int64_t> ComputeLocs(Mesh *pm) {
   return FlattenBlockInfo<int64_t>(
       pm, 3, [=](MeshBlock *pmb, std::vector<int64_t> &locs, int &i) {
-        locs[i++] = pmb->loc.lx1();
-        locs[i++] = pmb->loc.lx2();
-        locs[i++] = pmb->loc.lx3();
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        locs[i++] = loc.lx1();
+        locs[i++] = loc.lx2();
+        locs[i++] = loc.lx3();
       });
 }
 
 std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
-  return FlattenBlockInfo<int>(pm, 5,
-                               [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
-                                 data[i++] = pmb->loc.level();
-                                 data[i++] = pmb->gid;
-                                 data[i++] = pmb->lid;
-                                 data[i++] = pmb->cnghost;
-                                 data[i++] = pmb->gflag;
-                               });
+  return FlattenBlockInfo<int>(
+      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        data[i++] = loc.level();
+        data[i++] = pmb->gid;
+        data[i++] = pmb->lid;
+        data[i++] = pmb->cnghost;
+        data[i++] = pmb->gflag;
+      });
 }
 
 // TODO(JMM): I could make this use the other loop
