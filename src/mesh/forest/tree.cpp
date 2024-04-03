@@ -38,6 +38,10 @@ namespace forest {
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
            std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
     : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
+  printf("tree constructor\n");
+  for (int n = 0; n < 6; n++) {
+    printf("  bcs[%i] = %i\n", n, static_cast<int>(bcs[n]));
+  }
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -265,6 +269,9 @@ std::array<BoundaryFlag, BOUNDARY_NFACES>
 Tree::GetBlockBCs(const LogicalLocation &loc) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   std::array<BoundaryFlag, BOUNDARY_NFACES> block_bcs = boundary_conditions;
+  for (int n = 0; n < BOUNDARY_NFACES; n++) {
+    printf("block_bc[%i] = %i\n", n, static_cast<int>(block_bcs[n]));
+  }
   const int nblock = 1 << std::max(loc.level(), 0);
   if (loc.lx1() != 0) block_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
   if (loc.lx1() != nblock - 1) block_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
@@ -280,7 +287,9 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
   int location_idx = offset.GetIdx();
   neighbors[location_idx].insert({neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
-  if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
+  printf("ADDING NEIGHBOR TREE! fidx = %i\n", fidx);
+  if (fidx >= 0 && boundary_conditions[fidx] != BoundaryFlag::periodic)
+    boundary_conditions[fidx] = BoundaryFlag::block;
 }
 
 } // namespace forest

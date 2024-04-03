@@ -29,6 +29,8 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
+bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                              const int ndim);
 } // namespace boundary_cond_impl
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
@@ -64,7 +66,8 @@ TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm) {
 
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
     printf("i\n");
-    if (DoPhysicalBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i), ndim)) {
+    if (DoPhysicalSwarmBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i),
+                                 ndim)) {
       printf("BC! %i\n", i);
       pmesh->MeshSwarmBndryFnctn[i](swarm);
       for (auto &bnd_func : pmesh->UserSwarmBoundaryFunctions[i]) {
@@ -204,6 +207,23 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   } // ndim always at least 1
 
   return true; // reflect, outflow, user, dims correct
+}
+
+bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                              const int ndim) {
+  printf("? %i %i\n", static_cast<int>(flag == BoundaryFlag::block),
+         static_cast<int>(flag == BoundaryFlag::undef));
+  if (flag == BoundaryFlag::block) return false;
+  if (flag == BoundaryFlag::undef) return false;
+
+  if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
+    return false;
+  }
+  if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
+    return false;
+  } // ndim always at least 1
+
+  return true; // outflow, periodic, user, dims correct
 }
 
 } // namespace boundary_cond_impl

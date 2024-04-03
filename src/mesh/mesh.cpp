@@ -892,6 +892,9 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     case BoundaryFlag::periodic:
       MeshSwarmBndryFnctn[f] = speriodic[f];
       break;
+    case BoundaryFlag::reflect:
+      PARTHENON_FAIL("No default \"reflect\" boundary conditions provided for particles");
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
@@ -1200,8 +1203,11 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   block_size = GetBlockSize(loc);
   if (loc.tree() >= 0) {
     auto bcs = forest.GetBlockBCs(loc);
-    for (int i = 0; i < BOUNDARY_NFACES; ++i)
+    for (int i = 0; i < BOUNDARY_NFACES; ++i) {
       block_bcs[i] = bcs[i];
+      printf("bc[%i]: %i\n", i, static_cast<int>(block_bcs[i]));
+    }
+    PARTHENON_FAIL("A!");
     return valid_region;
   }
 
@@ -1222,6 +1228,7 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
       block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
     }
   }
+  PARTHENON_FAIL("B!");
   return valid_region;
 }
 

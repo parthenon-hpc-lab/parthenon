@@ -650,10 +650,13 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
         });
-    Kokkos::fence(); // TODO(BRR) debugging -- remove!
-    printf("%s:%i\n", __FILE__, __LINE__);
+    // Kokkos::fence(); // TODO(BRR) debugging -- remove!
+    // printf("%s:%i\n", __FILE__, __LINE__);
 
     // ApplyBoundaries_(total_received_particles_, new_indices_);
+
+    // ApplySwarmBoundaryConditions(this);
+
     printf("%s:%i\n", __FILE__, __LINE__);
   }
 }
@@ -667,15 +670,15 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
   auto swarm_d = GetDeviceContext();
   auto bcs = this->bounds_d;
 
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
-        const int sid = indices(n);
-        for (int l = 0; l < 6; l++) {
-          bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
-        }
-      });
+  // pmb->par_for(
+  //    PARTHENON_AUTO_LABEL, 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
+  //      const int sid = indices(n);
+  //      for (int l = 0; l < 6; l++) {
+  //        bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
+  //      }
+  //    });
 
-  RemoveMarkedParticles();
+  // RemoveMarkedParticles();
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
