@@ -154,7 +154,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                            mesh_type.c_str(), nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     }
     xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
-                         (output_coords ? "X_Y_Z" : "VXVYVZ").c_str());
+                         output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
       for (int d = 0; d < 3; ++d) {
