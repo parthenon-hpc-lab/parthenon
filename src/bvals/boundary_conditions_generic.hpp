@@ -131,8 +131,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             }
           }
-          printf("Currently active? %i\n",
-                 static_cast<int>(swarm_d.IsOnCurrentMeshBlock(n)));
+          printf("Currently active? %i xyz = %e %e %e\n",
+                 static_cast<int>(swarm_d.IsOnCurrentMeshBlock(n)), x(n), y(n), z(n));
         }
       });
 }

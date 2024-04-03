@@ -213,7 +213,9 @@ bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                               const int ndim) {
   printf("? %i %i\n", static_cast<int>(flag == BoundaryFlag::block),
          static_cast<int>(flag == BoundaryFlag::undef));
-  if (flag == BoundaryFlag::block) return false;
+  // TODO(BRR) SETTING THIS TO FALSE BREAKS COMMUNICATION, SOMEHOW NOT UPDATING BCS
+  // CORRECTLY! SPECIAL CASE FOR PERIODIC?
+  // if (flag == BoundaryFlag::block) return false;
   if (flag == BoundaryFlag::undef) return false;
 
   // TODO(BRR) always update for 3D BCs? Don't update particle positions in unused
