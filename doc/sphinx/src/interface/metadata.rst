@@ -79,6 +79,9 @@ These flags specify how a variable interacts with I/O. Enable them to
 enable output properties.
 
 -  ``Metadata::Restart`` implies a variable is required in restart files
+- ``Metadata::CoordinatesVec`` implies a variable should be used to
+   describe coordinate positions of nodes. Must be a node-centered
+   variable with 3 components.
 
 Tensor properties and boundaries
 --------------------------------

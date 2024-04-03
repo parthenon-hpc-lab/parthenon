@@ -403,6 +403,60 @@ cases, the ``.xdmf`` files should be opened. In ParaView, select the
    for ParaView and VisIt. However, our python tooling does support
    all mesh locations.
 
+Tying non-standard coordinates to visualization tools
+------------------------------------------------------
+
+By default, Parthenon outputs the positions of faces on each block in
+``X1``, ``X2`` and ``X3`` and assumes these correspond to the ``x``,
+``y``, and ``z`` components of the nodes on the mesh. However, some
+applications may apply cooridnate transformations or use moving
+meshes. In these cases, the above strategy will not provide intuitive
+plots.
+
+For these applications we provide a special ``Metadata`` flag. If you
+mark a node-centered 3-vector variable with the the flag
+``Metadata::CoordinatesVec``, and fill it with the ``x``, ``y``, and
+``z`` values of your node positions, Parthenon will specify these
+values should be used by visualization software such as Visit or
+Paraview.
+
+For example, in your package ``Initialize`` function, you might
+declare something like:
+
+.. code:: cpp
+
+   pkg->AddField("locations",
+     Metadata({Metadata::Node, Metadata::CoordinatesVec, Metadata::Derived, Metadata::OneCopy},
+     std::vector<int>{3}));
+
+and then (trivially) if you set
+
+.. code:: cpp
+
+   pman.app_input->InitMeshBlockUserData = SetGeometryBlock;
+
+for
+
+.. code:: cpp
+
+   void SetGeometryBlock(MeshBlock *pmb, ParameterInput *pin) {
+     /* boiler plate to build a pack object */
+     parthenon::par_for(DEFAULT_LOOP_PATTERN, "positions", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+     kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+     KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const auto &coords = pack.GetCoordinates(b);
+          pack(b, 0, k, j, i) = coords.X<X1DIR, parthenon::TopologicalElement::NN>(k, j, i);
+          pack(b, 1, k, j, i) = coords.X<X2DIR, parthenon::TopologicalElement::NN>(k, j, i);
+          pack(b, 2, k, j, i) = coords.X<X3DIR, parthenon::TopologicalElement::NN>(k, j, i);
+     });
+     return;
+   }
+
+then the code will set the nodal values to their trivial coordinate
+values and these will be used for visualization. In a more non-trivial
+example, ``SetGeometryBlock`` might apply a coordinate
+transformation. Or actually evolve ``"locations"``.
+
 Preparing outputs for ``yt``
 ----------------------------
 
