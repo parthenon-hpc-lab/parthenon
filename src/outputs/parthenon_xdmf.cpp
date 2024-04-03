@@ -140,9 +140,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     ndim_mesh = 3;
     dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
   }
-  if (output_coords && (nx3 == 1) && (nx2 == 1)) {
-    PARTHENON_WARN("XDMF meshing with custom coords is essentially untested in 1D");
-  }
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
     if (ndim_mesh == 1) {
