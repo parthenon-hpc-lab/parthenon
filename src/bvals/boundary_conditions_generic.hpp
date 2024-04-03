@@ -66,6 +66,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
           if (X1) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
+                // TODO(BRR) need to switch INNER/OUTER logic for periodic BCs because
+                // this is after send/recv?
                 if (x(n) < swarm_d.x_min_global_) {
                   x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
                   printf("new x!\n", x(n));
