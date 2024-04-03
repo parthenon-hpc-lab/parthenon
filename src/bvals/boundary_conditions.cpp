@@ -216,12 +216,15 @@ bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   if (flag == BoundaryFlag::block) return false;
   if (flag == BoundaryFlag::undef) return false;
 
-  if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
-    return false;
-  }
-  if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
-    return false;
-  } // ndim always at least 1
+  // TODO(BRR) always update for 3D BCs? Don't update particle positions in unused
+  // dimensions?
+
+  // if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
+  //  return false;
+  //}
+  // if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
+  //  return false;
+  //} // ndim always at least 1
 
   return true; // outflow, periodic, user, dims correct
 }

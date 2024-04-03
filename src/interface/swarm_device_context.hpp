@@ -63,6 +63,7 @@ class SwarmDeviceContext {
     // Something went wrong
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
+      printf("kji: %i %i %i\n", k, j, i);
       PARTHENON_FAIL("Particle neighbor indices out of bounds");
     }
 
