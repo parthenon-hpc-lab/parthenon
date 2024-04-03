@@ -28,15 +28,17 @@
 
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
-#include "driver/driver.hpp"
+#include FS_HEADER
 #include "globals.hpp"
-#include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
-#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -100,11 +102,15 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
   } else if (arg.res_flag != 0) {
     // Read input from restart file
-    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+      restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+    } else {
+      PARTHENON_FAIL("Unsupported restart file format.");
+    }
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
+    auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -167,13 +173,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
         std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
     // Read simulation time and cycle from restart file and set in input
-    Real tNow = restartReader->GetAttr<Real>("Info", "Time");
+    const auto time_info = restartReader->GetTimeInfo();
+    Real tNow = time_info.time;
     pinput->SetReal("parthenon/time", "start_time", tNow);
 
-    Real dt = restartReader->GetAttr<Real>("Info", "dt");
+    Real dt = time_info.dt;
     pinput->SetReal("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
+    int ncycle = time_info.ncycle;
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
@@ -232,18 +239,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
 
+  // Currently supports versions 3 and 4.
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver == -1) {
-    // Being extra stringent here so that we don't forget to update the machinery when
-    // another change happens.
-    PARTHENON_REQUIRE_THROWS(
-        HDF5::OUTPUT_VERSION_FORMAT == 2 || HDF5::OUTPUT_VERSION_FORMAT == 3,
-        "Auto conversion from original to format 2 or 3 not implemented yet.")
-
-    if (Globals::my_rank == 0) {
-      PARTHENON_WARN("Restarting from a old output file format. New outputs written with "
-                     "this binary will use new format.")
-    }
+  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
+    std::stringstream msg;
+    msg << "File format version " << file_output_format_ver << " not supported. "
+        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+    PARTHENON_THROW(msg)
   }
 
   // Get an iterator on block 0 for variable listing
@@ -263,6 +265,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   const auto indep_restart_vars =
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+  const auto all_vars_info =
+      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -274,11 +278,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Allocate space based on largest vector
   int max_vlen = 1;
   int num_sparse = 0;
-  for (auto &v_info : indep_restart_vars) {
-    const auto &label = v_info->label();
+  for (const auto &v_info : all_vars_info) {
+    const auto &label = v_info.label;
 
     // check that variable is in the list of sparse fields if and only if it is sparse
-    if (v_info->IsSparse()) {
+    if (v_info.is_sparse) {
       ++num_sparse;
       PARTHENON_REQUIRE_THROWS(sparse_idxs.count(label) == 1,
                                "Sparse field " + label +
@@ -288,7 +292,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info->NumComponents());
+    max_vlen = std::max(max_vlen, v_info.num_components);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -297,20 +301,16 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       "Mismatch between sparse fields in simulation and restart file");
 
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
-  for (auto &v_info : indep_restart_vars) {
-    const auto vlen = v_info->NumComponents();
-    const auto &label = v_info->label();
-    const auto &Nv = v_info->GetDim(4);
-    const auto &Nu = v_info->GetDim(5);
-    const auto &Nt = v_info->GetDim(6);
+  for (const auto &v_info : all_vars_info) {
+    const auto vlen = v_info.num_components;
+    const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen << std::endl;
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, tmp, bsize, file_output_format_ver,
-                         v_info->metadata().Where(), v_info->metadata().Shape());
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -320,7 +320,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
-      if (v_info->IsSparse()) {
+      if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
         if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
           pmb->AllocateSparse(label);
@@ -336,25 +336,17 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      if (file_output_format_ver == -1) {
-        PARTHENON_WARN("This file output format version is deprecrated and will be "
-                       "removed in a future release.");
-        for (int k = out_kb.s; k <= out_kb.e; ++k) {
-          for (int j = out_jb.s; j <= out_jb.e; ++j) {
-            for (int i = out_ib.s; i <= out_ib.e; ++i) {
-              for (int l = 0; l < vlen; ++l) {
-                v_h(l, k, j, i) = tmp[index++];
-              }
-            }
-          }
-        }
-      } else if (file_output_format_ver == 2 ||
-                 file_output_format_ver == HDF5::OUTPUT_VERSION_FORMAT) {
-        OutputUtils::PackOrUnpackVar(pmb.get(), v.get(), resfile.hasGhost, index, tmp,
-                                     [&](auto index, int t, int u, int v, int k, int j,
-                                         int i) { v_h(t, u, v, k, j, i) = tmp[index]; });
+      if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
+        OutputUtils::PackOrUnpackVar(
+            v_info, resfile.hasGhost, index,
+            [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+              v_h(topo, t, u, v, k, j, i) = tmp[index];
+            });
       } else {
-        PARTHENON_THROW("Unknown output format version in restart file.")
+        std::stringstream msg;
+        msg << "File format version " << file_output_format_ver << " not supported. "
+            << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+        PARTHENON_THROW(msg)
       }
 
       v->data.DeepCopy(v_h);

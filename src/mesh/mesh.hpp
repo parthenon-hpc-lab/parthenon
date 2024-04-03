@@ -129,6 +129,7 @@ class Mesh {
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
+
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
@@ -330,6 +331,10 @@ class Mesh {
 
   void SetupMPIComms();
   void PopulateLeafLocationMap();
+  void BuildTagMapAndBoundaryBuffers();
+  void CommunicateBoundaries(std::string md_name = "base");
+  void PreCommFillDerived();
+  void FillDerived();
 
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid
