@@ -60,8 +60,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
                                      const int nx3, const int nx2, const int nx1,
-                                     const bool do_lowerd,
-                                     const bool isVector, MetadataFlag where);
+                                     const bool do_lowerd, const bool isVector,
+                                     MetadataFlag where);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -276,8 +276,8 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
                                      const int nx3, const int nx2, const int nx1,
-                                     const bool do_lowerd,
-                                     const bool isVector, MetadataFlag where) {
+                                     const bool do_lowerd, const bool isVector,
+                                     MetadataFlag where) {
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
@@ -301,7 +301,6 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   if (!do_lowerd || (nx3 > 1)) {
     dims321 = std::to_string(nx3) + " " + dims321;
   }
-  printf("What is happening? %d %d %d %d: %s\n", do_lowerd, nx3, nx2, nx1, dims321.c_str());
 
   const int tensor_dims = ndims - 1 - 3;
   auto wherestring = LocationToStringRef(where);
