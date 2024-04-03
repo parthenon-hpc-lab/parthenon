@@ -99,20 +99,28 @@ class phdf:
        BlockBounds[NumBlocks]: Bounds of all the blocks
 
     Class Functions:
-      Get(variable, flatten=True):
-            Gets data for the named variable. Returns None if variable
-            is not found in the file or the data if found.
+      Get(variable, flatten=True, interior=False, average_to_cell_centers=True):
+           Reads data for the named variable from file.
 
-            If variable is a vector, each element of the returned
-            numpy array is a vector of that length.
+           Returns None if variable is not found in the file or the data
+           if found.
 
-            Default is to return a flat array of length TotalCells.
-            However if flatten is set to False, a 4D (or 5D if vector)
-            array is returned that has dimensions [NumBlocks, Nz, Ny,
-            Nx] where NumBlocks is the total number of blocks, and Nz,
-            Ny, and Nx are the number of cells in the z, y, and x
-            directions respectively.
+           Default is to return a flat array of length
+           TotalCells*total tensor components. However if flatten is
+           set to False, a 4D (or 5D, or 6D if tensorial) array is
+           returned that has dimensions
+           [NumBlocks, tensor_components, Nz, Ny, Nx]
+           where NumBlocks is the total number of blocks, and Nz, Ny,
+           and Nx are the number of cells in the z, y, and x
+           directions respectively.
 
+           If flatten is False and interior is True, only non-ghost data
+           will be returned. This array will correspond to the coordinates
+           xg and xng, etc.
+
+           By default, node, face, and edge centered variables are
+           averaged to cell centers for visualization. This can be
+           disabled by setting average_to_cell_centers = False.
       ToLocation(index):
            Returns the location as an array [ib, bidx, iz, iy, ix]
            which convets the index into a block, index within that
@@ -296,6 +304,7 @@ class phdf:
 
         self.Variables = [k for k in f.keys()]
         self.varData = {}
+        self.varTopology = {}
         self.swarmData = {}
 
         # Construct a map of datasets to contained components,idx
@@ -492,46 +501,35 @@ class phdf:
             print(f"Block id: {ib} with bounds {myibBounds} not found in {other.file}")
         return None  # block index not found
 
-    def Get(self, variable, flatten=True, interior=False):
-        """
-        Reads data for the named variable from file.
+    def Get(self, variable, flatten=True, interior=False, average_to_cell_centers=True):
+        """Reads data for the named variable from file.
 
         Returns None if variable is not found in the file or the data
         if found.
 
-        If variable is a vector, each element of the returned numpy
-        array is a vector of that length.
-
-        Default is to return a flat array of length TotalCells.
-        However if flatten is set to False, a 4D (or 5D if vector)
-        array is returned that has dimensions [NumBlocks, Nz, Ny, Nx]
-        where NumBlocks is the total number of blocks, and Nz, Ny, and
-        Nx are the number of cells in the z, y, and x directions
-        respectively.
+        Default is to return a flat array of length
+        TotalCells*total tensor components. However if flatten is
+        set to False, a 4D (or 5D, or 6D if tensorial) array is
+        returned that has dimensions
+        [NumBlocks, tensor_components, Nz, Ny, Nx]
+        where NumBlocks is the total number of blocks, and Nz, Ny,
+        and Nx are the number of cells in the z, y, and x
+        directions respectively.
 
         If flatten is False and interior is True, only non-ghost data
         will be returned. This array will correspond to the coordinates
         xg and xng, etc.
+
+        By default, node, face, and edge centered variables are
+        averaged to cell centers for visualization. This can be
+        disabled by setting average_to_cell_centers = False.
         """
         try:
             if self.varData.get(variable) is None:
                 self.varData[variable] = self.fid[variable][:]
                 vShape = self.varData[variable].shape
                 if self.OutputFormatVersion < 3:
-                    if self.OutputFormatVersion == -1:
-                        vLen = vShape[-1]
-                    else:
-                        vLen = vShape[1]  # index 0 is the block, so we need to use 1
-                    # in versions < 3, if variable is a scalar remove the component index
-                    if vLen == 1:
-                        tmp = self.varData[variable].reshape(self.TotalCells)
-                        newShape = (
-                            self.NumBlocks,
-                            self.MeshBlockSize[2],
-                            self.MeshBlockSize[1],
-                            self.MeshBlockSize[0],
-                        )
-                        self.varData[variable] = tmp.reshape((newShape))
+                    raise ValueError("Unsupported output version")
 
         except KeyError:
             print(
@@ -542,114 +540,133 @@ class phdf:
             )
             return None
 
+        try:
+            self.varTopology[variable] = (
+                self.fid[variable].attrs["TopologicalLocation"].astype(str)
+            )
+        except:
+            self.varTopology[variable] = "Cell"
+        average_able = (self.varTopology[variable] != "Cell") and (
+            self.varTopology[variable] != "None"
+        )
+
         vShape = self.varData[variable].shape
+        simdim = (vShape[-1] > 1) + (vShape[-2] > 1) + (vShape[-3] > 1)
+        if average_to_cell_centers and average_able:
+            v = self.varData[variable]
+            vnew = v.copy()
+            # Make vnew the proper shape to be averaged into
+            vnew = vnew[..., :-1]
+            if simdim >= 2:
+                vnew = vnew[..., :-1, :]
+            if simdim >= 3:
+                vnew = vnew[..., :-1, :, :]
+
+            # Average...
+            if self.varTopology[variable] == "Face":
+                if simdim == 1:
+                    vnew[:, 0] = 0.5 * (v[:, 0, ..., 1:] + v[:, 0, ..., :-1])
+                elif simdim == 2:
+                    vnew[:, 0] = 0.5 * (v[:, 0, ..., :-1, 1:] + v[:, 0, ..., :-1, :-1])
+                    vnew[:, 1] = 0.5 * (v[:, 1, ..., 1:, :-1] + v[:, 1, ..., :-1, :-1])
+                else:  # simdim == 3
+                    vnew[:, 0] = 0.5 * (
+                        v[:, 0, ..., :-1, :-1, 1:] + v[:, 0, ..., :-1, :-1, :-1]
+                    )
+                    vnew[:, 1] = 0.5 * (
+                        v[:, 1, ..., :-1, 1:, :-1] + v[:, 1, ..., :-1, :-1, :-1]
+                    )
+                    vnew[:, 2] = 0.5 * (
+                        v[:, 2, ..., 1:, :-1, :-1] + v[:, 2, ..., :-1, :-1, :-1]
+                    )
+            if self.varTopology[variable] == "Edge":
+                if simdim == 1:
+                    # nothing to do for E1 == :,0
+                    # E2 and E3 behave like node-centered data
+                    vnew[:, 1] = 0.5 * (v[:, 1, ..., 1:] + v[:, 1, ..., :-1])
+                    vnew[:, 2] = 0.5 * (v[:, 2, ..., 1:] + v[:, 2, ..., :-1])
+                if simdim == 2:
+                    # E1 and E2 behave like face centered data
+                    vnew[:, 0] = 0.5 * (v[:, 0, ..., 1:, :-1] + v[:, 0, ..., :-1, :-1])
+                    vnew[:, 1] = 0.5 * (v[:, 1, ..., :-1, 1:] + v[:, 1, ..., :-1, :-1])
+                    # E3 behaves like node-centered data
+                    vnew[:, 2] = 0.25 * (
+                        v[:, 2, ..., 1:, 1:]
+                        + v[:, 2, ..., 1:, :-1]
+                        + v[:, 2, ..., :-1, 1:]
+                        + v[:, 2, ..., :-1, :-1]
+                    )
+                else:  # simdim == 3
+                    vnew[:, 0] = 0.25 * (
+                        v[:, 0, ..., 1:, 1:, :-1]
+                        + v[:, 0, ..., 1:, :-1, :-1]
+                        + v[:, 0, ..., :-1, 1:, :-1]
+                        + v[:, 0, ..., :-1, :-1, :-1]
+                    )
+                    vnew[:, 1] = 0.25 * (
+                        v[:, 1, ..., 1:, :-1, 1:]
+                        + v[:, 1, ..., 1:, :-1, :-1]
+                        + v[:, 1, ..., :-1, :-1, 1:]
+                        + v[:, 1, ..., :-1, :-1, :-1]
+                    )
+                    vnew[:, 2] = 0.25 * (
+                        v[:, 2, ..., :-1, 1:, 1:]
+                        + v[:, 2, ..., :-1, 1:, :-1]
+                        + v[:, 2, ..., :-1, :-1, 1:]
+                        + v[:, 2, ..., :-1, :-1, :-1]
+                    )
+            elif self.varTopology[variable] == "Node":
+                if simdim == 1:
+                    vnew = (1.0 / 2.0) * (v[..., 1:] + v[..., :-1])
+                elif simdim == 2:
+                    vnew = (1.0 / 4.0) * (
+                        v[..., 1:, 1:]
+                        + v[..., 1:, :-1]
+                        + v[..., :-1, 1:]
+                        + v[..., :-1, :-1]
+                    )
+                else:  # simdim == 3
+                    vnew = (1.0 / 8.0) * (
+                        v[..., 1:, 1:, 1:]
+                        + v[..., :-1, :-1, :-1]
+                        + v[..., 1:, 1:, :-1]
+                        + v[..., 1:, :-1, 1:]
+                        + v[..., :-1, 1:, 1:]
+                        + v[..., :-1, :-1, 1:]
+                        + v[..., :-1, 1:, :-1]
+                        + v[..., 1:, :-1, :-1]
+                    )
+            else:
+                raise ValueError(
+                    "Topology {} for var {} cannot be averaged.".format(
+                        self.varTopology[variable], variable
+                    )
+                )
+            v = vnew
+            self.varData[variable] = v
+
         if flatten:
-            # TODO(tbd) remove legacy mode in next major rel.
-            if self.OutputFormatVersion == -1:
-                if np.prod(vShape) > self.TotalCells:
-                    return self.varData[variable][:].reshape(
-                        self.TotalCells, vShape[-1]
-                    )
-                else:
-                    return self.varData[variable][:].reshape(self.TotalCells)
-
-            elif self.OutputFormatVersion == 2:
-                if np.prod(vShape) > self.TotalCells:
-                    ret = np.empty(
-                        (vShape[1], self.TotalCells), dtype=self.varData[variable].dtype
-                    )
-                    ret[:] = np.nan
-                    for i in range(vShape[1]):
-                        ret[i] = self.varData[variable][:, i, :, :, :].ravel()
-                    assert (ret != np.nan).all()
-                    return ret
-                else:
-                    return self.varData[variable][:].reshape(self.TotalCells)
-
-            elif self.OutputFormatVersion == 3:
-                # Check for cell-centered data
-                if (
-                    vShape[-1] == self.MeshBlockSize[0]
-                    and vShape[-2] == self.MeshBlockSize[1]
-                    and vShape[-3] == self.MeshBlockSize[2]
-                ):
-                    fieldShape = vShape[1:-3]
-                    totalFieldEntries = np.prod(fieldShape)
-                    ndim = len(fieldShape)
-                    if ndim == 0:
-                        return self.varData[variable].ravel()
-                    else:
-                        if ndim == 1:
-                            ret = np.empty(
-                                (vShape[1], self.TotalCells),
-                                dtype=self.varData[variable].dtype,
-                            )
-                            ret[:] = np.nan
-                            for i in range(vShape[1]):
-                                ret[i] = self.varData[variable][:, i, :, :, :].ravel()
-                            assert (ret != np.nan).all()
-                            return ret
-                        elif ndim == 2:
-                            ret = np.empty(
-                                (vShape[1] * vShape[2], self.TotalCells),
-                                dtype=self.varData[variable].dtype,
-                            )
-                            ret[:] = np.nan
-                            for i in range(vShape[1]):
-                                for j in range(vShape[2]):
-                                    ret[i + vShape[1] * j] = self.varData[variable][
-                                        :, i, j, :, :, :
-                                    ].ravel()
-                            assert (ret != np.nan).all()
-                            return ret
-                        else:
-                            ret = np.empty(
-                                (vShape[1] * vShape[2] * vShape[3], self.TotalCells),
-                                dtype=self.varData[variable].dtype,
-                            )
-                            ret[:] = np.nan
-                            for i in range(vShape[1]):
-                                for j in range(vShape[2]):
-                                    for k in range(vShape[3]):
-                                        ret[
-                                            i + vShape[1] * (j + vShape[2] * k)
-                                        ] = self.varData[variable][
-                                            :, i, j, k, :, :, :
-                                        ].ravel()
-                            assert (ret != np.nan).all()
-                            return ret
-                else:
-                    # Not cell-based variable
-                    raise Exception(
-                        f"Flattening only supported for cell-based variables but requested for {variable}"
-                    )
+            nblocks = vShape[0]
+            if self.varTopology[variable] == "None":
+                remaining_size = np.product(vShape[1:])
+                return self.varData[variable].reshape(nblocks, remaining_size)
+            else:
+                preserved_shape = vShape[:-3]
+                remaining_size = np.product(vShape[-3:])
+                return self.varData[variable].reshape(*preserved_shape, remaining_size)
 
         if self.IncludesGhost and interior:
             nghost = self.NGhost
-            # TODO(tbd) remove legacy mode in next major rel.
-            if self.OutputFormatVersion == -1:
-                if vShape[3] == 1:
-                    return self.varData[variable][:, :, :, :]
-                elif vShape[2] == 1:
-                    return self.varData[variable][:, :, :, nghost:-nghost]
-                elif vShape[1] == 1:
-                    return self.varData[variable][:, :, nghost:-nghost, nghost:-nghost]
-                else:
-                    return self.varData[variable][
-                        :, nghost:-nghost, nghost:-nghost, nghost:-nghost
-                    ]
+            if vShape[-1] == 1:
+                return self.varData[variable][:]
+            elif vShape[-2] == 1:
+                return self.varData[variable][..., nghost:-nghost]
+            elif vShape[-3] == 1:
+                return self.varData[variable][..., nghost:-nghost, nghost:-nghost]
             else:
-                print(vShape)
-                if vShape[-1] == 1:
-                    return self.varData[variable][:]
-                elif vShape[-2] == 1:
-                    return self.varData[variable][..., nghost:-nghost]
-                elif vShape[-3] == 1:
-                    return self.varData[variable][..., nghost:-nghost, nghost:-nghost]
-                else:
-                    return self.varData[variable][
-                        ..., nghost:-nghost, nghost:-nghost, nghost:-nghost
-                    ]
+                return self.varData[variable][
+                    ..., nghost:-nghost, nghost:-nghost, nghost:-nghost
+                ]
         return self.varData[variable][:]
 
     def GetSwarm(self, swarm):
@@ -720,16 +737,11 @@ class phdf:
                         # If dataset isn't a vector, just save dataset
                         component_data[component] = dataset
                     else:
-                        # TODO(tbd) remove legacy mode in next major rel.
-                        # Data is a vector, save only the component
-                        if self.OutputFormatVersion == -1:
-                            component_data[component] = dataset[..., idx]
-                        else:
-                            if flatten:
-                                component_data[component] = dataset[idx, ...]
+                        if flatten:
+                            component_data[component] = dataset[idx, ...]
                             # need to take leading block index into account
-                            else:
-                                component_data[component] = dataset[:, idx, ...]
+                        else:
+                            component_data[component] = dataset[:, idx, ...]
 
         return component_data
 

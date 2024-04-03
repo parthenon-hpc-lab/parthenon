@@ -38,6 +38,7 @@ Date: 2024-03-21
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 - [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
 
 ### Fixed (not changing behavior/API/variables/...)
@@ -56,6 +57,7 @@ Date: 2024-03-21
 - [[PR 982]](https://github.com/parthenon-hpc-lab/parthenon/pull/982) add some gut check testing for parthenon-VIBE
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) Change the API for what was IterativeTasks
 - [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
