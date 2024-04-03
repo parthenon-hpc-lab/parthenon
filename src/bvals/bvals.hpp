@@ -150,12 +150,6 @@ class BoundarySwarms : public BoundaryCommunication {
   // variable-length arrays of references to all BoundarySwarm instances
   std::vector<std::shared_ptr<BoundarySwarm>> bswarms;
 
-  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
-    for (int i = 0; i < 6; i++) {
-      bc_flag[i] = block_bcs[i];
-    }
-  }
-
   // inherited functions:
   // ------
   // called before time-stepper:

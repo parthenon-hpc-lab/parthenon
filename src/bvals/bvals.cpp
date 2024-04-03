@@ -169,17 +169,6 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
                                ParameterInput *pin)
     : pmy_block_(wpmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
-  // TODO(BRR) Add physical particle boundary conditions, maybe using the below code
-  /*for (int i = 0; i < 6; i++) {
-    switch (block_bcs[i]) {
-    case BoundaryFlag::reflect:
-    case BoundaryFlag::outflow:
-      apply_bndry_fn_[i] = true;
-      break;
-    default: // already initialized to false in class
-      break;
-    }
-  }*/
   for (int i = 0; i < 6; ++i)
     block_bcs[i] = input_bcs[i];
 

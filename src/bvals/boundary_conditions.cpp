@@ -62,20 +62,20 @@ TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm) {
   const auto pmb = swarm->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
-  printf("BOUNDARY_NFACES %i\n", BOUNDARY_NFACES);
+  // printf("BOUNDARY_NFACES %i\n", BOUNDARY_NFACES);
 
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
-    printf("i\n");
+    // printf("i\n");
     if (DoPhysicalSwarmBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i),
                                  ndim)) {
-      printf("BC! %i\n", i);
+      // printf("BC! %i\n", i);
       pmesh->MeshSwarmBndryFnctn[i](swarm);
       for (auto &bnd_func : pmesh->UserSwarmBoundaryFunctions[i]) {
         bnd_func(swarm);
       }
     }
   }
-  printf("done\n");
+  // printf("done\n");
   return TaskStatus::complete;
 }
 
@@ -211,8 +211,8 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                               const int ndim) {
-  printf("? %i %i\n", static_cast<int>(flag == BoundaryFlag::block),
-         static_cast<int>(flag == BoundaryFlag::undef));
+  // printf("? %i %i\n", static_cast<int>(flag == BoundaryFlag::block),
+  //       static_cast<int>(flag == BoundaryFlag::undef));
   // TODO(BRR) SETTING THIS TO FALSE BREAKS COMMUNICATION, SOMEHOW NOT UPDATING BCS
   // CORRECTLY! SPECIAL CASE FOR PERIODIC?
   // if (flag == BoundaryFlag::block) return false;

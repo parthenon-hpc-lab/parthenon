@@ -397,12 +397,22 @@ int Swarm::CountParticlesToSend_() {
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
 
+  // just for debugging
+  const auto &x = Get<Real>("x").Get();
+  const auto &y = Get<Real>("y").Get();
+  const auto &z = Get<Real>("z").Get();
+
   int max_indices_size = 0;
   int total_noblock_particles = 0;
   for (int n = 0; n <= max_active_index_; n++) {
+    printf("[%i][%i] n: %i mask: %i isactive: %i\n", Globals::my_rank, pmb->gid, n,
+           mask_h(n), swarm_d.IsActive(n));
     if (mask_h(n)) {
       // This particle should be sent
       if (block_index_h(n) >= 0) {
+        printf("is on current? %i\n", swarm_d.IsOnCurrentMeshBlock(n));
+        printf("[%i] xyz(%i) %e %e %e bi: %i\n", Globals::my_rank, n, x(n), y(n), z(n),
+               block_index_h(n));
         num_particles_to_send_h(block_index_h(n))++;
         if (max_indices_size < num_particles_to_send_h(block_index_h(n))) {
           max_indices_size = num_particles_to_send_h(block_index_h(n));
@@ -432,7 +442,8 @@ int Swarm::CountParticlesToSend_() {
       }
     }
     noblock_indices.DeepCopy(noblock_indices_h);
-    ApplyBoundaries_(total_noblock_particles, noblock_indices);
+    // TODO(BRR) BCs here?
+    // ApplyBoundaries_(total_noblock_particles, noblock_indices);
   }
 
   // TODO(BRR) don't allocate dynamically
@@ -463,6 +474,7 @@ int Swarm::CountParticlesToSend_() {
     vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
   }
+  printf("[%i] num_particles_sent_: %i\n", Globals::my_rank, num_particles_sent_);
 
   return max_indices_size;
 }
@@ -518,6 +530,17 @@ void Swarm::Send(BoundaryCommSubset phase) {
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
+  // just for debugging
+  const auto &x = Get<Real>("x").Get();
+  const auto &y = Get<Real>("y").Get();
+  const auto &z = Get<Real>("z").Get();
+  printf("[%i][%i] max active index: %i\n", Globals::my_rank, pmb->gid,
+         GetMaxActiveIndex());
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        printf("[%i][%i] n = %i active? %i\n", Globals::my_rank, pmb->gid, n,
+               swarm_d.IsActive(n));
+      });
 
   if (nneighbor == 0) {
     // Process physical boundary conditions on "sent" particles
@@ -530,11 +553,14 @@ void Swarm::Send(BoundaryCommSubset phase) {
         KOKKOS_LAMBDA(int n, int &total_sent_particles) {
           if (swarm_d.IsActive(n)) {
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
+              printf("[%i] xyz(%i) = %e %e %e\n\n\n\n\n", Globals::my_rank, n, x(n), y(n),
+                     z(n));
               total_sent_particles++;
             }
           }
         },
         Kokkos::Sum<int>(total_sent_particles));
+    printf("[%i] total_sent: %i\n", Globals::my_rank, total_sent_particles);
 
     if (total_sent_particles > 0) {
       ParArray1D<int> new_indices("new indices", total_sent_particles);
@@ -601,11 +627,14 @@ void Swarm::UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
 }
 
 void Swarm::UnloadBuffers_() {
+  printf("[%i] Swarm::UnloadBuffers_\n", Globals::my_rank);
   auto pmb = GetBlockPointer();
 
   CountReceivedParticles_();
 
   auto &bdvar = vbswarm->bd_var_;
+  printf("[%i] total_received_particles_: %i\n", Globals::my_rank,
+         total_received_particles_);
 
   if (total_received_particles_ > 0) {
     printf("%s:%i\n", __FILE__, __LINE__);
@@ -633,6 +662,11 @@ void Swarm::UnloadBuffers_() {
     auto swarm_d = GetDeviceContext();
     printf("%s:%i\n", __FILE__, __LINE__);
 
+    // just for debugging
+    const auto &x = Get<Real>("x").Get();
+    const auto &y = Get<Real>("y").Get();
+    const auto &z = Get<Real>("z").Get();
+
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
         // n is both new particle index and index over buffer values
@@ -649,6 +683,10 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+
+          printf("[%i] UNLOADED xyz %e %e %e\n", Globals::my_rank, x(sid), y(sid),
+                 z(sid));
+          PARTHENON_REQUIRE(swarm_d.IsOnCurrentMeshBlock(sid), "BAD!");
         });
     // Kokkos::fence(); // TODO(BRR) debugging -- remove!
     // printf("%s:%i\n", __FILE__, __LINE__);
@@ -707,7 +745,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     auto &bdvar = vbswarm->bd_var_;
     bool all_boundaries_received = true;
     for (int n = 0; n < nneighbor; n++) {
-      printf("n: %i (%i)\n", n, nneighbor);
+      // printf("n: %i (%i)\n", n, nneighbor);
       NeighborBlock &nb = pmb->neighbors[n];
       if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
         bdvar.flag[nb.bufid] = BoundaryStatus::completed;

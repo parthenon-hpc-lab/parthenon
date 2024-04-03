@@ -140,7 +140,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // mesh-related objects
   // Boundary
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
-  pbswarm->SetBoundaryFlags(boundary_flag);
+  for (int n = 0; n < 6; n++) {
+    boundary_flag[n] = input_bcs[n];
+  }
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.

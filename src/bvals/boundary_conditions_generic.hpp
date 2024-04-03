@@ -62,7 +62,7 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          printf("ACTIVE! %i\n", n);
+          // printf("ACTIVE! %i\n", n);
           if (X1) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
@@ -133,8 +133,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             }
           }
-          printf("Currently active? %i xyz = %e %e %e\n",
-                 static_cast<int>(swarm_d.IsOnCurrentMeshBlock(n)), x(n), y(n), z(n));
+          // printf("Currently active? %i xyz = %e %e %e\n",
+          //       static_cast<int>(swarm_d.IsOnCurrentMeshBlock(n)), x(n), y(n), z(n));
         }
       });
 }

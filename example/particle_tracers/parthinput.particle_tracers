@@ -36,8 +36,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
+nx1 = 32
+nx2 = 64
 nx3 = 1
 
 <parthenon/time>
@@ -55,7 +55,7 @@ dt = 0.05
 variables = advected, tracer_deposition
 
 <Tracers>
-num_tracers = 10000
+num_tracers = 10
 
 <parthenon/output0>
 file_type = hdf5
