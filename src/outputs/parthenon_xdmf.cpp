@@ -38,7 +38,7 @@
 #include "outputs/parthenon_xdmf.hpp"
 #include "utils/utils.hpp"
 
-#define PARTHENON_ENABLE_PARTICLE_XDMF 0
+#define PARTHENON_ENABLE_PARTICLE_XDMF 1
 
 namespace parthenon {
 using namespace OutputUtils;
@@ -153,10 +153,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n",
                            mesh_type, nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     }
-                         
-                         "      <Geometry GeometryType=\"%s\">\n",
-                         ib, mesh-type, nx3 + n3_offset,
-                         nx2 + n2_offset, nx1 + 1,
+    xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n", ib, mesh_type,
+                         nx3 + n3_offset, nx2 + n2_offset, nx1 + 1,
                          output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
@@ -212,14 +210,14 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf << StringPrintf(
         "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
         "      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
-        "NodesPerElement=\"1\">\n"
+        "NodesPerElement=\"%d\">\n"
         "        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
         "          %s:/%s/SwarmVars/id\n"
         "        </DataItem>\n"
         "      </Topology>\n"
         "      <Geometry GeometryType=\"VXVYVZ\">\n",
-        swmname.c_str(), swminfo.global_count, swminfo.global_count, hdfFile.c_str(),
-        swmname.c_str());
+        swmname.c_str(), swminfo.global_count, swminfo.global_count, swminfo.global_count,
+        hdfFile.c_str(), swmname.c_str());
     xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float", "",
                                swminfo.global_count);
     xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float", "",
