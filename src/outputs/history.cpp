@@ -174,7 +174,6 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     // If this is the first output, write header
     if (output_params.file_number == 0) {
-      // TODO(BRR) optionally overwrite file if this is the first write and not a restart?
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
       std::fprintf(pfile, "# [%d]=time     ", iout++);
