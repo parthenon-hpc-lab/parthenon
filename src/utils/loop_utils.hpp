@@ -127,7 +127,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
           }
         }
       } else {
-        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
+        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
           for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
@@ -140,13 +140,13 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
             } else if constexpr (bound == BoundaryType::flxcor_send) {
-              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
               if (nb.loc.level() != pmb->loc.level() - 1) continue;
               // No flux correction required unless boundaries share a face
               if (!nb.offsets.IsFace()) continue;
             } else if constexpr (bound == BoundaryType::flxcor_recv) {
-              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
               if (nb.loc.level() - 1 != pmb->loc.level()) continue;
               // No flux correction required unless boundaries share a face
