@@ -278,7 +278,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
       else if (m.IsSet(Metadata::Face)) mFlags.push_back(Metadata::Edge);
       else if (m.IsSet(Metadata::Edge)) mFlags.push_back(Metadata::Node);
       else 
-        PARTHENON_FAIL("Asking for flux on a variable with innapropriate topological type.");
+        PARTHENON_WARN("Asking for flux on a variable without topological type.");
       Metadata mf(mFlags, m.Shape());
       auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id}; 
       AddFieldImpl(fId, mf, control_vid);
