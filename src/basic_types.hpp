@@ -15,6 +15,7 @@
 
 #include <limits>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -219,6 +220,8 @@ struct SimTime {
 template <typename T>
 using Dictionary = std::unordered_map<std::string, T>;
 
+template <typename T>
+using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
 
 #endif // BASIC_TYPES_HPP_
