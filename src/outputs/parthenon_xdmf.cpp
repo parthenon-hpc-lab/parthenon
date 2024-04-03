@@ -119,21 +119,25 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   const int n3_offset = output_coords ? (nx3 > 1) : 1;
   const int n2_offset = output_coords ? (nx2 > 1) : 1;
   int ndim_mesh;
-  std::string mesh_type;
+  std::string mesh_type, dimstring;
   if (output_coords) {
     if (nx3 > 1) {
       ndim_mesh = 3;
       mesh_type = "3DSMesh";
+      dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     } else if (nx2 > 1) {
       ndim_mesh == 2;
       mesh_type = "2DSMesh";
+      dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
     } else {
       ndim_mesh == 1;
       mesh_type = "Polyline";
+      dimstring = StringPrintf("%d", nx1 + 1);
     }
   } else {
     mesh_type = "3DRectMesh";
     ndim_mesh = 3;
+    dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
   }
   if (output_coords && (nx3 == 1) && (nx2 == 1)) {
     PARTHENON_WARN("XDMF meshing with custom coords is essentially untested in 1D");
@@ -151,9 +155,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       }
       xdmf << StringPrintf("        </DataItem>\n");
     } else {
-      xdmf << StringPrintf(
-          "      <Topology TopologyType=\"%s\" Dimensions=\"%d %d %d\"/>\n",
-          mesh_type.c_str(), nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
+                           mesh_type.c_str(), dimstring.c_str());
     }
     xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
                          output_coords ? "X_Y_Z" : "VXVYVZ");
@@ -161,15 +164,15 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
       for (int d = 0; d < 3; ++d) {
         xdmf << StringPrintf(
-                    "        <DataItem ItemType=\"Hyperslab\" Dimensions=\"%d %d %d\">\n"
+                    "        <DataItem ItemType=\"Hyperslab\" Dimensions=\"%s\">\n"
                     "          <DataItem Dimensions=\"3 5\" NumberType=\"Int\" "
                     "Format=\"XML\">\n"
                     "            %d %d 0 0 0\n"
                     "            1 1 1 1 1\n"
                     "            1 1 %d %d %d\n"
                     "          </DataItem>\n",
-                    nx3 + (nx3 > 1), nx2 + (nx2 > 1), nx1 + (nx1 > 1), ib, d,
-                    nx3 + (nx3 > 1), nx2 + (nx2 > 1), nx1 + (nx1 > 1))
+                    dimstring.c_str(), ib, d, nx3 + (nx3 > 1), nx2 + (nx2 > 1),
+                    nx1 + (nx1 > 1))
              << stringXdmfArrayRef("          ", hdfFile + ":/", coords_it->label, dims,
                                    ndim, "Float", 8)
              << "        </DataItem>\n";
@@ -196,9 +199,14 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       nx3 = dims[ndim - 3];
       nx2 = dims[ndim - 2];
       nx1 = dims[ndim - 1];
-      std::string dims321 =
-          std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
-
+      // build dims string based on dimension and output mode
+      std::string dims321 = std::to_string(nx1);
+      if (!output_coords || (nx2 > 1)) {
+        dims321 = std::to_string(nx2) + " " + dims321;
+      }
+      if (!output_coords || (nx3 > 1)) {
+        dims321 = std::to_string(nx3) + " " + dims321;
+      }
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                num_components, ndim, dims, dims321, vinfo.is_vector,
                                vinfo.where);
@@ -251,7 +259,8 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const int &ndims, const std::string &theType,
                                       const int &precision) {
   std::string mystr = prefix + R"(<DataItem Format="HDF" Dimensions=")";
-  for (int i = 0; i < ndims; i++) {
+  mystr += std::to_string(dims[0]);
+  for (int i = 1; i < ndims; i++) {
     mystr += " " + std::to_string(dims[i]);
   }
   mystr += "\" Name=\"" + label + "\"";
@@ -298,17 +307,18 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
     fid << ">" << std::endl;
     fid << prefix << "  "
         << R"(<DataItem ItemType="HyperSlab" Dimensions=")";
-    fid << dims321 << " ";
-    fid << R"(">)" << std::endl;
+    fid << dims321 << R"(">)" << std::endl;
     // "3" rows for START, STRIDE, and COUNT for each slab with "4" entries.
     // START: iblock 0   0   0
     // STRIDE: 1     1   1   1
     // COUNT:  1     nx3 nx2 nx1
     fid << prefix << "    "
-        << R"(<DataItem Dimensions="3 4" NumberType="Int" Format="XML">)" << iblock << " "
-        << " 0 0 0 "
-        << " 1 1 1 1 1 "
-        << " " << dims321 << "</DataItem>" << std::endl;
+        << R"(<DataItem Dimensions="3 4" NumberType="Int" Format="XML">)"
+        << "\n"
+        << prefix << "      " << iblock << " 0 0 0\n"
+        << prefix << "      1 1 1 1\n"
+        << prefix << "      1 " << dims321 << "\n"
+        << prefix << "    </DataItem>" << std::endl;
     writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                       8);
     fid << prefix << "  "
@@ -332,10 +342,14 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
       // STRIDE: 1               1           1   1   1
       // COUNT:  1               dims[1]     nx3 nx2 nx1
       fid << prefix << "    "
-          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
-          << " " << i << " 0 0 0 "
-          << " 1 1 1 1 1 1 1"
-          << " " << dims321 << "</DataItem>" << std::endl;
+          << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)"
+          << "\n"
+          << prefix << "      " << iblock << " " << i << " 0 0 0\n"
+          << prefix << "      "
+          << "1 1 1 1 1\n"
+          << prefix << "      "
+          << "1 1 " << dims321 << "\n"
+          << prefix << "    </DataItem>" << std::endl;
       writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
                         8);
       fid << prefix << "  "
