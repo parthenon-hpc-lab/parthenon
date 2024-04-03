@@ -60,7 +60,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
                                      const int nx3, const int nx2, const int nx1,
-                                     const bool do_lowerd, const int mesh_dim,
+                                     const bool do_lowerd,
                                      const bool isVector, MetadataFlag where);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
@@ -202,7 +202,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       nx1 = dims[ndim - 1];
       writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                num_components, ndim, dims, nx3, nx2, nx1, output_coords,
-                               ndim_mesh, vinfo.is_vector, vinfo.where);
+                               vinfo.is_vector, vinfo.where);
     }
     xdmf << "    </Grid>" << std::endl;
   }
@@ -276,7 +276,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      std::string &hdfFile, int iblock,
                                      const int &num_components, int &ndims, hsize_t *dims,
                                      const int nx3, const int nx2, const int nx1,
-                                     const bool do_lowerd, const int mesh_dim,
+                                     const bool do_lowerd,
                                      const bool isVector, MetadataFlag where) {
   // writes a slab reference to file
   std::vector<std::string> names;
@@ -295,13 +295,13 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   }
 
   std::string dims321 = std::to_string(nx1);
-  if (!do_lowerd || (mesh_dim > 1)) {
+  if (!do_lowerd || (nx2 > 1)) {
     dims321 = std::to_string(nx2) + " " + dims321;
   }
-  if (!do_lowerd || (mesh_dim > 2)) {
+  if (!do_lowerd || (nx3 > 1)) {
     dims321 = std::to_string(nx3) + " " + dims321;
   }
-  printf("What is happening? %d %d %d %d %d\n", do_lowerd, mesh_dim, nx3, nx2, nx1);
+  printf("What is happening? %d %d %d %d: %s\n", do_lowerd, nx3, nx2, nx1, dims321.c_str());
 
   const int tensor_dims = ndims - 1 - 3;
   auto wherestring = LocationToStringRef(where);
