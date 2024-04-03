@@ -301,6 +301,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   if (!do_lowerd || (mesh_dim > 2)) {
     dims321 = std::to_string(nx3) + " " + dims321;
   }
+  printf("What is happening? %d %d %d %d %d\n", do_lowerd, mesh_dim, nx3, nx2, nx1);
 
   const int tensor_dims = ndims - 1 - 3;
   auto wherestring = LocationToStringRef(where);
