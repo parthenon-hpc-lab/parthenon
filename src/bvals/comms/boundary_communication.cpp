@@ -125,6 +125,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                     Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
 
                 lnon_zero = lnon_zero || mnon_zero;
+                if (bound_type == BoundaryType::flxcor_send) lnon_zero = true;
               },
               Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
           idx_offset += idxer.size();
@@ -293,7 +294,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                            var[m] = buf[m];
                                        });
                 });
-          } else if (bnd_info(b).allocated) {
+          } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),

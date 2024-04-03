@@ -499,7 +499,7 @@ class Metadata {
   // and false otherwise.
   bool IsRefined() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
-            IsSet(GMGProlongate) || IsSet(GMGRestrict));
+            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
   }
 
   const std::vector<int> &Shape() const { return shape_; }
