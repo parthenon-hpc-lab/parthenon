@@ -168,7 +168,7 @@ class Variable {
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
-  void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateCoarse(std::weak_ptr<MeshBlock> wpmb);
 
   VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 

@@ -71,18 +71,9 @@ std::string Variable<T>::info() {
 // assign them to this variable
 template <typename T>
 void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
-  if (IsSet(Metadata::WithFluxes)) {
-    // fluxes, coarse buffers, etc., are always a copy
-    // Rely on reference counting and shallow copy of kokkos views
-    flux_data_ = src->flux_data_; // reference counted
-    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
-    for (int i = X1DIR; i <= n_outer; i++) {
-      flux[i] = src->flux[i]; // these are subviews
-    }
-  }
 
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm)) {
+      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
     // no need to check mesh->multilevel, if false, we're just making a shallow copy of
     // an empty ParArrayND
     coarse_s = src->coarse_s;
@@ -113,7 +104,7 @@ void Variable<T>::Allocate(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitialize
   }
 
   AllocateData(wpmb, flag_uninitialized);
-  AllocateFluxesAndCoarse(wpmb);
+  AllocateCoarse(wpmb);
 }
 
 template <typename T>
@@ -142,39 +133,14 @@ void Variable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitia
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void Variable<T>::AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb) {
+void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
   PARTHENON_REQUIRE_THROWS(
-      IsAllocated(), "Tried to allocate comms for un-allocated variable " + label());
+      IsAllocated(), "Tried to allocate coarse for un-allocated variable " + label());
   std::string base_name = label();
-
-  // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
-  // the stride will mess up the types.
-
-  if (IsSet(Metadata::WithFluxes)) {
-    // Compute size of unified flux_data object and create it. A unified
-    // flux_data_ object reduces the number of memory allocations per
-    // variable per meshblock from 5 to 3.
-    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
-    if (IsSet(Metadata::Edge)) n_outer = 1;
-    // allocate fluxes
-    auto dims_flux = dims_;
-    // A nodal field is the appropriate flux field for an edge variable
-    dims_flux[MAX_VARIABLE_DIMENSION - 1] = n_outer;
-    flux_data_ = std::make_from_tuple<ParArrayND<T, VariableState>>(
-        std::tuple_cat(std::make_tuple(label() + ".flux_data", MakeVariableState()),
-                       ArrayToReverseTuple(dims_flux)));
-    // set up fluxes
-    for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d] = flux_data_.Get(std::make_pair(d - 1, d));
-    }
-    if (wpmb.expired()) return;
-    std::shared_ptr<MeshBlock> pmb = wpmb.lock();
-    pmb->LogMemUsage(flux_data_.size() * sizeof(T));
-  }
 
   // Create the boundary object
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm)) {
+      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
     if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
@@ -198,17 +164,8 @@ std::int64_t Variable<T>::Deallocate() {
   mem_size += data.size() * sizeof(T);
   data.Reset();
 
-  if (IsSet(Metadata::WithFluxes)) {
-    mem_size += flux_data_.size() * sizeof(T);
-    flux_data_.Reset();
-    int n_outer = 1 + (GetDim(2) > 1) * (1 + (GetDim(3) > 1));
-    for (int d = X1DIR; d <= n_outer; ++d) {
-      flux[d].Reset();
-    }
-  }
-
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm)) {
+      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
     mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
   }
