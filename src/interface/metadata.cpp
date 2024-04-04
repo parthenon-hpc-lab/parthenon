@@ -254,11 +254,12 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
-    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION);
+    assert(N >= 1 && N < MAX_VARIABLE_DIMENSION);
     for (int i = 0; i < N; i++)
       arrDims[i] = shape[i];
     for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
+    if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;  
   }
 
   return arrDims;
