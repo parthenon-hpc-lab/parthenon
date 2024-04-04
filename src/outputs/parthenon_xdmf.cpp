@@ -98,7 +98,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                                 [](const auto &v) { return v.is_coordinate_field; });
   const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
   const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
-  if ((coords_it != var_list.end()) && (ndim_mesh < 2)) {
+  if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
     PARTHENON_WARN("Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
                    "3DRectMesh");
   }
