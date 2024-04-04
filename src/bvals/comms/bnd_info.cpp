@@ -483,7 +483,7 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
     ek = sk;
   }
 
-  out.var = v->flux[out.dir];
+  out.var = v->data;
   out.coords = pmb->coords;
   block_ownership_t owns(true);
   out.idxer[0] = SpatiallyMaskedIndexer6D(
@@ -567,7 +567,7 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
     PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
   }
 
-  out.var = v->flux[out.dir];
+  out.var = v->data;
 
   out.coords = pmb->coords;
   block_ownership_t owns(true);
