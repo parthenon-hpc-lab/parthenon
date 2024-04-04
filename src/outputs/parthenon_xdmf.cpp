@@ -144,7 +144,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
     if (ndim_mesh == 1) {
       // connectivity
-      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%d\">\n"
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" NumberOfEelements=\"%d\">\n"
                            "        <DataItem Dimensions=\"%d 2\" NumberType=\"Int\" "
                            "Precision=\"8\" Format=\"XML\">\n",
                            mesh_type.c_str(), nx1, nx1);
