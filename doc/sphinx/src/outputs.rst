@@ -46,6 +46,7 @@ look like
 
    <parthenon/output1>
    file_type = hdf5
+   write_xdmf = true # Determines whether xdmf annotations are output
    # nonexistent variables/swarms are ignored
    variables = density, velocity, & # comments are still ok
                energy               # notice the & continuation character
@@ -396,6 +397,11 @@ Both `ParaView <https://www.paraview.org/>`__ and
 capable of opening and visualizing Parthenon graphics dumps. In both
 cases, the ``.xdmf`` files should be opened. In ParaView, select the
 “XDMF Reader” when prompted.
+
+.. warning::
+   Currently parthenon face- and edge- centered data is not supported
+   for ParaView and VisIt. However, our python tooling does support
+   all mesh locations.
 
 Preparing outputs for ``yt``
 ----------------------------

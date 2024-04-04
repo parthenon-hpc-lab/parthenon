@@ -70,9 +70,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   // and a kokkos view just for fun
   AllReduce<HostArray1D<Real>> *pview_reduce =
       pkg->MutableParam<AllReduce<HostArray1D<Real>>>("view_reduce");
-  int reg_dep_id;
   for (int i = 0; i < num_partitions; i++) {
-    reg_dep_id = 0;
     // make/get a mesh_data container for the state
     auto &md = pmesh->mesh_data.GetOrAdd("base", i);
     auto &mdelta = pmesh->mesh_data.GetOrAdd("delta", i);

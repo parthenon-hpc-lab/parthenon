@@ -76,7 +76,6 @@ class Node:
 
 
 class GitHubApp:
-
     """
     GitHubApp Class
 

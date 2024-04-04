@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -37,6 +37,7 @@
 #include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/forest/forest.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -45,7 +46,6 @@ namespace parthenon {
 
 // Forward declarations
 class ApplicationInput;
-class BoundaryValues;
 class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
@@ -158,7 +158,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
@@ -280,10 +279,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
-  }
-  void SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist,
-                             int *nslist) {
-    pbval->SearchAndSetNeighbors(mesh, tree, ranklist, nslist);
   }
 
   // inform MeshBlock which arrays contained in member Field, Particles,
@@ -440,7 +435,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
+  static void PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin);
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   static pMeshBlockApplicationData_t
   InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>

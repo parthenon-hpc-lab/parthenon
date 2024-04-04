@@ -64,6 +64,7 @@ using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
 using ::parthenon::TaskListStatus;
+using ::parthenon::TaskQualifier;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;

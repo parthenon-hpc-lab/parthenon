@@ -46,9 +46,10 @@ which its called.  The principle use case for this is to add iterative cycles
 to the graph, allowing one to execute a series of tasks repeatedly until some
 criteria are satisfied.  The call takes as arguments the dependencies (via
 ``TaskID``s combined with ``|``) that must be complete before the sublist
-exectues and, optionally, a ``std::pair<int, int>`` specifying the minimum
+exectues and a ``std::pair<int, int>`` specifying the minimum
 and maximum number of times the sublist should execute.  Passing something like
-``{min_iters, max_iters}`` as the second argument should suffice.  ``AddSublist``
+``{min_iters, max_iters}`` as the second argument should suffice, with `{1, 1}`
+leading to a sublist that never cycles.  ``AddSublist``
 returns a ``std::pair<TaskList&, TaskID>`` which is conveniently accessed via
 a structured binding, e.g.
 .. code:: cpp
@@ -137,9 +138,9 @@ with one thread.
 TaskQualifier
 -------------
 
-``TaskQualifier``s provide a mechanism for downstream codes to alter the default
+``TaskQualifier`` s provide a mechanism for downstream codes to alter the default
 behavior of specific tasks in certain ways.  The qualifiers are described below:
-- ``TaskQualifier::local_sync``: Tasks marked with ``local_sync`` synchronize across
+- ``TaskQualifier::local_sync`` : Tasks marked with ``local_sync`` synchronize across
 lists in a region on a given MPI rank.  Tasks that depend on a ``local_sync``
 marked task gain dependencies from the corresponding task on all lists within
 a region.  A typical use for this qualifier is to do a rank-local reduction, for
@@ -148,22 +149,22 @@ per rank, not once per ``TaskList``).  Note that Parthenon links tasks across
 lists in the order they are added to each list, i.e. the ``n``th ``local_sync`` task
 in a list is assumed to be associated with the ``n``th ``local_sync`` task in all
 lists in the region.
-- ``TaskQualifier::global_sync``: Tasks marked with ``global_sync`` implicitly have
+- ``TaskQualifier::global_sync`` : Tasks marked with ``global_sync`` implicitly have
 the same semantics as ``local_sync``, but additionally do a global reduction on the
 ``TaskStatus`` to determine if/when execution can proceed on to dependent tasks.
-- ``TaskQualifier::completion``: Tasks marked with ``completion`` can lead to exiting
+- ``TaskQualifier::completion`` : Tasks marked with ``completion`` can lead to exiting
 execution of the owning ``TaskList``.  If these tasks return ``TaskStatus::complete``
 and the minimum number of iterations of the list have been completed, the remainder
 of the task list will be skipped (or the iteration stopped).  Returning
 ``TaskList::iterate`` leads to continued execution/iteration, unless the maximum
 number of iterations has been reached.
-- ``TaskQualifier::once_per_region``: Tasks with the ``once_per_region`` qualifier
+- ``TaskQualifier::once_per_region`` : Tasks with the ``once_per_region`` qualifier
 will only execute once (per iteration, if relevant) regardless of the number of
 ``TaskList``s in the region.  This can be useful when, for example, doing MPI
 reductions, printing out some rank-wide state, or calling a ``completion`` task
 that depends on some global condition where all lists would evaluate identical code.
 
-``TaskQualifier``s can be combined via the ``|`` operator and all combinations are
+``TaskQualifier`` s can be combined via the ``|`` operator and all combinations are
 supported.  For example, you might mark a task ``global_sync | completion | once_per_region``
 if it were a task to determine whether an iteration should continue that depended
 on some previously reduced quantity.
