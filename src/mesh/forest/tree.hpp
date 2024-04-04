@@ -79,7 +79,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for building tree connectivity
   void AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                       RelativeOrientation orient);
+                       RelativeOrientation orient, const bool periodic);
 
   std::uint64_t GetId() const { return my_id; }
 

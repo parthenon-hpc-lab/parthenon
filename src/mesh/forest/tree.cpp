@@ -283,20 +283,13 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 }
 
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                           RelativeOrientation orient) {
+                           RelativeOrientation orient, const bool periodic) {
   int location_idx = offset.GetIdx();
   neighbors[location_idx].insert({neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
-  printf("ADDING NEIGHBOR TREE! fidx = %i\n", fidx);
-  printf("ids: %i %i\n", GetId(), neighbor_tree->GetId());
 
-  // Do not update true periodic boundary conditions to block boundary conditions
-  if (GetId() == neighbor_tree->GetId() &&
-      boundary_conditions[fidx] == BoundaryFlag::periodic) {
-    return;
-  }
-
-  if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
+  if (fidx >= 0)
+    boundary_conditions[fidx] = periodic ? BoundaryFlag::periodic : BoundaryFlag::block;
 }
 
 } // namespace forest
