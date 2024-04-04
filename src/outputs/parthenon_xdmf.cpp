@@ -148,10 +148,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                            "        <DataItem Dimensions=\"%d\" NumberType=\"Int\" "
                            "Precision=\"8\" Format=\"XML\">\n"
                            "          ",
-                           mesh_type.c_str(), nx1);
+                           mesh_type.c_str(), nx1+1);
       for (int i = 0; i < nx1 + 1; ++i) {
         xdmf << i;
-        if ((i % 10) == 0) {
+        if ((i > 0) && ((i % 10) == 0)) {
           xdmf << "\n          ";
         } else if (i == nx1) {
           xdmf << "\n";
