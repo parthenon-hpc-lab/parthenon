@@ -137,7 +137,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     }
   } else {
     mesh_type = "3DRectMesh";
-    ndim_mesh = 3;
     dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
   }
   for (int ib = 0; ib < pm->nbtotal; ib++) {
