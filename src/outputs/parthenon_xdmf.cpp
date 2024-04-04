@@ -144,9 +144,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
     if (ndim_mesh == 1) {
       // connectivity
-      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" NumberOfEelements=\"1\">\n"
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" NumberOfElements=\"1\">\n"
                            "        <DataItem Dimensions=\"%d\" NumberType=\"Int\" "
-                           "Precision=\"8\" Format=\"XML\">\n"
+                           "Format=\"XML\">\n"
                            "          ",
                            mesh_type.c_str(), nx1+1);
       for (int i = 0; i < nx1 + 1; ++i) {
@@ -154,10 +154,11 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       }
       xdmf << StringPrintf("        </DataItem>\n");
     } else {
-      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\">\n",
                            mesh_type.c_str(), dimstring.c_str());
     }
-    xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
+    xdmf << StringPrintf("      </Topology>\n"
+                         "      <Geometry GeometryType=\"%s\">\n",
                          output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
