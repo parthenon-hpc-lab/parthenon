@@ -457,6 +457,11 @@ values and these will be used for visualization. In a more non-trivial
 example, ``SetGeometryBlock`` might apply a coordinate
 transformation. Or actually evolve ``"locations"``.
 
+.. warning::
+
+   Non-standard coordinates are not supported in XDMF for 1D meshes
+   and Parthenon will revert to the traditional output in 1D.
+
 Preparing outputs for ``yt``
 ----------------------------
 

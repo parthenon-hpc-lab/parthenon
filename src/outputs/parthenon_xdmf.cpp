@@ -96,7 +96,12 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   // check whether or not coordinates field is provided and find it if it is present
   auto coords_it = std::find_if(var_list.begin(), var_list.end(),
                                 [](const auto &v) { return v.is_coordinate_field; });
-  const bool output_coords = (coords_it != var_list.end());
+  const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
+  const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
+  if ((coords_it != var_list.end()) && (ndim_mesh < 2)) {
+    PARTHENON_WARN("Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
+                   "3DRectMesh");
+  }
 
   // open file
   xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -119,21 +124,16 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   dims[0] = pm->nbtotal;
   const int n3_offset = output_coords ? (nx3 > 1) : 1;
   const int n2_offset = output_coords ? (nx2 > 1) : 1;
-  int ndim_mesh;
   std::string mesh_type, dimstring;
   if (output_coords) {
     if (nx3 > 1) {
-      ndim_mesh = 3;
       mesh_type = "3DSMesh";
       dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     } else if (nx2 > 1) {
-      ndim_mesh = 2;
       mesh_type = "2DSMesh";
       dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
     } else {
-      ndim_mesh = 1;
-      mesh_type = "Polyline";
-      dimstring = StringPrintf("%d", nx1 + 1);
+      PARTHENON_FAIL("1D curvilinear meshes not supported.");
     }
   } else {
     mesh_type = "3DRectMesh";
@@ -142,23 +142,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   }
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
-    if (ndim_mesh == 1) {
-      // connectivity
-      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" NumberOfElements=\"1\">\n"
-                           "        <DataItem Dimensions=\"%d\" NumberType=\"Int\" "
-                           "Format=\"XML\">\n"
-                           "          ",
-                           mesh_type.c_str(), nx1+1);
-      for (int i = 0; i < nx1 + 1; ++i) {
-        xdmf << i << ((i == nx1) ? "\n" : " ");
-      }
-      xdmf << StringPrintf("        </DataItem>\n");
-    } else {
-      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\">\n",
-                           mesh_type.c_str(), dimstring.c_str());
-    }
-    xdmf << StringPrintf("      </Topology>\n"
-                         "      <Geometry GeometryType=\"%s\">\n",
+    xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
+                         mesh_type.c_str(), dimstring.c_str());
+    xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
                          output_coords ? "X_Y_Z" : "VXVYVZ");
     if (output_coords) {
       ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
@@ -187,7 +173,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     // write graphics variables
     for (const auto &vinfo : var_list) {
       // Skip coordinates field. This is output elsewhere.
-      if (vinfo.is_coordinate_field) continue;
+      if (output_coords && vinfo.is_coordinate_field) continue;
       // JMM: Faces/Edges in xdmf appear to be not fully supported by
       // Visit/Paraview.
       if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
