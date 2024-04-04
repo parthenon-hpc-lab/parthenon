@@ -134,8 +134,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         }
       }
     }
-
-    auto v = mbd.PackVariables();
+    
+    using FS_t = Metadata::FlagCollection; 
+    auto flags = (FS_t({Metadata::Independent, Metadata::Derived}, true) - FS_t(Metadata::Flux));
+    auto v = mbd.PackVariables(flags);
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
