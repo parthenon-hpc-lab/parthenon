@@ -150,14 +150,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                            "          ",
                            mesh_type.c_str(), nx1+1);
       for (int i = 0; i < nx1 + 1; ++i) {
-        xdmf << i;
-        if ((i > 0) && ((i % 10) == 0)) {
-          xdmf << "\n          ";
-        } else if (i == nx1) {
-          xdmf << "\n";
-        } else {
-          xdmf << " ";
-        }
+        xdmf << i << ((i == nx1) ? "\n" : " ");
       }
       xdmf << StringPrintf("        </DataItem>\n");
     } else {
