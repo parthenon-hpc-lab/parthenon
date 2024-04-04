@@ -193,8 +193,6 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
     total++;
   }
 
-  printf("here?\n");
-
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }

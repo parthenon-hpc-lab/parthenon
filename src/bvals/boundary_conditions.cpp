@@ -56,26 +56,21 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
 }
 
 TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
   using namespace boundary_cond_impl;
   const auto pmb = swarm->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
-  // printf("BOUNDARY_NFACES %i\n", BOUNDARY_NFACES);
 
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
-    // printf("i\n");
     if (DoPhysicalSwarmBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i),
                                  ndim)) {
-      // printf("BC! %i\n", i);
       pmesh->MeshSwarmBndryFnctn[i](swarm);
       for (auto &bnd_func : pmesh->UserSwarmBoundaryFunctions[i]) {
         bnd_func(swarm);
       }
     }
   }
-  // printf("done\n");
   return TaskStatus::complete;
 }
 

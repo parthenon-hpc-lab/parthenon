@@ -247,11 +247,6 @@ class Swarm {
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
-  void ApplyBoundaries_(const int nparticles, ParArray1D<int> indices);
-
-  // std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-  // bounds_uptrs[6];
-
   template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);

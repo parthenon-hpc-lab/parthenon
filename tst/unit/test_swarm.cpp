@@ -61,6 +61,12 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "nx1 = 4" << endl;
   is << "nx2 = 4" << endl;
   is << "nx3 = 4" << endl;
+  is << "ix1_bc = outflow" << endl;
+  is << "ox1_bc = outflow" << endl;
+  is << "ix2_bc = outflow" << endl;
+  is << "ox2_bc = outflow" << endl;
+  is << "ix3_bc = outflow" << endl;
+  is << "ox3_bc = outflow" << endl;
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
@@ -202,7 +208,10 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
         x_d(0) = -0.6;
         bc_indices(0) = 0;
       });
-  swarm->ApplyBoundaries_(1, bc_indices);
+  // swarm->ApplyBoundaries_(1, bc_indices);
+  // swarm->RemoveMarkedParticles();
+
+  ApplySwarmBoundaryConditions(swarm);
   swarm->RemoveMarkedParticles();
 
   // Check that particle that crossed boundary has been removed

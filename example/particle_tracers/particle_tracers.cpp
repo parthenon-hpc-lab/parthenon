@@ -169,7 +169,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
   auto adv_pkg = pmb->packages.Get("advection_package");
 
   int max_active_index = swarm->GetMaxActiveIndex();
-  printf("[%i][%i] max active index: %i\n", Globals::my_rank, pmb->gid, max_active_index);
 
   Real dt = integrator->dt;
 
@@ -184,8 +183,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        printf("[%i][%i] n = %i active? %i\n", Globals::my_rank, pmb->gid, n,
-               swarm_d.IsActive(n));
         if (swarm_d.IsActive(n)) {
           x(n) += vx * dt;
           y(n) += vy * dt;
@@ -194,8 +191,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
           bool on_current_mesh_block = true;
           int ind =
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-          printf("[%i] xyz(%i) %e %e %e On current MB? %i ind = %i\n", Globals::my_rank,
-                 n, x(n), y(n), z(n), static_cast<int>(on_current_mesh_block), ind);
         }
       });
 
@@ -243,10 +238,8 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
-          // For testing in this example we make sure the indices are correct
-          printf("rank: %i\n", Globals::my_rank);
-          printf("kji: %i %i %i xyz: %e %e %e\n", k, j, i, x(n), y(n), z(n));
-          printf("minx_i: %e minx_j: %e minx_k: %e\n", minx_i, minx_j, minx_k);
+          // For testing in this example we make sure the indices are correct; these could
+          // be demoted to Debug-only calls
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
