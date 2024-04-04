@@ -127,11 +127,11 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       mesh_type = "3DSMesh";
       dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     } else if (nx2 > 1) {
-      ndim_mesh == 2;
+      ndim_mesh = 2;
       mesh_type = "2DSMesh";
       dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
     } else {
-      ndim_mesh == 1;
+      ndim_mesh = 1;
       mesh_type = "Polyline";
       dimstring = StringPrintf("%d", nx1 + 1);
     }
