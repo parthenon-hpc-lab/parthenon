@@ -136,7 +136,6 @@ class Variable {
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T, VariableState> data;
-  ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
@@ -188,7 +187,6 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArrayND<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>
