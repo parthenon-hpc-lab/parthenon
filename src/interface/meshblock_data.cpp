@@ -88,7 +88,16 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
   SetBlockPointer(src);
   resolved_packages_ = src->resolved_packages_;
   is_shallow_ = shallow_copy;
-
+  
+  // clear all variables, maps, and pack caches
+  varVector_.clear();
+  varMap_.clear();
+  varUidMap_.clear();
+  flagsToVars_.clear();
+  varPackMap_.clear();
+  coarseVarPackMap_.clear();
+  varFluxPackMap_.clear();
+  
   auto add_var = [=](auto var) {
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
       Add(var);
@@ -99,21 +108,11 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
 
   // special case when the list of names is empty, copy everything
   if (names.empty()) {
-    for (auto v : src->GetVariableVector()) {
-      add_var(v);
-    }
+    for (auto v : src->GetVariableVector()) add_var(v);
   } else {
-    auto var_map = src->GetVariableMap();
-
+    auto &var_map = src->GetVariableMap();
     for (const auto &name : names) {
-      bool found = false;
-      auto v = var_map.find(name);
-      if (v != var_map.end()) {
-        found = true;
-        add_var(v->second);
-      }
-      PARTHENON_REQUIRE_THROWS(found, "MeshBlockData::CopyFrom: Variable '" + name +
-                                          "' not found");
+      add_var(var_map.at(name));
     }
   }
 }
