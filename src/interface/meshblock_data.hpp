@@ -124,14 +124,12 @@ class MeshBlockData {
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
   std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
-    auto it = varMap_.find(label);
-    PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
-                             "Couldn't find variable '" + label + "'");
-    return it->second;
+    PARTHENON_REQUIRE(varMap_.count(label), "Asking for variable " + label + " that is not in this MeshBlockData.");
+    return varMap_.at(label);
   }
   std::shared_ptr<Variable<T>> GetVarPtr(const Uid_t &uid) const {
-    PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
-                             "Variable ID " + std::to_string(uid) + "not found!");
+    PARTHENON_REQUIRE(varUidMap_.count(uid),
+                      "Variable ID " + std::to_string(uid) + "not found!");
     return varUidMap_.at(uid);
   }
 
