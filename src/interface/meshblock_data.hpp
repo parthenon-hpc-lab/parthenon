@@ -24,6 +24,7 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/swarm.hpp"
 #include "interface/swarm_container.hpp"
+#include "interface/swarm_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -231,6 +232,17 @@ class MeshBlockData {
   /// variable
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
+
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, Real>::value) {
+      return swarm_pack_real_cache_;
+    } else {
+      PARTHENON_FAIL("SwarmPacks only compatible with int and Real types");
+    }
+  }
 
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
@@ -493,6 +505,8 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<Real> swarm_pack_real_cache_;
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &

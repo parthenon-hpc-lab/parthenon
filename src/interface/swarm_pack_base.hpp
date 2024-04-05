@@ -26,8 +26,6 @@
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
-#include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
@@ -110,7 +108,6 @@ class SwarmPackBase {
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
   template <class MBD>
   static SwarmPackBase<TYPE> Build(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc) {
-    using mbd_t = MeshBlockData<Real>;
     int nvar = desc.vars.size();
 
     SwarmPackBase<TYPE> pack;
@@ -121,7 +118,7 @@ class SwarmPackBase {
     int nblocks = 0;
     int ndim = 3;
     std::vector<int> vardims;
-    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+    ForEachBlock(pmd, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       int size = 0;
       nblocks++;
@@ -158,7 +155,7 @@ class SwarmPackBase {
     auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
 
     // Fill the views
-    ForEachBlock(pmd, [&](int b, mbd_t *pmbd) {
+    ForEachBlock(pmd, [&](int b, auto *pmbd) {
       int idx = 0;
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       contexts_h(b) = swarm->GetDeviceContext();
