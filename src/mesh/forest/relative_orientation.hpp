@@ -34,7 +34,8 @@ namespace parthenon {
 namespace forest {
 
 struct RelativeOrientation {
-  RelativeOrientation() : dir_connection{0, 1, 2}, dir_flip{false, false, false}, ncells{-1} {};
+  RelativeOrientation()
+      : dir_connection{0, 1, 2}, dir_flip{false, false, false}, ncells{-1} {};
 
   void SetDirection(Direction origin, Direction neighbor, bool reversed = false) {
     dir_connection[static_cast<uint>(origin)] = static_cast<uint>(neighbor);
@@ -45,19 +46,22 @@ struct RelativeOrientation {
                             std::int64_t destination) const;
   LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
 
-  using buf_indices_t = std::tuple<int, int, int, int, int, int, int>; 
-  
+  using buf_indices_t = std::tuple<int, int, int, int, int, int, int>;
+
   KOKKOS_FORCEINLINE_FUNCTION
-  buf_indices_t Transform(TopologicalType tt, int iel, std::array<int, 6> tuvkji_in) { 
-    // TODO(LFR): Non-scalar quantities should pick up a possible sign flip due to the coordinate transformation, 
+  buf_indices_t Transform(TopologicalType tt, int iel, std::array<int, 6> tuvkji_in) {
+    // TODO(LFR): Non-scalar quantities should pick up a possible sign flip due to the
+    // coordinate transformation,
     //            need to thread this through
     std::array<int, 6> tuvkji;
-    for (int dir = 0; dir < 3; ++dir) { 
-      tuvkji[3 + dir] = dir_flip[dir] ? tuvkji_in[3 + dir_connection[dir]] : ncells - tuvkji_in[3 + dir_connection[dir]];
-      tuvkji[dir] = tuvkji_in[dir]; 
+    for (int dir = 0; dir < 3; ++dir) {
+      tuvkji[3 + dir] = dir_flip[dir] ? tuvkji_in[3 + dir_connection[dir]]
+                                      : ncells - tuvkji_in[3 + dir_connection[dir]];
+      tuvkji[dir] = tuvkji_in[dir];
     }
     if (tt == TopologicalType::Face || tt == TopologicalType::Edge)
-      return {dir_connection[iel], tuvkji[0], tuvkji[1], tuvkji[2], tuvkji[3], tuvkji[4], tuvkji[5]};
+      return {dir_connection[iel], tuvkji[0], tuvkji[1], tuvkji[2],
+              tuvkji[3],           tuvkji[4], tuvkji[5]};
     return {0, tuvkji[0], tuvkji[1], tuvkji[2], tuvkji[3], tuvkji[4], tuvkji[5]};
   }
 

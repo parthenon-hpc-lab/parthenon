@@ -164,7 +164,8 @@ struct any : public base_t<true> {
 
 struct any_nonflux : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_nonflux(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any_nonflux(Ts &&...args)
+      : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return "^(?!bnd_flux::).+"; }
 };
 } // namespace variable_names

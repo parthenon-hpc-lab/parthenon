@@ -39,7 +39,7 @@ namespace parthenon {
 using namespace impl;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  //return SendBoundBufs<BoundaryType::flxcor_send>(md);
+  // return SendBoundBufs<BoundaryType::flxcor_send>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -47,8 +47,8 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   const int ndim = pmesh->ndim;
 
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<BoundaryType::flxcor_send>(
-        md, &(pmesh->boundary_comm_map), &cache, SendKey, false);
+    InitializeBufferCache<BoundaryType::flxcor_send>(md, &(pmesh->boundary_comm_map),
+                                                     &cache, SendKey, false);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
@@ -101,9 +101,12 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
               const Real area11 = coords.FaceAreaFA(binfo.dir, k + koff, j, i + ioff);
 
               Real avg_flx = area00 * binfo.var(binfo.dir - 1, t, u, v, k, j, i);
-              avg_flx += area01 * binfo.var(binfo.dir - 1, t, u, v, k + koff, j + joff, i);
-              avg_flx += area10 * binfo.var(binfo.dir - 1, t, u, v, k, j + joff, i + ioff);
-              avg_flx += area11 * binfo.var(binfo.dir - 1, t, u, v, k + koff, j, i + ioff);
+              avg_flx +=
+                  area01 * binfo.var(binfo.dir - 1, t, u, v, k + koff, j + joff, i);
+              avg_flx +=
+                  area10 * binfo.var(binfo.dir - 1, t, u, v, k, j + joff, i + ioff);
+              avg_flx +=
+                  area11 * binfo.var(binfo.dir - 1, t, u, v, k + koff, j, i + ioff);
 
               avg_flx /= area00 + area01 + area10 + area11;
               binfo.buf(idx) = avg_flx;
@@ -119,13 +122,13 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  //return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+  // return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<BoundaryType::flxcor_recv>(
-        md, &(pmesh->boundary_comm_map), &cache, ReceiveKey, false);
+    InitializeBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_map),
+                                                     &cache, ReceiveKey, false);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -134,14 +137,14 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  //return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+  // return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<BoundaryType::flxcor_recv>(
-        md, &(pmesh->boundary_comm_map), &cache, ReceiveKey, false);
+    InitializeBufferCache<BoundaryType::flxcor_recv>(md, &(pmesh->boundary_comm_map),
+                                                     &cache, ReceiveKey, false);
 
   bool all_received = true;
   std::for_each(
@@ -153,7 +156,7 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
-  //return SetBounds<BoundaryType::flxcor_recv>(md);
+  // return SetBounds<BoundaryType::flxcor_recv>(md);
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -177,7 +180,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
         Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, idxer.size()),
                              [&](const int idx) {
                                const auto [t, u, v, k, j, i] = idxer(idx);
-                               bnd_info(b).var(bnd_info(b).dir - 1, t, u, v, k, j, i) = bnd_info(b).buf(idx);
+                               bnd_info(b).var(bnd_info(b).dir - 1, t, u, v, k, j, i) =
+                                   bnd_info(b).buf(idx);
                              });
       });
 #ifdef MPI_PARALLEL

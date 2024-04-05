@@ -124,7 +124,8 @@ class MeshBlockData {
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
   std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
-    PARTHENON_REQUIRE(varMap_.count(label), "Asking for variable " + label + " that is not in this MeshBlockData.");
+    PARTHENON_REQUIRE(varMap_.count(label), "Asking for variable " + label +
+                                                " that is not in this MeshBlockData.");
     return varMap_.at(label);
   }
   std::shared_ptr<Variable<T>> GetVarPtr(const Uid_t &uid) const {
@@ -196,14 +197,17 @@ class MeshBlockData {
   }
 
   std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids = {}, bool flux = false) {
+                                     const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
     return GetVariablesByName(names, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
-                                     const std::vector<int> &sparse_ids = {}, bool flux = false) {
+                                     const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
     return GetVariablesByFlag(flags, sparse_ids, flux).unique_ids();
   }
-  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}, bool flux = false) {
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
     return GetAllVariables(sparse_ids, flux).unique_ids();
   }
 

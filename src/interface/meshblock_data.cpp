@@ -88,7 +88,7 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
   SetBlockPointer(src);
   resolved_packages_ = src->resolved_packages_;
   is_shallow_ = shallow_copy;
-  
+
   // clear all variables, maps, and pack caches
   varVector_.clear();
   varMap_.clear();
@@ -97,7 +97,7 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
   varPackMap_.clear();
   coarseVarPackMap_.clear();
   varFluxPackMap_.clear();
-  
+
   auto add_var = [=](auto var) {
     if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
       Add(var);
@@ -108,7 +108,8 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
 
   // special case when the list of names is empty, copy everything
   if (names.empty()) {
-    for (auto v : src->GetVariableVector()) add_var(v);
+    for (auto v : src->GetVariableVector())
+      add_var(v);
   } else {
     auto &var_map = src->GetVariableMap();
     for (const auto &name : names) {
@@ -231,8 +232,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids, true), map,
-                                      key);
+                                      GetVariablesByName(flx_names, sparse_ids, true),
+                                      map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -241,7 +242,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
-                                      GetVariablesByFlag(flags, sparse_ids, true), map, key);
+                                      GetVariablesByFlag(flags, sparse_ids, true), map,
+                                      key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -293,12 +295,12 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
-      if (flux) { 
+      if (flux) {
         const auto &vf = varMap_.at(v->metadata().GetFluxName());
         var_list.Add(vf, sparse_ids_set);
       } else {
         var_list.Add(v, sparse_ids_set);
-      }     
+      }
     } else if ((resolved_packages_ != nullptr) &&
                (resolved_packages_->SparseBaseNamePresent(name))) {
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
@@ -307,12 +309,12 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-        if (flux) { 
+        if (flux) {
           const auto &vf = varMap_.at(v->metadata().GetFluxName());
           var_list.Add(vf, sparse_ids_set);
         } else {
           var_list.Add(v, sparse_ids_set);
-        } 
+        }
       }
     }
   }
@@ -344,12 +346,12 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   auto vars = MetadataUtils::GetByFlag<VariableSet<T>>(flags, varMap_, flagsToVars_);
 
   for (auto &v : vars) {
-    if (flux) { 
+    if (flux) {
       const auto &vf = varMap_.at(v->metadata().GetFluxName());
       var_list.Add(vf, sparse_ids_set);
     } else {
       var_list.Add(v, sparse_ids_set);
-    } 
+    }
   }
 
   return var_list;
@@ -361,7 +363,7 @@ MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux) {
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
     auto v = GetVarPtr(i);
-    if (flux) { 
+    if (flux) {
       const auto &vf = varMap_.at(v->metadata().GetFluxName());
       var_list.Add(vf);
     } else {

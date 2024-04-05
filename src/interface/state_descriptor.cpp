@@ -271,14 +271,17 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
   if (FieldPresent(vid.label()) || SparseBaseNamePresent(vid.label())) {
     return false; // this field has already been added
   } else {
-    if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") { 
+    if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
       std::vector<MetadataFlag> mFlags = {Metadata::OneCopy, Metadata::Flux};
       if (m.IsSet(Metadata::Sparse)) mFlags.push_back(Metadata::Sparse);
-      if (m.IsSet(Metadata::Cell)) mFlags.push_back(Metadata::Face);
-      else if (m.IsSet(Metadata::Face)) mFlags.push_back(Metadata::Edge);
-      else if (m.IsSet(Metadata::Edge)) mFlags.push_back(Metadata::Node);
+      if (m.IsSet(Metadata::Cell))
+        mFlags.push_back(Metadata::Face);
+      else if (m.IsSet(Metadata::Face))
+        mFlags.push_back(Metadata::Edge);
+      else if (m.IsSet(Metadata::Edge))
+        mFlags.push_back(Metadata::Node);
       Metadata mf(mFlags, m.Shape());
-      auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id}; 
+      auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
     }

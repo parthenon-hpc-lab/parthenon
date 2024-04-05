@@ -62,7 +62,7 @@ struct NeighborBlock {
   CellCentOffsets offsets;
   // Ownership of neighbor block of different topological elements
   block_ownership_t ownership;
-  // Information about relative orientation 
+  // Information about relative orientation
   forest::RelativeOrientation orient;
 
   NeighborBlock();

@@ -119,10 +119,8 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   all_caches.clear();
 
   BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map);
-  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md,
-                                                       pmesh->boundary_comm_map);
-  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md,
-                                                       pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md, pmesh->boundary_comm_map);
 
   return TaskStatus::complete;
 }

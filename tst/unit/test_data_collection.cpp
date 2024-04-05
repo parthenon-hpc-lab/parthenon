@@ -99,7 +99,7 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       THEN("Requesting the missing variables should throw") {
         // This no longer call PARTHENON_REQUIRE_THROWS, it just call PARTHENON_REQUIRE
         // since throwing does not work nicely with threads
-        //REQUIRE_THROWS(x->Get("var1"));
+        // REQUIRE_THROWS(x->Get("var1"));
       }
       AND_THEN("Requesting the specified variables should work as expected") {
         auto &xv2 = x->Get("var2").data;

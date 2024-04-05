@@ -71,7 +71,6 @@ std::string Variable<T>::info() {
 // assign them to this variable
 template <typename T>
 void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
-
   if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
       IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
     // no need to check mesh->multilevel, if false, we're just making a shallow copy of

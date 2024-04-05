@@ -327,12 +327,13 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
 
       THEN("A sparse pack correctly reads based on a regex variable") {
-        auto desc =
-            parthenon::MakePackDescriptor<parthenon::variable_names::any_nonflux>(pkg.get());
+        auto desc = parthenon::MakePackDescriptor<parthenon::variable_names::any_nonflux>(
+            pkg.get());
         auto sparse_pack = desc.GetPack(&mesh_data);
 
         auto desc_notype = MakePackDescriptor(
-            pkg.get(), std::vector<std::pair<std::string, bool>>{{"^(?!bnd_flux::).+", true}});
+            pkg.get(),
+            std::vector<std::pair<std::string, bool>>{{"^(?!bnd_flux::).+", true}});
         auto sparse_pack_notype = desc_notype.GetPack(&mesh_data);
         auto pack_map = desc_notype.GetMap();
         parthenon::PackIdx iall(pack_map[".*"]);
@@ -342,8 +343,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check all", DevExecSpace(), 0, NBLOCKS - 1, kb.s,
             kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(b, parthenon::variable_names::any_nonflux());
-              int hi = sparse_pack.GetUpperBound(b, parthenon::variable_names::any_nonflux());
+              int lo =
+                  sparse_pack.GetLowerBound(b, parthenon::variable_names::any_nonflux());
+              int hi =
+                  sparse_pack.GetUpperBound(b, parthenon::variable_names::any_nonflux());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) >
@@ -365,8 +368,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
 
       THEN("A sparse pack built with a subset of blocks is the right size") {
-        auto desc =
-            parthenon::MakePackDescriptor<parthenon::variable_names::any_nonflux>(pkg.get());
+        auto desc = parthenon::MakePackDescriptor<parthenon::variable_names::any_nonflux>(
+            pkg.get());
         std::vector<bool> include_blocks(NBLOCKS);
         for (int i = 0; i < NBLOCKS; i++)
           include_blocks[i] = (i % 2 == 0);
