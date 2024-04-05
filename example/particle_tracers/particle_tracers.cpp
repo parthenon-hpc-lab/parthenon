@@ -265,8 +265,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   auto advected = mbd->Get("advected").data;
 
-  auto x1flux = mbd->Get("advected").flux[X1DIR].Get<4>();
-
+  parthenon::ParArray4D<Real> x1flux = mbd->Get("bnd_flux::advected").data.Get(1, 0, 0);
   // Spatially first order upwind method
   pmb->par_for(
       PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
@@ -280,7 +279,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
       });
 
   if (ndim > 1) {
-    auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
+    parthenon::ParArray4D<Real> x2flux = mbd->Get("bnd_flux::advected").data.Get(1, 0, 0);
     pmb->par_for(
         PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -294,7 +293,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   }
 
   if (ndim > 2) {
-    auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
+    parthenon::ParArray4D<Real> x3flux = mbd->Get("bnd_flux::advected").data.Get(2, 0, 0);
     pmb->par_for(
         PARTHENON_AUTO_LABEL, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
