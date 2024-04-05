@@ -25,19 +25,14 @@ void MeshData<T>::Initialize(const MeshData<T> *src,
   pmy_mesh_ = src->GetParentPointer();
   const int nblocks = src->NumBlocks();
   block_data_.resize(nblocks);
-
+  auto &bl = (src->grid.type == GridType::two_level_composite) ?
+              pmy_mesh_->gmg_block_lists[src->grid.logical_level] :
+              pmy_mesh_->block_list;
   grid = src->grid;
-  if (grid.type == GridType::two_level_composite) {
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] =
-          pmy_mesh_->gmg_block_lists[src->grid.logical_level][i]->meshblock_data.Add(
-              stage_name_, src->GetBlockData(i), names, shallow);
-    }
-  } else {
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
-          stage_name_, src->GetBlockData(i), names, shallow);
-    }
+  PARTHENON_REQUIRE(nblocks == bl.size(), "Somehow these sizes don't agree.");
+  for (int i = 0; i < nblocks; i++) {
+    block_data_[i] = bl[i]->meshblock_data.Add(
+        stage_name_, src->GetBlockData(i), names, shallow);
   }
 }
 
