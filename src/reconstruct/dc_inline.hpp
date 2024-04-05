@@ -33,13 +33,12 @@ template <typename T>
 KOKKOS_FORCEINLINE_FUNCTION void
 DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j, const int il,
             const int iu, const T &q, ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.GetDim(4) - 1;
+  const int nu = q.GetMaxNumberOfVars() - 1;
 
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(
-        member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
+        member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(0, n, k, j, i); });
   }
 }
 
@@ -50,12 +49,11 @@ template <typename T>
 KOKKOS_FORCEINLINE_FUNCTION void
 DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j, const int il,
             const int iu, const T &q, ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.GetDim(4) - 1;
+  const int nu = q.GetMaxNumberOfVars() - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(member, il, iu,
-                             [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
+                             [&](const int i) { ql(n, i) = qr(n, i) = q(0, n, k, j, i); });
   }
 }
 
@@ -66,12 +64,11 @@ template <typename T>
 KOKKOS_FORCEINLINE_FUNCTION void
 DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j, const int il,
             const int iu, const T &q, ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.GetDim(4) - 1;
+  const int nu = q.GetMaxNumberOfVars() - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    if (!q.IsAllocated(n)) continue;
     parthenon::par_for_inner(member, il, iu,
-                             [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
+                             [&](const int i) { ql(n, i) = qr(n, i) = q(0, n, k, j, i); });
   }
 }
 } // namespace parthenon

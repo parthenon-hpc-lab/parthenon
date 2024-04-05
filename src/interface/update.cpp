@@ -62,23 +62,37 @@ template <>
 TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
+  auto pm = in_obj->GetMeshPointer();
   std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
-  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
-  auto dudt = dudt_obj->PackVariables(flags);
+  auto desc = MakePackDescriptor<variable_names::any>(pm->resolved_packages.get(),
+                                 flags, std::set<PDOpt>{PDOpt::WithFluxes});
+  auto v = desc.GetPack(in_obj);
+  auto dudt = desc.GetPack(dudt_obj);
+
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
 
-  const int ndim = vin.GetNdim();
+  const int nblocks = v.GetNBlocks();
+  const int nvars = v.GetMaxNumberOfVars();
+
+  const int ndim = pm->ndim;
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
-      vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nblocks - 1, 0,
+      nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
-          const auto &coords = vin.GetCoords(m);
-          const auto &v = vin(m);
-          dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
+        const auto &coords = v.GetCoordinates(m);
+        Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(m, X1DIR, l, k, j, i + 1) -
+                    coords.FaceArea<X1DIR>(k, j, i) * v.flux(m, X1DIR, l, k, j, i));
+        if (ndim >= 2) {
+          du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(m, X2DIR, l, k, j + 1, i) -
+                  coords.FaceArea<X2DIR>(k, j, i) * v.flux(m, X2DIR, l, k, j, i));
         }
+        if (ndim == 3) {
+          du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(m, X3DIR, l, k + 1, j, i) -
+                  coords.FaceArea<X3DIR>(k, j, i) * v.flux(m, X3DIR, l, k, j, i));
+        }
+        dudt(m, l, k, j, i) = -du / coords.CellVolume(k, j, i);
       });
   return TaskStatus::complete;
 }

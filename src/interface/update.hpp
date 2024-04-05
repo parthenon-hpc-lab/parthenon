@@ -71,19 +71,21 @@ template <typename F, typename T>
 TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
                            T *out) {
   PARTHENON_INSTRUMENT
-  const auto &x = in1->PackVariables(flags);
-  const auto &y = in2->PackVariables(flags);
-  const auto &z = out->PackVariables(flags);
+  auto pm = in1->GetMeshPointer();
+  auto desc = MakePackDescriptor<variable_names::any>(pm->resolved_packages.get(), flags);
+  auto x = desc.GetPack(in1);
+  auto y = desc.GetPack(in2);
+  auto z = desc.GetPack(out);
+  auto num_var = x.GetMaxNumberOfVars();
+  auto num_blocks = x.GetNBlocks();
+  auto ib = in1->GetBoundsI(IndexDomain::entire);
+  auto jb = in1->GetBoundsJ(IndexDomain::entire);
+  auto kb = in1->GetBoundsK(IndexDomain::entire);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, x.GetDim(5) - 1, 0,
-      x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, num_blocks - 1, 0,
+      num_var - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        // TOOD(someone) This is potentially dangerous and/or not intended behavior
-        // as we still may want to update (or populate) z if any of those vars are
-        // not allocated yet.
-        if (x.IsAllocated(b, l) && y.IsAllocated(b, l) && z.IsAllocated(b, l)) {
-          z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
-        }
+        z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
       });
   return TaskStatus::complete;
 }

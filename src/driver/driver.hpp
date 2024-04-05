@@ -38,7 +38,12 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {
+    const int nthreads = pin->GetOrAddInteger("parthenon/driver", "nthreads", 1);
+    printf("Initializing with %d threads...\n", nthreads);
+    pool = std::make_shared<ThreadPool>(nthreads);
+    pm->SetThreadPool(pool);
+  }
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -46,14 +51,15 @@ class Driver {
   ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
+  std::shared_ptr<ThreadPool> pool;
   static double elapsed_main() { return timer_main.seconds(); }
   static double elapsed_cycle() { return timer_cycle.seconds(); }
   static double elapsed_LBandAMR() { return timer_LBandAMR.seconds(); }
 
  protected:
   static Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
-  double time_LBandAMR;
   std::uint64_t mbcnt_prev;
+  double time_LBandAMR;
   virtual void PreExecute();
   virtual void PostExecute(DriverStatus status);
 
@@ -105,7 +111,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   for (auto &pmb : driver->pmesh->block_list) {
     tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(*driver->pool);
   return status;
 }
 
@@ -113,7 +119,7 @@ template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   TaskCollection tc =
       driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(*driver->pool);
   return status;
 }
 

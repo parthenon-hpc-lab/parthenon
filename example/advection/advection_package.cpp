@@ -243,22 +243,23 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   for (int var = 1; var < num_vars; ++var) {
     vars.push_back("advected_" + std::to_string(var));
   }
-  // type is parthenon::VariablePack<Variable<Real>>
-  auto v = rc->PackVariables(vars);
+  auto desc = parthenon::MakePackDescriptor(pmb->resolved_packages.get(), vars);
+  auto v = desc.GetPack(rc);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+    parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 
+    0, v.GetMaxNumberOfVars() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
-            (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+            (v(0, n, k, j, i) < lminmax.min_val ? v(0, n, k, j, i) : lminmax.min_val);
         lminmax.max_val =
-            (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
+            (v(0, n, k, j, i) > lminmax.max_val ? v(0, n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
@@ -283,16 +284,18 @@ void PreFill(MeshBlockData<Real> *rc) {
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars({"advected", "one_minus_advected"});
-    PackIndexMap imap;
-    const auto &v = rc->PackVariables(vars, imap);
+    auto desc = parthenon::MakePackDescriptor(pmb->resolved_packages.get(), vars);
+    auto v = desc.GetPack(rc);
+    auto imap = desc.GetMap();
 
-    const int in = imap.get("advected").first;
-    const int out = imap.get("one_minus_advected").first;
+    const int in = imap["advected"];
+    const int out = imap["one_minus_advected"];
     const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
+          v(0, out + n, k, j, i) = 1.0 - v(0, in + n, k, j, i);
         });
   }
 }
@@ -307,16 +310,19 @@ void SquareIt(MeshBlockData<Real> *rc) {
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  PackIndexMap imap;
-  const auto &v = rc->PackVariables(vars, imap);
+  auto desc = parthenon::MakePackDescriptor(pmb->resolved_packages.get(), vars);
+  auto v = desc.GetPack(rc);
+  auto imap = desc.GetMap();
 
-  const int in = imap.get("one_minus_advected").first;
-  const int out = imap.get("one_minus_advected_sq").first;
+
+  const int in = imap["one_minus_advected"];
+  const int out = imap["one_minus_advected_sq"];
   const auto num_vars = rc->Get("advected").data.GetDim(4);
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
+        v(0, out + n, k, j, i) = v(0, in + n, k, j, i) * v(0, in + n, k, j, i);
       });
 
   // The following block/logic is also just added for regression testing.
@@ -330,8 +336,9 @@ void SquareIt(MeshBlockData<Real> *rc) {
   const auto &profile = pkg->Param<std::string>("profile");
   if (profile == "smooth_gaussian") {
     const auto &advected = rc->Get("advected").data;
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
                             "Advected not properly initialized.");
@@ -355,19 +362,21 @@ void PostFill(MeshBlockData<Real> *rc) {
     pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
-    std::vector<std::string> vars(
-        {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    PackIndexMap imap;
-    const auto &v = rc->PackVariables(vars, imap);
+    std::vector<std::pair<std::string, bool>> vars(
+        {{"one_minus_advected_sq", false}, {"one_minus_sqrt_one_minus_advected_sq*", true}});
+    auto desc = parthenon::MakePackDescriptor(pmb->resolved_packages.get(), vars);
+    auto v = desc.GetPack(rc);
+    auto imap = desc.GetMap();
 
-    const int in = imap.get("one_minus_advected_sq").first;
+    const int in = imap["one_minus_advected_sq"];
     // we can get sparse fields either by specifying base name and sparse id, or the full
     // name
-    const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq", 12).first;
-    const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
+    const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"];
+    const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"];
     const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
           v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
@@ -390,7 +399,8 @@ Real AdvectionHst(MeshData<Real> *md) {
 
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
-  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
+  auto desc = parthenon::MakePackDescriptor(pmb->resolved_packages.get(), std::vector<std::string>{"advected"});
+  auto advected_pack = desc.GetPack(md);
 
   Real result = 0.0;
   T reducer(result);
@@ -400,11 +410,11 @@ Real AdvectionHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, advected_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
-        const auto &coords = advected_pack.GetCoords(b);
+        const auto &coords = advected_pack.GetCoordinates(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
         const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
@@ -432,8 +442,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
@@ -465,22 +476,28 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  PackIndexMap index_map;
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes},
-                                      index_map);
-
-  // For non constant velocity, we need the index of the velocity vector as it's part of
-  // the variable pack.
-  const auto idx_v = index_map["v"].first;
-  const auto v_const = idx_v < 0; // using "at own perill" magic number
+  auto desc = parthenon::MakePackDescriptor<parthenon::variable_names::any>(pmb->resolved_packages.get(),
+                                            std::vector<MetadataFlag>{Metadata::WithFluxes},
+                                            std::set<parthenon::PDOpt>{parthenon::PDOpt::WithFluxes});
+  auto v = desc.GetPack(rc.get());
+  //auto imap = desc.GetMap();
+  int idx_v;
+  bool v_const;
+  //if (imap.count("v") > 0) {
+    //idx_v = imap["v"];
+  //  v_const = false;
+  //} else {
+    v_const = true;
+  //}
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
-  const int nvar = v.GetDim(4);
+  const int nvar = v.GetMaxNumberOfVars();
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
-  pmb->par_for_outer(
-      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
       jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
@@ -512,8 +529,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
         jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -555,8 +573,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
         jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept

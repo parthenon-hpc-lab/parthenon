@@ -44,9 +44,14 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
+static std::array<std::mutex, 2 * NUM_BNDRY_TYPES> mutex;
+
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
+
+  int mutex_id = 2 * static_cast<int>(bound_type) + 1;
+  mutex[mutex_id].lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
@@ -59,9 +64,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
   if (nbound == 0) {
+    mutex[mutex_id].unlock();
     return TaskStatus::complete;
   }
   if (other_communication_unfinished) {
+    mutex[mutex_id].unlock();
     return TaskStatus::incomplete;
   }
 
@@ -77,6 +84,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                            ProResInfo::GetSend);
     }
   }
+
+  mutex[mutex_id].unlock();
+
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   StateDescriptor *resolved_packages = pmb->resolved_packages.get();
@@ -165,11 +175,16 @@ SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>>
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
+
+  int mutex_id = 2 * static_cast<int>(bound_type);
+  mutex[mutex_id].lock();
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
+  mutex[mutex_id].unlock();
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -192,11 +207,15 @@ template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
+  int mutex_id = 2 * static_cast<int>(bound_type);
+  mutex[mutex_id].lock();
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
+  mutex[mutex_id].unlock();
 
   bool all_received = true;
   std::for_each(
@@ -240,6 +259,9 @@ template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
+  int mutex_id = 2 * static_cast<int>(bound_type);
+  mutex[mutex_id].lock();
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
@@ -257,6 +279,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                             ProResInfo::GetSet);
     }
   }
+
+  mutex[mutex_id].unlock();
+
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
@@ -333,6 +358,9 @@ template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
+  int mutex_id = 2 * static_cast<int>(bound_type);
+  mutex[mutex_id].lock();
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
@@ -350,6 +378,7 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
                                             ProResInfo::GetSet);
     }
   }
+  mutex[mutex_id].unlock();
 
   if (nbound > 0 && pmesh->multilevel) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
