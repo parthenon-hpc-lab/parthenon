@@ -97,7 +97,9 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
           KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
       auto x = d.Add("part", mbd, {"var2", "var3"});
       THEN("Requesting the missing variables should throw") {
-        REQUIRE_THROWS(x->Get("var1"));
+        // This no longer call PARTHENON_REQUIRE_THROWS, it just call PARTHENON_REQUIRE
+        // since throwing does not work nicely with threads
+        //REQUIRE_THROWS(x->Get("var1"));
       }
       AND_THEN("Requesting the specified variables should work as expected") {
         auto &xv2 = x->Get("var2").data;
