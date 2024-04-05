@@ -224,8 +224,8 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     if (IsSet(Cell)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
     } else if (IsSet(Face) && IsSet(Flux)) {
-      arrDims[MAX_VARIABLE_DIMENSION - 1] =
-          3; // 3 directions but keep the same ijk shape as cell var
+      // 3 directions but keep the same ijk shape as cell var for performance
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
     } else if (IsSet(Face) || IsSet(Edge)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
       arrDims[0]++;
