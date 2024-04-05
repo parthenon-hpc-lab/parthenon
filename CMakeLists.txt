@@ -202,8 +202,8 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-add_compile_options(-fsanitize=thread)
-add_link_options(-fsanitize=thread)
+#add_compile_options(-fsanitize=thread)
+#add_link_options(-fsanitize=thread)
 
 option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)

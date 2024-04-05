@@ -321,8 +321,8 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
-add_compile_options(-fsanitize=thread)
-add_link_options(-fsanitize=thread)
+#add_compile_options(-fsanitize=thread)
+#add_link_options(-fsanitize=thread)
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 

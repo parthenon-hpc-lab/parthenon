@@ -251,8 +251,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, v.GetMaxNumberOfVars() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+    parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 
+    0, v.GetMaxNumberOfVars() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
@@ -290,8 +291,9 @@ void PreFill(MeshBlockData<Real> *rc) {
     const int in = imap["advected"];
     const int out = imap["one_minus_advected"];
     const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(0, out + n, k, j, i) = 1.0 - v(0, in + n, k, j, i);
         });
@@ -316,8 +318,9 @@ void SquareIt(MeshBlockData<Real> *rc) {
   const int in = imap["one_minus_advected"];
   const int out = imap["one_minus_advected_sq"];
   const auto num_vars = rc->Get("advected").data.GetDim(4);
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         v(0, out + n, k, j, i) = v(0, in + n, k, j, i) * v(0, in + n, k, j, i);
       });
@@ -333,8 +336,9 @@ void SquareIt(MeshBlockData<Real> *rc) {
   const auto &profile = pkg->Param<std::string>("profile");
   if (profile == "smooth_gaussian") {
     const auto &advected = rc->Get("advected").data;
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
                             "Advected not properly initialized.");
@@ -370,8 +374,9 @@ void PostFill(MeshBlockData<Real> *rc) {
     const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"];
     const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"];
     const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
           v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
@@ -405,9 +410,9 @@ Real AdvectionHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, advected_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, advected_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
         const auto &coords = advected_pack.GetCoordinates(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
@@ -437,8 +442,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
@@ -489,8 +495,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int nvar = v.GetMaxNumberOfVars();
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
-  pmb->par_for_outer(
-      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
       jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
@@ -522,8 +529,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
         jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -565,8 +573,9 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
+        3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
         jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept

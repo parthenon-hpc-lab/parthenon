@@ -27,8 +27,8 @@
 #include <basic_types.hpp>
 #include <parthenon_mpi.hpp>
 
-#include "thread_pool.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/thread_pool.hpp"
 
 namespace parthenon {
 
