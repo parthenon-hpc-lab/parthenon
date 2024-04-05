@@ -357,7 +357,7 @@ class MGSolver {
     bool multilevel = (level != min_level);
 
     auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
-    std::string label = "comm_" + std::to_string(level) + "_" + std::to_string(partition);
+    std::string label = "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
     auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(
         label, md, std::vector<std::string>{u::name(), res_err::name()});
 
@@ -457,7 +457,7 @@ class MGSolver {
       copy_over = tl.AddTask(copy_over, CopyData<u, temp, false>, md);
       copy_over = tl.AddTask(copy_over, CopyData<res_err, u, false>, md);
       auto boundary =
-          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
+          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md_comm, multilevel);
       auto copy_back = tl.AddTask(boundary, CopyData<u, res_err, true>, md);
       copy_back = tl.AddTask(copy_back, CopyData<temp, u, false>, md);
       last_task =
