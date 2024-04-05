@@ -79,7 +79,8 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
 
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores, std::array<int, 3> tensor_shape) {
+                                     bool prores, std::array<int, 3> tensor_shape,
+                                     bool cell_flux = false) {
   const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
@@ -169,11 +170,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
+      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir] + cell_flux;
       e[dir] = bounds[dir].e + exterior_offset;
     } else {
       s[dir] = bounds[dir].s - exterior_offset;
-      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir];
+      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir] - cell_flux;
     }
   }
 
@@ -235,13 +236,15 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   int Nt = v->GetDim(6);
   int mylevel = pmb->loc.level();
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+    out.idxer[idx] =
+        CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv}, cell_flux);
   }
   if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
@@ -275,13 +278,15 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   int mylevel = pmb->loc.level();
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+    out.idxer[idx] =
+        CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv}, cell_flux);
   }
   if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
@@ -315,11 +320,12 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   out.coarse = v->coarse_s.Get();
   NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
+    out.idxer[static_cast<int>(el)] = CalcIndices(
+        nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv}, cell_flux);
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -346,11 +352,12 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   out.coarse = v->coarse_s.Get();
   NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
+    out.idxer[static_cast<int>(el)] = CalcIndices(
+        nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv}, cell_flux);
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
@@ -375,12 +382,14 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   out.fine = v->data.Get();
   out.coarse = v->coarse_s.Get();
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   if (nb.loc.level() < mylevel) {
     for (auto el : elements) {
-      out.idxer[static_cast<int>(el)] = CalcIndices(
-          nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true,
+                      {Nt, Nu, Nv}, cell_flux);
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -412,6 +421,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
     }
   }
 
+  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   for (auto el : elements) {
@@ -420,8 +430,9 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
     } else {
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.idxer[static_cast<int>(el)] = CalcIndices(
-            nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+        out.idxer[static_cast<int>(el)] =
+            CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true,
+                        {Nt, Nu, Nv}, cell_flux);
       }
     }
   }
@@ -437,8 +448,9 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.loc.level() < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-      out.idxer[static_cast<int>(el)] = CalcIndices(
-          nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true,
+                      {Nt, Nu, Nv}, cell_flux);
   }
   return out;
 }
