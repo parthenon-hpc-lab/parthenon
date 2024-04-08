@@ -299,31 +299,30 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   return out;
 }
 
+ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v) {
+  allocated = v->IsAllocated();
+  alloc_status = v->GetAllocationStatus();
+  ntopological_elements = v->GetTopologicalElements().size(); 
+  coords = pmb->coords;
+
+  if (pmb->pmr) coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  fine = v->data.Get();
+  coarse = v->coarse_s.Get();
+}
+
 ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
-
   bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
     out.idxer[static_cast<int>(el)] = CalcIndices(
         nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv}, cell_flux);
   }

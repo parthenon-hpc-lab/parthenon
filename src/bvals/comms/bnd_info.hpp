@@ -90,7 +90,8 @@ struct ProResInfo {
 
   ProResInfo() = default;
   ProResInfo(const ProResInfo &) = default;
-
+  ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                            std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static ProResInfo GetNull(MeshBlock *pmb, const NeighborBlock &nb,
