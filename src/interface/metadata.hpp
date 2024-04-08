@@ -348,6 +348,21 @@ class Metadata {
   }
   static int num_flags;
 
+  static std::string LocationToString(MetadataFlag flag) {
+    if (flag == Cell) {
+      return "Cell";
+    } else if (flag == Face) {
+      return "Face";
+    } else if (flag == Edge) {
+      return "Edge";
+    } else if (flag == Node) {
+      return "Node";
+    } else if (flag == None) {
+      return "None";
+    }
+    PARTHENON_THROW("Unknown topology flag");
+  }
+
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
                            parthenon::Real default_val = 0.0) {
@@ -447,6 +462,7 @@ class Metadata {
 
     PARTHENON_THROW("No topology flag set");
   }
+  std::string WhereAsString() const { return LocationToString(Where()); }
 
   bool IsMeshTied() const { return (Where() != None); }
 
