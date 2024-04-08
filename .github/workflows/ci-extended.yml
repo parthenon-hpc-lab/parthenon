@@ -85,7 +85,7 @@ jobs:
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           mpirun -np 2 ../../build-ascent/example/advection/advection-example \
             -i parthinput.advection \
-            parthenon/output4/dt=0.05 \
+            parthenon/output5/dt=0.05 \
             parthenon/time/tlim=0.1
           # check if file exists
           test -f ascent_render_57.png
