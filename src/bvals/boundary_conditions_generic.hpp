@@ -62,15 +62,13 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          // printf("ACTIVE! %i\n", n);
           if (X1) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
                 // TODO(BRR) need to switch INNER/OUTER logic for periodic BCs because
-                // this is after send/recv?
+                // this is after send/recv? Do both to be general?
                 if (x(n) < swarm_d.x_min_global_) {
                   x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
-                  printf("new x!\n", x(n));
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (x(n) < swarm_d.x_min_global_) {

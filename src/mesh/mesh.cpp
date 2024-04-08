@@ -1205,7 +1205,6 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
     auto bcs = forest.GetBlockBCs(loc);
     for (int i = 0; i < BOUNDARY_NFACES; ++i) {
       block_bcs[i] = bcs[i];
-      printf("bc[%i]: %i\n", i, static_cast<int>(block_bcs[i]));
     }
     return valid_region;
   }
