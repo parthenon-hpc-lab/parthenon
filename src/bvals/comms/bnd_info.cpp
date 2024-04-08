@@ -170,11 +170,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir] + cell_flux;
+      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
       e[dir] = bounds[dir].e + exterior_offset;
     } else {
       s[dir] = bounds[dir].s - exterior_offset;
-      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir] - cell_flux;
+      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir];
     }
   }
 
