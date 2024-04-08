@@ -49,11 +49,13 @@ struct BoundaryDeviceContext {
 
 // This class is returned by AddEmptyParticles. It provides accessors to the new particle
 // memory by wrapping the persistent new_indices_ array.
-static ParArray1D<int> npc_null;
 class NewParticlesContext {
  public:
-  NewParticlesContext(const int new_indices_max_idx = -1,
-                      const ParArray1D<int> new_indices = npc_null)
+  KOKKOS_DEFAULTED_FUNCTION
+  NewParticlesContext() = default;
+
+  KOKKOS_FUNCTION
+  NewParticlesContext(const int new_indices_max_idx, const ParArray1D<int> new_indices)
       : new_indices_max_idx_(new_indices_max_idx), new_indices_(new_indices) {}
 
   // Return the maximum index of the contiguous block of new particle indices.
