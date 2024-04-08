@@ -374,18 +374,12 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
 
 ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  ProResInfo out(pmb, nb, v);
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
   int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
 
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
@@ -398,9 +392,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   }
 
   bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
     if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
