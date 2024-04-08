@@ -332,28 +332,15 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 
 ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
   int Nt = v->GetDim(6);
 
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
-
   bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] = CalcIndices(
         nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv}, cell_flux);
@@ -363,10 +350,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
 
 ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
   int Nv = v->GetDim(4);
@@ -374,18 +358,11 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   int Nt = v->GetDim(6);
 
   int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
 
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
 
   bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
   if (nb.loc.level() < mylevel) {
-    for (auto el : elements) {
+    for (auto el : v->GetTopologicalElements()) {
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true,
                       {Nt, Nu, Nv}, cell_flux);
