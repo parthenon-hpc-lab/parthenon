@@ -77,6 +77,39 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
   }
 }
 
+// Determines which topological elements need to be restricted and communicated for flux correction, which only occurs 
+// on shared elements between two blocks
+std::vector<TopologicalElement> GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v, const CellCentOffsets &offsets) { 
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements;
+  if (v->IsSet(Metadata::Face)) {
+    if (offsets.IsFace()) {
+      if (std::abs(offsets(X1DIR))) elements = {TE::F1};
+      if (std::abs(offsets(X2DIR))) elements = {TE::F2};
+      if (std::abs(offsets(X3DIR))) elements = {TE::F3};
+    } else {
+      PARTHENON_FAIL("Flux correction for face fluxes only occurs on shared faces.");
+    }
+  } else if (v->IsSet(Metadata::Edge)) { 
+    if (offsets.IsFace()) { 
+      if (std::abs(offsets(X1DIR))) elements = {TE::E2, TE::E3};
+      if (std::abs(offsets(X2DIR))) elements = {TE::E3, TE::E1};
+      if (std::abs(offsets(X3DIR))) elements = {TE::E1, TE::E2};
+    } else if (offsets.IsEdge()) { 
+      if (offsets(X1DIR) == 0) elements = {TE::E1};
+      if (offsets(X2DIR) == 0) elements = {TE::E2};
+      if (offsets(X3DIR) == 0) elements = {TE::E3};
+    } else { 
+      PARTHENON_FAIL("Flux correction for edge fluxes only occurs on shared faces and edges.");
+    }
+  } else if (v->IsSet(Metadata::Node)) { 
+    elements = {TE::NN};
+  } else {
+    PARTHENON_FAIL("Only faces, edges, and nodes can be fluxes.");
+  }
+  return elements; 
+}
+
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      const std::shared_ptr<Variable<Real>> &v,
                                      TopologicalElement el, IndexRangeType ir_type,
@@ -249,15 +282,11 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
+  
   auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = v->GetTopologicalElements().size();
-  using TE = TopologicalElement;
-  if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
-    out.ntopological_elements = 1;
-    if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
-    if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
-    if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
-  }
+  if (v->IsSet(Metadata::Flux))
+    elements = GetFluxCorrectionElements(v, nb.offsets);
+  out.ntopological_elements = elements.size();
 
   int idx{0};
   for (auto el : elements) {
@@ -287,14 +316,10 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
 
   auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = v->GetTopologicalElements().size();
-  using TE = TopologicalElement;
-  if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
-    out.ntopological_elements = 1;
-    if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
-    if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
-    if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
-  }
+  if (v->IsSet(Metadata::Flux))
+    elements = GetFluxCorrectionElements(v, nb.offsets);
+  out.ntopological_elements = elements.size();
+
   int idx{0};
   for (auto el : elements) {
     out.topo_idx[idx] = static_cast<int>(el) % 3;
@@ -354,11 +379,8 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
 
   if (nb.loc.level() < pmb->loc.level()) {
     auto elements = v->GetTopologicalElements();
-    if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
-      if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
-      if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
-      if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
-    }
+    if (v->IsSet(Metadata::Flux))
+      elements = GetFluxCorrectionElements(v, nb.offsets);
     for (auto el : elements) {
       out.include_el[static_cast<int>(el)] = true;
       out.idxer[static_cast<int>(el)] =

@@ -143,14 +143,21 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
               if (nb.loc.level() != pmb->loc.level() - 1) continue;
-              // No flux correction required unless boundaries share a face
-              if (!nb.offsets.IsFace()) continue;
+              bool correct = false;
+              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) && v->IsSet(Metadata::Edge)) correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) && v->IsSet(Metadata::Node)) correct = true;
+              if (!correct) continue;
             } else if constexpr (bound == BoundaryType::flxcor_recv) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
               if (nb.loc.level() - 1 != pmb->loc.level()) continue;
               // No flux correction required unless boundaries share a face
-              if (!nb.offsets.IsFace()) continue;
+              bool correct = false;
+              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) && v->IsSet(Metadata::Edge)) correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) && v->IsSet(Metadata::Node)) correct = true;
+              if (!correct) continue;
             }
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
