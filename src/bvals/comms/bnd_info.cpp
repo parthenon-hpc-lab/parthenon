@@ -351,9 +351,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int mylevel = pmb->loc.level();
-
-  if (nb.loc.level() < mylevel) {
+  if (nb.loc.level() < pmb->loc.level()) {
     auto elements = v->GetTopologicalElements();
     if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
       if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
@@ -364,8 +362,8 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
       out.include_el[static_cast<int>(el)] = true;
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryInteriorSend, true);
-      out.refinement_op = RefinementOp_t::Restriction;
     }
+    out.refinement_op = RefinementOp_t::Restriction;
   }
   return out;
 }
@@ -374,12 +372,11 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
 
-  int mylevel = pmb->loc.level();
-
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
   // regions that were filled by coarser neighbors
   bool restricted = false;
+  int mylevel = pmb->loc.level();
   if (mylevel > 0) {
     for (const auto &nb : pmb->neighbors) {
       restricted = restricted || (nb.loc.level() == (mylevel - 1));
