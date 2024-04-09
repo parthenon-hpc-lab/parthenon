@@ -223,43 +223,44 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
          v->GetDim(5) * v->GetDim(4) * topo_comp;
 }
 
+BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                 std::shared_ptr<Variable<Real>> v) {
+  allocated = v->IsAllocated();
+  alloc_status = v->GetAllocationStatus();
+  ntopological_elements = v->GetTopologicalElements().size(); 
+  orient = nb.orient;
+  if (nb.loc.level() < pmb->loc.level()) {
+    var = v->coarse_s.Get();
+  } else {
+    var = v->data.Get();
+  }
+  orient = nb.orient;
+  orient.ncells = var.GetDim(1);
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  BndInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
   out.buf = buf->buffer();
 
-  int mylevel = pmb->loc.level();
-
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
   }
-  if (nb.loc.level() < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-  out.orient = nb.orient;
-  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
 BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
+  BndInfo out(pmb, nb, v);
+
   out.buf = buf->buffer();
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
@@ -269,28 +270,14 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
 
-  int mylevel = pmb->loc.level();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
   }
-  if (nb.loc.level() < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-
-  out.orient = nb.orient;
-  out.orient.ncells = out.var.GetDim(1);
   return out;
 }
 
