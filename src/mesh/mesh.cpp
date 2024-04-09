@@ -32,7 +32,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <omp.h>
 
 #include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
@@ -1012,19 +1011,35 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
 
-#if 0
-/// COMBINED! 
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "###: Combined!!! ###" << std::endl;
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
     std::int64_t send_iters = 0;
+    do {
+      all_sent = true;
+      for (int i = 0; i < num_partitions; i++) {
+        auto &md = mesh_data.GetOrAdd("base", i);
+        if (!sent[i]) {
+          if (SendBoundaryBuffers(md) != TaskStatus::complete) {
+            all_sent = false;
+          } else {
+            sent[i] = true;
+          }
+        }
+      }
+      send_iters++;
+    } while (!all_sent && send_iters < max_it);
+    PARTHENON_REQUIRE(
+        send_iters < max_it,
+        "Too many iterations waiting to send boundary communication buffers.");
+
+    // wait to receive FillGhost variables
+    // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
+    // https://github.com/lanl/parthenon/issues/418
     std::vector<bool> received(num_partitions, false);
     bool all_received;
     std::int64_t receive_iters = 0;
     do {
-      all_sent = true;
-      all_received = true; 
+      all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
         if (!received[i]) {
@@ -1034,124 +1049,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
             received[i] = true;
           }
         }
-        if (!sent[i]) {
-          if (SendBoundaryBuffers(md) != TaskStatus::complete) {
-            all_sent = false;
-          } else {
-            sent[i] = true;
-          }
-        }
-      }
-      send_iters++; receive_iters++;
-    } while ((!all_sent && send_iters < max_it) && (!all_received && receive_iters < max_it));
-    PARTHENON_REQUIRE(
-        send_iters < max_it,
-        "Too many iterations waiting to send boundary communication buffers.");
-
-    PARTHENON_REQUIRE(
-        receive_iters < max_it,
-        "Too many iterations waiting to receive boundary communication buffers.");
-
-#endif 
-
-//omp_set_num_threads(
-#pragma omp parallel default(none)
-{
-  #pragma omp single 
-  {
-    #pragma omp task
-    {
-      printf("Hello there from task 1\n");
-    }
-    #pragma omp task
-    {
-      printf("Hello there from task 2\n");
-    }
-  }
-}
-
-#if 1
-//omp_set_num_threads(2);
-//std::vector<bool> sent(num_partitions, false);
-//std::vector<bool> received(num_partitions, false);
-#pragma omp parallel default(none) shared(num_partitions) //shared(sent,received)
-{
-  #pragma omp single 
-  {
-    #pragma omp task
-    {
-    std::vector<bool> sent(num_partitions, false);
-    bool all_sent;
-    std::int64_t send_iters = 0;
-    do {
-      all_sent = true;
-      for (int i = 0; i < num_partitions; i++) {
-         //printf("in send()\n");
-         std::shared_ptr<MeshData<Real>> mdsend(nullptr);
-         #pragma omp critical 
-         {
-          //printf("sending(%d) of %d\n", i, num_partitions);
-          mdsend = mesh_data.GetOrAdd("base", i);
-         
-          if (!sent[i]) {
-            //if (true) { 
-            if (SendBoundaryBuffers(mdsend) != TaskStatus::complete) {
-              all_sent = false;
-            } else {
-              sent[i] = true;
-            }
-          }
-         }
-        //printf("next sending all_sent:%d, send_iters:%li, max_it:%li\n", all_sent, send_iters, max_it);
-      }
-      send_iters++;
-    } while (!all_sent && send_iters < max_it);
-    PARTHENON_REQUIRE(
-        send_iters < max_it,
-        "Too many iterations waiting to send boundary communication buffers.");
-    }
-    // wait to receive FillGhost variables
-    // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
-    // https://github.com/lanl/parthenon/issues/418
-    #pragma omp task 
-    {
-  
-    bool all_received;
-    std::int64_t receive_iters = 0;
-    do {
-      std::vector<bool> received(num_partitions, false);
-      all_received = true;
-      for (int i = 0; i < num_partitions; i++) {
-         //printf("in receiving()\n");
-
-         //std::cout << "receiving(i)" << i << std::endl;
-         std::shared_ptr<MeshData<Real>> mdrecv(nullptr);
-         #pragma omp critical 
-         { 
-          //printf("receiving(%d) of %d\n", i, num_partitions);
-          mdrecv = mesh_data.GetOrAdd("base", i);
-         
-          if (!received[i]) {
-            //if (true) { 
-            if (ReceiveBoundaryBuffers(mdrecv) != TaskStatus::complete) {
-              all_received = false;
-            } else {
-              received[i] = true;
-            }
-          }
-         }
-        //printf("next receiving all_received:%d, receive_iters:%li, max_it:%li\n", all_received, receive_iters, max_it);
       }
       receive_iters++;
     } while (!all_received && receive_iters < max_it);
     PARTHENON_REQUIRE(
         receive_iters < max_it,
         "Too many iterations waiting to receive boundary communication buffers.");
-    }
-  }//#pragma omp taskwait 
-}
-//exit(0);
-#endif 
 
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);

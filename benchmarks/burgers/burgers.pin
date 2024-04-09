@@ -23,7 +23,6 @@ nghost = 4
 refinement = adaptive
 numlevel = 2
 deref_count = 10
-pack_size = 1
 
 nx1 = 128
 x1min = -0.5

@@ -57,7 +57,7 @@ option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kern
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
-option(ENABLE_OPENMP "Enable OpenMP with/without kokkos OpenMP" OFF)
+
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
@@ -125,13 +125,6 @@ if (NOT PARTHENON_DISABLE_MPI)
     "If you want to build Parthenon without MPI, please rerun CMake with -DPARTHENON_DISABLE_MPI=ON")
   endif()
   set(ENABLE_MPI ON)
-endif()
-
-if(ENABLE_OPENMP) 
-  find_package(OpenMP REQUIRED)
-  if(NOT OpenMP_CXX_FOUND) 
-    message(FATAL_ERROR "OPENMP requested but couldn't be found. ")
-  endif()
 endif()
 
 set(ENABLE_SPARSE ON)
