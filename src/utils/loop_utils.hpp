@@ -133,30 +133,15 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank != Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::nonlocal) {
-              if (!v->IsSet(Metadata::FillGhost)) {
-                continue;
-              }
+              if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
-            } else if constexpr (bound == BoundaryType::flxcor_send) {
+            } else if constexpr (bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
-              if (nb.loc.level() != pmb->loc.level() - 1) continue;
-              bool correct = false;
-              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&
-                  v->IsSet(Metadata::Edge))
-                correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) &&
-                  v->IsSet(Metadata::Node))
-                correct = true;
-              if (!correct) continue;
-            } else if constexpr (bound == BoundaryType::flxcor_recv) {
-              if (!v->IsSet(Metadata::Flux)) continue;
-              // Check if this boundary requires flux correction
-              if (nb.loc.level() - 1 != pmb->loc.level()) continue;
-              // No flux correction required unless boundaries share a face
+              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) 
+                  != pmb->loc.level() - (bound == BoundaryType::flxcor_send)) continue;
               bool correct = false;
               if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
               if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&

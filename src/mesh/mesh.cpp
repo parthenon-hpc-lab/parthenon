@@ -946,7 +946,6 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
-  boundary_comm_flxcor_map.clear();
 
   // Build the boundary buffers for the current mesh
   for (int i = 0; i < num_partitions; i++) {
@@ -1245,10 +1244,12 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+    if (metadata.IsSet(Metadata::FillGhost) || 
+        metadata.IsSet(Metadata::Independent) ||
         metadata.IsSet(Metadata::ForceRemeshComm) ||
         metadata.IsSet(Metadata::GMGProlongate) ||
-        metadata.IsSet(Metadata::GMGRestrict) || metadata.IsSet(Metadata::Flux)) {
+        metadata.IsSet(Metadata::GMGRestrict) || 
+        metadata.IsSet(Metadata::Flux)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});

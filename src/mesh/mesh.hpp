@@ -222,7 +222,7 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t =
       std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
-  comm_buf_map_t boundary_comm_map, boundary_comm_flxcor_map;
+  comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL

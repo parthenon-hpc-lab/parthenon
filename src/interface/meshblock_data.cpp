@@ -115,8 +115,10 @@ void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
     for (const auto &name : names) {
       auto &var = var_map.at(name); 
       add_var(var);
-      // Add the associated flux as well
-      if (var->metadata().GetFluxName() != "")  
+      // Add the associated flux as well if not explicitly 
+      // asked for
+      if (var->metadata().GetFluxName() != "" &&
+          std::find(names.begin(), names.end(), var->metadata().GetFluxName()) == names.end())  
         add_var(var_map.at(var->metadata().GetFluxName()));
     }
   }
