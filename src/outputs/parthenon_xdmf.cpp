@@ -265,8 +265,12 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   // writes a slab reference to file
   std::vector<std::string> names;
   int nentries = 1;
-  // TODO(JMM): this is not generic
-  bool is_cell_vector = isVector && (where == MetadataFlag({Metadata::Cell}));
+  // TODO(JMM): Metadata::Vector seems like it had special treatment
+  // at one point in xdmf's history. But the version I picked up when
+  // looking at this PR had something wrong with it. I'm punting on
+  // this and simply having XDMF record each vector component as a
+  // separate variable.
+  bool is_cell_vector = false;
   if (num_components == 1 || is_cell_vector) {
     // we only make one entry, because either num_components == 1, or we write this as a
     // vector
