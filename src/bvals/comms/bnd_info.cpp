@@ -227,7 +227,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                  std::shared_ptr<Variable<Real>> v) {
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
-  ntopological_elements = v->GetTopologicalElements().size(); 
+  
   orient = nb.orient;
   if (nb.loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
@@ -248,10 +248,13 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
+  out.ntopological_elements = v->GetTopologicalElements().size();  
+  int idx{0};
   for (auto el : v->GetTopologicalElements()) {
-    int idx = static_cast<int>(el) % 3;
+    out.topo_idx[idx] = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    idx++;
   }
   return out;
 }
@@ -273,10 +276,13 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
+  out.ntopological_elements = v->GetTopologicalElements().size();
+  int idx{0};
   for (auto el : v->GetTopologicalElements()) {
-    int idx = static_cast<int>(el) % 3;
+    out.topo_idx[idx] = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    idx++;
   }
   return out;
 }
