@@ -58,8 +58,7 @@ struct BndInfo {
 
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
-  BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-          std::shared_ptr<Variable<Real>> v);
+  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
@@ -81,7 +80,8 @@ struct ProResInfo {
   int ntopological_elements = 1;
   // Has to be large enough to allow for maximum integer
   // conversion of TopologicalElements
-  bool include_el[10]{false, false, false, false, false, false, false, false, false, false};
+  bool include_el[10]{false, false, false, false, false,
+                      false, false, false, false, false};
   SpatiallyMaskedIndexer6D idxer[10];
 
   CoordinateDirection dir;
@@ -94,8 +94,7 @@ struct ProResInfo {
 
   ProResInfo() = default;
   ProResInfo(const ProResInfo &) = default;
-  ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                            std::shared_ptr<Variable<Real>> v);
+  ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static ProResInfo GetNull(MeshBlock *pmb, const NeighborBlock &nb,

@@ -227,7 +227,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                  std::shared_ptr<Variable<Real>> v) {
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
-  
+
   orient = nb.orient;
   if (nb.loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
@@ -249,7 +249,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
   auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = v->GetTopologicalElements().size();  
+  out.ntopological_elements = v->GetTopologicalElements().size();
   using TE = TopologicalElement;
   if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
     out.ntopological_elements = 1;
@@ -261,8 +261,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   int idx{0};
   for (auto el : elements) {
     out.topo_idx[idx] = static_cast<int>(el) % 3;
-    out.idxer[idx] =
-        CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    out.idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
     idx++;
   }
   return out;
@@ -285,9 +284,9 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
-  
+
   auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = v->GetTopologicalElements().size();  
+  out.ntopological_elements = v->GetTopologicalElements().size();
   using TE = TopologicalElement;
   if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
     out.ntopological_elements = 1;
@@ -298,17 +297,17 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   int idx{0};
   for (auto el : elements) {
     out.topo_idx[idx] = static_cast<int>(el) % 3;
-    out.idxer[idx] =
-        CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    out.idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
     idx++;
   }
   return out;
 }
 
-ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v) {
+ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                       std::shared_ptr<Variable<Real>> v) {
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
-  ntopological_elements = v->GetTopologicalElements().size(); 
+  ntopological_elements = v->GetTopologicalElements().size();
   coords = pmb->coords;
 
   if (pmb->pmr) coarse_coords = pmb->pmr->GetCoarseCoords();
@@ -322,11 +321,11 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
-  
+
   for (auto el : v->GetTopologicalElements()) {
     out.include_el[static_cast<int>(el)] = true;
-    out.idxer[static_cast<int>(el)] = CalcIndices(
-        nb, pmb, v, el, IndexRangeType::InteriorSend, true);
+    out.idxer[static_cast<int>(el)] =
+        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -338,10 +337,11 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  for (auto el : v->GetTopologicalElements()) out.include_el[static_cast<int>(el)] = true;
+  for (auto el : v->GetTopologicalElements())
+    out.include_el[static_cast<int>(el)] = true;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    out.idxer[static_cast<int>(el)] = CalcIndices(
-        nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
+    out.idxer[static_cast<int>(el)] =
+        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
