@@ -34,6 +34,7 @@ namespace parthenon {
 namespace forest {
 
 struct RelativeOrientation {
+  KOKKOS_INLINE_FUNCTION
   RelativeOrientation()
       : dir_connection{0, 1, 2}, dir_flip{false, false, false}, ncells{-1} {};
 

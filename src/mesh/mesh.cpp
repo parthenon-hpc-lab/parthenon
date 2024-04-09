@@ -107,7 +107,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  std::int64_t nbmax;
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -211,7 +210,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
-  nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
   base_block_size = block_size;
 
   // check consistency of the block and mesh

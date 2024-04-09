@@ -57,7 +57,6 @@ void Mesh::SetMeshBlockNeighbors(
     auto neighbors = forest.FindNeighbors(loc, grid_id);
 
     // Build NeighborBlocks for unique neighbors
-    int buf_id = 0;
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
       auto offsets = loc.GetSameLevelOffsets(nloc.origin_loc);
