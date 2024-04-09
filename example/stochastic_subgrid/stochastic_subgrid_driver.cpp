@@ -130,7 +130,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
       tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
       tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-      
+
       auto set_flx = parthenon::AddFluxCorrectionTasks(none, tl, mc0, pmesh->multilevel);
 
       // compute the divergence of fluxes of conserved variables
