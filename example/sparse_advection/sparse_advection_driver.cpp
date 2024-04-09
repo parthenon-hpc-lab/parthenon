@@ -106,11 +106,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
     auto start_bound = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
 
-    auto send_flxcor =
-        tl.AddTask(start_flxcor, parthenon::LoadAndSendFluxCorrections, mc0);
-    auto recv_flxcor = tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, mc0);
-    auto set_flxcor = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, mc0);
-
+    auto set_flxcor = parthenon::AddFluxCorrectionTasks(start_flxcor, tl, mc0, pmesh->multilevel);
+    
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
         tl.AddTask(set_flxcor, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());

@@ -82,7 +82,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
-  const bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
+  const bool flux = v->IsSet(Metadata::Flux);
 
   const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
@@ -173,11 +173,12 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e + (cell_flux ? 0 : -interior_offset + 1 - top_offset[dir]);
-      e[dir] = bounds[dir].e + (cell_flux ? 0 : exterior_offset);
+      // Fluxes are only communicated on shared elements
+      s[dir] = bounds[dir].e + (flux ? 0 : -interior_offset + 1 - top_offset[dir]);
+      e[dir] = bounds[dir].e + (flux ? 0 : exterior_offset);
     } else {
-      s[dir] = bounds[dir].s + (cell_flux ? 0 : -exterior_offset);
-      e[dir] = bounds[dir].s + (cell_flux ? 0 : interior_offset - 1 + top_offset[dir]);
+      s[dir] = bounds[dir].s + (flux ? 0 : -exterior_offset);
+      e[dir] = bounds[dir].s + (flux ? 0 : interior_offset - 1 + top_offset[dir]);
     }
   }
 

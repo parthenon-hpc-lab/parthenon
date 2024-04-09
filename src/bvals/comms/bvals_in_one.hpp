@@ -84,6 +84,10 @@ template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
+// Adds all relevant flux correction tasks to a single task list
+TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
+                              std::shared_ptr<MeshData<Real>> &md, bool multilevel);
+
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

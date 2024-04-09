@@ -434,4 +434,12 @@ AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
 template TaskID
 AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
                                                  std::shared_ptr<MeshData<Real>> &, bool);
+
+TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
+                              std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
+  if (!multilevel) return dependency; 
+  tl.AddTask(dependency, SendBoundBufs<BoundaryType::flxcor_send>, md);
+  auto receive = tl.AddTask(dependency, ReceiveBoundBufs<BoundaryType::flxcor_recv>, md);
+  return tl.AddTask(receive, SetBounds<BoundaryType::flxcor_recv>, md);
+}
 } // namespace parthenon
