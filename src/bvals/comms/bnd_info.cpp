@@ -78,9 +78,12 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
 }
 
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+                                     const std::shared_ptr<Variable<Real>> &v,
                                      TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores, std::array<int, 3> tensor_shape,
-                                     bool cell_flux = false) {
+                                     bool prores) {
+  std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
+  const bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
+
   const auto &loc = pmb->loc;
   auto shape = pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
@@ -231,9 +234,6 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   out.buf = buf->buffer();
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
   int mylevel = pmb->loc.level();
 
   bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
@@ -244,7 +244,7 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] =
-        CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv}, cell_flux);
+        CalcIndices(nb, pmb, v, el, idx_range_type, false);
   }
   if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
@@ -272,13 +272,8 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   out.allocated = v->IsAllocated();
   out.alloc_status = v->GetAllocationStatus();
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
   int mylevel = pmb->loc.level();
 
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   auto elements = v->GetTopologicalElements();
   out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
@@ -286,7 +281,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   for (auto el : elements) {
     int idx = static_cast<int>(el) % 3;
     out.idxer[idx] =
-        CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv}, cell_flux);
+        CalcIndices(nb, pmb, v, el, idx_range_type, false);
   }
   if (nb.loc.level() < mylevel) {
     out.var = v->coarse_s.Get();
@@ -317,14 +312,9 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   for (auto el : v->GetTopologicalElements()) {
     out.idxer[static_cast<int>(el)] = CalcIndices(
-        nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv}, cell_flux);
+        nb, pmb, v, el, IndexRangeType::InteriorSend, true);
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -336,14 +326,9 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] = CalcIndices(
-        nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv}, cell_flux);
+        nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
@@ -353,19 +338,12 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
   int mylevel = pmb->loc.level();
 
-
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   if (nb.loc.level() < mylevel) {
     for (auto el : v->GetTopologicalElements()) {
       out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true,
-                      {Nt, Nu, Nv}, cell_flux);
+          CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryInteriorSend, true);
       out.refinement_op = RefinementOp_t::Restriction;
     }
   }
@@ -375,9 +353,6 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
 ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
 
   int mylevel = pmb->loc.level();
 
@@ -391,7 +366,6 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
     }
   }
 
-  bool cell_flux = v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face);
   for (auto el : v->GetTopologicalElements()) {
     if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
@@ -399,8 +373,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
         out.idxer[static_cast<int>(el)] =
-            CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true,
-                        {Nt, Nu, Nv}, cell_flux);
+            CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);
       }
     }
   }
@@ -417,8 +390,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.loc.level() < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] =
-          CalcIndices(nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true,
-                      {Nt, Nu, Nv}, cell_flux);
+          CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);
   }
   return out;
 }
