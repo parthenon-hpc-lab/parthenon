@@ -173,11 +173,11 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
-      e[dir] = bounds[dir].e + exterior_offset;
+      s[dir] = bounds[dir].e + (cell_flux ? 0 : -interior_offset + 1 - top_offset[dir]);
+      e[dir] = bounds[dir].e + (cell_flux ? 0 : exterior_offset);
     } else {
-      s[dir] = bounds[dir].s - exterior_offset;
-      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir];
+      s[dir] = bounds[dir].s + (cell_flux ? 0 : -exterior_offset);
+      e[dir] = bounds[dir].s + (cell_flux ? 0 : interior_offset - 1 + top_offset[dir]);
     }
   }
 
@@ -248,9 +248,18 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
+  auto elements = v->GetTopologicalElements();
   out.ntopological_elements = v->GetTopologicalElements().size();  
+  using TE = TopologicalElement;
+  if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
+    out.ntopological_elements = 1;
+    if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
+    if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
+    if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
+  }
+
   int idx{0};
-  for (auto el : v->GetTopologicalElements()) {
+  for (auto el : elements) {
     out.topo_idx[idx] = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
@@ -276,9 +285,18 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
-  out.ntopological_elements = v->GetTopologicalElements().size();
+  
+  auto elements = v->GetTopologicalElements();
+  out.ntopological_elements = v->GetTopologicalElements().size();  
+  using TE = TopologicalElement;
+  if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
+    out.ntopological_elements = 1;
+    if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
+    if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
+    if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
+  }
   int idx{0};
-  for (auto el : v->GetTopologicalElements()) {
+  for (auto el : elements) {
     out.topo_idx[idx] = static_cast<int>(el) % 3;
     out.idxer[idx] =
         CalcIndices(nb, pmb, v, el, idx_range_type, false);
