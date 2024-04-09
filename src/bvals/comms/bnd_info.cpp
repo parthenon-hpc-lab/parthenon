@@ -322,8 +322,9 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
-
+  
   for (auto el : v->GetTopologicalElements()) {
+    out.include_el[static_cast<int>(el)] = true;
     out.idxer[static_cast<int>(el)] = CalcIndices(
         nb, pmb, v, el, IndexRangeType::InteriorSend, true);
   }
@@ -337,6 +338,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
+  for (auto el : v->GetTopologicalElements()) out.include_el[static_cast<int>(el)] = true;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] = CalcIndices(
         nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
@@ -352,7 +354,14 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   int mylevel = pmb->loc.level();
 
   if (nb.loc.level() < mylevel) {
-    for (auto el : v->GetTopologicalElements()) {
+    auto elements = v->GetTopologicalElements();
+    if (v->IsSet(Metadata::Flux) && v->IsSet(Metadata::Face)) {
+      if (std::abs(nb.offsets(X1DIR))) elements = {TE::F1};
+      if (std::abs(nb.offsets(X2DIR))) elements = {TE::F2};
+      if (std::abs(nb.offsets(X3DIR))) elements = {TE::F3};
+    }
+    for (auto el : elements) {
+      out.include_el[static_cast<int>(el)] = true;
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryInteriorSend, true);
       out.refinement_op = RefinementOp_t::Restriction;
@@ -378,6 +387,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   }
 
   for (auto el : v->GetTopologicalElements()) {
+    out.include_el[static_cast<int>(el)] = true;
     if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {

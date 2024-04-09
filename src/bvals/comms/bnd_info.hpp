@@ -81,6 +81,7 @@ struct ProResInfo {
   int ntopological_elements = 1;
   // Has to be large enough to allow for maximum integer
   // conversion of TopologicalElements
+  bool include_el[10]{false, false, false, false, false, false, false, false, false, false};
   SpatiallyMaskedIndexer6D idxer[10];
 
   CoordinateDirection dir;
