@@ -101,7 +101,6 @@ add_library(parthenon
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
-  bvals/comms/flux_correction.cpp 
   bvals/comms/tag_map.cpp 
   bvals/comms/tag_map.hpp 
   

@@ -66,10 +66,18 @@ inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return ProlongateBounds<BoundaryType::any>(md);
 }
 
-TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
+static TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+}
+static TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufs<BoundaryType::flxcor_send>(md);
+}
+static TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+}
+static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SetBounds<BoundaryType::flxcor_recv>(md);
+}
 
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds = BoundaryType::any>
