@@ -153,15 +153,6 @@ class Forest {
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
 };
-
-struct NeighborLocation {
-  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
-      : global_loc(g), origin_loc(o) {}
-  LogicalLocation global_loc; // Global location of neighboring block
-  LogicalLocation
-      origin_loc; // Logical location of neighboring block in index space of origin block
-};
-
 } // namespace forest
 } // namespace parthenon
 

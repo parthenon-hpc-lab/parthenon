@@ -139,15 +139,6 @@ inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return !(lhs == rhs);
 }
-
-struct NeighborLocation {
-  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
-      : global_loc(g), origin_loc(o) {}
-  LogicalLocation global_loc; // Global location of neighboring block
-  LogicalLocation
-      origin_loc; // Logical location of neighboring block in index space of origin block
-};
-
 } // namespace parthenon
 
 // Inject hash function for LogicalLocation into the std namespace

@@ -50,6 +50,16 @@ struct RelativeOrientation {
   std::array<int, 3> dir_connection;
   std::array<bool, 3> dir_flip;
 };
+
+struct NeighborLocation {
+  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o, const RelativeOrientation &orient)
+      : global_loc(g), origin_loc(o), orient(orient) {}
+  LogicalLocation global_loc; // Global location of neighboring block
+  LogicalLocation
+      origin_loc; // Logical location of neighboring block in index space of origin block
+  RelativeOrientation orient;
+};
+
 } // namespace forest
 } // namespace parthenon
 

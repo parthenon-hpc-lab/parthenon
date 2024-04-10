@@ -188,16 +188,16 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc,
                       "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh) && include_same) {
-      neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
+      neighbor_locs->push_back(NeighborLocation(tneigh, orientation.TransformBack(tneigh, GetId()), orientation));
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       if (include_fine) {
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
           if (tloc.IsNeighbor(n))
-            neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
+            neighbor_locs->push_back(NeighborLocation(n, orientation.TransformBack(n, GetId()), orientation));
         }
       } else if (include_internal) {
-        neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
+        neighbor_locs->push_back(NeighborLocation(tneigh, orientation.TransformBack(tneigh, GetId()), orientation));
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent()) && include_coarse) {
       auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());
@@ -207,7 +207,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
       // coarse block in one offset position
       auto sl_offset = loc.GetSameLevelOffsets(neighp);
       if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
-        neighbor_locs->push_back({tneigh.GetParent(), neighp});
+        neighbor_locs->push_back(NeighborLocation(tneigh.GetParent(), neighp, orientation));
     }
   }
 }

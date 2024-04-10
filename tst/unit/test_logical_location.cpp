@@ -23,6 +23,9 @@
 
 #include "defs.hpp"
 #include "utils/indexer.hpp"
+#include "mesh/forest/block_ownership.hpp"
+#include "mesh/forest/relative_orientation.hpp"
+
 
 using namespace parthenon;
 
@@ -137,9 +140,9 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       set_leaves.insert(k);
 
     // Create neighbor blocks from the leaves
-    std::vector<parthenon::NeighborLocation> neighbor_locs;
+    std::vector<parthenon::forest::NeighborLocation> neighbor_locs;
     for (const auto &[k, v] : leaves) {
-      neighbor_locs.emplace_back(k, k);
+      neighbor_locs.emplace_back(k, k, parthenon::forest::RelativeOrientation());
     }
 
     THEN("LogicalLocations store the correct Morton numbers and the map is in Morton "
