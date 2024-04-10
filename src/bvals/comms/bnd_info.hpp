@@ -27,7 +27,6 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/forest/relative_orientation.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/indexer.hpp"
 #include "utils/object_pool.hpp"
@@ -45,7 +44,6 @@ struct BndInfo {
   int ntopological_elements = 1;
   int topo_idx[3]{0, 0, 0};
   SpatiallyMaskedIndexer6D idxer[3];
-  forest::RelativeOrientation orient;
 
   CoordinateDirection dir;
   bool allocated = true;
