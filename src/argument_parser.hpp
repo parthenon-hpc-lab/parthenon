@@ -56,7 +56,7 @@ class ArgParse {
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
           res_flag = 1;
-          analysis_flag = 1;
+          analysis_flag = true;
           restart_filename = argv[++i];
           break;
         case 'd': // -d <run_directory>
@@ -125,7 +125,7 @@ class ArgParse {
   char *input_filename = nullptr;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
-  int analysis_flag = 0;
+  bool analysis_flag = false;
   int res_flag = 0;
   int narg_flag = 0;
   int mesh_flag = 0;

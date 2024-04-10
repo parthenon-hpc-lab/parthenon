@@ -113,7 +113,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
-  // If an input was provided
+  // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
     if (arg.res_flag != 0) {
@@ -130,6 +130,16 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  PARTHENON_REQUIRE_THROWS(
+      !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
+          pinput->GetBoolean("parthenon/job", "run_only_analysis") == false,
+      "'parthenon/job/run_only_analysis=true' input parameter was found indicating "
+      "manual modification or restarting from an output written during analysis, which "
+      "is undefined behavior. If you don't know how this was triggered, please contact "
+      "the Parthenon developers.");
+  pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
+
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
 
@@ -179,7 +189,6 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
   if (arg.res_flag == 0) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
-    pmesh->analysis_flag = false;
   } else {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
@@ -203,12 +212,6 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
-
-    if (arg.analysis_flag == 1) {
-      pmesh->analysis_flag = true;
-    } else {
-      pmesh->analysis_flag = false;
-    }
   }
 
   // add root_level to all max_level

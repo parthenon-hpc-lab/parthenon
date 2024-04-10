@@ -79,8 +79,9 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal =
-      pmesh->analysis_flag ? OutputSignal::analysis : OutputSignal::none;
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
@@ -142,6 +143,8 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
+  // Do *not* write the "final" output, if this is analysis run.
+  // The analysis output itself has already been written above before the main loop.
   if (signal != OutputSignal::analysis) {
     pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
   }
