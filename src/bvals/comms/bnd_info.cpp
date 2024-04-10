@@ -256,6 +256,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   alloc_status = v->GetAllocationStatus();
 
   buf = combuf->buffer();
+  orient = nb.orient;
   if (!allocated) return;
 
   if (nb.loc.level() < pmb->loc.level()) {

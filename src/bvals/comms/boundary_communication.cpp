@@ -30,6 +30,7 @@
 #include "globals.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/forest/relative_orientation.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -276,6 +277,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
           const int iel = bnd_info(b).topo_idx[it];
           auto &idxer = bnd_info(b).idxer[it];
+          auto &orient = bnd_info(b).orient;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
