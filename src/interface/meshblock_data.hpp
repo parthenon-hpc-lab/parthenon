@@ -421,6 +421,8 @@ class MeshBlockData {
                 int sparse_id = InvalidSparseID);
 
   void Add(std::shared_ptr<Variable<T>> var) noexcept {
+    PARTHENON_REQUIRE(varMap_.count(var->label()) == 0,
+                      "Trying to add the same variable twice.");
     varVector_.push_back(var);
     varMap_[var->label()] = var;
     varUidMap_[var->GetUniqueID()] = var;
