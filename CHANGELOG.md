@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-
+- [[PR 1043]](https://github.com/parthenon-hpc-lab/parthenon/pull/1043) Unify flux correction with boundary communication, make fluxes variables, allow fluxes for non-cell fields
 
 ### Changed (changing behavior/API/variables/...)
 
