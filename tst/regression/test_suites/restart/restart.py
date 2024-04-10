@@ -1,6 +1,6 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2021 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -39,7 +39,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "-r",
                 "gold.out0.00001.rhdf",
                 "-i",
-                "parthinput_override.restart",
+                f"{parameters.parthenon_path}/tst/regression/test_suites/restart/parthinput_override.restart",
                 "-t",
                 "00:00:02",
             ]
