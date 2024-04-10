@@ -67,6 +67,9 @@ class CommBuffer {
   T buf_;
 
  public:
+  int BuffSize()
+  { return buf_.size();}
+  
   CommBuffer()
       : my_rank(0)
 #ifdef MPI_PARALLEL

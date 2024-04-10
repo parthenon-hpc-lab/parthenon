@@ -141,9 +141,12 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
+  std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers about to loop over buf_vec.size() " << cache.buf_vec.size() << " and call Send " << std::endl;
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
+    std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers ibuf(" <<ibuf << ") size is " << buf.BuffSize() << std::endl;
+
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.Send();
     else

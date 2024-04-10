@@ -1014,6 +1014,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
     std::int64_t send_iters = 0;
+    std::cout << "### Rank[" << Globals::my_rank << "] Initiatlize: about to loop over partitions " << num_partitions << " and call SendBoundaryBuffers " << std::endl;
+
     do {
       all_sent = true;
       for (int i = 0; i < num_partitions; i++) {
@@ -1038,6 +1040,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     std::vector<bool> received(num_partitions, false);
     bool all_received;
     std::int64_t receive_iters = 0;
+    std::cout << "### Rank[" << Globals::my_rank << "] Initiatlize: about to loop over partitions " << num_partitions << " and call ReceiveBoundaryBuffers " << std::endl;
+
     do {
       all_received = true;
       for (int i = 0; i < num_partitions; i++) {
