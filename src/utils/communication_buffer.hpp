@@ -210,6 +210,8 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
 
 template <class T>
 void CommBuffer<T>::Send() noexcept {
+    std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send()  comm_type is " << (int) (*comm_type_) << std::endl;
+
   if (!active_) {
     SendNull();
     return;
@@ -222,6 +224,7 @@ void CommBuffer<T>::Send() noexcept {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
+  std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send() calling Isend " << std::endl;
     PARTHENON_REQUIRE(
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
@@ -242,7 +245,10 @@ void CommBuffer<T>::SendNull() noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
+   std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() " << std::endl;
   if (*comm_type_ == BuffCommType::sender) {
+      std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() calling Isend " << std::endl;
+
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
