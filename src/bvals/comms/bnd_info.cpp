@@ -265,14 +265,11 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
-  orient = nb.orient;
   if (nb.loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
   }
-  orient = nb.orient;
-  orient.ncells = var.GetDim(1);
 }
 
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
