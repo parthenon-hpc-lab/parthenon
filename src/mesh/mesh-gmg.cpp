@@ -77,7 +77,7 @@ void Mesh::SetMeshBlockNeighbors(
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
-      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
+      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
       nb.ownership =
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
