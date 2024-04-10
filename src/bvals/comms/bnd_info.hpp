@@ -63,10 +63,8 @@ struct BndInfo {
 
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
-  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, 
-          std::shared_ptr<Variable<Real>> v, 
-          CommBuffer<buf_pool_t<Real>::owner_t> *combuf,
-          IndexRangeType idx_range_type);
+  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
+          CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.

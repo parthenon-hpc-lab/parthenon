@@ -249,7 +249,7 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
 }
 
 BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                 std::shared_ptr<Variable<Real>> v, 
+                 std::shared_ptr<Variable<Real>> v,
                  CommBuffer<buf_pool_t<Real>::owner_t> *combuf,
                  IndexRangeType idx_range_type) {
   allocated = v->IsAllocated();
@@ -257,14 +257,13 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   buf = combuf->buffer();
   if (!allocated) return;
-  
+
   if (nb.loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
   }
-  
-  
+
   auto elements = v->GetTopologicalElements();
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
   ntopological_elements = elements.size();
