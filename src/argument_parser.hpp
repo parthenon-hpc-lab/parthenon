@@ -47,7 +47,6 @@ class ArgParse {
         case 'i': // -i <input_filename>
           invalid = invalid_arg();
           input_filename = argv[++i];
-          iarg_flag = 1;
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
@@ -121,7 +120,6 @@ class ArgParse {
   char *prundir = nullptr;
   int res_flag = 0;
   int narg_flag = 0;
-  int iarg_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
   int exit_flag = 0;
