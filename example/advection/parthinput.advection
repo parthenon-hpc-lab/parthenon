@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -75,13 +75,19 @@ dt = 0.05
 variables = advected, advected_1, & # comments are ok
             one_minus_advected, &
             one_minus_advected_sq, & # on every (& characters are ok in comments)
-            one_minus_sqrt_one_minus_advected_sq # line
+            one_minus_sqrt_one_minus_advected_sq, & # line
+            my_derived_var
 
 <parthenon/output3>
 file_type = hst
 dt = 0.05
 
 <parthenon/output4>
+file_type = hst
+dt = 0.1
+packages = advection_app
+
+<parthenon/output5>
 file_type = ascent
 dt = -0.05   # soft disabled by default, as Ascent is an optional dependency
 actions_file = custom_ascent_actions.yaml

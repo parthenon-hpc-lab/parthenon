@@ -78,6 +78,18 @@ std::array<int, 3> LogicalLocation::GetOffset(const LogicalLocation &neighbor,
   return offset;
 }
 
+std::array<int, 3>
+LogicalLocation::GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const {
+  std::array<int, 3> offsets;
+  const int level_shift_neigh = std::max(neighbor.level() - level(), 0);
+  const int level_shift_me = std::max(level() - neighbor.level(), 0);
+  for (int dir = 0; dir < 3; ++dir) {
+    // coarsen locations to the same level
+    offsets[dir] = (neighbor.l(dir) >> level_shift_neigh) - (l(dir) >> level_shift_me);
+  }
+  return offsets;
+}
+
 std::array<std::vector<int>, 3>
 LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
                                      const RootGridInfo &rg_info) const {
@@ -106,6 +118,56 @@ LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor,
   }
 
   return offsets;
+}
+
+bool LogicalLocation::IsNeighborForest(const LogicalLocation &in) const {
+  PARTHENON_REQUIRE(tree() == in.tree(),
+                    "Trying to compare locations not in the same octree.");
+  const int max_level = std::max(in.level(), level());
+  const int level_shift_in = max_level - in.level();
+  const int level_shift_this = max_level - level();
+  const auto block_size_in = 1 << level_shift_in;
+  const auto block_size_this = 1 << level_shift_this;
+
+  bool neighbors = true;
+  for (int dir = 0; dir < 3; ++dir) {
+    auto low = (l(dir) << level_shift_this) - 1;
+    auto hi = low + block_size_this + 1;
+
+    auto low_in = (in.l(dir) << level_shift_in);
+    auto hi_in = low_in + block_size_in - 1;
+    neighbors = neighbors && !(hi < low_in || low > hi_in);
+  }
+  return neighbors;
+}
+
+bool LogicalLocation::IsNeighborOfTEForest(const LogicalLocation &in,
+                                           const std::array<int, 3> &te_offset) const {
+  PARTHENON_REQUIRE(tree() == in.tree(),
+                    "Trying to compare locations not in the same octree.");
+  const int max_level = std::max(in.level(), level());
+  const int level_shift_in = max_level - in.level();
+  const int level_shift_this = max_level - level();
+  const auto block_size_in = 1 << level_shift_in;
+  const auto block_size_this = 1 << level_shift_this;
+
+  bool neighbors = true;
+  for (int dir = 0; dir < 3; ++dir) {
+    auto low = (l(dir) << level_shift_this);
+    auto hi = low + block_size_this - 1;
+    if (te_offset[dir] == -1) {
+      low -= 1;
+      hi = low + 1;
+    } else if (te_offset[dir] == 1) {
+      hi += 1;
+      low = hi - 1;
+    }
+
+    auto low_in = (in.l(dir) << level_shift_in);
+    auto hi_in = low_in + block_size_in - 1;
+    neighbors = neighbors && !(hi < low_in || low > hi_in);
+  }
+  return neighbors;
 }
 
 template <bool TENeighbor>
@@ -174,16 +236,19 @@ LogicalLocation::NeighborFindingImpl<false>(const LogicalLocation &in,
                                             const std::array<int, 3> &te_offset,
                                             const RootGridInfo &rg_info) const;
 
-std::vector<LogicalLocation> LogicalLocation::GetDaughters() const {
+std::vector<LogicalLocation> LogicalLocation::GetDaughters(int ndim) const {
   std::vector<LogicalLocation> daughters;
   if (level() < 0) {
     daughters.push_back(GetDaughter(0, 0, 0));
     return daughters;
   }
-  daughters.reserve(8);
-  for (int i : {0, 1}) {
-    for (int j : {0, 1}) {
-      for (int k : {0, 1}) {
+
+  const std::vector<int> active{0, 1};
+  const std::vector<int> inactive{0};
+  daughters.reserve(1LL << ndim);
+  for (int i : active) {
+    for (int j : ndim > 1 ? active : inactive) {
+      for (int k : ndim > 2 ? active : inactive) {
         daughters.push_back(GetDaughter(i, j, k));
       }
     }
@@ -293,6 +358,7 @@ std::unordered_set<LogicalLocation> LogicalLocation::GetPossibleNeighborsImpl(
   return unique_locs;
 }
 
+// TODO(LFR): Remove this
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
@@ -324,6 +390,48 @@ DetermineOwnership(const LogicalLocation &main_block,
         for (auto &n : allowed_neighbors) {
           if (ownership_less_than(main_block, n) &&
               main_block.IsNeighborOfTE(n, ox1, ox2, ox3, rg_info)) {
+            main_owns(ox1, ox2, ox3) = false;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return main_owns;
+}
+
+block_ownership_t
+DetermineOwnershipForest(const LogicalLocation &main_block,
+                         const std::vector<NeighborLocation> &allowed_neighbors,
+                         const std::unordered_set<LogicalLocation> &newly_refined) {
+  block_ownership_t main_owns;
+
+  auto ownership_level = [&](const LogicalLocation &a) {
+    // Newly-refined blocks are treated as higher-level than blocks at their
+    // parent level, but lower-level than previously-refined blocks at their
+    // current level.
+    if (newly_refined.count(a)) return 2 * a.level() - 1;
+    return 2 * a.level();
+  };
+
+  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
+                                               const LogicalLocation &b) {
+    // Ownership is first determined by block with the highest level, then by maximum
+    // (tree, Morton) number this is reversed in precedence from the normal comparators
+    // where (tree, Morton) number takes precedence
+    if (ownership_level(a) != ownership_level(b))
+      return ownership_level(a) < ownership_level(b);
+    if (a.tree() != b.tree()) return a.tree() < b.tree();
+    return a.morton() < b.morton();
+  };
+
+  for (int ox1 : {-1, 0, 1}) {
+    for (int ox2 : {-1, 0, 1}) {
+      for (int ox3 : {-1, 0, 1}) {
+        main_owns(ox1, ox2, ox3) = true;
+        for (const auto &n : allowed_neighbors) {
+          if (ownership_less_than(main_block, n.global_loc) &&
+              main_block.IsNeighborOfTEForest(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }

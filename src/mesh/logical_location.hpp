@@ -69,6 +69,7 @@ class LogicalLocation { // aggregate and POD type
   // single MeshBlock if >30 levels of AMR are used, since the corresponding max index =
   // 1*2^31 > INT_MAX = 2^31 -1 for most 32-bit signed integer type impelementations
   std::array<std::int64_t, 3> l_;
+  std::int64_t tree_idx_;
   MortonNumber morton_;
   int level_;
 
@@ -76,12 +77,16 @@ class LogicalLocation { // aggregate and POD type
   // No check is provided that the requested LogicalLocation is in the allowed
   // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
-      : l_{l1, l2, l3}, level_(lev), morton_(lev, l1, l2, l3) {}
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{-1}, morton_(lev, l1, l2, l3) {}
+  LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2,
+                  std::int64_t l3)
+      : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree}, morton_(lev, l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   std::string label() const {
-    return "(" + std::to_string(level_) + ": " + std::to_string(l_[0]) + ", " +
-           std::to_string(l_[1]) + ", " + std::to_string(l_[2]) + ")";
+    return "([" + std::to_string(tree_idx_) + "] " + std::to_string(level_) + ": " +
+           std::to_string(l_[0]) + ", " + std::to_string(l_[1]) + ", " +
+           std::to_string(l_[2]) + ")";
   }
   const auto &l(int i) const { return l_[i]; }
   const auto &lx1() const { return l_[0]; }
@@ -89,6 +94,26 @@ class LogicalLocation { // aggregate and POD type
   const auto &lx3() const { return l_[2]; }
   const auto &level() const { return level_; }
   const auto &morton() const { return morton_; }
+  const auto &tree() const { return tree_idx_; }
+
+  // Check if this logical location is actually in the domain of the tree,
+  // possibly including a ghost block halo around the tree
+  bool IsInTree(int nghost = 0) const {
+    const int low = -nghost;
+    const int up = (1LL << std::max(level(), 0)) + nghost;
+    return (l_[0] >= low) && (l_[0] < up) && (l_[1] >= low) && (l_[1] < up) &&
+           (l_[2] >= low) && (l_[2] < up);
+  }
+
+  // Check if a LL is in the ghost block halo of the tree it is associated with
+  bool IsInHalo(int nghost) const { return IsInTree(nghost) && !IsInTree(0); }
+
+  int NeighborTreeIndex() const {
+    int i1 = (l_[0] >= 0) - (l_[0] < (1LL << std::max(level(), 0))) + 1;
+    int i2 = (l_[1] >= 0) - (l_[1] < (1LL << std::max(level(), 0))) + 1;
+    int i3 = (l_[2] >= 0) - (l_[2] < (1LL << std::max(level(), 0))) + 1;
+    return i1 + 3 * i2 + 9 * i3;
+  }
 
   // Returns the coordinate in the range [0, 1] of the left side of
   // a logical location in a given direction on refinement level level
@@ -104,7 +129,8 @@ class LogicalLocation { // aggregate and POD type
 
   std::array<int, 3> GetOffset(const LogicalLocation &neighbor,
                                const RootGridInfo &rg_info = RootGridInfo()) const;
-
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
+  std::array<int, 3> GetSameLevelOffsetsForest(const LogicalLocation &neighbor) const;
   std::array<std::vector<int>, 3> GetSameLevelOffsets(const LogicalLocation &neighbor,
                                                       const RootGridInfo &rg_info) const;
   // Being a neighbor implies that you share a face, edge, or node and don't share a
@@ -114,6 +140,12 @@ class LogicalLocation { // aggregate and POD type
     return NeighborFindingImpl<false>(in, std::array<int, 3>(), rg_info);
   }
 
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
+  bool IsNeighborForest(const LogicalLocation &in) const;
+  // TODO(LFR): Remove the corresponding non-forest routine once GMG is working
+  bool IsNeighborOfTEForest(const LogicalLocation &in,
+                            const std::array<int, 3> &te_offset) const;
+
   bool IsNeighborOfTE(const LogicalLocation &in, int ox1, int ox2, int ox3,
                       const RootGridInfo &rg_info = RootGridInfo()) const {
     return NeighborFindingImpl<true>(in, std::array<int, 3>{ox1, ox2, ox3}, rg_info);
@@ -122,19 +154,20 @@ class LogicalLocation { // aggregate and POD type
   LogicalLocation
   GetSameLevelNeighbor(int ox1, int ox2, int ox3,
                        const RootGridInfo &rg_info = RootGridInfo()) const {
-    return LogicalLocation(level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
+    return LogicalLocation(tree(), level(), lx1() + ox1, lx2() + ox2, lx3() + ox3);
   }
 
-  LogicalLocation GetParent() const {
-    if (level() <= 0) return LogicalLocation(level() - 1, 0, 0, 0);
-    return LogicalLocation(level() - 1, lx1() >> 1, lx2() >> 1, lx3() >> 1);
+  LogicalLocation GetParent(int nlevel = 1) const {
+    if (level() - nlevel < 0) return LogicalLocation(tree(), level() - nlevel, 0, 0, 0);
+    return LogicalLocation(tree(), level() - nlevel, lx1() >> nlevel, lx2() >> nlevel,
+                           lx3() >> nlevel);
   }
 
-  std::vector<LogicalLocation> GetDaughters() const;
+  std::vector<LogicalLocation> GetDaughters(int ndim = 3) const;
 
   LogicalLocation GetDaughter(int ox1, int ox2, int ox3) const {
-    if (level() < 0) return LogicalLocation(level() + 1, 0, 0, 0);
-    return LogicalLocation(level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
+    if (level() < 0) return LogicalLocation(tree(), level() + 1, 0, 0, 0);
+    return LogicalLocation(tree(), level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
                            (lx3() << 1) + ox3);
   }
 
@@ -175,18 +208,25 @@ class LogicalLocation { // aggregate and POD type
 };
 
 inline bool operator<(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.morton() == rhs.morton()) return lhs.level() < rhs.level();
-  return lhs.morton() < rhs.morton();
+  if (lhs.tree() != rhs.tree()) return lhs.tree() < rhs.tree();
+  if (lhs.morton() != rhs.morton()) return lhs.morton() < rhs.morton();
+  return lhs.level() < rhs.level();
 }
 
 inline bool operator>(const LogicalLocation &lhs, const LogicalLocation &rhs) {
-  if (lhs.morton() == rhs.morton()) return lhs.level() > rhs.level();
-  return lhs.morton() > rhs.morton();
+  if (lhs.tree() != rhs.tree()) return lhs.tree() > rhs.tree();
+  if (lhs.morton() != rhs.morton()) return lhs.morton() > rhs.morton();
+  return lhs.level() > rhs.level();
 }
 
 inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return ((lhs.level() == rhs.level()) && (lhs.lx1() == rhs.lx1()) &&
-          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()));
+          (lhs.lx2() == rhs.lx2()) && (lhs.lx3() == rhs.lx3()) &&
+          (lhs.tree() == rhs.tree()));
+}
+
+inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
+  return !(lhs == rhs);
 }
 
 struct block_ownership_t {
@@ -216,8 +256,28 @@ struct block_ownership_t {
 
   bool initialized;
 
+  bool operator==(const block_ownership_t &rhs) const {
+    bool same = initialized == rhs.initialized;
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          same = same && (ownership[i][j][k] == rhs.ownership[i][j][k]);
+        }
+      }
+    }
+    return same;
+  }
+
  private:
   bool ownership[3][3][3];
+};
+
+struct NeighborLocation {
+  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
+      : global_loc(g), origin_loc(o) {}
+  LogicalLocation global_loc; // Global location of neighboring block
+  LogicalLocation
+      origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
 block_ownership_t
@@ -225,6 +285,11 @@ DetermineOwnership(const LogicalLocation &main_block,
                    const std::unordered_set<LogicalLocation> &allowed_neighbors,
                    const RootGridInfo &rg_info = RootGridInfo(),
                    const std::unordered_set<LogicalLocation> &newly_refined = {});
+
+block_ownership_t
+DetermineOwnershipForest(const LogicalLocation &main_block,
+                         const std::vector<NeighborLocation> &allowed_neighbors,
+                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
 // defining the location of an index region within the block (i.e. the ghost zones passed

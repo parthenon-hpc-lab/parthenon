@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2022 The Parthenon collaboration
+// Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -175,9 +175,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
 
-  ParArrayND<int> new_indices;
-  const auto new_particles_mask =
-      swarm->AddEmptyParticles(num_particles_this_block, new_indices);
+  auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
@@ -189,7 +187,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int new_n) {
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
         const auto &m = ids_this_block(n);
 
         id(n) = m; // global unique id

@@ -7,7 +7,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -196,6 +196,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
 
+      if (op.file_type == "hst") {
+        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
+                                                       std::vector<std::string>());
+      }
+
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
           (op.file_type != "ascent") && (op.file_type != "histogram")) {
@@ -291,11 +296,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pib = pib->pnext; // move to next input block name
   }
 
-  // check there were no more than one history or restart files requested
-  if (num_hst_outputs > 1 || num_rst_outputs > 1) {
+  // check there were no more than one restart file requested
+  if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
-        << "More than one history or restart output block detected in input file"
-        << std::endl;
+        << "More than one restart output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
@@ -423,7 +427,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
          ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
           (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
       if (first && ptype->output_params.file_type != "hst") {
-        pm->ApplyUserWorkBeforeOutput(pin);
+        pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
         first = false;
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);

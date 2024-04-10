@@ -21,6 +21,8 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
+#include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -246,6 +248,25 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   }
 
   return;
+}
+
+void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+  // loop over blocks
+  for (auto &pmb : mesh->block_list) {
+    auto rc = pmb->meshblock_data.Get(); // get base container
+    auto q = rc->Get("advected").data;
+    auto deriv = rc->Get("my_derived_var").data;
+
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+    pmb->par_for(
+        "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+        });
+  }
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

@@ -1,13 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -39,7 +39,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
@@ -52,8 +51,6 @@ namespace parthenon {
 //  \brief calculate an MPI tag for AMR block transfer
 // tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
 //       + physics(5 bits)
-
-// See comments on BoundaryBase::CreateBvalsMPITag()
 
 int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // the trailing zero is used as "id" to indicate an AMR related tag
@@ -609,16 +606,15 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   // Start tree manipulation
   // Step 1. perform refinement
   for (int n = 0; n < tnref; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
-    bt->Refine(nnew);
+    nnew += forest.Refine(lref[n]);
   }
   if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
-    bt->Derefine(ndel);
+    ndel += forest.Derefine(clderef[n]);
   }
+
   if (tnderef >= nleaf) delete[] clderef;
 }
 
@@ -684,7 +680,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
-    tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
+    newloc = forest.GetMeshBlockListAndResolveGids();
+    nbtotal = newloc.size();
+    for (int ib = 0; ib < nbtotal; ++ib)
+      newtoold[ib] = forest.GetOldGid(newloc[ib]);
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -930,44 +929,63 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     costlist = std::move(newcost);
     PopulateLeafLocationMap();
 
-    // A block newly refined and prolongated may have neighbors which were
-    // already refined to the new level.
-    // If so, the prolongated versions of shared elements will not reflect
-    // the true, finer versions present in the neighbor block.
-    // We must create any new fine buffers and fill them from these neighbors
-    // in order to maintain a consistent global state.
-    // Thus we rebuild and synchronize the mesh now, but using a unique
-    // neighbor precedence favoring the "old" fine blocks over "new" ones
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
-                                        newly_refined);
-    }
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-    // Re-initialize the mesh with our temporary ownership/neighbor configurations.
-    // No buffers are different when we switch to the final precedence order.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs, false,
-                          0, newly_refined);
-    BuildGMGHierarchy(nbs, pin, app_in);
-    Initialize(false, pin, app_in);
+    // init meshblock data
+    for (auto &pmb : block_list)
+      pmb->InitMeshBlockUserData(pmb.get(), pin);
 
-    // Internal refinement relies on the fine shared values, which are only consistent
-    // after being updated with any previously fine versions
-    refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                   block_list[0]->cellbounds,
-                                   block_list[0]->c_cellbounds);
+    // Find the non-cell centered fields that are communicated
+    Metadata::FlagCollection fc;
+    fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node);
+    fc.TakeIntersection(Metadata::FillGhost);
+    std::vector<std::string> noncc_names = GetVariableNames(fc);
+
+    if (noncc_names.size() > 0) {
+      // A block newly refined and prolongated may have neighbors which were
+      // already refined to the new level.
+      // If so, the prolongated versions of shared elements will not reflect
+      // the true, finer versions present in the neighbor block.
+      // We must create any new fine buffers and fill them from these neighbors
+      // in order to maintain a consistent global state.
+      // Thus we rebuild and synchronize the mesh now, but using a unique
+      // neighbor precedence favoring the "old" fine blocks over "new" ones
+      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
+      BuildTagMapAndBoundaryBuffers();
+      std::string noncc = "mesh_internal_noncc";
+      for (int i = 0; i < DefaultNumPartitions(); ++i) {
+        auto &md = mesh_data.GetOrAdd("base", i);
+        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
+      }
+
+      CommunicateBoundaries(noncc); // Called to make sure shared values are correct,
+                                    // ghosts of non-cell centered vars may get some junk
+      // Now there is the correct data for prolongating on un-shared topological elements
+      // on the new fine blocks
+      refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                     block_list[0]->cellbounds,
+                                     block_list[0]->c_cellbounds);
+    }
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
-                          false);
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
-    }
+    SetMeshBlockNeighbors(block_list, nbs, ranklist);
+    BuildGMGHierarchy(nbs, pin, app_in);
+    // Ownership does not impact anything about the buffers, so we don't need to
+    // rebuild them if they were built above
+    if (noncc_names.size() == 0) BuildTagMapAndBoundaryBuffers();
+
+    // Call to fill ghosts with real data and fill derived quantities
+    PreCommFillDerived();
+    CommunicateBoundaries();
+    FillDerived();
+
+    // Initialize the "base" MeshData object
+    mesh_data.Get()->Set(block_list, this);
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

@@ -50,6 +50,11 @@ member.
   time-integration advance. The default behavior calls to each package's
   (StateDesrcriptor's) ``PreStepDiagnostics`` method which, in turn,
   delegates to a ``std::function`` member that defaults to a no-op.
+- ``UserMeshWorkBeforeOutput(Mesh*, ParameterInput*, SimTime const&)``
+  is called to perform mesh-wide work immediately before writing an output
+  (the default is a no-op). The most likely use case is to fill derived
+  fields with updated values before writing them out to disk (or passing
+  them to Ascent for in-situ analysis).
 
 Multi-grid Grids Stored in ``Mesh``
 -----------------------------------

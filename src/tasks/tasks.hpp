@@ -479,7 +479,7 @@ class TaskCollection {
     return regions.back();
   }
   TaskListStatus Execute() {
-    ThreadPool pool(1);
+    static ThreadPool pool(1);
     return Execute(pool);
   }
   TaskListStatus Execute(ThreadPool &pool) {

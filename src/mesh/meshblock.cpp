@@ -40,7 +40,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -140,8 +139,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-  pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
   pbswarm->SetBoundaryFlags(boundary_flag);
 
