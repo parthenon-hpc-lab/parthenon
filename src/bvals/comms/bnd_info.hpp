@@ -40,6 +40,13 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
+enum class IndexRangeType {
+  BoundaryInteriorSend,
+  BoundaryExteriorRecv,
+  InteriorSend,
+  InteriorRecv
+};
+
 struct BndInfo {
   int ntopological_elements = 1;
   int topo_idx[3]{0, 0, 0};
@@ -56,7 +63,10 @@ struct BndInfo {
 
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
-  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
+  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, 
+          std::shared_ptr<Variable<Real>> v, 
+          CommBuffer<buf_pool_t<Real>::owner_t> *combuf,
+          IndexRangeType idx_range_type);
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.

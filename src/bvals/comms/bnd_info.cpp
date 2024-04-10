@@ -36,18 +36,6 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
-namespace {
-enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType {
-  BoundaryInteriorSend,
-  BoundaryExteriorRecv,
-  InteriorSend,
-  InteriorRecv
-};
-
-using namespace parthenon;
-
-} // namespace
 namespace parthenon {
 
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
@@ -261,47 +249,49 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
 }
 
 BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                 std::shared_ptr<Variable<Real>> v) {
+                 std::shared_ptr<Variable<Real>> v, 
+                 CommBuffer<buf_pool_t<Real>::owner_t> *combuf,
+                 IndexRangeType idx_range_type) {
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
+  if (!allocated) return;
+  
   if (nb.loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
+  }
+  
+  buf = combuf->buffer();
+  
+  auto elements = v->GetTopologicalElements();
+  if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
+  ntopological_elements = elements.size();
+
+  int idx{0};
+  for (auto el : elements) {
+    topo_idx[idx] = static_cast<int>(el) % 3;
+    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    idx++;
   }
 }
 
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out(pmb, nb, v);
-  if (!out.allocated) return out;
-
-  out.buf = buf->buffer();
-
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
-
-  auto elements = v->GetTopologicalElements();
-  if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
-  out.ntopological_elements = elements.size();
-
-  int idx{0};
-  for (auto el : elements) {
-    out.topo_idx[idx] = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
-    idx++;
-  }
-  return out;
+  return BndInfo(pmb, nb, v, buf, idx_range_type);
 }
 
 BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out(pmb, nb, v);
+  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
+  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
+  BndInfo out(pmb, nb, v, buf, idx_range_type);
 
-  out.buf = buf->buffer();
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
@@ -309,20 +299,6 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     out.buf_allocated = false;
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
-  }
-
-  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
-  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
-
-  auto elements = v->GetTopologicalElements();
-  if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
-  out.ntopological_elements = elements.size();
-
-  int idx{0};
-  for (auto el : elements) {
-    out.topo_idx[idx] = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
-    idx++;
   }
   return out;
 }
