@@ -255,6 +255,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
+  buf = combuf->buffer();
   if (!allocated) return;
   
   if (nb.loc.level() < pmb->loc.level()) {
@@ -263,7 +264,6 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     var = v->data.Get();
   }
   
-  buf = combuf->buffer();
   
   auto elements = v->GetTopologicalElements();
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
