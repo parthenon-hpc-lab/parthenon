@@ -53,7 +53,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto num_vars = q.GetDim(4);
 
   pmb->par_for(
-      "Burgers::ProblemGenerator", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const Real x = coords.Xc<1>(i);
         const Real y = coords.Xc<2>(j);

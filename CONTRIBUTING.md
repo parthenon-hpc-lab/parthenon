@@ -39,26 +39,20 @@ Use GitHub labels as appropriate and feel free to directly add/tag people to the
 
 ### Summary of Branching Model and Versioning
 
-Two main branches exist:
-- `stable` contains the latest "stable" release
-- `develop` contains all approved changes since the previous release
+Only a single main branch called `develop` exists and all PRs should be merged
+into that branch.
+Individual versions/releases are tracked by tags.
 
-We aim at creating a new release everyone 4 to 6 weeks.
+We aim at creating a new release every 6 months.
 The decision on creating a new release is made during the bi-weekly calls.
-A release consists of of merging `develop` into `stable` and create a new tag for that version
-using a modified [semantic versioning](https://semver.org/) scheme.
-Releases will be tagged `v0.MAJOR.MINOR` given the current rapid development.
+Following steps need to be done for a new release:
 
-- MAJOR is incremented for API incompatible changes
-- MINOR is incremented for backwards compatible changes and bug fixes
-
-This scheme will be reevaluated once a future version is considered to be the first official stable release.
-
-The main idea behind separating `stable` from `develop` is to allow for more in-depth nightly testing
-on the latter.
-This specifically applies to downstream codes so that incompatibilities (e.g., due to to an
-updated API) are discovered early.
-
+- Create a new tag for that version using a modified [calender versioning](https://calver.org/) scheme.
+Releases will be tagged `vYY.0M` i.e., short years and zero-padded months.
+- Update the version in the main `CMakeLists.txt`.
+- Update the `CHANGELOG.md` (i.e., add a release header and create new empty
+categories for the "Current develop" section.
+- Sent a mail to the mailing list announcing the new release.
 
 ### Contributing Code
 

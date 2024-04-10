@@ -14,11 +14,13 @@
 #define UTILS_INDEXER_HPP_
 
 #include <array>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
 #include "utils/concepts_lite.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -26,6 +28,14 @@ template <class... Ts>
 struct Indexer {
   KOKKOS_INLINE_FUNCTION
   Indexer() : N{}, start{}, _size{} {};
+
+  std::string GetRangesString() const {
+    std::string out;
+    for (int i = 0; i < sizeof...(Ts); ++i) {
+      out += "[ " + std::to_string(start[i]) + ", " + std::to_string(end[i]) + "]";
+    }
+    return out;
+  }
 
   KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
@@ -40,6 +50,12 @@ struct Indexer {
   KOKKOS_FORCEINLINE_FUNCTION
   std::tuple<Ts...> operator()(int idx) const {
     return GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetIdxArray(int idx) const {
+    return get_array_from_tuple(
+        GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
   }
 
   template <std::size_t I>

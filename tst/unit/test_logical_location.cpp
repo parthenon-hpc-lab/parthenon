@@ -132,9 +132,15 @@ TEST_CASE("Logical Location", "[Logical Location]") {
     hash_leaves.insert(std::begin(leaves), std::end(leaves));
 
     // Create a set of the leaves
-    std::set<LogicalLocation> set_leaves;
+    std::unordered_set<LogicalLocation> set_leaves;
     for (const auto &[k, v] : leaves)
       set_leaves.insert(k);
+
+    // Create neighbor blocks from the leaves
+    std::vector<parthenon::NeighborLocation> neighbor_locs;
+    for (const auto &[k, v] : leaves) {
+      neighbor_locs.emplace_back(k, k);
+    }
 
     THEN("LogicalLocations store the correct Morton numbers and the map is in Morton "
          "order") {
@@ -185,7 +191,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, 0, 0);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be five total neighboring blocks of this face since one neighbor is
       // refined
       by_hand_elements.insert(LogicalLocation(2, 2, 3, 3));
@@ -207,7 +213,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, 0);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be five total neighboring blocks of this edge since one neighbor is
       // refined
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
@@ -229,7 +235,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
       auto possible_neighbors =
           base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, -1);
-      std::set<LogicalLocation> by_hand_elements, automatic_elements;
+      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
       // There should be eight total neighboring blocks for this node
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
       by_hand_elements.insert(LogicalLocation(2, 2, 2, 2));
@@ -250,7 +256,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of a block") {
       LogicalLocation base_loc(2, 2, 3, 3);
-      auto owns = DetermineOwnership(base_loc, set_leaves);
+      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -280,7 +286,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of another block") {
       LogicalLocation base_loc(2, 1, 1, 1);
-      auto owns = DetermineOwnership(base_loc, set_leaves);
+      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -302,7 +308,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(2, 0, 0, 0);
-      auto owns = DetermineOwnership(base_loc, set_leaves);
+      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram, this should be the
       // ownership structure for every block in a uniform grid
@@ -331,7 +337,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(3, 7, 7, 7);
-      auto owns = DetermineOwnership(base_loc, set_leaves);
+      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram, this is
       // the upper rightmost block in the grid on the finest refinement

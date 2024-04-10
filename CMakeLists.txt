@@ -1,6 +1,6 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2023 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
 # (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.8.0 LANGUAGES C CXX)
+project(parthenon VERSION 24.03 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -62,9 +62,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 19 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 21 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=e1d1a06b9cf9b761d42d0b6b241056ac75658db90138b6b867b1ca7ead4308af4f980285af092b40aee1dbbfb68b4e8cb15efcc9b83d7930c18bf992ae95c729"
+  "SHA512=e16b14272915b4607965e5900961402f6da96dc13da8ea3c3d213d61f82d3a1dded08c40a9ab644aa3409d93a045bba360a90a43dc289b24f525878f9ba50890"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -115,6 +115,9 @@ endif()
 # This is fully standard, but links a separate library when using old compilers
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
+
+# Require threading for tasks
+find_package(Threads)
 
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
@@ -352,6 +355,10 @@ endif()
 if (PARTHENON_ENABLE_ASCENT)
   find_package(Ascent REQUIRED NO_DEFAULT_PATH)
 endif()
+
+# Installation configuration
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 add_subdirectory(src)
 add_subdirectory(example)

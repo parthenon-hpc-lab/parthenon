@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -44,8 +44,7 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](sp_mb_t pmb, sp_mbd_t /*rc*/, nb_t &nb,
-                                 const sp_cv_t v) {
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
 
@@ -89,21 +88,22 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     };
 
     // Build send buffer (unless this is a receiving flux boundary)
-    if constexpr (!(BTYPE == BoundaryType::flxcor_recv)) {
+    if constexpr (IsSender(BTYPE)) {
       auto s_key = SendKey(pmb, nb, v);
-      PARTHENON_DEBUG_REQUIRE(buf_map.count(s_key) == 0,
-                              "Two communication buffers have the same key.");
-      buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-          tag, sender_rank, receiver_rank, comm, get_resource_method, use_sparse_buffers);
+      if (buf_map.count(s_key) == 0)
+        buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+            tag, sender_rank, receiver_rank, comm, get_resource_method,
+            use_sparse_buffers);
     }
 
     // Also build the non-local receive buffers here
-    if constexpr (!(BTYPE == BoundaryType::flxcor_send)) {
+    if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
         auto r_key = ReceiveKey(pmb, nb, v);
-        buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-            tag, receiver_rank, sender_rank, comm, get_resource_method,
-            use_sparse_buffers);
+        if (buf_map.count(r_key) == 0)
+          buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+              tag, receiver_rank, sender_rank, comm, get_resource_method,
+              use_sparse_buffers);
       }
     }
   });
@@ -113,7 +113,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 // pmesh->boundary_comm_map.clear() after every remesh
 // in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
 
@@ -127,7 +127,29 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md,
                                                        pmesh->boundary_comm_flxcor_map);
 
+  return TaskStatus::complete;
+}
+
+TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &all_caches = md->GetBvarsCache();
+
+  // Clear the fast access vectors for this block since they are no longer valid
+  // after all MeshData call BuildBoundaryBuffers
+  all_caches.clear();
+  BuildBoundaryBufferSubset<BoundaryType::gmg_same>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_send>(md,
+                                                               pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_recv>(md,
+                                                               pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_send>(md,
+                                                             pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_recv>(md,
+                                                             pmesh->boundary_comm_map);
+
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
 }
+
 } // namespace parthenon

@@ -83,16 +83,15 @@ void SwarmContainer::Remove(const std::string &label) {
 
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
-  Kokkos::Profiling::pushRegion("GetSwarmsByFlag");
+  PARTHENON_INSTRUMENT
 
   auto swarms = MetadataUtils::GetByFlag<SwarmSet>(flags, swarmMap_, swarmMetadataMap_);
 
-  Kokkos::Profiling::popRegion(); // GetSwarmsByFlag
   return swarms;
 }
 
 TaskStatus SwarmContainer::Defrag(double min_occupancy) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_INSTRUMENT
   PARTHENON_REQUIRE_THROWS(min_occupancy >= 0. && min_occupancy <= 1.,
                            "Max fractional occupancy of swarm must be >= 0 and <= 1");
 
@@ -103,28 +102,23 @@ TaskStatus SwarmContainer::Defrag(double min_occupancy) {
     }
   }
 
-  Kokkos::Profiling::popRegion();
-
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::DefragAll() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_INSTRUMENT
   for (auto &s : swarmVector_) {
     s->Defrag();
   }
-  Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::SortParticlesByCell() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_SortParticlesByCell");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->SortParticlesByCell();
   }
-
-  Kokkos::Profiling::popRegion();
 
   return TaskStatus::complete;
 }
@@ -150,18 +144,17 @@ void SwarmContainer::AllocateBoundaries() {
 }
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Send");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->Send(phase);
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Send
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Receive");
+  PARTHENON_INSTRUMENT
 
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
@@ -171,24 +164,22 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
     total++;
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Receive
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SwarmContainer::ResetCommunication() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_ResetCommunication");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->ResetCommunication();
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_ResetCommunication
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_FinalizeCommunicationIterative");
+  PARTHENON_INSTRUMENT
 
   PARTHENON_THROW("FinalizeCommunicationIterative not yet fully implemented!")
 
@@ -200,7 +191,6 @@ TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
     total++;
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_FinalizeCommunicationIterative
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,6 +36,8 @@ struct ApplicationInput {
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator =
       nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
+      nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;
@@ -43,11 +45,15 @@ struct ApplicationInput {
       PostStepMeshUserWorkInLoop = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      UserMeshWorkBeforeOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PreStepDiagnosticsInLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PostStepDiagnosticsInLoop = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoop = nullptr;
   BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr};
   SBValFunc swarm_boundary_conditions[BOUNDARY_NFACES] = {nullptr};
 
@@ -56,6 +62,7 @@ struct ApplicationInput {
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
       nullptr;
 };

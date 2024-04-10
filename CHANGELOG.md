@@ -3,7 +3,74 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
+- [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
+- [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
+
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+## Release 24.03
+Date: 2024-03-21
+
+### Added (new features/APIs/variables/...)
+- [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
+- [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
+- [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
+- [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) New tasking infrastructure and capabilities
+- [[PR 969]](https://github.com/parthenon-hpc-lab/parthenon/pull/969) New macro-based auto-naming of profiling regions and kernels
+- [[PR 981]](https://github.com/parthenon-hpc-lab/parthenon/pull/981) Add IndexSplit
+- [[PR 983]](https://github.com/parthenon-hpc-lab/parthenon/pull/983) Add Contains to SparsePack
+- [[PR 968]](https://github.com/parthenon-hpc-lab/parthenon/pull/968) Add per package registration of boundary conditions
+- [[PR 948]](https://github.com/parthenon-hpc-lab/parthenon/pull/948) Add solver interface and update Poisson geometric multi-grid example
+- [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
+
+### Changed (changing behavior/API/variables/...)
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
+- [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
+- [[PR1012]](https://github.com/parthenon-hpc-lab/parthenon/pull/1012) Remove accidentally duplicated code
+- [[PR992]](https://github.com/parthenon-hpc-lab/parthenon/pull/992) Allow custom PR ops with sparse pools
+- [[PR988]](https://github.com/parthenon-hpc-lab/parthenon/pull/988) Fix bug in neighbor finding routine for small, periodic, refined meshes
+- [[PR986]](https://github.com/parthenon-hpc-lab/parthenon/pull/986) Fix bug in sparse boundary communication BndInfo cacheing
+- [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1027]](https://github.com/parthenon-hpc-lab/parthenon/pull/1027) Refactor RestartReader as abstract class
+- [[PR 1017]](https://github.com/parthenon-hpc-lab/parthenon/pull/1017) Make regression tests more verbose on failure
+- [[PR 1007]](https://github.com/parthenon-hpc-lab/parthenon/pull/1007) Split template instantiations for HDF5 Read/Write attributes to speed up compile times
+- [[PR 990]](https://github.com/parthenon-hpc-lab/parthenon/pull/990) Partial refactor of HDF5 I/O code for readability/extendability
+- [[PR 982]](https://github.com/parthenon-hpc-lab/parthenon/pull/982) add some gut check testing for parthenon-VIBE
+
+### Incompatibilities (i.e. breaking changes)
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
+- [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) Change the API for what was IterativeTasks
+- [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
+- [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
+
+
+## Release 23.11
+Date: 2023-11-16
+
+### Added (new features/APIs/variables/...)
 - [[PR 962]](https://github.com/parthenon-hpc-lab/parthenon/pull/962) Add support for in-situ histograms/profiles
+- [[PR 911]](https://github.com/parthenon-hpc-lab/parthenon/pull/911) Add infrastructure for geometric multi-grid
+- [[PR 971]](https://github.com/parthenon-hpc-lab/parthenon/pull/971) Add UserWorkBeforeLoop
 - [[PR 907]](https://github.com/parthenon-hpc-lab/parthenon/pull/907) PEP1: Allow subclassing StateDescriptor
 - [[PR 932]](https://github.com/parthenon-hpc-lab/parthenon/pull/932) Add GetOrAddFlag to metadata
 - [[PR 931]](https://github.com/parthenon-hpc-lab/parthenon/pull/931) Allow SparsePacks with subsets of blocks
@@ -19,6 +86,10 @@
 - [[PR 868]](https://github.com/parthenon-hpc-lab/parthenon/pull/868) Add block-local face, edge, and nodal fields and allow for packing
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 977]](https://github.com/parthenon-hpc-lab/parthenon/pull/977) Change to CalVer from SemVer
+- [[PR 975]](https://github.com/parthenon-hpc-lab/parthenon/pull/975) Construct staged integrators via arbitrary name
+- [[PR 976]](https://github.com/parthenon-hpc-lab/parthenon/pull/976) Move UserWorkBeforeLoop to be after first output
+- [[PR 965]](https://github.com/parthenon-hpc-lab/parthenon/pull/965) Allow leading whitespace in input parameters
 - [[PR 926]](https://github.com/parthenon-hpc-lab/parthenon/pull/926) Internal refinement op registration
 - [[PR 897]](https://github.com/parthenon-hpc-lab/parthenon/pull/897) Deflate compression filter is not called any more if compression is soft disabled
 - [[PR 896]](https://github.com/parthenon-hpc-lab/parthenon/pull/896) Update Kokkos integration to support installed version. Use `serial` (flat MPI) host parallelization by default (instead of OpenMP)
@@ -37,6 +108,7 @@
 - [[PR 890]](https://github.com/parthenon-hpc-lab/parthenon/pull/890) Fix bugs in sparse communication and prolongation
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 967]](https://github.com/parthenon-hpc-lab/parthenon/pull/967) Change INLINE to FORCEINLINE on par_for_inner overloads
 - [[PR 938]](https://github.com/parthenon-hpc-lab/parthenon/pull/938) Restructure buffer packing/unpacking kernel hierarchical parallelism
 - [[PR 944]](https://github.com/parthenon-hpc-lab/parthenon/pull/944) Move sparse pack identifier creation to descriptor
 - [[PR 904]](https://github.com/parthenon-hpc-lab/parthenon/pull/904) Move to prolongation/restriction in one for AMR and communicate non-cell centered fields

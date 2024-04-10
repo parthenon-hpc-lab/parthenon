@@ -63,6 +63,7 @@ struct VariableState : public empty_state_t {
   bool initialized = true;
 
   TopologicalType topological_type = TopologicalType::Cell;
+  TopologicalElement topological_element = TopologicalElement::CC;
   std::size_t tensor_components;
   std::size_t tensor_shape[3];
 };

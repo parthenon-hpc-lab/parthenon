@@ -34,6 +34,9 @@ namespace parthenon {
 // Returns the upper bound (or the array size if value has not been found)
 // Could/Should be replaced with a Kokkos std version once available (currently schedule
 // for 4.2 release).
+// Note, the API follows the std::upper_bound with the difference of taking an
+// array/view as input rather than first and last Iterators, and returning an index
+// rather than an Iterator.
 template <class T>
 KOKKOS_INLINE_FUNCTION int upper_bound(const T &arr, Real val) {
   int l = 0;

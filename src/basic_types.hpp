@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,7 +15,9 @@
 
 #include <limits>
 #include <string>
+#include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #include <Kokkos_Core.hpp>
 
@@ -36,14 +38,48 @@ using Real = double;
 #endif
 #endif
 
-enum class TaskStatus { fail, complete, incomplete, iterate, skip, waiting };
+// needed for arrays dimensioned over grid directions
+// enumerator type only used in Mesh::EnrollUserMeshGenerator()
+// X0DIR time-like direction
+// X1DIR x, r, etc...
+// X2DIR y, theta, etc...
+// X3DIR z, phi, etc...
+enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
+enum class BlockLocation { Left = 0, Center = 1, Right = 2 };
+enum class TaskStatus { complete, incomplete, iterate };
+
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
-
+enum class CellLevel : int { coarse = -1, same = 0, fine = 1 };
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 5;
-enum class BoundaryType : int { local, nonlocal, any, flxcor_send, flxcor_recv };
+constexpr int NUM_BNDRY_TYPES = 10;
+enum class BoundaryType : int {
+  local,
+  nonlocal,
+  any,
+  flxcor_send,
+  flxcor_recv,
+  gmg_same,
+  gmg_restrict_send,
+  gmg_restrict_recv,
+  gmg_prolongate_send,
+  gmg_prolongate_recv
+};
+
+constexpr bool IsSender(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_recv) return false;
+  if (btype == BoundaryType::gmg_restrict_recv) return false;
+  if (btype == BoundaryType::gmg_prolongate_recv) return false;
+  return true;
+}
+
+constexpr bool IsReceiver(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_send) return false;
+  if (btype == BoundaryType::gmg_restrict_send) return false;
+  if (btype == BoundaryType::gmg_prolongate_send) return false;
+  return true;
+}
 
 // Enumeration for accessing a field on different locations of the grid:
 // CC = cell center of (i, j, k)
@@ -109,16 +145,25 @@ TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (tt == TT::Node) return {TE::NN};
+  if (tt == TT::Edge) return {TE::E1, TE::E2, TE::E3};
+  if (tt == TT::Face) return {TE::F1, TE::F2, TE::F3};
+  return {TE::CC};
+}
+
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetI(TE el) noexcept {
+inline constexpr int TopologicalOffsetI(TE el) {
   return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetJ(TE el) noexcept {
+inline constexpr int TopologicalOffsetJ(TE el) {
   return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
-KOKKOS_INLINE_FUNCTION int TopologicalOffsetK(TE el) noexcept {
+inline constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 
@@ -164,6 +209,8 @@ struct SimTime {
 template <typename T>
 using Dictionary = std::unordered_map<std::string, T>;
 
+template <typename T>
+using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
 
 #endif // BASIC_TYPES_HPP_

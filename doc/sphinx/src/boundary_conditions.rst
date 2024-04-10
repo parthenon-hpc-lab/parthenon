@@ -99,3 +99,38 @@ Important things to note:
 Other than these requirements, the ``Boundary`` object can do whatever
 you like. Reference implementations of the standard boundary conditions
 are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/bvals/boundary_conditions.cpp>`__.
+
+
+Per package user-defined boundary conditions.
+---------------------------------
+
+In addition to user defined *global* boundary conditions, Parthenon also supports 
+registration of boundary conditions at the *per package* level. These per package 
+boundary conditions are *not* controlled by parameter input in `<parthenon/mesh>`,
+and they are always applied after the chosen global boundary conditions have 
+been applied during `ApplyBoundaryConditions*`.
+
+A `StateDescriptor` defining a package contains a member `UserBoundaryFunctions`, 
+which is an array with an element for each boundary direction consisting of a vector 
+of boundary function pointers. When the packages are resolved and associated with 
+a `Mesh` object, these boundary conditions are called in the order in which they 
+are registered within a package. For example, to register a boundary condition for 
+your package you could do something like (see `examples/poisson_gmg/poisson_package.cpp` 
+for a more complete example):
+
+.. code:: c++
+
+  template <CoordinateDirection DIR, BCSide SIDE>
+  auto GetMyBC() {
+    return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
+      // Implementation of BC here
+    };
+  }
+  
+  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
+    ...
+    using BF = parthenon::BoundaryFace;
+    pkg->UserBoundaryFunctions[BF::inner_x1].push_back(GetMyBC<X1DIR, BCSide::Inner>());
+    pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetMyBC<X2DIR, BCSide::Inner>());
+    ...
+  }

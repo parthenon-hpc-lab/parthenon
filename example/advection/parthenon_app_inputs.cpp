@@ -21,6 +21,8 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
+#include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -73,7 +75,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "block") profile_type = 3;
 
   pmb->par_for(
-      "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         if (profile_type == 0) {
           Real x = cos_a2 * (coords.Xc<1>(i) * cos_a3 + coords.Xc<2>(j) * sin_a3) +
@@ -99,8 +101,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // initialize some arbitrary cells in the first block that move in all 6 directions
   if (profile_type == 3 && block_id == 0) {
     pmb->par_for(
-        "Advection::ProblemGenerator bvals test", 0, 1,
-        KOKKOS_LAMBDA(const int /*unused*/) {
+        PARTHENON_AUTO_LABEL, 0, 1, KOKKOS_LAMBDA(const int /*unused*/) {
           q(idx_adv, 4, 4, 4) = 10.0;
           q(idx_v, 4, 4, 4) = vx;
           q(idx_adv, 4, 6, 4) = 10.0;
@@ -247,6 +248,25 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   }
 
   return;
+}
+
+void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+  // loop over blocks
+  for (auto &pmb : mesh->block_list) {
+    auto rc = pmb->meshblock_data.Get(); // get base container
+    auto q = rc->Get("advected").data;
+    auto deriv = rc->Get("my_derived_var").data;
+
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+    pmb->par_for(
+        "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+        });
+  }
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

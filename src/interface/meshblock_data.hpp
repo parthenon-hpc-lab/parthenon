@@ -67,25 +67,28 @@ class MeshBlockData {
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
                    const std::vector<int> &sparse_ids = {});
 
-  /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() const {
+  std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
-  auto GetParentPointer() const { return GetBlockPointer(); }
+  MeshBlock *GetBlockPointer() const { return GetBlockSharedPointer().get(); }
+  MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsI(domain);
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsI(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsJ(std::forward<Ts>(args)...);
   }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return GetBlockPointer()->cellbounds.GetBoundsK(domain);
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts &&...args) const {
+    return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
 
   /// Set the pointer to the mesh block for this container
@@ -94,10 +97,10 @@ class MeshBlockData {
     SetBlockPointer(other.get());
   }
   void SetBlockPointer(const MeshBlockData<T> &other) {
-    pmy_block = other.GetBlockPointer();
+    pmy_block = other.GetBlockSharedPointer();
   }
   void SetBlockPointer(const MeshBlockData<T> *other) {
-    pmy_block = other->GetBlockPointer();
+    pmy_block = other->GetBlockSharedPointer();
   }
 
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,

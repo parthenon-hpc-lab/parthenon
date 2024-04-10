@@ -49,8 +49,8 @@ nx2 = 64
 nx3 = 64
 
 <parthenon/time>
-tlim = 1.0
-nlim = 20
+ tlim = 1.0 # Test that leading whitespace is correctly sanitized
+	nlim = 20 # Test that leading tab is correctly sanitized
 integrator = rk2
 perf_cycle_offset = 2
 

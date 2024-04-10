@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -94,9 +94,9 @@ GetGridSpacings(const Coordinates_t &coords, const Coordinates_t &coarse_coords,
 
 KOKKOS_FORCEINLINE_FUNCTION
 Real GradMinMod(const Real fc, const Real fm, const Real fp, const Real dxm,
-                const Real dxp) {
-  const Real gxm = (fc - fm) / dxm;
-  const Real gxp = (fp - fc) / dxp;
+                const Real dxp, Real &gxm, Real &gxp) {
+  gxm = (fc - fm) / dxm;
+  gxp = (fp - fc) / dxp;
   return 0.5 * (SIGN(gxm) + SIGN(gxp)) * std::min(std::abs(gxm), std::abs(gxp));
 }
 
@@ -163,7 +163,8 @@ struct RestrictAverage {
   }
 };
 
-struct ProlongateSharedMinMod {
+template <bool use_minmod_slope>
+struct ProlongateSharedGeneral {
   static constexpr bool OperationRequired(TopologicalElement fel,
                                           TopologicalElement cel) {
     return fel == cel;
@@ -199,64 +200,83 @@ struct ProlongateSharedMinMod {
 
     Real dx1fm = 0;
     [[maybe_unused]] Real dx1fp = 0;
-    Real gx1c = 0;
+    [[maybe_unused]] Real gx1m = 0, gx1p = 0;
     if constexpr (INCLUDE_X1) {
       Real dx1m, dx1p;
       GetGridSpacings<1, el>(coords, coarse_coords, cib, ib, i, fi, &dx1m, &dx1p, &dx1fm,
                              &dx1fp);
-      gx1c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
-                        coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p);
+
+      Real gx1c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k, j, i - 1),
+                     coarse(element_idx, l, m, n, k, j, i + 1), dx1m, dx1p, gx1m, gx1p);
+      if constexpr (use_minmod_slope) {
+        gx1m = gx1c;
+        gx1p = gx1c;
+      }
     }
 
     Real dx2fm = 0;
     [[maybe_unused]] Real dx2fp = 0;
-    Real gx2c = 0;
+    [[maybe_unused]] Real gx2m = 0, gx2p = 0;
     if constexpr (INCLUDE_X2) {
       Real dx2m, dx2p;
       GetGridSpacings<2, el>(coords, coarse_coords, cjb, jb, j, fj, &dx2m, &dx2p, &dx2fm,
                              &dx2fp);
-      gx2c = GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i),
-                        coarse(element_idx, l, m, n, k, j + 1, i), dx2m, dx2p);
+      Real gx2c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k, j - 1, i),
+                     coarse(element_idx, l, m, n, k, j + 1, i), dx2m, dx2p, gx2m, gx2p);
+      if constexpr (use_minmod_slope) {
+        gx2m = gx2c;
+        gx2p = gx2c;
+      }
     }
 
     Real dx3fm = 0;
     [[maybe_unused]] Real dx3fp = 0;
-    Real gx3c = 0;
+    [[maybe_unused]] Real gx3m = 0, gx3p = 0;
     if constexpr (INCLUDE_X3) {
       Real dx3m, dx3p;
       GetGridSpacings<3, el>(coords, coarse_coords, ckb, kb, k, fk, &dx3m, &dx3p, &dx3fm,
                              &dx3fp);
-      gx3c = GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i),
-                        coarse(element_idx, l, m, n, k + 1, j, i), dx3m, dx3p);
+      Real gx3c =
+          GradMinMod(fc, coarse(element_idx, l, m, n, k - 1, j, i),
+                     coarse(element_idx, l, m, n, k + 1, j, i), dx3m, dx3p, gx3m, gx3p);
+      if constexpr (use_minmod_slope) {
+        gx3m = gx3c;
+        gx3p = gx3c;
+      }
     }
 
     // KGF: add the off-centered quantities first to preserve FP symmetry
     // JMM: Extraneous quantities are zero
     fine(element_idx, l, m, n, fk, fj, fi) =
-        fc - (gx1c * dx1fm + gx2c * dx2fm + gx3c * dx3fm);
+        fc - (gx1m * dx1fm + gx2m * dx2fm + gx3m * dx3fm);
     if constexpr (INCLUDE_X1)
       fine(element_idx, l, m, n, fk, fj, fi + 1) =
-          fc + (gx1c * dx1fp - gx2c * dx2fm - gx3c * dx3fm);
+          fc + (gx1p * dx1fp - gx2m * dx2fm - gx3m * dx3fm);
     if constexpr (INCLUDE_X2)
       fine(element_idx, l, m, n, fk, fj + 1, fi) =
-          fc - (gx1c * dx1fm - gx2c * dx2fp + gx3c * dx3fm);
+          fc - (gx1m * dx1fm - gx2p * dx2fp + gx3m * dx3fm);
     if constexpr (INCLUDE_X2 && INCLUDE_X1)
       fine(element_idx, l, m, n, fk, fj + 1, fi + 1) =
-          fc + (gx1c * dx1fp + gx2c * dx2fp - gx3c * dx3fm);
+          fc + (gx1p * dx1fp + gx2p * dx2fp - gx3m * dx3fm);
     if constexpr (INCLUDE_X3)
       fine(element_idx, l, m, n, fk + 1, fj, fi) =
-          fc - (gx1c * dx1fm + gx2c * dx2fm - gx3c * dx3fp);
+          fc - (gx1m * dx1fm + gx2m * dx2fm - gx3p * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X1)
       fine(element_idx, l, m, n, fk + 1, fj, fi + 1) =
-          fc + (gx1c * dx1fp - gx2c * dx2fm + gx3c * dx3fp);
+          fc + (gx1p * dx1fp - gx2m * dx2fm + gx3p * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X2)
       fine(element_idx, l, m, n, fk + 1, fj + 1, fi) =
-          fc - (gx1c * dx1fm - gx2c * dx2fp - gx3c * dx3fp);
+          fc - (gx1m * dx1fm - gx2p * dx2fp - gx3p * dx3fp);
     if constexpr (INCLUDE_X3 && INCLUDE_X2 && INCLUDE_X1)
       fine(element_idx, l, m, n, fk + 1, fj + 1, fi + 1) =
-          fc + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
+          fc + (gx1p * dx1fp + gx2p * dx2fp + gx3p * dx3fp);
   }
 };
+
+using ProlongateSharedMinMod = ProlongateSharedGeneral<true>;
+using ProlongateSharedLinear = ProlongateSharedGeneral<false>;
 
 struct ProlongateInternalAverage {
   static constexpr bool OperationRequired(TopologicalElement fel,

@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2022 The Parthenon collaboration
+// Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -182,7 +182,7 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
 
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
-      "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           x(n) += vx * dt;
           y(n) += vy * dt;
@@ -219,13 +219,13 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
   // Reset particle count
   pmb->par_for(
-      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
 
   const int ndim = pmb->pmy_mesh->ndim;
 
   pmb->par_for(
-      "DepositTracers", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
           int j = 0;
@@ -269,7 +269,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   // Spatially first order upwind method
   pmb->par_for(
-      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         // X1
         if (vx > 0.) {
@@ -282,7 +282,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   if (ndim > 1) {
     auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X2
           if (vy > 0.) {
@@ -296,7 +296,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   if (ndim > 2) {
     auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for(
-        "CalculateFluxesX3", kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X3
           if (vz > 0.) {
@@ -355,7 +355,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
 
   pmb->par_for(
-      "Init advected profile", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.Xc<1>(i));
       });
@@ -375,8 +375,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
 
-  ParArrayND<int> new_indices;
-  swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
+  auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
 
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
@@ -384,10 +383,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  // This hardcoded implementation should only used in PGEN and not during runtime
-  // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      "CreateParticles", 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int new_n) {
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
 
         // Rejection sample the x position

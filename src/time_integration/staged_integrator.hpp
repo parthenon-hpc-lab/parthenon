@@ -49,6 +49,7 @@ class StagedIntegrator {
 class LowStorageIntegrator : public StagedIntegrator {
  public:
   LowStorageIntegrator() = default;
+  explicit LowStorageIntegrator(const std::string &name);
   explicit LowStorageIntegrator(ParameterInput *pin);
   std::vector<Real> delta;
   std::vector<Real> beta;
@@ -60,6 +61,7 @@ class LowStorageIntegrator : public StagedIntegrator {
 class ButcherIntegrator : public StagedIntegrator {
  public:
   ButcherIntegrator() = default;
+  explicit ButcherIntegrator(const std::string &name);
   explicit ButcherIntegrator(ParameterInput *pin);
   // TODO(JMM): Should I do a flat array with indexing instead?
   std::vector<std::vector<Real>> a;

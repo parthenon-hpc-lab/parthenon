@@ -119,19 +119,39 @@ class TestCase(utils.test_case.TestCaseAbs):
         if ret_2d != 0 or ret_3d != 0:
             analyze_status = False
 
-        hst_2d = np.genfromtxt("advection_2d.hst")
-        hst_3d = np.genfromtxt("advection_3d.hst")
+        hst_2d = np.genfromtxt("advection_2d.out1.hst")
+        hst_3d = np.genfromtxt("advection_3d.out1.hst")
         ref_results = [
             ["time", 1.0, 1.0],
             ["dt", 1.75781e-03, 3.12500e-03],
-            ["total", 7.06177e-02, 1.39160e-02],
-            ["max", 9.43685e-01, 4.80914e-01],
+            ["total_advected", 7.06177e-02, 1.39160e-02],
+            ["advected_powers_0", 7.06177e-02, 1.39160e-02],
+            ["advected_powers_1", 3.88112e-02, 2.59597e-03],
+            ["advected_powers_2", 2.65948e-02, 7.19427e-04],
+            ["max_advected", 9.43685e-01, 4.80914e-01],
             [
-                "min",
+                "min_advected",
                 1.69755e-10,
                 1.45889e-07,
             ],
         ]
+        # check header labels
+        for fname in ["advection_2d.out1.hst", "advection_3d.out1.hst"]:
+            with open(fname, "r") as f:
+                f.readline()
+                header = f.readline()[1:].split()
+                for i, val in enumerate(ref_results):
+                    col_label = header[i].strip()[4:]
+                    if col_label != val[0]:
+                        print(
+                            "Wrong",
+                            val[0],
+                            "label in hst output of",
+                            fname,
+                            ":",
+                            col_label,
+                        )
+                        analyze_status = False
         # check results in last row (at the final time of the sim)
         for i, val in enumerate(ref_results):
             if hst_2d[-1:, i] != val[1]:
@@ -179,7 +199,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["0/data"][:]
+                hist_parth = infile["hist0/data"][:]
                 all_close = np.allclose(hist_parth, hist_np1d[0])
                 if not all_close:
                     print(f"1D variable-based hist for {dim}D setup don't match")
@@ -197,7 +217,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["1/data"][:]
+                hist_parth = infile["name/data"][:]
                 # testing slices separately to ensure matching numpy convention
                 all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])
@@ -210,7 +230,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out2.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["2/data"][:]
+                hist_parth = infile["other_name/data"][:]
                 all_close = np.allclose(hist_parth, hist_np1d[0])
                 if not all_close:
                     print(f"1D sampling-based hist for {dim}D setup don't match")
@@ -229,7 +249,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             with h5py.File(
                 f"advection_{dim}d.out3.histograms.final.hdf", "r"
             ) as infile:
-                hist_parth = infile["0/data"][:]
+                hist_parth = infile["hist0/data"][:]
                 # testing slices separately to ensure matching numpy convention
                 all_close = np.allclose(hist_parth[:, 0], hist_np2d[0][:, 0])
                 all_close &= np.allclose(hist_parth[:, 1], hist_np2d[0][:, 1])

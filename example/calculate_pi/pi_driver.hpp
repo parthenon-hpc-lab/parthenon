@@ -42,7 +42,7 @@ class PiDriver : public Driver {
   DriverStatus Execute() override;
 
  protected:
-  void PostExecute(Real pi_val);
+  void PiPostExecute(Real pi_val);
 };
 
 } // namespace pi

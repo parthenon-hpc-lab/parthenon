@@ -61,14 +61,6 @@ static_assert(NDIM >= 3,
 // named, weakly typed / unscoped enums:
 //------------------
 
-// needed for arrays dimensioned over grid directions
-// enumerator type only used in Mesh::EnrollUserMeshGenerator()
-// X0DIR time-like direction
-// X1DIR x, r, etc...
-// X2DIR y, theta, etc...
-// X3DIR z, phi, etc...
-enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
-
 struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
@@ -95,6 +87,20 @@ struct RegionSize {
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
 
+  // Returns global coordinate position within a block based on block local
+  // coordinate u running from zero to one
+  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
+    return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
+  }
+  // A "symmetry" direction is a a direction that posesses a translational symmetry
+  // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given
+  // problem. In practice, this mean that the Parthenon mesh was setup to have only
+  // size one in a symmetry direction, the block size is one in those directions,
+  // and there are no ghost zones in that direction. Since we support multi-grid
+  // mesh hierarchies where blocks are not all the same size above the root grid
+  // and can end up having size one even in a non-symmetry direction, we need a different
+  // identifier for checking if a direction is a symmetry direction beyond just
+  // checking if the size is one in that direction.
   bool &symmetry(CoordinateDirection dir) { return symmetry_[dir - 1]; }
   const bool &symmetry(CoordinateDirection dir) const { return symmetry_[dir - 1]; }
 };
@@ -106,7 +112,10 @@ struct RegionSize {
 // TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
-// task_list.hpp, ???
+// tasks.hpp, ???
+
+// identifiers for boundary conditions
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
@@ -146,8 +155,6 @@ inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
 // strongly typed / scoped enums (C++11):
 //------------------
 // KGF: Except for the 2x MG* enums, these may be unnessary w/ the new class inheritance
-// Now, only passed to BoundaryVariable::InitBoundaryData(); could replace w/ bool switch
-enum class BoundaryQuantity { cc, fc, cc_flcor, fc_flcor };
 enum class BoundaryCommSubset { mesh_init, all };
 // TODO(felker): consider generalizing/renaming to QuantityFormulation
 enum class UserHistoryOperation { sum, max, min };

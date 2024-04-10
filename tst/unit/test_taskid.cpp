@@ -19,34 +19,20 @@
 
 #include <catch2/catch.hpp>
 
-#include "tasks/task_id.hpp"
+#include "tasks/tasks.hpp"
 
+using parthenon::Task;
 using parthenon::TaskID;
 
-TEST_CASE("Just check everything", "[CheckDependencies][SetFinished][equal][or]") {
+TEST_CASE("Just check everything", "[GetIDs][empty]") {
   GIVEN("Some TaskIDs") {
-    TaskID a(1);
-    TaskID b(2);
-    TaskID c(BITBLOCK + 1); // make sure we get a task with more than one block
-    TaskID complete;
+    Task ta, tb;
+    TaskID a(&ta);
+    TaskID b(&tb);
+    TaskID c = a | b;
+    TaskID none;
 
-    TaskID ac = (a | c);
-    bool should_be_false = ac.CheckDependencies(b);
-    bool should_be_truea = ac.CheckDependencies(a);
-    bool should_be_truec = ac.CheckDependencies(c);
-    TaskID abc = (a | b | c);
-    complete.SetFinished(abc);
-    bool equal_true = (complete == abc);
-    bool equal_false = (complete == ac);
-
-    REQUIRE(should_be_false == false);
-    REQUIRE(should_be_truea == true);
-    REQUIRE(should_be_truec == true);
-    REQUIRE(equal_true == true);
-    REQUIRE(equal_false == false);
-
-    WHEN("a negative number is passed") {
-      REQUIRE_THROWS_AS(a.Set(-1), std::invalid_argument);
-    }
+    REQUIRE(none.empty() == true);
+    REQUIRE(c.GetIDs().size() == 2);
   }
 }

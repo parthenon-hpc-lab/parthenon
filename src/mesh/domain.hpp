@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 
 namespace parthenon {
@@ -91,12 +92,14 @@ class IndexShape {
     return dim <= interior_dims.size();
   }
 
+  KOKKOS_INLINE_FUNCTION
   void MakeZeroDimensional_(int const index) {
     x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
 
  public:
+  KOKKOS_FUNCTION
   IndexShape() {}
 
   IndexShape(const int &nx3, const int &nx2, const int &nx1, const int &ng)
@@ -138,6 +141,25 @@ class IndexShape {
         }
       }
     }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  static IndexShape GetFromSeparateInts(int nx3, int nx2, int nx1, int ng) {
+    IndexShape out;
+    int idx = 0;
+    for (auto nx : {nx1, nx2, nx3}) {
+      // For symmetry directions, nx should be passed in as zero (rather than the actual
+      // value of one)
+      if (nx == 0) {
+        out.x_[idx] = IndexRange{0, 0};
+        out.entire_ncells_[idx] = 1;
+      } else {
+        out.x_[idx] = IndexRange{ng, (ng + nx - 1)};
+        out.entire_ncells_[idx] = nx + 2 * ng;
+      }
+      idx++;
+    }
+    return out;
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain,

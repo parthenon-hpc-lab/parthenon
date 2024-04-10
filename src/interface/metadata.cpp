@@ -103,7 +103,8 @@ MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
 namespace parthenon {
 Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
                    const std::vector<std::string> &component_labels,
-                   const std::string &associated)
+                   const std::string &associated,
+                   const refinement::RefinementFunctions_t ref_funcs_)
     : shape_(shape), component_labels_(component_labels), associated_(associated) {
   // set flags
   for (const auto f : bits) {
@@ -126,8 +127,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
   if (IsRefined()) {
-    refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
-        refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>();
+    refinement_funcs_ = ref_funcs_;
   }
 
   // check if all flag constraints are satisfied, throw if not

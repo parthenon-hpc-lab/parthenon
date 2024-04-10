@@ -3,7 +3,7 @@
 // Copyright(C) 2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,6 +32,109 @@
 
 namespace parthenon {
 namespace OutputUtils {
+
+Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
+  int nx3 = 1, nx2 = 1, nx1 = 1;
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
+  for (auto el : topological_elements) {
+    nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
+    nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
+    nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
+  }
+  return std::make_tuple(nx3, nx2, nx1);
+}
+
+Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const {
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
+  int ks = 0, ke = 0, js = 0, je = 0, is = 0, ie = 0;
+  for (auto el : topological_elements) {
+    auto kb = cellbounds.GetBoundsK(domain, el);
+    auto jb = cellbounds.GetBoundsJ(domain, el);
+    auto ib = cellbounds.GetBoundsI(domain, el);
+    ks = kb.s; // pads are only upper indices
+    js = jb.s;
+    is = ib.s;
+    ke = std::max(ke, kb.e);
+    je = std::max(je, jb.e);
+    ie = std::max(ie, ib.e);
+  }
+  IndexRange kb{ks, ke}, jb{js, je}, ib{is, ie};
+  return std::make_tuple(kb, jb, ib);
+}
+
+int VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
+}
+
+// Includes topological element shape
+int VarInfo::TensorSize() const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  } else {
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, 1, std::multiplies<int>());
+  }
+}
+
+int VarInfo::FillSize(const IndexDomain domain) const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  } else {
+    auto [n3, n2, n1] = GetNumKJI(domain);
+    return ntop_elems * TensorSize() * n3 * n2 * n1;
+  }
+}
+
+// number of elements of data that describe variable shape
+int VarInfo::GetNDim() const {
+  // 3 cell indices, tensor rank, topological element index if needed
+  return (where == MetadataFlag({Metadata::None})) ? tensor_rank
+                                                   : (3 + tensor_rank + element_matters);
+}
+
+// Returns full shape as read to/written from I/O, with 1-padding.
+std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
+  std::vector<int> out = GetRawShape();
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    out[0] = nx3;
+    out[1] = nx2;
+    out[2] = nx1;
+  }
+  return out;
+}
+std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
+  std::vector<int> out(rnx_.begin(), rnx_.end());
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    out[VNDIM - 3] = nx3;
+    out[VNDIM - 2] = nx2;
+    out[VNDIM - 1] = nx1;
+  }
+  return out;
+}
+
+std::vector<int> VarInfo::GetRawShape() const {
+  return std::vector<int>(nx_.begin(), nx_.end());
+}
+
+int VarInfo::GetDim(int i) const {
+  PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
+  return nx_[i - 1];
+}
+
+std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
+                                     const IndexShape &cellbounds) {
+  std::vector<VarInfo> out;
+  for (const auto &v : vars) {
+    out.emplace_back(v, cellbounds);
+  }
+  std::sort(out.begin(), out.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+
+  return out;
+}
 
 void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
   std::size_t count = swarm->GetNumActive();
@@ -97,6 +200,73 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
       info.offsets[i] += info.global_offset;
     }
     info.global_count = tot_count;
+  }
+}
+
+// Tools that can be shared accross Output types
+
+std::vector<Real> ComputeXminBlocks(Mesh *pm) {
+  return FlattenBlockInfo<Real>(pm, pm->ndim,
+                                [=](MeshBlock *pmb, std::vector<Real> &data, int &i) {
+                                  auto xmin = pmb->coords.GetXmin();
+                                  data[i++] = xmin[0];
+                                  if (pm->ndim > 1) {
+                                    data[i++] = xmin[1];
+                                  }
+                                  if (pm->ndim > 2) {
+                                    data[i++] = xmin[2];
+                                  }
+                                });
+}
+
+std::vector<int64_t> ComputeLocs(Mesh *pm) {
+  return FlattenBlockInfo<int64_t>(
+      pm, 3, [=](MeshBlock *pmb, std::vector<int64_t> &locs, int &i) {
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        locs[i++] = loc.lx1();
+        locs[i++] = loc.lx2();
+        locs[i++] = loc.lx3();
+      });
+}
+
+std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
+  return FlattenBlockInfo<int>(
+      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        data[i++] = loc.level();
+        data[i++] = pmb->gid;
+        data[i++] = pmb->lid;
+        data[i++] = pmb->cnghost;
+        data[i++] = pmb->gflag;
+      });
+}
+
+// TODO(JMM): I could make this use the other loop
+// functionality/high-order functions.  but it was more code than this
+// for, I think, little benefit.
+void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                   std::vector<Real> &z) {
+  const int nx1 = ib.e - ib.s + 1;
+  const int nx2 = jb.e - jb.s + 1;
+  const int nx3 = kb.e - kb.s + 1;
+  const int num_blocks = pm->block_list.size();
+  x.resize((nx1 + face) * num_blocks);
+  y.resize((nx2 + face) * num_blocks);
+  z.resize((nx3 + face) * num_blocks);
+  std::size_t idx_x = 0, idx_y = 0, idx_z = 0;
+
+  // note relies on casting of bool to int
+  for (auto &pmb : pm->block_list) {
+    for (int i = ib.s; i <= ib.e + face; ++i) {
+      x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
+    }
+    for (int j = jb.s; j <= jb.e + face; ++j) {
+      y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
+    }
+    for (int k = kb.s; k <= kb.e + face; ++k) {
+      z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
+    }
   }
 }
 
