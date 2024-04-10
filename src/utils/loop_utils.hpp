@@ -128,6 +128,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         }
       } else {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
+          constexpr bool flx_bound =
+              bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
           for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
@@ -137,11 +139,12 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               if (nb.rank == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
-            } else if constexpr (bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv) {
+            } else if constexpr (flx_bound) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
-              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) 
-                  != pmb->loc.level() - (bound == BoundaryType::flxcor_send)) continue;
+              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) !=
+                  pmb->loc.level() - (bound == BoundaryType::flxcor_send))
+                continue;
               bool correct = false;
               if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
               if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&

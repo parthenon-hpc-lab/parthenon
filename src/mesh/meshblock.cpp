@@ -191,7 +191,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
       real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
   for (const auto &v : vars)
-      vars_cc_.push_back(v);
+    vars_cc_.push_back(v);
 
   // No RemeshComm
   if (pm->multilevel) {
