@@ -1,0 +1,9 @@
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2024 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+
+# Testing to override parameters in a restart file from an input file
+<parthenon/job>
+problem_id=silver

@@ -8,6 +8,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
+- [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
