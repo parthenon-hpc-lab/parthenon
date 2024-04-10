@@ -3,10 +3,10 @@
 Outputs
 =======
 
-Outputs from Parthenon are controled via ``<parthenon/output*>`` blocks,
+Outputs from Parthenon are controlled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
-To disable an output block without removing it from the intput file set
+To disable an output block without removing it from the input file set
 the block's ``dt < 0.0``.
 
 In addition to time base outputs, two additional options to trigger
@@ -114,7 +114,7 @@ Restart Files
 
 Parthenon allows users to output restart files for restarting a
 simulation. The restart file captures the input file, so no input file
-is required to be specified. Parameters for the input can be overriden
+is required to be specified. Parameters for the input can be overridden
 in the usual way from the command line. At a future date we will allow
 for users the ability to extensively edit the parameters stored within
 the restart file.
@@ -135,8 +135,8 @@ simulation time that can be used for restarting the simulation.
 
 To use this restart file, simply specify the restart file with a
 ``-r <restart.rhdf>`` at the command line. If both ``-r <restart.rhdf>``
-and ``-i <input.in>`` are specicifed, the simulation will be restarted from
-the restart file with input parameter updated (or added) from the input file.
+and ``-i <input.in>`` are specified, the simulation will be restarted from
+the restart file with input parameters updated (or added) from the input file.
 
 For physics developers: The fields to be output are automatically
 selected as all the variables that have either the ``Independent`` or
@@ -180,7 +180,7 @@ Currently supported are
 - weighting by volume and/or variable
 
 The output format follows ``numpy`` convention, so that plotting data
-with Python based machinery should be straightfoward (see example below).
+with Python based machinery should be straightforward (see example below).
 In other words, 2D histograms use C-ordering corresponding to ``[x,y]``
 indexing with ``y`` being the fast index.
 In general, histograms are calculated using inclusive left bin edges and
@@ -223,7 +223,7 @@ with the following parameters
 
 - ``hist_names=STRING, STRING, STRING, ...`` (comma separated names)
    The names of the histograms in this block.
-   Will be used as preifx in the block as well as in the output file.
+   Will be used as prefix in the block as well as in the output file.
    All histograms will be written to the same output file with the "group" in the
    output corresponding to the histogram name.
 - ``NAME_ndim=INT`` (either ``1`` or ``2``)
@@ -339,7 +339,7 @@ Support for Ascent is disabled by default and must be enabled via ``PARTHENON_EN
 In the input file, include a ``<parthenon/output*>`` block and specify ``file_type = ascent``.
 A ``dt`` parameter controls the frequency of outputs for simulations involving evolution.
 *Note* that in principle Ascent can control its own output cadence (including
-automated tiggers).
+automated triggers).
 If you want to call Ascent on every cycle, set ``dt`` to a value smaller than the actual simulation ``dt``.
 The mandatory ``actions_file`` parameter points to a separate file that defines
 Ascent actions in ``.yaml`` or ``.json`` format, see
@@ -353,7 +353,7 @@ If component label(s) are provided, they will be added as a suffix, e.g,.
 Otherwise, an integer index is added for vectors/tensors with more than one component, i.e.,
 vectors/tensors with a single component and without component labels will not contain a suffix.
 The definition of component labels for variables is typically done by downstream codes
-so that the downstream documention should be consulted for more specific information.
+so that the downstream documentation should be consulted for more specific information.
 
 A ``<parthenon/output*>`` block might look like::
 
