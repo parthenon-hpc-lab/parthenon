@@ -199,11 +199,16 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // Write block metadata
   {
-    // TODO(pgrete) FIXME this is collective, so should be a dataset!
-    const int n_blocks_global = pm->nbtotal;
-    const int n_blocks_local = static_cast<int>(pm->block_list.size());
-    std::vector<int64_t> loc = OutputUtils::ComputeLocs(pm);
-    it.setAttribute("loc.lx123", loc);
+    // Manually gather all block data first as it allows to use the (simpler)
+    // Attribute interface rather than writing a distributed dataset -- especially as all
+    // data is being read on restart by every rank anyway.
+    std::vector<int64_t> loc_local = OutputUtils::ComputeLocs(pm);
+    auto loc_global = FlattendedLocalToGlobal(pm, loc_local);
+    it.setAttribute("loc.lx123", loc_global);
+
+    std::vector<int> id_local = OutputUtils::ComputeIDsAndFlags(pm);
+    auto id_global = FlattendedLocalToGlobal(pm, id_local);
+    it.setAttribute("loc.level-gid-lid-cnghost-gflag", id_global);
   }
 
   // TODO(pgrete) check var name standard compatiblity

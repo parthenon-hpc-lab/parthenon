@@ -29,6 +29,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "utils/mpi_types.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
@@ -239,6 +240,39 @@ std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
         data[i++] = pmb->cnghost;
         data[i++] = pmb->gflag;
       });
+}
+
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
+  const int n_blocks_global = pm->nbtotal;
+  const int n_blocks_local = static_cast<int>(pm->block_list.size());
+
+  const int n_elem = data_local.size() / n_blocks_local;
+  PARTHENON_REQUIRE_THROWS(data_local.size() % n_blocks_local == 0,
+                           "Results from flattened input vector does not evenly divide "
+                           "into number of local blocks.");
+  std::vector<T> data_global(n_elem * n_blocks_global);
+
+  std::vector<int> counts(Globals::nranks);
+  std::vector<int> offsets(Globals::nranks);
+
+  const auto &nblist = pm->GetNbList();
+  counts[0] = n_elem * nblist[0];
+  offsets[0] = 0;
+  for (int r = 1; r < Globals::nranks; r++) {
+    counts[r] = n_elem * nblist[r];
+    offsets[r] = offsets[r - 1] + counts[r - 1];
+  }
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(data_local.data(), counts[Globals::my_rank],
+                                     MPITypeMap<T>::type(), data_global.data(),
+                                     counts.data(), offsets.data(), MPITypeMap<T>::type(),
+                                     MPI_COMM_WORLD));
+#else
+  return data_local;
+#endif
+  return data_global;
 }
 
 // TODO(JMM): I could make this use the other loop

@@ -9,6 +9,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <vector>
 
 #include "interface/params.hpp"
 #include "openPMD/Iteration.hpp"
@@ -60,10 +61,9 @@ RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   mesh_info.n_ghost = it->getAttribute("NGhost").get<int>();
 
   mesh_info.grid_dim = it->getAttribute("RootGridDomain").get<std::vector<Real>>();
-  // TODO(pgrete) need impl
-  // mesh_info.lx123 = ReadDataset<int64_t>("/Blocks/loc.lx123");
-  // mesh_info.level_gid_lid_cnghost_gflag =
-  //     ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+  mesh_info.lx123 = it->getAttribute("loc.lx123").get<std::vector<int64_t>>();
+  mesh_info.level_gid_lid_cnghost_gflag =
+      it->getAttribute("loc.level-gid-lid-cnghost-gflag").get<std::vector<int>>();
 
   return mesh_info;
 }

@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021-2024 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -32,6 +36,11 @@ struct MPITypeMap {
 template <>
 inline MPI_Datatype MPITypeMap<Real>::type() {
   return MPI_PARTHENON_REAL;
+}
+
+template <>
+inline MPI_Datatype MPITypeMap<int64_t>::type() {
+  return MPI_INT64_T;
 }
 
 template <>
