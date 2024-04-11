@@ -278,7 +278,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           auto &idxer = bnd_info(b).idxer[it];
           auto &orient = bnd_info(b).orient;
           auto &var = bnd_info(b).var;
-          const auto [tel, fac] = orient.TransformBack(bnd_info(b).topo_idx[it]);
+          const auto [tel, ftemp] = orient.TransformBack(bnd_info(b).topo_idx[it]);
+          Real fac = ftemp; // Can't capture structured bindings
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
@@ -297,9 +298,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto ijk = orient.TransformBack({ii + m, jj, kk});
-                        if (idxer.IsActive(ijk[2], ijk[1], ijk[0]))
-                          var(iel, tt, uu, vv, ijk[2], ijk[1], ijk[0]) = fac * buf[m];
+                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        if (idxer.IsActive(kl, jl, il))
+                          var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
                       });
                 });
           } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
@@ -316,9 +317,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto ijk = orient.TransformBack({ii + m, jj, kk});
-                        if (idxer.IsActive(ijk[2], ijk[1], ijk[0]))
-                          var(iel, tt, uu, vv, ijk[2], ijk[1], ijk[0]) = default_val;
+                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        if (idxer.IsActive(kl, jl, il))
+                          var(iel, tt, uu, vv, kl, jl, il) = default_val;
                       });
                 });
           }
