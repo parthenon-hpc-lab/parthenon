@@ -44,7 +44,10 @@ int RestartReaderOPMD::GetOutputFormatVersion() const {
   }
 }
 
-RestartReaderOPMD::SparseInfo RestartReaderOPMD::GetSparseInfo() const {}
+RestartReaderOPMD::SparseInfo RestartReaderOPMD::GetSparseInfo() const {
+  // TODO(pgrete) needs impl
+  return {};
+}
 
 RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   RestartReaderOPMD::MeshInfo mesh_info;
@@ -82,13 +85,15 @@ SimTime RestartReaderOPMD::GetTimeInfo() const {
 std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
                                               const IndexRange &range,
                                               std::vector<std::size_t> &counts,
-                                              std::vector<std::size_t> &offsets) {}
+                                              std::vector<std::size_t> &offsets) {
+  // TODO(pgrete) needs impl
+  return 0;
+}
 
 void RestartReaderOPMD::ReadParams(const std::string &name, Params &p) {}
 void RestartReaderOPMD::ReadBlocks(const std::string &name, IndexRange range,
+                                   const OutputUtils::VarInfo &info,
                                    std::vector<Real> &dataVec,
-                                   const std::vector<size_t> &bsize,
-                                   int file_output_format_version, MetadataFlag where,
-                                   const std::vector<int> &shape) const {}
+                                   int file_output_format_version) const {};
 
 } // namespace parthenon

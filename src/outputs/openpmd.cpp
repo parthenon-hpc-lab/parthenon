@@ -203,11 +203,11 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // Attribute interface rather than writing a distributed dataset -- especially as all
     // data is being read on restart by every rank anyway.
     std::vector<int64_t> loc_local = OutputUtils::ComputeLocs(pm);
-    auto loc_global = FlattendedLocalToGlobal(pm, loc_local);
+    auto loc_global = FlattendedLocalToGlobal<int64_t>(pm, loc_local);
     it.setAttribute("loc.lx123", loc_global);
 
     std::vector<int> id_local = OutputUtils::ComputeIDsAndFlags(pm);
-    auto id_global = FlattendedLocalToGlobal(pm, id_local);
+    auto id_global = FlattendedLocalToGlobal<int>(pm, id_local);
     it.setAttribute("loc.level-gid-lid-cnghost-gflag", id_global);
   }
 

@@ -15,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -274,6 +275,12 @@ std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_loca
 #endif
   return data_global;
 }
+
+// explicit template instantiation
+template std::vector<int64_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
+template std::vector<int> FlattendedLocalToGlobal(Mesh *pm,
+                                                  const std::vector<int> &data_local);
 
 // TODO(JMM): I could make this use the other loop
 // functionality/high-order functions.  but it was more code than this

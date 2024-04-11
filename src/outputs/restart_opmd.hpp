@@ -44,9 +44,9 @@ class RestartReaderOPMD : public RestartReader {
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
-  void ReadBlocks(const std::string &name, IndexRange range, std::vector<Real> &dataVec,
-                  const std::vector<size_t> &bsize, int file_output_format_version,
-                  MetadataFlag where, const std::vector<int> &shape = {}) const override;
+  void ReadBlocks(const std::string &name, IndexRange range,
+                  const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
+                  int file_output_format_version) const override;
 
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
