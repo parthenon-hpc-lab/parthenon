@@ -297,9 +297,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        const auto ijk = orient.TransformBack({ii + m, jj, kk});
                         if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
+                          var(iel, tt, uu, vv, ijk[2], ijk[1], ijk[0]) = fac * buf[m];
                       });
                 });
           } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
@@ -316,9 +316,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        const auto ijk = orient.TransformBack({ii + m, jj, kk});
                         if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = default_val;
+                          var(iel, tt, uu, vv, ijk[2], ijk[1], ijk[0]) = default_val;
                       });
                 });
           }
