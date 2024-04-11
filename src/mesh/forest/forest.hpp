@@ -25,8 +25,8 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
-#include "mesh/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -143,6 +143,14 @@ class Forest {
   // setups available in Athena++
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
+};
+
+struct NeighborLocation {
+  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
+      : global_loc(g), origin_loc(o) {}
+  LogicalLocation global_loc; // Global location of neighboring block
+  LogicalLocation
+      origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
 } // namespace forest
