@@ -82,6 +82,10 @@ struct ProResInfo {
   // conversion of TopologicalElements
   bool include_el[10]{false, false, false, false, false,
                       false, false, false, false, false};
+  bool &IncludeTopoEl(TopologicalElement te) { return include_el[static_cast<int>(te)]; }
+  bool IncludeTopoEl(TopologicalElement te) const {
+    return include_el[static_cast<int>(te)];
+  }
   SpatiallyMaskedIndexer6D idxer[10];
 
   CoordinateDirection dir;
