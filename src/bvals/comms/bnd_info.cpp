@@ -104,7 +104,8 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
 SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      const std::shared_ptr<Variable<Real>> &v,
                                      TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores) {
+                                     bool prores, 
+                                     const RelativeOrientation &orient = RelativeOrientation()) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
   const bool flux = v->IsSet(Metadata::Flux);
 
@@ -209,8 +210,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // Transform to logical coordinates of neighbor block if this
   // is a receiving block
   if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
-    s = nb.orient.Transform(s);
-    e = nb.orient.Transform(e);
+    s = orient.Transform(s);
+    e = orient.Transform(e);
   }
 
   block_ownership_t owns(true);
@@ -282,7 +283,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     topo_idx[idx] = el;
     if (idx_range_type == IndexRangeType::BoundaryExteriorRecv)
       el = std::get<0>(orient.TransformBack(el));
-    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false, orient);
     idx++;
   }
 }
