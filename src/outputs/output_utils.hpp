@@ -354,7 +354,8 @@ VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
                                     const std::vector<std::string> &variables);
 
 // Returns a sorted vector of VarInfo associated with vars
-std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars);
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds);
 
 } // namespace OutputUtils
 } // namespace parthenon

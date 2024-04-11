@@ -68,8 +68,8 @@ RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   return mesh_info;
 }
 
-RestartReaderOPMD::TimeInfo RestartReaderOPMD::GetTimeInfo() const {
-  RestartReaderOPMD::TimeInfo time_info;
+SimTime RestartReaderOPMD::GetTimeInfo() const {
+  SimTime time_info{};
 
   time_info.time = it->time<Real>();
   time_info.dt = it->dt<Real>();

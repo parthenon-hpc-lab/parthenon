@@ -329,10 +329,11 @@ VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
   return vars_to_write;
 }
 
-std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars) {
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds) {
   std::vector<VarInfo> all_vars_info;
   for (auto &v : vars) {
-    all_vars_info.emplace_back(v);
+    all_vars_info.emplace_back(v, cellbounds);
   }
 
   // sort alphabetically

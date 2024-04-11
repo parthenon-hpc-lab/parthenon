@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "openPMD/Iteration.hpp"
 #include "outputs/restart.hpp"
 
@@ -30,7 +31,7 @@ class RestartReaderOPMD : public RestartReader {
 
   [[nodiscard]] MeshInfo GetMeshInfo() const override;
 
-  [[nodiscard]] TimeInfo GetTimeInfo() const override;
+  [[nodiscard]] SimTime GetTimeInfo() const override;
 
   [[nodiscard]] std::string GetInputString() const override {
     return it->getAttribute("InputFile").get<std::string>();

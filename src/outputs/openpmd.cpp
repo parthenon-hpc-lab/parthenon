@@ -144,6 +144,8 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
 
   {
+    // It's not clear we need all these attributes, but they mirror what's done in the
+    // hdf5 output.
     it.setAttribute("WallTime", Driver::elapsed_main());
     it.setAttribute("NumDims", pm->ndim);
     it.setAttribute("NumMeshBlocks", pm->nbtotal);
@@ -157,7 +159,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // restart info, write always
     it.setAttribute("NBNew", pm->nbnew);
     it.setAttribute("NBDel", pm->nbdel);
-    it.setAttribute("RootLevel", pm->GetRootLevel());
+    it.setAttribute("RootLevel", pm->GetLegacyTreeRootLevel());
     it.setAttribute("Refine", pm->adaptive ? 1 : 0);
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
@@ -215,12 +217,13 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // -------------------------------------------------------------------------------- //
   Kokkos::Profiling::pushRegion("write all variable data");
 
+  auto &bounds = pm->block_list.front()->cellbounds;
   // get list of all vars, just use the first block since the list is the same for all
   // blocks
   // TODO(pgrete) add restart_ var to output
   // TODO(pgrete) check if this needs to be updated/unifed with get_var logic in hdf5
   auto all_vars_info = GetAllVarsInfo(
-      GetVarsToWrite(pm->block_list.front(), true, output_params.variables));
+      GetVarsToWrite(pm->block_list.front(), true, output_params.variables), bounds);
 
   // We're currently writing (flushing) one var at a time. This saves host memory but
   // results more smaller write. Might be updated in the future.
@@ -238,7 +241,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
 
   // TODO(pgrete) This needs to be in the loop for non-cell-centered vars
-  auto &bounds = pm->block_list.front()->cellbounds;
   auto ib = bounds.GetBoundsI(IndexDomain::interior);
   auto jb = bounds.GetBoundsJ(IndexDomain::interior);
   auto kb = bounds.GetBoundsK(IndexDomain::interior);
@@ -250,11 +252,12 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     memset(tmp_data.data(), 0, tmp_data.size() * sizeof(OutT));
     uint64_t tmp_offset = 0;
 
-    const bool is_scalar = vinfo.nx4 == 1 && vinfo.nx5 == 1 && vinfo.nx6 == 1;
+    const bool is_scalar =
+        vinfo.GetDim(4) == 1 && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1;
     if (vinfo.is_vector) {
       // sanity check
       PARTHENON_REQUIRE_THROWS(
-          vinfo.nx4 == pm->ndim && vinfo.nx5 == 1 && vinfo.nx6 == 1,
+          vinfo.GetDim(4) == pm->ndim && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1,
           "A 'standard' vector is expected to only have components matching the "
           "dimensionality of the simulation.")
     }
