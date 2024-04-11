@@ -289,18 +289,18 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                   // Have to do this because of some weird issue about structure bindings
                   // being captured
-                  const int tt = t; 
+                  const int tt = t;
                   const int uu = u;
                   const int vv = v;
                   const int kk = k;
                   const int jj = j;
                   const int ii = i;
-                  Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
-                                       [&](int m) {
-                                         const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
-                                         if (idxer.IsActive(kl, jl, il))
-                                           var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
-                                       });
+                  Kokkos::parallel_for(
+                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        if (idxer.IsActive(kl, jl, il))
+                          var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
+                      });
                 });
           } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
@@ -308,18 +308,18 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
                 [&](const int idx) {
                   const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  const int tt = t; 
+                  const int tt = t;
                   const int uu = u;
                   const int vv = v;
                   const int kk = k;
                   const int jj = j;
                   const int ii = i;
-                  Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
-                                       [&](int m) {
-                                         const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
-                                         if (idxer.IsActive(kl, jl, il))
-                                           var(iel, tt, uu, vv, kl, jl, il) = default_val;
-                                       });
+                  Kokkos::parallel_for(
+                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                        const auto [il, jl, kl] = orient.TransformBack({ii + m, jj, kk});
+                        if (idxer.IsActive(kl, jl, il))
+                          var(iel, tt, uu, vv, kl, jl, il) = default_val;
+                      });
                 });
           }
           idx_offset += idxer.size();

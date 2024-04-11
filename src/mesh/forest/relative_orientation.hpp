@@ -34,7 +34,9 @@ namespace parthenon {
 namespace forest {
 
 struct RelativeOrientation {
-  RelativeOrientation() : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2}, dir_flip{false, false, false} {};
+  RelativeOrientation()
+      : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2}, dir_flip{false, false,
+                                                                           false} {};
 
   void SetDirection(Direction origin, Direction neighbor, bool reversed = false) {
     dir_connection[static_cast<uint>(origin)] = static_cast<uint>(neighbor);
@@ -46,49 +48,49 @@ struct RelativeOrientation {
                             std::int64_t destination) const;
   LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
 
-  KOKKOS_INLINE_FUNCTION  
-  std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const { 
-    int iel = static_cast<int>(el); 
-    Real fac = 1.0; 
+  KOKKOS_INLINE_FUNCTION
+  std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {
+    int iel = static_cast<int>(el);
+    Real fac = 1.0;
     if (iel >= 3 && iel < 9) {
-      int dir = iel % 3; 
+      int dir = iel % 3;
       iel = (iel / 3) * 3 + abs(dir_connection[dir]);
       fac = dir_flip[dir] ? -1.0 : 1.0;
     }
     return {static_cast<TopologicalElement>(iel), fac};
   }
-  
-  KOKKOS_INLINE_FUNCTION  
-  std::tuple<TopologicalElement, Real> TransformBack(TopologicalElement el) const { 
-    int iel = static_cast<int>(el); 
-    Real fac = 1.0; 
+
+  KOKKOS_INLINE_FUNCTION
+  std::tuple<TopologicalElement, Real> TransformBack(TopologicalElement el) const {
+    int iel = static_cast<int>(el);
+    Real fac = 1.0;
     if (iel >= 3 && iel < 9) {
       const int dir = iel % 3;
-      const int outdir = abs(dir_connection_inverse[dir]);  
+      const int outdir = abs(dir_connection_inverse[dir]);
       iel = (iel / 3) * 3 + outdir;
       fac = dir_flip[outdir] ? -1.0 : 1.0;
     }
     return {static_cast<TopologicalElement>(iel), fac};
   }
 
-  KOKKOS_INLINE_FUNCTION  
+  KOKKOS_INLINE_FUNCTION
   std::array<int, 3> Transform(std::array<int, 3> ijk) const {
-    std::array<int, 3> ijk_out; 
-    for (int dir = 0; dir < 3; ++dir) { 
+    std::array<int, 3> ijk_out;
+    for (int dir = 0; dir < 3; ++dir) {
       const int outdir = abs(dir_connection[dir]);
       ijk_out[outdir] = dir_flip[dir] ? ncell - 1 - ijk[dir] : ijk[dir];
     }
-    return ijk_out; 
+    return ijk_out;
   }
 
-  KOKKOS_INLINE_FUNCTION  
+  KOKKOS_INLINE_FUNCTION
   std::array<int, 3> TransformBack(std::array<int, 3> ijk) const {
-    std::array<int, 3> ijk_out; 
-    for (int dir = 0; dir < 3; ++dir) { 
+    std::array<int, 3> ijk_out;
+    for (int dir = 0; dir < 3; ++dir) {
       const int indir = abs(dir_connection[dir]);
       ijk_out[dir] = dir_flip[dir] ? ncell - 1 - ijk[indir] : ijk[indir];
     }
-    return ijk_out; 
+    return ijk_out;
   }
 
   bool use_offset = false;
@@ -99,7 +101,8 @@ struct RelativeOrientation {
 };
 
 struct NeighborLocation {
-  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o, const RelativeOrientation &orient)
+  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
+                   const RelativeOrientation &orient)
       : global_loc(g), origin_loc(o), orient(orient) {}
   LogicalLocation global_loc; // Global location of neighboring block
   LogicalLocation

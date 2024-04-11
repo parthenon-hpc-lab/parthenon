@@ -205,12 +205,12 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       e[dir] = bounds[dir].s + (flux ? 0 : interior_offset - 1 + top_offset[dir]);
     }
   }
-  
-  // Transform to logical coordinates of neighbor block if this 
-  // is a receiving block 
-  if (ir_type == IndexRangeType::BoundaryExteriorRecv) { 
-    s = nb.orient.Transform(s);  
-    e = nb.orient.Transform(e);  
+
+  // Transform to logical coordinates of neighbor block if this
+  // is a receiving block
+  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
+    s = nb.orient.Transform(s);
+    e = nb.orient.Transform(e);
   }
 
   block_ownership_t owns(true);
@@ -280,7 +280,8 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   int idx{0};
   for (auto el : elements) {
     topo_idx[idx] = el;
-    if (idx_range_type == IndexRangeType::BoundaryExteriorRecv) el = std::get<0>(orient.TransformBack(el));
+    if (idx_range_type == IndexRangeType::BoundaryExteriorRecv)
+      el = std::get<0>(orient.TransformBack(el));
     idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
     idx++;
   }

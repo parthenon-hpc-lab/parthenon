@@ -22,10 +22,9 @@
 #include <catch2/catch.hpp>
 
 #include "defs.hpp"
-#include "utils/indexer.hpp"
 #include "mesh/forest/block_ownership.hpp"
 #include "mesh/forest/relative_orientation.hpp"
-
+#include "utils/indexer.hpp"
 
 using namespace parthenon;
 

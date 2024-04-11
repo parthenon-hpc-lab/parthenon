@@ -54,7 +54,7 @@ struct BndInfo {
   TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
   forest::RelativeOrientation orient;
-  
+
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
