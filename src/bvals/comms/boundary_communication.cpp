@@ -106,7 +106,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
           auto &idxer = bnd_info(b).idxer[it];
-          const int iel = bnd_info(b).topo_idx[it];
+          const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           Kokkos::parallel_reduce(
               Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
@@ -275,26 +275,31 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank();
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
-          const int iel = bnd_info(b).topo_idx[it];
           auto &idxer = bnd_info(b).idxer[it];
           auto &orient = bnd_info(b).orient;
+          auto &var = bnd_info(b).var;
+          const auto [tel, fac] = orient.TransformBack(bnd_info(b).topo_idx[it]);
+          const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
                 [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
                   Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                   // Have to do this because of some weird issue about structure bindings
                   // being captured
+                  const int tt = t; 
+                  const int uu = u;
+                  const int vv = v;
                   const int kk = k;
                   const int jj = j;
                   const int ii = i;
                   Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                        [&](int m) {
-                                         if (idxer.IsActive(kk, jj, ii + m))
-                                           var[m] = buf[m];
+                                         const auto [kl, jl, il] = orient.TransformBack(kk, jj, ii + m);
+                                         if (idxer.IsActive(kl, jl, il))
+                                           var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
                                        });
                 });
           } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
@@ -303,14 +308,17 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
                 [&](const int idx) {
                   const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
+                  const int tt = t; 
+                  const int uu = u;
+                  const int vv = v;
                   const int kk = k;
                   const int jj = j;
                   const int ii = i;
                   Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                        [&](int m) {
-                                         if (idxer.IsActive(kk, jj, ii + m))
-                                           var[m] = default_val;
+                                         const auto [kl, jl, il] = orient.TransformBack(kk, jj, ii + m);
+                                         if (idxer.IsActive(kl, jl, il))
+                                           var(iel, tt, uu, vv, kl, jl, il) = default_val;
                                        });
                 });
           }

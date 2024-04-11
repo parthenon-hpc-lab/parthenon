@@ -45,6 +45,18 @@ struct RelativeOrientation {
                             std::int64_t destination) const;
   LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
 
+  KOKKOS_INLINE_FUNCTION  
+  std::tuple<TopologicalElement, Real> TransformBack(TopologicalElement el) { 
+    // TODO(LFR): Actually implement this
+    return {el, 1.0};
+  }
+
+  KOKKOS_INLINE_FUNCTION  
+  std::tuple<int, int, int> TransformBack(int k, int j, int i) { 
+    // TODO(LFR): Actually implement this
+    return {k, j, i};
+  }
+
   bool use_offset = false;
   std::array<int, 3> offset;
   std::array<int, 3> dir_connection;

@@ -271,7 +271,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
   int idx{0};
   for (auto el : elements) {
-    topo_idx[idx] = static_cast<int>(el) % 3;
+    topo_idx[idx] = el;
     idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
     idx++;
   }

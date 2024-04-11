@@ -50,7 +50,8 @@ enum class IndexRangeType {
 
 struct BndInfo {
   int ntopological_elements = 1;
-  int topo_idx[3]{0, 0, 0};
+  using TE = TopologicalElement;
+  TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
   forest::RelativeOrientation orient;
   
