@@ -27,7 +27,7 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/forest/relative_orientation.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/indexer.hpp"
 #include "utils/object_pool.hpp"
@@ -53,7 +53,7 @@ struct BndInfo {
   using TE = TopologicalElement;
   TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
-  forest::RelativeOrientation orient;
+  forest::LogicalCoordinateTransformation lcoord_trans;
 
   CoordinateDirection dir;
   bool allocated = true;

@@ -26,7 +26,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
@@ -51,10 +51,10 @@ class Tree : public std::enable_shared_from_this<Tree> {
   static std::shared_ptr<Tree> create(Ts &&...args) {
     auto ptree = std::make_shared<Tree>(private_t(), std::forward<Ts>(args)...);
     // Make the tree its own central neighbor to reduce code duplication
-    RelativeOrientation orient;
-    orient.use_offset = true;
-    orient.offset = {0, 0, 0};
-    ptree->neighbors[13].insert({ptree, orient});
+    LogicalCoordinateTransformation lcoord_trans;
+    lcoord_trans.use_offset = true;
+    lcoord_trans.offset = {0, 0, 0};
+    ptree->neighbors[13].insert({ptree, lcoord_trans});
     return ptree;
   }
 
@@ -86,7 +86,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for building tree connectivity
   void AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                       RelativeOrientation orient);
+                       LogicalCoordinateTransformation lcoord_trans);
 
   // Global id of the tree
   std::uint64_t GetId() const { return my_id; }
@@ -115,9 +115,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // This contains all of the neighbor information for this tree, for each of the
   // 3^3 possible neighbor connections. Since an edge or node connection can have
   // multiple neighbors generally, we keep a map at each neighbor location from
-  // the tree sptr to the relative logical coordinate orientation of the neighbor
+  // the tree sptr to the relative logical coordinate transformation to the neighbor
   // block.
-  std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
+  std::array<std::unordered_map<std::shared_ptr<Tree>, LogicalCoordinateTransformation>, 27>
       neighbors;
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;

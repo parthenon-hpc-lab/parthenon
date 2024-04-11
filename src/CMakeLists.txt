@@ -160,8 +160,8 @@ add_library(parthenon
   mesh/forest/block_ownership.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
-  mesh/forest/relative_orientation.hpp
-  mesh/forest/relative_orientation.cpp
+  mesh/forest/logical_coordinate_transformation.hpp
+  mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
   mesh/forest/logical_location.cpp

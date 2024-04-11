@@ -28,7 +28,7 @@
 #include "defs.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -169,10 +169,10 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
       }
       if (add) {
         LogicalLocation nloc(level, nx[0], nx[1], nx[2]);
-        RelativeOrientation orient;
-        orient.use_offset = true;
-        orient.offset = ox;
-        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, orient);
+        LogicalCoordinateTransformation lcoord_trans;
+        lcoord_trans.use_offset = true;
+        lcoord_trans.offset = ox;
+        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, lcoord_trans);
       }
     }
   }

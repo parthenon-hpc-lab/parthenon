@@ -105,7 +105,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                      const std::shared_ptr<Variable<Real>> &v,
                                      TopologicalElement el, IndexRangeType ir_type,
                                      bool prores, 
-                                     const forest::RelativeOrientation &orient = forest::RelativeOrientation()) {
+                                     const forest::LogicalCoordinateTransformation &lcoord_trans = forest::LogicalCoordinateTransformation()) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
   const bool flux = v->IsSet(Metadata::Flux);
 
@@ -210,8 +210,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // Transform to logical coordinates of neighbor block if this
   // is a receiving block
   if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
-    s = orient.Transform(s);
-    e = orient.Transform(e);
+    s = lcoord_trans.Transform(s);
+    e = lcoord_trans.Transform(e);
   }
 
   block_ownership_t owns(true);
@@ -264,7 +264,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   alloc_status = v->GetAllocationStatus();
 
   buf = combuf->buffer();
-  orient = nb.orient;
+  lcoord_trans = nb.lcoord_trans;
   if (!allocated) return;
 
   if (nb.loc.level() < pmb->loc.level()) {
@@ -277,13 +277,13 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
   ntopological_elements = elements.size();
 
-  orient.ncell = var.GetDim(1);
+  lcoord_trans.ncell = var.GetDim(1);
   int idx{0};
   for (auto el : elements) {
     topo_idx[idx] = el;
     if (idx_range_type == IndexRangeType::BoundaryExteriorRecv)
-      el = std::get<0>(orient.TransformBack(el));
-    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false, orient);
+      el = std::get<0>(lcoord_trans.InverseTransform(el));
+    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false, lcoord_trans);
     idx++;
   }
 }

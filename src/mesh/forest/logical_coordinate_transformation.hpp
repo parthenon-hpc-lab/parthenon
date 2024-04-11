@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_FOREST_RELATIVE_ORIENTATION_HPP_
-#define MESH_FOREST_RELATIVE_ORIENTATION_HPP_
+#ifndef MESH_FOREST_LOGICAL_COORDINATE_TRANSFORMATION_HPP_
+#define MESH_FOREST_LOGICAL_COORDINATE_TRANSFORMATION_HPP_
 
 #include <array>
 #include <map>
@@ -33,8 +33,8 @@
 namespace parthenon {
 namespace forest {
 
-struct RelativeOrientation {
-  RelativeOrientation()
+struct LogicalCoordinateTransformation {
+  LogicalCoordinateTransformation()
       : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2}, dir_flip{false, false,
                                                                            false} {};
 
@@ -46,7 +46,7 @@ struct RelativeOrientation {
 
   LogicalLocation Transform(const LogicalLocation &loc_in,
                             std::int64_t destination) const;
-  LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
+  LogicalLocation InverseTransform(const LogicalLocation &loc_in, std::int64_t origin) const;
 
   KOKKOS_INLINE_FUNCTION
   std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {
@@ -61,7 +61,7 @@ struct RelativeOrientation {
   }
 
   KOKKOS_INLINE_FUNCTION
-  std::tuple<TopologicalElement, Real> TransformBack(TopologicalElement el) const {
+  std::tuple<TopologicalElement, Real> InverseTransform(TopologicalElement el) const {
     int iel = static_cast<int>(el);
     Real fac = 1.0;
     if (iel >= 3 && iel < 9) {
@@ -84,7 +84,7 @@ struct RelativeOrientation {
   }
 
   KOKKOS_INLINE_FUNCTION
-  std::array<int, 3> TransformBack(std::array<int, 3> ijk) const {
+  std::array<int, 3> InverseTransform(std::array<int, 3> ijk) const {
     std::array<int, 3> ijk_out;
     for (int dir = 0; dir < 3; ++dir) {
       const int indir = abs(dir_connection[dir]);
@@ -102,15 +102,15 @@ struct RelativeOrientation {
 
 struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
-                   const RelativeOrientation &orient)
-      : global_loc(g), origin_loc(o), orient(orient) {}
+                   const LogicalCoordinateTransformation &lcoord_trans)
+      : global_loc(g), origin_loc(o), lcoord_trans(lcoord_trans) {}
   LogicalLocation global_loc; // Global location of neighboring block
   LogicalLocation
       origin_loc; // Logical location of neighboring block in index space of origin block
-  RelativeOrientation orient;
+  LogicalCoordinateTransformation lcoord_trans;
 };
 
 } // namespace forest
 } // namespace parthenon
 
-#endif // MESH_FOREST_RELATIVE_ORIENTATION_HPP_
+#endif // MESH_FOREST_LOGICAL_COORDINATE_TRANSFORMATION_HPP_

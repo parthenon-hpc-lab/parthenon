@@ -82,8 +82,8 @@ void Mesh::SetMeshBlockNeighbors(
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
 
-      // Set relative orientation of blocks
-      nb.orient = nloc.orient;
+      // Set logical coordinate transformation from this block to the neighbor
+      nb.lcoord_trans = nloc.lcoord_trans;
     }
 
     if (grid_id.type == GridType::leaf) {

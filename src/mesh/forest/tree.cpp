@@ -27,7 +27,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -116,9 +116,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
           // and trigger refinement there
           int n_idx =
               neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
-          for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+          for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
             nadded += neighbor_tree->Refine(
-                orientation.Transform(neigh, neighbor_tree->GetId()));
+                lcoord_trans.Transform(neigh, neighbor_tree->GetId()));
           }
         }
       }
@@ -182,28 +182,28 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     }
   }
 
-  for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
-    auto tneigh = orientation.Transform(neigh, neighbor_tree->GetId());
-    auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
-    PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc,
+  for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
+    auto tneigh = lcoord_trans.Transform(neigh, neighbor_tree->GetId());
+    auto tloc = lcoord_trans.Transform(loc, neighbor_tree->GetId());
+    PARTHENON_REQUIRE(lcoord_trans.InverseTransform(tloc, GetId()) == loc,
                       "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh) && include_same) {
       neighbor_locs->push_back(NeighborLocation(
-          tneigh, orientation.TransformBack(tneigh, GetId()), orientation));
+          tneigh, lcoord_trans.InverseTransform(tneigh, GetId()), lcoord_trans));
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       if (include_fine) {
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
           if (tloc.IsNeighbor(n))
             neighbor_locs->push_back(
-                NeighborLocation(n, orientation.TransformBack(n, GetId()), orientation));
+                NeighborLocation(n, lcoord_trans.InverseTransform(n, GetId()), lcoord_trans));
         }
       } else if (include_internal) {
         neighbor_locs->push_back(NeighborLocation(
-            tneigh, orientation.TransformBack(tneigh, GetId()), orientation));
+            tneigh, lcoord_trans.InverseTransform(tneigh, GetId()), lcoord_trans));
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent()) && include_coarse) {
-      auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());
+      auto neighp = lcoord_trans.InverseTransform(tneigh.GetParent(), GetId());
       // Since coarser neighbors can cover multiple elements of the origin block and
       // because our communication algorithm packs this extra data by hand, we do not wish
       // to duplicate coarser blocks in the neighbor list. Therefore, we only include the
@@ -211,7 +211,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
       auto sl_offset = loc.GetSameLevelOffsets(neighp);
       if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
         neighbor_locs->push_back(
-            NeighborLocation(tneigh.GetParent(), neighp, orientation));
+            NeighborLocation(tneigh.GetParent(), neighp, lcoord_trans));
     }
   }
 }
@@ -243,9 +243,9 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
             // Need to check that this derefinement doesn't break proper nesting with
             // a neighboring tree or this tree
             int n_idx = neigh.NeighborTreeIndex();
-            for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+            for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
               if (neighbor_tree->internal_nodes.count(
-                      orientation.Transform(neigh, neighbor_tree->GetId())))
+                      lcoord_trans.Transform(neigh, neighbor_tree->GetId())))
                 return 0;
             }
           }
@@ -325,9 +325,9 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 }
 
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                           RelativeOrientation orient) {
+                           LogicalCoordinateTransformation lcoord_trans) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, orient});
+  neighbors[location_idx].insert({neighbor_tree, lcoord_trans});
   BoundaryFace fidx = offset.Face();
   if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
 }
