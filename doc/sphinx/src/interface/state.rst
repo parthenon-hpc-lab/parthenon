@@ -239,9 +239,7 @@ preceded by ``_`` have private scope):
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 | Member Data                | Description                                                                                                                                     |
 +============================+=================================================================================================================================================+
-| ``ParArrayND<T> data``     | Storage for the cell-centered associated with the object.                                                                                       |
-+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``ParArrayND<T> flux[3]``  | Storage for the face-centered intercell fluxes in each direction. Only allocated for fields registered with the ``Metadata::Independent`` flag. |
+| ``ParArrayND<T> data``     | Storage for the cell-, face-, edge-, or node-centered data associated with the object.                                                                                       |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``ParArrayND<T> coarse_s`` | Storage for coarse buffers need for multilevel setups.                                                                                          |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -257,12 +255,6 @@ that array.
 Finally, the ``bool IsSet(const MetadataFlag bit)`` member function
 provides a convenient mechanism to query whether a particular
 ``Metadata`` flag is set for the ``Variable``.
-
-FaceVariable (Work in progress...)
-----------------------------------
-
-EdgeVariable (Work in progress...)
-----------------------------------
 
 Sparse fields
 -------------

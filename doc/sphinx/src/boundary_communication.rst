@@ -63,9 +63,8 @@ The different ``BoundaryType``\ s are:
 - ``nonlocal``: Communications are performed between all leaf blocks that 
   are on different ranks than the current rank. *Currently, this option 
   should not be used because there are possibly associated bugs.*
-- ``flxcor_send`` and ``flxcor_recv``: Used only for flux correction 
-  routines, currently cannot be passed to regular boundary communication 
-  routines. 
+- ``flxcor_send`` and ``flxcor_recv``: Used for flux correction 
+  routines, see below.
 - ``gmg_same``: Communicates ghost halos between blocks in the 
   same geometric multi-grid level. 
 - ``gmg_restrict_send`` and ``gmg_restrict_recv``: For restricting 
@@ -445,23 +444,35 @@ Boundary Communication Tasks
 Flux Correction Tasks
 ~~~~~~~~~~~~~~~~~~~~~
 
+Flux correction is required to ensure conservation at fine-coarse boundaries, as the 
+sum of fluxes on a fine block corresponding to a single flux on a coarse neighbor block 
+is not guaranteed to be equal to the coarse flux. To ensure conservation, coarse fluxes
+at fine-coarse boundaries are replaced with the sums of fine fluxes in an interblock 
+communication step separate from filling ghost zones. Nevertheless, Parthenon uses the 
+same machinery for flux correction as ghosts communication since they are essentially the 
+same operation, just on different fields and different index ranges. 
+
+Flux correction can be implemented in a task list via the calls 
+- ``StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>>&)``
+- ``SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>>&)``
+- ``ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>>&)``
+- ``SetBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>>&)``
+which cause fields with `Metadata::Flux` set to restrict and then communicate only shared 
+elements only on fine to coarse boundaries (as was done in legacy Parthenon versions of 
+flux correction that only worked for cell variable flux correction). Notice that the send 
+operation requires a different ``BoundaryType`` than the receive operation, unlike regular
+boundary communication. All of these tasks can be added to a task list in one call using 
+``AddFluxCorrectionTasks``.
+
 Flux correction for sparse variables and dense variables is very
 similar, the only difference being that for sparse variables if either
 the fine or the coarse block is unallocated no flux correction occurs.
-Flux correction communication cannot trigger allocation. The flux
-correction routines mirror the boundary routines, except that they do
-not accept a ``BoundaryType`` template parameter since the flux
-corrections are limited to fine-to-coarse boundaries (which is its own
-``BoundaryType``). Cacheing and the “in one” machinery has not been
-implemented here yet and it probably does not have a big impact on
-performance, but it should be very straightforward to switch to
-cacheing if desired.
+Flux correction communication cannot trigger allocation. 
 
-- ``StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
-- ``LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
-- ``ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
-- ``SetFluxCorrections(std::shared_ptr<MeshData<Real>>&)``
+For backwards compatibility, we keep the aliases 
 
-*Now that non-cell-centered fields are implemented in Parthenon, the 
-flux correction tasks can be unified with the boundary communication 
-above.*
+- ``StartReceiveFluxCorrections`` = ``StartReceiveBoundBufs<BoundaryType::flxcor_recv>``
+- ``LoadAndSendFluxCorrections`` = ``SendBoundBufs<BoundaryType::flxcor_send>``
+- ``ReceiveFluxCorrections`` = ``ReceiveBoundBufs<BoundaryType::flxcor_recv>`` 
+- ``SetFluxCorrections`` = ``SetBoundBufs<BoundaryType::flxcor_recv>``
+

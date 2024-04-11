@@ -130,6 +130,8 @@ variables are copied or not in multiple stages.
    must be filled via communication or boundary conditions. This is not
    always required. ``OneCopy`` variables, for example, may not need
    this.
+-  ``Metadata::Flux`` specifies that elements shared with neighbor blocks 
+   at coarse-fine boundaries are communicated during flux correction. 
 
 Ghost Zones, Communication, and Fluxes
 --------------------------------------
@@ -143,10 +145,23 @@ classes may be allocated. The behaviours are the following:
    shared between all instances of a variable in all ``Containers`` in a
    ``DataCollection``.
 
--  If ``Metadata::WithFluxes`` is set, the flux vector for the variable
-   is allocated. Note that it is necessary to set both
-   ``Metadata::WithFluxes`` and ``Metadata::FillGhosts`` to send flux
-   corrections across meshblocks.
+-  If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
+  correct topological type for a flux in the generalized Stokes theorem 
+  sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
+  set the new variable will have ``Metadata::Face``) will be created in
+  the package with the name ``bnd_flx::name_of_original_variable`` and 
+  `Metadata::Flux` and `Metadata::OneCopy``. When creating packs that 
+  include fluxes, the new flux field will be included in the flux portion 
+  of the pack if the parent field is in the pack. 
+
+- If ``Metadata::Flux`` is set, this field is exchanged on shared elements 
+  across fine-coarse boundaries when the flux correction tasks are called. 
+  *If ``Metadata::Flux`` and ``Metadata::Face`` are both set, the underlying 
+  array that stores the field will be one smaller than a regular face field 
+  in its x1, x2, and x3 dimensions so that it has the same shape in the 
+  final three dimensions as a cell centered field. This is to align the memory 
+  of cell variables and their fluxes, both for performance reasons and to 
+  ensure backward compatibilty for downstream codes.*
 
 -  If ``Metadata::ForceRemeshComm`` is set, the variable is communicated
    between ranks during remeshing. Variables with
