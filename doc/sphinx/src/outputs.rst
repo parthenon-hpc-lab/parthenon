@@ -143,6 +143,28 @@ selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
 required by the developer.
 
+Postprocessing/native analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A rudimentary postprocessing option is available to analyze data in
+restart files within the downstream/Parthenon framework, i.e., making use of
+native compute capabilities.
+
+To trigger this kind of analysis, restart with ``-a restart.rhdf`` (instead of
+``-r``).
+This will launch the standard driver as if a simulation would be restarted,
+but never call the main time loop.
+Only the callbacks ``UserWorkBeforeLoop`` are executed.
+Afterwards, all output blocks that have the parameter ``analysis_output=true`` are
+going to be processed including ``UserWorkBeforeOutput`` callbacks.
+
+Note, the standard modifications to the original input parameters via the command line
+or via an input file apply.
+A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
+output block is specified in a file called ``sample_hist.in`` with all necessary details
+(particularly the ``analysis_output=true`` parameter within said block) and then the
+data can be processed via ``-a restart.rhdf -i sample_hist.in``.
+
 .. _output hist files:
 
 History Files
@@ -407,6 +429,65 @@ cases, the ``.xdmf`` files should be opened. In ParaView, select the
    Currently parthenon face- and edge- centered data is not supported
    for ParaView and VisIt. However, our python tooling does support
    all mesh locations.
+
+Tying non-standard coordinates to visualization tools
+------------------------------------------------------
+
+By default, Parthenon outputs the positions of faces on each block in
+``X1``, ``X2`` and ``X3`` and assumes these correspond to the ``x``,
+``y``, and ``z`` components of the nodes on the mesh. However, some
+applications may apply cooridnate transformations or use moving
+meshes. In these cases, the above strategy will not provide intuitive
+plots.
+
+For these applications we provide a special ``Metadata`` flag. If you
+mark a node-centered 3-vector variable with the the flag
+``Metadata::CoordinatesVec``, and fill it with the ``x``, ``y``, and
+``z`` values of your node positions, Parthenon will specify these
+values should be used by visualization software such as Visit or
+Paraview.
+
+For example, in your package ``Initialize`` function, you might
+declare something like:
+
+.. code:: cpp
+
+   pkg->AddField("locations",
+     Metadata({Metadata::Node, Metadata::CoordinatesVec, Metadata::Derived, Metadata::OneCopy},
+     std::vector<int>{3}));
+
+and then (trivially) if you set
+
+.. code:: cpp
+
+   pman.app_input->InitMeshBlockUserData = SetGeometryBlock;
+
+for
+
+.. code:: cpp
+
+   void SetGeometryBlock(MeshBlock *pmb, ParameterInput *pin) {
+     /* boiler plate to build a pack object */
+     parthenon::par_for(DEFAULT_LOOP_PATTERN, "positions", DevExecSpace(), 0, pack.GetNBlocks() - 1,
+     kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+     KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const auto &coords = pack.GetCoordinates(b);
+          pack(b, 0, k, j, i) = coords.X<X1DIR, parthenon::TopologicalElement::NN>(k, j, i);
+          pack(b, 1, k, j, i) = coords.X<X2DIR, parthenon::TopologicalElement::NN>(k, j, i);
+          pack(b, 2, k, j, i) = coords.X<X3DIR, parthenon::TopologicalElement::NN>(k, j, i);
+     });
+     return;
+   }
+
+then the code will set the nodal values to their trivial coordinate
+values and these will be used for visualization. In a more non-trivial
+example, ``SetGeometryBlock`` might apply a coordinate
+transformation. Or actually evolve ``"locations"``.
+
+.. warning::
+
+   Non-standard coordinates are not supported in XDMF for 1D meshes
+   and Parthenon will revert to the traditional output in 1D.
 
 Preparing outputs for ``yt``
 ----------------------------

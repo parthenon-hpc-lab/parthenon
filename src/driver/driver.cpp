@@ -79,7 +79,9 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal = OutputSignal::none;
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
@@ -91,7 +93,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
-    while (tm.KeepGoing()) {
+    while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
       pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
@@ -141,8 +143,11 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
-
-  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  // Do *not* write the "final" output, if this is analysis run.
+  // The analysis output itself has already been written above before the main loop.
+  if (signal != OutputSignal::analysis) {
+    pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  }
   PostExecute(status);
   return status;
 }
