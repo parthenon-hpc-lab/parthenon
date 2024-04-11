@@ -97,10 +97,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
 
-  // Populate the ParameterInput object
-  if (arg.input_filename != nullptr) {
-    pinput = std::make_unique<ParameterInput>(arg.input_filename);
-  } else if (arg.res_flag != 0) {
+  // Populate the ParameterInput object.
+  // If restart, then ParameterInput in the restart file takes precedence.
+  if (arg.res_flag != 0) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
@@ -114,9 +113,33 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
+  // If an input file was provided
+  if (arg.input_filename != nullptr) {
+    // Modify info read from restart file
+    if (arg.res_flag != 0) {
+      IOWrapper infile;
+      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+      pinput->LoadFromFile(infile);
+      infile.Close();
+
+      // Populate new object for fresh simulation
+    } else {
+      pinput = std::make_unique<ParameterInput>(arg.input_filename);
+    }
+  }
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  PARTHENON_REQUIRE_THROWS(
+      !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
+          pinput->GetBoolean("parthenon/job", "run_only_analysis") == false,
+      "'parthenon/job/run_only_analysis=true' input parameter was found indicating "
+      "manual modification or restarting from an output written during analysis, which "
+      "is undefined behavior. If you don't know how this was triggered, please contact "
+      "the Parthenon developers.");
+  pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
+
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
 
