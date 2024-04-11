@@ -48,7 +48,7 @@ TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_con
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
-      "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         if (dudt.IsAllocated(l) && vin.IsAllocated(l)) {
           dudt(l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, vin);
@@ -71,7 +71,7 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
 
   const int ndim = vin.GetNdim();
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
         if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
@@ -100,8 +100,8 @@ TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
   const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
-      "UpdateWithFluxDivergenceBlock", 0, u0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+      PARTHENON_AUTO_LABEL, 0, u0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         if (u0.IsAllocated(l) && u1.IsAllocated(l)) {
           u0(l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1(l, k, j, i) +
                            beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
@@ -126,7 +126,7 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
 
   const int ndim = u0_pack.GetNdim();
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateWithFluxDivergenceMesh", DevExecSpace(), 0,
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
       u0_pack.GetDim(5) - 1, 0, u0_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
         if (u0_pack.IsAllocated(m, l) && u1_pack.IsAllocated(m, l)) {
@@ -140,11 +140,10 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
 }
 
 TaskStatus SparseDealloc(MeshData<Real> *md) {
+  PARTHENON_INSTRUMENT
   if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
     return TaskStatus::complete;
   }
-
-  Kokkos::Profiling::pushRegion("Task_SparseDealloc");
 
   const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
   const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
@@ -163,7 +162,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const int NjNi = Nj * Ni;
   const int NkNjNi = Nk * NjNi;
   Kokkos::parallel_for(
-      "SparseDealloc",
+      PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
@@ -219,7 +218,6 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SparseDealloc
   return TaskStatus::complete;
 }
 

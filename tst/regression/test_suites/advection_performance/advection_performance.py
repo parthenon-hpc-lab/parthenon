@@ -77,9 +77,11 @@ class TestCase(utils.test_case.TestCaseAbs):
             "parthenon/meshblock/nx2=%d" % mb_sizes[step - 1],
             "parthenon/mesh/nx3=%d" % (num_proc_z * 256),
             "parthenon/meshblock/nx3=%d" % mb_sizes[step - 1],
-            "parthenon/sparse/enable_sparse=false"
-            if parameters.sparse_disabled
-            else "",
+            (
+                "parthenon/sparse/enable_sparse=false"
+                if parameters.sparse_disabled
+                else ""
+            ),
         ]
 
         return parameters

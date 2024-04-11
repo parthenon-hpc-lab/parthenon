@@ -327,7 +327,7 @@ template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
                                      const std::vector<int> &sparse_ids) {
-  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
+  PARTHENON_INSTRUMENT
 
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
@@ -338,7 +338,6 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
     var_list.Add(v, sparse_ids_set);
   }
 
-  Kokkos::Profiling::popRegion(); // GetVariablesByFlag
   return var_list;
 }
 

@@ -117,7 +117,11 @@
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
   /** the variable will have twice as many active zones in each direction **/            \
-  PARTHENON_INTERNAL_FOR_FLAG(Fine)
+  PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
+  /************************************************/                                     \
+  /** Vars specifying coordinates for visualization purposes **/                         \
+  /** You can specify a single 3D var **/                                                \
+  PARTHENON_INTERNAL_FOR_FLAG(CoordinatesVec)
 namespace parthenon {
 
 namespace internal {
@@ -318,9 +322,13 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-           const std::vector<std::string> &component_labels = {},
-           const std::string &associated = "");
+  Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
 
   // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -346,6 +354,21 @@ class Metadata {
   }
   static int num_flags;
 
+  static std::string LocationToString(MetadataFlag flag) {
+    if (flag == Cell) {
+      return "Cell";
+    } else if (flag == Face) {
+      return "Face";
+    } else if (flag == Edge) {
+      return "Edge";
+    } else if (flag == Node) {
+      return "Node";
+    } else if (flag == None) {
+      return "None";
+    }
+    PARTHENON_THROW("Unknown topology flag");
+  }
+
   // Sparse threshold routines
   void SetSparseThresholds(parthenon::Real alloc, parthenon::Real dealloc,
                            parthenon::Real default_val = 0.0) {
@@ -366,62 +389,7 @@ class Metadata {
 
   // Return true if the flags constraints are satisfied, false otherwise. If throw_on_fail
   // is true, throw a descriptive exception when invalid
-  bool IsValid(bool throw_on_fail = false) const {
-    bool valid = true;
-
-    // Topology
-    if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one topology flag must be set");
-      }
-    }
-
-    // Role
-    if (CountSet({Private, Provides, Requires, Overridable}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one role flag must be set");
-      }
-    }
-
-    // Shape
-    if (CountSet({Vector, Tensor}) > 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("At most one shape flag can be set");
-      }
-    }
-
-    // Datatype
-    if (CountSet({Boolean, Integer, Real}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one data type flag must be set");
-      }
-    }
-
-    // Independent
-    if (CountSet({Independent, Derived}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Either the Independent or Derived flag must be set");
-      }
-    }
-
-    // Prolongation/restriction
-    if (IsRefined()) {
-      if (refinement_funcs_.label().size() == 0) {
-        valid = false;
-        if (throw_on_fail) {
-          PARTHENON_THROW(
-              "Registered for refinment but no prolongation/restriction ops found");
-        }
-      }
-    }
-
-    return valid;
-  }
+  bool IsValid(bool throw_on_fail = false) const;
 
   /*--------------------------------------------------------*/
   // Getters for attributes
@@ -445,6 +413,7 @@ class Metadata {
 
     PARTHENON_THROW("No topology flag set");
   }
+  std::string WhereAsString() const { return LocationToString(Where()); }
 
   bool IsMeshTied() const { return (Where() != None); }
 
@@ -481,6 +450,9 @@ class Metadata {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
             IsSet(GMGProlongate) || IsSet(GMGRestrict));
   }
+
+  // Returns true if this variable is a coords var
+  bool IsCoordinateField() const { return IsSet(CoordinatesVec); }
 
   const std::vector<int> &Shape() const { return shape_; }
 
@@ -550,7 +522,6 @@ class Metadata {
 
   // Refinement stuff
   const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
-    PARTHENON_REQUIRE_THROWS(IsRefined(), "Variable must be registered for refinement");
     return refinement_funcs_;
   }
   template <class ProlongationOp, class RestrictionOp,

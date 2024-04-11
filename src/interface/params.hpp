@@ -26,7 +26,7 @@
 #include "utils/error_checking.hpp"
 
 #ifdef ENABLE_HDF5
-#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/parthenon_hdf5_types.hpp"
 #endif
 
 namespace parthenon {

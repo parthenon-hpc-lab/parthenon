@@ -103,7 +103,8 @@ MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
 namespace parthenon {
 Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
                    const std::vector<std::string> &component_labels,
-                   const std::string &associated)
+                   const std::string &associated,
+                   const refinement::RefinementFunctions_t ref_funcs_)
     : shape_(shape), component_labels_(component_labels), associated_(associated) {
   // set flags
   for (const auto f : bits) {
@@ -126,8 +127,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
   if (IsRefined()) {
-    refinement_funcs_ = refinement::RefinementFunctions_t::RegisterOps<
-        refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>();
+    refinement_funcs_ = ref_funcs_;
   }
 
   // check if all flag constraints are satisfied, throw if not
@@ -182,6 +182,88 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
     }
   }
   return os;
+}
+
+// Return true if the flags constraints are satisfied, false otherwise. If throw_on_fail
+// is true, throw a descriptive exception when invalid
+bool Metadata::IsValid(bool throw_on_fail) const {
+  bool valid = true;
+
+  // Topology
+  if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one topology flag must be set");
+    }
+  }
+
+  // Role
+  if (CountSet({Private, Provides, Requires, Overridable}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one role flag must be set");
+    }
+  }
+
+  // Shape
+  if (CountSet({Vector, Tensor}) > 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("At most one shape flag can be set");
+    }
+  }
+
+  // Coordinates
+  if (IsSet(CoordinatesVec)) {
+    if (Where() != Node) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be node-centered");
+      }
+    }
+    if (shape_.size() != 1) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be tensor rank 1");
+      }
+    }
+    if (shape_[0] != 3) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW(
+            "Coordinate field must be 3-vector. (Does not need Vector metadata flag).");
+      }
+    }
+  }
+
+  // Datatype
+  if (CountSet({Boolean, Integer, Real}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one data type flag must be set");
+    }
+  }
+
+  // Independent
+  if (CountSet({Independent, Derived}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Either the Independent or Derived flag must be set");
+    }
+  }
+
+  // Prolongation/restriction
+  if (IsRefined()) {
+    if (refinement_funcs_.label().size() == 0) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW(
+            "Registered for refinment but no prolongation/restriction ops found");
+      }
+    }
+  }
+
+  return valid;
 }
 
 std::vector<MetadataFlag> Metadata::Flags() const {

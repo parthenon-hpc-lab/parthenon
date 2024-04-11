@@ -108,14 +108,11 @@ add_library(parthenon
   bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
-
   bvals/bvals.cpp
   bvals/bvals.hpp
-  bvals/bvals_base.cpp
-  bvals/bvals_interfaces.hpp
+  bvals/neighbor_block.cpp
+  bvals/neighbor_block.hpp
   bvals/boundary_flag.cpp
-  bvals/bvals_var.cpp
-  bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
@@ -131,6 +128,7 @@ add_library(parthenon
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp
+  interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm.cpp
   interface/swarm.hpp
@@ -158,19 +156,25 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
 
-  mesh/amr_loadbalance.cpp
   mesh/domain.hpp
-  mesh/logical_location.cpp
-  mesh/logical_location.hpp
+  mesh/forest/block_ownership.cpp
+  mesh/forest/block_ownership.hpp
+  mesh/forest/forest.cpp
+  mesh/forest/forest.hpp
+  mesh/forest/relative_orientation.hpp
+  mesh/forest/relative_orientation.cpp
+  mesh/forest/tree.hpp
+  mesh/forest/tree.cpp
+  mesh/forest/logical_location.cpp
+  mesh/forest/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/mesh-amr_loadbalance.cpp
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
-  mesh/meshblock_tree.cpp
-  mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
 
   outputs/ascent.cpp
@@ -183,10 +187,16 @@ add_library(parthenon
   outputs/outputs.cpp
   outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
+  outputs/parthenon_hdf5_attributes.cpp
+  outputs/parthenon_hdf5_attributes_read.cpp
+  outputs/parthenon_hdf5_attributes_write.cpp
+  outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_xdmf.hpp
-  outputs/restart.cpp
+  outputs/restart.hpp
+  outputs/restart_hdf5.cpp
+  outputs/restart_hdf5.hpp
   outputs/vtk.cpp
 
   parthenon/driver.hpp
@@ -213,10 +223,8 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
-  tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
+  tasks/tasks.hpp
+  tasks/thread_pool.hpp
 
   time_integration/butcher_integrator.cpp
   time_integration/low_storage_integrator.cpp
@@ -229,14 +237,18 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
-  utils/error_checking.hpp
   utils/error_checking.cpp
+  utils/error_checking.hpp
   utils/hash.hpp
+  utils/index_split.cpp
+  utils/index_split.hpp
   utils/indexer.hpp
+  utils/instrument.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
   utils/mpi_types.hpp
@@ -263,6 +275,8 @@ add_library(parthenon
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
+  parthenon_arrays.cpp
+  parthenon_arrays.hpp
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
@@ -309,7 +323,7 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
-target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)

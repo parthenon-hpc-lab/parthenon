@@ -51,6 +51,8 @@ int main(int argc, char *argv[]) {
     if (driver_status != parthenon::DriverStatus::complete ||
         driver.final_rms_residual > 1.e-10 || driver.final_rms_error > 1.e-12)
       success = false;
+    if (driver.final_rms_residual != driver.final_rms_residual) success = false;
+    if (driver.final_rms_error != driver.final_rms_error) success = false;
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

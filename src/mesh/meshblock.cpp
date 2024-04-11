@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -40,7 +40,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -115,6 +114,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   } else if (app_in->MeshProblemGenerator == nullptr) {
     ProblemGenerator = &ProblemGeneratorDefault;
   }
+  if (app_in->PostInitialization != nullptr) {
+    PostInitialization = app_in->PostInitialization;
+    // Only set default post-init when no mesh post-init is set
+  } else if (app_in->MeshPostInitialization == nullptr) {
+    PostInitialization = &PostInitializationDefault;
+  }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
   }
@@ -134,8 +139,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-  pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
   pbswarm->SetBoundaryFlags(boundary_flag);
 

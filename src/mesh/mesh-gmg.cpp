@@ -32,10 +32,10 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
+#include "mesh/forest/forest.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/buffer_utils.hpp"
@@ -51,10 +51,57 @@ void Mesh::PopulateLeafLocationMap() {
   }
 }
 
+void Mesh::SetMeshBlockNeighbors(
+    BlockList_t &block_list, int nbs, const std::vector<int> &ranklist,
+    const std::unordered_set<LogicalLocation> &newly_refined) {
+  Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
+                    {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
+                    {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
+  BufferID buffer_id(ndim, multilevel);
+
+  for (auto &pmb : block_list) {
+    std::vector<NeighborBlock> all_neighbors;
+    const auto &loc = pmb->loc;
+    auto neighbors = forest.FindNeighbors(loc);
+
+    // Build NeighborBlocks for unique neighbors
+    int buf_id = 0;
+    for (const auto &nloc : neighbors) {
+      auto gid = forest.GetGid(nloc.global_loc);
+      auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
+      auto f =
+          loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
+      int bid = buffer_id.GetID(offsets[0], offsets[1], offsets[2], f[0], f[1]);
+
+      // TODO(LFR): This will only give the correct buffer index if the two trees have the
+      // same coordinate orientation. We really need to transform loc into the logical
+      // coord system of the tree nloc.global_loc to get the true tid
+      auto fn = nloc.origin_loc.GetAthenaXXFaceOffsets(loc, -offsets[0], -offsets[1],
+                                                       -offsets[2]);
+      int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
+
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[gid], gid,
+                                 offsets, bid, tid, f[0], f[1]);
+
+      // Set neighbor block ownership
+      auto &nb = all_neighbors.back();
+      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
+
+      nb.ownership =
+          DetermineOwnershipForest(nloc.global_loc, neighbor_neighbors, newly_refined);
+      nb.ownership.initialized = true;
+    }
+
+    pmb->neighbors = all_neighbors;
+  }
+}
+
 void Mesh::SetSameLevelNeighbors(
     BlockList_t &block_list, const LogicalLocMap_t &loc_map, RootGridInfo root_grid,
     int nbs, bool gmg_neighbors, int composite_logical_level,
     const std::unordered_set<LogicalLocation> &newly_refined) {
+  BufferID buffer_id(ndim, multilevel);
+
   for (auto &pmb : block_list) {
     auto loc = pmb->loc;
     auto gid = pmb->gid;
@@ -70,6 +117,7 @@ void Mesh::SetSameLevelNeighbors(
     *neighbor_list = {};
 
     auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
+    int buf_id = 0;
     for (auto &pos_neighbor_location : possible_neighbors) {
       if (gmg_neighbors && loc.level() == composite_logical_level - 1 &&
           loc.level() == pos_neighbor_location.level())
@@ -83,6 +131,30 @@ void Mesh::SetSameLevelNeighbors(
           for (auto ox2 : offsets[1]) {
             for (auto ox3 : offsets[2]) {
               NeighborConnect nc;
+              if (pos_neighbor_location.level() != loc.level()) {
+                // Check that the two blocks are in fact neighbors in this offset
+                // direction, since we only checked that they are actually neighbors
+                // when they have both been derefined to the coarser of their levels
+                // (this should only play a role in small meshes with periodic
+                // bounday conditions)
+                auto &fine_loc = pos_neighbor_location.level() > loc.level()
+                                     ? pos_neighbor_location
+                                     : loc;
+                int mult = loc.level() - pos_neighbor_location.level();
+                std::array<int, 3> ox{ox1, ox2, ox3};
+                bool not_neighbor = false;
+                for (int dir = 0; dir < 3; ++dir) {
+                  if (ox[dir] != 0) {
+                    // temp should be +1 if a block is to the right within its parent
+                    // block and -1 if it is to the left.
+                    const int temp =
+                        2 * (fine_loc.l(dir) - 2 * (fine_loc.l(dir) >> 1)) - 1;
+                    PARTHENON_DEBUG_REQUIRE(temp * temp == 1, "Bad Offset");
+                    if (temp != mult * ox[dir]) not_neighbor = true;
+                  }
+                }
+                if (not_neighbor) continue;
+              }
               int connect_indicator = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
               if (connect_indicator == 0) continue;
               if (connect_indicator == 1) {
@@ -92,17 +164,24 @@ void Mesh::SetSameLevelNeighbors(
               } else if (connect_indicator == 3) {
                 nc = NeighborConnect::corner;
               }
-              auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
-                                                  root_grid);
+              auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3);
+              auto fn =
+                  pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2, -ox3);
+              int bid = buffer_id.GetID(ox1, ox2, ox3, f[0], f[1]);
+              int tid = buffer_id.GetID(-ox1, -ox2, -ox3, fn[0], fn[1]);
               neighbor_list->emplace_back(
                   pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
-                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, 0, 0, f[0],
-                  f[1]);
+                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, bid, tid,
+                  f[0], f[1]);
             }
           }
         }
       }
     }
+
+    std::sort(neighbor_list->begin(), neighbor_list->end(),
+              [](auto lhs, auto rhs) { return lhs.bufid < rhs.bufid; });
+
     // Set neighbor block ownership
     std::unordered_set<LogicalLocation> allowed_neighbors;
     allowed_neighbors.insert(pmb->loc);

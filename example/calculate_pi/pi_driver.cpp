@@ -90,11 +90,11 @@ parthenon::DriverStatus PiDriver::Execute() {
   // retrieve "pi_val" and post execute.
   auto &pi_val = pmesh->packages.Get("calculate_pi")->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
-  PostExecute(pi_val);
+  PiPostExecute(pi_val);
   return DriverStatus::complete;
 }
 
-void PiDriver::PostExecute(Real pi_val) {
+void PiDriver::PiPostExecute(Real pi_val) {
   if (my_rank == 0) {
     std::cout << std::endl
               << std::endl

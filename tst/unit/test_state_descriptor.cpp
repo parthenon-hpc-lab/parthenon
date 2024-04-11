@@ -383,7 +383,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    WHEN("We register a dense variable custom prolongation/restriction") {
+    WHEN("We register a dense variable with default prolongation/restriction") {
       pkg1->AddField("dense", m_provides);
       WHEN("We register a sparse variable with custom prolongation/restriction") {
         auto m_sparse_provides_ = m_sparse_provides;
@@ -391,8 +391,8 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
         THEN("We can perform dependency resolution") {
           auto pkg3 = ResolvePackages(packages);
-          AND_THEN("The two relevant prolongation restriction operators exist and have "
-                   "unique ids") {
+          AND_THEN("The two relevant prolongation restriction operators exist, are "
+                   "appropriately set, and have unique ids") {
             const auto my_funcs =
                 parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
                                                                           MyRestrictOp>();
@@ -403,6 +403,12 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
             REQUIRE(pkg3->NumRefinementFuncs() == 2);
             REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
                     (pkg3->RefinementFuncID(cell_funcs)));
+            REQUIRE(pkg3->FieldMetadata("dense").GetRefinementFunctions() == cell_funcs);
+            for (int i = 0; i < sparse_ids.size(); i++) {
+              REQUIRE(
+                  pkg3->FieldMetadata("sparse", sparse_ids[i]).GetRefinementFunctions() ==
+                  my_funcs);
+            }
           }
         }
       }

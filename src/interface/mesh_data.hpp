@@ -246,15 +246,8 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, Mesh *pmesh) {
-    const int nblocks = blocks.size();
-    block_data_.resize(nblocks);
-    SetMeshPointer(pmesh);
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
-    }
-  }
-
+  void Set(BlockList_t blocks, Mesh *pmesh, int ndim);
+  void Set(BlockList_t blocks, Mesh *pmesh);
   void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
                   const bool shallow);
 
@@ -419,6 +412,7 @@ class MeshData {
     bvars_cache_.clear();
   }
 
+  int GetNDim() const { return ndim_; }
   int NumBlocks() const { return block_data_.size(); }
 
   bool operator==(MeshData<T> &cmp) const {
@@ -442,6 +436,7 @@ class MeshData {
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:
+  int ndim_;
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;

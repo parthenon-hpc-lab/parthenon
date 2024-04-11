@@ -152,7 +152,7 @@ void CalculateDerived(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "CalculateDerived", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e, jb.s, jb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k, const int j) {
         Real *out = &v(b, 0, k, j, 0);
@@ -169,7 +169,7 @@ void CalculateDerived(MeshData<Real> *md) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepMesh(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Task_burgers_EstimateTimestepMesh");
+  PARTHENON_INSTRUMENT
   Mesh *pm = md->GetMeshPointer();
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
@@ -197,14 +197,13 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
       },
       Kokkos::Min<Real>(min_dt));
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_EstimateTimestepMesh
   return cfl * min_dt;
 }
 
 TaskStatus CalculateFluxes(MeshData<Real> *md) {
   using parthenon::ScratchPad1D;
   using parthenon::team_mbr_t;
-  Kokkos::Profiling::pushRegion("Task_burgers_CalculateFluxes");
+  PARTHENON_INSTRUMENT
 
   auto pm = md->GetParentPointer();
   const int ndim = pm->ndim;
@@ -236,7 +235,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
@@ -307,7 +306,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // now we'll solve the Riemann problems to get fluxes
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
@@ -402,7 +401,6 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
         }
       });
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_CalculateFluxes
   return TaskStatus::complete;
 }
 
