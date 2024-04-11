@@ -89,6 +89,26 @@ class ThreadQueue {
   bool waiting = false;
 };
 
+template <typename T>
+class ThreadVector {
+ public:
+  void push(T q) {
+    std::lock_guard<std::mutex> lock(mutex);
+    vec.push_back(q);
+  }
+  std::vector<T> &get_vector() {
+    return vec;
+  }
+  // Only called from host thread after wait()
+  void clear() {
+    vec.clear();
+  }
+
+ private:
+  std::vector<T> vec;
+  std::mutex mutex;
+};
+
 class ThreadPool {
  public:
   explicit ThreadPool(const int numthreads = std::thread::hardware_concurrency())
@@ -117,21 +137,38 @@ class ThreadPool {
   void kill() { queue.signal_kill(); }
 
   template <typename F, class... Args>
-  std::future<typename std::result_of<F(Args...)>::type> enqueue(F &&f, Args &&...args) {
+  void enqueue(F &&f, Args &&...args) {
     using return_t = typename std::result_of<F(Args...)>::type;
     auto task = std::make_shared<std::packaged_task<return_t()>>(
         [=, func = std::forward<F>(f)] { return func(std::forward<Args>(args)...); });
-    std::future<return_t> result = task->get_future();
+    // If we're listing Prathenon "Tasks" (all current uses) keep the returns
+    if constexpr (std::is_same<return_t, TaskStatus>::value)
+      run_tasks.push(task);
     queue.push([task]() { (*task)(); });
-    return result;
   }
 
   int size() const { return nthreads; }
+
+  // Mostly this exists to throw any exceptions,
+  // but we can check returns too.
+  // Would need changes for >1 failure mode
+  TaskStatus check_task_returns() {
+    TaskStatus overall = TaskStatus::complete;
+    for (auto &task : run_tasks.get_vector()) {
+      TaskStatus task_return = task->get_future().get();
+      if (task_return == TaskStatus::fail)
+        overall = TaskStatus::fail;
+    }
+    run_tasks.clear();
+
+    return overall;
+  }
 
  private:
   const int nthreads;
   std::vector<std::thread> threads;
   ThreadQueue<std::function<void()>> queue;
+  ThreadVector<std::shared_ptr<std::packaged_task<TaskStatus()>>> run_tasks;
 };
 
 } // namespace parthenon

@@ -32,7 +32,7 @@
 
 namespace parthenon {
 
-enum class TaskListStatus { complete }; // doesn't feel like we need this...
+enum class TaskListStatus { complete, fail };
 enum class TaskType { normal, completion };
 
 class TaskQualifier {
@@ -423,7 +423,10 @@ class TaskRegion {
     // then wait until everything is done
     pool.wait();
 
-    return TaskListStatus::complete;
+    // Check the results, so as to fire any exceptions from threads
+    // Return failure if a task failed
+    return (pool.check_task_returns() == TaskStatus::complete) ?
+            TaskListStatus::complete : TaskListStatus::fail;
   }
 
   TaskList &operator[](const int i) { return task_lists[i]; }
