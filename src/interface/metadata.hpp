@@ -117,7 +117,11 @@
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
   /** this variable is the flux for another variable **/                                 \
-  PARTHENON_INTERNAL_FOR_FLAG(Flux)
+  PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
+  /************************************************/                                     \
+  /** Vars specifying coordinates for visualization purposes **/                         \
+  /** You can specify a single 3D var **/                                                \
+  PARTHENON_INTERNAL_FOR_FLAG(CoordinatesVec)
 namespace parthenon {
 
 namespace internal {
@@ -385,62 +389,7 @@ class Metadata {
 
   // Return true if the flags constraints are satisfied, false otherwise. If throw_on_fail
   // is true, throw a descriptive exception when invalid
-  bool IsValid(bool throw_on_fail = false) const {
-    bool valid = true;
-
-    // Topology
-    if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one topology flag must be set");
-      }
-    }
-
-    // Role
-    if (CountSet({Private, Provides, Requires, Overridable}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one role flag must be set");
-      }
-    }
-
-    // Shape
-    if (CountSet({Vector, Tensor}) > 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("At most one shape flag can be set");
-      }
-    }
-
-    // Datatype
-    if (CountSet({Boolean, Integer, Real}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Exactly one data type flag must be set");
-      }
-    }
-
-    // Independent
-    if (CountSet({Independent, Derived}) != 1) {
-      valid = false;
-      if (throw_on_fail) {
-        PARTHENON_THROW("Either the Independent or Derived flag must be set");
-      }
-    }
-
-    // Prolongation/restriction
-    if (IsRefined()) {
-      if (refinement_funcs_.label().size() == 0) {
-        valid = false;
-        if (throw_on_fail) {
-          PARTHENON_THROW(
-              "Registered for refinment but no prolongation/restriction ops found");
-        }
-      }
-    }
-
-    return valid;
-  }
+  bool IsValid(bool throw_on_fail = false) const;
 
   /*--------------------------------------------------------*/
   // Getters for attributes
@@ -501,6 +450,9 @@ class Metadata {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
             IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
   }
+
+  // Returns true if this variable is a coords var
+  bool IsCoordinateField() const { return IsSet(CoordinatesVec); }
 
   const std::vector<int> &Shape() const { return shape_; }
 

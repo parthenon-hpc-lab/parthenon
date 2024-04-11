@@ -101,8 +101,8 @@ you like. Reference implementations of the standard boundary conditions
 are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/bvals/boundary_conditions.cpp>`__.
 
 
-Per package user-defined boundary conditions.
----------------------------------
+Per package user-defined boundary conditions
+--------------------------------------------
 
 In addition to user defined *global* boundary conditions, Parthenon also supports 
 registration of boundary conditions at the *per package* level. These per package 
