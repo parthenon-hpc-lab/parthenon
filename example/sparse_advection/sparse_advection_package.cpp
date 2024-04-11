@@ -72,8 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add sparse field
   {
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                Metadata::FillGhost, Metadata::Sparse},
-               std::vector<int>({1}));
+                Metadata::FillGhost, Metadata::Sparse});
     SparsePool pool("sparse", m);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
