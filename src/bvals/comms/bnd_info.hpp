@@ -82,7 +82,9 @@ struct ProResInfo {
   // conversion of TopologicalElements
   bool include_el[10]{false, false, false, false, false,
                       false, false, false, false, false};
+  KOKKOS_FORCEINLINE_FUNCTION
   bool &IncludeTopoEl(TopologicalElement te) { return include_el[static_cast<int>(te)]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   bool IncludeTopoEl(TopologicalElement te) const {
     return include_el[static_cast<int>(te)];
   }
