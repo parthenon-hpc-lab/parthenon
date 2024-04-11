@@ -68,8 +68,10 @@ class CommBuffer {
 
  public:
   int BuffSize()
-  { return buf_.size();}
+  { return buf_.size(); }
   
+  bool IsRemoteSend()
+  { return (*comm_type_ == BuffCommType::sender); }
   CommBuffer()
       : my_rank(0)
 #ifdef MPI_PARALLEL
@@ -210,7 +212,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
 
 template <class T>
 void CommBuffer<T>::Send() noexcept {
-    std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send()  comm_type is " << (int) (*comm_type_) << std::endl;
+//    std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send()  comm_type is " << (int) (*comm_type_) << std::endl;
 
   if (!active_) {
     SendNull();
@@ -223,11 +225,13 @@ void CommBuffer<T>::Send() noexcept {
   if (*comm_type_ == BuffCommType::sender) {
 // Make sure that this request isn't still out,
 // this could be blocking
+  //  std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send()  calling isend " << (int) (*comm_type_) << std::endl;
+
 #ifdef MPI_PARALLEL
-  std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::Send() calling Isend " << std::endl;
     PARTHENON_REQUIRE(
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
+    
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
@@ -245,9 +249,9 @@ void CommBuffer<T>::SendNull() noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
-   std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() " << std::endl;
+  // std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() " << std::endl;
   if (*comm_type_ == BuffCommType::sender) {
-      std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() calling Isend " << std::endl;
+  //    std::cout << "Rank[" << Globals::my_rank << "]  CommBuffer<T>::SendNull() calling Isend " << std::endl;
 
 // Make sure that this request isn't still out,
 // this could be blocking
