@@ -28,10 +28,12 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_index_split.cpp
     test_logical_location.cpp
+    test_forest.cpp
     test_metadata.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
     test_nan_tags.cpp
+    test_output_utils.cpp
     test_pararrays.cpp
     test_sparse_pack.cpp
     test_swarm.cpp

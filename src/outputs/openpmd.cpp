@@ -218,6 +218,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // get list of all vars, just use the first block since the list is the same for all
   // blocks
   // TODO(pgrete) add restart_ var to output
+  // TODO(pgrete) check if this needs to be updated/unifed with get_var logic in hdf5
   auto all_vars_info = GetAllVarsInfo(
       GetVarsToWrite(pm->block_list.front(), true, output_params.variables));
 

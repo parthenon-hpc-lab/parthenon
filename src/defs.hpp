@@ -87,6 +87,11 @@ struct RegionSize {
   int &nx(CoordinateDirection dir) { return nx_[dir - 1]; }
   const int &nx(CoordinateDirection dir) const { return nx_[dir - 1]; }
 
+  // Returns global coordinate position within a block based on block local
+  // coordinate u running from zero to one
+  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
+    return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
+  }
   // A "symmetry" direction is a a direction that posesses a translational symmetry
   // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given
   // problem. In practice, this mean that the Parthenon mesh was setup to have only
@@ -108,6 +113,9 @@ struct RegionSize {
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
 // io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // tasks.hpp, ???
+
+// identifiers for boundary conditions
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
@@ -147,8 +155,6 @@ inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
 // strongly typed / scoped enums (C++11):
 //------------------
 // KGF: Except for the 2x MG* enums, these may be unnessary w/ the new class inheritance
-// Now, only passed to BoundaryVariable::InitBoundaryData(); could replace w/ bool switch
-enum class BoundaryQuantity { cc, fc, cc_flcor, fc_flcor };
 enum class BoundaryCommSubset { mesh_init, all };
 // TODO(felker): consider generalizing/renaming to QuantityFormulation
 enum class UserHistoryOperation { sum, max, min };

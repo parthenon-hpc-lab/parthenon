@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,9 +25,19 @@ void MeshData<T>::Initialize(const MeshData<T> *src,
   pmy_mesh_ = src->GetParentPointer();
   const int nblocks = src->NumBlocks();
   block_data_.resize(nblocks);
-  for (int i = 0; i < nblocks; i++) {
-    block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
-        stage_name_, src->GetBlockData(i), names, shallow);
+
+  grid = src->grid;
+  if (grid.type == GridType::two_level_composite) {
+    int gmg_level = src->grid.logical_level - pmy_mesh_->GetGMGMinLogicalLevel();
+    for (int i = 0; i < nblocks; i++) {
+      block_data_[i] = pmy_mesh_->gmg_block_lists[gmg_level][i]->meshblock_data.Add(
+          stage_name_, src->GetBlockData(i), names, shallow);
+    }
+  } else {
+    for (int i = 0; i < nblocks; i++) {
+      block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
+          stage_name_, src->GetBlockData(i), names, shallow);
+    }
   }
 }
 

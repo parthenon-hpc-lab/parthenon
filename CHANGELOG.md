@@ -3,6 +3,32 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
+- [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
+- [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
+
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
+
+
+## Release 24.03
+Date: 2024-03-21
+
+### Added (new features/APIs/variables/...)
 - [[PR 852]](https://github.com/parthenon-hpc-lab/parthenon/pull/852) Add Mesh version of UserWorkBeforeOutput
 - [[PR 998]](https://github.com/parthenon-hpc-lab/parthenon/pull/998) tensor indices added to sparse pack
 - [[PR 999]](https://github.com/parthenon-hpc-lab/parthenon/pull/999) Add a post-initialization hook
@@ -15,6 +41,7 @@
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
@@ -30,8 +57,6 @@
 - [[PR 1007]](https://github.com/parthenon-hpc-lab/parthenon/pull/1007) Split template instantiations for HDF5 Read/Write attributes to speed up compile times
 - [[PR 990]](https://github.com/parthenon-hpc-lab/parthenon/pull/990) Partial refactor of HDF5 I/O code for readability/extendability
 - [[PR 982]](https://github.com/parthenon-hpc-lab/parthenon/pull/982) add some gut check testing for parthenon-VIBE
-
-### Removed (removing behavior/API/varaibles/...)
 
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) Change the API for what was IterativeTasks
