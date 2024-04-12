@@ -24,7 +24,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "interface/swarm.hpp"
 #include "interface/swarm_default_names.hpp"
 #include "kokkos_abstraction.hpp"

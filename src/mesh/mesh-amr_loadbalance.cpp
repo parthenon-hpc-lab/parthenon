@@ -39,7 +39,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
@@ -52,8 +51,6 @@ namespace parthenon {
 //  \brief calculate an MPI tag for AMR block transfer
 // tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
 //       + physics(5 bits)
-
-// See comments on BoundaryBase::CreateBvalsMPITag()
 
 int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // the trailing zero is used as "id" to indicate an AMR related tag
@@ -609,16 +606,15 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   // Start tree manipulation
   // Step 1. perform refinement
   for (int n = 0; n < tnref; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
-    bt->Refine(nnew);
+    nnew += forest.Refine(lref[n]);
   }
   if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
-    MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
-    bt->Derefine(ndel);
+    ndel += forest.Derefine(clderef[n]);
   }
+
   if (tnderef >= nleaf) delete[] clderef;
 }
 
@@ -684,7 +680,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
-    tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
+    newloc = forest.GetMeshBlockListAndResolveGids();
+    nbtotal = newloc.size();
+    for (int ib = 0; ib < nbtotal; ++ib)
+      newtoold[ib] = forest.GetOldGid(newloc[ib]);
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -936,7 +935,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       PARTHENON_MPI_CHECK(
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
-
     // init meshblock data
     for (auto &pmb : block_list)
       pmb->InitMeshBlockUserData(pmb.get(), pin);
@@ -956,12 +954,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      for (auto &pmb : block_list) {
-        pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data(),
-                                          newly_refined);
-      }
-      SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
-                            false, 0, newly_refined);
+      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
@@ -980,11 +973,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetSameLevelNeighbors(block_list, leaf_grid_locs, this->GetRootGridInfo(), nbs,
-                          false);
-    for (auto &pmb : block_list) {
-      pmb->pbval->SearchAndSetNeighbors(this, tree, ranklist.data(), nslist.data());
-    }
+    SetMeshBlockNeighbors(block_list, nbs, ranklist);
     BuildGMGHierarchy(nbs, pin, app_in);
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above

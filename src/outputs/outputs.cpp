@@ -77,6 +77,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -147,6 +148,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // read cartesian mapping option
       op.cartesian_vector = false;
 
+      op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+
       // read single precision output option
       const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
 
@@ -195,6 +198,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                << op.block_name << "'";
           PARTHENON_WARN(warn);
         }
+      }
+
+      if (op.file_type == "hst") {
+        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
+                                                       std::vector<std::string>());
       }
 
       // set output variable and optional data format string used in formatted writes
@@ -294,11 +302,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pib = pib->pnext; // move to next input block name
   }
 
-  // check there were no more than one history or restart files requested
-  if (num_hst_outputs > 1 || num_rst_outputs > 1) {
+  // check there were no more than one restart file requested
+  if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
-        << "More than one history or restart output block detected in input file"
-        << std::endl;
+        << "More than one restart output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
@@ -424,7 +431,10 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
     if ((tm == nullptr) ||
         ((ptype->output_params.dt >= 0.0) &&
          ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
-          (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
+          (tm->time >= tm->tlim) || (signal == SignalHandler::OutputSignal::now) ||
+          (signal == SignalHandler::OutputSignal::final) ||
+          (signal == SignalHandler::OutputSignal::analysis &&
+           ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
         first = false;

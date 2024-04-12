@@ -3,22 +3,30 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
+- [[PR1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
+- [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
+- [[PR1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
+- [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1028]](https://github.com/parthenon-hpc-lab/parthenon/pull/1028) Internal reorganization of LogicalLocation files
+- [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 
 
 ### Removed (removing behavior/API/varaibles/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
-- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
+- [[PR1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
+- [[PR1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
+
 
 ## Release 24.03
 Date: 2024-03-21

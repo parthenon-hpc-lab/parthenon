@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/bvals.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"

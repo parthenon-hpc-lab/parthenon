@@ -45,8 +45,8 @@
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/forest/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -58,7 +58,6 @@
 namespace parthenon {
 
 // Forward declarations
-class BoundaryValues;
 class MeshBlock;
 class MeshRefinement;
 class ParameterInput;
@@ -76,8 +75,6 @@ class Mesh {
   friend class HistoryOutput;
   friend class MeshBlock;
   friend class MeshBlockTree;
-  friend class BoundaryBase;
-  friend class BoundaryValues;
   friend class MeshRefinement;
 
  public:
@@ -100,12 +97,14 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const;
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
+  const forest::Forest &Forest() const { return forest; }
+
   // data
   bool modified;
   const bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
-  BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
+  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   const int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;
@@ -190,6 +189,10 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
+  int GetLegacyTreeRootLevel() const noexcept {
+    return forest.root_level + forest.forest_level;
+  }
+
   RootGridInfo GetRootGridInfo() const noexcept {
     return RootGridInfo(
         root_level, nrbx[0], nrbx[1], nrbx[2],
@@ -207,8 +210,9 @@ class Mesh {
     std::vector<std::int64_t> levels, logicalLocations;
     levels.reserve(nbtotal);
     logicalLocations.reserve(nbtotal * 3);
-    for (const auto &loc : loclist) {
-      levels.push_back(loc.level() - GetRootLevel());
+    for (auto loc : loclist) {
+      loc = forest.GetLegacyTreeLocation(loc);
+      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
       logicalLocations.push_back(loc.lx1());
       logicalLocations.push_back(loc.lx2());
       logicalLocations.push_back(loc.lx3());
@@ -278,7 +282,7 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;
-  MeshBlockTree tree;
+  forest::Forest forest;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
   std::array<int, 3> nrbx;
@@ -314,6 +318,10 @@ class Mesh {
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
   void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void
+  SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
+                        const std::vector<int> &ranklist,
+                        const std::unordered_set<LogicalLocation> &newly_refined = {});
   void
   SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
                         RootGridInfo root_grid, int nbs, bool gmg_neighbors,
