@@ -257,7 +257,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Currently supports versions 3 and 4.
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
+  // TODO(pgrete) figure out what to do about versions of different outputs
+  if (false && file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
     std::stringstream msg;
     msg << "File format version " << file_output_format_ver << " not supported. "
         << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;

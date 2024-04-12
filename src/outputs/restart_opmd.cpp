@@ -91,18 +91,42 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
   return 0;
 }
 
-void RestartReaderOPMD::ReadParams(const std::string &name, Params &p) {}
+void RestartReaderOPMD::ReadParams(const std::string &name, Params &p) {
+#if 0
+  // views and vecs of scalar types
+  ReadFromHDF5AllParamsOfTypeOrVec<bool>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<int32_t>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<int64_t>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<uint32_t>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<float>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<double>(prefix, group);
+
+  // strings
+  ReadFromHDF5AllParamsOfType<std::string>(prefix, group);
+  ReadFromHDF5AllParamsOfType<std::vector<std::string>>(prefix, group);
+
+  template <typename ...Ts>
+void call_my_func(my_list<Ts...> )
+{
+    (myFunc<Ts>(), ...);
+}
+#endif
+}
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
                                    const OutputUtils::VarInfo &vinfo,
                                    std::vector<Real> &data_vec,
                                    int file_output_format_version, Mesh *pm) const {
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0
-    const auto level = pmb->loc.level() - pm->GetRootLevel();
+    // TODO(pgrete) ask LR why this is not mirrored from writing
+    // const auto level = pmb->loc.level() - pm->GetRootLevel();
+    const auto level = pmb->loc.level();
     const std::string &mesh_record_name = var_name + "_lvl" + std::to_string(level);
 
     PARTHENON_REQUIRE_THROWS(it->meshes.contains(mesh_record_name),
-                             "Missing mesh record in restart file.");
+                             "Missing mesh record '" + mesh_record_name +
+                                 "' in restart file.");
     auto mesh_record = it->meshes[mesh_record_name];
 
     int64_t comp_offset = 0; // offset data_vector to store component data
@@ -134,7 +158,9 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
             comp_name = vinfo.component_labels[idx_component];
           }
           PARTHENON_REQUIRE_THROWS(mesh_record.contains(comp_name),
-                                   "Missing component in mesh record of restart file.");
+                                   "Missing component'" + comp_name +
+                                       "' in mesh record '" + mesh_record_name +
+                                       "' of restart file.");
           auto mesh_comp = mesh_record[comp_name];
 
           openPMD::Offset chunk_offset = {
@@ -145,7 +171,7 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
               static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
               static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
               static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-          mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_extent, chunk_extent);
+          mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
           // TODO(pgrete) check if output utils machinery can be used for non-cell
           // centered fields, which might not be that straightforward as a global mesh is
           // stored rather than individual blocks.
