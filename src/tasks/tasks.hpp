@@ -425,8 +425,8 @@ class TaskRegion {
 
     // Check the results, so as to fire any exceptions from threads
     // Return failure if a task failed
-    return (pool.check_task_returns() == TaskStatus::complete) ?
-            TaskListStatus::complete : TaskListStatus::fail;
+    return (pool.check_task_returns() == TaskStatus::complete) ? TaskListStatus::complete
+                                                               : TaskListStatus::fail;
   }
 
   TaskList &operator[](const int i) { return task_lists[i]; }

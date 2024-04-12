@@ -26,6 +26,8 @@
 
 namespace parthenon {
 
+class TaskList;
+
 template <typename T>
 class ThreadQueue {
  public:
@@ -92,17 +94,28 @@ class ThreadQueue {
 template <typename T>
 class ThreadVector {
  public:
+  ThreadVector() {}
+  explicit ThreadVector(const int size) : vec(size) {}
+
   void push(T q) {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_lock<std::mutex> lock(mutex);
     vec.push_back(q);
   }
-  std::vector<T> &get_vector() {
-    return vec;
-  }
+  std::vector<T> &get_vector() { return vec; }
   // Only called from host thread after wait()
   void clear() {
+    std::unique_lock<std::mutex> lock(mutex);
     vec.clear();
   }
+
+  TaskList &operator[](const int i) { return vec[i]; }
+
+  size_t size() const { return vec.size(); }
+
+  // Pass through the bits we use of a vector for convenience
+  typename std::vector<T>::iterator begin() { return vec.begin(); }
+  typename std::vector<T>::iterator end() { return vec.end(); }
+  T &front() { return vec.front(); }
 
  private:
   std::vector<T> vec;
@@ -142,8 +155,7 @@ class ThreadPool {
     auto task = std::make_shared<std::packaged_task<return_t()>>(
         [=, func = std::forward<F>(f)] { return func(std::forward<Args>(args)...); });
     // If we're listing Prathenon "Tasks" (all current uses) keep the returns
-    if constexpr (std::is_same<return_t, TaskStatus>::value)
-      run_tasks.push(task);
+    if constexpr (std::is_same<return_t, TaskStatus>::value) run_tasks.push(task);
     queue.push([task]() { (*task)(); });
   }
 
@@ -153,11 +165,11 @@ class ThreadPool {
   // but we can check returns too.
   // Would need changes for >1 failure mode
   TaskStatus check_task_returns() {
+    queue.wait_for_complete();
     TaskStatus overall = TaskStatus::complete;
-    for (auto &task : run_tasks.get_vector()) {
+    for (auto &task : run_tasks) {
       TaskStatus task_return = task->get_future().get();
-      if (task_return == TaskStatus::fail)
-        overall = TaskStatus::fail;
+      if (task_return == TaskStatus::fail) overall = TaskStatus::fail;
     }
     run_tasks.clear();
 
