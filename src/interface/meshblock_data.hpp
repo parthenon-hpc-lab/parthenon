@@ -244,9 +244,8 @@ class MeshBlockData {
       return swarm_pack_int_cache_;
     } else if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
-    } else {
-      PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
     }
+    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
   }
 
   /// Pack variables and fluxes by separate variables and fluxes names
