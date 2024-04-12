@@ -326,7 +326,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver, &rm);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl

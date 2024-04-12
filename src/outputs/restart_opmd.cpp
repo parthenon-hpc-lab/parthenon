@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "interface/params.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
@@ -91,9 +92,73 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
 }
 
 void RestartReaderOPMD::ReadParams(const std::string &name, Params &p) {}
-void RestartReaderOPMD::ReadBlocks(const std::string &name, IndexRange range,
-                                   const OutputUtils::VarInfo &info,
-                                   std::vector<Real> &dataVec,
-                                   int file_output_format_version) const {};
+void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
+                                   const OutputUtils::VarInfo &vinfo,
+                                   std::vector<Real> &data_vec,
+                                   int file_output_format_version, Mesh *pm) const {
+  for (auto &pmb : pm->block_list) {
+    // TODO(pgrete) check if we should skip the suffix for level 0
+    const auto level = pmb->loc.level() - pm->GetRootLevel();
+    const std::string &mesh_record_name = var_name + "_lvl" + std::to_string(level);
+
+    PARTHENON_REQUIRE_THROWS(it->meshes.contains(mesh_record_name),
+                             "Missing mesh record in restart file.");
+    auto mesh_record = it->meshes[mesh_record_name];
+
+    int64_t comp_offset = 0; // offset data_vector to store component data
+    int idx_component = 0;   // used in label for non-vector variables
+    const bool is_scalar =
+        vinfo.GetDim(4) == 1 && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1;
+    const auto &Nt = vinfo.GetDim(6);
+    const auto &Nu = vinfo.GetDim(5);
+    const auto &Nv = vinfo.GetDim(4);
+    // loop over all components
+    for (int t = 0; t < Nt; ++t) {
+      for (int u = 0; u < Nu; ++u) {
+        for (int v = 0; v < Nv; ++v) {
+          // Get the correct record
+          std::string comp_name;
+          if (is_scalar) {
+            comp_name = openPMD::MeshRecordComponent::SCALAR;
+          } else if (vinfo.is_vector) {
+            if (v == 0) {
+              comp_name = "x";
+            } else if (v == 1) {
+              comp_name = "y";
+            } else if (v == 2) {
+              comp_name = "z";
+            } else {
+              PARTHENON_THROW("Expected v index doesn't match vector expectation.");
+            }
+          } else {
+            comp_name = vinfo.component_labels[idx_component];
+          }
+          PARTHENON_REQUIRE_THROWS(mesh_record.contains(comp_name),
+                                   "Missing component in mesh record of restart file.");
+          auto mesh_comp = mesh_record[comp_name];
+
+          openPMD::Offset chunk_offset = {
+              pmb->loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+              pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+              pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+          openPMD::Extent chunk_extent = {
+              static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+              static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+              static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+          mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_extent, chunk_extent);
+          // TODO(pgrete) check if output utils machinery can be used for non-cell
+          // centered fields, which might not be that straightforward as a global mesh is
+          // stored rather than individual blocks.
+          comp_offset += pmb->block_size.nx(X1DIR) * pmb->block_size.nx(X2DIR) *
+                         pmb->block_size.nx(X3DIR);
+          idx_component += 1;
+        }
+      }
+    } // loop over components
+  }   // loop over blocks
+
+  // Now actually read the registered chunks form disk
+  it->seriesFlush();
+}
 
 } // namespace parthenon

@@ -46,7 +46,7 @@ class RestartReaderOPMD : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  int file_output_format_version) const override;
+                  int file_output_format_version, Mesh *pmesh) const override;
 
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
