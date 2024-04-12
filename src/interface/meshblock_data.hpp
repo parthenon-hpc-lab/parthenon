@@ -213,7 +213,7 @@ class MeshBlockData {
   }
 
   // Queries related to swarm data
-  DataCollection<SwarmContainer> &GetSwarmData() {
+  DataCollection<SwarmContainer> &GetSwarmData(int n = 0) {
     PARTHENON_REQUIRE(stage_name_ == "base",
                       "Swarm data must be accessed through base register!");
     return swarm_data;

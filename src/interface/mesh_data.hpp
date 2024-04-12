@@ -434,8 +434,9 @@ class MeshData {
     return true;
   }
 
-  DataCollection<SwarmContainer> &GetSwarmData() {
-    return block_data_[0]->GetSwarmData();
+  DataCollection<SwarmContainer> &GetSwarmData(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n]->GetSwarmData();
   }
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
