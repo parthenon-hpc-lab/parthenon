@@ -434,6 +434,10 @@ class MeshData {
     return true;
   }
 
+  DataCollection<SwarmContainer> &GetSwarmData() {
+    return block_data_[0]->GetSwarmData();
+  }
+
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
   template <typename TYPE>
@@ -443,7 +447,7 @@ class MeshData {
     } else if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
     } else {
-      PARTHENON_FAIL("SwarmPacks only compatible with int and Real types");
+      PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
     }
   }
 

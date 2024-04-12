@@ -212,12 +212,17 @@ class MeshBlockData {
     return GetAllVariables(sparse_ids).unique_ids();
   }
 
-  DataCollection<SwarmContainer> swarm_data;
+  // Queries related to swarm data
+  DataCollection<SwarmContainer> &GetSwarmData() {
+    PARTHENON_REQUIRE(stage_name_ == "base",
+                      "Swarm data must be accessed through base register!");
+    return swarm_data;
+  }
   std::vector<std::shared_ptr<Swarm>> GetAllSwarms() {
-    return swarm_data.Get()->GetSwarmVector();
+    return this->GetSwarmData().Get()->GetSwarmVector();
   }
   std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
-    auto swarm_map = swarm_data.Get()->GetSwarmMap();
+    auto swarm_map = this->GetSwarmData().Get()->GetSwarmMap();
     auto it = swarm_map.find(name);
     PARTHENON_REQUIRE(it != swarm_map.end(), "Couldn't find swarm '" + name + "'");
     return it->second;
@@ -240,7 +245,7 @@ class MeshBlockData {
     } else if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
     } else {
-      PARTHENON_FAIL("SwarmPacks only compatible with int and Real types");
+      PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
     }
   }
 
@@ -507,6 +512,9 @@ class MeshBlockData {
   SparsePackCache sparse_pack_cache_;
   SwarmPackCache<int> swarm_pack_int_cache_;
   SwarmPackCache<Real> swarm_pack_real_cache_;
+
+  // swarm data
+  DataCollection<SwarmContainer> swarm_data;
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &
