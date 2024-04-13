@@ -103,6 +103,25 @@ class SwarmPackBase {
   using max_active_indices_t = ParArray1D<int>;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
 
+  // Build supplemental entries to SwarmPack that change on a cadence faster than the
+  // other pack cache
+  template <class MBD>
+  static void BuildSupplemental(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc,
+                                SwarmPackBase<TYPE> &pack) {
+    auto contexts_h = Kokkos::create_mirror_view(pack.contexts_);
+    auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
+
+    // Fill the views
+    ForEachBlock(pmd, [&](int b, auto *pmbd) {
+      auto swarm = pmbd->GetSwarm(desc.swarm_name);
+      contexts_h(b) = swarm->GetDeviceContext();
+      max_active_indices_h(b) = swarm->GetMaxActiveIndex();
+    });
+
+    Kokkos::deep_copy(pack.contexts_, contexts_h);
+    Kokkos::deep_copy(pack.max_active_indices_, max_active_indices_h);
+  }
+
   // Actually build a `SwarmPackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
@@ -148,19 +167,10 @@ class SwarmPackBase {
     pack.bounds_ = bounds_t("bounds", bounds_leading_size, nblocks, nvar);
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
 
-    pack.contexts_ = contexts_t("contexts", nblocks);
-    auto contexts_h = Kokkos::create_mirror_view(pack.contexts_);
-
-    pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
-    auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
-
     // Fill the views
     ForEachBlock(pmd, [&](int b, auto *pmbd) {
       int idx = 0;
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
-      contexts_h(b) = swarm->GetDeviceContext();
-      max_active_indices_h(b) = swarm->GetMaxActiveIndex();
-
       for (int i = 0; i < nvar; ++i) {
         bounds_h(0, b, i) = idx;
         for (auto &pv : swarm->template GetVariableVector<TYPE>()) {
@@ -203,22 +213,31 @@ class SwarmPackBase {
 
     Kokkos::deep_copy(pack.pack_, pack_h);
     Kokkos::deep_copy(pack.bounds_, bounds_h);
-    Kokkos::deep_copy(pack.contexts_, contexts_h);
-    Kokkos::deep_copy(pack.max_active_indices_, max_active_indices_h);
+
+    pack.contexts_ = contexts_t("contexts", nblocks);
+    pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
+    BuildSupplemental(pmd, desc, pack);
+
     return pack;
   }
 
   template <class MBD>
-  static SwarmPackBase<TYPE> BuildAndAdd(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc,
-                                         const std::string &ident) {
+  static SwarmPackBase<TYPE> BuildAndAdd(MBD *pmd,
+                                         const SwarmPackDescriptor<TYPE> &desc) {
     auto &pack_map = pmd->template GetSwarmPackCache<TYPE>().pack_map;
-    pack_map[ident] = Build<MBD>(pmd, desc);
-    return pack_map[ident];
+    pack_map[desc.identifier] = Build<MBD>(pmd, desc);
+    return pack_map[desc.identifier];
   }
 
   template <class MBD>
   static SwarmPackBase<TYPE> Get(MBD *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
-    return BuildAndAdd<MBD>(pmd, desc, desc.identifier);
+    auto &pack_map = pmd->template GetSwarmPackCache<TYPE>().pack_map;
+    if (pack_map.count(desc.identifier) > 0) {
+      // Cached version is not stale, so just return a reference to it
+      BuildSupplemental(pmd, desc, pack_map[desc.identifier]);
+      return pack_map[desc.identifier];
+    }
+    return BuildAndAdd<MBD>(pmd, desc);
   }
 
   template <class MBD>

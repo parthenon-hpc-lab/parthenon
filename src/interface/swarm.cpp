@@ -238,6 +238,27 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   }
 
   nmax_pool_ = nmax_pool;
+
+  // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
+  // NOTE(@pdmullen): I worry about a potential race condition when, in the future,
+  // multiple threads are trying to erase the same pack_map entry.  We may need mutex.
+  // NOTE(@pdmullen): Why do I need to access these through GetOrAdd("base", i)? Since
+  // this is the only method I can find work, I worry about accesses by purely
+  // mesh_data.Get() elsewhere...
+  auto pm = pmb->pmy_mesh;
+  for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
+    auto &pmd = pmb->pmy_mesh->mesh_data.GetOrAdd("base", i);
+    auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
+    auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
+    if (real_md_cache.size() > 0) real_md_cache.clear();
+    if (int_md_cache.size() > 0) int_md_cache.clear();
+  }
+
+  auto pmbd = pmb->meshblock_data.Get().get();
+  auto &real_mbd_cache = pmbd->GetSwarmPackCache<Real>().pack_map;
+  auto &int_mbd_cache = pmbd->GetSwarmPackCache<int>().pack_map;
+  if (real_mbd_cache.size() > 0) real_mbd_cache.clear();
+  if (int_mbd_cache.size() > 0) int_mbd_cache.clear();
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
