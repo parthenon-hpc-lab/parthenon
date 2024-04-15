@@ -205,7 +205,7 @@ class Mesh {
     logicalLocations.reserve(nbtotal * 3);
     for (auto loc : loclist) {
       loc = forest.GetLegacyTreeLocation(loc);
-      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
+      levels.push_back(loc.level());
       logicalLocations.push_back(loc.lx1());
       logicalLocations.push_back(loc.lx2());
       logicalLocations.push_back(loc.lx3());
