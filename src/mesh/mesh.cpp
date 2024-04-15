@@ -100,7 +100,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {}
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    nslist(Globals::nranks),
+    nblist(Globals::nranks),
+    nref(Globals::nranks),
+    nderef(Globals::nranks),
+    rdisp(Globals::nranks),
+    ddisp(Globals::nranks),
+    bnref(Globals::nranks),
+    bnderef(Globals::nranks),
+    brdisp(Globals::nranks),
+    bddisp(Globals::nranks){}
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
@@ -378,19 +388,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   ranklist = std::vector<int>(nbtotal);
 
-  nslist = std::vector<int>(Globals::nranks);
-  nblist = std::vector<int>(Globals::nranks);
-  if (adaptive) { // allocate arrays for AMR
-    nref = std::vector<int>(Globals::nranks);
-    nderef = std::vector<int>(Globals::nranks);
-    rdisp = std::vector<int>(Globals::nranks);
-    ddisp = std::vector<int>(Globals::nranks);
-    bnref = std::vector<int>(Globals::nranks);
-    bnderef = std::vector<int>(Globals::nranks);
-    brdisp = std::vector<int>(Globals::nranks);
-    bddisp = std::vector<int>(Globals::nranks);
-  }
-
   // initialize cost array with the simplest estimate; all the blocks are equal
   costlist = std::vector<double>(nbtotal, 1.0);
 
@@ -588,19 +585,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 #endif
   costlist = std::vector<double>(nbtotal, 1.0);
   ranklist = std::vector<int>(nbtotal);
-  nslist = std::vector<int>(Globals::nranks);
-  nblist = std::vector<int>(Globals::nranks);
-
-  if (adaptive) { // allocate arrays for AMR
-    nref = std::vector<int>(Globals::nranks);
-    nderef = std::vector<int>(Globals::nranks);
-    rdisp = std::vector<int>(Globals::nranks);
-    ddisp = std::vector<int>(Globals::nranks);
-    bnref = std::vector<int>(Globals::nranks);
-    bnderef = std::vector<int>(Globals::nranks);
-    brdisp = std::vector<int>(Globals::nranks);
-    bddisp = std::vector<int>(Globals::nranks);
-  }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
 
