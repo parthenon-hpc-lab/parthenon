@@ -78,6 +78,13 @@ class RestartReaderOPMD : public RestartReader {
   // Iteration is a pointer because it cannot be default constructed (it depends on the
   // Series).
   std::unique_ptr<openPMD::Iteration> it;
+
+  template <typename T>
+  void ReadAllParamsOfType(const std::string &pkg_name, Params &params);
+  template <typename... Ts>
+  void ReadAllParamsOfMultipleTypes(const std::string &pkg_name, Params &p);
+  template <typename T>
+  void ReadAllParams(const std::string &pkg_name, Params &p);
 };
 
 } // namespace parthenon

@@ -93,8 +93,7 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
 }
 
 template <typename T>
-void ReadAllParamsOfType(const std::string &pkg_name, openPMD::Iteration *it,
-                         Params &params) {
+void RestartReaderOPMD::ReadAllParamsOfType(const std::string &pkg_name, Params &params) {
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
     auto mutability = params.GetMutability(key);
@@ -106,26 +105,26 @@ void ReadAllParamsOfType(const std::string &pkg_name, openPMD::Iteration *it,
 }
 
 template <typename... Ts>
-void ReadAllParamsOfMultipleTypes(const std::string &pkg_name, openPMD::Iteration *it,
-                                  Params &p) {
-  ([&] { ReadAllParamsOfType<Ts>(pkg_name, it, p); }(), ...);
+void RestartReaderOPMD::ReadAllParamsOfMultipleTypes(const std::string &pkg_name,
+                                                     Params &p) {
+  ([&] { ReadAllParamsOfType<Ts>(pkg_name, p); }(), ...);
 }
 
 template <typename T>
-void ReadAllParams(const std::string &pkg_name, openPMD::Iteration *it, Params &p) {
-  ReadAllParamsOfMultipleTypes<T, std::vector<T>>(pkg_name, it, p);
+void RestartReaderOPMD::ReadAllParams(const std::string &pkg_name, Params &p) {
+  ReadAllParamsOfMultipleTypes<T, std::vector<T>>(pkg_name, p);
   // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
   // ReadAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
 }
 void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
-  ReadAllParams<int32_t>(pkg_name, it, p);
-  ReadAllParams<int64_t>(pkg_name, it, p);
-  ReadAllParams<uint32_t>(pkg_name, it, p);
-  ReadAllParams<uint64_t>(pkg_name, it, p);
-  ReadAllParams<float>(pkg_name, it, p);
-  ReadAllParams<double>(pkg_name, it, p);
-  ReadAllParams<std::string>(pkg_name, it, p);
-  ReadAllParamsOfType<bool>(pkg_name, it, p);
+  ReadAllParams<int32_t>(pkg_name, p);
+  ReadAllParams<int64_t>(pkg_name, p);
+  ReadAllParams<uint32_t>(pkg_name, p);
+  ReadAllParams<uint64_t>(pkg_name, p);
+  ReadAllParams<float>(pkg_name, p);
+  ReadAllParams<double>(pkg_name, p);
+  ReadAllParams<std::string>(pkg_name, p);
+  ReadAllParamsOfType<bool>(pkg_name, p);
 }
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
