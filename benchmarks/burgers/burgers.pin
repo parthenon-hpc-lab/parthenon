@@ -15,6 +15,9 @@
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
+<parthenon/comm>
+prepost_recvs = 1
+
 <parthenon/job>
 problem_id = burgers
 
