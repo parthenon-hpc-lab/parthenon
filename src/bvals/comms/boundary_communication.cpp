@@ -141,7 +141,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
-  std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers about to loop over buf_vec.size() " << cache.buf_vec.size() << " and call Send " << std::endl;
+  //std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers about to loop over buf_vec.size() " << cache.buf_vec.size() << " and call Send " << std::endl;
   int remote_send_cnt =0;
   int remote_send_size = 0; 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
@@ -149,9 +149,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     if (buf.IsRemoteSend()) {
       remote_send_cnt++;
       remote_send_size += buf.BuffSize();
-      std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers ibuf(" <<ibuf 
-        << ") size is " << buf.BuffSize() << " totals (count,size) " << remote_send_cnt 
-        << ", " << remote_send_size << std::endl;
+     // std::cout << "### Rank[" << Globals::my_rank << "] SendBoundaryBuffers ibuf(" <<ibuf 
+     //   << ") size is " << buf.BuffSize() << " totals (count,size) " << remote_send_cnt 
+     //   << ", " << remote_send_size << std::endl;
 
     }
 
