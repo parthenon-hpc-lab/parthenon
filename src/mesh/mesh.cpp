@@ -1284,4 +1284,24 @@ void Mesh::SetupMPIComms() {
 #endif
 }
 
+// Return list of locations and levels for the legacy tree
+// TODO(LFR): It doesn't make sense to offset the level by the
+//   legacy tree root level since the location indices are defined
+//   for loc.level(). It seems this level offset is required for
+//   the output to agree with the legacy output though.
+std::pair<std::vector<std::int64_t>, std::vector<std::int64_t>>
+Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
+  std::vector<std::int64_t> levels, logicalLocations;
+  levels.reserve(nbtotal);
+  logicalLocations.reserve(nbtotal * 3);
+  for (auto loc : loclist) {
+    loc = forest.GetLegacyTreeLocation(loc);
+    levels.push_back(loc.level() - GetLegacyTreeRootLevel());
+    logicalLocations.push_back(loc.lx1());
+    logicalLocations.push_back(loc.lx2());
+    logicalLocations.push_back(loc.lx3());
+  }
+  return std::make_pair(levels, logicalLocations);
+}
+
 } // namespace parthenon
