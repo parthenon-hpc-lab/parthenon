@@ -57,11 +57,8 @@
 
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-// Mesh constructor, builds mesh at start of calculation using parameters in input file
-
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           int mesh_test)
+           private_t)
     : // public members:
       modified(true), is_restart(false),
       // aggregate initialization of RegionSize struct:
@@ -103,7 +100,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {}
+//----------------------------------------------------------------------------------------
+// Mesh constructor, builds mesh at start of calculation using parameters in input file
+
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           int mesh_test)
+    : Mesh(pin, app_in, packages, private_t()) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -434,50 +437,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
-    : // public members:
-      // aggregate initialization of RegionSize struct:
-      // (will be overwritten by memcpy from restart file, in this case)
-      modified(true), is_restart(true),
-      // aggregate initialization of RegionSize struct:
-      mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
-                 pin->GetReal("parthenon/mesh", "x2min"),
-                 pin->GetReal("parthenon/mesh", "x3min")},
-                {pin->GetReal("parthenon/mesh", "x1max"),
-                 pin->GetReal("parthenon/mesh", "x2max"),
-                 pin->GetReal("parthenon/mesh", "x3max")},
-                {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-                 pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
-                {pin->GetInteger("parthenon/mesh", "nx1"),
-                 pin->GetInteger("parthenon/mesh", "nx2"),
-                 pin->GetInteger("parthenon/mesh", "nx3")},
-                {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
-                 pin->GetInteger("parthenon/mesh", "nx3") == 1}),
-      mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
-      ndim((mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
-                   ? true
-                   : false),
-      multilevel(
-          (adaptive ||
-           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-              ? true
-              : false),
-      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
-                    ? true
-                    : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
-      // private members:
-      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
+    : Mesh(pin, app_in, packages, private_t())  {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];

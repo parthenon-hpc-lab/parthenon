@@ -76,9 +76,11 @@ class Mesh {
   friend class MeshBlock;
   friend class MeshBlockTree;
   friend class MeshRefinement;
-
+  
+  struct private_t{};
  public:
   // 2x function overloads of ctor: normal and restarted simulation
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, private_t);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
