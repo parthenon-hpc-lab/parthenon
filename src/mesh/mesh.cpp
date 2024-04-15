@@ -567,6 +567,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
 
+  // Initialize the forest 
+  root_level = forest.root_level;
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
@@ -584,27 +588,29 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   InitUserMeshData(this, pin);
 
-  // Populate logical locations
+  // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
-
-    if (loclist[i].level() > current_level) {
-      current_level = loclist[i].level();
-    }
   }
 
-  // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  // rebuild the Block Tree 
+  
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
   }
-
+  
+  // Update the location list and levels to agree with forest levels
   loclist = forest.GetMeshBlockListAndResolveGids();
+  
+  current_level = std::numeric_limits<int>::min();
+  for (const auto& loc : loclist)
+    current_level = std::max(current_level, loc.level());
+
   int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
