@@ -32,6 +32,7 @@
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "kokkos_abstraction.hpp"
+#include "openPMD/Iteration.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 

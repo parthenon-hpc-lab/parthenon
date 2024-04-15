@@ -92,28 +92,42 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
   return 0;
 }
 
-void RestartReaderOPMD::ReadParams(const std::string &name, Params &p) {
-#if 0
-  // views and vecs of scalar types
-  ReadFromHDF5AllParamsOfTypeOrVec<bool>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<int32_t>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<int64_t>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<uint32_t>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<float>(prefix, group);
-  ReadFromHDF5AllParamsOfTypeOrVec<double>(prefix, group);
-
-  // strings
-  ReadFromHDF5AllParamsOfType<std::string>(prefix, group);
-  ReadFromHDF5AllParamsOfType<std::vector<std::string>>(prefix, group);
-
-  template <typename ...Ts>
-void call_my_func(my_list<Ts...> )
-{
-    (myFunc<Ts>(), ...);
+template <typename T>
+void ReadAllParamsOfType(const std::string &pkg_name, openPMD::Iteration *it,
+                         Params &params) {
+  for (const auto &key : params.GetKeys()) {
+    const auto type = params.GetType(key);
+    auto mutability = params.GetMutability(key);
+    if (type == std::type_index(typeid(T)) && mutability == Params::Mutability::Restart) {
+      auto val = it->getAttribute("Params/" + pkg_name + "/" + key).get<T>();
+      params.Update(key, val);
+    }
+  }
 }
-#endif
+
+template <typename... Ts>
+void ReadAllParamsOfMultipleTypes(const std::string &pkg_name, openPMD::Iteration *it,
+                                  Params &p) {
+  ([&] { ReadAllParamsOfType<Ts>(pkg_name, it, p); }(), ...);
 }
+
+template <typename T>
+void ReadAllParams(const std::string &pkg_name, openPMD::Iteration *it, Params &p) {
+  ReadAllParamsOfMultipleTypes<T, std::vector<T>>(pkg_name, it, p);
+  // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
+  // ReadAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+}
+void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
+  ReadAllParams<int32_t>(pkg_name, it, p);
+  ReadAllParams<int64_t>(pkg_name, it, p);
+  ReadAllParams<uint32_t>(pkg_name, it, p);
+  ReadAllParams<uint64_t>(pkg_name, it, p);
+  ReadAllParams<float>(pkg_name, it, p);
+  ReadAllParams<double>(pkg_name, it, p);
+  ReadAllParams<std::string>(pkg_name, it, p);
+  ReadAllParamsOfType<bool>(pkg_name, it, p);
+}
+
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
                                    const OutputUtils::VarInfo &vinfo,
                                    std::vector<Real> &data_vec,
@@ -172,8 +186,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
               static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
           mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
           // TODO(pgrete) check if output utils machinery can be used for non-cell
-          // centered fields, which might not be that straightforward as a global mesh is
-          // stored rather than individual blocks.
+          // centered fields, which might not be that straightforward as a global mesh
+          // is stored rather than individual blocks.
           comp_offset += pmb->block_size.nx(X1DIR) * pmb->block_size.nx(X2DIR) *
                          pmb->block_size.nx(X3DIR);
           idx_component += 1;

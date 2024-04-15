@@ -118,6 +118,12 @@ class Params {
     return it->second;
   }
 
+  const Mutability &GetMutability(const std::string &key) const {
+    auto const it = myMutable_.find(key);
+    PARTHENON_REQUIRE_THROWS(it != myMutable_.end(), "Key " + key + " doesn't exist");
+    return it->second;
+  }
+
   std::vector<std::string> GetKeys() const {
     std::vector<std::string> keys;
     for (auto &x : myParams_) {

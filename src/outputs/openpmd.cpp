@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -37,16 +38,19 @@
 #include "defs.hpp"
 #include "driver/driver.hpp"
 #include "globals.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "openPMD/Dataset.hpp"
 #include "openPMD/Datatype.hpp"
 #include "openPMD/IO/Access.hpp"
+#include "openPMD/Iteration.hpp"
 #include "openPMD/Mesh.hpp"
 #include "openPMD/Series.hpp"
 #include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
+#include "outputs/parthenon_hdf5.hpp" // needd for VALId_VEC_TYPES -> move
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
@@ -59,6 +63,32 @@
 namespace parthenon {
 
 using namespace OutputUtils;
+
+template <typename T>
+void WriteAllParamsOfType(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
+  const std::string prefix = "Params/" + pkg->label() + "/";
+  const auto &params = pkg->AllParams();
+  for (const auto &key : params.GetKeys()) {
+    const auto type = params.GetType(key);
+    if (type == std::type_index(typeid(T))) {
+      // auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
+      it->setAttribute(prefix + key, params.Get<T>(key));
+    }
+  }
+}
+
+template <typename... Ts>
+void WriteAllParamsOfMultipleTypes(std::shared_ptr<StateDescriptor> pkg,
+                                   openPMD::Iteration *it) {
+  ([&] { WriteAllParamsOfType<Ts>(pkg, it); }(), ...);
+}
+
+template <typename T>
+void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
+  WriteAllParamsOfMultipleTypes<T, std::vector<T>>(pkg, it);
+  // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
+  // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void OpenPMDOutput:::WriteOutputFile(Mesh *pm)
@@ -125,6 +155,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setDt(-1.0);
   }
   { // FIXME move this to dump params
+    PARTHENON_INSTRUMENT_REGION("Dump Params");
     const auto view_d =
         Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
     // Map a view onto a host allocation (so that we can call deep_copy)
@@ -133,6 +164,19 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
     Kokkos::deep_copy(view_h, view_d);
     it.setAttribute("blub", host_vec);
+
+    for (const auto &[key, pkg] : pm->packages.AllPackages()) {
+      // WriteAllParams<bool>(pkg, &it); // check why this (vector of bool) doesn't work
+      WriteAllParams<int32_t>(pkg, &it);
+      WriteAllParams<int64_t>(pkg, &it);
+      WriteAllParams<uint32_t>(pkg, &it);
+      WriteAllParams<uint64_t>(pkg, &it);
+      WriteAllParams<float>(pkg, &it);
+      WriteAllParams<double>(pkg, &it);
+      WriteAllParams<std::string>(pkg, &it);
+      WriteAllParamsOfType<bool>(pkg, &it);
+      // WriteAllParamsOfType<std::vector<bool>>(pkg, &it);
+    }
   }
   // Then our own
   {
