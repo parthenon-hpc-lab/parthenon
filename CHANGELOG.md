@@ -16,6 +16,7 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1048]](https://github.com/parthenon-hpc-lab/parthenon/pull/1048) Tiny fixes to custom coords logic
 - [[PR 1028]](https://github.com/parthenon-hpc-lab/parthenon/pull/1028) Internal reorganization of LogicalLocation files
 - [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 
