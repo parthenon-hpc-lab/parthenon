@@ -6,6 +6,7 @@
 //! \file restart_opmd.cpp
 //  \brief Restarts a simulation from an OpenPMD output with ADIOS2 backend
 
+#include <iostream>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -24,8 +25,8 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
-RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename) {
-  auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD);
+RestartReaderOPMD::RestartReaderOPMD(const char *filename)
+    : filename_(filename), series(filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD) {
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
       "Parthenon restarts should only contain one iteration/timestep.");
@@ -119,9 +120,7 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
                                    int file_output_format_version, Mesh *pm) const {
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0
-    // TODO(pgrete) ask LR why this is not mirrored from writing
-    // const auto level = pmb->loc.level() - pm->GetRootLevel();
-    const auto level = pmb->loc.level();
+    const auto level = pmb->loc.level() - pm->GetRootLevel();
     const std::string &mesh_record_name = var_name + "_lvl" + std::to_string(level);
 
     PARTHENON_REQUIRE_THROWS(it->meshes.contains(mesh_record_name),

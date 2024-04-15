@@ -159,7 +159,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // restart info, write always
     it.setAttribute("NBNew", pm->nbnew);
     it.setAttribute("NBDel", pm->nbdel);
-    it.setAttribute("RootLevel", pm->GetLegacyTreeRootLevel());
+    it.setAttribute("RootLevel", pm->GetRootLevel());
     it.setAttribute("Refine", pm->adaptive ? 1 : 0);
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
