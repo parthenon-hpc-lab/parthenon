@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -65,8 +65,8 @@ struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx)
-      : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx),
-        symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat),
+        nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx, std::array<bool, 3> symmetry)
       : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
