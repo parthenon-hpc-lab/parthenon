@@ -568,8 +568,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   RegisterLoadBalancing_(pin);
 
   // Initialize the forest 
-  root_level = forest.root_level;
   forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  root_level = forest.root_level;
 
   // SMR / AMR
   if (adaptive) {
