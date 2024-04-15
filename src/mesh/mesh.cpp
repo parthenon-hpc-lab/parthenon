@@ -567,7 +567,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
 
-  // Initialize the forest 
+  // Initialize the forest
   forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
   root_level = forest.root_level;
 
@@ -597,18 +597,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
   }
 
-  // rebuild the Block Tree 
-  
+  // rebuild the Block Tree
+
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
   }
-  
+
   // Update the location list and levels to agree with forest levels
   loclist = forest.GetMeshBlockListAndResolveGids();
-  
+
   current_level = std::numeric_limits<int>::min();
-  for (const auto& loc : loclist)
+  for (const auto &loc : loclist)
     current_level = std::max(current_level, loc.level());
 
   int nnb = loclist.size();
