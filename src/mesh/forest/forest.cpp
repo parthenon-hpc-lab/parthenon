@@ -85,7 +85,7 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   }
 
   // Every root block is a tree if the next line is set to one
-  max_common_power2_divisor = 1; 
+  max_common_power2_divisor = 1;
 
   int max_ntree = 0;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {

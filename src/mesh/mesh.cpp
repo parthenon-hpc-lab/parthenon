@@ -101,16 +101,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    nslist(Globals::nranks),
-    nblist(Globals::nranks),
-    nref(Globals::nranks),
-    nderef(Globals::nranks),
-    rdisp(Globals::nranks),
-    ddisp(Globals::nranks),
-    bnref(Globals::nranks),
-    bnderef(Globals::nranks),
-    brdisp(Globals::nranks),
-    bddisp(Globals::nranks) {
+      nslist(Globals::nranks), nblist(Globals::nranks), nref(Globals::nranks),
+      nderef(Globals::nranks), rdisp(Globals::nranks), ddisp(Globals::nranks),
+      bnref(Globals::nranks), bnderef(Globals::nranks), brdisp(Globals::nranks),
+      bddisp(Globals::nranks) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -152,15 +146,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
-  
 
   mesh_data.SetMeshPointer(this);
-  
+
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   RegisterLoadBalancing_(pin);
-  
-  
+
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
@@ -174,8 +166,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   CheckMeshValidity();
 }
 
-void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           int mesh_test) { 
+void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
+                          Packages_t &packages, int mesh_test) {
   std::stringstream msg;
   nbtotal = loclist.size();
   current_level = -1;
@@ -229,7 +221,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Package
   block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
     RegionSize block_size;
-    BoundaryFlag block_bcs[6]; 
+    BoundaryFlag block_bcs[6];
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list[i - nbs] =
@@ -253,7 +245,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
-
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
@@ -269,12 +260,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
-    : Mesh(pin, app_in, packages, private_t())  {
+    : Mesh(pin, app_in, packages, private_t()) {
   std::stringstream msg;
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
 
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
@@ -286,24 +276,34 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbtotal = mesh_info.nbtotal;
 
   const auto grid_dim = mesh_info.grid_dim;
-  PARTHENON_REQUIRE(mesh_size.xmin(X1DIR) == grid_dim[0], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xmax(X1DIR) == grid_dim[1], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xrat(X1DIR) == grid_dim[2], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmin(X1DIR) == grid_dim[0],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X1DIR) == grid_dim[1],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X1DIR) == grid_dim[2],
+                    "Mesh size shouldn't change on restart.");
 
-  PARTHENON_REQUIRE(mesh_size.xmin(X2DIR) == grid_dim[3], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xmax(X2DIR) == grid_dim[4], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xrat(X2DIR) == grid_dim[5], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmin(X2DIR) == grid_dim[3],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X2DIR) == grid_dim[4],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X2DIR) == grid_dim[5],
+                    "Mesh size shouldn't change on restart.");
 
-  PARTHENON_REQUIRE(mesh_size.xmin(X3DIR) == grid_dim[6], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xmax(X3DIR) == grid_dim[7], "Mesh size shouldn't change on restart.");
-  PARTHENON_REQUIRE(mesh_size.xrat(X3DIR) == grid_dim[8], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmin(X3DIR) == grid_dim[6],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X3DIR) == grid_dim[7],
+                    "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X3DIR) == grid_dim[8],
+                    "Mesh size shouldn't change on restart.");
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     PARTHENON_REQUIRE(base_block_size.nx(dir) == mesh_info.block_size[dir - 1] -
-                      (mesh_info.block_size[dir - 1] > 1) * mesh_info.includes_ghost *
-                      2 * mesh_info.n_ghost, "Block size not consistent on restart.");
+                                                     (mesh_info.block_size[dir - 1] > 1) *
+                                                         mesh_info.includes_ghost * 2 *
+                                                         mesh_info.n_ghost,
+                      "Block size not consistent on restart.");
   }
-
 
   // Populate logical locations
   loclist = std::vector<LogicalLocation>(nbtotal);
@@ -918,7 +918,7 @@ void Mesh::SetupMPIComms() {
 #endif
 }
 
-void Mesh::CheckMeshValidity() const { 
+void Mesh::CheckMeshValidity() const {
   std::stringstream msg;
   // check number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
@@ -955,7 +955,7 @@ void Mesh::CheckMeshValidity() const {
         << ", 2D problems in x1-x3 plane not supported" << std::endl;
     PARTHENON_FAIL(msg);
   }
-  
+
   // check the consistency of the periodic boundaries
   if (((mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic &&
         mesh_bcs[BoundaryFace::outer_x1] != BoundaryFlag::periodic) ||
@@ -1000,7 +1000,8 @@ void Mesh::CheckMeshValidity() const {
   }
 
   if (multilevel) {
-    if (base_block_size.nx(X1DIR) % 2 == 1 || (base_block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
+    if (base_block_size.nx(X1DIR) % 2 == 1 ||
+        (base_block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
         (base_block_size.nx(X3DIR) % 2 == 1 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
@@ -1069,10 +1070,8 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] =
-              GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] =
-              GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+          l_region_min[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+          l_region_max[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
           l_region_min[dir - 1] =
               std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
           l_region_max[dir - 1] =

@@ -76,8 +76,9 @@ class Mesh {
   friend class MeshBlock;
   friend class MeshBlockTree;
   friend class MeshRefinement;
-  
-  struct private_t{};
+
+  struct private_t {};
+
  public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, private_t);
@@ -303,7 +304,7 @@ class Mesh {
   // functions
   void CheckMeshValidity() const;
   void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           int mesh_test);
+                      int mesh_test);
   void DoStaticRefinement(ParameterInput *pin);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
