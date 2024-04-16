@@ -499,19 +499,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   loclist = std::vector<LogicalLocation>(nbtotal);
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    base_block_size.xrat(dir) = mesh_size.xrat(dir);
-    base_block_size.nx(dir) = mesh_info.block_size[dir - 1] -
-                         (mesh_info.block_size[dir - 1] > 1) * mesh_info.includes_ghost *
-                             2 * mesh_info.n_ghost;
-    if (base_block_size.nx(dir) == 1) {
-      base_block_size.symmetry(dir) = true;
-      mesh_size.symmetry(dir) = true;
-    } else {
-      base_block_size.symmetry(dir) = false;
-      mesh_size.symmetry(dir) = false;
-    }
-    // calculate the number of the blocks
-    nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
+    PARTHENON_REQUIRE(base_block_size.nx(dir) == mesh_info.block_size[dir - 1] -
+                      (mesh_info.block_size[dir - 1] > 1) * mesh_info.includes_ghost *
+                      2 * mesh_info.n_ghost, "Block size not consistent on restart.");
   }
 
   // Load balancing flag and parameters
