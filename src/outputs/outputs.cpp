@@ -200,28 +200,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (op.file_type == "hst") {
-        printf("param exists? %i\n", static_cast<int>(pin->DoesParameterExist(pib->block_name, "packages")));
+        // Do not use GetOrAddVector because it will pollute the input parameters for restarts
         if (pin->DoesParameterExist(pib->block_name, "packages")) {
-        op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
+          op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
         } else {
           op.packages = std::vector<std::string>();
-        }
-        //op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
-        //                                               std::vector<std::string>());
-        //if (op.packages.size() == 1) {
-        //  if (op.packages[0] == "") {
-        //    // Betrayed by GetOrAddVector
-        //    op.packages = std::vector<std::string>();
-        //  }
-        //}
-        // DEBUG
-        printf("hst\n");
-        printf("block: %s\n", op.block_name.c_str());
-        printf("npacks: %i\n", op.packages.size());
-        printf("packages:\n");
-        for (auto pkg : op.packages) {
-          printf("  %s\n", pkg.c_str());
-
         }
       }
 
