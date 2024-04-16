@@ -111,6 +111,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     bnderef(Globals::nranks),
     brdisp(Globals::nranks),
     bddisp(Globals::nranks) {
+  
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
@@ -123,6 +124,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
+
+  mesh_data.SetMeshPointer(this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -402,8 +405,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     return;
   }
 
-  mesh_data.SetMeshPointer(this);
-
   resolved_packages = ResolvePackages(packages);
 
   // Register user defined boundary conditions
@@ -451,6 +452,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
+
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
+  root_level = forest.root_level;
+
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
 
@@ -459,7 +464,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbnew = mesh_info.nbnew;
   nbdel = mesh_info.nbdel;
   nbtotal = mesh_info.nbtotal;
-  root_level = mesh_info.root_level;
 
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
@@ -483,20 +487,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   EnrollBndryFncts_(app_in);
 
   const auto grid_dim = mesh_info.grid_dim;
-  mesh_size.xmin(X1DIR) = grid_dim[0];
-  mesh_size.xmax(X1DIR) = grid_dim[1];
-  mesh_size.xrat(X1DIR) = grid_dim[2];
+  PARTHENON_REQUIRE(mesh_size.xmin(X1DIR) == grid_dim[0], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X1DIR) == grid_dim[1], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X1DIR) == grid_dim[2], "Mesh size shouldn't change on restart.");
 
-  mesh_size.xmin(X2DIR) = grid_dim[3];
-  mesh_size.xmax(X2DIR) = grid_dim[4];
-  mesh_size.xrat(X2DIR) = grid_dim[5];
+  PARTHENON_REQUIRE(mesh_size.xmin(X2DIR) == grid_dim[3], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X2DIR) == grid_dim[4], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X2DIR) == grid_dim[5], "Mesh size shouldn't change on restart.");
 
-  mesh_size.xmin(X3DIR) = grid_dim[6];
-  mesh_size.xmax(X3DIR) = grid_dim[7];
-  mesh_size.xrat(X3DIR) = grid_dim[8];
-
-  // initialize
-  loclist = std::vector<LogicalLocation>(nbtotal);
+  PARTHENON_REQUIRE(mesh_size.xmin(X3DIR) == grid_dim[6], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xmax(X3DIR) == grid_dim[7], "Mesh size shouldn't change on restart.");
+  PARTHENON_REQUIRE(mesh_size.xrat(X3DIR) == grid_dim[8], "Mesh size shouldn't change on restart.");
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
     PARTHENON_REQUIRE(base_block_size.nx(dir) == mesh_info.block_size[dir - 1] -
@@ -525,6 +526,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   InitUserMeshData(this, pin);
 
   // Populate logical locations
+  loclist = std::vector<LogicalLocation>(nbtotal);
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
@@ -538,11 +540,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
-  for (int i = 0; i < nbtotal; i++) {
+  for (int i = 0; i < nbtotal; i++)
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
-  }
 
   loclist = forest.GetMeshBlockListAndResolveGids();
   int nnb = loclist.size();
@@ -584,7 +584,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
 
-  mesh_data.SetMeshPointer(this);
+  
 
   resolved_packages = ResolvePackages(packages);
 
