@@ -155,6 +155,21 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   
 
   mesh_data.SetMeshPointer(this);
+  
+  // Load balancing flag and parameters
+  EnrollBndryFncts_(app_in);
+  RegisterLoadBalancing_(pin);
+  
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
+  root_level = forest.root_level;
+  // SMR / AMR:
+  if (adaptive) {
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+  } else {
+    max_level = 63;
+  }
+
+  InitUserMeshData(this, pin);
 
   CheckMeshValidity();
 }
@@ -238,32 +253,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
-  EnrollBndryFncts_(app_in);
 
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
-
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
-  root_level = forest.root_level;
-  current_level = root_level;
-
-  // Load balancing flag and parameters
-  RegisterLoadBalancing_(pin);
-
-  // SMR / AMR:
-  if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
-    if (max_level > 63) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The number of the refinement level must be smaller than "
-          << 63 - root_level + 1 << "." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  } else {
-    max_level = 63;
-  }
-
-  InitUserMeshData(this, pin);
 
   if (multilevel) {
     InputBlock *pib = pin->pfirst_block;
@@ -370,8 +362,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
-  root_level = forest.root_level;
 
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
@@ -381,8 +371,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbnew = mesh_info.nbnew;
   nbdel = mesh_info.nbdel;
   nbtotal = mesh_info.nbtotal;
-
-  EnrollBndryFncts_(app_in);
 
   const auto grid_dim = mesh_info.grid_dim;
   PARTHENON_REQUIRE(mesh_size.xmin(X1DIR) == grid_dim[0], "Mesh size shouldn't change on restart.");
@@ -403,23 +391,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                       2 * mesh_info.n_ghost, "Block size not consistent on restart.");
   }
 
-  // Load balancing flag and parameters
-  RegisterLoadBalancing_(pin);
-
-  // SMR / AMR:
-  if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
-    if (max_level > 63) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-      << "The number of the refinement level must be smaller than "
-      << 63 - root_level + 1 << "." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  } else {
-    max_level = 63;
-  }
-
-  InitUserMeshData(this, pin);
 
   // Populate logical locations
   loclist = std::vector<LogicalLocation>(nbtotal);
