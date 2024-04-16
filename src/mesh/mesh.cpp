@@ -152,8 +152,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
+  
+  // SMR / AMR:
+  if (adaptive) {
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+  } else {
+    max_level = 63;
+  }
 
   mesh_data.SetMeshPointer(this);
+
+  CheckMeshValidity();
 }
 
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -231,87 +240,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : Mesh(pin, app_in, packages, private_t()) {
   std::stringstream msg;
-  RegionSize block_size;
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
-  // check number of OpenMP threads for mesh
-  if (num_mesh_threads_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  for (auto &[dir, label] : std::vector<std::pair<CoordinateDirection, std::string>>{
-           {X1DIR, "1"}, {X2DIR, "2"}, {X3DIR, "3"}}) {
-    // check number of grid cells in root level of mesh from input file.
-    if (mesh_size.nx(dir) < 1) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "In mesh block in input file nx" + label + " must be >= 1, but nx" + label +
-                 "="
-          << mesh_size.nx(dir) << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-    // check physical size of mesh (root level) from input file.
-    if (mesh_size.xmax(dir) <= mesh_size.xmin(dir)) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Input x" + label + "max must be larger than x" + label + "min: x" + label +
-                 "min="
-          << mesh_size.xmin(dir) << " x" + label + "max=" << mesh_size.xmax(dir)
-          << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  }
-
-  if (mesh_size.nx(X2DIR) == 1 && mesh_size.nx(X3DIR) > 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx(X3DIR)
-        << ", 2D problems in x1-x3 plane not supported" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-
-
-  // check the consistency of the periodic boundaries
-  if (((mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic &&
-        mesh_bcs[BoundaryFace::outer_x1] != BoundaryFlag::periodic) ||
-       (mesh_bcs[BoundaryFace::inner_x1] != BoundaryFlag::periodic &&
-        mesh_bcs[BoundaryFace::outer_x1] == BoundaryFlag::periodic)) ||
-      (mesh_size.nx(X2DIR) > 1 &&
-       ((mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic &&
-         mesh_bcs[BoundaryFace::outer_x2] != BoundaryFlag::periodic) ||
-        (mesh_bcs[BoundaryFace::inner_x2] != BoundaryFlag::periodic &&
-         mesh_bcs[BoundaryFace::outer_x2] == BoundaryFlag::periodic))) ||
-      (mesh_size.nx(X3DIR) > 1 &&
-       ((mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic &&
-         mesh_bcs[BoundaryFace::outer_x3] != BoundaryFlag::periodic) ||
-        (mesh_bcs[BoundaryFace::inner_x3] != BoundaryFlag::periodic &&
-         mesh_bcs[BoundaryFace::outer_x3] == BoundaryFlag::periodic)))) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "When periodic boundaries are in use, both sides must be periodic."
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
   EnrollBndryFncts_(app_in);
-
-
-  // check consistency of the block and mesh
-  if (mesh_size.nx(X1DIR) % base_block_size.nx(X1DIR) != 0 ||
-      mesh_size.nx(X2DIR) % base_block_size.nx(X2DIR) != 0 ||
-      mesh_size.nx(X3DIR) % base_block_size.nx(X3DIR) != 0) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  if (base_block_size.nx(X1DIR) < 4 || (base_block_size.nx(X2DIR) < 4 && (ndim >= 2)) ||
-      (base_block_size.nx(X3DIR) < 4 && (ndim >= 3))) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "block_size must be larger than or equal to 4 cells." << std::endl;
-    PARTHENON_FAIL(msg);
-  }
 
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
@@ -339,14 +272,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   InitUserMeshData(this, pin);
 
   if (multilevel) {
-    if (base_block_size.nx(X1DIR) % 2 == 1 || (base_block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
-        (base_block_size.nx(X3DIR) % 2 == 1 && (ndim >= 3))) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
-          << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-
     InputBlock *pib = pin->pfirst_block;
     while (pib != nullptr) {
       if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
@@ -451,15 +376,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
 
-  // check the number of OpenMP threads for mesh
-  if (num_mesh_threads_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
 
@@ -495,21 +411,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
-
-  // SMR / AMR
-  if (adaptive) {
-    // read from file or from input?  input for now.
-    //    max_level = rr.GetAttr<int>("Info", "MaxLevel");
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
-    if (max_level > 63) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The number of the refinement level must be smaller than "
-          << 63 - root_level + 1 << "." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  } else {
-    max_level = 63;
-  }
 
   InitUserMeshData(this, pin);
 
@@ -1126,7 +1027,95 @@ void Mesh::SetupMPIComms() {
 }
 
 void Mesh::CheckMeshValidity() const { 
+  std::stringstream msg;
+  // check number of OpenMP threads for mesh
+  if (num_mesh_threads_ < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
 
+  for (auto &[dir, label] : std::vector<std::pair<CoordinateDirection, std::string>>{
+           {X1DIR, "1"}, {X2DIR, "2"}, {X3DIR, "3"}}) {
+    // check number of grid cells in root level of mesh from input file.
+    if (mesh_size.nx(dir) < 1) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "In mesh block in input file nx" + label + " must be >= 1, but nx" + label +
+                 "="
+          << mesh_size.nx(dir) << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    // check physical size of mesh (root level) from input file.
+    if (mesh_size.xmax(dir) <= mesh_size.xmin(dir)) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Input x" + label + "max must be larger than x" + label + "min: x" + label +
+                 "min="
+          << mesh_size.xmin(dir) << " x" + label + "max=" << mesh_size.xmax(dir)
+          << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  }
+
+  if (mesh_size.nx(X2DIR) == 1 && mesh_size.nx(X3DIR) > 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx(X3DIR)
+        << ", 2D problems in x1-x3 plane not supported" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+  
+  // check the consistency of the periodic boundaries
+  if (((mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic &&
+        mesh_bcs[BoundaryFace::outer_x1] != BoundaryFlag::periodic) ||
+       (mesh_bcs[BoundaryFace::inner_x1] != BoundaryFlag::periodic &&
+        mesh_bcs[BoundaryFace::outer_x1] == BoundaryFlag::periodic)) ||
+      (mesh_size.nx(X2DIR) > 1 &&
+       ((mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic &&
+         mesh_bcs[BoundaryFace::outer_x2] != BoundaryFlag::periodic) ||
+        (mesh_bcs[BoundaryFace::inner_x2] != BoundaryFlag::periodic &&
+         mesh_bcs[BoundaryFace::outer_x2] == BoundaryFlag::periodic))) ||
+      (mesh_size.nx(X3DIR) > 1 &&
+       ((mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic &&
+         mesh_bcs[BoundaryFace::outer_x3] != BoundaryFlag::periodic) ||
+        (mesh_bcs[BoundaryFace::inner_x3] != BoundaryFlag::periodic &&
+         mesh_bcs[BoundaryFace::outer_x3] == BoundaryFlag::periodic)))) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "When periodic boundaries are in use, both sides must be periodic."
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  // check consistency of the block and mesh
+  if (mesh_size.nx(X1DIR) % base_block_size.nx(X1DIR) != 0 ||
+      mesh_size.nx(X2DIR) % base_block_size.nx(X2DIR) != 0 ||
+      mesh_size.nx(X3DIR) % base_block_size.nx(X3DIR) != 0) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+  if (base_block_size.nx(X1DIR) < 4 || (base_block_size.nx(X2DIR) < 4 && (ndim >= 2)) ||
+      (base_block_size.nx(X3DIR) < 4 && (ndim >= 3))) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "block_size must be larger than or equal to 4 cells." << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  if (max_level > 63) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "The number of the refinement level must be smaller than "
+        << 63 - root_level + 1 << "." << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  if (multilevel) {
+    if (base_block_size.nx(X1DIR) % 2 == 1 || (base_block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
+        (base_block_size.nx(X3DIR) % 2 == 1 && (ndim >= 3))) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  }
 }
 
 } // namespace parthenon
