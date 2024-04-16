@@ -110,7 +110,21 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     bnref(Globals::nranks),
     bnderef(Globals::nranks),
     brdisp(Globals::nranks),
-    bddisp(Globals::nranks){}
+    bddisp(Globals::nranks) {
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
+           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (!base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) =
+          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+    } else {
+      base_block_size.nx(dir) = mesh_size.nx(dir);
+    }
+    nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
+  }
+}
+
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
@@ -119,7 +133,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     : Mesh(pin, app_in, packages, private_t()) {
   std::stringstream msg;
   RegionSize block_size;
-  BoundaryFlag block_bcs[6];
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -211,30 +224,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   EnrollBndryFncts_(app_in);
-  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
-           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
-    block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!block_size.symmetry(dir)) {
-      block_size.nx(dir) =
-          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
-    } else {
-      block_size.nx(dir) = mesh_size.nx(dir);
-    }
-    nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
-  }
-  base_block_size = block_size;
+
 
   // check consistency of the block and mesh
-  if (mesh_size.nx(X1DIR) % block_size.nx(X1DIR) != 0 ||
-      mesh_size.nx(X2DIR) % block_size.nx(X2DIR) != 0 ||
-      mesh_size.nx(X3DIR) % block_size.nx(X3DIR) != 0) {
+  if (mesh_size.nx(X1DIR) % base_block_size.nx(X1DIR) != 0 ||
+      mesh_size.nx(X2DIR) % base_block_size.nx(X2DIR) != 0 ||
+      mesh_size.nx(X3DIR) % base_block_size.nx(X3DIR) != 0) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
     PARTHENON_FAIL(msg);
   }
-  if (block_size.nx(X1DIR) < 4 || (block_size.nx(X2DIR) < 4 && (ndim >= 2)) ||
-      (block_size.nx(X3DIR) < 4 && (ndim >= 3))) {
+  if (base_block_size.nx(X1DIR) < 4 || (base_block_size.nx(X2DIR) < 4 && (ndim >= 2)) ||
+      (base_block_size.nx(X3DIR) < 4 && (ndim >= 3))) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "block_size must be larger than or equal to 4 cells." << std::endl;
     PARTHENON_FAIL(msg);
@@ -243,7 +244,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
-  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
   current_level = root_level;
 
@@ -266,8 +267,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   InitUserMeshData(this, pin);
 
   if (multilevel) {
-    if (block_size.nx(X1DIR) % 2 == 1 || (block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
-        (block_size.nx(X3DIR) % 2 == 1 && (ndim >= 3))) {
+    if (base_block_size.nx(X1DIR) % 2 == 1 || (base_block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
+        (base_block_size.nx(X3DIR) % 2 == 1 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
@@ -418,6 +419,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
+    RegionSize block_size;
+    BoundaryFlag block_bcs[6]; 
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list[i - nbs] =
@@ -436,8 +439,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
     : Mesh(pin, app_in, packages, private_t())  {
   std::stringstream msg;
-  RegionSize block_size;
-  BoundaryFlag block_bcs[6];
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -459,11 +460,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbdel = mesh_info.nbdel;
   nbtotal = mesh_info.nbtotal;
   root_level = mesh_info.root_level;
-
-  const auto bc = mesh_info.bound_cond;
-  for (int i = 0; i < 6; i++) {
-    block_bcs[i] = GetBoundaryFlag(bc[i]);
-  }
 
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
@@ -503,21 +499,20 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   loclist = std::vector<LogicalLocation>(nbtotal);
 
   for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.nx(dir) = mesh_info.block_size[dir - 1] -
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.nx(dir) = mesh_info.block_size[dir - 1] -
                          (mesh_info.block_size[dir - 1] > 1) * mesh_info.includes_ghost *
                              2 * mesh_info.n_ghost;
-    if (block_size.nx(dir) == 1) {
-      block_size.symmetry(dir) = true;
+    if (base_block_size.nx(dir) == 1) {
+      base_block_size.symmetry(dir) = true;
       mesh_size.symmetry(dir) = true;
     } else {
-      block_size.symmetry(dir) = false;
+      base_block_size.symmetry(dir) = false;
       mesh_size.symmetry(dir) = false;
     }
     // calculate the number of the blocks
-    nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
+    nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
-  base_block_size = block_size;
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
@@ -553,7 +548,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
@@ -613,6 +608,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
+    RegionSize block_size;
+    BoundaryFlag block_bcs[6];
     for (auto &v : block_bcs) {
       v = parthenon::BoundaryFlag::undef;
     }
@@ -1208,6 +1205,10 @@ void Mesh::SetupMPIComms() {
   // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
   // inserted into pmb->pbval->bvars.
 #endif
+}
+
+void Mesh::CheckMeshValidity() const { 
+
 }
 
 } // namespace parthenon

@@ -301,6 +301,7 @@ class Mesh {
 #endif
 
   // functions
+  void CheckMeshValidity() const;
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
