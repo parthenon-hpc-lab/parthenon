@@ -160,8 +160,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   EnrollBndryFncts_(app_in);
   RegisterLoadBalancing_(pin);
   
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
-  root_level = forest.root_level;
+  
+  root_level = 0;
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
@@ -257,97 +257,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // initialize user-enrollable functions
   default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
-  if (multilevel) {
-    InputBlock *pib = pin->pfirst_block;
-    while (pib != nullptr) {
-      if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
-        RegionSize ref_size;
-        ref_size.xmin(X1DIR) = pin->GetReal(pib->block_name, "x1min");
-        ref_size.xmax(X1DIR) = pin->GetReal(pib->block_name, "x1max");
-        if (ndim >= 2) {
-          ref_size.xmin(X2DIR) = pin->GetReal(pib->block_name, "x2min");
-          ref_size.xmax(X2DIR) = pin->GetReal(pib->block_name, "x2max");
-        } else {
-          ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
-          ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
-        }
-        if (ndim == 3) {
-          ref_size.xmin(X3DIR) = pin->GetReal(pib->block_name, "x3min");
-          ref_size.xmax(X3DIR) = pin->GetReal(pib->block_name, "x3max");
-        } else {
-          ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
-          ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
-        }
-        int ref_lev = pin->GetInteger(pib->block_name, "level");
-        int lrlev = ref_lev + root_level;
-        // range check
-        if (ref_lev < 1) {
-          msg << "### FATAL ERROR in Mesh constructor" << std::endl
-              << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-        if (lrlev > max_level) {
-          msg << "### FATAL ERROR in Mesh constructor" << std::endl
-              << "Refinement level exceeds the maximum level (specify "
-              << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
-              << std::endl;
-
-          PARTHENON_FAIL(msg);
-        }
-        if (ref_size.xmin(X1DIR) > ref_size.xmax(X1DIR) ||
-            ref_size.xmin(X2DIR) > ref_size.xmax(X2DIR) ||
-            ref_size.xmin(X3DIR) > ref_size.xmax(X3DIR)) {
-          msg << "### FATAL ERROR in Mesh constructor" << std::endl
-              << "Invalid refinement region is specified." << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-        if (ref_size.xmin(X1DIR) < mesh_size.xmin(X1DIR) ||
-            ref_size.xmax(X1DIR) > mesh_size.xmax(X1DIR) ||
-            ref_size.xmin(X2DIR) < mesh_size.xmin(X2DIR) ||
-            ref_size.xmax(X2DIR) > mesh_size.xmax(X2DIR) ||
-            ref_size.xmin(X3DIR) < mesh_size.xmin(X3DIR) ||
-            ref_size.xmax(X3DIR) > mesh_size.xmax(X3DIR)) {
-          msg << "### FATAL ERROR in Mesh constructor" << std::endl
-              << "Refinement region must be smaller than the whole mesh." << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-        std::int64_t l_region_min[3]{0, 0, 0};
-        std::int64_t l_region_max[3]{1, 1, 1};
-        for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-          if (!mesh_size.symmetry(dir)) {
-            l_region_min[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-            l_region_max[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
-            l_region_min[dir - 1] =
-                std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
-            l_region_max[dir - 1] =
-                std::min(l_region_max[dir - 1],
-                         static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
-            auto current_loc =
-                LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
-            // Remove last block if it just it's boundary overlaps with the region
-            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
-                ref_size.xmax(dir))
-              l_region_max[dir - 1]--;
-            if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
-            if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
-          }
-        }
-        for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
-          for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
-            for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
-              LogicalLocation nloc(lrlev, i, j, k);
-              forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
-            }
-          }
-        }
-      }
-      pib = pib->pnext;
-    }
-  }
+  if (multilevel) DoStaticRefinement(pin);
 
   // initial mesh hierarchy construction is completed here
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   loclist = forest.GetMeshBlockListAndResolveGids();
   BuildBlockList(pin, app_in, packages, mesh_test);
 }
@@ -407,6 +320,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   // rebuild the Block Tree
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   for (int i = 0; i < nbtotal; i++)
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
@@ -1096,4 +1010,94 @@ void Mesh::CheckMeshValidity() const {
   }
 }
 
+void Mesh::DoStaticRefinement(ParameterInput *pin) {
+  std::stringstream msg;
+  InputBlock *pib = pin->pfirst_block;
+  while (pib != nullptr) {
+    if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
+      RegionSize ref_size;
+      ref_size.xmin(X1DIR) = pin->GetReal(pib->block_name, "x1min");
+      ref_size.xmax(X1DIR) = pin->GetReal(pib->block_name, "x1max");
+      if (ndim >= 2) {
+        ref_size.xmin(X2DIR) = pin->GetReal(pib->block_name, "x2min");
+        ref_size.xmax(X2DIR) = pin->GetReal(pib->block_name, "x2max");
+      } else {
+        ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
+        ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
+      }
+      if (ndim == 3) {
+        ref_size.xmin(X3DIR) = pin->GetReal(pib->block_name, "x3min");
+        ref_size.xmax(X3DIR) = pin->GetReal(pib->block_name, "x3max");
+      } else {
+        ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
+        ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
+      }
+      int ref_lev = pin->GetInteger(pib->block_name, "level");
+      int lrlev = ref_lev + root_level;
+      // range check
+      if (ref_lev < 1) {
+        msg << "### FATAL ERROR in Mesh constructor" << std::endl
+            << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
+        PARTHENON_FAIL(msg);
+      }
+      if (lrlev > max_level) {
+        msg << "### FATAL ERROR in Mesh constructor" << std::endl
+            << "Refinement level exceeds the maximum level (specify "
+            << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
+            << std::endl;
+
+        PARTHENON_FAIL(msg);
+      }
+      if (ref_size.xmin(X1DIR) > ref_size.xmax(X1DIR) ||
+          ref_size.xmin(X2DIR) > ref_size.xmax(X2DIR) ||
+          ref_size.xmin(X3DIR) > ref_size.xmax(X3DIR)) {
+        msg << "### FATAL ERROR in Mesh constructor" << std::endl
+            << "Invalid refinement region is specified." << std::endl;
+        PARTHENON_FAIL(msg);
+      }
+      if (ref_size.xmin(X1DIR) < mesh_size.xmin(X1DIR) ||
+          ref_size.xmax(X1DIR) > mesh_size.xmax(X1DIR) ||
+          ref_size.xmin(X2DIR) < mesh_size.xmin(X2DIR) ||
+          ref_size.xmax(X2DIR) > mesh_size.xmax(X2DIR) ||
+          ref_size.xmin(X3DIR) < mesh_size.xmin(X3DIR) ||
+          ref_size.xmax(X3DIR) > mesh_size.xmax(X3DIR)) {
+        msg << "### FATAL ERROR in Mesh constructor" << std::endl
+            << "Refinement region must be smaller than the whole mesh." << std::endl;
+        PARTHENON_FAIL(msg);
+      }
+      std::int64_t l_region_min[3]{0, 0, 0};
+      std::int64_t l_region_max[3]{1, 1, 1};
+      for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+        if (!mesh_size.symmetry(dir)) {
+          l_region_min[dir - 1] =
+              GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+          l_region_max[dir - 1] =
+              GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+          l_region_min[dir - 1] =
+              std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
+          l_region_max[dir - 1] =
+              std::min(l_region_max[dir - 1],
+                       static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
+          auto current_loc =
+              LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
+          // Remove last block if it just it's boundary overlaps with the region
+          if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+              ref_size.xmax(dir))
+            l_region_max[dir - 1]--;
+          if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
+          if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
+        }
+      }
+      for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
+        for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
+          for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
+            LogicalLocation nloc(lrlev, i, j, k);
+            forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
+          }
+        }
+      }
+    }
+    pib = pib->pnext;
+  }
+}
 } // namespace parthenon
