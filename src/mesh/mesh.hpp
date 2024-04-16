@@ -302,6 +302,8 @@ class Mesh {
 
   // functions
   void CheckMeshValidity() const;
+  void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           int mesh_test);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);

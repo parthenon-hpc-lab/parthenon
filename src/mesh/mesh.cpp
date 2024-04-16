@@ -111,7 +111,35 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     bnderef(Globals::nranks),
     brdisp(Globals::nranks),
     bddisp(Globals::nranks) {
-  
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitUserMeshData != nullptr) {
+    InitUserMeshData = app_in->InitUserMeshData;
+  }
+  if (app_in->MeshProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->MeshProblemGenerator;
+  }
+  if (app_in->MeshPostInitialization != nullptr) {
+    PostInitialization = app_in->MeshPostInitialization;
+  }
+  if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
+    PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
+  }
+  if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
+    PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
+  }
+  if (app_in->UserMeshWorkBeforeOutput != nullptr) {
+    UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
+  }
+  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
+    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
+  }
+  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
+    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
+  }
+  if (app_in->UserWorkAfterLoop != nullptr) {
+    UserWorkAfterLoop = app_in->UserWorkAfterLoop;
+  }
+
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
@@ -126,6 +154,74 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   mesh_data.SetMeshPointer(this);
+}
+
+void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           int mesh_test) { 
+  std::stringstream msg;
+  nbtotal = loclist.size();
+  current_level = -1;
+  for (const auto &loc : loclist)
+    if (loc.level() > current_level) current_level = loc.level();
+
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks) {
+    if (mesh_test == 0) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+          << Globals::nranks << ")" << std::endl;
+      PARTHENON_FAIL(msg);
+    } else { // test
+      std::cout << "### Warning in Mesh constructor" << std::endl
+                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+                << Globals::nranks << ")" << std::endl;
+    }
+  }
+#endif
+
+  ranklist = std::vector<int>(nbtotal);
+
+  // initialize cost array with the simplest estimate; all the blocks are equal
+  costlist = std::vector<double>(nbtotal, 1.0);
+
+  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+
+  // Output some diagnostic information to terminal
+
+  // Output MeshBlock list and quit (mesh test only); do not create meshes
+  if (mesh_test > 0) {
+    if (Globals::my_rank == 0) OutputMeshStructure(ndim);
+    return;
+  }
+
+  resolved_packages = ResolvePackages(packages);
+
+  // Register user defined boundary conditions
+  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+
+  // Setup unique comms for each variable and swarm
+  SetupMPIComms();
+
+  // create MeshBlock list for this process
+  int nbs = nslist[Globals::my_rank];
+  int nbe = nbs + nblist[Globals::my_rank] - 1;
+  // create MeshBlock list for this process
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
+  for (int i = nbs; i <= nbe; i++) {
+    RegionSize block_size;
+    BoundaryFlag block_bcs[6]; 
+    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
+    // create a block and add into the link list
+    block_list[i - nbs] =
+        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
+                        packages, resolved_packages, gflag, costlist[i]);
+  }
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
+  ResetLoadBalanceVariables();
 }
 
 //----------------------------------------------------------------------------------------
@@ -176,34 +272,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     PARTHENON_FAIL(msg);
   }
 
-  // Allow for user overrides to default Parthenon functions
-  if (app_in->InitUserMeshData != nullptr) {
-    InitUserMeshData = app_in->InitUserMeshData;
-  }
-  if (app_in->MeshProblemGenerator != nullptr) {
-    ProblemGenerator = app_in->MeshProblemGenerator;
-  }
-  if (app_in->MeshPostInitialization != nullptr) {
-    PostInitialization = app_in->MeshPostInitialization;
-  }
-  if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
-    PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
-  }
-  if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
-    PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
-  }
-  if (app_in->UserMeshWorkBeforeOutput != nullptr) {
-    UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
-  }
-  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
-    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
-  }
-  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
-    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
-  }
-  if (app_in->UserWorkAfterLoop != nullptr) {
-    UserWorkAfterLoop = app_in->UserWorkAfterLoop;
-  }
+
 
   // check the consistency of the periodic boundaries
   if (((mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic &&
@@ -369,69 +438,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // initial mesh hierarchy construction is completed here
   loclist = forest.GetMeshBlockListAndResolveGids();
-  nbtotal = loclist.size();
-  current_level = -1;
-  for (const auto &loc : loclist) {
-    if (loc.level() > current_level) current_level = loc.level();
-  }
-#ifdef MPI_PARALLEL
-  // check if there are sufficient blocks
-  if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
-    }
-  }
-#endif
-
-  ranklist = std::vector<int>(nbtotal);
-
-  // initialize cost array with the simplest estimate; all the blocks are equal
-  costlist = std::vector<double>(nbtotal, 1.0);
-
-  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-
-  // Output some diagnostic information to terminal
-
-  // Output MeshBlock list and quit (mesh test only); do not create meshes
-  if (mesh_test > 0) {
-    if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    return;
-  }
-
-  resolved_packages = ResolvePackages(packages);
-
-  // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-
-  // Setup unique comms for each variable and swarm
-  SetupMPIComms();
-
-  // create MeshBlock list for this process
-  int nbs = nslist[Globals::my_rank];
-  int nbe = nbs + nblist[Globals::my_rank] - 1;
-  // create MeshBlock list for this process
-  block_list.clear();
-  block_list.resize(nbe - nbs + 1);
-  for (int i = nbs; i <= nbe; i++) {
-    RegionSize block_size;
-    BoundaryFlag block_bcs[6]; 
-    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
-    // create a block and add into the link list
-    block_list[i - nbs] =
-        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        packages, resolved_packages, gflag);
-  }
-  BuildGMGBlockLists(pin, app_in);
-  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
-  SetGMGNeighbors();
-  ResetLoadBalanceVariables();
+  BuildBlockList(pin, app_in, packages, mesh_test);
 }
 
 //----------------------------------------------------------------------------------------
@@ -465,25 +472,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbdel = mesh_info.nbdel;
   nbtotal = mesh_info.nbtotal;
 
-  // Allow for user overrides to default Parthenon functions
-  if (app_in->InitUserMeshData != nullptr) {
-    InitUserMeshData = app_in->InitUserMeshData;
-  }
-  if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
-    PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
-  }
-  if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
-    PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
-  }
-  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
-    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
-  }
-  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
-    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
-  }
-  if (app_in->UserWorkAfterLoop != nullptr) {
-    UserWorkAfterLoop = app_in->UserWorkAfterLoop;
-  }
   EnrollBndryFncts_(app_in);
 
   const auto grid_dim = mesh_info.grid_dim;
@@ -553,67 +541,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
-#ifdef MPI_PARALLEL
-  if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
-      return;
-    }
-  }
-#endif
-  costlist = std::vector<double>(nbtotal, 1.0);
-  ranklist = std::vector<int>(nbtotal);
-
-  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-
-  // Output MeshBlock list and quit (mesh test only); do not create meshes
-  if (mesh_test > 0) {
-    if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    return;
-  }
-
-  // allocate data buffer
-  int nb = nblist[Globals::my_rank];
-  int nbs = nslist[Globals::my_rank];
-  int nbe = nbs + nb - 1;
-
-  
-
-  resolved_packages = ResolvePackages(packages);
-
-  // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-
-  // Setup unique comms for each variable and swarm
-  SetupMPIComms();
-
-  // Create MeshBlocks (parallel)
-  block_list.clear();
-  block_list.resize(nbe - nbs + 1);
-  for (int i = nbs; i <= nbe; i++) {
-    RegionSize block_size;
-    BoundaryFlag block_bcs[6];
-    for (auto &v : block_bcs) {
-      v = parthenon::BoundaryFlag::undef;
-    }
-    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
-
-    // create a block and add into the link list
-    block_list[i - nbs] =
-        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        packages, resolved_packages, gflag, costlist[i]);
-  }
-  BuildGMGBlockLists(pin, app_in);
-  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
-  SetGMGNeighbors();
-  ResetLoadBalanceVariables();
+  BuildBlockList(pin, app_in, packages, mesh_test);
 }
 
 //----------------------------------------------------------------------------------------
