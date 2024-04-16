@@ -62,7 +62,6 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // If "packages" not provided, output history for all packages
   auto &requested_packages = output_params.packages;
   Dictionary<std::shared_ptr<StateDescriptor>> packages;
-
   if (requested_packages.empty()) {
     packages = pm->packages.AllPackages();
   } else {
