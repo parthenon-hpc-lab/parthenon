@@ -153,12 +153,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
   
-  // SMR / AMR:
-  if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
-  } else {
-    max_level = 63;
-  }
 
   mesh_data.SetMeshPointer(this);
 
@@ -411,6 +405,19 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
+
+  // SMR / AMR:
+  if (adaptive) {
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+    if (max_level > 63) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+      << "The number of the refinement level must be smaller than "
+      << 63 - root_level + 1 << "." << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+  } else {
+    max_level = 63;
+  }
 
   InitUserMeshData(this, pin);
 
