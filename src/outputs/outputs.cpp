@@ -200,7 +200,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (op.file_type == "hst") {
-        // Do not use GetOrAddVector because it will pollute the input parameters for restarts
+        // Do not use GetOrAddVector because it will pollute the input parameters for
+        // restarts
         if (pin->DoesParameterExist(pib->block_name, "packages")) {
           op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
         } else {
