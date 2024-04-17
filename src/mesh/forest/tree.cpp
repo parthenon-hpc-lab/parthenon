@@ -29,15 +29,15 @@
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/tree.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
 namespace parthenon {
 namespace forest {
 
-Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
-           std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
-    : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
+    : my_id(id), ndim(ndim) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -59,6 +59,15 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
     internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
   }
 }
+
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
+           std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
+    : Tree(Tree::private_t(), id, ndim, root_level) { 
+  domain = domain; 
+  boundary_conditions = bcs;
+}
+
+
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(

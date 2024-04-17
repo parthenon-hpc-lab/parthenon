@@ -41,6 +41,13 @@ class Forest {
  public:
   int root_level;
   int forest_level;
+  
+  std::vector<std::shared_ptr<Tree>> GetTrees() {
+    std::vector<std::shared_ptr<Tree>> trees_out;
+    for (auto &[id, tree] : trees) 
+      trees_out.push_back(tree);
+    return trees_out;
+  }
 
   void AddTree(const std::shared_ptr<Tree> &in) {
     if (trees.count(in->GetId())) {
@@ -153,6 +160,8 @@ class Forest {
   // setups available in Athena++
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
+  
+  static Forest Make2D(std::vector<std::shared_ptr<Face>> faces);
 };
 } // namespace forest
 } // namespace parthenon

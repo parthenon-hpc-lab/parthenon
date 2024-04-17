@@ -27,6 +27,7 @@
 #include "defs.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/forest/forest_node.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
@@ -41,11 +42,22 @@ class Tree : public std::enable_shared_from_this<Tree> {
   struct private_t {};
 
  public:
+  Tree(private_t, std::int64_t id, int ndim, int root_level);
+
   Tree(private_t, std::int64_t id, int ndim, int root_level,
-       RegionSize domain = RegionSize(),
+       RegionSize domain,
        std::array<BoundaryFlag, BOUNDARY_NFACES> bcs = {
            BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block,
            BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block});
+
+  Tree(private_t, std::int64_t id, int ndim, int root_level,
+       std::vector<std::shared_ptr<Node>> nodes);
+  
+  template <class STD_CONTAINER_TYPE>
+  Tree(private_t, std::int64_t id, int ndim, int root_level, STD_CONTAINER_TYPE nodes)
+      : Tree(Tree::private_t(), id, ndim, root_level) { 
+    forest_nodes = std::vector<std::shared_ptr<Node>>(nodes.begin(), nodes.end());
+  }
 
   template <class... Ts>
   static std::shared_ptr<Tree> create(Ts &&...args) {
@@ -93,6 +105,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;
+  
+  std::vector<std::shared_ptr<Node>> forest_nodes;
 
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,

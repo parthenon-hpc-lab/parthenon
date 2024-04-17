@@ -186,5 +186,24 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   return fout;
 }
 
+Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces) {
+  for (auto &face : faces) {
+    for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
+      auto neighbors = FindEdgeNeighbors(face, side);
+      for (auto &n : neighbors) {
+        auto trans =
+            LogicalCoordinateTransformationFromSharedEdge2D(side, std::get<1>(n), std::get<2>(n));
+        face->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, trans);
+      }
+    }
+  }  
+
+  Forest fout; 
+  fout.root_level = 0; 
+  fout.forest_level = 0; 
+  for (auto &face : faces) fout.AddTree(face->tree);
+  return fout;
+}
+
 } // namespace forest
 } // namespace parthenon

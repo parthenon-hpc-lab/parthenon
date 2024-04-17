@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,6 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/forest_node.hpp"
 #include "mesh/forest/tree.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
@@ -91,30 +92,8 @@ class std::hash<parthenon::forest::EdgeLoc> {
   }
 };
 
-template <>
-class std::hash<parthenon::CellCentOffsets> {
- public:
-  std::size_t operator()(const parthenon::CellCentOffsets &key) const noexcept {
-    return key.GetIdx();
-  }
-};
-
 namespace parthenon {
 namespace forest {
-
-class Face;
-class Node {
- public:
-  Node(int id_in, std::array<Real, NDIM> pos) : id(id_in), x(pos) {}
-
-  static std::shared_ptr<Node> create(int id, std::array<Real, NDIM> pos) {
-    return std::make_shared<Node>(id, pos);
-  }
-
-  std::uint32_t id;
-  std::array<Real, NDIM> x;
-  std::unordered_set<std::shared_ptr<Face>> associated_faces;
-};
 
 class Edge {
  public:
@@ -155,7 +134,7 @@ class Face : public std::enable_shared_from_this<Face> {
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : nodes(nodes_in), tree(Tree::create(id, NDIM, 0)), dir{Direction::I, Direction::J},
+      : nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)), dir{Direction::I, Direction::J},
         normal{Direction::K}, normal_rhanded(true) {
     edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
     edges[EdgeLoc::West] = Edge({nodes[0], nodes[2]});
