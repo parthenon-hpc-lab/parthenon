@@ -911,6 +911,21 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
+//
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
+// \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
+void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                            SimTime const &time, OutputType *ptype) {
+  // call Mesh version
+  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+
+  // call MeshBlock version
+  for (auto &pmb : block_list) {
+    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+  }
+}
+
 void Mesh::BuildTagMapAndBoundaryBuffers() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);

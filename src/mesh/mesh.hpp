@@ -153,6 +153,9 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
+  void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                        SimTime const &time, OutputType *ptype);
+
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
   SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
