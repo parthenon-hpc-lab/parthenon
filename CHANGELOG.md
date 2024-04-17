@@ -17,7 +17,6 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
 - [[PR 1035]](https://github.com/parthenon-hpc-lab/parthenon/pull/1035) Fix multigrid infrastructure to work with forest
 - [[PR 1048]](https://github.com/parthenon-hpc-lab/parthenon/pull/1048) Tiny fixes to custom coords logic
 - [[PR 1028]](https://github.com/parthenon-hpc-lab/parthenon/pull/1028) Internal reorganization of LogicalLocation files
@@ -28,6 +27,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
 - [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
 
 
