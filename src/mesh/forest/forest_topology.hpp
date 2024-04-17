@@ -25,7 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/forest/forest.hpp"
+#include "mesh/forest/tree.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -64,7 +64,7 @@ inline bool operator==(const EdgeLoc &lhs, const EdgeLoc &rhs) {
   return (lhs.dir == rhs.dir) && (lhs.lower == rhs.lower);
 }
 
-LogicalCoordinateTransformation LogicalCoordinateTransformationFromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor,
+inline LogicalCoordinateTransformation LogicalCoordinateTransformationFromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor,
                                                         int orientation) {
   if (origin.dir == Direction::K || neighbor.dir == Direction::K) {
     PARTHENON_FAIL("In 2D we shouldn't have explicit edges in the Z direction.");

@@ -25,6 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
