@@ -81,45 +81,44 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // Loop over all packages of the application
   for (const auto &pkg : packages) {
-    // Check if the package has enrolled scalar history functions which are stored in the
-    // Params under the `hist_param_key` name.
     const auto &params = pkg.second->AllParams();
-    if (!params.hasKey(hist_param_key)) {
-      continue;
-    }
-    const auto &hist_vars = params.Get<HstVar_list>(hist_param_key);
 
     // Get "base" MeshData, which always exists but may not be populated yet
     auto &md_base = pm->mesh_data.Get();
-    // Populated with all blocks
-    if (md_base->NumBlocks() == 0) {
-      md_base->Set(pm->block_list, pm);
-    } else if (md_base->NumBlocks() != pm->block_list.size()) {
-      PARTHENON_WARN(
-          "Resetting \"base\" MeshData to contain all blocks. This indicates that "
-          "the \"base\" MeshData container has been modified elsewhere. Double check "
-          "that the modification was intentional and is compatible with this reset.")
-      md_base->Set(pm->block_list, pm);
-    }
 
-    for (const auto &hist_var : hist_vars) {
-      auto result = hist_var.hst_fun(md_base.get());
-      results[hist_var.hst_op].push_back(result);
-      labels[hist_var.hst_op].push_back(hist_var.label);
+    // Check if the package has enrolled scalar history functions which are stored in the
+    // Params under the `hist_param_key` name.
+    if (params.hasKey(hist_param_key)) {
+      const auto &hist_vars = params.Get<HstVar_list>(hist_param_key);
+      // Populated with all blocks
+      if (md_base->NumBlocks() == 0) {
+        md_base->Set(pm->block_list, pm);
+      } else if (md_base->NumBlocks() != pm->block_list.size()) {
+        PARTHENON_WARN(
+            "Resetting \"base\" MeshData to contain all blocks. This indicates that "
+            "the \"base\" MeshData container has been modified elsewhere. Double check "
+            "that the modification was intentional and is compatible with this reset.")
+        md_base->Set(pm->block_list, pm);
+      }
+
+      for (const auto &hist_var : hist_vars) {
+        auto result = hist_var.hst_fun(md_base.get());
+        results[hist_var.hst_op].push_back(result);
+        labels[hist_var.hst_op].push_back(hist_var.label);
+      }
     }
 
     // Check if the package has enrolled vector history functions which are stored in the
     // Params under the `hist_vec_param_key` name.
-    if (!params.hasKey(hist_vec_param_key)) {
-      continue;
-    }
-    const auto &hist_vecs = params.Get<HstVec_list>(hist_vec_param_key);
-    for (const auto &hist_vec : hist_vecs) {
-      auto result = hist_vec.hst_vec_fun(md_base.get());
-      for (int n = 0; n < result.size(); n++) {
-        std::string label = hist_vec.label + "_" + std::to_string(n);
-        results[hist_vec.hst_op].push_back(result[n]);
-        labels[hist_vec.hst_op].push_back(label);
+    if (params.hasKey(hist_vec_param_key)) {
+      const auto &hist_vecs = params.Get<HstVec_list>(hist_vec_param_key);
+      for (const auto &hist_vec : hist_vecs) {
+        auto result = hist_vec.hst_vec_fun(md_base.get());
+        for (int n = 0; n < result.size(); n++) {
+          std::string label = hist_vec.label + "_" + std::to_string(n);
+          results[hist_vec.hst_op].push_back(result[n]);
+          labels[hist_vec.hst_op].push_back(label);
+        }
       }
     }
   }
