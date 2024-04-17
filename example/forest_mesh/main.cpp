@@ -138,46 +138,5 @@ int main(int argc, char *argv[]) {
   }
   fclose(pfile);
 
-  RegionSize mesh_size({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, {1.0, 1.0, 1.0}, {64, 128, 1},
-                       {false, false, true});
-  RegionSize block_size(mesh_size);
-  block_size.nx(X1DIR) = 16;
-  block_size.nx(X2DIR) = 16;
-
-  std::array<parthenon::BoundaryFlag, parthenon::BOUNDARY_NFACES> bcs{
-      parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow,
-      parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow,
-      parthenon::BoundaryFlag::outflow, parthenon::BoundaryFlag::outflow};
-
-  auto forest = Forest::HyperRectangular(mesh_size, block_size, bcs);
-
-  printf("ntrees: %zu\n", forest.CountTrees());
-  auto block_list = forest.GetMeshBlockListAndResolveGids();
-  printf("number of blocks = %zu\n", block_list.size());
-  pfile = fopen("faces.txt", "w");
-  for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
-    auto dmn = forest.GetBlockDomain(block_list[gid]);
-    fprintf(pfile, "%li, %e, %e, %e, %e, %e, %e, %e, %e\n", gid, dmn.xmin(X1DIR),
-            dmn.xmin(X2DIR), dmn.xmax(X1DIR), dmn.xmin(X2DIR), dmn.xmin(X1DIR),
-            dmn.xmax(X2DIR), dmn.xmax(X1DIR), dmn.xmax(X2DIR));
-  }
-  fclose(pfile);
-
-  /*
-  for (uint64_t gid = 0; gid < block_list.size(); ++gid) {
-    for (int ox1 : {-1, 0, 1}) {
-      for (int ox2 : {-1, 0, 1}) {
-        auto neigh_vec = forest.FindNeighbor(block_list[gid], ox1, ox2, 0);
-        for (auto &neigh : neigh_vec) {
-          auto ngid = gid_map[neigh.global_loc.global_loc][neigh.global_loc.origin_loc];
-          if (ngid != gid) {
-            printf("%i -> %i\n", gid, ngid);
-          }
-        }
-      }
-    }
-  }
-  */
-
   return 0;
 }
