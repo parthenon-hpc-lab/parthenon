@@ -158,7 +158,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     } else {
       base_block_size.nx(dir) = mesh_size.nx(dir);
     }
-    nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
   }
 
   mesh_data.SetMeshPointer(this);
@@ -364,8 +363,7 @@ void Mesh::OutputMeshStructure(const int ndim,
 
   // Write overall Mesh structure to stdout and file
   std::cout << std::endl;
-  std::cout << "Root grid = " << nrbx[0] << " x " << nrbx[1] << " x " << nrbx[2]
-            << " MeshBlocks" << std::endl;
+  std::cout << "Number of Trees = " << forest.CountTrees() << std::endl;
   std::cout << "Total number of MeshBlocks = " << nbtotal << std::endl;
   std::cout << "Number of physical refinement levels = " << (current_level - root_level)
             << std::endl;
@@ -1016,6 +1014,29 @@ void Mesh::CheckMeshValidity() const {
 
 void Mesh::DoStaticRefinement(ParameterInput *pin) {
   std::stringstream msg;
+  
+  // TODO(LFR): Static refinement currently only works for hyper-rectangular meshes
+  std::array<int, 3> nrbx; 
+  for (auto dir : {X1DIR, X2DIR, X3DIR})
+    nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
+
+  auto GetMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
+                                  const LogicalLocation &loc) -> Real {
+    auto xll = loc.LLCoord(dir, bloc);
+    auto root_fac = static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+    xll *= root_fac;
+    return this->mesh_size.xmin(dir) * (1.0 - xll) + this->mesh_size.xmax(dir) * xll;
+  };
+  
+  auto GetLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
+                                       Real xmesh) -> std::int64_t {
+    auto root_fac = static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+    auto xLL = (xmesh - this->mesh_size.xmin(dir)) /
+               (this->mesh_size.xmax(dir) - this->mesh_size.xmin(dir)) / root_fac;
+    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
+  };
+
+
   InputBlock *pib = pin->pfirst_block;
   while (pib != nullptr) {
     if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
