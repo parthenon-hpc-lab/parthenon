@@ -148,13 +148,13 @@ class Edge {
 
 class Face : public std::enable_shared_from_this<Face> {
  private:
-  struct Private_t {};
+  struct private_t {};
 
  public:
   Face() : tree() {}
 
   // Constructor that can only be called internally
-  Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, Private_t)
+  Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
       : nodes(nodes_in), tree(Tree::create(id, NDIM, 0)), dir{Direction::I, Direction::J},
         normal{Direction::K}, normal_rhanded(true) {
     edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
@@ -164,7 +164,7 @@ class Face : public std::enable_shared_from_this<Face> {
   }
 
   static std::shared_ptr<Face> create(std::int64_t id, sptr_vec_t<Node, 4> nodes_in) {
-    auto result = std::make_shared<Face>(id, nodes_in, Private_t());
+    auto result = std::make_shared<Face>(id, nodes_in, private_t());
     // Associate the new face with the nodes
     for (auto &node : result->nodes)
       node->associated_faces.insert(result);

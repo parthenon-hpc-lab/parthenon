@@ -61,9 +61,9 @@ mesh_t two_blocks() {
 
   mesh.SetTreeConnections();
   // Do some refinements that should propagate into tree 1
-  mesh.zones[1]->tree->Refine(LogicalLocation(0, 0, 0, 0));
-  mesh.zones[1]->tree->Refine(LogicalLocation(1, 0, 0, 0));
-  mesh.zones[1]->tree->Refine(LogicalLocation(2, 0, 0, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 0, 0, 0, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 1, 0, 0, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 2, 0, 0, 0));
 
   return mesh;
 }
@@ -101,12 +101,12 @@ mesh_t squared_circle() {
   mesh.SetTreeConnections();
 
   // Do some refinements that should propagate into the south and west trees
-  mesh.zones[4]->tree->Refine(LogicalLocation(0, 0, 0, 0));
-  mesh.zones[4]->tree->Refine(LogicalLocation(1, 0, 0, 0));
-  mesh.zones[4]->tree->Refine(LogicalLocation(2, 0, 0, 0));
+  mesh.zones[4]->tree->Refine(LogicalLocation(4, 0, 0, 0, 0));
+  mesh.zones[4]->tree->Refine(LogicalLocation(4, 1, 0, 0, 0));
+  mesh.zones[4]->tree->Refine(LogicalLocation(4, 2, 0, 0, 0));
 
-  mesh.zones[1]->tree->Refine(LogicalLocation(1, 0, 1, 0));
-  mesh.zones[1]->tree->Refine(LogicalLocation(2, 0, 3, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 1, 0, 1, 0));
+  mesh.zones[1]->tree->Refine(LogicalLocation(1, 2, 0, 3, 0));
 
   return mesh;
 }
