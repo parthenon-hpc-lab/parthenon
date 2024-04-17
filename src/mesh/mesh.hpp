@@ -74,14 +74,15 @@ class Mesh {
   friend class RestartOutput;
   friend class HistoryOutput;
   friend class MeshBlock;
-  friend class MeshBlockTree;
   friend class MeshRefinement;
 
-  struct private_t {};
+  struct base_constructor_selector_t{};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, base_constructor_selector_t);
+  struct hyper_rectangular_constructor_selector_t{};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, hyper_rectangular_constructor_selector_t);
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, private_t);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
@@ -106,11 +107,11 @@ class Mesh {
 
   // data
   bool modified;
-  const bool is_restart;
+  bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
-  const int ndim; // number of dimensions
+  int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;

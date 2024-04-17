@@ -56,34 +56,10 @@
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
-
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           private_t)
+           base_constructor_selector_t)
     : // public members:
       modified(true), is_restart(false),
-      // aggregate initialization of RegionSize struct:
-      mesh_size({pin->GetReal("parthenon/mesh", "x1min"),
-                 pin->GetReal("parthenon/mesh", "x2min"),
-                 pin->GetReal("parthenon/mesh", "x3min")},
-                {pin->GetReal("parthenon/mesh", "x1max"),
-                 pin->GetReal("parthenon/mesh", "x2max"),
-                 pin->GetReal("parthenon/mesh", "x3max")},
-                {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-                 pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
-                {pin->GetInteger("parthenon/mesh", "nx1"),
-                 pin->GetInteger("parthenon/mesh", "nx2"),
-                 pin->GetInteger("parthenon/mesh", "nx3")},
-                {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
-                 pin->GetInteger("parthenon/mesh", "nx3") == 1}),
-      mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
-      ndim((mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
@@ -96,7 +72,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
                     ? true
                     : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages), 
+      resolved_packages(ResolvePackages(packages)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
@@ -133,6 +110,45 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
   }
+  
+  // Default root level, may be overwritten by another constructor
+  root_level = 0;
+  // SMR / AMR:
+  if (adaptive) {
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+  } else {
+    max_level = 63;
+  }
+
+  // Setup unique comms for each variable and swarm
+  SetupMPIComms();
+}
+
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           hyper_rectangular_constructor_selector_t)
+    : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
+  mesh_size = RegionSize({pin->GetReal("parthenon/mesh", "x1min"),
+               pin->GetReal("parthenon/mesh", "x2min"),
+               pin->GetReal("parthenon/mesh", "x3min")},
+              {pin->GetReal("parthenon/mesh", "x1max"),
+               pin->GetReal("parthenon/mesh", "x2max"),
+               pin->GetReal("parthenon/mesh", "x3max")},
+              {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
+               pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
+               pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
+              {pin->GetInteger("parthenon/mesh", "nx1"),
+               pin->GetInteger("parthenon/mesh", "nx2"),
+               pin->GetInteger("parthenon/mesh", "nx3")},
+              {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
+               pin->GetInteger("parthenon/mesh", "nx3") == 1});
+  mesh_bcs = {
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+  ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
@@ -152,94 +168,29 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   RegisterLoadBalancing_(pin);
-
-  root_level = 0;
+  
+  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
+  root_level = forest.root_level;
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
   } else {
     max_level = 63;
   }
-
+  
+  // Register user defined boundary conditions
+  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+  
   InitUserMeshData(this, pin);
 
   CheckMeshValidity();
 }
 
-void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
-                          Packages_t &packages, int mesh_test) {
-  std::stringstream msg;
-  nbtotal = loclist.size();
-  current_level = -1;
-  for (const auto &loc : loclist)
-    if (loc.level() > current_level) current_level = loc.level();
-
-#ifdef MPI_PARALLEL
-  // check if there are sufficient blocks
-  if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
-    }
-  }
-#endif
-
-  ranklist = std::vector<int>(nbtotal);
-
-  // initialize cost array with the simplest estimate; all the blocks are equal
-  costlist = std::vector<double>(nbtotal, 1.0);
-
-  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-
-  // Output some diagnostic information to terminal
-
-  // Output MeshBlock list and quit (mesh test only); do not create meshes
-  if (mesh_test > 0) {
-    if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    return;
-  }
-
-  resolved_packages = ResolvePackages(packages);
-
-  // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-
-  // Setup unique comms for each variable and swarm
-  SetupMPIComms();
-
-  // create MeshBlock list for this process
-  int nbs = nslist[Globals::my_rank];
-  int nbe = nbs + nblist[Globals::my_rank] - 1;
-  // create MeshBlock list for this process
-  block_list.clear();
-  block_list.resize(nbe - nbs + 1);
-  for (int i = nbs; i <= nbe; i++) {
-    RegionSize block_size;
-    BoundaryFlag block_bcs[6];
-    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
-    // create a block and add into the link list
-    block_list[i - nbs] =
-        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        packages, resolved_packages, gflag, costlist[i]);
-  }
-  BuildGMGBlockLists(pin, app_in);
-  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
-  SetGMGNeighbors();
-  ResetLoadBalanceVariables();
-}
-
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
-
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
-    : Mesh(pin, app_in, packages, private_t()) {
+    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
   std::stringstream msg;
 
   // mesh test
@@ -251,8 +202,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (multilevel) DoStaticRefinement(pin);
 
   // initial mesh hierarchy construction is completed here
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
-  loclist = forest.GetMeshBlockListAndResolveGids();
   BuildBlockList(pin, app_in, packages, mesh_test);
 }
 
@@ -260,7 +209,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
-    : Mesh(pin, app_in, packages, private_t()) {
+    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
+  is_restart = true;
   std::stringstream msg;
 
   // mesh test
@@ -313,20 +263,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
-
-    if (loclist[i].level() > current_level) {
-      current_level = loclist[i].level();
-    }
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   for (int i = 0; i < nbtotal; i++)
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
 
-  loclist = forest.GetMeshBlockListAndResolveGids();
-  int nnb = loclist.size();
+  int nnb = forest.CountMeshBlock();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
@@ -336,6 +280,69 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   BuildBlockList(pin, app_in, packages, mesh_test);
 }
+
+void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
+                          Packages_t &packages, int mesh_test) {
+  // LFR: This routine should work for general block lists
+  std::stringstream msg;
+  
+  loclist = forest.GetMeshBlockListAndResolveGids();
+  nbtotal = loclist.size();
+  current_level = -1;
+  for (const auto &loc : loclist)
+    if (loc.level() > current_level) current_level = loc.level();
+
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks) {
+    if (mesh_test == 0) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+          << Globals::nranks << ")" << std::endl;
+      PARTHENON_FAIL(msg);
+    } else { // test
+      std::cout << "### Warning in Mesh constructor" << std::endl
+                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+                << Globals::nranks << ")" << std::endl;
+    }
+  }
+#endif
+
+  ranklist = std::vector<int>(nbtotal);
+
+  // initialize cost array with the simplest estimate; all the blocks are equal
+  costlist = std::vector<double>(nbtotal, 1.0);
+
+  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
+
+  // Output MeshBlock list and quit (mesh test only); do not create meshes
+  if (mesh_test > 0) {
+    if (Globals::my_rank == 0) OutputMeshStructure(ndim);
+    return;
+  }
+
+  // create MeshBlock list for this process
+  int nbs = nslist[Globals::my_rank];
+  int nbe = nbs + nblist[Globals::my_rank] - 1;
+  // create MeshBlock list for this process
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
+  for (int i = nbs; i <= nbe; i++) {
+    RegionSize block_size;
+    BoundaryFlag block_bcs[6];
+    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
+    // create a block and add into the link list
+    block_list[i - nbs] =
+        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
+                        packages, resolved_packages, gflag, costlist[i]);
+  }
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
+  ResetLoadBalanceVariables();
+}
+
+
 
 //----------------------------------------------------------------------------------------
 // destructor
