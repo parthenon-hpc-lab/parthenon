@@ -16,7 +16,6 @@ if( "forest-mesh-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
       forest-mesh-example
           main.cpp
-          forest_topology.hpp
   )
   target_link_libraries(forest-mesh-example PRIVATE Parthenon::parthenon)
   lint_target(forest-mesh-example)

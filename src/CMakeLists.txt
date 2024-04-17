@@ -158,6 +158,7 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
+  mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
   mesh/forest/logical_coordinate_transformation.hpp
