@@ -76,10 +76,12 @@ class Mesh {
   friend class MeshBlock;
   friend class MeshRefinement;
 
-  struct base_constructor_selector_t{};
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, base_constructor_selector_t);
-  struct hyper_rectangular_constructor_selector_t{};
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, hyper_rectangular_constructor_selector_t);
+  struct base_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       base_constructor_selector_t);
+  struct hyper_rectangular_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       hyper_rectangular_constructor_selector_t);
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation

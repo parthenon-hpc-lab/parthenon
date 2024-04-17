@@ -72,7 +72,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
                     ? true
                     : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages), 
+      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -110,7 +110,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
   }
-  
+
   // Default root level, may be overwritten by another constructor
   root_level = 0;
   // SMR / AMR:
@@ -127,20 +127,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            hyper_rectangular_constructor_selector_t)
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
-  mesh_size = RegionSize({pin->GetReal("parthenon/mesh", "x1min"),
-               pin->GetReal("parthenon/mesh", "x2min"),
-               pin->GetReal("parthenon/mesh", "x3min")},
-              {pin->GetReal("parthenon/mesh", "x1max"),
-               pin->GetReal("parthenon/mesh", "x2max"),
-               pin->GetReal("parthenon/mesh", "x3max")},
-              {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-               pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-               pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
-              {pin->GetInteger("parthenon/mesh", "nx1"),
-               pin->GetInteger("parthenon/mesh", "nx2"),
-               pin->GetInteger("parthenon/mesh", "nx3")},
-              {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
-               pin->GetInteger("parthenon/mesh", "nx3") == 1});
+  mesh_size = RegionSize(
+      {pin->GetReal("parthenon/mesh", "x1min"), pin->GetReal("parthenon/mesh", "x2min"),
+       pin->GetReal("parthenon/mesh", "x3min")},
+      {pin->GetReal("parthenon/mesh", "x1max"), pin->GetReal("parthenon/mesh", "x2max"),
+       pin->GetReal("parthenon/mesh", "x3max")},
+      {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
+       pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
+       pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
+      {pin->GetInteger("parthenon/mesh", "nx1"), pin->GetInteger("parthenon/mesh", "nx2"),
+       pin->GetInteger("parthenon/mesh", "nx3")},
+      {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
+       pin->GetInteger("parthenon/mesh", "nx3") == 1});
   mesh_bcs = {
       GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
       GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
@@ -168,7 +166,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   RegisterLoadBalancing_(pin);
-  
+
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
   // SMR / AMR:
@@ -177,10 +175,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   } else {
     max_level = 63;
   }
-  
+
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-  
+
   InitUserMeshData(this, pin);
 
   CheckMeshValidity();
@@ -285,7 +283,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                           Packages_t &packages, int mesh_test) {
   // LFR: This routine should work for general block lists
   std::stringstream msg;
-  
+
   loclist = forest.GetMeshBlockListAndResolveGids();
   nbtotal = loclist.size();
   current_level = -1;
@@ -341,8 +339,6 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
-
-
 
 //----------------------------------------------------------------------------------------
 // destructor
