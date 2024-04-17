@@ -48,6 +48,7 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
@@ -154,7 +155,8 @@ class Mesh {
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
-                                        SimTime const &time, OutputType *ptype);
+                                        SimTime const &time,
+                                        const OutputParameters *params);
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
@@ -181,6 +183,12 @@ class Mesh {
   static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
+
+  static void UserMeshWorkBeforeRestartOutputDefault(Mesh *, ParameterInput *,
+                                                     SimTime const &,
+                                                     const OutputParameters *);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, const OutputParameters *)>
+      UserMeshWorkBeforeRestartOutput = &UserMeshWorkBeforeRestartOutputDefault;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);

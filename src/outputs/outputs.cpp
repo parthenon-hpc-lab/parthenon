@@ -441,6 +441,9 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
         first = false;
       }
+      if (ptype->output_params.file_type == "rst") {
+        pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+      }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
