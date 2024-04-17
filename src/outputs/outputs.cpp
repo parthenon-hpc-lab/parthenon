@@ -200,8 +200,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (op.file_type == "hst") {
-        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
-                                                       std::vector<std::string>());
+        // Do not use GetOrAddVector because it will pollute the input parameters for
+        // restarts
+        if (pin->DoesParameterExist(pib->block_name, "packages")) {
+          op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
+        } else {
+          op.packages = std::vector<std::string>();
+        }
       }
 
       // set output variable and optional data format string used in formatted writes

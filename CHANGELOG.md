@@ -11,6 +11,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1057]](https://github.com/parthenon-hpc-lab/parthenon/pull/1057) Fix history output after restarts
 - [[PR 1053]](https://github.com/parthenon-hpc-lab/parthenon/pull/1053) Set the correct root level on restart
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
