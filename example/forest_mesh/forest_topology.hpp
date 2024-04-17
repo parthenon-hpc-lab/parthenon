@@ -135,7 +135,7 @@ class Edge {
   std::array<std::pair<Direction, Offset>, 2> normals;
   std::optional<CellCentOffsets> loc{};
 
-  int LogicalCoordinateTransformation(const Edge &e2) const {
+  int RelativeOrientation(const Edge &e2) const {
     if (nodes[0] == e2.nodes[0] && nodes[1] == e2.nodes[1]) {
       return 1;
     } else if (nodes[0] == e2.nodes[1] && nodes[1] == e2.nodes[0]) {
@@ -277,7 +277,7 @@ inline std::vector<NeighborDesc> FindEdgeNeighbors(const std::shared_ptr<Face> &
   for (auto &neigh : possible_neighbors) {
     if (neigh != face_in) {
       for (auto &[neigh_loc, neigh_edge] : neigh->edges) {
-        int orientation = edge.LogicalCoordinateTransformation(neigh_edge);
+        int orientation = edge.RelativeOrientation(neigh_edge);
         if (orientation)
           neighbors.push_back(std::make_tuple(neigh, neigh_loc, orientation));
       }
