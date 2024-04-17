@@ -565,6 +565,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
 
+  // Initialize the forest
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  root_level = forest.root_level;
+
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
@@ -582,27 +586,29 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   InitUserMeshData(this, pin);
 
-  // Populate logical locations
+  // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
-
-    if (loclist[i].level() > current_level) {
-      current_level = loclist[i].level();
-    }
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
   }
 
+  // Update the location list and levels to agree with forest levels
   loclist = forest.GetMeshBlockListAndResolveGids();
+
+  current_level = std::numeric_limits<int>::min();
+  for (const auto &loc : loclist)
+    current_level = std::max(current_level, loc.level());
+
   int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -1264,6 +1270,26 @@ void Mesh::SetupMPIComms() {
   // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
   // inserted into pmb->pbval->bvars.
 #endif
+}
+
+// Return list of locations and levels for the legacy tree
+// TODO(LFR): It doesn't make sense to offset the level by the
+//   legacy tree root level since the location indices are defined
+//   for loc.level(). It seems this level offset is required for
+//   the output to agree with the legacy output though.
+std::pair<std::vector<std::int64_t>, std::vector<std::int64_t>>
+Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
+  std::vector<std::int64_t> levels, logicalLocations;
+  levels.reserve(nbtotal);
+  logicalLocations.reserve(nbtotal * 3);
+  for (auto loc : loclist) {
+    loc = forest.GetLegacyTreeLocation(loc);
+    levels.push_back(loc.level() - GetLegacyTreeRootLevel());
+    logicalLocations.push_back(loc.lx1());
+    logicalLocations.push_back(loc.lx2());
+    logicalLocations.push_back(loc.lx3());
+  }
+  return std::make_pair(levels, logicalLocations);
 }
 
 } // namespace parthenon
