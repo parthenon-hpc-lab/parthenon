@@ -13,7 +13,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "forest_topology.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "parthenon_manager.hpp"
