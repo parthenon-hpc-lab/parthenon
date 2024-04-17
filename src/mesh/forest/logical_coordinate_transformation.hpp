@@ -46,7 +46,8 @@ struct LogicalCoordinateTransformation {
 
   LogicalLocation Transform(const LogicalLocation &loc_in,
                             std::int64_t destination) const;
-  LogicalLocation InverseTransform(const LogicalLocation &loc_in, std::int64_t origin) const;
+  LogicalLocation InverseTransform(const LogicalLocation &loc_in,
+                                   std::int64_t origin) const;
 
   KOKKOS_INLINE_FUNCTION
   std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {

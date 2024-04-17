@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
-#define EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
+#ifndef MESH_FOREST_FOREST_TOPOLOGY_HPP_
+#define MESH_FOREST_FOREST_TOPOLOGY_HPP_
 
 #include <array>
 #include <map>
@@ -26,8 +26,8 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
-#include "mesh/forest/tree.hpp"
 #include "mesh/forest/logical_location.hpp"
+#include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -65,8 +65,9 @@ inline bool operator==(const EdgeLoc &lhs, const EdgeLoc &rhs) {
   return (lhs.dir == rhs.dir) && (lhs.lower == rhs.lower);
 }
 
-inline LogicalCoordinateTransformation LogicalCoordinateTransformationFromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor,
-                                                        int orientation) {
+inline LogicalCoordinateTransformation
+LogicalCoordinateTransformationFromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor,
+                                                int orientation) {
   if (origin.dir == Direction::K || neighbor.dir == Direction::K) {
     PARTHENON_FAIL("In 2D we shouldn't have explicit edges in the Z direction.");
   }
@@ -134,8 +135,8 @@ class Face : public std::enable_shared_from_this<Face> {
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)), dir{Direction::I, Direction::J},
-        normal{Direction::K}, normal_rhanded(true) {
+      : nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)),
+        dir{Direction::I, Direction::J}, normal{Direction::K}, normal_rhanded(true) {
     edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
     edges[EdgeLoc::West] = Edge({nodes[0], nodes[2]});
     edges[EdgeLoc::East] = Edge({nodes[1], nodes[3]});
@@ -189,7 +190,8 @@ inline const std::array<std::array<int, 7>, 8> allowed_face_node_permutations{
     std::array<int, 7>{3, 1, 2, 0, -2, -1, 1} // X0 -> -X1, X1 -> -X0
 };
 
-inline std::optional<LogicalCoordinateTransformation> CompareFaces(const Face *f1, const Face *f2) {
+inline std::optional<LogicalCoordinateTransformation> CompareFaces(const Face *f1,
+                                                                   const Face *f2) {
   for (auto &perm : allowed_face_node_permutations) {
     if (f1->nodes[0] == f2->nodes[perm[0]] && f1->nodes[1] == f2->nodes[perm[1]] &&
         f1->nodes[2] == f2->nodes[perm[2]] && f1->nodes[3] == f2->nodes[perm[3]]) {
@@ -207,7 +209,8 @@ inline std::optional<LogicalCoordinateTransformation> CompareFaces(const Face *f
   return {}; // These are not the same face
 }
 
-inline std::optional<LogicalCoordinateTransformation> CompareEdges(const Edge *e1, const Edge *e2) {
+inline std::optional<LogicalCoordinateTransformation> CompareEdges(const Edge *e1,
+                                                                   const Edge *e2) {
   if (e1->nodes[0] == e2->nodes[0] && e1->nodes[1] == e2->nodes[1]) {
     LogicalCoordinateTransformation orient;
     orient.SetDirection(e1->dir, e2->dir, false);
@@ -267,4 +270,4 @@ inline std::vector<NeighborDesc> FindEdgeNeighbors(const std::shared_ptr<Face> &
 } // namespace forest
 } // namespace parthenon
 
-#endif // EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
+#endif // MESH_FOREST_FOREST_TOPOLOGY_HPP_

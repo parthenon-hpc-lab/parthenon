@@ -31,8 +31,8 @@
 #include <vector>
 
 #include "mesh/forest/block_ownership.hpp"
-#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 

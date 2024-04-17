@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_FOREST_MESH_FOREST_NODE_HPP_
-#define EXAMPLE_FOREST_MESH_FOREST_NODE_HPP_
+#ifndef MESH_FOREST_FOREST_NODE_HPP_
+#define MESH_FOREST_FOREST_NODE_HPP_
 
 #include <array>
 #include <map>
@@ -25,7 +25,6 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-
 
 namespace parthenon {
 namespace forest {
@@ -46,4 +45,4 @@ class Node {
 } // namespace forest
 } // namespace parthenon
 
-#endif // EXAMPLE_FOREST_MESH_FOREST_TOPOLOGY_HPP_
+#endif // MESH_FOREST_FOREST_NODE_HPP_

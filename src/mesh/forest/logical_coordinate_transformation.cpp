@@ -26,8 +26,8 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -35,8 +35,9 @@
 namespace parthenon {
 namespace forest {
 
-LogicalLocation LogicalCoordinateTransformation::Transform(const LogicalLocation &loc_in,
-                                               std::int64_t destination) const {
+LogicalLocation
+LogicalCoordinateTransformation::Transform(const LogicalLocation &loc_in,
+                                           std::int64_t destination) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
@@ -61,8 +62,9 @@ LogicalLocation LogicalCoordinateTransformation::Transform(const LogicalLocation
   return LogicalLocation(destination, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-LogicalLocation LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
-                                                   std::int64_t origin) const {
+LogicalLocation
+LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
+                                                  std::int64_t origin) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {

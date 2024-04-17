@@ -26,10 +26,10 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/logical_coordinate_transformation.hpp"
-#include "mesh/forest/tree.hpp"
 #include "mesh/forest/forest_topology.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/forest/logical_location.hpp"
+#include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -62,12 +62,10 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
 
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
            std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
-    : Tree(Tree::private_t(), id, ndim, root_level) { 
-  domain = domain; 
+    : Tree(Tree::private_t(), id, ndim, root_level) {
+  domain = domain;
   boundary_conditions = bcs;
 }
-
-
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(
@@ -204,8 +202,8 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
           if (tloc.IsNeighbor(n))
-            neighbor_locs->push_back(
-                NeighborLocation(n, lcoord_trans.InverseTransform(n, GetId()), lcoord_trans));
+            neighbor_locs->push_back(NeighborLocation(
+                n, lcoord_trans.InverseTransform(n, GetId()), lcoord_trans));
         }
       } else if (include_internal) {
         neighbor_locs->push_back(NeighborLocation(

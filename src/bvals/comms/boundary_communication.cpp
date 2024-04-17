@@ -278,7 +278,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           auto &idxer = bnd_info(b).idxer[it];
           auto &lcoord_trans = bnd_info(b).lcoord_trans;
           auto &var = bnd_info(b).var;
-          const auto [tel, ftemp] = lcoord_trans.InverseTransform(bnd_info(b).topo_idx[it]);
+          const auto [tel, ftemp] =
+              lcoord_trans.InverseTransform(bnd_info(b).topo_idx[it]);
           Real fac = ftemp; // Can't capture structured bindings
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
@@ -298,7 +299,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] = lcoord_trans.InverseTransform({ii + m, jj, kk});
+                        const auto [il, jl, kl] =
+                            lcoord_trans.InverseTransform({ii + m, jj, kk});
                         if (idxer.IsActive(kl, jl, il))
                           var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
                       });
@@ -317,7 +319,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   const int ii = i;
                   Kokkos::parallel_for(
                       Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] = lcoord_trans.InverseTransform({ii + m, jj, kk});
+                        const auto [il, jl, kl] =
+                            lcoord_trans.InverseTransform({ii + m, jj, kk});
                         if (idxer.IsActive(kl, jl, il))
                           var(iel, tt, uu, vv, kl, jl, il) = default_val;
                       });

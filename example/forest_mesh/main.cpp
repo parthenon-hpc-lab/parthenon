@@ -13,8 +13,8 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "parthenon_manager.hpp"
 
@@ -36,14 +36,14 @@ Forest two_blocks() {
   nodes[3] = Node::create(3, {0.0, 1.0});
   nodes[4] = Node::create(4, {2.0, 0.0});
   nodes[5] = Node::create(5, {2.0, 1.0});
-  
+
   auto &n = nodes;
   std::vector<std::shared_ptr<Face>> faces;
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
-  
+
   auto forest = Forest::Make2D(faces);
-  
+
   // Do some refinements that should propagate into tree 1
   forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
   forest.Refine(LogicalLocation(1, 1, 0, 0, 0));
@@ -82,7 +82,7 @@ Forest squared_circle() {
 
   // Center block
   faces.emplace_back(Face::create(4, {n[4], n[5], n[6], n[7]}));
-  
+
   auto forest = Forest::Make2D(faces);
 
   // Do some refinements that should propagate into the south and west trees

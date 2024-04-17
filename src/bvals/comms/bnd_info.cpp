@@ -101,11 +101,12 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
-                                     const std::shared_ptr<Variable<Real>> &v,
-                                     TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores, 
-                                     const forest::LogicalCoordinateTransformation &lcoord_trans = forest::LogicalCoordinateTransformation()) {
+SpatiallyMaskedIndexer6D
+CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+            const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
+            IndexRangeType ir_type, bool prores,
+            const forest::LogicalCoordinateTransformation &lcoord_trans =
+                forest::LogicalCoordinateTransformation()) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
   const bool flux = v->IsSet(Metadata::Flux);
 
