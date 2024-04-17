@@ -334,7 +334,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   if (!out.allocated) return out;
 
   for (auto el : v->GetTopologicalElements()) {
-    out.include_el[static_cast<int>(el)] = true;
+    out.IncludeTopoEl(el) = true;
     out.idxer[static_cast<int>(el)] =
         CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
   }
@@ -349,7 +349,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   if (!out.allocated) return out;
 
   for (auto el : v->GetTopologicalElements())
-    out.include_el[static_cast<int>(el)] = true;
+    out.IncludeTopoEl(el) = true;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
         CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
@@ -366,7 +366,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
     auto elements = v->GetTopologicalElements();
     if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
     for (auto el : elements) {
-      out.include_el[static_cast<int>(el)] = true;
+      out.IncludeTopoEl(el) = true;
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryInteriorSend, true);
     }
@@ -391,7 +391,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   }
 
   for (auto el : v->GetTopologicalElements()) {
-    out.include_el[static_cast<int>(el)] = true;
+    out.IncludeTopoEl(el) = true;
     if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {

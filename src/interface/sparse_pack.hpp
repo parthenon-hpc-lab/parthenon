@@ -162,9 +162,9 @@ struct any : public base_t<true> {
   static std::string name() { return ".*"; }
 };
 
-struct any_nonflux : public base_t<true> {
+struct any_nonautoflux : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_nonflux(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION any_nonautoflux(Ts &&...args)
       : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return "^(?!bnd_flux::).+"; }
 };
