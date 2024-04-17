@@ -93,8 +93,10 @@ class Mesh {
   std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
-  const RegionSize &GetBlockSize() const;
-  RegionSize GetBlockSize(const LogicalLocation &loc) const;
+  const RegionSize &GetDefaultBlockSize() const { return base_block_size; }
+  RegionSize GetBlockSize(const LogicalLocation &loc) const {
+    return forest.GetBlockDomain(loc);
+  }
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   const forest::Forest &Forest() const { return forest; }
@@ -119,12 +121,10 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  LogicalLocMap_t leaf_grid_locs;
-  std::vector<LogicalLocMap_t> gmg_grid_locs;
-  std::vector<BlockList_t> gmg_block_lists;
-  std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
-  int GetGMGMaxLevel() { return gmg_grid_locs.size() - 1; }
-  int GetGMGMinLogicalLevel() { return gmg_min_logical_level_; }
+  std::map<int, BlockList_t> gmg_block_lists;
+  std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
+  int GetGMGMaxLevel() { return current_level; }
+  int GetGMGMinLevel() { return gmg_min_logical_level_; }
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
@@ -193,13 +193,6 @@ class Mesh {
     return forest.root_level + forest.forest_level;
   }
 
-  RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(
-        root_level, nrbx[0], nrbx[1], nrbx[2],
-        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
-        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
-        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);
-  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
@@ -305,16 +298,13 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-  void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
+  void SetGMGNeighbors();
   void
-  SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
+  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
-  void
-  SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                        RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                        int composite_logical_level = 0,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
+
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
@@ -326,7 +316,6 @@ class Mesh {
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
-  void PopulateLeafLocationMap();
   void BuildTagMapAndBoundaryBuffers();
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();

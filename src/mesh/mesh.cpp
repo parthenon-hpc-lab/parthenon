@@ -394,7 +394,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output some diagnostic information to terminal
 
@@ -427,8 +426,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
-  SetMeshBlockNeighbors(block_list, nbs, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
@@ -651,7 +651,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
@@ -688,8 +687,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
   }
-  SetMeshBlockNeighbors(block_list, nbs, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
@@ -920,8 +920,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-    for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
@@ -960,8 +960,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     BuildBoundaryBuffers(md);
-    for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }
@@ -1067,7 +1067,7 @@ void Mesh::FillDerived() {
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop as well as during remeshing
+// \brief  initialization before the main loop
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
@@ -1188,74 +1188,11 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
-  block_size = GetBlockSize(loc);
-  if (loc.tree() >= 0) {
-    auto bcs = forest.GetBlockBCs(loc);
-    for (int i = 0; i < BOUNDARY_NFACES; ++i)
-      block_bcs[i] = bcs[i];
-    return valid_region;
-  }
-
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_bcs[GetInnerBoundaryFace(dir)] =
-          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
-      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
-                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
-                                                 : BoundaryFlag::block;
-    } else {
-      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-    }
-  }
+  block_size = forest.GetBlockDomain(loc);
+  auto bcs = forest.GetBlockBCs(loc);
+  for (int i = 0; i < BOUNDARY_NFACES; ++i)
+    block_bcs[i] = bcs[i];
   return valid_region;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::GetBlockSize(const LogicalLocation &loc) const
-// \brief Find the (hyper-)rectangular region of the grid covered by the block at
-//        logical location loc
-
-RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
-  // TODO(LFR): Update this
-  if (loc.tree() >= 0) {
-    // Implies this is a location in a forest, not in the old Athena tree
-    return forest.GetBlockDomain(loc);
-  }
-  RegionSize block_size = GetBlockSize();
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
-      block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      // Correct for possible overshooting, since the root grid may not cover the
-      // entire logical level zero block of the mesh
-      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
-        // Need integer reduction factor, so transform location back to root level
-        PARTHENON_REQUIRE(loc.level() < root_level, "Something is messed up.");
-        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
-        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        block_size.nx(dir) =
-            block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
-        block_size.xmax(dir) = mesh_size.xmax(dir);
-      }
-    } else {
-      block_size.xmin(dir) = mesh_size.xmin(dir);
-      block_size.xmax(dir) = mesh_size.xmax(dir);
-    }
-  }
-  return block_size;
 }
 
 std::int64_t Mesh::GetTotalCells() {
@@ -1263,11 +1200,11 @@ std::int64_t Mesh::GetTotalCells() {
   return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
          pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
 }
+
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
 
 const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   // TODO(JMM): Luke this is for your Metadata::fine stuff.
