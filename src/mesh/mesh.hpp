@@ -205,20 +205,8 @@ class Mesh {
   std::vector<int> GetNbList() const noexcept { return nblist; }
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
-  // TODO(JMM): Put in implementation file?
-  auto GetLevelsAndLogicalLocationsFlat() const noexcept {
-    std::vector<std::int64_t> levels, logicalLocations;
-    levels.reserve(nbtotal);
-    logicalLocations.reserve(nbtotal * 3);
-    for (auto loc : loclist) {
-      loc = forest.GetLegacyTreeLocation(loc);
-      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
-      logicalLocations.push_back(loc.lx1());
-      logicalLocations.push_back(loc.lx2());
-      logicalLocations.push_back(loc.lx3());
-    }
-    return std::make_pair(levels, logicalLocations);
-  }
+  std::pair<std::vector<std::int64_t>, std::vector<std::int64_t>>
+  GetLevelsAndLogicalLocationsFlat() const noexcept;
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
