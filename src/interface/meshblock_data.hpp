@@ -113,7 +113,7 @@ class MeshBlockData {
   template <typename ID_t>
   void Initialize(const MeshBlockData<T> *src, const std::vector<ID_t> &vars,
                   const bool shallow_copy) {
-    assert(src != nullptr);
+    PARTHENON_DEBUG_REQUIRE(src != nullptr, "Source data must be non-null.");
     SetBlockPointer(src);
     resolved_packages_ = src->resolved_packages_;
     is_shallow_ = shallow_copy;
@@ -133,7 +133,7 @@ class MeshBlockData {
       }
     } else {
       for (const auto &v : vars) {
-        add_var(GetVarPtr(v));
+        add_var(src->GetVarPtr(v));
       }
     }
   }
@@ -150,14 +150,13 @@ class MeshBlockData {
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
   std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
-    auto it = varMap_.find(label);
-    PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
+    PARTHENON_REQUIRE_THROWS(varMap_.count(label),
                              "Couldn't find variable '" + label + "'");
-    return it->second;
+    return varMap_.at(label);
   }
   std::shared_ptr<Variable<T>> GetVarPtr(const Uid_t &uid) const {
     PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
-                             "Variable ID " + std::to_string(uid) + "not found!");
+                             "Variable ID " + std::to_string(uid) + " not found!");
     return varUidMap_.at(uid);
   }
 
