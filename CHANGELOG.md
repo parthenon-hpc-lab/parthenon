@@ -27,6 +27,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
 - [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
 
 
