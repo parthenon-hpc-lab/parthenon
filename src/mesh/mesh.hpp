@@ -90,7 +90,7 @@ class Mesh {
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
        Packages_t &packages, int test_flag = 0);
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, 
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        std::vector<std::shared_ptr<forest::Face>> &faces);
   ~Mesh();
 

@@ -185,10 +185,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           std::vector<std::shared_ptr<forest::Face>> &faces) 
+           std::vector<std::shared_ptr<forest::Face>> &faces)
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
-  mesh_size = RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
-  ndim = 2; 
+  mesh_size =
+      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+  ndim = 2;
   forest = forest::Forest::Make2D(faces);
   BuildBlockList(pin, app_in, packages, -1);
 }

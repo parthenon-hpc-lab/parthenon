@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
-  
+
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
