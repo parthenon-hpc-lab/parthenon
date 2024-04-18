@@ -74,6 +74,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                     : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
+      default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
@@ -120,8 +121,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  // Setup unique comms for each variable and swarm
   SetupMPIComms();
+
+  RegisterLoadBalancing_(pin);
+
+  mesh_data.SetMeshPointer(this);
+
+  InitUserMeshData(this, pin);
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -160,11 +166,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
   }
 
-  mesh_data.SetMeshPointer(this);
-
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
-  RegisterLoadBalancing_(pin);
 
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
@@ -178,8 +181,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
 
-  InitUserMeshData(this, pin);
-
   CheckMeshValidity();
 }
 
@@ -188,13 +189,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            int mesh_test)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
-  std::stringstream msg;
-
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
-
-  // initialize user-enrollable functions
-  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   if (multilevel) DoStaticRefinement(pin);
 
