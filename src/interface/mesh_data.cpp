@@ -40,8 +40,8 @@ template <typename T>
 std::shared_ptr<MeshBlock> MeshData<T>::GetBlock(const int i, const MeshData<T> *src,
                                                  const Mesh *pmesh) const {
   if (src->grid.type == GridType::two_level_composite) {
-    int gmg_level = src->grid.logical_level - pmesh->GetGMGMinLogicalLevel();
-    return pmesh->gmg_block_lists[gmg_level][i];
+    // JMM: need .at() here, not operator[] because of const correctness.
+    return pmesh->gmg_block_lists.at(src->grid.logical_level)[i];
   } else {
     return pmesh->block_list[i];
   }
