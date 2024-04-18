@@ -27,9 +27,9 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/relative_orientation.hpp"
 #include "mesh/forest/tree.hpp"
-#include "mesh/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -41,13 +41,22 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
   std::uint64_t gid{0};
   for (auto &[id, tree] : trees) {
     std::size_t start = mb_list.size();
-    auto tree_mbs = tree->GetMeshBlockList();
+    auto tree_mbs = tree->GetSortedMeshBlockList();
     mb_list.insert(mb_list.end(), std::make_move_iterator(tree_mbs.begin()),
                    std::make_move_iterator(tree_mbs.end()));
     std::size_t end = mb_list.size();
     for (int i = start; i < end; ++i)
       tree->InsertGid(mb_list[i], gid++);
   }
+
+  // Assign gids to the internal nodes
+  for (auto &[id, tree] : trees) {
+    std::size_t start = mb_list.size();
+    auto tree_int_locs = tree->GetSortedInternalNodeList();
+    for (auto &loc : tree_int_locs)
+      tree->InsertGid(loc, gid++);
+  }
+
   // The index of blocks in this list corresponds to their gid
   gids_resolved = true;
   return mb_list;

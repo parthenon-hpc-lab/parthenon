@@ -116,7 +116,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
-  // If an input was provided
+  // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
     if (arg.res_flag != 0) {
@@ -133,6 +133,16 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  PARTHENON_REQUIRE_THROWS(
+      !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
+          pinput->GetBoolean("parthenon/job", "run_only_analysis") == false,
+      "'parthenon/job/run_only_analysis=true' input parameter was found indicating "
+      "manual modification or restarting from an output written during analysis, which "
+      "is undefined behavior. If you don't know how this was triggered, please contact "
+      "the Parthenon developers.");
+  pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
+
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
 
