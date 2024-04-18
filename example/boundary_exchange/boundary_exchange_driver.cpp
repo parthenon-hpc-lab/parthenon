@@ -23,6 +23,8 @@
 // Local Includes
 #include "boundary_exchange.hpp"
 #include "boundary_exchange_driver.hpp"
+#include "mesh/forest/forest_node.hpp"
+#include "mesh/forest/forest_topology.hpp"
 
 // Preludes
 using namespace parthenon::driver::prelude;
@@ -48,8 +50,21 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
+  
+  std::unordered_map<uint64_t, std::shared_ptr<parthenon::forest::Node>> nodes;
+  nodes[0] = parthenon::forest::Node::create(0, {0.0, 0.0});
+  nodes[1] = parthenon::forest::Node::create(1, {1.0, 0.0});
+  nodes[2] = parthenon::forest::Node::create(2, {1.0, 1.0});
+  nodes[3] = parthenon::forest::Node::create(3, {0.0, 1.0});
+  nodes[4] = parthenon::forest::Node::create(4, {2.0, 0.0});
+  nodes[5] = parthenon::forest::Node::create(5, {2.0, 1.0});
 
-  pman.ParthenonInitPackagesAndMesh();
+  auto &n = nodes;
+  std::vector<std::shared_ptr<parthenon::forest::Face>> faces;
+  faces.emplace_back(parthenon::forest::Face::create(0, {n[3], n[0], n[2], n[1]}));
+  faces.emplace_back(parthenon::forest::Face::create(1, {n[1], n[4], n[2], n[5]}));
+
+  pman.ParthenonInitPackagesAndMesh(faces);
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {

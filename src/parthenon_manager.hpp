@@ -26,6 +26,7 @@
 #include "interface/swarm.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "utils/utils.hpp"
@@ -38,7 +39,7 @@ class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
-  void ParthenonInitPackagesAndMesh();
+  void ParthenonInitPackagesAndMesh(std::vector<std::shared_ptr<forest::Face>> faces = {});
   ParthenonStatus ParthenonFinalize();
 
   bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }
