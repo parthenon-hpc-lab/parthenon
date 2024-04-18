@@ -44,7 +44,7 @@ Forest two_blocks() {
 
   auto forest = Forest::Make2D(faces);
 
-  // Do some refinements that should propagate into tree 1
+  // Do some refinements that should propagate into tree 0
   forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
   forest.Refine(LogicalLocation(1, 1, 0, 0, 0));
   forest.Refine(LogicalLocation(1, 2, 0, 0, 0));
@@ -112,9 +112,8 @@ int main(int argc, char *argv[]) {
   pfile = fopen("faces.txt", "w");
   for (auto &tree : forest.GetTrees()) {
     fprintf(pfile, "%lu", tree->GetId());
-    for (auto &n : tree->forest_nodes) {
+    for (auto &n : tree->forest_nodes)
       fprintf(pfile, ", %e, %e", n->x[0], n->x[1]);
-    }
     fprintf(pfile, "\n");
 
     PrintBlockStructure("tree" + std::to_string(tree->GetId()) + ".txt", tree);
