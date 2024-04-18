@@ -17,31 +17,6 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Initialize(const MeshData<T> *src,
-                             const std::vector<std::string> &names, const bool shallow) {
-  if (src == nullptr) {
-    PARTHENON_THROW("src points at null");
-  }
-  pmy_mesh_ = src->GetParentPointer();
-  const int nblocks = src->NumBlocks();
-  block_data_.resize(nblocks);
-
-  grid = src->grid;
-  if (grid.type == GridType::two_level_composite) {
-    int gmg_level = src->grid.logical_level - pmy_mesh_->GetGMGMinLogicalLevel();
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = pmy_mesh_->gmg_block_lists[gmg_level][i]->meshblock_data.Add(
-          stage_name_, src->GetBlockData(i), names, shallow);
-    }
-  } else {
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
-          stage_name_, src->GetBlockData(i), names, shallow);
-    }
-  }
-}
-
-template <typename T>
 void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
   const int nblocks = blocks.size();
   ndim_ = ndim;
@@ -59,6 +34,17 @@ void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
     ndim = pmesh->ndim;
   }
   Set(blocks, pmesh, ndim);
+}
+
+template <typename T>
+std::shared_ptr<MeshBlock> MeshData<T>::GetBlock(const int i, const MeshData<T> *src,
+                                                 const Mesh *pmesh) const {
+  if (src->grid.type == GridType::two_level_composite) {
+    int gmg_level = src->grid.logical_level - pmesh->GetGMGMinLogicalLevel();
+    return pmesh->gmg_block_lists[gmg_level][i];
+  } else {
+    return pmesh->block_list[i];
+  }
 }
 
 template class MeshData<Real>;

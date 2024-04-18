@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "utils/error_checking.hpp"
+
 namespace parthenon {
 class Mesh;
 /// The DataCollection class is an abstract container that contains at least a
@@ -42,21 +44,36 @@ class DataCollection {
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
-                          const std::vector<std::string> &flags, const bool shallow);
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
-                          const std::vector<std::string> &flags = {});
-  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
-                                 const std::vector<std::string> &flags = {});
-  std::shared_ptr<T> &Add(const std::string &label) {
-    // error check for duplicate names
-    auto it = containers_.find(label);
+  template <typename ID_t>
+  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<T> &src,
+                          const std::vector<ID_t> &fields, const bool shallow) {
+    auto it = containers_.find(name);
     if (it != containers_.end()) {
+      if (!(it->second)->Contains(fields)) {
+        PARTHENON_THROW(name +
+                        " already exists in collection but does not contain fields");
+      }
       return it->second;
     }
-    containers_[label] = std::make_shared<T>();
-    return containers_[label];
+
+    auto c = std::make_shared<T>(name);
+    c->Initialize(src.get(), fields, shallow);
+
+    Set(name, c);
+
+    return containers_[name];
   }
+  template <typename ID_t = std::string>
+  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
+                          const std::vector<ID_t> &fields = {}) {
+    return Add(label, src, fields, false);
+  }
+  template <typename ID_t = std::string>
+  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
+                                 const std::vector<ID_t> &fields = {}) {
+    return Add(label, src, fields, true);
+  }
+  std::shared_ptr<T> &Add(const std::string &label);
 
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
