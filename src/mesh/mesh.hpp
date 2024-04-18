@@ -46,6 +46,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -89,6 +90,8 @@ class Mesh {
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
        Packages_t &packages, int test_flag = 0);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, 
+       std::vector<std::shared_ptr<forest::Face>> &faces);
   ~Mesh();
 
   // accessors
