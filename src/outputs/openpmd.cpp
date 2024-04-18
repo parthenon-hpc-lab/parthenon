@@ -203,14 +203,14 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // restart info, write always
     it.setAttribute("NBNew", pm->nbnew);
     it.setAttribute("NBDel", pm->nbdel);
-    it.setAttribute("RootLevel", pm->GetRootLevel());
+    it.setAttribute("RootLevel", pm->GetLegacyTreeRootLevel());
     it.setAttribute("Refine", pm->adaptive ? 1 : 0);
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
     it.setAttribute("BlocksPerPE", pm->GetNbList());
 
     // Mesh block size
-    const auto base_block_size = pm->GetBlockSize();
+    const auto base_block_size = pm->GetDefaultBlockSize();
     it.setAttribute("MeshBlockSize",
                     std::vector<int>{base_block_size.nx(X1DIR), base_block_size.nx(X2DIR),
                                      base_block_size.nx(X3DIR)});
