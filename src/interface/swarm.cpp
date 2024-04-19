@@ -244,7 +244,7 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // multiple threads are trying to erase the same pack_map entry.  We may need mutex.
   // NOTE(@pdmullen): I am deleting the cache associated with MeshData "base", each
   // partition associated with MeshData "base", and the MeshBlockData cache.  This is
-  // overkill, but the
+  // overkill, but the alternative is more involved...
   auto pm = pmb->pmy_mesh;
   auto &pmd = pm->mesh_data.Get("base");
   auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
