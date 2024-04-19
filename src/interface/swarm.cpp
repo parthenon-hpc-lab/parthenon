@@ -242,16 +242,21 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
   // NOTE(@pdmullen): I worry about a potential race condition when, in the future,
   // multiple threads are trying to erase the same pack_map entry.  We may need mutex.
-  // NOTE(@pdmullen): Why do I need to access these through GetOrAdd("base", i)? Since
-  // this is the only method I can find work, I worry about accesses by purely
-  // mesh_data.Get() elsewhere...
+  // NOTE(@pdmullen): I am deleting the cache associated with MeshData "base", each
+  // partition associated with MeshData "base", and the MeshBlockData cache.  This is
+  // overkill, but the
   auto pm = pmb->pmy_mesh;
+  auto &pmd = pm->mesh_data.Get("base");
+  auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
+  auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
+  if (real_md_cache.size() > 0) real_md_cache.clear();
+  if (int_md_cache.size() > 0) int_md_cache.clear();
   for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
-    auto &pmd = pmb->pmy_mesh->mesh_data.GetOrAdd("base", i);
-    auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
-    auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
-    if (real_md_cache.size() > 0) real_md_cache.clear();
-    if (int_md_cache.size() > 0) int_md_cache.clear();
+    auto &pmdp = pm->mesh_data.GetOrAdd("base", i);
+    auto &real_mdp_cache = pmdp->GetSwarmPackCache<Real>().pack_map;
+    auto &int_mdp_cache = pmdp->GetSwarmPackCache<int>().pack_map;
+    if (real_mdp_cache.size() > 0) real_mdp_cache.clear();
+    if (int_mdp_cache.size() > 0) int_mdp_cache.clear();
   }
 
   auto pmbd = pmb->meshblock_data.Get().get();
