@@ -316,40 +316,43 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     for (auto &pmb : pm->block_list) {
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
-      const std::string &mesh_record_name = var_name + "_lvl" + std::to_string(level);
 
-      // Create the mesh_record for this variable at the given level (if it doesn't exist
-      // yet)
-      if (!it.meshes.contains(mesh_record_name)) {
-        auto mesh_record = it.meshes[mesh_record_name];
+      for (const auto &comp_lbl : vinfo.component_labels) {
 
-        // These following attributes are shared across all components of the record.
+        const std::string &mesh_record_name =
+            var_name + "_" + comp_lbl + "_lvl" + std::to_string(level);
 
-        PARTHENON_REQUIRE_THROWS(
-            typeid(Coordinates_t) == typeid(UniformCartesian),
-            "OpenPMD in Parthenon currently only supports Cartesian coordinates.");
-        mesh_record.setGeometry(openPMD::Mesh::Geometry::cartesian);
-        auto &coords = pmb->coords;
-        // For uniform Cartesian, all dxN are const across the block so we just pick the
-        // first index.
-        Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
-        Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
-        Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
+        // Create the mesh_record for this variable at the given level (if it doesn't
+        // exist yet)
+        if (!it.meshes.contains(mesh_record_name)) {
+          auto mesh_record = it.meshes[mesh_record_name];
 
-        // TODO(pgrete) check if this should be tied to the MemoryLayout
-        mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
-        mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
-        mesh_record.setAxisLabels({"z", "y", "x"});
-        mesh_record.setGridGlobalOffset({
-            pm->mesh_size.xmin(X3DIR),
-            pm->mesh_size.xmin(X2DIR),
-            pm->mesh_size.xmin(X1DIR),
-        });
+          // These following attributes are shared across all components of the record.
 
-        // TODO(pgrete) need unitDimension and timeOffset for this record?
+          PARTHENON_REQUIRE_THROWS(
+              typeid(Coordinates_t) == typeid(UniformCartesian),
+              "OpenPMD in Parthenon currently only supports Cartesian coordinates.");
+          mesh_record.setGeometry(openPMD::Mesh::Geometry::cartesian);
+          auto &coords = pmb->coords;
+          // For uniform Cartesian, all dxN are const across the block so we just pick the
+          // first index.
+          Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
+          Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
+          Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
+
+          // TODO(pgrete) check if this should be tied to the MemoryLayout
+          mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
+          mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
+          mesh_record.setAxisLabels({"z", "y", "x"});
+          mesh_record.setGridGlobalOffset({
+              pm->mesh_size.xmin(X3DIR),
+              pm->mesh_size.xmin(X2DIR),
+              pm->mesh_size.xmin(X1DIR),
+          });
+
+          // TODO(pgrete) need unitDimension and timeOffset for this record?
+        }
       }
-
-      auto mesh_record = it.meshes[mesh_record_name];
 
       // Now that the mesh record exists, actually write the data
       auto out_var = pmb->meshblock_data.Get()->GetVarPtr(var_name);
@@ -396,8 +399,13 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                   PARTHENON_THROW("Expected v index doesn't match vector expectation.");
                 }
               } else {
-                comp_name = vinfo.component_labels[idx_component];
+                comp_name = openPMD::MeshRecordComponent::SCALAR;
+                // comp_name = vinfo.component_labels[idx_component];
               }
+              const std::string &mesh_record_name =
+                  var_name + "_" + vinfo.component_labels[idx_component] + "_lvl" +
+                  std::to_string(level);
+              auto mesh_record = it.meshes[mesh_record_name];
               auto mesh_comp = mesh_record[comp_name];
 
               // TODO(pgrete) needs to be updated for face and edges etc
