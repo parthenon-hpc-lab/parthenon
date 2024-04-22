@@ -183,7 +183,8 @@ void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                                    const OutputUtils::VarInfo &info,
                                    std::vector<Real> &dataVec,
-                                   int file_output_format_version) const {
+                                   int file_output_format_version,
+                                   Mesh * /*pmesh*/) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -224,6 +225,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
       H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
   const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
+  // TODO(reviewer) What's going on here? The follow line is identical to the one above.
   PARTHENON_HDF5_CHECK(
       H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 

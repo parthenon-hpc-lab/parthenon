@@ -108,14 +108,11 @@ add_library(parthenon
   bvals/boundary_conditions_generic.hpp
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
-
   bvals/bvals.cpp
   bvals/bvals.hpp
-  bvals/bvals_base.cpp
-  bvals/bvals_interfaces.hpp
+  bvals/neighbor_block.cpp
+  bvals/neighbor_block.hpp
   bvals/boundary_flag.cpp
-  bvals/bvals_var.cpp
-  bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
@@ -161,6 +158,12 @@ add_library(parthenon
 
   mesh/amr_loadbalance.cpp
   mesh/domain.hpp
+  mesh/forest/forest.cpp
+  mesh/forest/forest.hpp
+  mesh/forest/relative_orientation.hpp
+  mesh/forest/relative_orientation.cpp
+  mesh/forest/tree.hpp
+  mesh/forest/tree.cpp
   mesh/logical_location.cpp
   mesh/logical_location.hpp
   mesh/mesh_refinement.cpp
@@ -170,8 +173,6 @@ add_library(parthenon
   mesh/mesh.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
-  mesh/meshblock_tree.cpp
-  mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
 
   outputs/ascent.cpp
@@ -179,6 +180,7 @@ add_library(parthenon
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
+  outputs/openpmd.cpp
   outputs/output_utils.cpp
   outputs/output_utils.hpp
   outputs/outputs.cpp
@@ -194,6 +196,8 @@ add_library(parthenon
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
+  outputs/restart_opmd.cpp
+  outputs/restart_opmd.hpp
   outputs/vtk.cpp
 
   parthenon/driver.hpp
@@ -234,6 +238,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
@@ -306,6 +311,10 @@ endif()
 
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+  target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 
 # For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with

@@ -31,11 +31,12 @@ include(CTest)
 # Compile time constants
 
 # Compile Options
-option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
+option(PARTHENON_SINGLE_PRENSION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_ENABLE_OPENPMD "OpenPMD is enabled by default if found, set this to True to disable OpenPMD" ON)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -62,9 +63,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 21 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 22 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=e16b14272915b4607965e5900961402f6da96dc13da8ea3c3d213d61f82d3a1dded08c40a9ab644aa3409d93a045bba360a90a43dc289b24f525878f9ba50890"
+  "SHA512=c64f34b6841569c74c3918aa33d5c1fe6795b6ba124e25be7184c48f589ebe634062955e97969e68d252e59d8d0fce5d65e32b4252e2c2537f9f49ebfdf37ee0"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -185,6 +186,25 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
   install(TARGETS HDF5_C EXPORT parthenonTargets)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+#TODO(pgrete) add logic for serial/parallel
+#TODO(pgrete) add logic for internal/external build
+  include(FetchContent)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+  set(openPMD_BUILD_CLI_TOOLS OFF)
+  set(openPMD_BUILD_EXAMPLES OFF)
+  set(openPMD_BUILD_TESTING OFF)
+  set(openPMD_BUILD_SHARED_LIBS OFF)  # precedence over BUILD_SHARED_LIBS if needed
+  set(openPMD_INSTALL OFF)            # or instead use:
+  # set(openPMD_INSTALL ${BUILD_SHARED_LIBS})  # only install if used as a shared library
+  set(openPMD_USE_PYTHON OFF)
+  FetchContent_Declare(openPMD
+    GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
+    GIT_TAG        "0.15.2")
+  FetchContent_MakeAvailable(openPMD)
+  install(TARGETS openPMD EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions

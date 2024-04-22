@@ -55,6 +55,7 @@ struct VarInfo {
   MetadataFlag where;
   bool is_sparse;
   bool is_vector;
+  bool is_coordinate_field;
   IndexShape cellbounds;
   std::vector<std::string> component_labels;
   // list of topological elements in variable... e.g., Face1, Face2, etc
@@ -132,7 +133,8 @@ struct VarInfo {
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
-        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1) {
+        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
+        is_coordinate_field(metadata.IsCoordinateField()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
@@ -337,12 +339,28 @@ std::vector<Real> ComputeXminBlocks(Mesh *pm);
 std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 
+// Takes a vector containing flattened data of all rank local blocks and returns the
+// flattened data over all blocks.
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
+
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
 // where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
+
+// Return all variables to write, i.e., for restarts all indpendent variables and ones
+// with explicit Restart flag, but also variables explicitly defined to output in the
+// input file.
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables);
+
+// Returns a sorted vector of VarInfo associated with vars
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds);
 
 } // namespace OutputUtils
 } // namespace parthenon

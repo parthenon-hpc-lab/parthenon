@@ -58,6 +58,7 @@ struct OutputParameters {
   std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
+  std::vector<std::string> packages;
   Real next_time, dt;
   int file_number;
   bool include_ghost_zones, cartesian_vector;
@@ -136,6 +137,7 @@ class OutputType {
 
 // Function signature for currently supported user output functions
 using HstFun_t = std::function<Real(MeshData<Real> *md)>;
+using HstVecFun_t = std::function<std::vector<Real>(MeshData<Real> *md)>;
 
 // Container
 struct HistoryOutputVar {
@@ -147,9 +149,20 @@ struct HistoryOutputVar {
       : hst_op(hst_op_), hst_fun(hst_fun_), label(label_) {}
 };
 
+struct HistoryOutputVec {
+  UserHistoryOperation hst_op;
+  HstVecFun_t hst_vec_fun;
+  std::string label;
+  HistoryOutputVec(const UserHistoryOperation &hst_op_, const HstVecFun_t &hst_vec_fun_,
+                   const std::string &label_)
+      : hst_op(hst_op_), hst_vec_fun(hst_vec_fun_), label(label_) {}
+};
+
 using HstVar_list = std::vector<HistoryOutputVar>;
+using HstVec_list = std::vector<HistoryOutputVec>;
 // Hardcoded global entry to be used by each package to enroll user output functions
 const char hist_param_key[] = "HistoryFunctions";
+const char hist_vec_param_key[] = "HistoryVectorFunctions";
 
 //----------------------------------------------------------------------------------------
 //! \class HistoryFile
@@ -188,6 +201,18 @@ class AscentOutput : public OutputType {
   //  Ghost mask currently (Ascent 0.9) needs to be of float type on device as the
   //  automated conversion between int and float does not work
   ParArray1D<Real> ghost_mask_;
+};
+
+//----------------------------------------------------------------------------------------
+//! \class OpenPMDOutput
+//  \brief derived OutputType class for OpenPMD based output
+
+class OpenPMDOutput : public OutputType {
+ public:
+  explicit OpenPMDOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
 };
 
 #ifdef ENABLE_HDF5

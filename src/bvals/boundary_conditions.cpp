@@ -16,7 +16,7 @@
 
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/boundary_conditions_generic.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "defs.hpp"
 #include "interface/meshblock_data.hpp"
 #include "mesh/domain.hpp"
