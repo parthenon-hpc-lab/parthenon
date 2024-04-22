@@ -115,7 +115,7 @@ void Swarm::SetNeighborIndices1D_() {
   // Indicate which neighbor regions correspond to each neighbor meshblock
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.ni.ox1;
+    const int i = nb.offsets(X1DIR);
 
     if (i == -1) {
       neighbor_indices_h(0, 0, 0) = n;
@@ -162,8 +162,8 @@ void Swarm::SetNeighborIndices2D_() {
   // Indicate which neighbor regions correspond to each neighbor meshblock
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.ni.ox1;
-    const int j = nb.ni.ox2;
+    const int i = nb.offsets(X1DIR);
+    const int j = nb.offsets(X2DIR);
 
     if (i == -1) {
       if (j == -1) {
@@ -229,9 +229,9 @@ void Swarm::SetNeighborIndices3D_() {
   // Indicate which neighbor regions correspond to each neighbor meshblock
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.ni.ox1;
-    const int j = nb.ni.ox2;
-    const int k = nb.ni.ox3;
+    const int i = nb.offsets(X1DIR);
+    const int j = nb.offsets(X2DIR);
+    const int k = nb.offsets(X3DIR);
 
     if (i == -1) {
       if (j == -1) {
