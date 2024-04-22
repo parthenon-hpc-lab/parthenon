@@ -143,6 +143,28 @@ selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
 required by the developer.
 
+Postprocessing/native analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A rudimentary postprocessing option is available to analyze data in
+restart files within the downstream/Parthenon framework, i.e., making use of
+native compute capabilities.
+
+To trigger this kind of analysis, restart with ``-a restart.rhdf`` (instead of
+``-r``).
+This will launch the standard driver as if a simulation would be restarted,
+but never call the main time loop.
+Only the callbacks ``UserWorkBeforeLoop`` are executed.
+Afterwards, all output blocks that have the parameter ``analysis_output=true`` are
+going to be processed including ``UserWorkBeforeOutput`` callbacks.
+
+Note, the standard modifications to the original input parameters via the command line
+or via an input file apply.
+A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
+output block is specified in a file called ``sample_hist.in`` with all necessary details
+(particularly the ``analysis_output=true`` parameter within said block) and then the
+data can be processed via ``-a restart.rhdf -i sample_hist.in``.
+
 .. _output hist files:
 
 History Files

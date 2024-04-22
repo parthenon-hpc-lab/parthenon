@@ -53,6 +53,12 @@ class ArgParse {
           res_flag = 1;
           restart_filename = argv[++i];
           break;
+        case 'a': // -a <restart_file>
+          invalid = invalid_arg();
+          res_flag = 1;
+          analysis_flag = true;
+          restart_filename = argv[++i];
+          break;
         case 'd': // -d <run_directory>
           invalid = invalid_arg();
           prundir = argv[++i];
@@ -80,6 +86,7 @@ class ArgParse {
             std::cout << "Options:" << std::endl;
             std::cout << "  -i <file>       specify input file [athinput]\n";
             std::cout << "  -r <file>       restart with this file\n";
+            std::cout << "  -a <file>       analyze/postprocess this file\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
             std::cout << "  -n              parse input file and quit\n";
             std::cout << "  -c              show configuration and quit\n";
@@ -118,6 +125,7 @@ class ArgParse {
   char *input_filename = nullptr;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
+  bool analysis_flag = false;
   int res_flag = 0;
   int narg_flag = 0;
   int mesh_flag = 0;

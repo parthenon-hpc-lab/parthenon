@@ -80,7 +80,7 @@ constexpr auto get_array_from_tuple(tuple_t &&tuple) {
 //  \brief static data and functions that implement a simple signal handling system
 namespace SignalHandler {
 
-enum class OutputSignal { none, now, final };
+enum class OutputSignal { none, now, final, analysis };
 constexpr int nsignal = 3;
 // using the +1 for signaling based on "output_now" trigger
 static volatile int signalflag[nsignal + 1];

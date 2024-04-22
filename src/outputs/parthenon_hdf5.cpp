@@ -244,6 +244,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const VariableVector<Real> &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
+    PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
+                            "There can be at most one coordinates vector");
+
     VariableVector<Real> out;
     if (restart_) {
       // get all vars with flag Independent OR restart

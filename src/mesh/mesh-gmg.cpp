@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -43,16 +43,8 @@
 
 namespace parthenon {
 
-void Mesh::PopulateLeafLocationMap() {
-  const int nbtot = ranklist.size();
-  leaf_grid_locs.clear();
-  for (int ib = 0; ib < nbtot; ++ib) {
-    leaf_grid_locs[loclist[ib]] = std::make_pair(ib, ranklist[ib]);
-  }
-}
-
 void Mesh::SetMeshBlockNeighbors(
-    BlockList_t &block_list, int nbs, const std::vector<int> &ranklist,
+    GridIdentifier grid_id, BlockList_t &block_list, const std::vector<int> &ranklist,
     const std::unordered_set<LogicalLocation> &newly_refined) {
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
@@ -62,13 +54,13 @@ void Mesh::SetMeshBlockNeighbors(
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
     const auto &loc = pmb->loc;
-    auto neighbors = forest.FindNeighbors(loc);
+    auto neighbors = forest.FindNeighbors(loc, grid_id);
 
     // Build NeighborBlocks for unique neighbors
     int buf_id = 0;
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);
-      auto offsets = loc.GetSameLevelOffsetsForest(nloc.origin_loc);
+      auto offsets = loc.GetSameLevelOffsets(nloc.origin_loc);
       auto f =
           loc.GetAthenaXXFaceOffsets(nloc.origin_loc, offsets[0], offsets[1], offsets[2]);
       int bid = buffer_id.GetID(offsets[0], offsets[1], offsets[2], f[0], f[1]);
@@ -79,236 +71,124 @@ void Mesh::SetMeshBlockNeighbors(
       auto fn = nloc.origin_loc.GetAthenaXXFaceOffsets(loc, -offsets[0], -offsets[1],
                                                        -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
-
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[gid], gid,
+      int lgid = forest.GetLeafGid(nloc.global_loc);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[lgid], gid,
                                  offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
-      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc);
+      auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
       nb.ownership =
-          DetermineOwnershipForest(nloc.global_loc, neighbor_neighbors, newly_refined);
+          DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
 
-    pmb->neighbors = all_neighbors;
-  }
-}
-
-void Mesh::SetSameLevelNeighbors(
-    BlockList_t &block_list, const LogicalLocMap_t &loc_map, RootGridInfo root_grid,
-    int nbs, bool gmg_neighbors, int composite_logical_level,
-    const std::unordered_set<LogicalLocation> &newly_refined) {
-  BufferID buffer_id(ndim, multilevel);
-
-  for (auto &pmb : block_list) {
-    auto loc = pmb->loc;
-    auto gid = pmb->gid;
-    auto *neighbor_list = gmg_neighbors ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
-    if (gmg_neighbors && loc.level() == composite_logical_level - 1) {
-      neighbor_list = &(pmb->gmg_composite_finer_neighbors);
-    } else if (gmg_neighbors && loc.level() == composite_logical_level) {
-      neighbor_list = &(pmb->gmg_same_neighbors);
-    } else if (gmg_neighbors) {
-      PARTHENON_FAIL("GMG grid was build incorrectly.");
-    }
-
-    *neighbor_list = {};
-
-    auto possible_neighbors = loc.GetPossibleNeighbors(root_grid);
-    int buf_id = 0;
-    for (auto &pos_neighbor_location : possible_neighbors) {
-      if (gmg_neighbors && loc.level() == composite_logical_level - 1 &&
-          loc.level() == pos_neighbor_location.level())
-        continue;
-      if (loc_map.count(pos_neighbor_location) > 0) {
-        const auto &gid_rank = loc_map.at(pos_neighbor_location);
-        auto offsets = loc.GetSameLevelOffsets(pos_neighbor_location, root_grid);
-        // This inner loop is necessary in case a block pair has multiple neighbor
-        // connections due to periodic boundaries
-        for (auto ox1 : offsets[0]) {
-          for (auto ox2 : offsets[1]) {
-            for (auto ox3 : offsets[2]) {
-              NeighborConnect nc;
-              if (pos_neighbor_location.level() != loc.level()) {
-                // Check that the two blocks are in fact neighbors in this offset
-                // direction, since we only checked that they are actually neighbors
-                // when they have both been derefined to the coarser of their levels
-                // (this should only play a role in small meshes with periodic
-                // bounday conditions)
-                auto &fine_loc = pos_neighbor_location.level() > loc.level()
-                                     ? pos_neighbor_location
-                                     : loc;
-                int mult = loc.level() - pos_neighbor_location.level();
-                std::array<int, 3> ox{ox1, ox2, ox3};
-                bool not_neighbor = false;
-                for (int dir = 0; dir < 3; ++dir) {
-                  if (ox[dir] != 0) {
-                    // temp should be +1 if a block is to the right within its parent
-                    // block and -1 if it is to the left.
-                    const int temp =
-                        2 * (fine_loc.l(dir) - 2 * (fine_loc.l(dir) >> 1)) - 1;
-                    PARTHENON_DEBUG_REQUIRE(temp * temp == 1, "Bad Offset");
-                    if (temp != mult * ox[dir]) not_neighbor = true;
-                  }
-                }
-                if (not_neighbor) continue;
-              }
-              int connect_indicator = std::abs(ox1) + std::abs(ox2) + std::abs(ox3);
-              if (connect_indicator == 0) continue;
-              if (connect_indicator == 1) {
-                nc = NeighborConnect::face;
-              } else if (connect_indicator == 2) {
-                nc = NeighborConnect::edge;
-              } else if (connect_indicator == 3) {
-                nc = NeighborConnect::corner;
-              }
-              auto f = loc.GetAthenaXXFaceOffsets(pos_neighbor_location, ox1, ox2, ox3,
-                                                  root_grid);
-              auto fn = pos_neighbor_location.GetAthenaXXFaceOffsets(loc, -ox1, -ox2,
-                                                                     -ox3, root_grid);
-              int bid = buffer_id.GetID(ox1, ox2, ox3, f[0], f[1]);
-              int tid = buffer_id.GetID(-ox1, -ox2, -ox3, fn[0], fn[1]);
-              neighbor_list->emplace_back(
-                  pmb->pmy_mesh, pos_neighbor_location, gid_rank.second, gid_rank.first,
-                  gid_rank.first - nbs, std::array<int, 3>{ox1, ox2, ox3}, nc, bid, tid,
-                  f[0], f[1]);
-            }
-          }
-        }
-      }
-    }
-
-    std::sort(neighbor_list->begin(), neighbor_list->end(),
-              [](auto lhs, auto rhs) { return lhs.bufid < rhs.bufid; });
-
-    // Set neighbor block ownership
-    std::unordered_set<LogicalLocation> allowed_neighbors;
-    allowed_neighbors.insert(pmb->loc);
-    for (auto &nb : *neighbor_list)
-      allowed_neighbors.insert(nb.loc);
-    for (auto &nb : *neighbor_list) {
-      nb.ownership =
-          DetermineOwnership(nb.loc, allowed_neighbors, root_grid, newly_refined);
-      nb.ownership.initialized = true;
+    if (grid_id.type == GridType::leaf) {
+      pmb->neighbors = all_neighbors;
+    } else if (grid_id.type == GridType::two_level_composite &&
+               pmb->loc.level() == grid_id.logical_level) {
+      pmb->gmg_same_neighbors = all_neighbors;
+    } else if (grid_id.type == GridType::two_level_composite &&
+               pmb->loc.level() == grid_id.logical_level - 1) {
+      pmb->gmg_composite_finer_neighbors = all_neighbors;
     }
   }
 }
 
-void Mesh::BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   if (!multigrid) return;
-  // Create GMG logical location lists, first just copy coarsest grid
-  auto block_size_default = GetBlockSize();
 
+  // See how many times we can go below logical level zero based on the
+  // number of times a blocks zones can be reduced by 2^D
   int gmg_level_offset = std::numeric_limits<int>::max();
+  auto block_size_default = GetDefaultBlockSize();
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
-      int dir_allowed_levels =
-          NumberOfBinaryTrailingZeros(block_size_default.nx(dir) * nrbx[dir - 1]);
+      int dir_allowed_levels = NumberOfBinaryTrailingZeros(block_size_default.nx(dir));
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
 
-  const int gmg_min_level = root_level - gmg_level_offset;
+  const int gmg_min_level = -gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
-
-  const int gmg_levels = current_level - gmg_min_level + 1;
-  gmg_grid_locs = std::vector<LogicalLocMap_t>(gmg_levels);
-  gmg_block_lists = std::vector<BlockList_t>(gmg_levels);
+  for (int level = gmg_min_level; level <= current_level; ++level) {
+    gmg_block_lists[level] = BlockList_t();
+    gmg_mesh_data[level] = DataCollection<MeshData<Real>>();
+  }
 
   // Create MeshData objects for GMG
-  gmg_mesh_data = std::vector<DataCollection<MeshData<Real>>>(gmg_levels);
-  for (auto &mdc : gmg_mesh_data)
+  for (auto &[l, mdc] : gmg_mesh_data)
     mdc.SetMeshPointer(this);
 
-  // Add leaf grid locations to GMG grid levels
-  int gmg_gid = 0;
-  for (auto loc : loclist) {
-    const int gmg_level = gmg_levels - 1 + loc.level() - current_level;
-    gmg_grid_locs[gmg_level].insert(
-        {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
-    if (gmg_level < gmg_levels - 1) {
-      gmg_grid_locs[gmg_level + 1].insert(
-          {loc, std::pair<int, int>(gmg_gid, ranklist[gmg_gid])});
+  // Fill/create gmg block lists based on this ranks block list
+  for (auto &pmb : block_list) {
+    const int level = pmb->loc.level();
+    // Add the leaf block to its level
+    gmg_block_lists[level].push_back(pmb);
+
+    // Add the leaf block to the next finer level if required
+    if (level < current_level) {
+      gmg_block_lists[level + 1].push_back(pmb);
     }
-    if (ranklist[gmg_gid] == Globals::my_rank) {
-      const int lid = gmg_gid - nslist[Globals::my_rank];
-      gmg_block_lists[gmg_level].push_back(block_list[lid]);
-      if (gmg_level < gmg_levels - 1)
-        gmg_block_lists[gmg_level + 1].push_back(block_list[lid]);
+
+    // Create internal blocks that share a Morton number with this block
+    // and add them to gmg two-level composite grid block lists. This
+    // determines which process internal blocks live on
+    auto loc = pmb->loc.GetParent();
+    while (loc.level() >= gmg_min_level && loc.morton() == pmb->loc.morton()) {
+      RegionSize block_size = GetDefaultBlockSize();
+      BoundaryFlag block_bcs[6];
+      SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
+      gmg_block_lists[loc.level()].push_back(
+          MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
+                          app_in, packages, resolved_packages, gflag));
+      loc = loc.GetParent();
     }
-    gmg_gid++;
   }
 
-  // Fill in internal nodes for GMG grid levels from levels on finer GMG grid
-  for (int gmg_level = gmg_levels - 2; gmg_level >= 0; --gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
-    for (auto &[loc, gid_rank] : gmg_grid_locs[gmg_level + 1]) {
-      if (loc.level() == grid_logical_level + 1) {
-        auto parent = loc.GetParent();
-        if (parent.morton() == loc.morton()) {
-          gmg_grid_locs[gmg_level].insert(
-              {parent, std::make_pair(gmg_gid, gid_rank.second)});
-          if (gid_rank.second == Globals::my_rank) {
-            BoundaryFlag block_bcs[6];
-            auto block_size = block_size_default;
-            SetBlockSizeAndBoundaries(parent, block_size, block_bcs);
-            gmg_block_lists[gmg_level].push_back(
-                MeshBlock::Make(gmg_gid, -1, parent, block_size, block_bcs, this, pin,
-                                app_in, packages, resolved_packages, gflag));
+  // Sort the gmg block lists by gid
+  for (auto &[level, bl] : gmg_block_lists) {
+    std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
+  }
+}
+
+void Mesh::SetGMGNeighbors() {
+  if (!multigrid) return;
+  const int gmg_min_level = GetGMGMinLevel();
+  // Sort the gmg block lists by gid and find neighbors
+  for (auto &[level, bl] : gmg_block_lists) {
+    for (auto &pmb : bl) {
+      // Coarser neighbor
+      pmb->gmg_coarser_neighbors.clear();
+      if (pmb->loc.level() > gmg_min_level) {
+        auto ploc = pmb->loc.GetParent();
+        int gid = forest.GetGid(ploc);
+        if (gid >= 0) {
+          int leaf_gid = forest.GetLeafGid(ploc);
+          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ranklist[leaf_gid],
+                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
+                                                  0, 0);
+        }
+      }
+
+      // Finer neighbor(s)
+      pmb->gmg_finer_neighbors.clear();
+      if (pmb->loc.level() < current_level) {
+        auto dlocs = pmb->loc.GetDaughters(ndim);
+        for (auto &d : dlocs) {
+          int gid = forest.GetGid(d);
+          if (gid >= 0) {
+            int leaf_gid = forest.GetLeafGid(d);
+            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid],
+                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
+                                                  0, 0);
           }
-          gmg_gid++;
         }
       }
-    }
-  }
 
-  // Find same level neighbors on all GMG levels
-  auto root_grid = this->GetRootGridInfo();
-  for (int gmg_level = 0; gmg_level < gmg_levels; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
-    SetSameLevelNeighbors(gmg_block_lists[gmg_level], gmg_grid_locs[gmg_level], root_grid,
-                          nbs, true, grid_logical_level);
-  }
-
-  // Now find GMG coarser neighbor
-  for (int gmg_level = 1; gmg_level < gmg_levels; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
-    for (auto &pmb : gmg_block_lists[gmg_level]) {
-      if (pmb->loc.level() != grid_logical_level) continue;
-      auto parent_loc = pmb->loc.GetParent();
-      auto loc = pmb->loc;
-      auto gid = pmb->gid;
-      auto rank = Globals::my_rank;
-      if (gmg_grid_locs[gmg_level - 1].count(parent_loc) > 0) {
-        loc = parent_loc;
-        gid = gmg_grid_locs[gmg_level - 1][parent_loc].first;
-        rank = gmg_grid_locs[gmg_level - 1][parent_loc].second;
-      } else {
-        PARTHENON_FAIL("There is something wrong with GMG block list.");
-      }
-      pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, loc, rank, gid, gid - nbs,
-                                              std::array<int, 3>{0, 0, 0},
-                                              NeighborConnect::none, 0, 0, 0, 0);
-    }
-  }
-
-  // Now find finer GMG neighbors
-  for (int gmg_level = 0; gmg_level < gmg_levels - 1; ++gmg_level) {
-    int grid_logical_level = gmg_level - gmg_levels + 1 + current_level;
-    for (auto &pmb : gmg_block_lists[gmg_level]) {
-      if (pmb->loc.level() != grid_logical_level) continue;
-      auto daughter_locs = pmb->loc.GetDaughters();
-      for (auto &daughter_loc : daughter_locs) {
-        if (gmg_grid_locs[gmg_level + 1].count(daughter_loc) > 0) {
-          auto &gid_rank = gmg_grid_locs[gmg_level + 1][daughter_loc];
-          pmb->gmg_finer_neighbors.emplace_back(
-              pmb->pmy_mesh, daughter_loc, gid_rank.second, gid_rank.first,
-              gid_rank.first - nbs, std::array<int, 3>{0, 0, 0}, NeighborConnect::none, 0,
-              0, 0, 0);
-        }
-      }
+      // Same level neighbors
+      SetMeshBlockNeighbors(GridIdentifier::two_level_composite(level), bl, ranklist);
     }
   }
 }
