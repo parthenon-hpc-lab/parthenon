@@ -155,8 +155,7 @@ class Mesh {
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
-                                        SimTime const &time,
-                                        const OutputParameters *params);
+                                        SimTime const &time);
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
@@ -185,9 +184,8 @@ class Mesh {
       UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
 
   static void UserMeshWorkBeforeRestartOutputDefault(Mesh *, ParameterInput *,
-                                                     SimTime const &,
-                                                     const OutputParameters *);
-  std::function<void(Mesh *, ParameterInput *, SimTime const &, const OutputParameters *)>
+                                                     SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       UserMeshWorkBeforeRestartOutput = &UserMeshWorkBeforeRestartOutputDefault;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,

@@ -167,6 +167,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
+  if (app_in->UserMeshWorkBeforeRestartOutput != nullptr) {
+    UserMeshWorkBeforeRestartOutput = app_in->UserMeshWorkBeforeRestartOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -916,15 +919,14 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
 // \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
 // \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
 void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
-                                            SimTime const &time,
-                                            const OutputParameters *params) {
+                                            SimTime const &time) {
 
   // call Mesh version
-  mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time, params);
+  mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time);
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeRestartOutput(pmb.get(), pin, params);
+    pmb->UserWorkBeforeRestartOutput(pmb.get(), pin);
   }
 }
 

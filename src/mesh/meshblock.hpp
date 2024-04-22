@@ -292,6 +292,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                               ParameterInput *pin); // called in Mesh fn (friend class)
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =
       &UserWorkBeforeOutputDefault;
+  static void UserWorkBeforeRestartOutputDefault(
+      MeshBlock *pmb,
+      ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeRestartOutput =
+      &UserWorkBeforeRestartOutputDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
