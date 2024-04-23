@@ -45,13 +45,15 @@ using namespace loops;
 using namespace loops::shorthands;
 
 static std::array<std::mutex, 2 * NUM_BNDRY_TYPES> mutex;
+//static std::mutex mutex;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(bound_type) + 1;
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
@@ -64,11 +66,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
 
   if (nbound == 0) {
-    mutex[mutex_id].unlock();
+    //mutex[mutex_id].unlock();
+    //mutex.unlock();
     return TaskStatus::complete;
   }
   if (other_communication_unfinished) {
-    mutex[mutex_id].unlock();
+    //mutex[mutex_id].unlock();
+    //mutex.unlock();
     return TaskStatus::incomplete;
   }
 
@@ -85,7 +89,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   // Restrict
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -159,6 +164,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     else
       buf.SendNull();
   }
+  //mutex.unlock();
 
   return TaskStatus::complete;
 }
@@ -177,14 +183,16 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(bound_type);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -208,14 +216,16 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(bound_type);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   bool all_received = true;
   std::for_each(
@@ -260,7 +270,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(bound_type);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -280,7 +291,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
@@ -359,7 +371,8 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(bound_type);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
@@ -378,7 +391,8 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
                                             ProResInfo::GetSet);
     }
   }
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   if (nbound > 0 && pmesh->multilevel) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();

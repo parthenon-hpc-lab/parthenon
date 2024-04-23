@@ -21,6 +21,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <shared_mutex>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -37,6 +38,32 @@ namespace parthenon {
 // received:     X
 enum class BufferState { stale, sending, sending_null, received, received_null };
 
+class BufferStateThreadSafe {
+ public:
+  BufferStateThreadSafe() = default;
+  BufferStateThreadSafe(BufferState bs) : state_(bs) {}
+  BufferStateThreadSafe(const BufferStateThreadSafe &bs) = delete;
+  BufferStateThreadSafe &operator =(BufferState bs) {
+    mutex.lock();
+    state_ = bs;
+    mutex.unlock();
+    return *this;
+  }
+  bool operator==(BufferState bs) {
+    return (Get() == bs);
+  }
+  BufferState Get() {
+    mutex.lock_shared();
+    auto val = state_;
+    mutex.unlock_shared();
+    return val;
+  }
+
+ private:
+  BufferState state_;
+  std::shared_mutex mutex;
+};
+
 enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
 template <class T>
@@ -46,7 +73,7 @@ class CommBuffer {
   template <typename U>
   friend class CommBuffer;
 
-  std::shared_ptr<BufferState> state_;
+  std::shared_ptr<BufferStateThreadSafe> state_;
   std::shared_ptr<BuffCommType> comm_type_;
   std::shared_ptr<bool> started_irecv_;
   std::shared_ptr<int> nrecv_tries_;
@@ -65,6 +92,7 @@ class CommBuffer {
   std::function<T()> get_resource_;
 
   T buf_;
+  inline static std::mutex mutex;
 
  public:
   CommBuffer()
@@ -81,6 +109,9 @@ class CommBuffer {
 
   ~CommBuffer();
 
+  //CommBuffer(const CommBuffer<T> &in) = delete;
+  //CommBuffer &operator=(const CommBuffer<T> &in) = delete;
+
   template <class U>
   CommBuffer(const CommBuffer<U> &in);
 
@@ -95,19 +126,21 @@ class CommBuffer {
 
   void Allocate() {
     if (!active_) {
+      std::lock_guard<std::mutex> lock(mutex);
       buf_ = get_resource_();
       active_ = true;
     }
   }
 
   void Free() {
+    std::lock_guard<std::mutex> lock(mutex);
     buf_ = T();
     active_ = false;
   }
 
   bool IsActive() const { return active_; }
 
-  BufferState GetState() { return *state_; }
+  BufferState GetState() { return state_->Get(); }
 
   void Send() noexcept;
   void SendNull() noexcept;
@@ -132,7 +165,7 @@ class CommBuffer {
 template <class T>
 CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm,
                           std::function<T()> get_resource, bool do_sparse_allocation)
-    : state_(std::make_shared<BufferState>(BufferState::stale)),
+    : state_(std::make_shared<BufferStateThreadSafe>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
       started_irecv_(std::make_shared<bool>(false)),
       nrecv_tries_(std::make_shared<int>(0)),

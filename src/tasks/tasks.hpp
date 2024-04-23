@@ -420,6 +420,9 @@ class TaskRegion {
       pool.enqueue([t, &ProcessTask]() { return ProcessTask(t); });
     }
 
+    // and run it
+    //pool.run();
+
     // then wait until everything is done
     pool.wait();
 

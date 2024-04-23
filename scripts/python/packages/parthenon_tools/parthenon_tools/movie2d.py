@@ -247,7 +247,8 @@ def plot_dump(
     for i in range(n_blocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true/false
         # but obviously no ghost data will be shown if ghost_zones = false
-        p.pcolormesh(xf[i, :], yf[i, :], q[i, :, :], vmin=qmin, vmax=qmax)
+        # print(xf[i,:].shape, yf[i,:].shape, q[i,:,:].shape)
+        p.pcolormesh(xf[i, :], yf[i, :], np.squeeze(q[i, :, :]), vmin=qmin, vmax=qmax)
 
         # Print the block gid in the center of the block
         if len(block_ids) > 0:

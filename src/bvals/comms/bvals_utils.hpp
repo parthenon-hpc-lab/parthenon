@@ -95,9 +95,9 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
 
   // Or, what the hell, you could put them in random order if you want, which
   // frighteningly seems to run faster in some cases
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(key_order.begin(), key_order.end(), g);
+  //std::random_device rd;
+  //std::mt19937 g(rd());
+  //std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
   pcache->buf_vec.clear();

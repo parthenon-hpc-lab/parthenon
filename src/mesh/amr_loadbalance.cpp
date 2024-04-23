@@ -42,6 +42,7 @@
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/thread_pool.hpp"
 
 namespace parthenon {
 
@@ -650,6 +651,12 @@ bool Mesh::GatherCostListAndCheckBalance() {
   return true;
 }
 
+void thread_safe_insert(std::unordered_set<LogicalLocation> &myset, LogicalLocation &myval) {
+  static std::mutex mutex;
+  std::lock_guard<std::mutex> lock(mutex);
+  myset.insert(myval);
+}
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
@@ -682,8 +689,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_INSTRUMENT
     newloc = forest.GetMeshBlockListAndResolveGids();
     nbtotal = newloc.size();
-    for (int ib = 0; ib < nbtotal; ++ib)
-      newtoold[ib] = forest.GetOldGid(newloc[ib]);
+
+    ThreadPoolLoopBlocking(*pool, 0, nbtotal-1, [&](const int i) {
+      newtoold[i] = forest.GetOldGid(newloc[i]);
+    });
 
     // create a list mapping the previous gid to the current one
     oldtonew[0] = 0;
@@ -701,17 +710,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (; mb_idx < nbtold; mb_idx++)
       oldtonew[mb_idx] = ntot - 1;
 
-    current_level = 0;
-    for (int n = 0; n < ntot; n++) {
+    //current_level = 0;
+    //for (int n = 0; n < ntot; n++) {
+    current_level = ThreadPoolReduce(*pool, 0, ntot-1, [&](const int n) {
       // "on" = "old n" = "old gid" = "old global MeshBlock ID"
       int on = newtoold[n];
-      if (newloc[n].level() > current_level) // set the current max level
-        current_level = newloc[n].level();
+      //if (newloc[n].level() > current_level) // set the current max level
+      //  current_level = newloc[n].level();
       if (newloc[n].level() >= loclist[on].level()) { // same or refined
         newcost[n] = costlist[on];
         // Keep a list of all blocks refined for below
         if (newloc[n].level() > loclist[on].level()) {
-          newly_refined.insert(newloc[n]);
+          thread_safe_insert(newly_refined, newloc[n]);
+          //newly_refined.insert(newloc[n]);
         }
       } else {
         double acost = 0.0;
@@ -719,7 +730,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           acost += costlist[on + l];
         newcost[n] = acost / nleaf;
       }
-    }
+      return newloc[n].level();
+    }, [](int a, int b) { return std::max(a,b); }, int(0));
   } // Construct new list region
 
   // Calculate new load balance
@@ -729,30 +741,39 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
-  ProResCache_t restriction_cache;
-  int nrestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    auto pmb = FindMeshBlock(on);
-    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
-  }
-  restriction_cache.Initialize(nrestrict, resolved_packages.get());
-  int irestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    if (newloc[nn].level() < loclist[on].level()) {
+  auto restrict_fine_to_coarse_buffers = [&](const int t_onbs, const int t_onbe) {
+    ProResCache_t restriction_cache;
+    int nrestrict = 0;
+    for (int on = t_onbs; on <= t_onbe; on++) {
+      int nn = oldtonew[on];
       auto pmb = FindMeshBlock(on);
-      for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(
-            irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
-            var.get(), resolved_packages.get());
+      if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
+    }
+
+    restriction_cache.Initialize(nrestrict, resolved_packages.get());
+    int irestrict = 0;
+    for (int on = t_onbs; on <= t_onbe; on++) {
+      int nn = oldtonew[on];
+      if (newloc[nn].level() < loclist[on].level()) {
+        auto pmb = FindMeshBlock(on);
+        for (auto &var : pmb->vars_cc_) {
+          restriction_cache.RegisterRegionHost(
+              irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
+              var.get(), resolved_packages.get());
+        }
       }
     }
+    restriction_cache.CopyToDevice();
+    refinement::Restrict(resolved_packages.get(), restriction_cache,
+                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+  };
+  std::vector<int> onstart, onstop;
+  ThreadLoopBounds(*pool, onbs, onbe, onstart, onstop);
+  for (int it = 0; it < pool->size(); it++) {
+    pool->enqueue(restrict_fine_to_coarse_buffers, onstart[it], onstop[it]);
   }
-  restriction_cache.CopyToDevice();
-  refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-
+  //pool->run();
+  pool->wait();
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
@@ -795,6 +816,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     RegionSize block_size = GetBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
+    //ThreadPoolLoopBlocking(*pool, nbs, nbe, [&, this](const int n) {
       int on = newtoold[n];
       if ((ranklist[on] == Globals::my_rank) &&
           (loclist[on].level() == newloc[n].level())) {
@@ -816,7 +838,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag);
       }
-    }
+    }//);
   } // AMR Construct new MeshBlockList region
 
   // Replace the MeshBlock list

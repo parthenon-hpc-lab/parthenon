@@ -24,6 +24,7 @@
 #include "driver/driver.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
@@ -36,7 +37,7 @@ enum class ParthenonStatus { ok, complete, error };
 
 class ParthenonManager {
  public:
-  ParthenonManager() { app_input.reset(new ApplicationInput()); }
+  ParthenonManager() { t_exec_space = DevExecSpace_t(); app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
   void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();

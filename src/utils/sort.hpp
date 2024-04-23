@@ -75,7 +75,7 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
   thrust::sort(first_d, last_d, comparator);
 #endif
 #else
-  if (std::is_same<DevExecSpace, HostExecSpace>::value) {
+  if (std::is_same<DevExecSpace_t, HostExecSpace>::value) {
     std::sort(data.data() + min_idx, data.data() + max_idx + 1, comparator);
   } else {
     PARTHENON_FAIL("sort is not supported outside of CPU or NVIDIA GPU. If you need sort "
@@ -103,7 +103,7 @@ void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
   thrust::sort(first_d, last_d);
 #endif
 #else
-  if (std::is_same<DevExecSpace, HostExecSpace>::value) {
+  if (std::is_same<DevExecSpace_t, HostExecSpace>::value) {
     std::sort(data.data() + min_idx, data.data() + max_idx + 1);
   } else {
     PARTHENON_FAIL("sort is not supported outside of CPU or NVIDIA GPU. If you need sort "

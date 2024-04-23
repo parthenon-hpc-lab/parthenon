@@ -28,6 +28,7 @@
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/thread_pool.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -75,6 +76,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
   pkg->AddParam<>("fill_derived", fill_derived);
+  printf("fill_derived = %d\n", fill_derived);
 
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
@@ -314,7 +316,6 @@ void SquareIt(MeshBlockData<Real> *rc) {
   auto v = desc.GetPack(rc);
   auto imap = desc.GetMap();
 
-
   const int in = imap["one_minus_advected"];
   const int out = imap["one_minus_advected_sq"];
   const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -495,6 +496,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int nvar = v.GetMaxNumberOfVars();
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
+  //std::cout << "hello from thread " << std::this_thread::get_id() << std::endl;
+  //for (int cnt=0; cnt<300; cnt++) {
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
       2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
@@ -615,6 +618,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           }
         });
   }
+  //}
+  //std::cout << "done on thread " << std::this_thread::get_id() << std::endl;
 
   return TaskStatus::complete;
 }

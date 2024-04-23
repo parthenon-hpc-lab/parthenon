@@ -39,10 +39,7 @@ class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {
-    const int nthreads = pin->GetOrAddInteger("parthenon/driver", "nthreads", 1);
-    printf("Initializing with %d threads...\n", nthreads);
-    pool = std::make_shared<ThreadPool>(nthreads);
-    pm->SetThreadPool(pool);
+    pool = pm->pool;
   }
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }

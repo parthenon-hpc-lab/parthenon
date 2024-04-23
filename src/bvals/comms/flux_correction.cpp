@@ -39,12 +39,14 @@ namespace parthenon {
 using namespace impl;
 
 static std::array<std::mutex, 2 * NUM_BNDRY_TYPES> mutex;
+//static std::mutex mutex;
 
 TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(BoundaryType::flxcor_send) + 1;  
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_send, true);
@@ -58,19 +60,22 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
       CheckSendBufferCacheForRebuild<BoundaryType::flxcor_send, true>(md);
 
   if (nbound == 0) {
-    mutex[mutex_id].unlock();
+    //mutex[mutex_id].unlock();
+    //mutex.unlock();
     return TaskStatus::complete;
   }
 
   if (other_communication_unfinished) {
-    mutex[mutex_id].unlock();
+    //mutex[mutex_id].unlock();
+    //mutex.unlock();
     return TaskStatus::incomplete;
   }
 
   if (rebuild)
     RebuildBufferCache<BoundaryType::flxcor_send, true>(
         md, nbound, BndInfo::GetSendCCFluxCor, ProResInfo::GetSend);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   auto &bnd_info = cache.bnd_info;
   PARTHENON_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
@@ -122,6 +127,7 @@ TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   // Calling Send will send null if the underlying buffer is unallocated
   for (auto &buf : cache.buf_vec)
     buf->Send();
+  //mutex.unlock();
   return TaskStatus::complete;
 }
 
@@ -129,14 +135,16 @@ TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(BoundaryType::flxcor_recv);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<BoundaryType::flxcor_recv>(
         md, &(pmesh->boundary_comm_flxcor_map), &cache, ReceiveKey, false);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -148,14 +156,16 @@ TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(BoundaryType::flxcor_recv);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<BoundaryType::flxcor_recv>(
         md, &(pmesh->boundary_comm_flxcor_map), &cache, ReceiveKey, false);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   bool all_received = true;
   std::for_each(
@@ -170,7 +180,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   int mutex_id = 2 * static_cast<int>(BoundaryType::flxcor_recv);
-  mutex[mutex_id].lock();
+  //mutex[mutex_id].lock();
+  //mutex.lock();
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(BoundaryType::flxcor_recv, false);
@@ -180,7 +191,8 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   if (rebuild)
     RebuildBufferCache<BoundaryType::flxcor_recv, false>(
         md, nbound, BndInfo::GetSetCCFluxCor, ProResInfo::GetSend);
-  mutex[mutex_id].unlock();
+  //mutex[mutex_id].unlock();
+  //mutex.unlock();
 
   auto &bnd_info = cache.bnd_info;
   Kokkos::parallel_for(
@@ -203,6 +215,7 @@ TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
 
+  //mutex.unlock();
   return TaskStatus::complete;
 }
 

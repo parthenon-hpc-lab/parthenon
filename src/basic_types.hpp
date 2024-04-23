@@ -25,6 +25,8 @@
 
 namespace parthenon {
 
+inline thread_local Kokkos::Serial t_exec_space;
+
 // primitive type alias that allows code to run with either floats or doubles
 #if SINGLE_PRECISION_ENABLED
 using Real = float;

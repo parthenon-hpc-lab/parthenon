@@ -56,6 +56,9 @@ struct BndInfo {
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
 
+  inline static std::mutex mutex;
+  void LockedBufferCopy(CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,

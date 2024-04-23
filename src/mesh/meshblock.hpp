@@ -84,7 +84,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
        int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
-  DevExecSpace exec_space;
+  DevExecSpace_t exec_space;
 
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock

@@ -260,6 +260,7 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  std::shared_ptr<ThreadPool> pool;
   void SetThreadPool(std::shared_ptr<ThreadPool> p) { pool = p; }
 
  private:
@@ -302,8 +303,6 @@ class Mesh {
   int default_pack_size_;
 
   int gmg_min_logical_level_ = 0;
-
-  std::shared_ptr<ThreadPool> pool;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables

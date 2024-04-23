@@ -323,6 +323,7 @@ endif()
 
 #add_compile_options(-fsanitize=thread)
 #add_link_options(-fsanitize=thread)
+add_link_options(-Wl,-no_pie -lprofiler -ltcmalloc)
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 

@@ -220,6 +220,11 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
          v->GetDim(4) * topo_comp;
 }
 
+void BndInfo::LockedBufferCopy(CommBuffer<buf_pool_t<Real>::owner_t> *input_buf) {
+  //std::lock_guard<std::mutex> lock(mutex);
+  buf = input_buf->buffer();
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
@@ -229,7 +234,8 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   out.alloc_status = v->GetAllocationStatus();
   if (!out.allocated) return out;
 
-  out.buf = buf->buffer();
+  out.LockedBufferCopy(buf);
+  //out.buf = buf->buffer();
 
   int Nv = v->GetDim(4);
   int Nu = v->GetDim(5);
@@ -257,7 +263,8 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   BndInfo out;
-  out.buf = buf->buffer();
+  //out.buf = buf->buffer();
+  out.LockedBufferCopy(buf);
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
@@ -454,7 +461,8 @@ BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
     // Not going to actually do anything with this buffer
     return out;
   }
-  out.buf = buf->buffer();
+  //out.buf = buf->buffer();
+  out.LockedBufferCopy(buf);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -514,7 +522,8 @@ BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
   }
   out.allocated = true;
   out.alloc_status = v->GetAllocationStatus();
-  out.buf = buf->buffer();
+  //out.buf = buf->buffer();
+  out.LockedBufferCopy(buf);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
