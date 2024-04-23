@@ -166,7 +166,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setAttribute("BlocksPerPE", pm->GetNbList());
 
     // Mesh block size
-    const auto base_block_size = pm->GetBlockSize();
+    const auto base_block_size = pm->GetDefaultBlockSize();
     it.setAttribute("MeshBlockSize",
                     std::vector<int>{base_block_size.nx(X1DIR), base_block_size.nx(X2DIR),
                                      base_block_size.nx(X3DIR)});
@@ -298,13 +298,51 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
           // TODO(pgrete) check if this should be tied to the MemoryLayout
           mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
-          mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
-          mesh_record.setAxisLabels({"z", "y", "x"});
-          mesh_record.setGridGlobalOffset({
-              pm->mesh_size.xmin(X3DIR),
-              pm->mesh_size.xmin(X2DIR),
-              pm->mesh_size.xmin(X1DIR),
-          });
+
+          // TODO(pgrete) allwo for proper vectors/tensors
+          auto mesh_comp = mesh_record[openPMD::MeshRecordComponent::SCALAR];
+          // TODO(pgrete) needs to be updated for face and edges etc
+          // Also this feels wrong for deep hierachies...
+          auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
+          openPMD::Extent global_extent;
+          if (pm->ndim == 3) {
+            mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
+            mesh_record.setAxisLabels({"z", "y", "x"});
+            mesh_record.setGridGlobalOffset({
+                pm->mesh_size.xmin(X3DIR),
+                pm->mesh_size.xmin(X2DIR),
+                pm->mesh_size.xmin(X1DIR),
+            });
+            // TODO(pgrete) needs to be updated for face and edges etc
+            mesh_comp.setPosition(std::vector<Real>{0.5, 0.5, 0.5});
+            global_extent = {
+                static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR)) * effective_nx,
+                static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx,
+                static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx,
+            };
+          } else if (pm->ndim == 2) {
+            mesh_record.setGridSpacing(std::vector<Real>{dx2, dx1});
+            mesh_record.setAxisLabels({"y", "x"});
+            mesh_record.setGridGlobalOffset({
+                pm->mesh_size.xmin(X2DIR),
+                pm->mesh_size.xmin(X1DIR),
+            });
+
+            // TODO(pgrete) needs to be updated for face and edges etc
+            mesh_comp.setPosition(std::vector<Real>{0.5, 0.5});
+            global_extent = {
+                static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx,
+                static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx,
+            };
+
+          } else {
+            PARTHENON_THROW("1D output for openpmd not yet supported.");
+          }
+          // Handling this here to now re-reset dataset later when iterating through the
+          // blocks
+          auto const dataset =
+              openPMD::Dataset(openPMD::determineDatatype<OutT>(), global_extent);
+          mesh_comp.resetDataset(dataset);
 
           // TODO(pgrete) need unitDimension and timeOffset for this record?
         }
@@ -364,20 +402,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
               auto mesh_record = it.meshes[mesh_record_name];
               auto mesh_comp = mesh_record[comp_name];
 
-              // TODO(pgrete) needs to be updated for face and edges etc
-              mesh_comp.setPosition(std::vector<Real>{0.5, 0.5, 0.5});
-              // TODO(pgrete) needs to be updated for face and edges etc
-              // Also this feels wrong for deep hierachies...
-              auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
-              openPMD::Extent global_extent = {
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR)) * effective_nx,
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx,
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx,
-              };
-              auto const dataset =
-                  openPMD::Dataset(openPMD::determineDatatype<OutT>(), global_extent);
-              mesh_comp.resetDataset(dataset);
-
               const auto comp_offset = tmp_offset;
               for (int k = kb.s; k <= kb.e; ++k) {
                 for (int j = jb.s; j <= jb.e; ++j) {
@@ -387,14 +411,31 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                   }
                 }
               }
-              openPMD::Offset chunk_offset = {
-                  pmb->loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                  pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                  pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-              openPMD::Extent chunk_extent = {
-                  static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                  static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                  static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+              openPMD::Offset chunk_offset;
+              openPMD::Extent chunk_extent;
+              if (pm->ndim == 3) {
+                chunk_offset = {
+                    pmb->loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                    pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+                chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                                static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                                static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+              } else if (pm->ndim == 2) {
+                chunk_offset = {
+                    pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+                chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                                static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+              } else {
+                PARTHENON_THROW("1D output for openpmd not yet supported.");
+              }
+              std::cout << "Block " << pmb->gid << " writes chunk of [" << chunk_extent[0]
+                        << " " << chunk_extent[1] << " "
+                        << "] with offset [" << chunk_offset[0] << " " << chunk_offset[1]
+                        << "] and logical locs [" << pmb->loc.lx2() << " "
+                        << pmb->loc.lx1() << "]\n";
+
               mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset, chunk_extent);
               idx_component += 1;
             }
