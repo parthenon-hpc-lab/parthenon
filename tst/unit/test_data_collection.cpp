@@ -91,7 +91,8 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       }
     }
     AND_WHEN("We want only a subset of variables in a new MeshBlockData") {
-      // reset vars
+      // reset vars so that we can check this is overwritten/or is a
+      // new stage
       par_for(
           loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
           KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
@@ -117,7 +118,8 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       }
     }
     AND_WHEN("We want only a subset of variables in a new MeshBlockData by UID") {
-      // reset vars
+      // reset vars so that we can check this is overwritten/or is a
+      // new stage
       par_for(
           loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
           KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
