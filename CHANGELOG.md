@@ -11,10 +11,15 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1058]](https://github.com/parthenon-hpc-lab/parthenon/pull/1058) Vector history not being output if no scalar history present
+- [[PR 1057]](https://github.com/parthenon-hpc-lab/parthenon/pull/1057) Fix history output after restarts
+- [[PR 1053]](https://github.com/parthenon-hpc-lab/parthenon/pull/1053) Set the correct root level on restart
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add features to history output
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1035]](https://github.com/parthenon-hpc-lab/parthenon/pull/1035) Fix multigrid infrastructure to work with forest
+- [[PR 1048]](https://github.com/parthenon-hpc-lab/parthenon/pull/1048) Tiny fixes to custom coords logic
 - [[PR 1028]](https://github.com/parthenon-hpc-lab/parthenon/pull/1028) Internal reorganization of LogicalLocation files
 - [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 
@@ -23,6 +28,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
 - [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
 
 

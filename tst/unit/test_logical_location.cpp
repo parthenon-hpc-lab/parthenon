@@ -3,7 +3,7 @@
 // Copyright(C) 2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -186,77 +186,9 @@ TEST_CASE("Logical Location", "[Logical Location]") {
       }
     }
 
-    THEN("We can correctly find the blocks adjacent to a face") {
-      auto base_loc = LogicalLocation(2, 2, 3, 3);
-
-      auto possible_neighbors =
-          base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, 0, 0);
-      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
-      // There should be five total neighboring blocks of this face since one neighbor is
-      // refined
-      by_hand_elements.insert(LogicalLocation(2, 2, 3, 3));
-      by_hand_elements.insert(LogicalLocation(3, 6, 6, 6));
-      by_hand_elements.insert(LogicalLocation(3, 6, 6, 7));
-      by_hand_elements.insert(LogicalLocation(3, 6, 7, 6));
-      by_hand_elements.insert(LogicalLocation(3, 6, 7, 7));
-
-      for (auto &n : possible_neighbors) {
-        if (hash_leaves.count(n) > 0) {
-          automatic_elements.insert(n);
-        }
-      }
-      REQUIRE(by_hand_elements == automatic_elements);
-    }
-
-    THEN("We can correctly find the blocks adjacent to an edge") {
-      auto base_loc = LogicalLocation(2, 2, 3, 3);
-
-      auto possible_neighbors =
-          base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, 0);
-      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
-      // There should be five total neighboring blocks of this edge since one neighbor is
-      // refined
-      by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
-      by_hand_elements.insert(LogicalLocation(2, 3, 2, 3));
-      by_hand_elements.insert(LogicalLocation(2, 2, 3, 3));
-      by_hand_elements.insert(LogicalLocation(3, 6, 6, 6));
-      by_hand_elements.insert(LogicalLocation(3, 6, 6, 7));
-
-      for (auto &n : possible_neighbors) {
-        if (hash_leaves.count(n) > 0) {
-          automatic_elements.insert(n);
-        }
-      }
-      REQUIRE(by_hand_elements == automatic_elements);
-    }
-
-    THEN("We can correctly find the blocks adjacent to a node") {
-      auto base_loc = LogicalLocation(2, 2, 3, 3);
-
-      auto possible_neighbors =
-          base_loc.GetPossibleBlocksSurroundingTopologicalElement(1, -1, -1);
-      std::unordered_set<LogicalLocation> by_hand_elements, automatic_elements;
-      // There should be eight total neighboring blocks for this node
-      by_hand_elements.insert(LogicalLocation(2, 2, 2, 3));
-      by_hand_elements.insert(LogicalLocation(2, 2, 2, 2));
-      by_hand_elements.insert(LogicalLocation(2, 3, 2, 3));
-      by_hand_elements.insert(LogicalLocation(2, 3, 2, 2));
-      by_hand_elements.insert(LogicalLocation(2, 2, 3, 3));
-      by_hand_elements.insert(LogicalLocation(2, 2, 3, 2));
-      by_hand_elements.insert(LogicalLocation(3, 6, 6, 6));
-      by_hand_elements.insert(LogicalLocation(2, 3, 3, 2));
-
-      for (auto &n : possible_neighbors) {
-        if (hash_leaves.count(n) > 0) {
-          automatic_elements.insert(n);
-        }
-      }
-      REQUIRE(by_hand_elements == automatic_elements);
-    }
-
     THEN("We can find the ownership array of a block") {
       LogicalLocation base_loc(2, 2, 3, 3);
-      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -286,7 +218,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of another block") {
       LogicalLocation base_loc(2, 1, 1, 1);
-      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -308,7 +240,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(2, 0, 0, 0);
-      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram, this should be the
       // ownership structure for every block in a uniform grid
@@ -337,7 +269,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(3, 7, 7, 7);
-      auto owns = DetermineOwnershipForest(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs);
 
       // Determined by drawing and inspecting diagram, this is
       // the upper rightmost block in the grid on the finest refinement
