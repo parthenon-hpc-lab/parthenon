@@ -256,7 +256,7 @@ class MeshData {
     grid = src->grid;
     for (int i = 0; i < nblocks; ++i) {
       block_data_[i] =
-          GetBlock(i, src, pmy_mesh_)
+          GetSourceBlockPointer_(i, src, pmy_mesh_)
               ->meshblock_data.Add(stage_name_, src->GetBlockData(i), vars, shallow);
     }
   }
@@ -445,8 +445,8 @@ class MeshData {
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:
-  std::shared_ptr<MeshBlock> GetBlock(const int i, const MeshData<T> *src,
-                                      const Mesh *pmesh) const;
+  std::shared_ptr<MeshBlock> GetSourceBlockPointer_(const int i, const MeshData<T> *src,
+                                                    const Mesh *pmesh) const;
 
   int ndim_;
   Mesh *pmy_mesh_;
