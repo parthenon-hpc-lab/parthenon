@@ -413,28 +413,24 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
               }
               openPMD::Offset chunk_offset;
               openPMD::Extent chunk_extent;
+              const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
               if (pm->ndim == 3) {
                 chunk_offset = {
-                    pmb->loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                    pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+                    loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
                 chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
                                 static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                                 static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
               } else if (pm->ndim == 2) {
                 chunk_offset = {
-                    pmb->loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    pmb->loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
                 chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                                 static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
               } else {
                 PARTHENON_THROW("1D output for openpmd not yet supported.");
               }
-              std::cout << "Block " << pmb->gid << " writes chunk of [" << chunk_extent[0]
-                        << " " << chunk_extent[1] << " "
-                        << "] with offset [" << chunk_offset[0] << " " << chunk_offset[1]
-                        << "] and logical locs [" << pmb->loc.lx2() << " "
-                        << pmb->loc.lx1() << "]\n";
 
               mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset, chunk_extent);
               idx_component += 1;
