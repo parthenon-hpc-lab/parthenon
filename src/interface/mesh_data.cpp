@@ -36,18 +36,6 @@ void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
   Set(blocks, pmesh, ndim);
 }
 
-template <typename T>
-std::shared_ptr<MeshBlock> MeshData<T>::GetSourceBlockPointer_(const int i,
-                                                               const MeshData<T> *src,
-                                                               const Mesh *pmesh) const {
-  if (src->grid.type == GridType::two_level_composite) {
-    // JMM: need .at() here, not operator[] because of const correctness.
-    return pmesh->gmg_block_lists.at(src->grid.logical_level)[i];
-  } else {
-    return pmesh->block_list[i];
-  }
-}
-
 template class MeshData<Real>;
 
 } // namespace parthenon

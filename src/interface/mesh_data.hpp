@@ -253,11 +253,19 @@ class MeshData {
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
 
+    // TODO(JMM/LFR): There is an edge case where if you call
+    // Initialize() on a set of meshblocks where some blocks contain
+    // the desired MeshBlockData object and some don't, this call will
+    // fail. (It will raise a runtime error due to a dictionary not
+    // being found.) This was present in the previous iteration of
+    // this code, as well as this iteration. Fixing this requires
+    // modifying DataCollection::GetOrAdd. In the future we should
+    // make that "just work (tm)."
     grid = src->grid;
     for (int i = 0; i < nblocks; ++i) {
-      block_data_[i] =
-          GetSourceBlockPointer_(i, src, pmy_mesh_)
-              ->meshblock_data.Add(stage_name_, src->GetBlockData(i), vars, shallow);
+      auto pmbd = src->GetBlockData(i);
+      block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
+          stage_name_, pmbd, vars, shallow);
     }
   }
 
@@ -436,18 +444,22 @@ class MeshData {
     return true;
   }
 
+  // vars may be a subset of the MeshData object
   template <typename Vars_t>
   bool Contains(const Vars_t &vars) const noexcept {
     return std::all_of(block_data_.begin(), block_data_.end(),
                        [this, vars](const auto &b) { return b->Contains(vars); });
   }
+  // MeshData object must contain these vars and only these vars
+  template <typename Vars_t>
+  bool ContainsExactly(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->ContainsExactly(vars); });
+  }
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:
-  std::shared_ptr<MeshBlock> GetSourceBlockPointer_(const int i, const MeshData<T> *src,
-                                                    const Mesh *pmesh) const;
-
   int ndim_;
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;

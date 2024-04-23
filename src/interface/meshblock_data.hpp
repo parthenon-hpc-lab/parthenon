@@ -17,6 +17,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -420,6 +421,12 @@ class MeshBlockData {
     return std::all_of(vars.begin(), vars.end(),
                        [this](const auto &v) { return this->Contains(v); });
   }
+  template <typename ID_t>
+  bool ContainsExactly(const std::vector<ID_t> &vars) const noexcept {
+    // JMM: Assumes vars contains no duplicates. But that would have
+    // been caught elsewhere because `MeshBlockData::Add` would have failed.
+    return Contains(vars) && (vars.size() == varVector_.size());
+  }
 
   void SetAllVariablesToInitialized() {
     std::for_each(varVector_.begin(), varVector_.end(),
@@ -441,6 +448,9 @@ class MeshBlockData {
                 int sparse_id = InvalidSparseID);
 
   void Add(std::shared_ptr<Variable<T>> var) noexcept {
+    if (varUidMap_.count(var->GetUniqueID())) {
+      PARTHENON_THROW("Tried to add variable " + var->label() + " twice!");
+    }
     varVector_.push_back(var);
     varMap_[var->label()] = var;
     varUidMap_[var->GetUniqueID()] = var;
