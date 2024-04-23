@@ -49,7 +49,7 @@ class DataCollection {
                           const std::vector<ID_t> &fields, const bool shallow) {
     auto it = containers_.find(name);
     if (it != containers_.end()) {
-      if ((fields.size() > 0) && !(it->second)->ContainsExactly(fields)) {
+      if (fields.size() && !(it->second)->ContainsExactly(fields)) {
         PARTHENON_THROW(name + " already exists in collection but fields do not match.");
       }
       return it->second;
