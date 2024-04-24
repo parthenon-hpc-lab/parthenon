@@ -118,7 +118,7 @@ class MeshBlockData {
     SetBlockPointer(src);
     resolved_packages_ = src->resolved_packages_;
     is_shallow_ = shallow_copy;
-    
+
     // clear all variables, maps, and pack caches
     varVector_.clear();
     varMap_.clear();
@@ -148,11 +148,11 @@ class MeshBlockData {
         // Add the associated flux as well if not explicitly
         // asked for
         if (var->metadata().GetFluxName() != "") {
-          bool found = false; 
+          bool found = false;
           for (const auto &v2 : vars)
-            if (src->GetVarPtr(v2)->label() == var->metadata().GetFluxName()) found = true;
-          if (!found) 
-            add_var(src->GetVarPtr(var->metadata().GetFluxName()));
+            if (src->GetVarPtr(v2)->label() == var->metadata().GetFluxName())
+              found = true;
+          if (!found) add_var(src->GetVarPtr(var->metadata().GetFluxName()));
         }
       }
     }
