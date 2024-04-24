@@ -79,52 +79,6 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
-// TODO(JMM): Move to unique IDs at some point
-template <typename T>
-void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
-                                  const std::vector<std::string> &names,
-                                  const bool shallow_copy) {
-  assert(src != nullptr);
-  SetBlockPointer(src);
-  resolved_packages_ = src->resolved_packages_;
-  is_shallow_ = shallow_copy;
-
-  // clear all variables, maps, and pack caches
-  varVector_.clear();
-  varMap_.clear();
-  varUidMap_.clear();
-  flagsToVars_.clear();
-  varPackMap_.clear();
-  coarseVarPackMap_.clear();
-  varFluxPackMap_.clear();
-
-  auto add_var = [=](auto var) {
-    if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
-      Add(var);
-    } else {
-      Add(var->AllocateCopy(pmy_block));
-    }
-  };
-
-  // special case when the list of names is empty, copy everything
-  if (names.empty()) {
-    for (auto v : src->GetVariableVector())
-      add_var(v);
-  } else {
-    auto &var_map = src->GetVariableMap();
-    for (const auto &name : names) {
-      auto &var = var_map.at(name);
-      add_var(var);
-      // Add the associated flux as well if not explicitly
-      // asked for
-      if (var->metadata().GetFluxName() != "" &&
-          std::find(names.begin(), names.end(), var->metadata().GetFluxName()) ==
-              names.end())
-        add_var(var_map.at(var->metadata().GetFluxName()));
-    }
-  }
-}
-
 /// Queries related to variable packs
 /// This is a helper function that queries the cache for the given pack.
 /// The strings are the keys and the lists are the values.
