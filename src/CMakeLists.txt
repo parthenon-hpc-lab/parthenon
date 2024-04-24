@@ -182,7 +182,6 @@ add_library(parthenon
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
-  outputs/openpmd.cpp
   outputs/output_utils.cpp
   outputs/output_utils.hpp
   outputs/outputs.cpp
@@ -194,6 +193,7 @@ add_library(parthenon
   outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
+  outputs/parthenon_opmd.cpp
   outputs/parthenon_xdmf.hpp
   outputs/restart.hpp
   outputs/restart_hdf5.cpp

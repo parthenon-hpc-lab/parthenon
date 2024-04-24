@@ -14,7 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file openpmd.cpp
+//! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
 #include <atomic>
@@ -88,6 +88,13 @@ void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it
   WriteAllParamsOfMultipleTypes<T, std::vector<T>>(pkg, it);
   // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
   // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+}
+
+namespace OpenPMDUtils {
+
+  auto GetMeshRecordAndComponentNames() {
+
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -422,7 +429,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         for (int t = 0; t < Nt; ++t) {
           for (int u = 0; u < Nu; ++u) {
             for (int v = 0; v < Nv; ++v) {
-              // Get the correct record
               std::string comp_name;
               if (is_scalar) {
                 comp_name = openPMD::MeshRecordComponent::SCALAR;
