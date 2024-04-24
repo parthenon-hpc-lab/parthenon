@@ -143,14 +143,17 @@ class MeshBlockData {
       }
     } else {
       for (const auto &v : vars) {
-        auto &var = src->GetVarPtr(v);
-        add_var(src->GetVarPtr(var));
+        auto var = src->GetVarPtr(v);
+        add_var(var);
         // Add the associated flux as well if not explicitly
         // asked for
-        if (var->metadata().GetFluxName() != "" &&
-          std::find(names.begin(), names.end(), var->metadata().GetFluxName()) ==
-              names.end())
-        add_var(var_map.at(var->metadata().GetFluxName()));
+        if (var->metadata().GetFluxName() != "") {
+          bool found = false; 
+          for (const auto &v2 : vars)
+            if (src->GetVarPtr(v2)->label() == var->metadata().GetFluxName()) found = true;
+          if (!found) 
+            add_var(src->GetVarPtr(var->metadata().GetFluxName()));
+        }
       }
     }
   }
