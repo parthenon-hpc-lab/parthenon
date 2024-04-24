@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
+#include <tuple>
 #include <vector>
 
 // Parthenon headers
@@ -41,6 +42,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "openPMD/Dataset.hpp"
 #include "openPMD/Datatype.hpp"
 #include "openPMD/IO/Access.hpp"
@@ -92,10 +94,60 @@ void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it
 
 namespace OpenPMDUtils {
 
-  auto GetMeshRecordAndComponentNames() {
-
+// Construct OpenPMD Mesh "record" name and comonnent identifier.
+// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// the typical v,u,t indices.
+// - level is the current effective level of the Mesh record
+auto GetMeshRecordAndComponentNames(const VarInfo &vinfo, const int comp_idx,
+                                    const int level) {
+  std::string comp_name;
+  if (vinfo.is_vector) {
+    if (comp_idx == 0) {
+      comp_name = "x";
+    } else if (comp_idx == 1) {
+      comp_name = "y";
+    } else if (comp_idx == 2) {
+      comp_name = "z";
+    } else {
+      PARTHENON_THROW("Expected component index doesn't match vector expectation.");
+    }
+    //  Current unclear how to properly handle other vectors and tensors, so everything
+    //  that not's a proper vector is a a scalar for now.
+  } else {
+    comp_name = openPMD::MeshRecordComponent::SCALAR;
   }
+  // TODO(pgrete) need to make sure that var names are allowed within standard
+  const std::string &mesh_record_name = vinfo.label + "_" +
+                                        vinfo.component_labels[comp_idx] + "_lvl" +
+                                        std::to_string(level);
+  return std::make_tuple(mesh_record_name, comp_name);
 }
+
+// Calculate logical location on effective mesh (i.e., a mesh with size that matches full
+// coverage at given resolution on a particular level)
+// TODO(pgrete) needs to be updated to properly work with Forests
+auto GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
+  openPMD::Offset chunk_offset;
+  openPMD::Extent chunk_extent;
+  const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
+  if (pm->ndim == 3) {
+    chunk_offset = {loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+    chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
+                    static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+  } else if (pm->ndim == 2) {
+    chunk_offset = {loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+    chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
+                    static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+  } else {
+    PARTHENON_THROW("1D output for openpmd not yet supported.");
+  }
+  return std::make_tuple(chunk_offset, chunk_extent);
+}
+} // namespace OpenPMDUtils
 
 //----------------------------------------------------------------------------------------
 //! \fn void OpenPMDOutput:::WriteOutputFile(Mesh *pm)
@@ -308,8 +360,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     memset(tmp_data.data(), 0, tmp_data.size() * sizeof(OutT));
     uint64_t tmp_offset = 0;
 
-    const bool is_scalar =
-        vinfo.GetDim(4) == 1 && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1;
     if (vinfo.is_vector) {
       // sanity check
       PARTHENON_REQUIRE_THROWS(
@@ -318,21 +368,18 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           "dimensionality of the simulation.")
     }
 
-    // TODO(pgrete) need to make sure that var names are allowed within standard
-    const std::string var_name = vinfo.label;
     for (auto &pmb : pm->block_list) {
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
 
-      for (const auto &comp_lbl : vinfo.component_labels) {
-
-        const std::string &mesh_record_name =
-            var_name + "_" + comp_lbl + "_lvl" + std::to_string(level);
+      for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
+        const auto [record_name, comp_name] =
+            OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, comp_idx, level);
 
         // Create the mesh_record for this variable at the given level (if it doesn't
         // exist yet)
-        if (!it.meshes.contains(mesh_record_name)) {
-          auto mesh_record = it.meshes[mesh_record_name];
+        if (!it.meshes.contains(record_name)) {
+          auto mesh_record = it.meshes[record_name];
 
           // These following attributes are shared across all components of the record.
 
@@ -350,8 +397,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           // TODO(pgrete) check if this should be tied to the MemoryLayout
           mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
-          // TODO(pgrete) allwo for proper vectors/tensors
-          auto mesh_comp = mesh_record[openPMD::MeshRecordComponent::SCALAR];
+          auto mesh_comp = mesh_record[comp_name];
           // TODO(pgrete) needs to be updated for face and edges etc
           // Also this feels wrong for deep hierachies...
           auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
@@ -400,7 +446,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
 
       // Now that the mesh record exists, actually write the data
-      auto out_var = pmb->meshblock_data.Get()->GetVarPtr(var_name);
+      auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
       PARTHENON_REQUIRE_THROWS(out_var->metadata().Where() ==
                                    MetadataFlag(Metadata::Cell),
                                "Currently only cell centered vars are supported.");
@@ -421,7 +467,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         Kokkos::deep_copy(component_buffer_view, data);
 #endif
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
-        int idx_component = 0;
+        int comp_idx = 0;
         const auto &Nt = out_var->GetDim(6);
         const auto &Nu = out_var->GetDim(5);
         const auto &Nv = out_var->GetDim(4);
@@ -429,28 +475,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         for (int t = 0; t < Nt; ++t) {
           for (int u = 0; u < Nu; ++u) {
             for (int v = 0; v < Nv; ++v) {
-              std::string comp_name;
-              if (is_scalar) {
-                comp_name = openPMD::MeshRecordComponent::SCALAR;
-              } else if (vinfo.is_vector) {
-                if (v == 0) {
-                  comp_name = "x";
-                } else if (v == 1) {
-                  comp_name = "y";
-                } else if (v == 2) {
-                  comp_name = "z";
-                } else {
-                  PARTHENON_THROW("Expected v index doesn't match vector expectation.");
-                }
-              } else {
-                comp_name = openPMD::MeshRecordComponent::SCALAR;
-                // comp_name = vinfo.component_labels[idx_component];
-              }
-              const std::string &mesh_record_name =
-                  var_name + "_" + vinfo.component_labels[idx_component] + "_lvl" +
-                  std::to_string(level);
-              auto mesh_record = it.meshes[mesh_record_name];
-              auto mesh_comp = mesh_record[comp_name];
+              const auto [record_name, comp_name] =
+                  OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, comp_idx, level);
+              auto mesh_comp = it.meshes[record_name][comp_name];
 
               const auto comp_offset = tmp_offset;
               for (int k = kb.s; k <= kb.e; ++k) {
@@ -461,29 +488,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                   }
                 }
               }
-              openPMD::Offset chunk_offset;
-              openPMD::Extent chunk_extent;
-              const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
-              if (pm->ndim == 3) {
-                chunk_offset = {
-                    loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-                chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                                static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                                static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-              } else if (pm->ndim == 2) {
-                chunk_offset = {
-                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-                chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                                static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-              } else {
-                PARTHENON_THROW("1D output for openpmd not yet supported.");
-              }
-
+              const auto [chunk_offset, chunk_extent] =
+                  OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb);
               mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset, chunk_extent);
-              idx_component += 1;
+              comp_idx += 1;
             }
           }
         } // loop over components
