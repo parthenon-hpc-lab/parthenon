@@ -94,12 +94,9 @@ void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it
 
 namespace OpenPMDUtils {
 
-// Construct OpenPMD Mesh "record" name and comonnent identifier.
-// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
-// the typical v,u,t indices.
-// - level is the current effective level of the Mesh record
-auto GetMeshRecordAndComponentNames(const VarInfo &vinfo, const int comp_idx,
-                                    const int level) {
+std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(const VarInfo &vinfo,
+                                                                    const int comp_idx,
+                                                                    const int level) {
   std::string comp_name;
   if (vinfo.is_vector) {
     if (comp_idx == 0) {
@@ -120,13 +117,12 @@ auto GetMeshRecordAndComponentNames(const VarInfo &vinfo, const int comp_idx,
   const std::string &mesh_record_name = vinfo.label + "_" +
                                         vinfo.component_labels[comp_idx] + "_lvl" +
                                         std::to_string(level);
-  return std::make_tuple(mesh_record_name, comp_name);
+  // return std::make_tuple(mesh_record_name, comp_name);
+  return {mesh_record_name, comp_name};
 }
 
-// Calculate logical location on effective mesh (i.e., a mesh with size that matches full
-// coverage at given resolution on a particular level)
-// TODO(pgrete) needs to be updated to properly work with Forests
-auto GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
+std::tuple<openPMD::Offset, openPMD::Extent>
+GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -145,7 +141,7 @@ auto GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
   } else {
     PARTHENON_THROW("1D output for openpmd not yet supported.");
   }
-  return std::make_tuple(chunk_offset, chunk_extent);
+  return {chunk_offset, chunk_extent};
 }
 } // namespace OpenPMDUtils
 

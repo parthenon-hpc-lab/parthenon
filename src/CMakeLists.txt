@@ -194,6 +194,7 @@ add_library(parthenon
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
   outputs/parthenon_opmd.cpp
+  outputs/parthenon_opmd.hpp
   outputs/parthenon_xdmf.hpp
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
