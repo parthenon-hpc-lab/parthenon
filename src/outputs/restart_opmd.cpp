@@ -132,14 +132,12 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
                                    const OutputUtils::VarInfo &vinfo,
                                    std::vector<Real> &data_vec,
                                    int file_output_format_version, Mesh *pm) const {
+  int64_t comp_offset = 0; // offset data_vector to store component data
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0
     const auto level = pmb->loc.level() - pm->GetRootLevel();
 
-    int64_t comp_offset = 0; // offset data_vector to store component data
-    int comp_idx = 0;        // used in label for non-vector variables
-    const bool is_scalar =
-        vinfo.GetDim(4) == 1 && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1;
+    int comp_idx = 0; // used in label for non-vector variables
     const auto &Nt = vinfo.GetDim(6);
     const auto &Nu = vinfo.GetDim(5);
     const auto &Nv = vinfo.GetDim(4);
