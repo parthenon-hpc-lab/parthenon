@@ -17,26 +17,6 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Initialize(const MeshData<T> *src,
-                             const std::vector<std::string> &names, const bool shallow) {
-  if (src == nullptr) {
-    PARTHENON_THROW("src points at null");
-  }
-  pmy_mesh_ = src->GetParentPointer();
-  const int nblocks = src->NumBlocks();
-  block_data_.resize(nblocks);
-  auto &bl = (src->grid.type == GridType::two_level_composite)
-                 ? pmy_mesh_->gmg_block_lists[src->grid.logical_level]
-                 : pmy_mesh_->block_list;
-  grid = src->grid;
-  PARTHENON_REQUIRE(nblocks == bl.size(), "Somehow these sizes don't agree.");
-  for (int i = 0; i < nblocks; i++) {
-    block_data_[i] =
-        bl[i]->meshblock_data.Add(stage_name_, src->GetBlockData(i), names, shallow);
-  }
-}
-
-template <typename T>
 void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
   const int nblocks = blocks.size();
   ndim_ = ndim;
