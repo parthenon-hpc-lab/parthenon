@@ -164,7 +164,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // but an interation) This just describes the pattern of the filename. The correct file
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
-  Series series = Series("opmd.%05T.bp", Access::CREATE);
+  // TODO(pgrete) add final and now logic
+  Series series =
+      Series(output_params.file_basename + "." + output_params.file_id + ".%05T.bp",
+             Access::CREATE);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
