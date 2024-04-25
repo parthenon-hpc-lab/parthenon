@@ -156,9 +156,9 @@ struct base_t {
 
 // An example variable name type that selects all variables available
 // on Mesh*Data
-struct any : public base_t<true> {
+struct any_withautoflux : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any_withautoflux(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 
@@ -168,6 +168,8 @@ struct any_nonautoflux : public base_t<true> {
       : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return "^(?!bnd_flux::).+"; }
 };
+
+using any = any_nonautoflux;
 } // namespace variable_names
 
 template <class... Ts>
