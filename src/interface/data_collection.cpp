@@ -22,36 +22,14 @@
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T> &
-DataCollection<T>::Add(const std::string &name, const std::shared_ptr<T> &src,
-                       const std::vector<std::string> &field_names, const bool shallow) {
-  auto it = containers_.find(name);
+std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label) {
+  // error check for duplicate names
+  auto it = containers_.find(label);
   if (it != containers_.end()) {
-    if (!(it->second)->Contains(field_names)) {
-      PARTHENON_THROW(name +
-                      "already exists in collection but does not contain field names");
-    }
     return it->second;
   }
-
-  auto c = std::make_shared<T>(name);
-  c->Initialize(src.get(), field_names, shallow);
-
-  Set(name, c);
-
-  return containers_[name];
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label,
-                                           const std::shared_ptr<T> &src,
-                                           const std::vector<std::string> &flags) {
-  return Add(label, src, flags, false);
-}
-template <typename T>
-std::shared_ptr<T> &DataCollection<T>::AddShallow(const std::string &label,
-                                                  const std::shared_ptr<T> &src,
-                                                  const std::vector<std::string> &flags) {
-  return Add(label, src, flags, true);
+  containers_[label] = std::make_shared<T>();
+  return containers_[label];
 }
 
 std::shared_ptr<MeshData<Real>> &

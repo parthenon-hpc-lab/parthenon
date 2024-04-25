@@ -124,8 +124,8 @@ class Mesh {
 
   std::map<int, BlockList_t> gmg_block_lists;
   std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
-  int GetGMGMaxLevel() { return current_level; }
-  int GetGMGMinLevel() { return gmg_min_logical_level_; }
+  int GetGMGMaxLevel() const { return current_level; }
+  int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
