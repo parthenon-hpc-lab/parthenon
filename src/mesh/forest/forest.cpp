@@ -186,16 +186,32 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   return fout;
 }
 
-Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces) {
+Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<ForestBC<Edge>> bc_edges) {
+  // Build tree boundary conditions
+  for (auto &face : faces) {
+    std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 
+    for (auto &[loc, edge] : face->edges) { 
+      for (auto &b : bc_edges) { 
+        if (edge.RelativeOrientation(b.element)) {
+          bcs[loc.GetBoundaryFace()] = b.bflag;
+          // TODO(LFR): Add mechanism to deal with periodic boundaries 
+          break;
+        }
+      } 
+    } 
+  }
+
   for (auto &face : faces) {
     for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
       auto neighbors = FindEdgeNeighbors(face, side);
       for (auto &n : neighbors) {
-        auto trans = LogicalCoordinateTransformationFromSharedEdge2D(side, std::get<1>(n),
+        auto lcoord_trans = LogicalCoordinateTransformationFromSharedEdge2D(side, std::get<1>(n),
                                                                      std::get<2>(n));
-        face->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, trans);
+        face->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, lcoord_trans);
       }
     }
+    // TODO(LFR): Need to find corner neighbors, still haven't totally figured out the coordinate transformations 
+  
   }
 
   Forest fout;

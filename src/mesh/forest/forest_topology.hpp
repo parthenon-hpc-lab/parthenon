@@ -51,6 +51,14 @@ struct EdgeLoc {
     return CellCentOffsets(0, 0, 0);
     // return (1 - 2 * lower) * std::pow(3, (static_cast<uint>(dir) + 1) % 2) + 1 + 3 + 9;
   }
+  
+  BoundaryFace GetBoundaryFace() const { 
+    if (dir == Direction::I && lower) return inner_x1;
+    if (dir == Direction::I && !lower) return outer_x1;
+    if (dir == Direction::J && lower) return inner_x2;
+    if (dir == Direction::J && !lower) return outer_x2;
+    return undef;
+  }
 
   static const EdgeLoc South;
   static const EdgeLoc North;
@@ -249,7 +257,8 @@ inline std::vector<NeighborDesc> FindEdgeNeighbors(const std::shared_ptr<Face> &
                                                    EdgeLoc loc) {
   std::vector<NeighborDesc> neighbors;
   auto edge = face_in->edges[loc];
-
+  
+  // Get all faces connected to the nodes of the input face 
   std::unordered_set<std::shared_ptr<Face>> possible_neighbors;
   for (auto &node : edge.nodes)
     possible_neighbors.insert(node->associated_faces.begin(),

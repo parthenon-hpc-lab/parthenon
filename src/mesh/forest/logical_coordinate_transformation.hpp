@@ -101,6 +101,20 @@ struct LogicalCoordinateTransformation {
   int ncell;
 };
 
+inline LogicalCoordinateTransformation 
+ComposeTransformations(const LogicalCoordinateTransformation &first,
+                       const LogicalCoordinateTransformation &second) { 
+  LogicalCoordinateTransformation out; 
+  for (int dir : {0, 1, 2}) {
+    out.dir_connection[dir] = second.dir_connection[first.dir_connection[dir]];
+    out.dir_flip[dir] = second.dir_flip[first.dir_connection[dir]] != first.dir_flip[dir]; 
+    out.offset[dir] = second.offset[first.dir_connection[dir]] + first.offset[dir];
+  }
+  for (int dir : {0, 1, 2})
+    out.dir_connection_inverse[out.dir_connection[dir]] = dir; 
+  return out;
+}
+
 struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
                    const LogicalCoordinateTransformation &lcoord_trans)
