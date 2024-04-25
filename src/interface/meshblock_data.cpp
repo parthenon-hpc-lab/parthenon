@@ -79,45 +79,6 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   }
 }
 
-// TODO(JMM): Move to unique IDs at some point
-template <typename T>
-void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
-                                  const std::vector<std::string> &names,
-                                  const bool shallow_copy) {
-  assert(src != nullptr);
-  SetBlockPointer(src);
-  resolved_packages_ = src->resolved_packages_;
-  is_shallow_ = shallow_copy;
-
-  auto add_var = [=](auto var) {
-    if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
-      Add(var);
-    } else {
-      Add(var->AllocateCopy(pmy_block));
-    }
-  };
-
-  // special case when the list of names is empty, copy everything
-  if (names.empty()) {
-    for (auto v : src->GetVariableVector()) {
-      add_var(v);
-    }
-  } else {
-    auto var_map = src->GetVariableMap();
-
-    for (const auto &name : names) {
-      bool found = false;
-      auto v = var_map.find(name);
-      if (v != var_map.end()) {
-        found = true;
-        add_var(v->second);
-      }
-      PARTHENON_REQUIRE_THROWS(found, "MeshBlockData::CopyFrom: Variable '" + name +
-                                          "' not found");
-    }
-  }
-}
-
 /// Queries related to variable packs
 /// This is a helper function that queries the cache for the given pack.
 /// The strings are the keys and the lists are the values.
