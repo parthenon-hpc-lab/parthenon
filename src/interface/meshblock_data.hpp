@@ -148,14 +148,12 @@ class MeshBlockData {
         // Add the associated flux as well if not explicitly
         // asked for
         if (var->IsSet(Metadata::WithFluxes)) {
-          auto flx_name = var->metadata().GetFluxName(); 
+          auto flx_name = var->metadata().GetFluxName();
           bool found = false;
           for (const auto &v2 : vars) {
-            if (src->GetVarPtr(v2)->label() == flx_name)
-              found = true;
+            if (src->GetVarPtr(v2)->label() == flx_name) found = true;
           }
-          if (!found)
-            add_var(src->GetVarPtr(flx_name));
+          if (!found) add_var(src->GetVarPtr(flx_name));
         }
       }
     }

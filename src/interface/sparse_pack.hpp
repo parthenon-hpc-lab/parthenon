@@ -158,7 +158,8 @@ struct base_t {
 // on Mesh*Data
 struct any_withautoflux : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_withautoflux(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any_withautoflux(Ts &&...args)
+      : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
 
