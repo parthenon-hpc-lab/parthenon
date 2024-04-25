@@ -262,6 +262,9 @@ class MeshData {
     // modifying DataCollection::GetOrAdd. In the future we should
     // make that "just work (tm)."
     grid = src->grid;
+    PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
+                          src->BlockDataIsWholeRank_(),
+                      "Add may only be called on all blocks on a rank");
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
@@ -460,6 +463,8 @@ class MeshData {
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:
+  bool BlockDataIsWholeRank_() const;
+
   int ndim_;
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
