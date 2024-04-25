@@ -70,8 +70,8 @@ const int nghost = 2;
 // The result struct contains results of different tests
 typedef struct result_t {
   std::string name; // The name of this test
-  Real pi;          // the value of pi calculated
-  Real t;           // time taken to run test
+  Real64 pi;          // the value of pi calculated
+  Real64 t;           // time taken to run test
   int iops;         // number of integer ops
   int fops;         // number of floating point ops
 } result_t;
@@ -120,22 +120,22 @@ static void usage(std::string program) {
             << std::endl;
 }
 
-static double sumArray(BlockList_t &blocks, const int &n_block) {
+static Real64 sumArray(BlockList_t &blocks, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
   auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                            Kokkos::ChunkSize(512));
-  double theSum = 0.0;
+  Real64 theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
   for (auto &pmb : blocks) {
     auto &base = pmb->meshblock_data.Get();
     auto inOrOut = base->PackVariables({Metadata::Independent});
-    double oneSum;
+    Real64 oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
-        KOKKOS_LAMBDA(const int &idx, double &mySum) {
+        KOKKOS_LAMBDA(const int &idx, Real64 &mySum) {
           const int k_grid = idx / n_block2;
           const int j_grid = (idx - k_grid * n_block2) / n_block;
           const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;

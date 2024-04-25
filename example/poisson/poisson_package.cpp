@@ -70,7 +70,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (use_stencil) {
     std::vector<Real> wgts;
     if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
+      wgts = std::vector<Real>(
+          {1.0, static_cast<Real>(-2.0 * ndim), 1.0, 1.0, 1.0, 1.0, 1.0});
     } else {
       const Real w0 = 1.0 / (2.0 * ndim);
       wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
