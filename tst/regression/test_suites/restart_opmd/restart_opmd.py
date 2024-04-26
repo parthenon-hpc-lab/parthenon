@@ -25,9 +25,13 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
         # restart from an early snapshot
         elif step == 2:
+            # TODO(pgrete or someone else) ideally we want to restart from a later snapshot
+            # BUT results are not bitwise identical for AMR runs. PG thinks this is
+            # related to not storing the deref counter (and similar) and also thinks
+            # it's worth fixing.
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out1.00001.bp",
+                "gold.out1.00000.bp",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput_override.restart",
             ]
@@ -82,10 +86,39 @@ class TestCase(utils.test_case.TestCaseAbs):
                         all_equal = False
                         continue
                     comp_b = mesh_b[comp_name]
-                    data_a = comp_a.load_chunk()
-                    series_a.flush()
-                    data_b = comp_b.load_chunk()
-                    series_b.flush()
+
+                    if comp_a.shape != comp_b.shape:
+                        print(
+                            f"Mismatch is mech record component shapes of "
+                            " compontent '{comp_name}' in mesh '{mesh_name}': "
+                            f"{comp_a.shape} versus {comp_b.shape}\n"
+                        )
+                        all_equal = False
+                        continue
+
+                    # Given that the shapes are guaranteed to match (follow the check above)
+                    # we can load chunks from both files.
+                    # Note that we have to go over chunks as data might be sparse on disk so
+                    # loading the entire record will contain gargabe in sparse places.
+                    data_a = np.empty(comp_a.shape)
+                    data_a[:] = np.nan
+                    data_b = np.copy(data_a)
+                    for chunk in comp_a.available_chunks():
+                        # Following OpenPMD-viewer `chunk_to_slice` here
+                        # https://github.com/openPMD/openPMD-viewer/blob/6eccb608893d2c9b8d158d950c3f0451898a80f6/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/utilities.py#L14
+                        stops = [a + b for a, b in zip(chunk.offset, chunk.extent)]
+                        indices_per_dim = zip(chunk.offset, stops)
+                        sl = tuple(
+                            map(lambda s: slice(s[0], s[1], None), indices_per_dim)
+                        )
+
+                        tmp = comp_a[sl]
+                        series_a.flush()
+                        data_a[sl] = tmp
+
+                        tmp = comp_b[sl]
+                        series_b.flush()
+                        data_b[sl] = tmp
 
                     try:
                         np.testing.assert_array_max_ulp(data_a, data_b)

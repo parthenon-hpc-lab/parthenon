@@ -36,6 +36,8 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename)
     idx = i.first;
   }
   it = std::make_unique<openPMD::Iteration>(series.iterations[idx]);
+  // Explicitly open (important for parallel execution)
+  it->open();
 }
 
 int RestartReaderOPMD::GetOutputFormatVersion() const {
