@@ -262,9 +262,6 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
 
 bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
                                    const VarID &control_vid) {
-  PARTHENON_REQUIRE(vid.label().find(internal_varname_seperator) == std::string::npos,
-                    "Variable names can't include the internall reserved separator " +
-                        internal_varname_seperator + ".");
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();

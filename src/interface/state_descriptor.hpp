@@ -162,6 +162,9 @@ class StateDescriptor {
   const std::string &label() const noexcept { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, const Metadata &m_in) {
+    PARTHENON_REQUIRE(swarm_name.find(internal_varname_seperator) == std::string::npos,
+                      "Swarm names can't include the internal reserved separator " +
+                          internal_varname_seperator + " (" + swarm_name + ").");
     PARTHENON_REQUIRE(
         swarm_name != "swarm",
         "A swarm may not be named \"swarm\", as this may cause name collisions.");
@@ -200,6 +203,9 @@ class StateDescriptor {
  public:
   bool AddField(const std::string &field_name, const Metadata &m_in,
                 const std::string &controlling_field = "") {
+    PARTHENON_REQUIRE(field_name.find(internal_varname_seperator) == std::string::npos,
+                      "Variable names can't include the internal reserved separator " +
+                          internal_varname_seperator + " (" + field_name + ").");
     Metadata m = m_in; // so we can modify it
     if (m.IsSet(Metadata::Sparse)) {
       PARTHENON_THROW(
@@ -224,6 +230,9 @@ class StateDescriptor {
   }
   template <typename... Args>
   bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&...args) {
+    PARTHENON_REQUIRE(base_name.find(internal_varname_seperator) == std::string::npos,
+                      "SparsePool names can't include the internal reserved separator " +
+                          internal_varname_seperator + " (" + base_name + ").");
     Metadata m = m_in; // so we can modify it
     if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
     return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
