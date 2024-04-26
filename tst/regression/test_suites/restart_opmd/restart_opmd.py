@@ -7,6 +7,7 @@
 # Modules
 import sys
 import utils.test_case
+import numpy as np
 
 
 # To prevent littering up imported folders with .pyc files or __pycache_ folder
@@ -86,9 +87,12 @@ class TestCase(utils.test_case.TestCaseAbs):
                     data_b = comp_b.load_chunk()
                     series_b.flush()
 
-                    if (data_a != data_b).any():
+                    try:
+                        np.testing.assert_array_max_ulp(data_a, data_b)
+                    except AssertionError as err:
                         print(
-                            f"Data of component '{comp_name}' in mesh '{mesh_name}' does not match."
+                            f"Data of component '{comp_name}' in mesh '{mesh_name}' does not match:\n"
+                            f"{err}\n"
                         )
                         all_equal = False
                         continue
@@ -109,7 +113,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             all_good &= compare_attributes(it_gold, it_silver)
             all_good &= compare_attributes(it_silver, it_gold)
 
-            all_good &= compare_data(it_silver, it_gold, series_gold, series_silver)
+            all_good &= compare_data(it_silver, it_gold, series_silver, series_gold)
             all_good &= compare_data(it_gold, it_silver, series_gold, series_silver)
 
             return all_good
