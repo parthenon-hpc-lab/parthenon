@@ -242,8 +242,35 @@ class MeshData {
 
   void Set(BlockList_t blocks, Mesh *pmesh, int ndim);
   void Set(BlockList_t blocks, Mesh *pmesh);
-  void Initialize(const MeshData<T> *src, const std::vector<std::string> &names,
-                  const bool shallow);
+
+  template <typename ID_t>
+  void Initialize(const MeshData<T> *src, const std::vector<ID_t> &vars,
+                  const bool shallow) {
+    if (src == nullptr) {
+      PARTHENON_THROW("src points at null");
+    }
+    pmy_mesh_ = src->GetParentPointer();
+    const int nblocks = src->NumBlocks();
+    block_data_.resize(nblocks);
+
+    // TODO(JMM/LFR): There is an edge case where if you call
+    // Initialize() on a set of meshblocks where some blocks contain
+    // the desired MeshBlockData object and some don't, this call will
+    // fail. (It will raise a runtime error due to a dictionary not
+    // being found.) This was present in the previous iteration of
+    // this code, as well as this iteration. Fixing this requires
+    // modifying DataCollection::GetOrAdd. In the future we should
+    // make that "just work (tm)."
+    grid = src->grid;
+    PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
+                          src->BlockDataIsWholeRank_(),
+                      "Add may only be called on all blocks on a rank");
+    for (int i = 0; i < nblocks; ++i) {
+      auto pmbd = src->GetBlockData(i);
+      block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
+          stage_name_, pmbd, vars, shallow);
+    }
+  }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
@@ -420,16 +447,24 @@ class MeshData {
     return true;
   }
 
-  bool Contains(const std::vector<std::string> &names) const {
-    for (const auto &b : block_data_) {
-      if (!b->Contains(names)) return false;
-    }
-    return true;
+  // vars may be a subset of the MeshData object
+  template <typename Vars_t>
+  bool Contains(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->Contains(vars); });
+  }
+  // MeshData object must contain these vars and only these vars
+  template <typename Vars_t>
+  bool ContainsExactly(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
  private:
+  bool BlockDataIsWholeRank_() const;
+
   int ndim_;
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;

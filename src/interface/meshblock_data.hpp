@@ -13,9 +13,11 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -109,8 +111,33 @@ class MeshBlockData {
   /// Create copy of MeshBlockData, possibly with a subset of named fields,
   /// and possibly shallow.  Note when shallow=false, new storage is allocated
   /// for non-OneCopy vars, but the data from src is not actually deep copied
-  void Initialize(const MeshBlockData<T> *src, const std::vector<std::string> &names,
-                  const bool shallow);
+  template <typename ID_t>
+  void Initialize(const MeshBlockData<T> *src, const std::vector<ID_t> &vars,
+                  const bool shallow_copy) {
+    PARTHENON_DEBUG_REQUIRE(src != nullptr, "Source data must be non-null.");
+    SetBlockPointer(src);
+    resolved_packages_ = src->resolved_packages_;
+    is_shallow_ = shallow_copy;
+
+    auto add_var = [=](auto var) {
+      if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
+        Add(var);
+      } else {
+        Add(var->AllocateCopy(pmy_block));
+      }
+    };
+
+    // special case when the list of vars is empty, copy everything
+    if (vars.empty()) {
+      for (auto v : src->GetVariableVector()) {
+        add_var(v);
+      }
+    } else {
+      for (const auto &v : vars) {
+        add_var(src->GetVarPtr(v));
+      }
+    }
+  }
 
   //
   // Queries related to Variable objects
@@ -124,14 +151,13 @@ class MeshBlockData {
   const MapToVars<T> &GetVariableMap() const noexcept { return varMap_; }
 
   std::shared_ptr<Variable<T>> GetVarPtr(const std::string &label) const {
-    auto it = varMap_.find(label);
-    PARTHENON_REQUIRE_THROWS(it != varMap_.end(),
+    PARTHENON_REQUIRE_THROWS(varMap_.count(label),
                              "Couldn't find variable '" + label + "'");
-    return it->second;
+    return varMap_.at(label);
   }
   std::shared_ptr<Variable<T>> GetVarPtr(const Uid_t &uid) const {
     PARTHENON_REQUIRE_THROWS(varUidMap_.count(uid),
-                             "Variable ID " + std::to_string(uid) + "not found!");
+                             "Variable ID " + std::to_string(uid) + " not found!");
     return varUidMap_.at(uid);
   }
 
@@ -388,15 +414,18 @@ class MeshBlockData {
     return (my_keys == cmp_keys);
   }
 
-  bool Contains(const std::string &name) const noexcept {
-    if (varMap_.find(name) != varMap_.end()) return true;
-    return false;
+  bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
+  bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }
+  template <typename ID_t>
+  bool Contains(const std::vector<ID_t> &vars) const noexcept {
+    return std::all_of(vars.begin(), vars.end(),
+                       [this](const auto &v) { return this->Contains(v); });
   }
-  bool Contains(const std::vector<std::string> &names) const noexcept {
-    for (const auto &name : names) {
-      if (!Contains(name)) return false;
-    }
-    return true;
+  template <typename ID_t>
+  bool ContainsExactly(const std::vector<ID_t> &vars) const noexcept {
+    // JMM: Assumes vars contains no duplicates. But that would have
+    // been caught elsewhere because `MeshBlockData::Add` would have failed.
+    return Contains(vars) && (vars.size() == varVector_.size());
   }
 
   void SetAllVariablesToInitialized() {
@@ -419,6 +448,9 @@ class MeshBlockData {
                 int sparse_id = InvalidSparseID);
 
   void Add(std::shared_ptr<Variable<T>> var) noexcept {
+    if (varUidMap_.count(var->GetUniqueID())) {
+      PARTHENON_THROW("Tried to add variable " + var->label() + " twice!");
+    }
     varVector_.push_back(var);
     varMap_[var->label()] = var;
     varUidMap_[var->GetUniqueID()] = var;
