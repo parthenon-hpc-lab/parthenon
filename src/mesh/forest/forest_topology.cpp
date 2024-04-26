@@ -36,6 +36,17 @@
 namespace parthenon {
 namespace forest {
 
+template<class T> 
+std::vector<std::shared_ptr<Node>> NodeListOverlap(T nodes_1, T nodes_2) {
+  std::sort(std::begin(nodes_1), std::end(nodes_1));
+  std::sort(std::begin(nodes_2), std::end(nodes_2));
+  std::vector<std::shared_ptr<Node>> node_intersection;
+  std::set_intersection(std::begin(nodes_1), std::end(nodes_1), 
+                        std::begin(nodes_2), std::end(nodes_2), 
+                        std::back_inserter(node_intersection));
+  return node_intersection;
+} 
+
 void Face::SetNeighbors() { 
   std::unordered_set<std::shared_ptr<Face>> neighbors_local;
   for (auto &node : nodes)
@@ -54,8 +65,36 @@ void Face::SetNeighbors() {
       neighbors[offset[0] + 1][offset[1] + 1].push_back(neighbor);
     }
   }
-  printf("\n");
 }
+
+void Face::SetEdgeCoordinateTransforms() { 
+  for (int ox = -1; ox <= 1; ++ox) {
+    for (int oy = -1; oy <= 1; ++oy) {
+      if (std::abs(ox) + std::abs(oy) == 1) { 
+        for (auto &neighbor : neighbors[ox + 1][oy + 1]) { 
+          auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
+          auto {loc, edge} = GetEdge(node_overlap); 
+          auto {nloc, nedge} = neighbor->GetEdge(node_overlap); 
+          coord_trans[ox1 + 1][oy + 1].push_back(
+            LogicalCoordinateTransformationFromSharedEdge2D(loc, nloc, edge.RelativeOrientation(nedge)));
+        }
+      }
+    }
+  }
+}
+
+void Face::SetNodeCoordinateTransforms() { 
+  for (int ox = -1; ox <= 1; ++ox) {
+    for (int oy = -1; oy <= 1; ++oy) {
+      if (std::abs(ox) + std::abs(oy) == 2) { 
+        for (auto &neighbor : neighbors[ox + 1][oy + 1]) { 
+          // TODO(LFR): Find an edge neighbor that is shared by both 
+        }
+      }
+    }
+  }
+}
+
 } // namespace forest
 } // namespace parthenon
 

@@ -117,17 +117,6 @@ class std::hash<parthenon::forest::EdgeLoc> {
 namespace parthenon {
 namespace forest {
 
-template<class T> 
-std::vector<std::shared_ptr<Node>> NodeListOverlap(T nodes_1, T nodes_2) {
-  std::sort(std::begin(nodes_1), std::end(nodes_1));
-  std::sort(std::begin(nodes_2), std::end(nodes_2));
-  std::vector<std::shared_ptr<Node>> node_intersection;
-  std::set_intersection(std::begin(nodes_1), std::end(nodes_1), 
-                        std::begin(nodes_2), std::end(nodes_2), 
-                        std::back_inserter(node_intersection));
-  return node_intersection;
-} 
-
 class Edge {
  public:
   Edge() = default;
@@ -182,9 +171,21 @@ class Face : public std::enable_shared_from_this<Face> {
       node->associated_faces.insert(result);
     return result;
   }
-  
+
+  std::tuple<EdgeLoc, Edge> GetEdge(std::vector<std::shared_ptr<Node>> nodes) { 
+    for (auto &[eloc, edge] : edges) { 
+      if (std::is_permutation(edge.nodes.begin(), edge.nodes.end(), nodes.begin(), nodes.end())) {
+        return eloc;
+      }
+    }
+    PARTHENON_FAIL("DIDNT FIND AN EDGE");
+    return {EdgeLoc::North, edge};
+  } 
+
   void SetNeighbors();
-  
+  void SetEdgeCoordinateTransforms();
+  void SetNodeCoordinateTransforms();
+
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
 
   Direction dir[2];
@@ -197,6 +198,7 @@ class Face : public std::enable_shared_from_this<Face> {
   std::unordered_map<EdgeLoc, Edge> edges;
   
   std::array<std::array<std::vector<std::shared_ptr<Face>>, 3>, 3> neighbors;
+  std::array<std::array<std::vector<LogicalCoordinateTransformation>, 3>, 3> coord_trans;
 
   std::shared_ptr<Tree> tree;
   static constexpr std::array<std::array<int, 2>, 4> node_to_offset = {std::array<int, 2>{-1, -1},
