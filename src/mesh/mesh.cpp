@@ -394,7 +394,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   costlist = std::vector<double>(nbtotal, 1.0);
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output some diagnostic information to terminal
 
@@ -427,8 +426,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag);
   }
-  SetMeshBlockNeighbors(block_list, nbs, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
@@ -567,6 +567,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // Load balancing flag and parameters
   RegisterLoadBalancing_(pin);
 
+  // Initialize the forest
+  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+  root_level = forest.root_level;
+
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
@@ -584,27 +588,29 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   InitUserMeshData(this, pin);
 
-  // Populate logical locations
+  // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
-
-    if (loclist[i].level() > current_level) {
-      current_level = loclist[i].level();
-    }
   }
 
   // rebuild the Block Tree
-  forest = forest::Forest::HyperRectangular(mesh_size, block_size, mesh_bcs);
+
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
   }
 
+  // Update the location list and levels to agree with forest levels
   loclist = forest.GetMeshBlockListAndResolveGids();
+
+  current_level = std::numeric_limits<int>::min();
+  for (const auto &loc : loclist)
+    current_level = std::max(current_level, loc.level());
+
   int nnb = loclist.size();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -645,7 +651,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist);
-  PopulateLeafLocationMap();
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
@@ -682,8 +687,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
   }
-  SetMeshBlockNeighbors(block_list, nbs, ranklist);
-  BuildGMGHierarchy(nbs, pin, app_in);
+  BuildGMGBlockLists(pin, app_in);
+  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
 
@@ -932,8 +938,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-    for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
@@ -972,8 +978,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     BuildBoundaryBuffers(md);
-    for (int gmg_level = 0; gmg_level < gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }
@@ -1079,7 +1085,7 @@ void Mesh::FillDerived() {
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop as well as during remeshing
+// \brief  initialization before the main loop
 
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
@@ -1229,58 +1235,16 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   return valid_region;
 }
 
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::GetBlockSize(const LogicalLocation &loc) const
-// \brief Find the (hyper-)rectangular region of the grid covered by the block at
-//        logical location loc
-
-RegionSize Mesh::GetBlockSize(const LogicalLocation &loc) const {
-  // TODO(LFR): Update this
-  if (loc.tree() >= 0) {
-    // Implies this is a location in a forest, not in the old Athena tree
-    return forest.GetBlockDomain(loc);
-  }
-  RegionSize block_size = GetBlockSize();
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    block_size.xrat(dir) = mesh_size.xrat(dir);
-    block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_size.xmin(dir) = GetMeshCoordinate(dir, BlockLocation::Left, loc);
-      block_size.xmax(dir) = GetMeshCoordinate(dir, BlockLocation::Right, loc);
-      // Correct for possible overshooting, since the root grid may not cover the
-      // entire logical level zero block of the mesh
-      if (block_size.xmax(dir) > mesh_size.xmax(dir) || loc.level() < 0) {
-        // Need integer reduction factor, so transform location back to root level
-        PARTHENON_REQUIRE(loc.level() < root_level, "Something is messed up.");
-        std::int64_t loc_low = loc.l(dir - 1) << (root_level - loc.level());
-        std::int64_t loc_hi = (loc.l(dir - 1) + 1) << (root_level - loc.level());
-        block_size.nx(dir) =
-            block_size.nx(dir) * (nrbx[dir - 1] - loc_low) / (loc_hi - loc_low);
-        block_size.xmax(dir) = mesh_size.xmax(dir);
-      }
-    } else {
-      block_size.xmin(dir) = mesh_size.xmin(dir);
-      block_size.xmax(dir) = mesh_size.xmax(dir);
-    }
-  }
-  return block_size;
-}
-
 std::int64_t Mesh::GetTotalCells() {
   auto &pmb = block_list.front();
   return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
          pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
 }
+
 // TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
   return block_list.front()->GetNumberOfMeshBlockCells();
 }
-const RegionSize &Mesh::GetBlockSize() const { return base_block_size; }
 
 const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   // TODO(JMM): Luke this is for your Metadata::fine stuff.
@@ -1358,6 +1322,26 @@ void Mesh::SetupMPIComms() {
   // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
   // inserted into pmb->pbval->bvars.
 #endif
+}
+
+// Return list of locations and levels for the legacy tree
+// TODO(LFR): It doesn't make sense to offset the level by the
+//   legacy tree root level since the location indices are defined
+//   for loc.level(). It seems this level offset is required for
+//   the output to agree with the legacy output though.
+std::pair<std::vector<std::int64_t>, std::vector<std::int64_t>>
+Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
+  std::vector<std::int64_t> levels, logicalLocations;
+  levels.reserve(nbtotal);
+  logicalLocations.reserve(nbtotal * 3);
+  for (auto loc : loclist) {
+    loc = forest.GetLegacyTreeLocation(loc);
+    levels.push_back(loc.level() - GetLegacyTreeRootLevel());
+    logicalLocations.push_back(loc.lx1());
+    logicalLocations.push_back(loc.lx2());
+    logicalLocations.push_back(loc.lx3());
+  }
+  return std::make_pair(levels, logicalLocations);
 }
 
 } // namespace parthenon

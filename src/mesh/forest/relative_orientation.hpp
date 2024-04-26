@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,7 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/logical_location.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"

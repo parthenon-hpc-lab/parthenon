@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,8 +25,8 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
-#include "mesh/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -84,8 +84,10 @@ class Forest {
     return trees.at(loc.tree())->FindNeighbors(loc, ox1, ox2, ox3);
   }
 
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
-    return trees.at(loc.tree())->FindNeighbors(loc);
+  std::vector<NeighborLocation>
+  FindNeighbors(const LogicalLocation &loc,
+                GridIdentifier grid_id = GridIdentifier::leaf()) const {
+    return trees.at(loc.tree())->FindNeighbors(loc, grid_id);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};
@@ -134,6 +136,13 @@ class Forest {
     return trees.at(loc.tree())->GetGid(loc);
   }
 
+  // Get the gid of the leaf block with the same Morton number
+  // as loc (on the same tree)
+  std::int64_t GetLeafGid(const LogicalLocation &loc) const {
+    PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
+    return trees.at(loc.tree())->GetLeafGid(loc);
+  }
+
   std::int64_t GetOldGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees.at(loc.tree())->GetOldGid(loc);
@@ -143,6 +152,14 @@ class Forest {
   // setups available in Athena++
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
+};
+
+struct NeighborLocation {
+  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
+      : global_loc(g), origin_loc(o) {}
+  LogicalLocation global_loc; // Global location of neighboring block
+  LogicalLocation
+      origin_loc; // Logical location of neighboring block in index space of origin block
 };
 
 } // namespace forest

@@ -15,6 +15,7 @@
 
 #include <limits>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -45,7 +46,7 @@ using Real = double;
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 enum class BlockLocation { Left = 0, Center = 1, Right = 2 };
-enum class TaskStatus { complete, incomplete, iterate };
+enum class TaskStatus { complete, incomplete, iterate, fail };
 
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 enum class RefinementOp_t { Prolongation, Restriction, None };
@@ -64,6 +65,17 @@ enum class BoundaryType : int {
   gmg_restrict_recv,
   gmg_prolongate_send,
   gmg_prolongate_recv
+};
+
+enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+struct GridIdentifier {
+  GridType type = GridType::none;
+  int logical_level = 0;
+
+  static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
+  static GridIdentifier two_level_composite(int level) {
+    return GridIdentifier{GridType::two_level_composite, level};
+  }
 };
 
 constexpr bool IsSender(BoundaryType btype) {
@@ -208,6 +220,8 @@ struct SimTime {
 template <typename T>
 using Dictionary = std::unordered_map<std::string, T>;
 
+template <typename T>
+using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
 
 #endif // BASIC_TYPES_HPP_

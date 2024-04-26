@@ -26,9 +26,9 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/relative_orientation.hpp"
 #include "mesh/forest/tree.hpp"
-#include "mesh/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -43,15 +43,20 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
       for (int j = 0; j < (ndim > 1 ? (1LL << l) : 1); ++j) {
         for (int i = 0; i < (ndim > 0 ? (1LL << l) : 1); ++i) {
+          LogicalLocation loc(my_id, l, i, j, k);
           if (l == root_level) {
-            leaves.emplace(std::make_pair(LogicalLocation(my_id, l, i, j, k),
-                                          std::make_pair(-1, -1)));
+            leaves.emplace(LocMapEntry(loc, -1, -1));
           } else {
-            internal_nodes.emplace(my_id, l, i, j, k);
+            internal_nodes.emplace(LocMapEntry(loc, -1, -1));
           }
         }
       }
     }
+  }
+
+  // Build in negative levels
+  for (int l = -20; l < 0; ++l) {
+    internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
   }
 }
 
@@ -90,9 +95,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   std::vector<LogicalLocation> daughters = ref_loc.GetDaughters(ndim);
   auto gid_parent = leaves[ref_loc].first;
   leaves.erase(ref_loc);
-  internal_nodes.insert(ref_loc);
+  internal_nodes.insert(LocMapEntry(ref_loc, -1, -1));
   for (auto &d : daughters) {
-    leaves.insert(std::make_pair(d, std::make_pair(gid_parent, -1)));
+    leaves.insert(LocMapEntry(d, gid_parent, -1));
   }
   int nadded = daughters.size() - 1;
 
@@ -122,7 +127,8 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   return nadded;
 }
 
-std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc) const {
+std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc,
+                                                  GridIdentifier grid_id) const {
   const Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                           {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                           {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
@@ -130,7 +136,7 @@ std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc) co
   for (int o = 0; o < offsets.size(); ++o) {
     auto [ox1, ox2, ox3] = offsets(o);
     if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
-    FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs);
+    FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs, grid_id);
   }
 
   return neighbor_locs;
@@ -139,38 +145,67 @@ std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc) co
 std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc, int ox1,
                                                   int ox2, int ox3) const {
   std::vector<NeighborLocation> neighbor_locs;
-  FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs);
+  FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs, GridIdentifier::leaf());
   return neighbor_locs;
 }
 
 void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
-                             std::vector<NeighborLocation> *neighbor_locs) const {
+                             std::vector<NeighborLocation> *neighbor_locs,
+                             GridIdentifier grid_id) const {
   PARTHENON_REQUIRE(
       loc.tree() == my_id,
       "Trying to find neighbors in a tree with a LogicalLocation on a different tree.");
-  PARTHENON_REQUIRE(leaves.count(loc) == 1, "Location must be a leaf to find neighbors.");
+  PARTHENON_REQUIRE((leaves.count(loc) == 1 || internal_nodes.count(loc) == 1),
+                    "Location must be in the tree to find neighbors.");
   auto neigh = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
   int n_idx = neigh.NeighborTreeIndex();
+
+  bool include_same, include_fine, include_internal, include_coarse;
+  if (grid_id.type == GridType::leaf) {
+    include_same = true;
+    include_fine = true;
+    include_internal = false;
+    include_coarse = true;
+  } else if (grid_id.type == GridType::two_level_composite) {
+    if (loc.level() == grid_id.logical_level) {
+      include_same = true;
+      include_fine = false;
+      include_internal = true;
+      include_coarse = true;
+    } else if (loc.level() == grid_id.logical_level - 1) {
+      include_same = false;
+      include_fine = true;
+      include_internal = false;
+      include_coarse = false;
+    } else {
+      PARTHENON_FAIL("Logic is wrong somewhere.");
+    }
+  }
+
   for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
     auto tneigh = orientation.Transform(neigh, neighbor_tree->GetId());
     auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
     PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc,
                       "Inverse transform not working.");
-    if (neighbor_tree->leaves.count(tneigh)) {
+    if (neighbor_tree->leaves.count(tneigh) && include_same) {
       neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
-      auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
-      for (auto &n : daughters) {
-        if (tloc.IsNeighborForest(n))
-          neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
+      if (include_fine) {
+        auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
+        for (auto &n : daughters) {
+          if (tloc.IsNeighbor(n))
+            neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
+        }
+      } else if (include_internal) {
+        neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
       }
-    } else if (neighbor_tree->leaves.count(tneigh.GetParent())) {
+    } else if (neighbor_tree->leaves.count(tneigh.GetParent()) && include_coarse) {
       auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());
       // Since coarser neighbors can cover multiple elements of the origin block and
       // because our communication algorithm packs this extra data by hand, we do not wish
       // to duplicate coarser blocks in the neighbor list. Therefore, we only include the
       // coarse block in one offset position
-      auto sl_offset = loc.GetSameLevelOffsetsForest(neighp);
+      auto sl_offset = loc.GetSameLevelOffsets(neighp);
       if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
         neighbor_locs->push_back({tneigh.GetParent(), neighp});
     }
@@ -222,14 +257,24 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
     dgid = std::min(dgid, node.mapped().first);
   }
   internal_nodes.erase(ref_loc);
-  leaves.insert(std::make_pair(ref_loc, std::make_pair(dgid, -1)));
+  leaves.insert(LocMapEntry(ref_loc, dgid, -1));
   return daughters.size() - 1;
 }
 
-std::vector<LogicalLocation> Tree::GetMeshBlockList() const {
+std::vector<LogicalLocation> Tree::GetSortedMeshBlockList() const {
   std::vector<LogicalLocation> mb_list;
   mb_list.reserve(leaves.size());
   for (auto &[loc, gid] : leaves)
+    mb_list.push_back(loc);
+  std::sort(mb_list.begin(), mb_list.end(),
+            [](const auto &a, const auto &b) { return a < b; });
+  return mb_list;
+}
+
+std::vector<LogicalLocation> Tree::GetSortedInternalNodeList() const {
+  std::vector<LogicalLocation> mb_list;
+  mb_list.reserve(internal_nodes.size());
+  for (auto &[loc, gid] : internal_nodes)
     mb_list.push_back(loc);
   std::sort(mb_list.begin(), mb_list.end(),
             [](const auto &a, const auto &b) { return a < b; });
@@ -250,9 +295,9 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
         // Negative logical levels correspond to reduced block sizes covering the entire
         // domain.
         auto reduction_fac = 1LL << (-loc.level());
-        out.nx(dir) = domain.nx(dir) / reduction_fac;
-        PARTHENON_REQUIRE(out.nx(dir) % reduction_fac == 0,
+        PARTHENON_REQUIRE(domain.nx(dir) % reduction_fac == 0,
                           "Trying to go to too large of a negative level.");
+        out.nx(dir) = domain.nx(dir) / reduction_fac;
       }
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
@@ -283,6 +328,47 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
 
   if (fidx >= 0)
     boundary_conditions[fidx] = periodic ? BoundaryFlag::periodic : BoundaryFlag::block;
+}
+
+void Tree::InsertGid(const LogicalLocation &loc, std::int64_t gid) {
+  if (leaves.count(loc)) {
+    leaves[loc].second = leaves[loc].first;
+    leaves[loc].first = gid;
+  } else if (internal_nodes.count(loc)) {
+    internal_nodes[loc].second = internal_nodes[loc].first;
+    internal_nodes[loc].first = gid;
+  } else {
+    PARTHENON_FAIL("Tried to assign gid to non-existent block.");
+  }
+}
+
+std::int64_t Tree::GetGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).first;
+  } else if (internal_nodes.count(loc)) {
+    return internal_nodes.at(loc).first;
+  }
+  return -1;
+}
+
+// Get the gid of the leaf block with the same Morton number
+// as loc
+std::int64_t Tree::GetLeafGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).first;
+  } else if (internal_nodes.count(loc)) {
+    return GetLeafGid(loc.GetDaughter(0, 0, 0));
+  }
+  return -1;
+}
+
+std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
+  if (leaves.count(loc)) {
+    return leaves.at(loc).second;
+  } else if (internal_nodes.count(loc)) {
+    return internal_nodes.at(loc).second;
+  }
+  return -1;
 }
 
 } // namespace forest
