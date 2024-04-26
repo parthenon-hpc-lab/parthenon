@@ -136,7 +136,7 @@ class FieldProvider : public VariableProvider {
   void AddPrivate(const std::string &package, const std::string &base_name,
                   const Metadata &metadata) {
     bool added = false;
-    const std::string new_name = package + "::" + base_name;
+    const std::string new_name = package + internal_varname_seperator + base_name;
     auto pkg = packages_.Get(package);
     if (metadata.IsSet(Metadata::Sparse)) {
       const auto &src_pool = pkg->GetSparsePool(base_name);
@@ -206,7 +206,8 @@ class SwarmProvider : public VariableProvider {
       : packages_(packages), state_(sd) {}
   void AddPrivate(const std::string &package, const std::string &label,
                   const Metadata &metadata) {
-    AddSwarm_(packages_.Get(package).get(), label, package + "::" + label, metadata);
+    AddSwarm_(packages_.Get(package).get(), label,
+              package + internal_varname_seperator + label, metadata);
   }
   void AddProvides(const std::string &package, const std::string &label,
                    const Metadata &metadata) {
@@ -281,7 +282,8 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
       else if (m.IsSet(Metadata::Edge))
         mFlags.push_back(Metadata::Node);
       Metadata mf(mFlags, m.Shape());
-      auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id};
+      auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
+                       vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
     }
