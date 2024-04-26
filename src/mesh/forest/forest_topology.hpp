@@ -87,6 +87,17 @@ LogicalCoordinateTransformationFromSharedEdge2D(EdgeLoc origin, EdgeLoc neighbor
       (static_cast<uint>(neighbor.dir) + 1) % 2;
   out.dir_flip[(static_cast<uint>(origin.dir) + 1) % 2] =
       (neighbor.lower == origin.lower);
+  
+  if (origin == EdgeLoc::North) { 
+    out.offset[1] = 1; 
+  } else if (origin == EdgeLoc::South) { 
+    out.offset[1] = -1; 
+  } else if (origin == EdgeLoc::East) { 
+    out.offset[0] = 1; 
+  } else if (origin == EdgeLoc::West) { 
+    out.offset[0] = -1; 
+  }
+  out.use_offset = true;
   return out;
 }
 
@@ -167,6 +178,11 @@ class Face : public std::enable_shared_from_this<Face> {
 
   sptr_vec_t<Node, 4> nodes;
   std::unordered_map<EdgeLoc, Edge> edges;
+  
+  // TODO(LFR): Add code for finding these neighbors without getting coordinate transforms
+  std::vector<std::shared_ptr<Face>> edge_neighbors;
+  std::vector<std::shared_ptr<Face>> corner_neighbors;
+
   std::shared_ptr<Tree> tree;
 };
 

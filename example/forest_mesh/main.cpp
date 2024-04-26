@@ -52,6 +52,39 @@ Forest two_blocks() {
   return forest;
 }
 
+Forest four_blocks() {
+  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
+  nodes[0] = Node::create(0, {0.0, 0.0});
+  nodes[1] = Node::create(1, {1.0, 0.0});
+  nodes[2] = Node::create(2, {1.0, 1.0});
+  nodes[3] = Node::create(3, {0.0, 1.0});
+
+  nodes[4] = Node::create(4, {2.0, 0.0});
+  nodes[5] = Node::create(5, {2.0, 1.0});
+  
+  nodes[6] = Node::create(6, {0.0, 2.0});
+  nodes[7] = Node::create(7, {1.0, 2.0});
+  nodes[8] = Node::create(8, {2.0, 2.0});
+
+  auto &n = nodes;
+  std::vector<std::shared_ptr<Face>> faces;
+  faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
+  faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
+  faces.emplace_back(Face::create(2, {n[3], n[2], n[6], n[7]}));
+  faces.emplace_back(Face::create(3, {n[2], n[5], n[7], n[8]}));
+
+  auto forest = Forest::Make2D(faces);
+
+  // Do some refinements that should propagate into tree 0
+  forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
+  forest.Refine(LogicalLocation(1, 1, 0, 0, 0));
+  forest.Refine(LogicalLocation(1, 2, 0, 0, 0));
+  
+  forest.Refine(LogicalLocation(0, 1, 0, 1, 0));
+
+  return forest;
+}
+
 Forest squared_circle() {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
   // The outer square
@@ -105,7 +138,7 @@ void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
 }
 
 int main(int argc, char *argv[]) {
-  auto forest = squared_circle();
+  auto forest = four_blocks();
 
   // Write out forest for matplotlib
   FILE *pfile;

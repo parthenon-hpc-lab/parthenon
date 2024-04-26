@@ -35,8 +35,10 @@ namespace forest {
 
 struct LogicalCoordinateTransformation {
   LogicalCoordinateTransformation()
-      : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2}, dir_flip{false, false,
-                                                                           false} {};
+      : dir_connection{0, 1, 2}, 
+        dir_connection_inverse{0, 1, 2}, 
+        dir_flip{false, false, false},
+        offset{0, 0, 0} {};
 
   void SetDirection(Direction origin, Direction neighbor, bool reversed = false) {
     dir_connection[static_cast<uint>(origin)] = static_cast<uint>(neighbor);

@@ -210,7 +210,7 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
         face->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, lcoord_trans);
       }
     }
-    // TODO(LFR): Need to find corner neighbors, still haven't totally figured out the coordinate transformations 
+    // TODO(LFR): Need to find corner neighbors
   
   }
 
