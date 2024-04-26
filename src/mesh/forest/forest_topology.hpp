@@ -147,6 +147,29 @@ class Edge {
   }
 };
 
+template <class T> 
+struct NeighborInfo {
+  std::array<std::vector<T>, 27> data; 
+  std::vector<T> &operator()(int i, int j, int k = 0) { 
+    return data[i + 1 + 3 * (j + 1 + 3 * (k + 1))];
+  } 
+
+  auto Contains(const T& in, int type_indicator) { 
+    for (int i = -1; i < 2; i++) {
+      for (int j = -1; j < 2; j++) {
+        for (int k = -1; k < 2; k++) {
+          if (std::abs(i) + std::abs(j) + std::abs(k) != type_indicator) continue;
+          for (int v = 0; v < (*this)(i, j, k).size(); ++v) { 
+            if (in == (*this)(i, j, k)[v]) return std::make_tuple(true, i, j, k, v);
+          }
+        }
+      }
+    }
+    return std::make_tuple(false, 0, 0, 0, 0);
+  }
+
+}
+
 class Face : public std::enable_shared_from_this<Face> {
  private:
   struct private_t {};
@@ -197,8 +220,8 @@ class Face : public std::enable_shared_from_this<Face> {
   sptr_vec_t<Node, 4> nodes;
   std::unordered_map<EdgeLoc, Edge> edges;
   
-  std::array<std::array<std::vector<std::shared_ptr<Face>>, 3>, 3> neighbors;
-  std::array<std::array<std::vector<LogicalCoordinateTransformation>, 3>, 3> coord_trans;
+  NeighborInfo<std::shared_ptr<Face>> neighbors;
+  NeighborInfo<LogicalCoordinateTransformation> coord_trans;
 
   std::shared_ptr<Tree> tree;
   static constexpr std::array<std::array<int, 2>, 4> node_to_offset = {std::array<int, 2>{-1, -1},

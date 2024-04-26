@@ -62,7 +62,7 @@ void Face::SetNeighbors() {
         }
       }
       for (auto &o : offset) o /= node_overlap.size();
-      neighbors[offset[0] + 1][offset[1] + 1].push_back(neighbor);
+      neighbors(offset[0], offset[1]).push_back(neighbor);
     }
   }
 }
@@ -75,7 +75,7 @@ void Face::SetEdgeCoordinateTransforms() {
           auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
           auto {loc, edge} = GetEdge(node_overlap); 
           auto {nloc, nedge} = neighbor->GetEdge(node_overlap); 
-          coord_trans[ox1 + 1][oy + 1].push_back(
+          coord_trans(ox1, oy).push_back(
             LogicalCoordinateTransformationFromSharedEdge2D(loc, nloc, edge.RelativeOrientation(nedge)));
         }
       }
@@ -88,7 +88,7 @@ void Face::SetNodeCoordinateTransforms() {
     for (int oy = -1; oy <= 1; ++oy) {
       if (std::abs(ox) + std::abs(oy) == 2) { 
         for (auto &neighbor : neighbors[ox + 1][oy + 1]) { 
-          // TODO(LFR): Find an edge neighbor that is shared by both 
+          // TODO(LFR): Find the shared edge neighbor  
         }
       }
     }
