@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "basic_types.hpp"
 #include "config.hpp"
@@ -48,6 +49,10 @@ namespace parthenon {
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
 class ParameterInput;
+
+// Define internally created variable names
+inline const std::string internal_varname_seperator("::");
+inline const std::string internal_fluxname("bnd_flux");
 
 /// Defines the maximum size of the static array used in the IndexShape objects
 constexpr int NDIM = 3;

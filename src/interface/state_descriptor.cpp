@@ -262,6 +262,9 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
 
 bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
                                    const VarID &control_vid) {
+  PARTHENON_REQUIRE(vid.label().find(internal_varname_seperator) == std::string::npos,
+                    "Variable names can't include the internall reserved separator " +
+                        internal_varname_seperator + ".");
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
@@ -281,7 +284,8 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
       else if (m.IsSet(Metadata::Edge))
         mFlags.push_back(Metadata::Node);
       Metadata mf(mFlags, m.Shape());
-      auto fId = VarID{"bnd_flux::" + vid.base_name, vid.sparse_id};
+      auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
+                       vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
     }

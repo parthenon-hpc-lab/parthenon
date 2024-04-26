@@ -167,7 +167,9 @@ struct any_nonautoflux : public base_t<true> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION any_nonautoflux(Ts &&...args)
       : base_t<true>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "^(?!bnd_flux::).+"; }
+  static std::string name() {
+    return "^(?!" + internal_fluxname + internal_varname_seperator + ").+";
+  }
 };
 
 using any = any_nonautoflux;

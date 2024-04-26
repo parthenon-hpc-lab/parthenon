@@ -265,7 +265,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   auto advected = mbd->Get("advected").data;
 
-  parthenon::ParArray4D<Real> x1flux = mbd->Get("bnd_flux::advected").data.Get(1, 0, 0);
+  parthenon::ParArray4D<Real> x1flux = mbd->Get("bnd_flux::advected").data.Get(0, 0, 0);
   // Spatially first order upwind method
   pmb->par_for(
       PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
