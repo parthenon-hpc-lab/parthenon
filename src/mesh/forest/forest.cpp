@@ -187,6 +187,18 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
 }
 
 Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<ForestBC<Edge>> bc_edges) {
+  // Set the topological connections of the faces 
+  for (auto &face : faces) {
+    face->SetNeighbors();
+    for (int ix = 0; ix < 3; ++ix) {
+      for (int iy = 0; iy < 3; ++iy) {
+        for (auto &neighbor : face->neighbors[ix][iy]) {
+          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ix - 1, iy - 1, neighbor->my_id);
+        }
+      }
+    }
+  }
+  
   // Build tree boundary conditions
   for (auto &face : faces) {
     std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 

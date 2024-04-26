@@ -13,7 +13,9 @@
 #ifndef MESH_FOREST_FOREST_TOPOLOGY_HPP_
 #define MESH_FOREST_FOREST_TOPOLOGY_HPP_
 
+#include <algorithm>
 #include <array>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
@@ -115,6 +117,17 @@ class std::hash<parthenon::forest::EdgeLoc> {
 namespace parthenon {
 namespace forest {
 
+template<class T> 
+std::vector<std::shared_ptr<Node>> NodeListOverlap(T nodes_1, T nodes_2) {
+  std::sort(std::begin(nodes_1), std::end(nodes_1));
+  std::sort(std::begin(nodes_2), std::end(nodes_2));
+  std::vector<std::shared_ptr<Node>> node_intersection;
+  std::set_intersection(std::begin(nodes_1), std::end(nodes_1), 
+                        std::begin(nodes_2), std::end(nodes_2), 
+                        std::back_inserter(node_intersection));
+  return node_intersection;
+} 
+
 class Edge {
  public:
   Edge() = default;
@@ -154,7 +167,7 @@ class Face : public std::enable_shared_from_this<Face> {
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)),
+      : my_id(id), nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)),
         dir{Direction::I, Direction::J}, normal{Direction::K}, normal_rhanded(true) {
     edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
     edges[EdgeLoc::West] = Edge({nodes[0], nodes[2]});
@@ -169,21 +182,27 @@ class Face : public std::enable_shared_from_this<Face> {
       node->associated_faces.insert(result);
     return result;
   }
-
+  
+  void SetNeighbors();
+  
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
 
   Direction dir[2];
   Direction normal;
   bool normal_rhanded;
+  
+  std::int64_t my_id;
 
   sptr_vec_t<Node, 4> nodes;
   std::unordered_map<EdgeLoc, Edge> edges;
   
-  // TODO(LFR): Add code for finding these neighbors without getting coordinate transforms
-  std::vector<std::shared_ptr<Face>> edge_neighbors;
-  std::vector<std::shared_ptr<Face>> corner_neighbors;
+  std::array<std::array<std::vector<std::shared_ptr<Face>>, 3>, 3> neighbors;
 
   std::shared_ptr<Tree> tree;
+  static constexpr std::array<std::array<int, 2>, 4> node_to_offset = {std::array<int, 2>{-1, -1},
+                                                                       std::array<int, 2>{1, -1},
+                                                                       std::array<int, 2>{-1, 1},
+                                                                       std::array<int, 2>{1, 1}};
 };
 
 // We choose face nodes to be ordered as:
