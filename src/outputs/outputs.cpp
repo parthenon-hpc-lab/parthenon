@@ -212,8 +212,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
           (op.file_type != "ascent") && (op.file_type != "histogram")) {
-        op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
-                                                        std::vector<std::string>());
+        // differentiating here whether a block exists or not to not add an empty
+        // parameter to the input file (which might interfere with restarts)
+        if (pin->DoesParameterExist(pib->block_name, "variables")) {
+          op.variables = pin->GetVector<std::string>(pib->block_name, "variables");
+        } else {
+          op.variables = std::vector<std::string>();
+        }
         // JMM: If the requested var isn't present for a given swarm,
         // it is simply not output.
         op.swarms.clear(); // Not sure this is needed
