@@ -131,7 +131,8 @@ variables are copied or not in multiple stages.
    always required. ``OneCopy`` variables, for example, may not need
    this.
 -  ``Metadata::Flux`` specifies that elements shared with neighbor blocks 
-   at coarse-fine boundaries are communicated during flux correction. 
+   at coarse-fine boundaries are communicated  and corrected during flux 
+   correction. 
 
 Ghost Zones, Communication, and Fluxes
 --------------------------------------
@@ -149,8 +150,8 @@ classes may be allocated. The behaviours are the following:
   correct topological type for a flux in the generalized Stokes theorem 
   sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
   set the new variable will have ``Metadata::Face``) will be created in
-  the package with the name ``bnd_flx::name_of_original_variable`` and 
-  `Metadata::Flux` and `Metadata::OneCopy``. When creating packs that 
+  the package with the name ``bnd_flux::name_of_original_variable`` and 
+  ``Metadata::Flux`` and ``Metadata::OneCopy``. When creating packs that 
   include fluxes, the new flux field will be included in the flux portion 
   of the pack if the parent field is in the pack. 
 

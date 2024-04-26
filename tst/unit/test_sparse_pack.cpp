@@ -333,8 +333,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         auto sparse_pack = desc.GetPack(&mesh_data);
 
         auto desc_notype = MakePackDescriptor(
-            pkg.get(),
-            std::vector<std::pair<std::string, bool>>{{"^(?!bnd_flux::).+", true}});
+            pkg.get(), std::vector<std::pair<std::string, bool>>{
+                           {"^(?!" + parthenon::internal_fluxname +
+                                parthenon::internal_varname_seperator + ").+",
+                            true}});
         auto sparse_pack_notype = desc_notype.GetPack(&mesh_data);
         auto pack_map = desc_notype.GetMap();
         parthenon::PackIdx iall(pack_map[".*"]);

@@ -280,6 +280,9 @@ BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
+  // Test if the neighbor block is not offset from this block (i.e. is a
+  // parent or daughter block of pmb), and change the IndexRangeType
+  // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
   return BndInfo(pmb, nb, v, buf, idx_range_type);
 }
@@ -288,6 +291,9 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
+  // Test if the neighbor block is not offset from this block (i.e. is a
+  // parent or daughter block of pmb), and change the IndexRangeType
+  // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
 
