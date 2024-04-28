@@ -100,7 +100,9 @@ class SwarmPackBase {
   using pack_t = ParArray3D<ParArray1D<TYPE>>;
   using bounds_t = ParArray3D<int>;
   using contexts_t = ParArray1D<SwarmDeviceContext>;
+  using contexts_h_t = typename ParArray1D<SwarmDeviceContext>::HostMirror;
   using max_active_indices_t = ParArray1D<int>;
+  using max_active_indices_h_t = typename ParArray1D<int>::HostMirror;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
 
   // Build supplemental entries to SwarmPack that change on a cadence faster than the
@@ -108,18 +110,15 @@ class SwarmPackBase {
   template <class MBD>
   static void BuildSupplemental(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc,
                                 SwarmPackBase<TYPE> &pack) {
-    auto contexts_h = Kokkos::create_mirror_view(pack.contexts_);
-    auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
-
     // Fill the views
     ForEachBlock(pmd, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
-      contexts_h(b) = swarm->GetDeviceContext();
-      max_active_indices_h(b) = swarm->GetMaxActiveIndex();
+      pack.contexts_h_(b) = swarm->GetDeviceContext();
+      pack.max_active_indices_h_(b) = swarm->GetMaxActiveIndex();
     });
 
-    Kokkos::deep_copy(pack.contexts_, contexts_h);
-    Kokkos::deep_copy(pack.max_active_indices_, max_active_indices_h);
+    Kokkos::deep_copy(pack.contexts_, pack.contexts_h_);
+    Kokkos::deep_copy(pack.max_active_indices_, pack.max_active_indices_h_);
   }
 
   // Actually build a `SwarmPackBase` (i.e. create a view of views, fill on host, and
@@ -215,7 +214,9 @@ class SwarmPackBase {
     Kokkos::deep_copy(pack.bounds_, bounds_h);
 
     pack.contexts_ = contexts_t("contexts", nblocks);
+    pack.contexts_h_ = Kokkos::create_mirror_view(pack.contexts_);
     pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
+    pack.max_active_indices_h_ = Kokkos::create_mirror_view(pack.max_active_indices_);
     BuildSupplemental(pmd, desc, pack);
 
     return pack;
@@ -260,7 +261,9 @@ class SwarmPackBase {
   pack_t pack_;
   bounds_t bounds_;
   contexts_t contexts_;
+  contexts_h_t contexts_h_;
   max_active_indices_t max_active_indices_;
+  max_active_indices_h_t max_active_indices_h_;
 
   int nblocks_;
   int nvar_;
