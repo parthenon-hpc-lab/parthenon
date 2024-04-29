@@ -35,10 +35,11 @@
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/packages.hpp"
+#include "interface/sparse_pack_base.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
-#include "outputs/outputs.hpp"
+#include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -48,6 +49,8 @@ namespace parthenon {
 class ApplicationInput;
 class Mesh;
 class MeshBlockTree;
+template <typename T>
+class MeshBlockData;
 class MeshRefinement;
 class ParameterInput;
 class StateDescriptor;
@@ -283,8 +286,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   // Optionally defined by downstream applications
-  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput;
-  std::function<void(MeshBlock *, ParameterInput *, OutputType *)>
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
+      UserWorkBeforeOutput;
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &, OutputParameters *)>
       UserWorkBeforeRestartOutput;
 
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }

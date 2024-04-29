@@ -40,6 +40,7 @@ class Mesh;
 class MeshBlock;
 template <typename T>
 class MeshBlockData;
+class SparsePackCache;
 
 template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;

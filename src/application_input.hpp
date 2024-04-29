@@ -22,14 +22,11 @@
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "interface/state_descriptor.hpp"
-#include "outputs/outputs.hpp"
+#include "outputs/output_parameters.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
-
-// Forward declarations
-class OutputType;
 
 struct ApplicationInput {
  public:
@@ -50,7 +47,7 @@ struct ApplicationInput {
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       UserMeshWorkBeforeOutput = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &, OutputType *)>
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, OutputParameters *)>
       UserMeshWorkBeforeRestartOutput = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
@@ -69,9 +66,9 @@ struct ApplicationInput {
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
-      nullptr;
-  std::function<void(MeshBlock *, ParameterInput *, OutputType *)>
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
+      MeshBlockUserWorkBeforeOutput = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &, OutputParameters *)>
       MeshBlockUserWorkBeforeRestartOutput = nullptr;
 };
 
