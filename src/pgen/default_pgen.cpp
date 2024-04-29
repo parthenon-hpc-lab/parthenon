@@ -32,30 +32,6 @@
 
 namespace parthenon {
 
-//========================================================================================
-//! \fn void Mesh::InitUserMeshDataDefault(ParameterInput *pin)
-//  \brief Function to initialize problem-specific data in Mesh class.  Can also be used
-//  to initialize variables which are global to (and therefore can be passed to) other
-//  functions in this file.  Called in Mesh constructor.
-//========================================================================================
-
-void Mesh::InitUserMeshDataDefault(Mesh *, ParameterInput *) {
-  // do nothing
-  return;
-}
-
-//========================================================================================
-//! \fn void Mesh::UserWorkInLoopDefault()
-//  \brief Dummy function that is set by default as PreStepMeshUserWorkInLoop and
-//  PostStepMeshUserWorkInLoop. One should set the latter separately (or only one) instead
-//  of redefining this function.
-//========================================================================================
-
-void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
-  // do nothing
-  return;
-}
-
 void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                SimTime const &simtime) {
   for (auto &package : pmesh->packages.AllPackages()) {
@@ -69,62 +45,5 @@ void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
     package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
   }
 }
-
-//========================================================================================
-//! \fn void Mesh::UserWorkAfterLoopDefault(ParameterInput *pin, SimTime &tm)
-//  \brief Function called after main loop is finished for user-defined work.
-//========================================================================================
-
-void Mesh::UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
-  // do nothing
-  return;
-}
-
-// 5x members of MeshBlock class:
-
-//========================================================================================
-//! \fn std::unique_ptr<MeshBlockApplicationData>
-//! MeshBlock::InitApplicationMeshBlockDataDefault(ParameterInput *pin)
-//  \brief Function to initialize application-specific data in MeshBlock class.  Can also
-//  be used to initialize variables which are global to other functions in this file.
-//  Called in MeshBlock constructor before ProblemGenerator.
-//========================================================================================
-
-std::unique_ptr<MeshBlockApplicationData>
-MeshBlock::InitApplicationMeshBlockDataDefault(MeshBlock * /*pmb*/,
-                                               ParameterInput * /*pin*/) {
-  // do nothing
-  return nullptr;
-}
-
-//========================================================================================
-//! \fn void MeshBlock::InitMeshBlockUserDataDefault(ParameterInput *pin)
-//  \brief Function to initialize problem-specific data in MeshBlock class.  Can also be
-//  used to initialize variables which are global to other functions in this file.
-//  Called in MeshBlock constructor before ProblemGenerator.
-//========================================================================================
-
-void MeshBlock::InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin) {
-  // do nothing
-  return;
-}
-
-//========================================================================================
-//! \fn void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin)
-//  \brief Should be used to set initial conditions.
-//========================================================================================
-
-void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
-  // In practice, this function should *always* be replaced by a version
-  // that sets the initial conditions for the problem of interest.
-  return;
-}
-
-//========================================================================================
-//! \fn void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin)
-//  \brief Should be used to perform post initialization ops.
-//========================================================================================
-
-void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin) { return; }
 
 } // namespace parthenon

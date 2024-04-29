@@ -253,7 +253,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData) {
+    InitUserMeshData(this, pin);
+  }
 
   if (multilevel) {
     if (block_size.nx(X1DIR) % 2 == 1 || (block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
@@ -587,7 +589,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData) {
+    InitUserMeshData(this, pin);
+  }
 
   // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
@@ -1103,7 +1107,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      if (pmb->InitMeshBlockUserData) {
+        pmb->InitMeshBlockUserData(pmb, pin);
+      }
     }
 
     const int num_partitions = DefaultNumPartitions();
@@ -1130,6 +1136,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
+          PARTHENON_REQUIRE(
+              pmb->ProblemGenerator,
+              "Neither mesh- nor meshblock-level ProblemGenerator defined!");
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
@@ -1146,7 +1155,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostInitialization) {
+            pmb->PostInitialization(pmb.get(), pin);
+          }
         }
       }
 

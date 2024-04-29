@@ -163,21 +163,13 @@ class Mesh {
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
-      nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
-      &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(
-      Mesh *, ParameterInput *,
-      SimTime const &); // default behavior for pre- and post-step user work
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> UserMeshWorkBeforeOutput;
 
@@ -310,10 +302,8 @@ class Mesh {
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
-      InitUserMeshDataDefault;
+  // Optionall defined in either the problem file
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
 

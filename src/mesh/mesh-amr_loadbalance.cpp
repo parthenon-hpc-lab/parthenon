@@ -937,8 +937,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
     // init meshblock data
-    for (auto &pmb : block_list)
-      pmb->InitMeshBlockUserData(pmb.get(), pin);
+    for (auto &pmb : block_list) {
+      if (pmb->InitMeshBlockUserData) {
+        pmb->InitMeshBlockUserData(pmb.get(), pin);
+      }
+    }
 
     // Find the non-cell centered fields that are communicated
     Metadata::FlagCollection fc;

@@ -426,18 +426,12 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  static void PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  static pMeshBlockApplicationData_t
-  InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
+  // Optionally defined in the prob file
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
-      InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
-  static void InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData =
-      &InitMeshBlockUserDataDefault;
+      InitApplicationMeshBlockData;
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData;
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
