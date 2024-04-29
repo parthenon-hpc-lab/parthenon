@@ -109,6 +109,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
+  
+  // Should we pre-post receives in `Mesh::Initialize`?
+  pin->GetOrAddBoolean("parthenon/comm","prepost_recvs",false);
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -1010,7 +1013,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         BuildGMGBoundaryBuffers(mdg);
       }
     }
-
+    // Pre-post the receives
+    if(pin->GetBoolean("parthenon/comm","prepost_recvs")){
+      for (int i = 0; i < num_partitions; i++) {
+        auto &md = mesh_data.GetOrAdd("base", i);
+        StartReceiveBoundaryBuffers(md);  
+      }
+    }
+    
     std::vector<bool> sent(num_partitions, false);
     bool all_sent;
     std::int64_t send_iters = 0;
