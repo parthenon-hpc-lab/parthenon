@@ -29,7 +29,6 @@
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -175,11 +174,11 @@ class Face : public std::enable_shared_from_this<Face> {
   struct private_t {};
 
  public:
-  Face() : tree() {}
+  Face() = default; 
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : my_id(id), nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)),
+      : my_id(id), nodes(nodes_in),
         dir{Direction::I, Direction::J}, normal{Direction::K}, normal_rhanded(true) {
     int idx{0};
     for (auto &node : nodes) face_index[node] = idx++;
@@ -217,10 +216,8 @@ class Face : public std::enable_shared_from_this<Face> {
   std::unordered_map<std::shared_ptr<Node>, int> face_index;
   std::unordered_map<EdgeLoc, Edge> edges;
   
-  NeighborInfo<std::shared_ptr<Face>> neighbors;
-  NeighborInfo<LogicalCoordinateTransformation> coord_trans;
+  NeighborInfo<std::pair<std::shared_ptr<Face>, LogicalCoordinateTransformation>> neighbors;
 
-  std::shared_ptr<Tree> tree;
   static constexpr std::array<CellCentOffsets, 4> node_to_offset = {CellCentOffsets{-1, -1, -1},
                                                                     CellCentOffsets{1, -1, -1},
                                                                     CellCentOffsets{-1, 1, -1},

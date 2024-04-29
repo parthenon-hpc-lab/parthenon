@@ -193,7 +193,7 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
     face->SetEdgeCoordinateTransforms();
     for (int ox = -1; ox < 2; ++ox) {
       for (int oy = -1; oy < 2; ++oy) {
-        for (auto &neighbor : face->neighbors(ox, oy)) {
+        for (auto &[neighbor, ct] : face->neighbors(ox, oy)) {
           printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ox, oy, neighbor->my_id);
         }
       }
@@ -205,8 +205,18 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
 
   // Build the list of trees 
   std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees; 
+  for (const auto &face : faces)
+    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, face->nodes);
+  
   for (const auto &face : faces) { 
-    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0);
+    for (int ox1 = -1; ox1 < 2; ++ox1) {
+      for (int ox2 = -1; ox2 < 2; ++ox2) {
+        for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
+          printf("[%li] Adding neighbor %li (%i, %i)[%i, %i]\n", face->GetId(), neighbor->GetId(), ox1, ox2, ct.dir_connection[0], ct.dir_connection[1]);
+          trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0), trees[neighbor->GetId()], ct);
+        }
+      }
+    }
   }
 
   // Build tree boundary conditions
@@ -223,24 +233,10 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
     } 
   }
 
-  for (auto &face : faces) {
-    for (auto side : {EdgeLoc::North, EdgeLoc::East, EdgeLoc::South, EdgeLoc::West}) {
-      auto neighbors = FindEdgeNeighbors(face, side);
-      for (auto &n : neighbors) {
-        auto lcoord_trans = LogicalCoordinateTransformationFromSharedEdge2D(side, std::get<1>(n),
-                                                                     std::get<2>(n));
-        face->tree->AddNeighborTree(side.GetFaceIdx2D(), std::get<0>(n)->tree, lcoord_trans);
-      }
-    }
-    // TODO(LFR): Need to find corner neighbors
-  
-  }
-
   Forest fout;
   fout.root_level = 0;
   fout.forest_level = 0;
-  for (auto &face : faces)
-    fout.AddTree(face->tree);
+  for (auto & [id, tree] : trees) fout.AddTree(tree);
   return fout;
 }
 
