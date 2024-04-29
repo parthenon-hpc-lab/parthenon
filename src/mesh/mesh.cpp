@@ -920,13 +920,11 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
   }
 }
 
-//
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
 // \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
 void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                             SimTime const &time, OutputType *ptype) {
-
   // call Mesh version
   if (mesh->UserMeshWorkBeforeRestartOutput) {
     mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time, ptype);
