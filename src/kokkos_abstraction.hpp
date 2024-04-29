@@ -633,7 +633,7 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 }
 
 template <typename Tag, typename... Args>
-inline constexpr void par_dispatch(const std::string &name, Args &&...args) {
+inline void par_dispatch(const std::string &name, Args &&...args) {
   par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
                     std::forward<Args>(args)...);
 }
@@ -723,7 +723,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
 }
 
 template <typename... Args>
-inline constexpr void par_for_outer(const std::string &name, Args &&...args) {
+inline void par_for_outer(const std::string &name, Args &&...args) {
   par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, DevExecSpace(),
                 std::forward<Args>(args)...);
 }
