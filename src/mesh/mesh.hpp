@@ -179,14 +179,10 @@ class Mesh {
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
 
-  static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> UserMeshWorkBeforeOutput;
 
-  static void UserMeshWorkBeforeRestartOutputDefault(Mesh *, ParameterInput *,
-                                                     SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeRestartOutput = &UserMeshWorkBeforeRestartOutputDefault;
+      UserMeshWorkBeforeRestartOutput;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);

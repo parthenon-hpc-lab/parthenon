@@ -286,17 +286,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // that data are used for (1) load balancing (2) (future) dumping to restart file
   void RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc);
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void
-  UserWorkBeforeOutputDefault(MeshBlock *pmb,
-                              ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =
-      &UserWorkBeforeOutputDefault;
-  static void UserWorkBeforeRestartOutputDefault(
-      MeshBlock *pmb,
-      ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeRestartOutput =
-      &UserWorkBeforeRestartOutputDefault;
+  // Optionally defined by downstream applications
+  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput;
+  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeRestartOutput;
+
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }

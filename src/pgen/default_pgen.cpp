@@ -121,53 +121,10 @@ void MeshBlock::ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 //========================================================================================
-//! \fn void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *pmb, ParameterInput *pin, SimTime
-//! &t)
-//  \brief Function called before generating output files
-//========================================================================================
-
-void Mesh::UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &) {
-  // do nothing
-  return;
-}
-
-//========================================================================================
-//! \fn void Mesh::UserMeshWorkBeforeRestartOutputDefault(Mesh *pmb, ParameterInput *pin,
-//! SimTime &t)
-//  \brief Function called before generating output files
-//========================================================================================
-
-void Mesh::UserMeshWorkBeforeRestartOutputDefault(Mesh *, ParameterInput *,
-                                                  SimTime const &) {
-  // do nothing
-  return;
-}
-
 //! \fn void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin)
 //  \brief Should be used to perform post initialization ops.
 //========================================================================================
 
 void MeshBlock::PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin) { return; }
-
-//========================================================================================
-//! \fn void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin)
-//  \brief Function called before generating output files
-//========================================================================================
-
-void MeshBlock::UserWorkBeforeOutputDefault(MeshBlock *pmb, ParameterInput *pin) {
-  // do nothing
-  return;
-}
-
-//========================================================================================
-//! \fn void MeshBlock::UserWorkBeforeRestartOutputDefault(MeshBlock *pmb, ParameterInput
-//! *pin)
-//  \brief Function called before generating output files
-//========================================================================================
-
-void MeshBlock::UserWorkBeforeRestartOutputDefault(MeshBlock *pmb, ParameterInput *pin) {
-  // do nothing
-  return;
-}
 
 } // namespace parthenon

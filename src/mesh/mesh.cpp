@@ -906,11 +906,15 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeOutput) {
+    mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeOutput) {
+      pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    }
   }
 }
 
@@ -922,11 +926,15 @@ void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                             SimTime const &time) {
 
   // call Mesh version
-  mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeRestartOutput) {
+    mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeRestartOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeRestartOutput) {
+      pmb->UserWorkBeforeRestartOutput(pmb.get(), pin);
+    }
   }
 }
 
