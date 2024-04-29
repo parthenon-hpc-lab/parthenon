@@ -18,6 +18,11 @@
 #ifndef OUTPUTS_OUTPUT_PARAMETERS_HPP_
 #define OUTPUTS_OUTPUT_PARAMETERS_HPP_
 
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
