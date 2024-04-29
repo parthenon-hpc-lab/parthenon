@@ -925,17 +925,18 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
 // \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
 // \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
 void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
-                                            SimTime const &time) {
+                                            SimTime const &time,
+                                            const OutputType *ptype) {
 
   // call Mesh version
   if (mesh->UserMeshWorkBeforeRestartOutput) {
-    mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time);
+    mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time, ptype);
   }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
     if (pmb->UserWorkBeforeRestartOutput) {
-      pmb->UserWorkBeforeRestartOutput(pmb.get(), pin);
+      pmb->UserWorkBeforeRestartOutput(pmb.get(), pin, ptype);
     }
   }
 }

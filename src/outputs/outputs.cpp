@@ -442,7 +442,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         first = false;
       }
       if (ptype->output_params.file_type == "rst") {
-        pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm);
+        pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, ptype);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }

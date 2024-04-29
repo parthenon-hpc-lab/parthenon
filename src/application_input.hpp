@@ -22,6 +22,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "interface/state_descriptor.hpp"
+#include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -46,7 +47,7 @@ struct ApplicationInput {
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       UserMeshWorkBeforeOutput = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, const OutputType *)>
       UserMeshWorkBeforeRestartOutput = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>

@@ -47,7 +47,6 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "outputs/io_wrapper.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -155,7 +154,7 @@ class Mesh {
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
-                                        SimTime const &time);
+                                        SimTime const &time, const OutputType *ptype);
 
   // Boundary Functions
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
@@ -173,7 +172,7 @@ class Mesh {
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> UserMeshWorkBeforeOutput;
 
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, const OutputType *)>
       UserMeshWorkBeforeRestartOutput;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,

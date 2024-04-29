@@ -38,7 +38,7 @@
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
-#include "outputs/io_wrapper.hpp"
+#include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -283,7 +283,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined by downstream applications
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput;
-  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeRestartOutput;
+  std::function<void(MeshBlock *, ParameterInput *, const OutputType *)>
+      UserWorkBeforeRestartOutput;
 
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
