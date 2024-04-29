@@ -28,6 +28,9 @@
 
 namespace parthenon {
 
+// Forward declarations
+class OutputType;
+
 struct ApplicationInput {
  public:
   // ParthenonManager functions
@@ -47,7 +50,7 @@ struct ApplicationInput {
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       UserMeshWorkBeforeOutput = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &, const OutputType *)>
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, OutputType *)>
       UserMeshWorkBeforeRestartOutput = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
@@ -68,7 +71,7 @@ struct ApplicationInput {
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
       nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)>
+  std::function<void(MeshBlock *, ParameterInput *, OutputType *)>
       MeshBlockUserWorkBeforeRestartOutput = nullptr;
 };
 

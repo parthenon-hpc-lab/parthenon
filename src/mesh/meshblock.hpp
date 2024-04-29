@@ -51,6 +51,7 @@ class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
 class StateDescriptor;
+class OutputType;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
@@ -283,7 +284,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined by downstream applications
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput;
-  std::function<void(MeshBlock *, ParameterInput *, const OutputType *)>
+  std::function<void(MeshBlock *, ParameterInput *, OutputType *)>
       UserWorkBeforeRestartOutput;
 
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }

@@ -37,11 +37,13 @@
 namespace parthenon {
 
 class Mesh;
+class MeshBlock;
 template <typename T>
 class MeshBlockData;
 
 template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
+using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 namespace pack_on_mesh_impl {
 
