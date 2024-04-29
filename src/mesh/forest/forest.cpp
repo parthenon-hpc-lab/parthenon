@@ -190,15 +190,25 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
   // Set the topological connections of the faces 
   for (auto &face : faces) {
     face->SetNeighbors();
-    for (int ix = 0; ix < 3; ++ix) {
-      for (int iy = 0; iy < 3; ++iy) {
-        for (auto &neighbor : face->neighbors[ix][iy]) {
-          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ix - 1, iy - 1, neighbor->my_id);
+    face->SetEdgeCoordinateTransforms();
+    for (int ox = -1; ox < 2; ++ox) {
+      for (int oy = -1; oy < 2; ++oy) {
+        for (auto &neighbor : face->neighbors(ox, oy)) {
+          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ox, oy, neighbor->my_id);
         }
       }
     }
   }
-  
+  // Have to do this in a second sweep after setting edge transformations, since it relies on composing 
+  // edge coordinate transformations
+  for (auto &face : faces) face->SetNodeCoordinateTransforms();
+
+  // Build the list of trees 
+  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees; 
+  for (const auto &face : faces) { 
+    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0);
+  }
+
   // Build tree boundary conditions
   for (auto &face : faces) {
     std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 

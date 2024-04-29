@@ -54,7 +54,7 @@ struct CellCentOffsets {
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
           static_cast<Offset>(in[2])} {}
 
-  CellCentOffsets(int ox1, int ox2, int ox3)
+  constexpr CellCentOffsets(int ox1, int ox2, int ox3)
       : u{static_cast<Offset>(ox1), static_cast<Offset>(ox2), static_cast<Offset>(ox3)} {}
 
   Offset &operator[](int idx) { return u[idx]; }
@@ -145,6 +145,13 @@ struct CellCentOffsets {
            9 * (1 - static_cast<int>(u[2]));
   }
 };
+
+template <class... Args> 
+CellCentOffsets AverageOffsets(Args&&... args) { 
+  return CellCentOffsets((static_cast<int>(args[0]) + ...) / sizeof...(args), 
+                         (static_cast<int>(args[1]) + ...) / sizeof...(args),
+                         (static_cast<int>(args[2]) + ...) / sizeof...(args));
+}
 } // namespace parthenon
 
 #endif // UTILS_CELL_CENTER_OFFSETS_HPP_

@@ -58,7 +58,7 @@ void Face::SetNeighbors() {
       std::array<int, 2> offset{0, 0};
       for (int i=0; i < 4; ++i) {
         if (std::find(node_overlap.begin(), node_overlap.end(), nodes[i]) != node_overlap.end()) {
-          for (int o = 0; o < 2; ++o) offset[o] += node_to_offset[i][o];
+          for (int o = 0; o < 2; ++o) offset[o] += static_cast<int>(node_to_offset[i][o]);
         }
       }
       for (auto &o : offset) o /= node_overlap.size();
@@ -67,16 +67,43 @@ void Face::SetNeighbors() {
   }
 }
 
+std::tuple<int, int, Offset> 
+Face::GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes) {
+  PARTHENON_REQUIRE(nodes.size() == 2, "The argument can't be an edge.");
+  int I0 = face_index[nodes[0]];
+  int I1 = face_index[nodes[1]];
+  int dir_tang = (I1 - I0 > 0 ? 1 : -1) * IntegerLog2Floor(std::abs(I1 - I0));
+  auto offsets = AverageOffsets(node_to_offset[I0], node_to_offset[I1]);
+  PARTHENON_REQUIRE(offsets.IsEdge(), "Something is wrong.");
+  auto [dir_norm, offset] = offsets.GetNormals()[0]; 
+  return std::make_tuple(dir_tang, static_cast<int>(dir_norm), offset);
+}
+
+
 void Face::SetEdgeCoordinateTransforms() { 
   for (int ox = -1; ox <= 1; ++ox) {
     for (int oy = -1; oy <= 1; ++oy) {
       if (std::abs(ox) + std::abs(oy) == 1) { 
-        for (auto &neighbor : neighbors[ox + 1][oy + 1]) { 
+        for (auto &neighbor : neighbors(ox, oy)) { 
           auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
-          auto {loc, edge} = GetEdge(node_overlap); 
-          auto {nloc, nedge} = neighbor->GetEdge(node_overlap); 
-          coord_trans(ox1, oy).push_back(
-            LogicalCoordinateTransformationFromSharedEdge2D(loc, nloc, edge.RelativeOrientation(nedge)));
+          PARTHENON_REQUIRE(node_overlap.size() == 2, "This is clearly not an edge.");
+          std::sort(node_overlap.begin(), node_overlap.end(), [this](auto &n1, auto &n2){
+              return this->face_index[n1] < this->face_index[n2];
+            });
+          
+          auto [dir1, dir2, offset] = GetEdgeDirections(node_overlap);
+          auto [dir1_neigh, dir2_neigh, offset_neigh] = neighbor->GetEdgeDirections(node_overlap);
+
+          LogicalCoordinateTransformation ct; 
+          // Set the direction mapping for direction along the edge
+          ct.SetDirection(static_cast<Direction>(std::abs(dir1)), 
+                          static_cast<Direction>(std::abs(dir1_neigh)), 
+                          dir1_neigh < 0);
+          // Set the direction mapping for direction tangent to the edge
+          ct.SetDirection(static_cast<Direction>(std::abs(dir2)),
+                          static_cast<Direction>(std::abs(dir2_neigh)),
+                          offset == offset_neigh);
+          coord_trans(ox, oy).push_back(ct);
         }
       }
     }
@@ -87,7 +114,7 @@ void Face::SetNodeCoordinateTransforms() {
   for (int ox = -1; ox <= 1; ++ox) {
     for (int oy = -1; oy <= 1; ++oy) {
       if (std::abs(ox) + std::abs(oy) == 2) { 
-        for (auto &neighbor : neighbors[ox + 1][oy + 1]) { 
+        for (auto &neighbor : neighbors(ox, oy)) { 
           // TODO(LFR): Find the shared edge neighbor  
         }
       }

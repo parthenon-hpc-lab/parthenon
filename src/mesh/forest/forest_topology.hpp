@@ -168,7 +168,7 @@ struct NeighborInfo {
     return std::make_tuple(false, 0, 0, 0, 0);
   }
 
-}
+};
 
 class Face : public std::enable_shared_from_this<Face> {
  private:
@@ -181,6 +181,9 @@ class Face : public std::enable_shared_from_this<Face> {
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
       : my_id(id), nodes(nodes_in), tree(Tree::create(id, NDIM, 0, nodes_in)),
         dir{Direction::I, Direction::J}, normal{Direction::K}, normal_rhanded(true) {
+    int idx{0};
+    for (auto &node : nodes) face_index[node] = idx++;
+    
     edges[EdgeLoc::South] = Edge({nodes[0], nodes[1]});
     edges[EdgeLoc::West] = Edge({nodes[0], nodes[2]});
     edges[EdgeLoc::East] = Edge({nodes[1], nodes[3]});
@@ -194,20 +197,13 @@ class Face : public std::enable_shared_from_this<Face> {
       node->associated_faces.insert(result);
     return result;
   }
-
-  std::tuple<EdgeLoc, Edge> GetEdge(std::vector<std::shared_ptr<Node>> nodes) { 
-    for (auto &[eloc, edge] : edges) { 
-      if (std::is_permutation(edge.nodes.begin(), edge.nodes.end(), nodes.begin(), nodes.end())) {
-        return eloc;
-      }
-    }
-    PARTHENON_FAIL("DIDNT FIND AN EDGE");
-    return {EdgeLoc::North, edge};
-  } 
+  
+  std::int64_t GetId() const { return my_id; }
 
   void SetNeighbors();
   void SetEdgeCoordinateTransforms();
   void SetNodeCoordinateTransforms();
+  std::tuple<int, int, Offset> GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes);
 
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
 
@@ -218,16 +214,17 @@ class Face : public std::enable_shared_from_this<Face> {
   std::int64_t my_id;
 
   sptr_vec_t<Node, 4> nodes;
+  std::unordered_map<std::shared_ptr<Node>, int> face_index;
   std::unordered_map<EdgeLoc, Edge> edges;
   
   NeighborInfo<std::shared_ptr<Face>> neighbors;
   NeighborInfo<LogicalCoordinateTransformation> coord_trans;
 
   std::shared_ptr<Tree> tree;
-  static constexpr std::array<std::array<int, 2>, 4> node_to_offset = {std::array<int, 2>{-1, -1},
-                                                                       std::array<int, 2>{1, -1},
-                                                                       std::array<int, 2>{-1, 1},
-                                                                       std::array<int, 2>{1, 1}};
+  static constexpr std::array<CellCentOffsets, 4> node_to_offset = {CellCentOffsets{-1, -1, -1},
+                                                                    CellCentOffsets{1, -1, -1},
+                                                                    CellCentOffsets{-1, 1, -1},
+                                                                    CellCentOffsets{1, 1, -1}};
 };
 
 // We choose face nodes to be ordered as:
