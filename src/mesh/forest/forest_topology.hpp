@@ -29,7 +29,9 @@
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
 #include "mesh/forest/logical_location.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/bit_hacks.hpp"
+#include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
 
 namespace parthenon {

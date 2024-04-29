@@ -72,17 +72,17 @@ Face::GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes) {
   PARTHENON_REQUIRE(nodes.size() == 2, "The argument can't be an edge.");
   int I0 = face_index[nodes[0]];
   int I1 = face_index[nodes[1]];
-  int dir_tang = (I1 - I0 > 0 ? 1 : -1) * IntegerLog2Floor(std::abs(I1 - I0));
+  int dir_tang = (I1 - I0 > 0 ? 1 : -1) * (IntegerLog2Floor(std::abs(I1 - I0)) + 1);
   auto offsets = AverageOffsets(node_to_offset[I0], node_to_offset[I1]);
   PARTHENON_REQUIRE(offsets.IsEdge(), "Something is wrong.");
   
-  Direction dir_norm;
+  CoordinateDirection dir_norm;
   Offset offset;
   if (std::abs(static_cast<int>(offsets[0])) == 1) { 
-    dir_norm = Direction::I;
+    dir_norm = X1DIR;
     offset = offsets[0];
   } else if (std::abs(static_cast<int>(offsets[1])) == 1) {
-    dir_norm = Direction::J; 
+    dir_norm = X2DIR; 
     offset = offsets[1];
   } else { 
     PARTHENON_FAIL("Shouldn't get here.");
@@ -109,13 +109,16 @@ void Face::SetEdgeCoordinateTransforms() {
 
           LogicalCoordinateTransformation ct; 
           // Set the direction mapping for direction along the edge
-          ct.SetDirection(static_cast<Direction>(std::abs(dir1)), 
-                          static_cast<Direction>(std::abs(dir1_neigh)), 
+          ct.SetDirection(static_cast<Direction>(std::abs(dir1) - 1), 
+                          static_cast<Direction>(std::abs(dir1_neigh) - 1), 
                           dir1_neigh < 0);
           // Set the direction mapping for direction tangent to the edge
-          ct.SetDirection(static_cast<Direction>(std::abs(dir2)),
-                          static_cast<Direction>(std::abs(dir2_neigh)),
+          ct.SetDirection(static_cast<Direction>(std::abs(dir2) - 1),
+                          static_cast<Direction>(std::abs(dir2_neigh) - 1),
                           offset == offset_neigh);
+          ct.offset = AverageOffsets(node_to_offset[face_index[node_overlap[0]]],
+                                     node_to_offset[face_index[node_overlap[1]]]);; 
+          ct.use_offset = true;
           coord_trans = ct;
         }
       }
