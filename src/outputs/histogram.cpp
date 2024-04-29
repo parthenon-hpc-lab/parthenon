@@ -287,8 +287,7 @@ void Histogram::CalcHist(Mesh *pm) {
     const auto kb = md->GetBoundsK(IndexDomain::interior);
 
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "CalcHist", DevExecSpace(), 0, md->NumBlocks() - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
+        "CalcHist", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           auto &coords = x_var.GetCoords(b);
           auto x_val = std::numeric_limits<Real>::quiet_NaN();
