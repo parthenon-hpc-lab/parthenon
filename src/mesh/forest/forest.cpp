@@ -220,18 +220,20 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
   }
 
   // Build tree boundary conditions
-  for (auto &face : faces) {
-    std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 
-    for (auto &[loc, edge] : face->edges) { 
-      for (auto &b : bc_edges) { 
-        if (edge.RelativeOrientation(b.element)) {
-          bcs[loc.GetBoundaryFace()] = b.bflag;
-          // TODO(LFR): Add mechanism to deal with periodic boundaries 
-          break;
-        }
-      } 
-    } 
-  }
+  //for (auto &face : faces) {
+  //  std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 
+  //  for (int ox1 = -1; ox1 < 2; ++ox1) {
+  //    for (int ox2 = -1; ox2 < 2; ++ox2) {
+  //      for (auto &b : bc_edges) {
+  //        if (edge.RelativeOrientation(b.element)) {
+  //          bcs[loc.GetBoundaryFace()] = b.bflag;
+  //          // TODO(LFR): Add mechanism to deal with periodic boundaries 
+  //          break;
+  //        }
+  //      } 
+  //    }
+  //  } 
+  //}
 
   Forest fout;
   fout.root_level = 0;
