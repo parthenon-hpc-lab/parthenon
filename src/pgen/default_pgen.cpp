@@ -15,20 +15,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file default_pgen.cpp
-//  \brief Provides default (empty) versions of all functions in problem generator files
-//  This means user does not have to implement these functions if they are not needed.
-//
-// By default, function pointers are set to these functions. Users can override these
-// defaults by setting the relevant functions in ParthenonManager prior to calling
-// ParthenonInit.
+//  \brief Provides default versions of user callbacks that loop over per-package
+//  functions.
 
 #include "defs.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-
-// 3x members of Mesh class:
 
 namespace parthenon {
 
