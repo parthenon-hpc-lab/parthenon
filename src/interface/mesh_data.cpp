@@ -36,6 +36,11 @@ void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
   Set(blocks, pmesh, ndim);
 }
 
+template <typename T>
+bool MeshData<T>::BlockDataIsWholeRank_() const {
+  return block_data_.size() == (pmy_mesh_->block_list).size();
+}
+
 template class MeshData<Real>;
 
 } // namespace parthenon

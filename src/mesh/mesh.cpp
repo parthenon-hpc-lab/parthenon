@@ -107,7 +107,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  std::int64_t nbmax;
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -214,7 +213,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
-  nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
   base_block_size = block_size;
 
   // check consistency of the block and mesh
@@ -981,7 +979,6 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
-  boundary_comm_flxcor_map.clear();
 
   // Build the boundary buffers for the current mesh
   for (int i = 0; i < num_partitions; i++) {
@@ -1280,23 +1277,14 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::Independent) ||
         metadata.IsSet(Metadata::ForceRemeshComm) ||
         metadata.IsSet(Metadata::GMGProlongate) ||
-        metadata.IsSet(Metadata::GMGRestrict)) {
+        metadata.IsSet(Metadata::GMGRestrict) || metadata.IsSet(Metadata::Flux)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
       PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
-
-      if (multilevel) {
-        MPI_Comm mpi_comm_flcor;
-        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_flcor));
-        const auto ret =
-            mpi_comm_map_.insert({pair.first.label() + "_flcor", mpi_comm_flcor});
-        PARTHENON_REQUIRE_THROWS(ret.second,
-                                 "Flux corr. communicator with same name already in map");
-      }
     }
   }
   for (auto &pair : resolved_packages->AllSwarms()) {

@@ -281,11 +281,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
 
-  // inform MeshBlock which arrays contained in member Field, Particles,
-  // ... etc. classes are the "primary" representations of a quantity. when registered,
-  // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc);
-
   // Optionally defined by downstream applications
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput;
   std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeRestartOutput;

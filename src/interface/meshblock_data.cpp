@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -193,8 +193,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids), map,
-                                      key);
+                                      GetVariablesByName(flx_names, sparse_ids, true),
+                                      map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -203,7 +203,8 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
-                                      GetVariablesByFlag(flags, sparse_ids), map, key);
+                                      GetVariablesByFlag(flags, sparse_ids, true), map,
+                                      key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -211,7 +212,7 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
-                                      GetAllVariables(sparse_ids), map, key);
+                                      GetAllVariables(sparse_ids, true), map, key);
 }
 
 /// Variables by Name
@@ -246,7 +247,7 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids) {
+                                     const std::vector<int> &sparse_ids, bool flux) {
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -255,7 +256,12 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
-      var_list.Add(v, sparse_ids_set);
+      if (flux) {
+        const auto &vf = varMap_.at(v->metadata().GetFluxName());
+        var_list.Add(vf, sparse_ids_set);
+      } else {
+        var_list.Add(v, sparse_ids_set);
+      }
     } else if ((resolved_packages_ != nullptr) &&
                (resolved_packages_->SparseBaseNamePresent(name))) {
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
@@ -264,7 +270,12 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-        var_list.Add(v, sparse_ids_set);
+        if (flux) {
+          const auto &vf = varMap_.at(v->metadata().GetFluxName());
+          var_list.Add(vf, sparse_ids_set);
+        } else {
+          var_list.Add(v, sparse_ids_set);
+        }
       }
     }
   }
@@ -287,7 +298,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                                     const std::vector<int> &sparse_ids) {
+                                     const std::vector<int> &sparse_ids, bool flux) {
   PARTHENON_INSTRUMENT
 
   typename MeshBlockData<T>::VarList var_list;
@@ -296,7 +307,12 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   auto vars = MetadataUtils::GetByFlag<VariableSet<T>>(flags, varMap_, flagsToVars_);
 
   for (auto &v : vars) {
-    var_list.Add(v, sparse_ids_set);
+    if (flux) {
+      const auto &vf = varMap_.at(v->metadata().GetFluxName());
+      var_list.Add(vf, sparse_ids_set);
+    } else {
+      var_list.Add(v, sparse_ids_set);
+    }
   }
 
   return var_list;
@@ -304,11 +320,16 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
 
 template <typename T>
 typename MeshBlockData<T>::VarList
-MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
+MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux) {
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
     auto v = GetVarPtr(i);
-    var_list.Add(v);
+    if (flux) {
+      const auto &vf = varMap_.at(v->metadata().GetFluxName());
+      var_list.Add(vf);
+    } else {
+      var_list.Add(v);
+    }
   }
   return var_list;
 }

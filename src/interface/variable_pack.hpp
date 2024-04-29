@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -681,9 +681,9 @@ void FillFluxViews(const VariableVector<T> &vars, const int ndim,
         for (int i = 0; i < v->GetDim(4); i++) {
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_f1(vindex) = v->flux[X1DIR].Get(0, k, j, i);
-            if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(0, k, j, i);
-            if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(0, k, j, i);
+            host_f1(vindex) = v->data.Get(0, k, j, i);
+            if (ndim >= 2) host_f2(vindex) = v->data.Get(1, k, j, i);
+            if (ndim >= 3) host_f3(vindex) = v->data.Get(2, k, j, i);
           }
 
           vindex++;
