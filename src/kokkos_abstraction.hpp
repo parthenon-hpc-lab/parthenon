@@ -917,7 +917,7 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
 }
 
 template <typename... Args>
-inline constexpr void par_for_inner(team_mbr_t team_member, Args &&...args) {
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(team_mbr_t team_member, Args &&...args) {
   par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, std::forward<Args>(args)...);
 }
 
