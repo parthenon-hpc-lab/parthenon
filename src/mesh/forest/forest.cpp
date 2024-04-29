@@ -129,7 +129,6 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
         mesh_size.LogicalToActualPosition(LLCoordRight(ix3, ntree[2]), X3DIR);
     LogicalLocation loc(level, ix1, ix2, ix3);
     ll_map[loc] = std::make_pair(tree_domain, std::shared_ptr<Tree>());
-    auto &dmn = tree_domain;
   }
 
   // Initialize the trees in macro-morton order

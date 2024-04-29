@@ -190,9 +190,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   const auto vars =
       real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
-  for (const auto &v : vars) {
-    RegisterMeshBlockData(v);
-  }
+  for (const auto &v : vars)
+    vars_cc_.push_back(v);
 
   // No RemeshComm
   if (pm->multilevel) {
@@ -281,11 +280,6 @@ void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
     cost_ += lb_timer.seconds();
   }
-}
-
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
-  return;
 }
 
 void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
