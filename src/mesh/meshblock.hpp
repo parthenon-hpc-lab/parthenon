@@ -35,7 +35,6 @@
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/packages.hpp"
-#include "interface/sparse_pack_base.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
@@ -49,12 +48,9 @@ namespace parthenon {
 class ApplicationInput;
 class Mesh;
 class MeshBlockTree;
-template <typename T>
-class MeshBlockData;
 class MeshRefinement;
 class ParameterInput;
 class StateDescriptor;
-class OutputType;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space

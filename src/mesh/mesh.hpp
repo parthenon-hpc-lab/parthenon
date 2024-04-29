@@ -47,7 +47,7 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "outputs/outputs.hpp"
+#include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"

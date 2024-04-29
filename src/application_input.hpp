@@ -31,45 +31,40 @@ namespace parthenon {
 struct ApplicationInput {
  public:
   // ParthenonManager functions
-  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
+  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages;
 
   // Mesh functions
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
-      nullptr;
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization;
 
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
-      nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      PostStepMeshUserWorkInLoop = nullptr;
+      PostStepMeshUserWorkInLoop;
 
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeOutput = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> UserMeshWorkBeforeOutput;
   std::function<void(Mesh *, ParameterInput *, SimTime const &, OutputParameters *)>
-      UserMeshWorkBeforeRestartOutput = nullptr;
+      UserMeshWorkBeforeRestartOutput;
 
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepDiagnosticsInLoop;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      PreStepDiagnosticsInLoop = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      PostStepDiagnosticsInLoop = nullptr;
+      PostStepDiagnosticsInLoop;
 
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoop = nullptr;
-  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr};
-  SBValFunc swarm_boundary_conditions[BOUNDARY_NFACES] = {nullptr};
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoop;
+  BValFunc boundary_conditions[BOUNDARY_NFACES];
+  SBValFunc swarm_boundary_conditions[BOUNDARY_NFACES];
 
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
-      InitApplicationMeshBlockData = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
+      InitApplicationMeshBlockData;
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData;
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization;
   std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
-      MeshBlockUserWorkBeforeOutput = nullptr;
+      MeshBlockUserWorkBeforeOutput;
   std::function<void(MeshBlock *, ParameterInput *, const SimTime &, OutputParameters *)>
-      MeshBlockUserWorkBeforeRestartOutput = nullptr;
+      MeshBlockUserWorkBeforeRestartOutput;
 };
 
 } // namespace parthenon
