@@ -37,6 +37,7 @@
 #include "interface/packages.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/forest/forest.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -45,7 +46,6 @@ namespace parthenon {
 
 // Forward declarations
 class ApplicationInput;
-class BoundaryValues;
 class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
@@ -158,7 +158,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
@@ -281,15 +280,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
-  void SearchAndSetNeighbors(Mesh *mesh, MeshBlockTree &tree, int *ranklist,
-                             int *nslist) {
-    pbval->SearchAndSetNeighbors(mesh, tree, ranklist, nslist);
-  }
-
-  // inform MeshBlock which arrays contained in member Field, Particles,
-  // ... etc. classes are the "primary" representations of a quantity. when registered,
-  // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void

@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -64,7 +64,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
           })));
     }
 
-    const int receiver_rank = nb.snb.rank;
+    const int receiver_rank = nb.rank;
     const int sender_rank = Globals::my_rank;
 
     int tag = 0;
@@ -72,9 +72,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Get a bi-directional mpi tag for this pair of blocks
     tag = pmesh->tag_map.GetTag(pmb, nb);
     auto comm_label = v->label();
-    if constexpr (BTYPE == BoundaryType::flxcor_send ||
-                  BTYPE == BoundaryType::flxcor_recv)
-      comm_label += "_flcor";
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 #else
       // Setting to zero is fine here since this doesn't actually get used when everything
@@ -122,10 +119,8 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   all_caches.clear();
 
   BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map);
-  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md,
-                                                       pmesh->boundary_comm_flxcor_map);
-  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md,
-                                                       pmesh->boundary_comm_flxcor_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md, pmesh->boundary_comm_map);
 
   return TaskStatus::complete;
 }

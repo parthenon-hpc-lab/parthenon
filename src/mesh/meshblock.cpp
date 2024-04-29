@@ -40,7 +40,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -140,8 +139,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-  pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
   pbswarm->SetBoundaryFlags(boundary_flag);
 
@@ -193,9 +190,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   const auto vars =
       real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
-  for (const auto &v : vars) {
-    RegisterMeshBlockData(v);
-  }
+  for (const auto &v : vars)
+    vars_cc_.push_back(v);
 
   // No RemeshComm
   if (pm->multilevel) {
@@ -284,11 +280,6 @@ void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
     cost_ += lb_timer.seconds();
   }
-}
-
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
-  return;
 }
 
 void MeshBlock::AllocateSparse(std::string const &label, bool only_control,

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -79,7 +79,9 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal = OutputSignal::none;
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
@@ -91,7 +93,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
-    while (tm.KeepGoing()) {
+    while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
       pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
@@ -141,8 +143,11 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
-
-  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  // Do *not* write the "final" output, if this is analysis run.
+  // The analysis output itself has already been written above before the main loop.
+  if (signal != OutputSignal::analysis) {
+    pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  }
   PostExecute(status);
   return status;
 }
@@ -180,14 +185,13 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   }
   // calculate the first time step using Mesh function
   pmesh->boundary_comm_map.clear();
-  pmesh->boundary_comm_flxcor_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
     BuildBoundaryBuffers(mbase);
-    for (int gmg_level = 0; gmg_level < pmesh->gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = pmesh->gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : pmesh->gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }
