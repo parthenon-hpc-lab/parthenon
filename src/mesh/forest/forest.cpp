@@ -212,7 +212,6 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<Fore
     for (int ox1 = -1; ox1 < 2; ++ox1) {
       for (int ox2 = -1; ox2 < 2; ++ox2) {
         for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
-          printf("[%li] Adding neighbor %li (%i, %i)[%i, %i]\n", face->GetId(), neighbor->GetId(), ox1, ox2, ct.dir_connection[0], ct.dir_connection[1]);
           trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0), trees[neighbor->GetId()], ct);
         }
       }

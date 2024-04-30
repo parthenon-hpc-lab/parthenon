@@ -136,6 +136,7 @@ class Face : public std::enable_shared_from_this<Face> {
   std::unordered_map<std::shared_ptr<Node>, int> face_index;
   
   NeighborInfo<std::pair<std::shared_ptr<Face>, LogicalCoordinateTransformation>> neighbors;
+  std::unordered_map<std::shared_ptr<Face>, CellCentOffsets> neighbors_to_offsets;
 
   static constexpr std::array<CellCentOffsets, 4> node_to_offset = {CellCentOffsets{-1, -1, -1},
                                                                     CellCentOffsets{1, -1, -1},

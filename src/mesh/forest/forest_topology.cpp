@@ -63,6 +63,7 @@ void Face::SetNeighbors() {
       }
       for (auto &o : offset) o /= node_overlap.size();
       neighbors(offset[0], offset[1]).push_back(std::make_pair(neighbor, LogicalCoordinateTransformation()));
+      neighbors_to_offsets[neighbor] = CellCentOffsets(offset[0], offset[1], -1);
     }
   }
 }
@@ -118,6 +119,8 @@ void Face::SetEdgeCoordinateTransforms() {
                           offset == offset_neigh);
           ct.offset = AverageOffsets(node_to_offset[face_index[node_overlap[0]]],
                                      node_to_offset[face_index[node_overlap[1]]]);; 
+          // Remove x3 offset since this is a 2D mesh
+          ct.offset[2] = 0;
           ct.use_offset = true;
           coord_trans = ct;
         }
@@ -127,14 +130,29 @@ void Face::SetEdgeCoordinateTransforms() {
 }
 
 void Face::SetNodeCoordinateTransforms() { 
-  for (int ox = -1; ox <= 1; ++ox) {
-    for (int oy = -1; oy <= 1; ++oy) {
-      if (std::abs(ox) + std::abs(oy) == 2) { 
-        for (auto &[neighbor, coord_trans] : neighbors(ox, oy)) { 
-          // TODO(LFR): Find the shared edge neighbor  
-        }
-      }
-    }
+  Indexer2D offset_idxer({-1, 1}, {-1, 1});
+  for (int n = 0; n < offset_idxer.size(); ++n) { 
+    auto [ox1, ox2] = offset_idxer(n); 
+    if (std::abs(ox1) + std::abs(ox2) == 2) { 
+      for (auto &[neighbor, coord_trans] : neighbors(ox1, ox2)) { 
+        auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
+        PARTHENON_REQUIRE(node_overlap.size() == 1, "Must only have a single node overlap for node neighbors.");
+        for (auto & possible_shared_neighbor : node_overlap[0]->associated_faces) {
+          if (neighbors_to_offsets.count(possible_shared_neighbor) 
+              && neighbor->neighbors_to_offsets.count(possible_shared_neighbor)) {
+            if (neighbors_to_offsets[possible_shared_neighbor].IsEdge() && neighbor->neighbors_to_offsets[possible_shared_neighbor].IsEdge()) { 
+              // Both block share this neighbor on their edges
+              auto offsets1 = neighbors_to_offsets[possible_shared_neighbor];  
+              auto ct1 = neighbors((int)offsets1[0], (int)offsets1[1])[0].second;
+              auto offsets2 = possible_shared_neighbor->neighbors_to_offsets[neighbor];  
+              auto ct2 = possible_shared_neighbor->neighbors((int)offsets2[0], (int)offsets2[1])[0].second;
+              coord_trans = ComposeTransformations(ct1, ct2);
+              break;
+            }
+          }
+        } 
+      } 
+    } 
   }
 }
 
