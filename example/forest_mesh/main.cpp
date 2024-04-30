@@ -86,6 +86,28 @@ Forest four_blocks() {
   return forest;
 }
 
+Forest n_blocks(int nblocks) {
+  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
+  for (int point = 0; point < 2 * nblocks; ++point) { 
+    nodes[point] = Node::create(point, {std::sin(point * M_PI / nblocks), std::cos(point * M_PI / nblocks)});
+  }
+  nodes[2 * nblocks] = Node::create(2 * nblocks, {0.0, 0.0});
+  
+  auto &n = nodes;
+  std::vector<std::shared_ptr<Face>> faces;
+  for (int t = 0; t < nblocks; ++t)
+    faces.emplace_back(Face::create(t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]}));
+
+  auto forest = Forest::Make2D(faces);
+
+  // Do some refinements that should propagate into all trees
+  forest.Refine(LogicalLocation(2, 0, 0, 0, 0));
+  forest.Refine(LogicalLocation(2, 1, 1, 1, 0));
+  forest.Refine(LogicalLocation(2, 2, 3, 3, 0));
+
+  return forest;
+}
+
 Forest squared_circle() {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
   // The outer square
@@ -139,7 +161,10 @@ void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
 }
 
 int main(int argc, char *argv[]) {
-  auto forest = four_blocks();
+  int nblocks = 4;
+  if (argc > 1) nblocks = atoi(argv[1]);
+  PARTHENON_REQUIRE(nblocks > 1, "Need more than one block.");
+  auto forest = nblocks > 2 ? n_blocks(nblocks) : two_blocks();
 
   // Write out forest for matplotlib
   FILE *pfile;
