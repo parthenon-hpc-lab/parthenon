@@ -100,9 +100,6 @@ ComposeTransformations(const LogicalCoordinateTransformation &first,
     out.dir_flip[dir] = second.dir_flip[first.dir_connection[dir]] != first.dir_flip[dir]; 
     out.offset[dir] = second.offset[first.dir_connection[dir]] * (first.dir_flip[dir] ? -1 : 1) + first.offset[dir];
   }
-  printf("comb = (%i, %i) first = (%i, %i) second=(%i, %i)\n", out.offset[0], out.offset[1],
-                                                               first.offset[0], first.offset[1], 
-                                                               second.offset[0], second.offset[1]);
   for (int dir : {0, 1, 2})
     out.dir_connection_inverse[out.dir_connection[dir]] = dir; 
   out.use_offset = first.use_offset && second.use_offset;

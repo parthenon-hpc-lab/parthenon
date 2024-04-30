@@ -88,8 +88,6 @@ Face::GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes) {
   } else { 
     PARTHENON_FAIL("Shouldn't get here.");
   } 
-  printf("I0 = %i I1 = %i dir_tan = %i dir_nrom = %i offsets=(%i, %i, %i)\n", 
-      I0, I1, dir_tang, static_cast<int>(dir_norm), (int)(offsets[0]), (int)(offsets[1]), (int)(offsets[2]));
   return std::make_tuple(dir_tang, static_cast<int>(dir_norm), offset);
 }
 
