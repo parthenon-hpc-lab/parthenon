@@ -108,6 +108,13 @@ class Face : public std::enable_shared_from_this<Face> {
   void SetNeighbors();
   void SetEdgeCoordinateTransforms();
   void SetNodeCoordinateTransforms();
+  bool HasNeighbor(int ox1, int ox2) {
+    return neighbors(ox1, ox2, -1).size() > 0;
+  }
+
+  std::optional<CellCentOffsets> IsEdge(const Edge& edge); 
+
+
   std::tuple<int, int, Offset>
   GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes);
 

@@ -38,11 +38,12 @@ Forest two_blocks() {
   nodes[5] = Node::create(5, {2.0, 1.0});
 
   auto &n = nodes;
-  std::vector<std::shared_ptr<Face>> faces;
+  ForestDefinition forest_def; 
+  auto &faces = forest_def.faces;
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
 
-  auto forest = Forest::Make2D(faces);
+  auto forest = Forest::Make2D(forest_def);
 
   // Do some refinements that should propagate into tree 0
   forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
@@ -67,13 +68,15 @@ Forest four_blocks() {
   nodes[8] = Node::create(8, {2.0, 2.0});
 
   auto &n = nodes;
-  std::vector<std::shared_ptr<Face>> faces;
+  ForestDefinition forest_def; 
+  auto &faces = forest_def.faces;
+  
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
   faces.emplace_back(Face::create(2, {n[3], n[2], n[6], n[7]}));
   faces.emplace_back(Face::create(3, {n[8], n[7], n[5], n[2]}));
 
-  auto forest = Forest::Make2D(faces);
+  auto forest = Forest::Make2D(forest_def);
 
   // Do some refinements that should propagate into tree 0
   forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
@@ -88,7 +91,8 @@ Forest four_blocks() {
 
 Forest n_blocks(int nblocks_min, int nblocks_max) {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  std::vector<std::shared_ptr<Face>> faces;
+  ForestDefinition forest_def; 
+  auto &faces = forest_def.faces;
   int nc = 0; 
   int fc = 0;
   Real xoffset = 0.0; 
@@ -109,7 +113,7 @@ Forest n_blocks(int nblocks_min, int nblocks_max) {
     fc += nblocks;
     xoffset += 2.2;
   }
-  auto forest = Forest::Make2D(faces);
+  auto forest = Forest::Make2D(forest_def);
 
   // Do some refinements that should propagate into all trees
   fc = 0;
@@ -137,8 +141,9 @@ Forest squared_circle() {
   nodes[6] = Node::create(6, {1.0, 2.0});
   nodes[7] = Node::create(7, {2.0, 2.0});
 
+  ForestDefinition forest_def; 
+  auto &faces = forest_def.faces;
   auto &n = nodes;
-  std::vector<std::shared_ptr<Face>> faces;
   // South block
   faces.emplace_back(Face::create(0, {n[0], n[1], n[4], n[5]}));
 
@@ -153,8 +158,8 @@ Forest squared_circle() {
 
   // Center block
   faces.emplace_back(Face::create(4, {n[4], n[5], n[6], n[7]}));
-
-  auto forest = Forest::Make2D(faces);
+  
+  auto forest = Forest::Make2D(forest_def);
 
   // Do some refinements that should propagate into the south and west trees
   forest.Refine(LogicalLocation(4, 0, 0, 0, 0));

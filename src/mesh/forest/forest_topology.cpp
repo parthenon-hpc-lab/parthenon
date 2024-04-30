@@ -35,14 +35,23 @@
 namespace parthenon {
 namespace forest {
 
-template <class T>
-std::vector<std::shared_ptr<Node>> NodeListOverlap(T nodes_1, T nodes_2) {
+template <class T1, class T2>
+std::vector<std::shared_ptr<Node>> NodeListOverlap(T1 nodes_1, T2 nodes_2) {
   std::sort(std::begin(nodes_1), std::end(nodes_1));
   std::sort(std::begin(nodes_2), std::end(nodes_2));
   std::vector<std::shared_ptr<Node>> node_intersection;
   std::set_intersection(std::begin(nodes_1), std::end(nodes_1), std::begin(nodes_2),
                         std::end(nodes_2), std::back_inserter(node_intersection));
   return node_intersection;
+}
+
+std::optional<CellCentOffsets> Face::IsEdge(const Edge& edge) { 
+  auto node_overlap = NodeListOverlap(nodes, edge.nodes); 
+  if (node_overlap.size() != 2) return {}; 
+  auto offsets = AverageOffsets(node_to_offset[face_index[node_overlap[0]]],
+                                node_to_offset[face_index[node_overlap[1]]]); 
+  if (!offsets.IsEdge()) return {};
+  return offsets;
 }
 
 void Face::SetNeighbors() {

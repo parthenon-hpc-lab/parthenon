@@ -40,7 +40,7 @@ class ParthenonManager {
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
   void
-  ParthenonInitPackagesAndMesh(std::vector<std::shared_ptr<forest::Face>> faces = {});
+  ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
 
   bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }

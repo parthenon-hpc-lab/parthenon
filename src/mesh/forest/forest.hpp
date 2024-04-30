@@ -41,6 +41,12 @@ struct ForestBC {
   ELEMENT periodicElement;
 };
 
+struct ForestDefinition {
+  std::vector<std::shared_ptr<Face>> faces;
+  RegionSize block_size;
+  std::vector<ForestBC<Edge>> bc_edges;
+};
+
 class Forest {
   bool gids_resolved = false;
   std::map<std::int64_t, std::shared_ptr<Tree>> trees;
@@ -168,9 +174,9 @@ class Forest {
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
 
-  static Forest Make2D(std::vector<std::shared_ptr<Face>> faces,
-                       std::vector<ForestBC<Edge>> bc_edges = {});
+  static Forest Make2D(ForestDefinition &forest_def);
 };
+
 } // namespace forest
 } // namespace parthenon
 

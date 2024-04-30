@@ -141,6 +141,13 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
     if (loc.lx2() != ntree[1] - 1) tree_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
     if (loc.lx3() != 0) tree_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
     if (loc.lx3() != ntree[2] - 1) tree_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
+    
+    auto &bcs = tree_bcs;
+    auto &tree_domain = p.first;
+    printf("[%li] %i %i %i %i %i %i\n", tid, bcs[0], bcs[1], bcs[2], bcs[3], bcs[4], bcs[5]);
+    printf("     (%e, %e) (%e, %e)\n", tree_domain.xmin(X1DIR), tree_domain.xmax(X1DIR),
+                                       tree_domain.xmin(X2DIR), tree_domain.xmax(X2DIR));
+
     p.second = Tree::create(tid++, ndim, ref_level, p.first, tree_bcs);
     p.second->athena_forest_loc = loc;
   }
@@ -186,8 +193,8 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   return fout;
 }
 
-Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces,
-                      std::vector<ForestBC<Edge>> bc_edges) {
+Forest Forest::Make2D(ForestDefinition& forest_def) {
+  auto &faces = forest_def.faces;
   // Set the topological connections of the faces
   for (auto &face : faces) {
     face->SetNeighbors();
@@ -205,11 +212,69 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces,
   // on composing edge coordinate transformations
   for (auto &face : faces)
     face->SetNodeCoordinateTransforms();
+  
+  using tree_bc_t = std::array<BoundaryFlag, BOUNDARY_NFACES>;
+  std::unordered_map<int64_t, tree_bc_t> tree_bcs;
+  for (auto &face : faces) {
+    tree_bc_t bcs;
+
+    // Set the boundaries that are shared with other trees 
+    if (face->HasNeighbor(-1, 0)) bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
+    if (face->HasNeighbor(1, 0)) bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
+    if (face->HasNeighbor(0, -1)) bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
+    if (face->HasNeighbor(0, 1)) bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
+    bcs[BoundaryFace::inner_x3] = BoundaryFlag::periodic;
+    bcs[BoundaryFace::outer_x3] = BoundaryFlag::periodic;
+    
+    tree_bcs[face->GetId()] = bcs; 
+  }
+
+  // Set the user specified boundary conditions, the order of this matters wrt the BoundaryFlag::block setting 
+  for (auto &bc_edge : forest_def.bc_edges) { 
+    auto edge = bc_edge.element; 
+    for (auto &node : edge.nodes) { 
+      for (auto &face : node->associated_faces) {
+        auto opt_offset = face->IsEdge(edge); 
+        if (opt_offset) { 
+          auto &bcs = tree_bcs[face->GetId()]; 
+          if ((*opt_offset)[0] == Offset::Low) {
+            bcs[BoundaryFace::inner_x1] = bc_edge.bflag;
+          } else if ((*opt_offset)[0] == Offset::Up) {
+            bcs[BoundaryFace::outer_x1] = bc_edge.bflag;
+          } else if ((*opt_offset)[1] == Offset::Low) {
+            bcs[BoundaryFace::inner_x2] = bc_edge.bflag;
+          } else if ((*opt_offset)[1] == Offset::Up) {
+            bcs[BoundaryFace::outer_x2] = bc_edge.bflag;
+          }
+        }
+      }
+    }
+  }
 
   // Build the list of trees and set neighbors
   std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
-  for (const auto &face : faces)
-    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, face->nodes);
+  printf("block = %i\n", BoundaryFlag::block);
+  printf("undef = %i\n", BoundaryFlag::undef);
+  printf("reflect = %i\n", BoundaryFlag::reflect);
+  printf("outflow = %i\n", BoundaryFlag::outflow);
+  printf("periodic = %i\n", BoundaryFlag::periodic);
+  printf("user = %i\n", BoundaryFlag::user);
+  for (const auto &face : faces) {
+    RegionSize tree_domain = forest_def.block_size; 
+    // TODO(LFR): Fix this to do something not stupid
+    tree_domain.xmin(X1DIR) = face->nodes[0]->x[0]; 
+    tree_domain.xmax(X1DIR) = face->nodes[3]->x[0]; 
+    tree_domain.xmin(X2DIR) = face->nodes[0]->x[1]; 
+    tree_domain.xmax(X2DIR) = face->nodes[3]->x[1]; 
+    tree_domain.xmin(X3DIR) = -0.5;
+    tree_domain.xmax(X3DIR) =  0.5;
+    auto &bcs = tree_bcs[face->GetId()];
+    printf("[%li] %i %i %i %i %i %i\n", face->GetId(), bcs[0], bcs[1], bcs[2], bcs[3], bcs[4], bcs[5]);
+    printf("     (%e, %e) (%e, %e)\n", tree_domain.xmin(X1DIR), tree_domain.xmax(X1DIR),
+                                       tree_domain.xmin(X2DIR), tree_domain.xmax(X2DIR));
+    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
+                                        tree_bcs[face->GetId()], face->nodes);
+  }
 
   for (const auto &face : faces) {
     for (int ox1 = -1; ox1 < 2; ++ox1) {
@@ -221,22 +286,6 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces,
       }
     }
   }
-
-  // Build tree boundary conditions
-  // for (auto &face : faces) {
-  //  std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block};
-  //  for (int ox1 = -1; ox1 < 2; ++ox1) {
-  //    for (int ox2 = -1; ox2 < 2; ++ox2) {
-  //      for (auto &b : bc_edges) {
-  //        if (edge.RelativeOrientation(b.element)) {
-  //          bcs[loc.GetBoundaryFace()] = b.bflag;
-  //          // TODO(LFR): Add mechanism to deal with periodic boundaries
-  //          break;
-  //        }
-  //      }
-  //    }
-  //  }
-  //}
 
   Forest fout;
   fout.root_level = 0;
