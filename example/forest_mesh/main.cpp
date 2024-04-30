@@ -86,26 +86,39 @@ Forest four_blocks() {
   return forest;
 }
 
-Forest n_blocks(int nblocks) {
+Forest n_blocks(int nblocks_min, int nblocks_max) {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  for (int point = 0; point < 2 * nblocks; ++point) {
-    nodes[point] = Node::create(
-        point, {std::sin(point * M_PI / nblocks), std::cos(point * M_PI / nblocks)});
-  }
-  nodes[2 * nblocks] = Node::create(2 * nblocks, {0.0, 0.0});
-
-  auto &n = nodes;
   std::vector<std::shared_ptr<Face>> faces;
-  for (int t = 0; t < nblocks; ++t)
-    faces.emplace_back(Face::create(
-        t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]}));
-
+  int nc = 0; 
+  int fc = 0;
+  Real xoffset = 0.0; 
+  for (int nblocks = nblocks_min; nblocks <= nblocks_max; ++nblocks) {
+    for (int point = 0; point < 2 * nblocks; ++point) {
+      nodes[nc + point] = Node::create(
+          nc + point, {std::sin(point * M_PI / nblocks) + xoffset, std::cos(point * M_PI / nblocks)});
+    }
+    nodes[nc + 2 * nblocks] = Node::create(nc + 2 * nblocks, {0.0 + xoffset, 0.0});
+    auto &n = nodes;
+    for (int t = 0; t < nblocks; ++t)
+      faces.emplace_back(Face::create(
+          fc + t, {n[nc + 2 * t + 1],
+                   n[nc + 2 * t],
+                   n[nc + (2 * t + 2) % (2 * nblocks)],
+                   n[nc + 2 * nblocks]}));
+    nc += 2 * nblocks + 1;
+    fc += nblocks;
+    xoffset += 2.2;
+  }
   auto forest = Forest::Make2D(faces);
 
   // Do some refinements that should propagate into all trees
-  forest.Refine(LogicalLocation(2, 0, 0, 0, 0));
-  forest.Refine(LogicalLocation(2, 1, 1, 1, 0));
-  forest.Refine(LogicalLocation(2, 2, 3, 3, 0));
+  fc = 0;
+  for (int nblocks = nblocks_min; nblocks <= nblocks_max; ++nblocks) {
+    forest.Refine(LogicalLocation(fc + 2, 0, 0, 0, 0));
+    forest.Refine(LogicalLocation(fc + 2, 1, 1, 1, 0));
+    forest.Refine(LogicalLocation(fc + 2, 2, 3, 3, 0));
+    fc += nblocks;
+  }
 
   return forest;
 }
@@ -163,10 +176,12 @@ void PrintBlockStructure(std::string fname, std::shared_ptr<Tree> tree) {
 }
 
 int main(int argc, char *argv[]) {
-  int nblocks = 4;
-  if (argc > 1) nblocks = atoi(argv[1]);
-  PARTHENON_REQUIRE(nblocks > 1, "Need more than one block.");
-  auto forest = nblocks > 2 ? n_blocks(nblocks) : two_blocks();
+  int nblocks_min = 4;
+  if (argc > 1) nblocks_min = atoi(argv[1]);
+  int nblocks_max = nblocks_min;
+  if (argc > 2) nblocks_max = atoi(argv[1]);
+  PARTHENON_REQUIRE(nblocks_min > 1, "Need more than one block.");
+  auto forest = nblocks_min > 2 ? n_blocks(nblocks_min, nblocks_max) : two_blocks();
 
   // Write out forest for matplotlib
   FILE *pfile;

@@ -206,7 +206,7 @@ Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces,
   for (auto &face : faces)
     face->SetNodeCoordinateTransforms();
 
-  // Build the list of trees
+  // Build the list of trees and set neighbors
   std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
   for (const auto &face : faces)
     trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, face->nodes);

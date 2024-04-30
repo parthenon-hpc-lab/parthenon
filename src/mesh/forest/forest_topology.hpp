@@ -77,20 +77,6 @@ struct NeighborInfo {
   std::vector<T> &operator()(int i, int j, int k = 0) {
     return data[i + 1 + 3 * (j + 1 + 3 * (k + 1))];
   }
-
-  auto Contains(const T &in, int type_indicator) {
-    for (int i = -1; i < 2; i++) {
-      for (int j = -1; j < 2; j++) {
-        for (int k = -1; k < 2; k++) {
-          if (std::abs(i) + std::abs(j) + std::abs(k) != type_indicator) continue;
-          for (int v = 0; v < (*this)(i, j, k).size(); ++v) {
-            if (in == (*this)(i, j, k)[v]) return std::make_tuple(true, i, j, k, v);
-          }
-        }
-      }
-    }
-    return std::make_tuple(false, 0, 0, 0, 0);
-  }
 };
 
 class Face : public std::enable_shared_from_this<Face> {
