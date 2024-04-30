@@ -170,7 +170,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   return ParthenonStatus::ok;
 }
 
-void ParthenonManager::ParthenonInitPackagesAndMesh(std::vector<std::shared_ptr<forest::Face>> faces) {
+void ParthenonManager::ParthenonInitPackagesAndMesh(
+    std::vector<std::shared_ptr<forest::Face>> faces) {
   if (called_init_packages_and_mesh_) {
     PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
   }

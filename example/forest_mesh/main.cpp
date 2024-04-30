@@ -61,7 +61,7 @@ Forest four_blocks() {
 
   nodes[4] = Node::create(4, {2.0, 0.0});
   nodes[5] = Node::create(5, {2.0, 1.0});
-  
+
   nodes[6] = Node::create(6, {0.0, 2.0});
   nodes[7] = Node::create(7, {1.0, 2.0});
   nodes[8] = Node::create(8, {2.0, 2.0});
@@ -79,7 +79,7 @@ Forest four_blocks() {
   forest.Refine(LogicalLocation(1, 0, 0, 0, 0));
   forest.Refine(LogicalLocation(1, 1, 0, 0, 0));
   forest.Refine(LogicalLocation(1, 2, 0, 0, 0));
-  
+
   forest.Refine(LogicalLocation(0, 1, 0, 1, 0));
   forest.Refine(LogicalLocation(0, 2, 0, 3, 0));
 
@@ -88,15 +88,17 @@ Forest four_blocks() {
 
 Forest n_blocks(int nblocks) {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  for (int point = 0; point < 2 * nblocks; ++point) { 
-    nodes[point] = Node::create(point, {std::sin(point * M_PI / nblocks), std::cos(point * M_PI / nblocks)});
+  for (int point = 0; point < 2 * nblocks; ++point) {
+    nodes[point] = Node::create(
+        point, {std::sin(point * M_PI / nblocks), std::cos(point * M_PI / nblocks)});
   }
   nodes[2 * nblocks] = Node::create(2 * nblocks, {0.0, 0.0});
-  
+
   auto &n = nodes;
   std::vector<std::shared_ptr<Face>> faces;
   for (int t = 0; t < nblocks; ++t)
-    faces.emplace_back(Face::create(t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]}));
+    faces.emplace_back(Face::create(
+        t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]}));
 
   auto forest = Forest::Make2D(faces);
 

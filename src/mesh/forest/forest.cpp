@@ -186,58 +186,63 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   return fout;
 }
 
-Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<ForestBC<Edge>> bc_edges) {
-  // Set the topological connections of the faces 
+Forest Forest::Make2D(std::vector<std::shared_ptr<Face>> faces,
+                      std::vector<ForestBC<Edge>> bc_edges) {
+  // Set the topological connections of the faces
   for (auto &face : faces) {
     face->SetNeighbors();
     face->SetEdgeCoordinateTransforms();
     for (int ox = -1; ox < 2; ++ox) {
       for (int oy = -1; oy < 2; ++oy) {
         for (auto &[neighbor, ct] : face->neighbors(ox, oy)) {
-          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ox, oy, neighbor->my_id);
+          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ox, oy,
+                 neighbor->my_id);
         }
       }
     }
   }
-  // Have to do this in a second sweep after setting edge transformations, since it relies on composing 
-  // edge coordinate transformations
-  for (auto &face : faces) face->SetNodeCoordinateTransforms();
+  // Have to do this in a second sweep after setting edge transformations, since it relies
+  // on composing edge coordinate transformations
+  for (auto &face : faces)
+    face->SetNodeCoordinateTransforms();
 
-  // Build the list of trees 
-  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees; 
+  // Build the list of trees
+  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
   for (const auto &face : faces)
     trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, face->nodes);
-  
-  for (const auto &face : faces) { 
+
+  for (const auto &face : faces) {
     for (int ox1 = -1; ox1 < 2; ++ox1) {
       for (int ox2 = -1; ox2 < 2; ++ox2) {
         for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
-          trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0), trees[neighbor->GetId()], ct);
+          trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0),
+                                                trees[neighbor->GetId()], ct);
         }
       }
     }
   }
 
   // Build tree boundary conditions
-  //for (auto &face : faces) {
-  //  std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block}; 
+  // for (auto &face : faces) {
+  //  std::array<BoundaryFlag, BOUNDARY_NFACES> bcs{BoundaryFlag::block};
   //  for (int ox1 = -1; ox1 < 2; ++ox1) {
   //    for (int ox2 = -1; ox2 < 2; ++ox2) {
   //      for (auto &b : bc_edges) {
   //        if (edge.RelativeOrientation(b.element)) {
   //          bcs[loc.GetBoundaryFace()] = b.bflag;
-  //          // TODO(LFR): Add mechanism to deal with periodic boundaries 
+  //          // TODO(LFR): Add mechanism to deal with periodic boundaries
   //          break;
   //        }
-  //      } 
+  //      }
   //    }
-  //  } 
+  //  }
   //}
 
   Forest fout;
   fout.root_level = 0;
   fout.forest_level = 0;
-  for (auto & [id, tree] : trees) fout.AddTree(tree);
+  for (auto &[id, tree] : trees)
+    fout.AddTree(tree);
   return fout;
 }
 

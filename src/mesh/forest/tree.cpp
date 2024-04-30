@@ -60,10 +60,10 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
   }
 }
 
-Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain_in,
-           std::array<BoundaryFlag, BOUNDARY_NFACES> bcs_in)
-    : Tree(Tree::private_t(), id, ndim, root_level) { 
-  domain = domain_in; 
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
+           RegionSize domain_in, std::array<BoundaryFlag, BOUNDARY_NFACES> bcs_in)
+    : Tree(Tree::private_t(), id, ndim, root_level) {
+  domain = domain_in;
   boundary_conditions = bcs_in;
 }
 

@@ -91,17 +91,19 @@ LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-LogicalCoordinateTransformation 
+LogicalCoordinateTransformation
 ComposeTransformations(const LogicalCoordinateTransformation &first,
-                       const LogicalCoordinateTransformation &second) { 
-  LogicalCoordinateTransformation out; 
+                       const LogicalCoordinateTransformation &second) {
+  LogicalCoordinateTransformation out;
   for (int dir : {0, 1, 2}) {
     out.dir_connection[dir] = second.dir_connection[first.dir_connection[dir]];
-    out.dir_flip[dir] = second.dir_flip[first.dir_connection[dir]] != first.dir_flip[dir]; 
-    out.offset[dir] = second.offset[first.dir_connection[dir]] * (first.dir_flip[dir] ? -1 : 1) + first.offset[dir];
+    out.dir_flip[dir] = second.dir_flip[first.dir_connection[dir]] != first.dir_flip[dir];
+    out.offset[dir] =
+        second.offset[first.dir_connection[dir]] * (first.dir_flip[dir] ? -1 : 1) +
+        first.offset[dir];
   }
   for (int dir : {0, 1, 2})
-    out.dir_connection_inverse[out.dir_connection[dir]] = dir; 
+    out.dir_connection_inverse[out.dir_connection[dir]] = dir;
   out.use_offset = first.use_offset && second.use_offset;
   return out;
 }

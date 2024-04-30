@@ -35,12 +35,11 @@ namespace parthenon {
 namespace forest {
 
 template <class ELEMENT>
-struct ForestBC { 
-  ELEMENT element; 
-  BoundaryFlag bflag; 
+struct ForestBC {
+  ELEMENT element;
+  BoundaryFlag bflag;
   ELEMENT periodicElement;
 };
-
 
 class Forest {
   bool gids_resolved = false;
@@ -169,7 +168,8 @@ class Forest {
   static Forest HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
 
-  static Forest Make2D(std::vector<std::shared_ptr<Face>> faces, std::vector<ForestBC<Edge>> bc_edges = {});
+  static Forest Make2D(std::vector<std::shared_ptr<Face>> faces,
+                       std::vector<ForestBC<Edge>> bc_edges = {});
 };
 } // namespace forest
 } // namespace parthenon

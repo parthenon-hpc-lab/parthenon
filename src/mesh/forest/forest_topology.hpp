@@ -28,8 +28,8 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
-#include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/forest/logical_location.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
@@ -71,19 +71,19 @@ class Edge {
   }
 };
 
-template <class T> 
+template <class T>
 struct NeighborInfo {
-  std::array<std::vector<T>, 27> data; 
-  std::vector<T> &operator()(int i, int j, int k = 0) { 
+  std::array<std::vector<T>, 27> data;
+  std::vector<T> &operator()(int i, int j, int k = 0) {
     return data[i + 1 + 3 * (j + 1 + 3 * (k + 1))];
-  } 
+  }
 
-  auto Contains(const T& in, int type_indicator) { 
+  auto Contains(const T &in, int type_indicator) {
     for (int i = -1; i < 2; i++) {
       for (int j = -1; j < 2; j++) {
         for (int k = -1; k < 2; k++) {
           if (std::abs(i) + std::abs(j) + std::abs(k) != type_indicator) continue;
-          for (int v = 0; v < (*this)(i, j, k).size(); ++v) { 
+          for (int v = 0; v < (*this)(i, j, k).size(); ++v) {
             if (in == (*this)(i, j, k)[v]) return std::make_tuple(true, i, j, k, v);
           }
         }
@@ -91,7 +91,6 @@ struct NeighborInfo {
     }
     return std::make_tuple(false, 0, 0, 0, 0);
   }
-
 };
 
 class Face : public std::enable_shared_from_this<Face> {
@@ -99,14 +98,15 @@ class Face : public std::enable_shared_from_this<Face> {
   struct private_t {};
 
  public:
-  Face() = default; 
+  Face() = default;
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : my_id(id), nodes(nodes_in),
-        dir{Direction::I, Direction::J}, normal{Direction::K}, normal_rhanded(true) {
+      : my_id(id), nodes(nodes_in), dir{Direction::I, Direction::J}, normal{Direction::K},
+        normal_rhanded(true) {
     int idx{0};
-    for (auto &node : nodes) face_index[node] = idx++;
+    for (auto &node : nodes)
+      face_index[node] = idx++;
   }
 
   static std::shared_ptr<Face> create(std::int64_t id, sptr_vec_t<Node, 4> nodes_in) {
@@ -116,32 +116,33 @@ class Face : public std::enable_shared_from_this<Face> {
       node->associated_faces.insert(result);
     return result;
   }
-  
+
   std::int64_t GetId() const { return my_id; }
 
   void SetNeighbors();
   void SetEdgeCoordinateTransforms();
   void SetNodeCoordinateTransforms();
-  std::tuple<int, int, Offset> GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes);
+  std::tuple<int, int, Offset>
+  GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes);
 
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
 
   Direction dir[2];
   Direction normal;
   bool normal_rhanded;
-  
+
   std::int64_t my_id;
 
   sptr_vec_t<Node, 4> nodes;
   std::unordered_map<std::shared_ptr<Node>, int> face_index;
-  
-  NeighborInfo<std::pair<std::shared_ptr<Face>, LogicalCoordinateTransformation>> neighbors;
+
+  NeighborInfo<std::pair<std::shared_ptr<Face>, LogicalCoordinateTransformation>>
+      neighbors;
   std::unordered_map<std::shared_ptr<Face>, CellCentOffsets> neighbors_to_offsets;
 
-  static constexpr std::array<CellCentOffsets, 4> node_to_offset = {CellCentOffsets{-1, -1, -1},
-                                                                    CellCentOffsets{1, -1, -1},
-                                                                    CellCentOffsets{-1, 1, -1},
-                                                                    CellCentOffsets{1, 1, -1}};
+  static constexpr std::array<CellCentOffsets, 4> node_to_offset = {
+      CellCentOffsets{-1, -1, -1}, CellCentOffsets{1, -1, -1}, CellCentOffsets{-1, 1, -1},
+      CellCentOffsets{1, 1, -1}};
 };
 
 // We choose face nodes to be ordered as:

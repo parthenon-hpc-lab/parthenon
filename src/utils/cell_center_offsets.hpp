@@ -146,9 +146,9 @@ struct CellCentOffsets {
   }
 };
 
-template <class... Args> 
-CellCentOffsets AverageOffsets(Args&&... args) { 
-  return CellCentOffsets((static_cast<int>(args[0]) + ...) / sizeof...(args), 
+template <class... Args>
+CellCentOffsets AverageOffsets(Args &&...args) {
+  return CellCentOffsets((static_cast<int>(args[0]) + ...) / sizeof...(args),
                          (static_cast<int>(args[1]) + ...) / sizeof...(args),
                          (static_cast<int>(args[2]) + ...) / sizeof...(args));
 }

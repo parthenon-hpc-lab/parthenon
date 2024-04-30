@@ -15,6 +15,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Parthenon Includes
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
-  
+
   std::unordered_map<uint64_t, std::shared_ptr<parthenon::forest::Node>> nodes;
   nodes[0] = parthenon::forest::Node::create(0, {0.0, 0.0});
   nodes[1] = parthenon::forest::Node::create(1, {1.0, 0.0});
