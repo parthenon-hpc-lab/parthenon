@@ -71,7 +71,7 @@ Forest four_blocks() {
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
   faces.emplace_back(Face::create(2, {n[3], n[2], n[6], n[7]}));
-  faces.emplace_back(Face::create(3, {n[2], n[5], n[7], n[8]}));
+  faces.emplace_back(Face::create(3, {n[8], n[7], n[5], n[2]}));
 
   auto forest = Forest::Make2D(faces);
 
@@ -81,6 +81,7 @@ Forest four_blocks() {
   forest.Refine(LogicalLocation(1, 2, 0, 0, 0));
   
   forest.Refine(LogicalLocation(0, 1, 0, 1, 0));
+  forest.Refine(LogicalLocation(0, 2, 0, 3, 0));
 
   return forest;
 }
