@@ -63,8 +63,10 @@ struct BndInfo {
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
-
+  
+  KOKKOS_INLINE_FUNCTION
   BndInfo() = default;
+  KOKKOS_INLINE_FUNCTION
   BndInfo(const BndInfo &) = default;
   BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
           CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
