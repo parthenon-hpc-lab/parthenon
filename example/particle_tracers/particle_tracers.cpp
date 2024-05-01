@@ -187,9 +187,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
           x(n) += vx * dt;
           y(n) += vy * dt;
           z(n) += vz * dt;
-
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
 
