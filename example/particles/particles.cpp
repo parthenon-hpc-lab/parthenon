@@ -11,15 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "particles.hpp"
-#include "bvals/boundary_conditions_generic.hpp"
-
 #include <algorithm>
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "bvals/boundary_conditions_generic.hpp"
+#include "particles.hpp"
 
 // *************************************************//
 // redefine some internal parthenon functions      *//
