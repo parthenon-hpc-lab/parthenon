@@ -162,7 +162,6 @@ void SwarmOutflowOuterX3(std::shared_ptr<Swarm> &swarm) {
 }
 
 void SwarmPeriodicInnerX1(std::shared_ptr<Swarm> &swarm) {
-  printf("Swarm periodic BCs?\n");
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(swarm);
 }
 
@@ -183,7 +182,7 @@ void SwarmPeriodicInnerX3(std::shared_ptr<Swarm> &swarm) {
 }
 
 void SwarmPeriodicOuterX3(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Outflow>(swarm);
+  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Periodic>(swarm);
 }
 
 } // namespace BoundaryFunction
@@ -207,24 +206,10 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                               const int ndim) {
-  // printf("? %i %i\n", static_cast<int>(flag == BoundaryFlag::block),
-  //       static_cast<int>(flag == BoundaryFlag::undef));
-  // TODO(BRR) SETTING THIS TO FALSE BREAKS COMMUNICATION, SOMEHOW NOT UPDATING BCS
-  // CORRECTLY! SPECIAL CASE FOR PERIODIC?
-  // if (flag == BoundaryFlag::block) return false;
   if (flag == BoundaryFlag::undef) return false;
+  if (flag == BoundaryFlag::block) return false;
 
-  // TODO(BRR) always update for 3D BCs? Don't update particle positions in unused
-  // dimensions?
-
-  // if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
-  //  return false;
-  //}
-  // if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
-  //  return false;
-  //} // ndim always at least 1
-
-  return true; // outflow, periodic, user, dims correct
+  return true; // outflow, periodic, user, dims (particles always 3D) correct
 }
 
 } // namespace boundary_cond_impl

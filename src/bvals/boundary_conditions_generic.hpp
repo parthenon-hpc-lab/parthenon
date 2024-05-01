@@ -65,10 +65,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
           if (X1) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
-                // TODO(BRR) need to switch INNER/OUTER logic for periodic BCs because
-                // this is after send/recv? Do both to be general?
-                if (x(n) < swarm_d.x_min_global_) {
-                  x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
+                if (x(n) > swarm_d.x_max_global_) {
+                  x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (x(n) < swarm_d.x_min_global_) {
@@ -77,8 +75,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             } else {
               if (TYPE == BCType::Periodic) {
-                if (x(n) > swarm_d.x_max_global_) {
-                  x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
+                if (x(n) < swarm_d.x_min_global_) {
+                  x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (x(n) > swarm_d.x_max_global_) {
@@ -89,8 +87,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
           } else if (X2) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
-                if (y(n) < swarm_d.y_min_global_) {
-                  y(n) = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y(n));
+                if (y(n) > swarm_d.y_max_global_) {
+                  y(n) = swarm_d.y_min_global_ + (y(n) - swarm_d.y_max_global_);
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (y(n) < swarm_d.y_min_global_) {
@@ -99,8 +97,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             } else {
               if (TYPE == BCType::Periodic) {
-                if (y(n) > swarm_d.y_max_global_) {
-                  y(n) = swarm_d.y_min_global_ + (y(n) - swarm_d.y_max_global_);
+                if (y(n) < swarm_d.y_min_global_) {
+                  y(n) = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y(n));
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (y(n) > swarm_d.y_max_global_) {
@@ -111,8 +109,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
           } else if (X3) {
             if (INNER) {
               if (TYPE == BCType::Periodic) {
-                if (z(n) < swarm_d.z_min_global_) {
-                  z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
+                if (z(n) > swarm_d.z_max_global_) {
+                  z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (z(n) < swarm_d.z_min_global_) {
@@ -121,8 +119,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             } else {
               if (TYPE == BCType::Periodic) {
-                if (z(n) > swarm_d.z_max_global_) {
-                  z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
+                if (z(n) < swarm_d.z_min_global_) {
+                  z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
                 }
               } else if (TYPE == BCType::Outflow) {
                 if (z(n) > swarm_d.z_max_global_) {
@@ -131,8 +129,6 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
               }
             }
           }
-          // printf("Currently active? %i xyz = %e %e %e\n",
-          //       static_cast<int>(swarm_d.IsOnCurrentMeshBlock(n)), x(n), y(n), z(n));
         }
       });
 }
