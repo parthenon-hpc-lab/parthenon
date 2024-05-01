@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/boundary_conditions_generic.hpp"
 #include "particles.hpp"
 
 // *************************************************//
@@ -29,24 +28,10 @@ namespace particles_example {
 using namespace parthenon;
 using namespace parthenon::BoundaryFunction;
 
-// std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-// SetSwarmIX1UserBC() {
-//  return DeviceAllocate<ParticleBoundIX1User>();
-//}
-//
-// std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-// SetSwarmOX1UserBC() {
-//  return DeviceAllocate<ParticleBoundOX1User>();
-//}
-
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages.Add(particles_example::Particles::Initialize(pin.get()));
   return packages;
-}
-
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  // Don't do anything for now
 }
 
 enum class DepositionMethod { per_particle, per_cell };
@@ -60,22 +45,8 @@ enum class DepositionMethod { per_particle, per_cell };
 
 namespace Particles {
 
-// Example inner boundary condition (this just reuses existing features) to show how to
-// create and enroll a user swarm boundary condition.
-void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
-}
-
-void SwarmUserOuterX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(swarm);
-}
-
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
-
-  // Set custom boundary functions
-  pkg->UserSwarmBoundaryFunctions[BoundaryFace::inner_x1].push_back(SwarmUserInnerX1);
-  pkg->UserSwarmBoundaryFunctions[BoundaryFace::outer_x1].push_back(SwarmUserOuterX1);
 
   int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
   pkg->AddParam<>("num_particles", num_particles);

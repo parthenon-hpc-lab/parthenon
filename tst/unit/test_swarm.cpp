@@ -24,6 +24,8 @@
 
 #include <catch2/catch.hpp>
 
+#include "bvals/boundary_conditions.hpp"
+#include "bvals/boundary_conditions_generic.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "interface/swarm.hpp"
 #include "kokkos_abstraction.hpp"
@@ -42,12 +44,18 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::ParArray1D;
 using parthenon::ParArrayND;
-using parthenon::ParticleBound;
 using parthenon::Swarm;
 using parthenon::SwarmDeviceContext;
+using namespace parthenon::BoundaryFunction;
+using parthenon::X1DIR;
 using std::endl;
 
 constexpr int NUMINIT = 10;
+
+void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
+  printf("Here!\n");
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
+}
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
   std::stringstream is;
@@ -73,11 +81,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+  mesh->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  mesh->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
   mesh->mesh_bcs[0] = BoundaryFlag::user;
-  PARTHENON_FAIL("Test new BC enrollment");
-  // mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
-  for (int i = 0; i < 6; i++) {
+  meshblock->boundary_flag[0] = BoundaryFlag::user;
+  for (int i = 1; i < 6; i++) {
     mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+    meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
@@ -85,7 +95,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   swarm->SetBlockPointer(meshblock);
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
-  REQUIRE(swarm->GetMaxActiveIndex() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == -1);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
@@ -213,6 +223,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   ApplySwarmBoundaryConditions(swarm);
   swarm->RemoveMarkedParticles();
+
+  printf("max: %i\n", swarm->GetMaxActiveIndex());
 
   // Check that particle that crossed boundary has been removed
   meshblock->par_for(

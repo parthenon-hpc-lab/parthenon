@@ -20,7 +20,6 @@
 
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/swarm_boundaries.hpp"
 #include "interface/swarm_container.hpp"
 #include "mesh/domain.hpp"
 

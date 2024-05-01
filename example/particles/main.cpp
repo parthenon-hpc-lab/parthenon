@@ -13,7 +13,22 @@
 
 #include "parthenon_manager.hpp"
 
+#include "bvals/boundary_conditions.hpp"
+#include "bvals/boundary_conditions_generic.hpp"
 #include "particles.hpp"
+
+using namespace parthenon::BoundaryFunction;
+
+// Example inner boundary condition (this just reuses existing features) to show how to
+// create and enroll a user swarm boundary condition. Note that currently both Swarm and
+// field boundary conditions must be provided when "user" is specified.
+void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
+}
+
+void SwarmUserOuterX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(swarm);
+}
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -33,29 +48,13 @@ int main(int argc, char *argv[]) {
 
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = particles_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = particles_example::ProblemGenerator;
-  if (pman.pinput->GetString("parthenon/mesh", "ix1_bc") == "user") {
-    // In this case, we are setting a custom swarm boundary condition while still using
-    // a default parthenon boundary condition for cell variables. In general, one can
-    // provide both custom cell variable and swarm boundary conditions. However, to use
-    // custom boundary conditions for either cell variables or swarms, the parthenon
-    // boundary must be set to "user" and both cell variable and swarm boundaries provided
-    // as here.
-    // pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-    //    parthenon::BoundaryFunction::OutflowInnerX1;
-    // pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::inner_x1] =
-    //    particles_example::SetSwarmIX1UserBC;
-    PARTHENON_FAIL("Update BC set");
-  }
-  if (pman.pinput->GetString("parthenon/mesh", "ox1_bc") == "user") {
-    // Again, we use a default parthenon boundary condition for cell variables but a
-    // custom swarm boundary condition.
-    // pman.app_input->boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-    //    parthenon::BoundaryFunction::OutflowOuterX1;
-    // pman.app_input->swarm_boundary_conditions[parthenon::BoundaryFace::outer_x1] =
-    //    particles_example::SetSwarmOX1UserBC;
-    PARTHENON_FAIL("Update BC set");
-  }
+  pman.app_input->boundary_conditions[BoundaryFace::inner_x1] =
+      parthenon::BoundaryFunction::OutflowInnerX1;
+  pman.app_input->boundary_conditions[BoundaryFace::outer_x1] =
+      parthenon::BoundaryFunction::OutflowOuterX1;
+  pman.app_input->swarm_boundary_conditions[BoundaryFace::inner_x1] = SwarmUserInnerX1;
+  pman.app_input->swarm_boundary_conditions[BoundaryFace::outer_x1] = SwarmUserOuterX1;
+  // Note that this example does not use a ProblemGenerator
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize

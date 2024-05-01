@@ -165,6 +165,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     const Real &x_ = ic[n][0];
     const Real &y_ = ic[n][1];
     const Real &z_ = ic[n][2];
+
     if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
         (z_ < z_max)) {
       ids_this_block_h(num_particles_this_block) = n;

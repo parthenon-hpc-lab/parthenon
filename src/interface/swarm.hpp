@@ -36,16 +36,11 @@
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
-#include "swarm_boundaries.hpp"
 #include "swarm_device_context.hpp"
 #include "variable.hpp"
 #include "variable_pack.hpp"
 
 namespace parthenon {
-
-struct BoundaryDeviceContext {
-  ParticleBound *bounds[6];
-};
 
 // This class is returned by AddEmptyParticles. It provides accessors to the new particle
 // memory by wrapping the persistent new_indices_ array.
@@ -103,8 +98,6 @@ class Swarm {
   }
 
   SwarmDeviceContext GetDeviceContext() const;
-
-  // void AllocateBoundaries();
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -240,10 +233,6 @@ class Swarm {
   int num_particles_sent_;
   bool finished_transport;
 
-  // Class to store raw pointers to boundary conditions on device. Copy locally for
-  // compute kernel capture.
-  BoundaryDeviceContext bounds_d;
-
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
@@ -257,9 +246,6 @@ class Swarm {
   vpack_types::SwarmVarList<T> MakeVarListAll_();
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
-
-  // template <class BOutflow, class BPeriodic, int iFace>
-  // void AllocateBoundariesImpl_(MeshBlock *pmb);
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();

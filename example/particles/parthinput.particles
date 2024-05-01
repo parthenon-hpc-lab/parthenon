@@ -40,8 +40,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 8 # 16
-nx2 = 16 # 16
+nx1 = 8
+nx2 = 8
 
 <parthenon/output0>
 file_type = hdf5
