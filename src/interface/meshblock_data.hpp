@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -119,6 +119,15 @@ class MeshBlockData {
     resolved_packages_ = src->resolved_packages_;
     is_shallow_ = shallow_copy;
 
+    // clear all variables, maps, and pack caches
+    varVector_.clear();
+    varMap_.clear();
+    varUidMap_.clear();
+    flagsToVars_.clear();
+    varPackMap_.clear();
+    coarseVarPackMap_.clear();
+    varFluxPackMap_.clear();
+
     auto add_var = [=](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
@@ -134,7 +143,18 @@ class MeshBlockData {
       }
     } else {
       for (const auto &v : vars) {
-        add_var(src->GetVarPtr(v));
+        auto var = src->GetVarPtr(v);
+        add_var(var);
+        // Add the associated flux as well if not explicitly
+        // asked for
+        if (var->IsSet(Metadata::WithFluxes)) {
+          auto flx_name = var->metadata().GetFluxName();
+          bool found = false;
+          for (const auto &v2 : vars) {
+            if (src->GetVarPtr(v2)->label() == flx_name) found = true;
+          }
+          if (!found) add_var(src->GetVarPtr(flx_name));
+        }
       }
     }
   }
@@ -207,32 +227,35 @@ class MeshBlockData {
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
   VarList GetVariablesByName(const std::vector<std::string> &names,
-                             const std::vector<int> &sparse_ids = {});
+                             const std::vector<int> &sparse_ids = {}, bool flux = false);
 
   /// Get list of variables and UIDs by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                             const std::vector<int> &sparse_ids = {});
+                             const std::vector<int> &sparse_ids = {}, bool flux = false);
 
   // Get list of variables specified by unique identifiers
-  VarList GetVariablesByUid(const std::vector<Uid_t> &uids);
+  VarList GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux = false);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarList GetAllVariables(const std::vector<int> &sparse_ids = {}) {
-    return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids);
+  VarList GetAllVariables(const std::vector<int> &sparse_ids = {}, bool flux = false) {
+    return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids, flux);
   }
 
   std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids = {}) {
-    return GetVariablesByName(names, sparse_ids).unique_ids();
+                                     const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
+    return GetVariablesByName(names, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
-                                     const std::vector<int> &sparse_ids = {}) {
-    return GetVariablesByFlag(flags, sparse_ids).unique_ids();
+                                     const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
+    return GetVariablesByFlag(flags, sparse_ids, flux).unique_ids();
   }
-  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {}) {
-    return GetAllVariables(sparse_ids).unique_ids();
+  std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {},
+                                     bool flux = false) {
+    return GetAllVariables(sparse_ids, flux).unique_ids();
   }
 
   /// Queries related to variable packs

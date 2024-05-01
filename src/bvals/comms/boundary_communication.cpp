@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -103,8 +103,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         Real threshold = bnd_info(b).var.allocation_threshold;
         bool non_zero[3]{false, false, false};
         int idx_offset = 0;
-        for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
-          auto &idxer = bnd_info(b).idxer[iel];
+        for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
+          auto &idxer = bnd_info(b).idxer[it];
+          const int iel = bnd_info(b).topo_idx[it];
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           Kokkos::parallel_reduce(
               Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
@@ -125,6 +126,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                     Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
 
                 lnon_zero = lnon_zero || mnon_zero;
+                if (bound_type == BoundaryType::flxcor_send) lnon_zero = true;
               },
               Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
           idx_offset += idxer.size();
@@ -161,6 +163,8 @@ template TaskStatus
 SendBoundBufs<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -187,6 +191,8 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -235,6 +241,8 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -265,8 +273,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         int idx_offset = 0;
-        for (int iel = 0; iel < bnd_info(b).ntopological_elements; ++iel) {
-          auto &idxer = bnd_info(b).idxer[iel];
+        for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
+          const int iel = bnd_info(b).topo_idx[it];
+          auto &idxer = bnd_info(b).idxer[it];
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
@@ -286,7 +295,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                            var[m] = buf[m];
                                        });
                 });
-          } else if (bnd_info(b).allocated) {
+          } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
             const Real default_val = bnd_info(b).var.sparse_default_val;
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
@@ -328,6 +337,8 @@ template TaskStatus
 SetBounds<BoundaryType::gmg_restrict_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -424,4 +435,12 @@ AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
 template TaskID
 AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
                                                  std::shared_ptr<MeshData<Real>> &, bool);
+
+TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
+                              std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
+  if (!multilevel) return dependency;
+  tl.AddTask(dependency, SendBoundBufs<BoundaryType::flxcor_send>, md);
+  auto receive = tl.AddTask(dependency, ReceiveBoundBufs<BoundaryType::flxcor_recv>, md);
+  return tl.AddTask(receive, SetBounds<BoundaryType::flxcor_recv>, md);
+}
 } // namespace parthenon

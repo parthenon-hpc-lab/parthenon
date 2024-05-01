@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1043]](https://github.com/parthenon-hpc-lab/parthenon/pull/1043) Unify flux correction with boundary communication, make fluxes variables, allow fluxes for non-cell fields
 - [[PR 1060]](https://github.com/parthenon-hpc-lab/parthenon/pull/1060) Add the ability to request new MeshData/MeshBlockData objects by selecting variables by UID.
 - [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
 - [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
@@ -20,6 +21,7 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1066]](https://github.com/parthenon-hpc-lab/parthenon/pull/1066) Re-introduce default loop patterns and exec spaces
 - [[PR 1064]](https://github.com/parthenon-hpc-lab/parthenon/pull/1064) Forbid erroneous edge case when adding MeshData on a partition
 - [[PR 1035]](https://github.com/parthenon-hpc-lab/parthenon/pull/1035) Fix multigrid infrastructure to work with forest
 - [[PR 1048]](https://github.com/parthenon-hpc-lab/parthenon/pull/1048) Tiny fixes to custom coords logic
