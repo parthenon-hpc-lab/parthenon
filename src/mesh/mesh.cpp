@@ -171,7 +171,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in);
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions);
 
   // SMR / AMR:
   if (adaptive) {
@@ -207,7 +207,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   forest = forest::Forest::Make2D(forest_def);
-  forest.EnrollBndryFncts(app_in);
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions);
   BuildBlockList(pin, app_in, packages, -1);
 }
 

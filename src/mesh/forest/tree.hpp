@@ -117,7 +117,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::vector<std::shared_ptr<Node>> forest_nodes;
   
   // Boundary Functions
-  void EnrollBndryFncts(ApplicationInput *app_in);
+  void EnrollBndryFncts(ApplicationInput *app_in, std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in);
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
   SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;

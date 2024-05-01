@@ -106,8 +106,8 @@ class Forest {
     return trees.at(loc.tree())->GetBlockBCs(loc);
   }
   
-  void EnrollBndryFncts(ApplicationInput *app_in) { 
-    for(auto &[id, ptree] : trees) ptree->EnrollBndryFncts(app_in);
+  void EnrollBndryFncts(ApplicationInput *app_in, std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) { 
+    for(auto &[id, ptree] : trees) ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
