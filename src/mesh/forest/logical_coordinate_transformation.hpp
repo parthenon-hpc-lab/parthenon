@@ -93,6 +93,16 @@ struct LogicalCoordinateTransformation {
     }
     return ijk_out;
   }
+  
+  CellCentOffsets Transform(CellCentOffsets in) const {
+    CellCentOffsets out; 
+    for (int dir = 0; dir < 3; ++dir) { 
+      const int outdir = abs(dir_connection[dir]);
+      out.u[outdir] = dir_flip[dir] ? static_cast<Offset>(-static_cast<int>(in.u[dir])) : in.u[dir];
+    }
+    return out;
+  }
+  
 
   bool use_offset = false;
   std::array<int, 3> offset;

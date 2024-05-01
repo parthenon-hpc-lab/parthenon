@@ -213,6 +213,15 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
     s = lcoord_trans.Transform(s);
     e = lcoord_trans.Transform(e);
+    // Transformation can flip the order of the upper and 
+    // lower index, so make sure they are increasing
+    for (int dir = 0; dir < 3; ++dir) {
+      if (s[dir] > e[dir]) {
+        int temp = s[dir]; 
+        s[dir] = e[dir]; 
+        e[dir] = temp;
+      }
+    }
   }
 
   block_ownership_t owns(true);

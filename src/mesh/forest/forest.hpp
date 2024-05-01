@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_topology.hpp"
@@ -62,6 +63,11 @@ class Forest {
     return trees_out;
   }
 
+  std::shared_ptr<Tree> &GetTreePtr(std::int64_t id) { 
+    PARTHENON_REQUIRE(trees.count(id) > 0, "Tree " + std::to_string(id) + " not found.");
+    return trees[id];
+  }
+
   void AddTree(const std::shared_ptr<Tree> &in) {
     if (trees.count(in->GetId())) {
       PARTHENON_WARN("Adding tree to forest twice.");
@@ -98,6 +104,10 @@ class Forest {
   std::array<BoundaryFlag, BOUNDARY_NFACES>
   GetBlockBCs(const LogicalLocation &loc) const {
     return trees.at(loc.tree())->GetBlockBCs(loc);
+  }
+  
+  void EnrollBndryFncts(ApplicationInput *app_in) { 
+    for(auto &[id, ptree] : trees) ptree->EnrollBndryFncts(app_in);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,

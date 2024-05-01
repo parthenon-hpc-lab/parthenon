@@ -171,6 +171,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
+  forest.EnrollBndryFncts(app_in);
+
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
@@ -205,6 +207,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   forest = forest::Forest::Make2D(forest_def);
+  forest.EnrollBndryFncts(app_in);
   BuildBlockList(pin, app_in, packages, -1);
 }
 

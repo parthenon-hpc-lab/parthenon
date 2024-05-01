@@ -23,7 +23,9 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
@@ -113,6 +115,12 @@ class Tree : public std::enable_shared_from_this<Tree> {
   LogicalLocation athena_forest_loc;
 
   std::vector<std::shared_ptr<Node>> forest_nodes;
+  
+  // Boundary Functions
+  void EnrollBndryFncts(ApplicationInput *app_in);
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
+  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,

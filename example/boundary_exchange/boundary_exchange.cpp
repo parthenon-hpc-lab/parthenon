@@ -100,10 +100,12 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
   parthenon::ParArray1D<int> y_morton("y Morton number", pack.GetNBlocks());
   parthenon::ParArray1D<int> z_morton("z Morton number", pack.GetNBlocks());
   parthenon::ParArray1D<int> morton("Morton number", pack.GetNBlocks());
+  parthenon::ParArray1D<int> tree("tree", pack.GetNBlocks());
   auto x_morton_h = Kokkos::create_mirror_view(x_morton);
   auto y_morton_h = Kokkos::create_mirror_view(y_morton);
   auto z_morton_h = Kokkos::create_mirror_view(z_morton);
   auto morton_h = Kokkos::create_mirror_view(morton);
+  auto tree_h = Kokkos::create_mirror_view(tree);
   for (int b = 0; b < md->NumBlocks(); ++b) {
     auto cpmb = md->GetBlockData(b)->GetBlockPointer();
     auto level = cpmb->loc.level();
@@ -118,11 +120,13 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
     x_morton_h(b) = mx;
     y_morton_h(b) = my;
     z_morton_h(b) = mz;
+    tree_h(b) = cpmb->loc.tree();
   }
   Kokkos::deep_copy(x_morton, x_morton_h);
   Kokkos::deep_copy(y_morton, y_morton_h);
   Kokkos::deep_copy(z_morton, z_morton_h);
   Kokkos::deep_copy(morton, morton_h);
+  Kokkos::deep_copy(tree, tree_h);
 
   {
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -132,7 +136,7 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
         parthenon::loop_pattern_mdrange_tag, "SetMorton", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          pack(b, morton_num(0), k, j, i) = morton(b);
+          pack(b, morton_num(0), k, j, i) = morton(b) + 10 * tree(b);
           pack(b, morton_num(1), k, j, i) = x_morton(b);
           pack(b, morton_num(2), k, j, i) = y_morton(b);
           pack(b, morton_num(3), k, j, i) = z_morton(b);

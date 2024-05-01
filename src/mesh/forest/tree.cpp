@@ -380,5 +380,51 @@ std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
   return -1;
 }
 
+void Tree::EnrollBndryFncts(ApplicationInput *app_in) {
+  static const BValFunc outflow[6] = {
+      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
+      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
+      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
+  static const BValFunc reflect[6] = {
+      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
+      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
+      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+
+  for (int f = 0; f < BOUNDARY_NFACES; f++) {
+    switch (boundary_conditions[f]) {
+    case BoundaryFlag::reflect:
+      MeshBndryFnctn[f] = reflect[f];
+      break;
+    case BoundaryFlag::outflow:
+      MeshBndryFnctn[f] = outflow[f];
+      break;
+    case BoundaryFlag::user:
+      if (app_in->boundary_conditions[f] != nullptr) {
+        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
+      } else {
+        std::stringstream msg;
+        msg << "A user boundary condition for face " << f
+            << " was requested. but no condition was enrolled." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+      break;
+    default: // periodic/block BCs handled elsewhere.
+      break;
+    }
+
+    switch (boundary_conditions[f]) {
+    case BoundaryFlag::user:
+      if (app_in->swarm_boundary_conditions[f] != nullptr) {
+        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
+        // boundaries are requested but no swarms are used.
+        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+      }
+      break;
+    default: // Default BCs handled elsewhere
+      break;
+    }
+  }
+}
+
 } // namespace forest
 } // namespace parthenon

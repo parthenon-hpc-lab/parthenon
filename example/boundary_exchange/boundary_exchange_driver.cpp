@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
   parthenon::forest::ForestDefinition forest_def;
   auto &faces = forest_def.faces;
   
-  faces.emplace_back(parthenon::forest::Face::create(0, {n[0], n[1], n[3], n[2]}));
+  faces.emplace_back(parthenon::forest::Face::create(0, {n[1], n[2], n[0], n[3]}));
   faces.emplace_back(parthenon::forest::Face::create(1, {n[1], n[4], n[2], n[5]}));
   
   auto &bcs = forest_def.bc_edges;
