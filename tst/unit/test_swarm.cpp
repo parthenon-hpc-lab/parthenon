@@ -53,7 +53,6 @@ using std::endl;
 constexpr int NUMINIT = 10;
 
 void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
-  printf("Here!\n");
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
 
@@ -218,13 +217,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
         x_d(0) = -0.6;
         bc_indices(0) = 0;
       });
-  // swarm->ApplyBoundaries_(1, bc_indices);
-  // swarm->RemoveMarkedParticles();
 
   ApplySwarmBoundaryConditions(swarm);
   swarm->RemoveMarkedParticles();
-
-  printf("max: %i\n", swarm->GetMaxActiveIndex());
 
   // Check that particle that crossed boundary has been removed
   meshblock->par_for(

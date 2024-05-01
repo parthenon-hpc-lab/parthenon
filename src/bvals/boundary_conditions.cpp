@@ -65,7 +65,6 @@ TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm) {
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
     if (DoPhysicalSwarmBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i),
                                  ndim)) {
-      printf("Boundary on %i!\n", i);
       pmesh->MeshSwarmBndryFnctn[i](swarm);
       for (auto &bnd_func : pmesh->UserSwarmBoundaryFunctions[i]) {
         bnd_func(swarm);
@@ -207,8 +206,6 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                               const int ndim) {
-  printf("flag: %i face: %i ndim: %i\n", static_cast<int>(flag), static_cast<int>(face),
-         ndim);
   if (flag == BoundaryFlag::undef) return false;
   if (flag == BoundaryFlag::block) return false;
 
