@@ -3,7 +3,7 @@
 # Copyright(C) 2021 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,24 +32,25 @@ class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
         return parameters
-#        # enable coverage testing on pass where restart
-#        # files are both read and written
-#        parameters.coverage_status = "both"
-#
-#        # run baseline (to the very end)
-#        if step == 1:
-#            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-#        # restart from an early snapshot
-#        # Don't check time-based restarts, since that's covered by
-#        # advection and it's the same codepath. Also I'm not sure this
-#        # sim takes 2s to run.
-#        else:  # step == 2:
-#            parameters.driver_cmd_line_args = [
-#                "-r",
-#                "gold.out1.00001.rhdf",
-#                "parthenon/job/problem_id=particle_tracers",
-#            ]
-#        return parameters
+
+    #        # enable coverage testing on pass where restart
+    #        # files are both read and written
+    #        parameters.coverage_status = "both"
+    #
+    #        # run baseline (to the very end)
+    #        if step == 1:
+    #            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
+    #        # restart from an early snapshot
+    #        # Don't check time-based restarts, since that's covered by
+    #        # advection and it's the same codepath. Also I'm not sure this
+    #        # sim takes 2s to run.
+    #        else:  # step == 2:
+    #            parameters.driver_cmd_line_args = [
+    #                "-r",
+    #                "gold.out1.00001.rhdf",
+    #                "parthenon/job/problem_id=particle_tracers",
+    #            ]
+    #        return parameters
 
     def Analyse(self, parameters):
         sys.path.insert(
@@ -70,16 +71,16 @@ class TestCase(utils.test_case.TestCaseAbs):
         # see examples/particle_tracers/particle_tracers.cpp for reference data
         ref_data = np.array(
             [
-                [-0.33269398, -0.44387057,  0.16082123],
-                [-0.09861675, -0.49535899,  0.42737513],
-                [ 0.16730602, -0.44387057,  0.16082123],
-                [ 0.42404016, -0.09861675, -0.23241539],
-                [ 0.15966089, -0.36042824, -0.27073458],
-                [-0.33269398,  0.05612943,  0.16082123],
-                [-0.09861675,  0.00464101,  0.42737513],
-                [ 0.16730602,  0.05612943,  0.16082123],
-                [ 0.42404016,  0.40138325, -0.23241539],
-                [ 0.15966089,  0.13957176, -0.27073458],
+                [-0.33269398, -0.44387057, 0.16082123],
+                [-0.09861675, -0.49535899, 0.42737513],
+                [0.16730602, -0.44387057, 0.16082123],
+                [0.42404016, -0.09861675, -0.23241539],
+                [0.15966089, -0.36042824, -0.27073458],
+                [-0.33269398, 0.05612943, 0.16082123],
+                [-0.09861675, 0.00464101, 0.42737513],
+                [0.16730602, 0.05612943, 0.16082123],
+                [0.42404016, 0.40138325, -0.23241539],
+                [0.15966089, 0.13957176, -0.27073458],
             ]
         )
         if ref_data.shape != final_data.shape:
