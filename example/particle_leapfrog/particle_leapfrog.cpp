@@ -243,9 +243,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           x(n) += v(0, n) * 0.5 * dt;
           y(n) += v(1, n) * 0.5 * dt;
           z(n) += v(2, n) * 0.5 * dt;
-
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
 

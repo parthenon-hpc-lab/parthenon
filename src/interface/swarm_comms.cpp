@@ -326,7 +326,6 @@ void Swarm::SetupPersistentMPI() {
 }
 
 int Swarm::CountParticlesToSend_() {
-  auto block_index_h = block_index_.GetHostMirrorAndCopy();
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
@@ -342,8 +341,22 @@ int Swarm::CountParticlesToSend_() {
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
 
+  // TODO(BRR) This kernel launch should be folded into the subsequent logic once we
+  // convert that to kernel-based reductions
+  auto &x = Get<Real>("x").Get();
+  auto &y = Get<Real>("y").Get();
+  auto &z = Get<Real>("z").Get();
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+        }
+      });
+
   int max_indices_size = 0;
   int total_noblock_particles = 0;
+  auto block_index_h = block_index_.GetHostMirrorAndCopy();
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
       // This particle should be sent
@@ -587,6 +600,9 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+          // TODO actually do this during buffer loading?
+          // bool on_current_mesh_block = true;
+          // swarm_d.GetNeighborBlockIndex(x(sid), y(sid), z(sid), on_current_mesh_block);
         });
   }
 }
