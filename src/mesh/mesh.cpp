@@ -253,7 +253,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  if (InitUserMeshData) {
+  if (InitUserMeshData != nullptr) {
     InitUserMeshData(this, pin);
   }
 
@@ -589,7 +589,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  if (InitUserMeshData) {
+  if (InitUserMeshData != nullptr) {
     InitUserMeshData(this, pin);
   }
 
@@ -908,13 +908,13 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  if (mesh->UserMeshWorkBeforeOutput) {
+  if (mesh->UserMeshWorkBeforeOutput != nullptr) {
     mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
   }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    if (pmb->UserWorkBeforeOutput) {
+    if (pmb->UserWorkBeforeOutput != nullptr) {
       pmb->UserWorkBeforeOutput(pmb.get(), pin, time);
     }
   }
@@ -926,7 +926,7 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
 void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                             SimTime const &time,
                                             OutputParameters *pparams) {
-  if (mesh->UserWorkBeforeRestartOutput) {
+  if (mesh->UserWorkBeforeRestartOutput != nullptr) {
     mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
@@ -1098,7 +1098,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      if (pmb->InitMeshBlockUserData) {
+      if (pmb->InitMeshBlockUserData != nullptr) {
         pmb->InitMeshBlockUserData(pmb, pin);
       }
     }
@@ -1146,7 +1146,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          if (pmb->PostInitialization) {
+          if (pmb->PostInitialization != nullptr) {
             pmb->PostInitialization(pmb.get(), pin);
           }
         }

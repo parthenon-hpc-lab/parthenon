@@ -96,10 +96,10 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
-      if (pmesh->PreStepUserWorkInLoop) {
+      if (pmesh->PreStepUserWorkInLoop != nullptr) {
         pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
       }
-      if (pmesh->PreStepUserDiagnosticsInLoop) {
+      if (pmesh->PreStepUserDiagnosticsInLoop != nullptr) {
         pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
       }
 
@@ -109,10 +109,10 @@ DriverStatus EvolutionDriver::Execute() {
         return DriverStatus::failed;
       }
 
-      if (pmesh->PostStepUserWorkInLoop) {
+      if (pmesh->PostStepUserWorkInLoop != nullptr) {
         pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
       }
-      if (pmesh->PostStepUserDiagnosticsInLoop) {
+      if (pmesh->PostStepUserDiagnosticsInLoop != nullptr) {
         pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
       }
 
@@ -148,7 +148,7 @@ DriverStatus EvolutionDriver::Execute() {
       // ======================================================
   }   // Main t < tmax loop region
 
-  if (pmesh->UserWorkAfterLoop) {
+  if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
   }
 

@@ -194,7 +194,6 @@ MeshBlock
 -  ``ProblemGenerator``
 -  ``PostInitialization``
 -  ``UserWorkBeforeOutput``
--  ``UserWorkBeforeRestartOutput``
 
 To redefine these functions, the user sets the respective function
 pointers in the ApplicationInput member app_input of the

@@ -938,7 +938,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 #endif
     // init meshblock data
     for (auto &pmb : block_list) {
-      if (pmb->InitMeshBlockUserData) {
+      if (pmb->InitMeshBlockUserData != nullptr) {
         pmb->InitMeshBlockUserData(pmb.get(), pin);
       }
     }

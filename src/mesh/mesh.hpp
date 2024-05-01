@@ -307,8 +307,8 @@ class Mesh {
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
-  // Optionall defined in either the problem file
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData;
+  // Optionally defined in the problem file
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
 

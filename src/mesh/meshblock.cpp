@@ -200,7 +200,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  if (InitApplicationMeshBlockData) {
+  if (InitApplicationMeshBlockData != nullptr) {
     app = InitApplicationMeshBlockData(this, pin);
   }
 }
