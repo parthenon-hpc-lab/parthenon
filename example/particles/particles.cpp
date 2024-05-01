@@ -60,6 +60,8 @@ enum class DepositionMethod { per_particle, per_cell };
 
 namespace Particles {
 
+// Example inner boundary condition (this just reuses existing features) to show how to
+// create and enroll a user swarm boundary condition.
 void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
@@ -470,8 +472,8 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);
               Real dt_push = std::min<Real>(dt_cell, dt_end);
-              printf("TransportParticles before n: %i xyz: %e %e %e\n", n, x(n), y(n),
-                     z(n));
+              // printf("TransportParticles before n: %i xyz: %e %e %e\n", n, x(n), y(n),
+              //       z(n));
 
               x(n) += v(0, n) * dt_push;
               y(n) += v(1, n) * dt_push;
@@ -480,8 +482,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
               bool on_current_mesh_block = true;
               // This call is required to trigger internal boundary condition machinery
-              printf("TransportParticles after n: %i xyz: %e %e %e\n", n, x(n), y(n),
-                     z(n));
+              //              printf("TransportParticles after n: %i xyz: %e %e %e\n", n,
+              //              x(n), y(n),
+              //                    z(n));
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {

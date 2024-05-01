@@ -407,6 +407,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   // Setup unique comms for each variable and swarm
   SetupMPIComms();
@@ -667,6 +668,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   // Setup unique comms for each variable and swarm
   SetupMPIComms();
