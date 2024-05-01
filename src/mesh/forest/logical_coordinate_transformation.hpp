@@ -47,7 +47,8 @@ struct LogicalCoordinateTransformation {
   LogicalLocation Transform(const LogicalLocation &loc_in,
                             std::int64_t destination) const;
   LogicalLocation InverseTransform(const LogicalLocation &loc_in,
-                                   std::int64_t origin) const;
+                                   std::int64_t origin) const;  
+  CellCentOffsets Transform(CellCentOffsets in) const;
 
   KOKKOS_INLINE_FUNCTION
   std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {
@@ -94,16 +95,6 @@ struct LogicalCoordinateTransformation {
     return ijk_out;
   }
   
-  CellCentOffsets Transform(CellCentOffsets in) const {
-    CellCentOffsets out; 
-    for (int dir = 0; dir < 3; ++dir) { 
-      const int outdir = abs(dir_connection[dir]);
-      out.u[outdir] = dir_flip[dir] ? static_cast<Offset>(-static_cast<int>(in.u[dir])) : in.u[dir];
-    }
-    return out;
-  }
-  
-
   bool use_offset = false;
   std::array<int, 3> offset;
   std::array<int, 3> dir_connection, dir_connection_inverse;

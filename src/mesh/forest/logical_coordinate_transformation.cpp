@@ -91,6 +91,15 @@ LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
+CellCentOffsets LogicalCoordinateTransformation::Transform(CellCentOffsets in) const {
+  CellCentOffsets out; 
+  for (int dir = 0; dir < 3; ++dir) { 
+    const int outdir = abs(dir_connection[dir]);
+    out.u[outdir] = dir_flip[dir] ? -in.u[dir] : in.u[dir];
+  }
+  return out;
+}
+
 LogicalCoordinateTransformation
 ComposeTransformations(const LogicalCoordinateTransformation &first,
                        const LogicalCoordinateTransformation &second) {
