@@ -281,12 +281,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
 
-  // Optionally defined by downstream applications
-  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
-      UserWorkBeforeOutput;
-  std::function<void(MeshBlock *, ParameterInput *, const SimTime &, OutputParameters *)>
-      UserWorkBeforeRestartOutput;
-
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
@@ -428,12 +422,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
 
-  // Optionally defined in the prob file
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator;
-  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization;
+  // Optionally defined in the prob file or provided by ApplicationInput
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
-      InitApplicationMeshBlockData;
-  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData;
+      InitApplicationMeshBlockData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
+      UserWorkBeforeOutput = nullptr;
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;

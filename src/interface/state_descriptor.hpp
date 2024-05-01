@@ -414,40 +414,45 @@ class StateDescriptor {
   }
 
   void UserWorkBeforeOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
-    if (UserWorkBeforeOutputMesh) return UserWorkBeforeOutputMesh(pmesh, pin, tm);
+    if (UserWorkBeforeOutputMesh != nullptr)
+      return UserWorkBeforeOutputMesh(pmesh, pin, tm);
   }
 
   void UserWorkBeforeRestartOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm,
                                    OutputParameters *pparams) const {
-    if (UserWorkBeforeRestartOutputMesh)
+    if (UserWorkBeforeRestartOutputMesh != nullptr)
       return UserWorkBeforeRestartOutputMesh(pmesh, pin, tm, pparams);
   }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock;
-  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh;
-  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock;
-  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh;
-  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock;
-  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh;
-  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock;
-  std::function<void(MeshData<Real> *rc)> FillDerivedMesh;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh;
+  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =
+      nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>
-      UserWorkBeforeRestartOutputMesh;
+      UserWorkBeforeRestartOutputMesh = nullptr;
 
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh;
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PostStepDiagnosticsMesh;
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
+      nullptr;
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
+      PostStepDiagnosticsMesh = nullptr;
 
-  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock;
-  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh;
+  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
+  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 
-  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock;
+  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
 
-  std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh;
-  std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock;
+  std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;

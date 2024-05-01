@@ -166,8 +166,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
-  if (app_in->UserMeshWorkBeforeRestartOutput != nullptr) {
-    UserMeshWorkBeforeRestartOutput = app_in->UserMeshWorkBeforeRestartOutput;
+  if (app_in->UserWorkBeforeRestartOutput != nullptr) {
+    UserWorkBeforeRestartOutput = app_in->UserWorkBeforeRestartOutput;
   }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
@@ -926,16 +926,8 @@ void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
 void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                             SimTime const &time,
                                             OutputParameters *pparams) {
-  // call Mesh version
-  if (mesh->UserMeshWorkBeforeRestartOutput) {
-    mesh->UserMeshWorkBeforeRestartOutput(mesh, pin, time, pparams);
-  }
-
-  // call MeshBlock version
-  for (auto &pmb : block_list) {
-    if (pmb->UserWorkBeforeRestartOutput) {
-      pmb->UserWorkBeforeRestartOutput(pmb.get(), pin, time, pparams);
-    }
+  if (mesh->UserWorkBeforeRestartOutput) {
+    mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
 

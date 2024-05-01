@@ -117,9 +117,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
   }
-  if (app_in->MeshBlockUserWorkBeforeRestartOutput != nullptr) {
-    UserWorkBeforeRestartOutput = app_in->MeshBlockUserWorkBeforeRestartOutput;
-  }
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);

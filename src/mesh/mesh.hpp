@@ -157,24 +157,29 @@ class Mesh {
                                         SimTime const &time, OutputParameters *pparams);
 
   // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
-  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
+  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
+      nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop;
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
+      nullptr;
 
-  std::function<void(Mesh *, ParameterInput *, SimTime const &)> UserMeshWorkBeforeOutput;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      UserMeshWorkBeforeOutput = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &,
                      OutputParameters *pparams)>
-      UserMeshWorkBeforeRestartOutput;
+      UserWorkBeforeRestartOutput = nullptr;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);
