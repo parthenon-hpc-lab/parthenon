@@ -23,9 +23,6 @@ using parthenon::ParthenonManager;
 using parthenon::ParthenonStatus;
 using parthenon::Real;
 using parthenon::RegionSize;
-using parthenon::CoordinateDirection::X1DIR;
-using parthenon::CoordinateDirection::X2DIR;
-using parthenon::CoordinateDirection::X3DIR;
 using namespace parthenon::forest;
 
 Forest two_blocks() {
