@@ -63,7 +63,7 @@ class Forest {
     return trees_out;
   }
 
-  std::shared_ptr<Tree> &GetTreePtr(std::int64_t id) { 
+  std::shared_ptr<Tree> &GetTreePtr(std::int64_t id) {
     PARTHENON_REQUIRE(trees.count(id) > 0, "Tree " + std::to_string(id) + " not found.");
     return trees[id];
   }
@@ -105,9 +105,12 @@ class Forest {
   GetBlockBCs(const LogicalLocation &loc) const {
     return trees.at(loc.tree())->GetBlockBCs(loc);
   }
-  
-  void EnrollBndryFncts(ApplicationInput *app_in, std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) { 
-    for(auto &[id, ptree] : trees) ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in);
+
+  void EnrollBndryFncts(
+      ApplicationInput *app_in,
+      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) {
+    for (auto &[id, ptree] : trees)
+      ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,

@@ -42,7 +42,7 @@ namespace parthenon {
 enum class Offset : int { Low = -1, Middle = 0, Up = 1 };
 inline int operator+(Offset a, int b) { return static_cast<int>(a) + b; }
 inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
-inline Offset operator-(Offset in) {return static_cast<Offset>(-static_cast<int>(in)); }
+inline Offset operator-(Offset in) { return static_cast<Offset>(-static_cast<int>(in)); }
 
 struct CellCentOffsets {
   std::array<Offset, 3> u;
@@ -81,8 +81,8 @@ struct CellCentOffsets {
     CoordinateDirection missed;
     for (auto dir : {X1DIR, X2DIR, X3DIR}) {
       uint dir_idx = static_cast<uint>(dir);
-      if (!static_cast<int>(
-              u[dir_idx - 1])) { // This direction has no offset, so must be tangent direction
+      if (!static_cast<int>(u[dir_idx - 1])) { // This direction has no offset, so must be
+                                               // tangent direction
         dirs.push_back(dir);
       } else {
         missed = dir;

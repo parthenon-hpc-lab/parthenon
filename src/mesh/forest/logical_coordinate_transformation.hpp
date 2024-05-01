@@ -39,7 +39,8 @@ struct LogicalCoordinateTransformation {
       : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2},
         dir_flip{false, false, false}, offset{0, 0, 0} {};
 
-  void SetDirection(CoordinateDirection origin, CoordinateDirection neighbor, bool reversed = false) {
+  void SetDirection(CoordinateDirection origin, CoordinateDirection neighbor,
+                    bool reversed = false) {
     dir_connection[origin - 1] = neighbor - 1;
     dir_connection_inverse[neighbor - 1] = origin - 1;
     dir_flip[origin - 1] = reversed;
@@ -48,7 +49,7 @@ struct LogicalCoordinateTransformation {
   LogicalLocation Transform(const LogicalLocation &loc_in,
                             std::int64_t destination) const;
   LogicalLocation InverseTransform(const LogicalLocation &loc_in,
-                                   std::int64_t origin) const;  
+                                   std::int64_t origin) const;
   CellCentOffsets Transform(CellCentOffsets in) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -95,7 +96,7 @@ struct LogicalCoordinateTransformation {
     }
     return ijk_out;
   }
-  
+
   bool use_offset = false;
   std::array<int, 3> offset;
   std::array<int, 3> dir_connection, dir_connection_inverse;

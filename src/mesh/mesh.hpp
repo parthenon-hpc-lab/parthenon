@@ -248,7 +248,7 @@ class Mesh {
   std::vector<std::string> GetVariableNames(Args &&...args) {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
-  
+
   forest::Forest forest;
 
  private:
@@ -274,7 +274,6 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;
-  
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];

@@ -35,7 +35,7 @@ Forest two_blocks() {
   nodes[5] = Node::create(5, {2.0, 1.0});
 
   auto &n = nodes;
-  ForestDefinition forest_def; 
+  ForestDefinition forest_def;
   auto &faces = forest_def.faces;
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
@@ -65,9 +65,9 @@ Forest four_blocks() {
   nodes[8] = Node::create(8, {2.0, 2.0});
 
   auto &n = nodes;
-  ForestDefinition forest_def; 
+  ForestDefinition forest_def;
   auto &faces = forest_def.faces;
-  
+
   faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
   faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
   faces.emplace_back(Face::create(2, {n[3], n[2], n[6], n[7]}));
@@ -88,24 +88,23 @@ Forest four_blocks() {
 
 Forest n_blocks(int nblocks_min, int nblocks_max) {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
-  ForestDefinition forest_def; 
+  ForestDefinition forest_def;
   auto &faces = forest_def.faces;
-  int nc = 0; 
+  int nc = 0;
   int fc = 0;
-  Real xoffset = 0.0; 
+  Real xoffset = 0.0;
   for (int nblocks = nblocks_min; nblocks <= nblocks_max; ++nblocks) {
     for (int point = 0; point < 2 * nblocks; ++point) {
-      nodes[nc + point] = Node::create(
-          nc + point, {std::sin(point * M_PI / nblocks) + xoffset, std::cos(point * M_PI / nblocks)});
+      nodes[nc + point] =
+          Node::create(nc + point, {std::sin(point * M_PI / nblocks) + xoffset,
+                                    std::cos(point * M_PI / nblocks)});
     }
     nodes[nc + 2 * nblocks] = Node::create(nc + 2 * nblocks, {0.0 + xoffset, 0.0});
     auto &n = nodes;
     for (int t = 0; t < nblocks; ++t)
-      faces.emplace_back(Face::create(
-          fc + t, {n[nc + 2 * t + 1],
-                   n[nc + 2 * t],
-                   n[nc + (2 * t + 2) % (2 * nblocks)],
-                   n[nc + 2 * nblocks]}));
+      faces.emplace_back(Face::create(fc + t, {n[nc + 2 * t + 1], n[nc + 2 * t],
+                                               n[nc + (2 * t + 2) % (2 * nblocks)],
+                                               n[nc + 2 * nblocks]}));
     nc += 2 * nblocks + 1;
     fc += nblocks;
     xoffset += 2.2;
@@ -138,7 +137,7 @@ Forest squared_circle() {
   nodes[6] = Node::create(6, {1.0, 2.0});
   nodes[7] = Node::create(7, {2.0, 2.0});
 
-  ForestDefinition forest_def; 
+  ForestDefinition forest_def;
   auto &faces = forest_def.faces;
   auto &n = nodes;
   // South block
@@ -155,7 +154,7 @@ Forest squared_circle() {
 
   // Center block
   faces.emplace_back(Face::create(4, {n[4], n[5], n[6], n[7]}));
-  
+
   auto forest = Forest::Make2D(forest_def);
 
   // Do some refinements that should propagate into the south and west trees

@@ -380,7 +380,9 @@ std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
   return -1;
 }
 
-void Tree::EnrollBndryFncts(ApplicationInput *app_in, std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) {
+void Tree::EnrollBndryFncts(
+    ApplicationInput *app_in,
+    std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) {
   UserBoundaryFunctions = UserBoundaryFunctions_in;
   static const BValFunc outflow[6] = {
       BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,

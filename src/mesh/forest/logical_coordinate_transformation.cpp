@@ -92,8 +92,8 @@ LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
 }
 
 CellCentOffsets LogicalCoordinateTransformation::Transform(CellCentOffsets in) const {
-  CellCentOffsets out; 
-  for (int dir = 0; dir < 3; ++dir) { 
+  CellCentOffsets out;
+  for (int dir = 0; dir < 3; ++dir) {
     const int outdir = abs(dir_connection[dir]);
     out.u[outdir] = dir_flip[dir] ? -in.u[dir] : in.u[dir];
   }

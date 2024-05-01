@@ -63,7 +63,7 @@ struct BndInfo {
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
-  
+
   KOKKOS_INLINE_FUNCTION
   BndInfo() = default;
   KOKKOS_INLINE_FUNCTION

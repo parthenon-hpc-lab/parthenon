@@ -45,11 +45,11 @@ std::vector<std::shared_ptr<Node>> NodeListOverlap(T1 nodes_1, T2 nodes_2) {
   return node_intersection;
 }
 
-std::optional<CellCentOffsets> Face::IsEdge(const Edge& edge) { 
-  auto node_overlap = NodeListOverlap(nodes, edge.nodes); 
-  if (node_overlap.size() != 2) return {}; 
+std::optional<CellCentOffsets> Face::IsEdge(const Edge &edge) {
+  auto node_overlap = NodeListOverlap(nodes, edge.nodes);
+  if (node_overlap.size() != 2) return {};
   auto offsets = AverageOffsets(node_to_offset[face_index[node_overlap[0]]],
-                                node_to_offset[face_index[node_overlap[1]]]); 
+                                node_to_offset[face_index[node_overlap[1]]]);
   if (!offsets.IsEdge()) return {};
   return offsets;
 }
