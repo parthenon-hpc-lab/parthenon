@@ -463,7 +463,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
   auto swarm_d = GetDeviceContext();
 
   if (nneighbor == 0) {
-    PARTHENON_FAIL("HERE?");
+    // TODO(BRR) Do we ever reach this branch?
     // Process physical boundary conditions on "sent" particles
     auto block_index_h = block_index_.GetHostMirrorAndCopy();
     auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
@@ -587,8 +587,6 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
-
-          PARTHENON_REQUIRE(swarm_d.IsOnCurrentMeshBlock(sid), "BAD!");
         });
   }
 }

@@ -422,7 +422,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
               bool on_current_mesh_block = true;
               // This call is required to trigger internal boundary condition machinery
-              printf("TransportParticles n: %i xyz: %e %e %e\n", n, x(n), y(n), z(n));
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
@@ -443,8 +442,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               Real dt_cell = dx_push / vel;
               Real dt_end = t0 + dt - t(n);
               Real dt_push = std::min<Real>(dt_cell, dt_end);
-              // printf("TransportParticles before n: %i xyz: %e %e %e\n", n, x(n), y(n),
-              //       z(n));
 
               x(n) += v(0, n) * dt_push;
               y(n) += v(1, n) * dt_push;
@@ -453,9 +450,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
               bool on_current_mesh_block = true;
               // This call is required to trigger internal boundary condition machinery
-              //              printf("TransportParticles after n: %i xyz: %e %e %e\n", n,
-              //              x(n), y(n),
-              //                    z(n));
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
@@ -529,8 +523,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
       // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
       // if (nb.snb.rank != Globals::my_rank) {
       //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-      //    printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
-      //    //return TaskStatus::incomplete;
+      //    return TaskStatus::incomplete;
       //  }
       //}
 

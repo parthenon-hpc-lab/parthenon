@@ -33,25 +33,6 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         return parameters
 
-    #        # enable coverage testing on pass where restart
-    #        # files are both read and written
-    #        parameters.coverage_status = "both"
-    #
-    #        # run baseline (to the very end)
-    #        if step == 1:
-    #            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-    #        # restart from an early snapshot
-    #        # Don't check time-based restarts, since that's covered by
-    #        # advection and it's the same codepath. Also I'm not sure this
-    #        # sim takes 2s to run.
-    #        else:  # step == 2:
-    #            parameters.driver_cmd_line_args = [
-    #                "-r",
-    #                "gold.out1.00001.rhdf",
-    #                "parthenon/job/problem_id=particle_tracers",
-    #            ]
-    #        return parameters
-
     def Analyse(self, parameters):
         sys.path.insert(
             1,

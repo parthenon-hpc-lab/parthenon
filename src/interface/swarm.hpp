@@ -118,15 +118,6 @@ class Swarm {
   /// Remote a variable from swarm
   void Remove(const std::string &label);
 
-  /// Set a custom boundary condition
-  void SetBoundary() { PARTHENON_FAIL("Not implemented!\n"); }
-  //    const int n,
-  //    std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
-  //        bc) {
-  //  bounds_uptrs[n] = std::move(bc);
-  //  bounds_d.bounds[n] = bounds_uptrs[n].get();
-  //}
-
   /// Get particle variable
   template <typename T>
   bool Contains(const std::string &label) {
