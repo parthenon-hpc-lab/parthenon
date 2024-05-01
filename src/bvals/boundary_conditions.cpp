@@ -162,6 +162,7 @@ void SwarmOutflowOuterX3(std::shared_ptr<Swarm> &swarm) {
 }
 
 void SwarmPeriodicInnerX1(std::shared_ptr<Swarm> &swarm) {
+  printf("Swarm periodic BCs?\n");
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(swarm);
 }
 

@@ -165,9 +165,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     const Real &x_ = ic[n][0];
     const Real &y_ = ic[n][1];
     const Real &z_ = ic[n][2];
+    printf("[%i] xyz: %e %e %e [%e %e] [%e %e] [%e %e]\n", pmb->gid, x_, y_, z_, x_min,
+           x_max, y_min, y_max, z_min, z_max);
 
     if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
         (z_ < z_max)) {
+      printf("  BELONGS HERE!\n");
       ids_this_block_h(num_particles_this_block) = n;
       num_particles_this_block++;
     }
@@ -175,6 +178,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
 
+  printf("num_particles_this_block: %i\n", num_particles_this_block);
   auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<int>("id").Get();
@@ -205,6 +209,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           }
         }
       });
+  printf("max new ind: %i\n", new_particles_context.GetNewParticlesMaxIndex());
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
@@ -226,6 +231,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   const Real ax = 0.0;
   const Real ay = 0.0;
   const Real az = 0.0;
+  printf("max_active_index: %i\n", max_active_index);
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
