@@ -56,8 +56,8 @@ class Edge {
   }
 
   sptr_vec_t<Node, 2> nodes;
-  Direction dir;
-  std::array<std::pair<Direction, Offset>, 2> normals;
+  CoordinateDirection dir;
+  std::array<std::pair<CoordinateDirection, Offset>, 2> normals;
   std::optional<CellCentOffsets> loc{};
 
   int RelativeOrientation(const Edge &e2) const {
@@ -88,8 +88,7 @@ class Face : public std::enable_shared_from_this<Face> {
 
   // Constructor that can only be called internally
   Face(std::int64_t id, sptr_vec_t<Node, 4> nodes_in, private_t)
-      : my_id(id), nodes(nodes_in), dir{Direction::I, Direction::J}, normal{Direction::K},
-        normal_rhanded(true) {
+      : my_id(id), nodes(nodes_in) {
     int idx{0};
     for (auto &node : nodes)
       face_index[node] = idx++;
@@ -119,10 +118,6 @@ class Face : public std::enable_shared_from_this<Face> {
   GetEdgeDirections(const std::vector<std::shared_ptr<Node>> &nodes);
 
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
-
-  Direction dir[2];
-  Direction normal;
-  bool normal_rhanded;
 
   std::int64_t my_id;
 

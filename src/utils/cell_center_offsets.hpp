@@ -29,8 +29,6 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
-enum class Direction : uint { I = 0, J = 1, K = 2 };
-
 // CellCentOffsets defines the position of a topological element
 // within a cell or a neighboring cell via offsets from the cell center. The center of
 // cell is defined by zero offsets in each direction. The faces have
@@ -44,6 +42,7 @@ enum class Direction : uint { I = 0, J = 1, K = 2 };
 enum class Offset : int { Low = -1, Middle = 0, Up = 1 };
 inline int operator+(Offset a, int b) { return static_cast<int>(a) + b; }
 inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
+inline Offset operator-(Offset in) {return static_cast<Offset>(-static_cast<int>(in)); }
 
 struct CellCentOffsets {
   std::array<Offset, 3> u;
@@ -77,20 +76,20 @@ struct CellCentOffsets {
 
   // Get the logical directions that are tangent to this element
   // (in cyclic order, XY, YZ, ZX, XYZ)
-  std::vector<Direction> GetTangentDirections() const {
-    std::vector<Direction> dirs;
-    Direction missed;
-    for (auto dir : {Direction::I, Direction::J, Direction::K}) {
+  std::vector<CoordinateDirection> GetTangentDirections() const {
+    std::vector<CoordinateDirection> dirs;
+    CoordinateDirection missed;
+    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
       uint dir_idx = static_cast<uint>(dir);
       if (!static_cast<int>(
-              u[dir_idx])) { // This direction has no offset, so must be tangent direction
+              u[dir_idx - 1])) { // This direction has no offset, so must be tangent direction
         dirs.push_back(dir);
       } else {
         missed = dir;
       }
     }
-    if (dirs.size() == 2 && missed == Direction::J) {
-      dirs = {Direction::K, Direction::I}; // Make sure we are in cyclic order
+    if (dirs.size() == 2 && missed == X2DIR) {
+      dirs = {X3DIR, X1DIR}; // Make sure we are in cyclic order
     }
     return dirs;
   }
@@ -98,18 +97,18 @@ struct CellCentOffsets {
   // Get the logical directions that are normal to this element
   // (in cyclic order, XY, YZ, ZX, XYZ) along with the offset of the
   // element in that direction from the cell center.
-  std::vector<std::pair<Direction, Offset>> GetNormals() const {
-    std::vector<std::pair<Direction, Offset>> dirs;
-    Direction missed;
-    for (auto dir : {Direction::I, Direction::J, Direction::K}) {
-      uint dir_idx = static_cast<uint>(dir);
+  std::vector<std::pair<CoordinateDirection, Offset>> GetNormals() const {
+    std::vector<std::pair<CoordinateDirection, Offset>> dirs;
+    CoordinateDirection missed;
+    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+      uint dir_idx = dir - 1;
       if (static_cast<int>(u[dir_idx])) {
         dirs.push_back({dir, u[dir_idx]});
       } else {
         missed = dir;
       }
     }
-    if (dirs.size() == 2 && missed == Direction::J) {
+    if (dirs.size() == 2 && missed == X2DIR) {
       dirs = {dirs[1], dirs[0]}; // Make sure we are in cyclic order
     }
     return dirs;

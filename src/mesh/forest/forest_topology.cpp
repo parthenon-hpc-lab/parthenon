@@ -118,12 +118,12 @@ void Face::SetEdgeCoordinateTransforms() {
 
           LogicalCoordinateTransformation ct;
           // Set the direction mapping for direction along the edge
-          ct.SetDirection(static_cast<Direction>(std::abs(dir1) - 1),
-                          static_cast<Direction>(std::abs(dir1_neigh) - 1),
+          ct.SetDirection(static_cast<CoordinateDirection>(std::abs(dir1)),
+                          static_cast<CoordinateDirection>(std::abs(dir1_neigh)),
                           dir1_neigh < 0);
           // Set the direction mapping for direction tangent to the edge
-          ct.SetDirection(static_cast<Direction>(std::abs(dir2) - 1),
-                          static_cast<Direction>(std::abs(dir2_neigh) - 1),
+          ct.SetDirection(static_cast<CoordinateDirection>(std::abs(dir2)),
+                          static_cast<CoordinateDirection>(std::abs(dir2_neigh)),
                           offset == offset_neigh);
           ct.offset = AverageOffsets(node_to_offset[face_index[node_overlap[0]]],
                                      node_to_offset[face_index[node_overlap[1]]]);

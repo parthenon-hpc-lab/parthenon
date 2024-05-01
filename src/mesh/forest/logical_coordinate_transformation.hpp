@@ -38,10 +38,10 @@ struct LogicalCoordinateTransformation {
       : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2},
         dir_flip{false, false, false}, offset{0, 0, 0} {};
 
-  void SetDirection(Direction origin, Direction neighbor, bool reversed = false) {
-    dir_connection[static_cast<uint>(origin)] = static_cast<uint>(neighbor);
-    dir_connection_inverse[static_cast<uint>(neighbor)] = static_cast<uint>(origin);
-    dir_flip[static_cast<uint>(origin)] = reversed;
+  void SetDirection(CoordinateDirection origin, CoordinateDirection neighbor, bool reversed = false) {
+    dir_connection[origin - 1] = neighbor - 1;
+    dir_connection_inverse[neighbor - 1] = origin - 1;
+    dir_flip[origin - 1] = reversed;
   }
 
   LogicalLocation Transform(const LogicalLocation &loc_in,
