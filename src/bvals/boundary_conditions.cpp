@@ -39,8 +39,7 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
 
-  auto &tree_bnd_func =
-      pmesh->forest.GetTreePtr(pmb->loc.tree())->MeshBndryFnctn;
+  auto &tree_bnd_func = pmesh->forest.GetTreePtr(pmb->loc.tree())->MeshBndryFnctn;
   auto &tree_bnd_func_user =
       pmesh->forest.GetTreePtr(pmb->loc.tree())->UserBoundaryFunctions;
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
