@@ -1127,7 +1127,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->ProblemGenerator(pmb.get(), pin);
+          if (pmb->ProblemGenerator != nullptr) {
+            pmb->ProblemGenerator(pmb.get(), pin);
+          }
         }
       }
 
