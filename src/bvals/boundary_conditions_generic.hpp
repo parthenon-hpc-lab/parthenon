@@ -60,9 +60,9 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
         [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
         [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
         // Cannot capture variables inside constexpr if context
-        const auto &x = x_;
-        const auto &y = y_;
-        const auto &z = z_;
+        [[maybe_unused]] const auto &x = x_;
+        [[maybe_unused]] const auto &y = y_;
+        [[maybe_unused]] const auto &z = z_;
         const auto &swarm_d = swarm_d_;
         constexpr bool INNER = (SIDE == BCSide::Inner);
         if (swarm_d.IsActive(n)) {
@@ -168,7 +168,7 @@ GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
-               TopologicalElement el, Real val) {
+               TopologicalElement el, Real val_) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -179,11 +179,11 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
   static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
-  auto q =
+  auto q_ =
       descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
   const int b = 0;
-  const int lstart = q.GetLowerBoundHost(b);
-  const int lend = q.GetUpperBoundHost(b);
+  const int lstart = q_.GetLowerBoundHost(b);
+  const int lend = q_.GetUpperBoundHost(b);
   if (lend < lstart) return;
   auto nb = IndexRange{lstart, lend};
 
@@ -193,7 +193,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
                          : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
                                : bounds.GetBoundsK(IndexDomain::interior, el));
-  const int ref = INNER ? range.s : range.e;
+  const int ref_ = INNER ? range.s : range.e;
 
   std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
   label += (INNER ? "Inner" : "Outer");
@@ -206,11 +206,11 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                   : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
 
   // used for reflections
-  [[maybe_unused]] const int offset = 2 * ref + (INNER ? -1 : 1);
+  [[maybe_unused]] const int offset_ = 2 * ref_ + (INNER ? -1 : 1);
 
   // used for derivatives
-  [[maybe_unused]] const int offsetin = INNER;
-  [[maybe_unused]] const int offsetout = !INNER;
+  [[maybe_unused]] const int offsetin_ = INNER;
+  [[maybe_unused]] const int offsetout_ = !INNER;
   pmb->par_for_bndry(
       PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -218,6 +218,13 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
         constexpr bool X1 = (DIR == X1DIR);
         constexpr bool X2 = (DIR == X2DIR);
         constexpr bool X3 = (DIR == X3DIR);
+        // Redeclare variables to allow for lambda capture outside of constexpr if block
+        auto &q = q_;
+        [[maybe_unused]] const auto &offset = offset_;
+        [[maybe_unused]] const auto &offsetin = offsetin_;
+        [[maybe_unused]] const auto &offsetout = offsetout_;
+        [[maybe_unused]] const auto &ref = ref_;
+        [[maybe_unused]] const auto &val = val_;
         if constexpr (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);
           q(b, el, l, k, j, i) =
