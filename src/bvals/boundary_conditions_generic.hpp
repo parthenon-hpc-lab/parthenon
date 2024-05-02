@@ -48,9 +48,9 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
 
   auto pmb = swarm->GetBlockPointer();
 
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x_ = swarm->Get<Real>("x").Get();
+  auto &y_ = swarm->Get<Real>("y").Get();
+  auto &z_ = swarm->Get<Real>("z").Get();
 
   // TODO(BRR) do something about all these if statements
   pmb->par_for(
@@ -60,6 +60,9 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
         [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
         [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
         // Cannot capture variables inside constexpr if context
+        const auto &x = x_;
+        const auto &y = y_;
+        const auto &z = z_;
         const auto &swarm_d = swarm_d_;
         constexpr bool INNER = (SIDE == BCSide::Inner);
         if (swarm_d.IsActive(n)) {
