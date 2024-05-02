@@ -1127,9 +1127,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          PARTHENON_REQUIRE(
-              pmb->ProblemGenerator,
-              "Neither mesh- nor meshblock-level ProblemGenerator defined!");
           pmb->ProblemGenerator(pmb.get(), pin);
         }
       }
