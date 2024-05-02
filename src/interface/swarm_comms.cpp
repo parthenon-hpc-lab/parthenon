@@ -347,7 +347,7 @@ int Swarm::CountParticlesToSend_() {
   auto &y = Get<Real>("y").Get();
   auto &z = Get<Real>("z").Get();
   const int max_active_index = GetMaxActiveIndex();
-  par_for(
+  pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           bool on_current_mesh_block = true;
