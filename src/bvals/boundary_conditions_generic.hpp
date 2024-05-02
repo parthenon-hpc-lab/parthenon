@@ -43,7 +43,7 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
-  auto swarm_d = swarm->GetDeviceContext();
+  auto swarm_d_ = swarm->GetDeviceContext();
   int max_active_index = swarm->GetMaxActiveIndex();
 
   auto pmb = swarm->GetBlockPointer();
@@ -59,6 +59,8 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
         [[maybe_unused]] constexpr bool X1 = (DIR == X1DIR);
         [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
         [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
+        // Cannot capture variables inside constexpr if context
+        const auto &swarm_d = swarm_d_;
         constexpr bool INNER = (SIDE == BCSide::Inner);
         if (swarm_d.IsActive(n)) {
           if constexpr (X1) {
@@ -201,7 +203,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                   : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
 
   // used for reflections
-  const int offset = 2 * ref + (INNER ? -1 : 1);
+  [[maybe_unused]] const int offset = 2 * ref + (INNER ? -1 : 1);
 
   // used for derivatives
   [[maybe_unused]] const int offsetin = INNER;
