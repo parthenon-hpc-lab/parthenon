@@ -227,6 +227,8 @@ class Swarm {
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
+  int CountParticlesToSend_(); // Must be public for launching kernel
+
   template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);
@@ -242,7 +244,6 @@ class Swarm {
   void SetNeighborIndices2D_();
   void SetNeighborIndices3D_();
 
-  int CountParticlesToSend_();
   void CountReceivedParticles_();
   void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
                                            ParArray1D<int> &buffer_index);

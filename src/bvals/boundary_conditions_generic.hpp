@@ -43,12 +43,6 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
-  // convenient shorthands
-  constexpr bool X1 = (DIR == X1DIR);
-  constexpr bool X2 = (DIR == X2DIR);
-  constexpr bool X3 = (DIR == X3DIR);
-  constexpr bool INNER = (SIDE == BCSide::Inner);
-
   auto swarm_d = swarm->GetDeviceContext();
   int max_active_index = swarm->GetMaxActiveIndex();
 
@@ -61,14 +55,19 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   // TODO(BRR) do something about all these if statements
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        // convenient shorthands
+        [[maybe_unused]] constexpr bool X1 = (DIR == X1DIR);
+        [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
+        [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
+        constexpr bool INNER = (SIDE == BCSide::Inner);
         if (swarm_d.IsActive(n)) {
           if constexpr (X1) {
             if constexpr (INNER) {
-              if constexpr(TYPE == BCType::Periodic) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (x(n) > swarm_d.x_max_global_) {
                   x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
                 }
-              } else if constexpr(TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (x(n) < swarm_d.x_min_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
@@ -205,11 +204,15 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   const int offset = 2 * ref + (INNER ? -1 : 1);
 
   // used for derivatives
-  const int offsetin = INNER;
-  const int offsetout = !INNER;
+  [[maybe_unused]] const int offsetin = INNER;
+  [[maybe_unused]] const int offsetout = !INNER;
   pmb->par_for_bndry(
       PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        // Shadow mnemonics inside kernel
+        constexpr bool X1 = (DIR == X1DIR);
+        constexpr bool X2 = (DIR == X2DIR);
+        constexpr bool X3 = (DIR == X3DIR);
         if constexpr (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);
           q(b, el, l, k, j, i) =
