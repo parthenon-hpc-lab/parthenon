@@ -62,67 +62,67 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          if (X1) {
-            if (INNER) {
-              if (TYPE == BCType::Periodic) {
+          if constexpr (X1) {
+            if constexpr (INNER) {
+              if constexpr(TYPE == BCType::Periodic) {
                 if (x(n) > swarm_d.x_max_global_) {
                   x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr(TYPE == BCType::Outflow) {
                 if (x(n) < swarm_d.x_min_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
               }
             } else {
-              if (TYPE == BCType::Periodic) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (x(n) < swarm_d.x_min_global_) {
                   x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (x(n) > swarm_d.x_max_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
               }
             }
-          } else if (X2) {
-            if (INNER) {
-              if (TYPE == BCType::Periodic) {
+          } else if constexpr (X2) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (y(n) > swarm_d.y_max_global_) {
                   y(n) = swarm_d.y_min_global_ + (y(n) - swarm_d.y_max_global_);
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (y(n) < swarm_d.y_min_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
               }
             } else {
-              if (TYPE == BCType::Periodic) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (y(n) < swarm_d.y_min_global_) {
                   y(n) = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y(n));
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (y(n) > swarm_d.y_max_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
               }
             }
-          } else if (X3) {
-            if (INNER) {
-              if (TYPE == BCType::Periodic) {
+          } else if constexpr (X3) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (z(n) > swarm_d.z_max_global_) {
                   z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (z(n) < swarm_d.z_min_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
               }
             } else {
-              if (TYPE == BCType::Periodic) {
+              if constexpr (TYPE == BCType::Periodic) {
                 if (z(n) < swarm_d.z_min_global_) {
                   z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
                 }
-              } else if (TYPE == BCType::Outflow) {
+              } else if constexpr (TYPE == BCType::Outflow) {
                 if (z(n) > swarm_d.z_max_global_) {
                   swarm_d.MarkParticleForRemoval(n);
                 }
@@ -210,30 +210,30 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   pmb->par_for_bndry(
       PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        if (TYPE == BCType::Reflect) {
+        if constexpr (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);
           q(b, el, l, k, j, i) =
               (reflect ? -1.0 : 1.0) *
               q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if (TYPE == BCType::FixedFace) {
+        } else if constexpr (TYPE == BCType::FixedFace) {
           q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k,
                                                X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if (TYPE == BCType::ConstantDeriv) {
+        } else if constexpr (TYPE == BCType::ConstantDeriv) {
           Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
                       X1 ? ref + offsetin : i) -
                     q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j,
                       X1 ? ref - offsetout : i);
           Real delta = 0.0;
-          if (X1) {
+          if constexpr (X1) {
             delta = i - ref;
-          } else if (X2) {
+          } else if constexpr (X2) {
             delta = j - ref;
           } else {
             delta = k - ref;
           }
           q(b, el, l, k, j, i) =
               q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
-        } else if (TYPE == BCType::Fixed) {
+        } else if constexpr (TYPE == BCType::Fixed) {
           q(b, el, l, k, j, i) = val;
         } else {
           q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);

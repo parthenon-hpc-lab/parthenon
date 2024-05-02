@@ -346,8 +346,9 @@ int Swarm::CountParticlesToSend_() {
   auto &x = Get<Real>("x").Get();
   auto &y = Get<Real>("y").Get();
   auto &z = Get<Real>("z").Get();
+  const int max_active_index = GetMaxActiveIndex();
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           bool on_current_mesh_block = true;
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
@@ -600,9 +601,6 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
-          // TODO actually do this during buffer loading?
-          // bool on_current_mesh_block = true;
-          // swarm_d.GetNeighborBlockIndex(x(sid), y(sid), z(sid), on_current_mesh_block);
         });
   }
 }
