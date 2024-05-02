@@ -94,6 +94,7 @@ void Params::WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) c
   // strings
   WriteToHDF5AllParamsOfType<std::string>(prefix, group);
   WriteToHDF5AllParamsOfType<std::vector<std::string>>(prefix, group);
+  WriteToHDF5AllParamsOfType<std::vector<char>>(prefix, group);
 }
 
 void Params::ReadFromRestart(const std::string &prefix, const HDF5::H5G &group) {
@@ -109,6 +110,7 @@ void Params::ReadFromRestart(const std::string &prefix, const HDF5::H5G &group) 
   // strings
   ReadFromHDF5AllParamsOfType<std::string>(prefix, group);
   ReadFromHDF5AllParamsOfType<std::vector<std::string>>(prefix, group);
+  ReadFromHDF5AllParamsOfType<std::vector<char>>(prefix, group);
 }
 
 #endif // ifdef ENABLE_HDF5

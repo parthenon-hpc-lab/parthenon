@@ -153,9 +153,12 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
+  void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                        SimTime const &time, OutputParameters *pparams);
+
   // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
-  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES];
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
+  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
   std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
@@ -166,19 +169,18 @@ class Mesh {
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
-      &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(
-      Mesh *, ParameterInput *,
-      SimTime const &); // default behavior for pre- and post-step user work
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
 
-  static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
+      UserMeshWorkBeforeOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &,
+                     OutputParameters *pparams)>
+      UserWorkBeforeRestartOutput = nullptr;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);
@@ -306,10 +308,8 @@ class Mesh {
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
-      InitUserMeshDataDefault;
+  // Optionally defined in the problem file
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
 

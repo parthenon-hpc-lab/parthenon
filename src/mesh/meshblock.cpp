@@ -110,15 +110,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
-    // Only set default block pgen when no mesh pgen is set
-  } else if (app_in->MeshProblemGenerator == nullptr) {
-    ProblemGenerator = &ProblemGeneratorDefault;
   }
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
-    // Only set default post-init when no mesh post-init is set
-  } else if (app_in->MeshPostInitialization == nullptr) {
-    PostInitialization = &PostInitializationDefault;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -198,7 +192,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  app = InitApplicationMeshBlockData(this, pin);
+  if (InitApplicationMeshBlockData != nullptr) {
+    app = InitApplicationMeshBlockData(this, pin);
+  }
 }
 
 //----------------------------------------------------------------------------------------
