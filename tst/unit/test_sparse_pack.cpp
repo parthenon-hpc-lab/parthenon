@@ -146,6 +146,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+
+        AND_THEN("A sparse pack can correctly output variable names") {
+          REQUIRE(sparse_pack.LabelHost(0, 0) == "v7");
+        }
       }
     }
   }
