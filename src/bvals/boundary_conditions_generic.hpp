@@ -219,6 +219,9 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
         constexpr bool X2 = (DIR == X2DIR);
         constexpr bool X3 = (DIR == X3DIR);
         // Redeclare variables to allow for lambda capture outside of constexpr if block
+        auto &X1_ = X1;
+        auto &X2_ = X2;
+        auto &X3_ = X3;
         auto &q = q_;
         auto &el = el_;
         [[maybe_unused]] const auto &offset = offset_;
@@ -252,7 +255,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
         } else if constexpr (TYPE == BCType::Fixed) {
           q(b, el, l, k, j, i) = val;
         } else {
-          q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
+          q(b, el, l, k, j, i) = q(b, el, l, X3_ ? ref : k, X2_ ? ref : j, X1_ ? ref : i);
         }
       });
 }
