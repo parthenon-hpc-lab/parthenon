@@ -96,8 +96,12 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
-      pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
-      pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PreStepUserWorkInLoop != nullptr) {
+        pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PreStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
       TaskListStatus status = Step();
       if (status != TaskListStatus::complete) {
@@ -105,8 +109,12 @@ DriverStatus EvolutionDriver::Execute() {
         return DriverStatus::failed;
       }
 
-      pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
-      pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PostStepUserWorkInLoop != nullptr) {
+        pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PostStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
       tm.ncycle++;
       tm.time += tm.dt;
@@ -140,7 +148,9 @@ DriverStatus EvolutionDriver::Execute() {
       // ======================================================
   }   // Main t < tmax loop region
 
-  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  if (pmesh->UserWorkAfterLoop != nullptr) {
+    pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  }
 
   DriverStatus status = DriverStatus::complete;
   // Do *not* write the "final" output, if this is analysis run.

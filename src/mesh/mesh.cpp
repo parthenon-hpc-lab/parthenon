@@ -166,6 +166,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
+  if (app_in->UserWorkBeforeRestartOutput != nullptr) {
+    UserWorkBeforeRestartOutput = app_in->UserWorkBeforeRestartOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -250,7 +253,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData != nullptr) {
+    InitUserMeshData(this, pin);
+  }
 
   if (multilevel) {
     if (block_size.nx(X1DIR) % 2 == 1 || (block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
@@ -584,7 +589,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData != nullptr) {
+    InitUserMeshData(this, pin);
+  }
 
   // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
@@ -901,11 +908,26 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeOutput != nullptr) {
+    mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeOutput != nullptr) {
+      pmb->UserWorkBeforeOutput(pmb.get(), pin, time);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
+// \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
+void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                            SimTime const &time,
+                                            OutputParameters *pparams) {
+  if (mesh->UserWorkBeforeRestartOutput != nullptr) {
+    mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
 
@@ -1076,7 +1098,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb, pin);
+      }
     }
 
     const int num_partitions = DefaultNumPartitions();
@@ -1103,7 +1127,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->ProblemGenerator(pmb.get(), pin);
+          if (pmb->ProblemGenerator != nullptr) {
+            pmb->ProblemGenerator(pmb.get(), pin);
+          }
         }
       }
 
@@ -1119,7 +1145,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostInitialization != nullptr) {
+            pmb->PostInitialization(pmb.get(), pin);
+          }
         }
       }
 

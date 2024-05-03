@@ -281,12 +281,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return block_size.nx(X1DIR) * block_size.nx(X2DIR) * block_size.nx(X3DIR);
   }
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void
-  UserWorkBeforeOutputDefault(MeshBlock *pmb,
-                              ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(MeshBlock *, ParameterInput *)> UserWorkBeforeOutput =
-      &UserWorkBeforeOutputDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
@@ -428,18 +422,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  bool init_coarse, bool multilevel);
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  static void PostInitializationDefault(MeshBlock *pmb, ParameterInput *pin);
+  // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  static pMeshBlockApplicationData_t
-  InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
-      InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
-  static void InitMeshBlockUserDataDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData =
-      &InitMeshBlockUserDataDefault;
+      InitApplicationMeshBlockData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
+      UserWorkBeforeOutput = nullptr;
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
