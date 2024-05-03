@@ -168,7 +168,7 @@ GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
-               TopologicalElement el, Real val_) {
+               TopologicalElement el_, Real val_) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -180,7 +180,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
 
   static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
   auto q_ =
-      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
+      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el_)}].GetPack(rc.get());
   const int b = 0;
   const int lstart = q_.GetLowerBoundHost(b);
   const int lend = q_.GetUpperBoundHost(b);
@@ -190,9 +190,9 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   MeshBlock *pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
-  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
-                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
-                               : bounds.GetBoundsK(IndexDomain::interior, el));
+  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el_)
+                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el_)
+                               : bounds.GetBoundsK(IndexDomain::interior, el_));
   const int ref_ = INNER ? range.s : range.e;
 
   std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
@@ -212,7 +212,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   [[maybe_unused]] const int offsetin_ = INNER;
   [[maybe_unused]] const int offsetout_ = !INNER;
   pmb->par_for_bndry(
-      PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
+      PARTHENON_AUTO_LABEL, nb, domain, el_, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
         // Shadow mnemonics inside kernel
         constexpr bool X1 = (DIR == X1DIR);
@@ -220,6 +220,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
         constexpr bool X3 = (DIR == X3DIR);
         // Redeclare variables to allow for lambda capture outside of constexpr if block
         auto &q = q_;
+        auto &el = el_;
         [[maybe_unused]] const auto &offset = offset_;
         [[maybe_unused]] const auto &offsetin = offsetin_;
         [[maybe_unused]] const auto &offsetout = offsetout_;
