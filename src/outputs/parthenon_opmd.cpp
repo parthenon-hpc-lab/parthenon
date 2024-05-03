@@ -167,7 +167,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // TODO(pgrete) add final and now logic
   Series series =
       Series(output_params.file_basename + "." + output_params.file_id + ".%05T.bp",
-             Access::CREATE);
+             Access::CREATE, MPI_COMM_WORLD);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
