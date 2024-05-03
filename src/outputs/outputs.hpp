@@ -214,7 +214,6 @@ class OpenPMDOutput : public OutputType {
   explicit OpenPMDOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
-
 };
 
 #ifdef ENABLE_HDF5

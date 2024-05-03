@@ -31,7 +31,7 @@ include(CTest)
 # Compile time constants
 
 # Compile Options
-option(PARTHENON_SINGLE_PRENSION "Run in single precision" OFF)
+option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)

@@ -177,7 +177,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   series.setComment("Hello world!");
   series.setMachine("bla");
   series.setSoftware("Parthenon + Downstream info");
-  series.setDate("2024-02-29");
+  series.setDate("2024-02-29 17:48:42 +0100");
 
   // TODO(pgrete) Units?
 
@@ -213,15 +213,19 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setDt(-1.0);
   }
   { // FIXME move this to dump params
-    PARTHENON_INSTRUMENT_REGION("Dump Params");
-    const auto view_d =
-        Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
-    // Map a view onto a host allocation (so that we can call deep_copy)
-    auto host_vec = std::vector<Real>(view_d.size());
-    Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-        view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
-    Kokkos::deep_copy(view_h, view_d);
-    it.setAttribute("blub", host_vec);
+
+    // TODO(pgrete) Make this test piece work on devices
+    if constexpr (false) {
+      PARTHENON_INSTRUMENT_REGION("Dump Params");
+      const auto view_d =
+          Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
+      // Map a view onto a host allocation (so that we can call deep_copy)
+      auto host_vec = std::vector<Real>(view_d.size());
+      Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+          view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
+      Kokkos::deep_copy(view_h, view_d);
+      it.setAttribute("blub", host_vec);
+    }
 
     for (const auto &[key, pkg] : pm->packages.AllPackages()) {
       // WriteAllParams<bool>(pkg, &it); // check why this (vector of bool) doesn't work
@@ -438,6 +442,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           // blocks
           auto const dataset =
               openPMD::Dataset(openPMD::determineDatatype<OutT>(), global_extent);
+          // TODO(pgrete) check whether this should/need to be a collective so that the
+          // mesh generation should be done across all ranks prior to writing data, rather
+          // than in-situ for the local blocks only
           mesh_comp.resetDataset(dataset);
 
           // TODO(pgrete) need unitDimension and timeOffset for this record?
