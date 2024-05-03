@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,11 +23,11 @@ using namespace parthenon::BoundaryFunction;
 // create and enroll a user swarm boundary condition. Note that currently both Swarm and
 // field boundary conditions must be provided when "user" is specified.
 void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(swarm);
 }
 
 void SwarmUserOuterX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(swarm);
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Periodic>(swarm);
 }
 
 int main(int argc, char *argv[]) {
