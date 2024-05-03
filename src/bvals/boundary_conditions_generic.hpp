@@ -168,7 +168,7 @@ GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
-               TopologicalElement el_, Real val_) {
+               TopologicalElement el, Real val) {
   // make sure DIR is X[123]DIR so we don't have to check again
   static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
 
@@ -179,21 +179,21 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
   static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
-  auto q_ =
-      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el_)}].GetPack(rc.get());
+  auto q =
+      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
   const int b = 0;
-  const int lstart = q_.GetLowerBoundHost(b);
-  const int lend = q_.GetUpperBoundHost(b);
+  const int lstart = q.GetLowerBoundHost(b);
+  const int lend = q.GetUpperBoundHost(b);
   if (lend < lstart) return;
   auto nb = IndexRange{lstart, lend};
 
   MeshBlock *pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
-  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el_)
-                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el_)
-                               : bounds.GetBoundsK(IndexDomain::interior, el_));
-  const int ref_ = INNER ? range.s : range.e;
+  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
+                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
+                               : bounds.GetBoundsK(IndexDomain::interior, el));
+  const int ref = INNER ? range.s : range.e;
 
   std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
   label += (INNER ? "Inner" : "Outer");
@@ -206,56 +206,41 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                   : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
 
   // used for reflections
-  [[maybe_unused]] const int offset_ = 2 * ref_ + (INNER ? -1 : 1);
+  const int offset = 2 * ref + (INNER ? -1 : 1);
 
   // used for derivatives
-  [[maybe_unused]] const int offsetin_ = INNER;
-  [[maybe_unused]] const int offsetout_ = !INNER;
+  const int offsetin = INNER;
+  const int offsetout = !INNER;
   pmb->par_for_bndry(
-      PARTHENON_AUTO_LABEL, nb, domain, el_, coarse,
+      PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        // Shadow mnemonics inside kernel
-        constexpr bool X1 = (DIR == X1DIR);
-        constexpr bool X2 = (DIR == X2DIR);
-        constexpr bool X3 = (DIR == X3DIR);
-        // Redeclare variables to allow for lambda capture outside of constexpr if block
-        auto &X1_ = X1;
-        auto &X2_ = X2;
-        auto &X3_ = X3;
-        auto &q = q_;
-        auto &el = el_;
-        [[maybe_unused]] const auto &offset = offset_;
-        [[maybe_unused]] const auto &offsetin = offsetin_;
-        [[maybe_unused]] const auto &offsetout = offsetout_;
-        [[maybe_unused]] const auto &ref = ref_;
-        [[maybe_unused]] const auto &val = val_;
-        if constexpr (TYPE == BCType::Reflect) {
+        if (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);
           q(b, el, l, k, j, i) =
               (reflect ? -1.0 : 1.0) *
               q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if constexpr (TYPE == BCType::FixedFace) {
+        } else if (TYPE == BCType::FixedFace) {
           q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k,
                                                X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if constexpr (TYPE == BCType::ConstantDeriv) {
+        } else if (TYPE == BCType::ConstantDeriv) {
           Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
                       X1 ? ref + offsetin : i) -
                     q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j,
                       X1 ? ref - offsetout : i);
           Real delta = 0.0;
-          if constexpr (X1) {
+          if (X1) {
             delta = i - ref;
-          } else if constexpr (X2) {
+          } else if (X2) {
             delta = j - ref;
           } else {
             delta = k - ref;
           }
           q(b, el, l, k, j, i) =
               q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
-        } else if constexpr (TYPE == BCType::Fixed) {
+        } else if (TYPE == BCType::Fixed) {
           q(b, el, l, k, j, i) = val;
         } else {
-          q(b, el, l, k, j, i) = q(b, el, l, X3_ ? ref : k, X2_ ? ref : j, X1_ ? ref : i);
+          q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
         }
       });
 }
