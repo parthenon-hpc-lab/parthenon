@@ -240,35 +240,35 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   auto pack_v_map = desc_v.GetMap();
   parthenon::SwarmPackIdx spi_v(pack_v_map["v"]);
 
-  parthenon::par_for(DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
-    pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
-      auto [b, n] = pack_pos.GetBlockParticleIndices(idx);
-      const int iid = pack_id.GetLowerBound(b, spi_id);
-      const int iv = pack_v.GetLowerBound(b, spi_v);
-      const auto swarm_d = pack_pos.GetContext(b);
-      if (swarm_d.IsActive(n)) {
-        // drift
-        pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
-        pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
-        pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
+      pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
+        auto [b, n] = pack_pos.GetBlockParticleIndices(idx);
+        const int iid = pack_id.GetLowerBound(b, spi_id);
+        const int iv = pack_v.GetLowerBound(b, spi_v);
+        const auto swarm_d = pack_pos.GetContext(b);
+        if (swarm_d.IsActive(n)) {
+          // drift
+          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
-        // kick
-        pack_v(b, iv + 0, n) += ax * dt;
-        pack_v(b, iv + 1, n) += ay * dt;
-        pack_v(b, iv + 2, n) += az * dt;
+          // kick
+          pack_v(b, iv + 0, n) += ax * dt;
+          pack_v(b, iv + 1, n) += ay * dt;
+          pack_v(b, iv + 2, n) += az * dt;
 
-        // drift
-        pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
-        pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
-        pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+          // drift
+          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
-        bool on_current_mesh_block;
-        swarm_d.GetNeighborBlockIndex(n, pack_pos(b, swarm_position::x(), n),
-                                      pack_pos(b, swarm_position::y(), n),
-                                      pack_pos(b, swarm_position::z(), n),
-                                      on_current_mesh_block);
-      }
-    });
+          bool on_current_mesh_block;
+          swarm_d.GetNeighborBlockIndex(
+              n, pack_pos(b, swarm_position::x(), n), pack_pos(b, swarm_position::y(), n),
+              pack_pos(b, swarm_position::z(), n), on_current_mesh_block);
+        }
+      });
 
   return TaskStatus::complete;
 }

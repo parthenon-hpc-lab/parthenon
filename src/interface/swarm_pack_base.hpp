@@ -116,9 +116,11 @@ class SwarmPackBase {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       pack.contexts_h_(b) = swarm->GetDeviceContext();
       pack.max_active_indices_h_(b) = swarm->GetMaxActiveIndex();
-      flat_index_map_h(b) = (b == 0 ? 0 : flat_index_map_h(b-1) + pack.max_active_indices_h_(b-1) + 1);
+      flat_index_map_h(b) =
+          (b == 0 ? 0 : flat_index_map_h(b - 1) + pack.max_active_indices_h_(b - 1) + 1);
     });
-    flat_index_map_h(pack.nblocks_) = flat_index_map_h(pack.nblocks_-1) + pack.max_active_indices_h_(pack.nblocks_-1) + 1;
+    flat_index_map_h(pack.nblocks_) = flat_index_map_h(pack.nblocks_ - 1) +
+                                      pack.max_active_indices_h_(pack.nblocks_ - 1) + 1;
     // make it an inclusive bound because we're silly
     pack.max_flat_index_ = flat_index_map_h(pack.nblocks_) - 1;
 
@@ -223,7 +225,7 @@ class SwarmPackBase {
     pack.contexts_h_ = Kokkos::create_mirror_view(pack.contexts_);
     pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
     pack.max_active_indices_h_ = Kokkos::create_mirror_view(pack.max_active_indices_);
-    pack.flat_index_map_ = max_active_indices_t("flat_index_map", nblocks+1);
+    pack.flat_index_map_ = max_active_indices_t("flat_index_map", nblocks + 1);
     BuildSupplemental(pmd, desc, pack);
 
     return pack;

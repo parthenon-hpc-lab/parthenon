@@ -183,8 +183,10 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     int r = nblocks_;
     while (r - b > 1) {
       auto c = static_cast<int>(0.5 * (b + r));
-      if (flat_index_map_(c) > idx) r = c;
-      else b = c;
+      if (flat_index_map_(c) > idx)
+        r = c;
+      else
+        b = c;
     }
     return std::make_tuple(b, idx - flat_index_map_(b));
   }
