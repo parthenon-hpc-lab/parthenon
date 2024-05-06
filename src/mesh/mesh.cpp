@@ -189,6 +189,15 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            forest::ForestDefinition &forest_def)
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
+  mesh_size =
+      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+  mesh_bcs = {
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
@@ -201,13 +210,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
   }
   forest_def.block_size = base_block_size;
-  mesh_size =
-      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+  
   ndim = 2;
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);
   forest = forest::Forest::Make2D(forest_def);
   forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions);
+  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
   BuildBlockList(pin, app_in, packages, -1);
 }
 
