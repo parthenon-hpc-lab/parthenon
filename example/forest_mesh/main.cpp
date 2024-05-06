@@ -36,9 +36,8 @@ Forest two_blocks() {
 
   auto &n = nodes;
   ForestDefinition forest_def;
-  auto &faces = forest_def.faces;
-  faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
-  faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
+  forest_def.AddFace(0, {n[3], n[0], n[2], n[1]});
+  forest_def.AddFace(1, {n[1], n[4], n[2], n[5]});
 
   auto forest = Forest::Make2D(forest_def);
 
@@ -66,12 +65,11 @@ Forest four_blocks() {
 
   auto &n = nodes;
   ForestDefinition forest_def;
-  auto &faces = forest_def.faces;
 
-  faces.emplace_back(Face::create(0, {n[3], n[0], n[2], n[1]}));
-  faces.emplace_back(Face::create(1, {n[1], n[4], n[2], n[5]}));
-  faces.emplace_back(Face::create(2, {n[3], n[2], n[6], n[7]}));
-  faces.emplace_back(Face::create(3, {n[8], n[7], n[5], n[2]}));
+  forest_def.AddFace(0, {n[3], n[0], n[2], n[1]});
+  forest_def.AddFace(1, {n[1], n[4], n[2], n[5]});
+  forest_def.AddFace(2, {n[3], n[2], n[6], n[7]});
+  forest_def.AddFace(3, {n[8], n[7], n[5], n[2]});
 
   auto forest = Forest::Make2D(forest_def);
 
@@ -89,7 +87,6 @@ Forest four_blocks() {
 Forest n_blocks(int nblocks_min, int nblocks_max) {
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
   ForestDefinition forest_def;
-  auto &faces = forest_def.faces;
   int nc = 0;
   int fc = 0;
   Real xoffset = 0.0;
@@ -102,9 +99,9 @@ Forest n_blocks(int nblocks_min, int nblocks_max) {
     nodes[nc + 2 * nblocks] = Node::create(nc + 2 * nblocks, {0.0 + xoffset, 0.0});
     auto &n = nodes;
     for (int t = 0; t < nblocks; ++t)
-      faces.emplace_back(Face::create(fc + t, {n[nc + 2 * t + 1], n[nc + 2 * t],
-                                               n[nc + (2 * t + 2) % (2 * nblocks)],
-                                               n[nc + 2 * nblocks]}));
+      forest_def.AddFace(fc + t, {n[nc + 2 * t + 1], n[nc + 2 * t],
+                         n[nc + (2 * t + 2) % (2 * nblocks)],
+                         n[nc + 2 * nblocks]});
     nc += 2 * nblocks + 1;
     fc += nblocks;
     xoffset += 2.2;
@@ -138,22 +135,21 @@ Forest squared_circle() {
   nodes[7] = Node::create(7, {2.0, 2.0});
 
   ForestDefinition forest_def;
-  auto &faces = forest_def.faces;
   auto &n = nodes;
   // South block
-  faces.emplace_back(Face::create(0, {n[0], n[1], n[4], n[5]}));
+  forest_def.AddFace(0, {n[0], n[1], n[4], n[5]});
 
   // West block
-  faces.emplace_back(Face::create(1, {n[0], n[4], n[2], n[6]}));
+  forest_def.AddFace(1, {n[0], n[4], n[2], n[6]});
 
   // North block
-  faces.emplace_back(Face::create(2, {n[6], n[7], n[2], n[3]}));
+  forest_def.AddFace(2, {n[6], n[7], n[2], n[3]});
 
   // East block
-  faces.emplace_back(Face::create(3, {n[5], n[1], n[7], n[3]}));
+  forest_def.AddFace(3, {n[5], n[1], n[7], n[3]});
 
   // Center block
-  faces.emplace_back(Face::create(4, {n[4], n[5], n[6], n[7]}));
+  forest_def.AddFace(4, {n[4], n[5], n[6], n[7]});
 
   auto forest = Forest::Make2D(forest_def);
 
@@ -183,6 +179,8 @@ int main(int argc, char *argv[]) {
   if (argc > 2) nblocks_max = atoi(argv[1]);
   PARTHENON_REQUIRE(nblocks_min > 1, "Need more than one block.");
   auto forest = nblocks_min > 2 ? n_blocks(nblocks_min, nblocks_max) : two_blocks();
+  
+  auto locs = forest.GetMeshBlockListAndResolveGids();
 
   // Write out forest for matplotlib
   FILE *pfile;

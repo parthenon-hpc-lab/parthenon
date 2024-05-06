@@ -209,7 +209,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       base_block_size.nx(dir) = mesh_size.nx(dir);
     }
   }
-  forest_def.block_size = base_block_size;
+  forest_def.SetBlockSize(base_block_size);
   
   ndim = 2;
   // Load balancing flag and parameters
