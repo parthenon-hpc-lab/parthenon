@@ -200,14 +200,6 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
   for (auto &face : faces) {
     face->SetNeighbors();
     face->SetEdgeCoordinateTransforms();
-    for (int ox = -1; ox < 2; ++ox) {
-      for (int oy = -1; oy < 2; ++oy) {
-        for (auto &[neighbor, ct] : face->neighbors(ox, oy)) {
-          printf("face %li at offset (%i, %i) has neighbor %li.\n", face->my_id, ox, oy,
-                 neighbor->my_id);
-        }
-      }
-    }
   }
   // Have to do this in a second sweep after setting edge transformations, since it relies
   // on composing edge coordinate transformations
@@ -268,10 +260,6 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
     tree_domain.xmin(X3DIR) = face_size.xmin(X3DIR);
     tree_domain.xmax(X3DIR) = face_size.xmax(X3DIR);
     auto &bcs = tree_bcs[face->GetId()];
-    printf("[%li] %i %i %i %i %i %i\n", face->GetId(), bcs[0], bcs[1], bcs[2], bcs[3],
-           bcs[4], bcs[5]);
-    printf("     (%e, %e) (%e, %e)\n", tree_domain.xmin(X1DIR), tree_domain.xmax(X1DIR),
-           tree_domain.xmin(X2DIR), tree_domain.xmax(X2DIR));
     trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
                                         tree_bcs[face->GetId()], face->nodes);
     x_offset += 2.0;
