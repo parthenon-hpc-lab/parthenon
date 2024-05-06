@@ -114,8 +114,6 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
     auto my = cpmb->loc.lx2() << (2 - level);
     auto mz = cpmb->loc.lx3() << (2 - level);
     auto mort_tot = GetMortonNumber(mx, my, mz);
-    printf("gid = %i (%li, %li, %li) %lu [%i: %li %li]\n", cpmb->gid, mx, my, mz,
-           mort_tot, level, cpmb->loc.lx1(), cpmb->loc.lx2());
     // Here we are assuming the maximum level is one
     morton_h(b) = mort_tot;
     x_morton_h(b) = mx;

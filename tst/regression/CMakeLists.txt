@@ -81,6 +81,13 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
   list(APPEND EXTRA_TEST_LABELS "")
+  
+  # Boundary exchange example
+  list(APPEND TEST_DIRS boundary_exchange)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/boundary_exchange/boundary-exchange-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange/parthinput.boundary_exchange")
+  list(APPEND EXTRA_TEST_LABELS "")
 
   # Advection test
   list(APPEND TEST_DIRS advection_convergence)
