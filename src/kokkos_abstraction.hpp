@@ -214,6 +214,17 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 
 } // namespace dispatch_impl
 
+// this pattern does not support reductions yet
+template <typename Tag, typename Function>
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int &il, const int &iu,
+                         const Function &function) {
+  PARTHENON_INSTRUMENT_REGION(name)
+#pragma omp simd
+  for (auto i = il; i <= iu; i++)
+    function(i);
+}
+
 // 1D loop using RangePolicy loops
 template <typename Tag, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type

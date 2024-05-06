@@ -82,7 +82,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
   num_active_ = 0;
-  max_active_index_ = 0;
+  max_active_index_ = -1;
 
   // TODO(BRR) Do this in a device kernel?
   auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);

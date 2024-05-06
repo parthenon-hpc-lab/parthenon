@@ -123,8 +123,10 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::contexts_h_;
   using SwarmPackBase<TYPE>::max_active_indices_;
   using SwarmPackBase<TYPE>::max_active_indices_h_;
+  using SwarmPackBase<TYPE>::flat_index_map_;
   using SwarmPackBase<TYPE>::nvar_;
   using SwarmPackBase<TYPE>::nblocks_;
+  using SwarmPackBase<TYPE>::max_flat_index_;
 
   explicit SwarmPack(const SwarmPackBase<TYPE> &spb) : SwarmPackBase<TYPE>(spb) {
     if constexpr (sizeof...(Ts) != 0) {
@@ -157,6 +159,10 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   KOKKOS_FORCEINLINE_FUNCTION
   const SwarmDeviceContext &GetContext(const int b = 0) const { return contexts_(b); }
 
+  // max index in the space flattened over blocks and particles.  inclusive.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const auto &GetMaxFlatIndex() const { return max_flat_index_; }
+
   KOKKOS_FORCEINLINE_FUNCTION
   const int &GetMaxActiveIndex(const int b = 0) const { return max_active_indices_(b); }
 
@@ -166,6 +172,22 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
+
+  // map from flat index to block and particle indices
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetBlockParticleIndices(const int idx) const {
+    PARTHENON_REQUIRE(idx >= 0 && idx <= max_flat_index_,
+                      "Requesting an out-of-bounds index");
+    // binary search to figure out what block we're on
+    int b = 0;
+    int r = nblocks_;
+    while (r - b > 1) {
+      auto c = static_cast<int>(0.5 * (b + r));
+      if (flat_index_map_(c) > idx) r = c;
+      else b = c;
+    }
+    return std::make_tuple(b, idx - flat_index_map_(b));
+  }
 
   // Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
