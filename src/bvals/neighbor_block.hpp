@@ -68,8 +68,9 @@ struct NeighborBlock {
   forest::LogicalCoordinateTransformation lcoord_trans;
 
   NeighborBlock();
-  NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank, int gid,
-                std::array<int, 3> offsets, int bid, int target_id, int ifi1, int ifi2);
+  NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,
+                int gid, std::array<int, 3> offsets, int bid, int target_id, int ifi1,
+                int ifi2);
 };
 
 //----------------------------------------------------------------------------------------

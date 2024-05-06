@@ -210,7 +210,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
   }
   forest_def.SetBlockSize(base_block_size);
-  
+
   ndim = 2;
   // Load balancing flag and parameters
   EnrollBndryFncts_(app_in);

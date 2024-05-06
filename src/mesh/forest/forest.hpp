@@ -51,28 +51,28 @@ class ForestDefinition {
   std::vector<ForestBC<Edge>> bc_edges;
   std::vector<LogicalLocation> refinement_locations;
   std::vector<RegionSize> face_sizes;
+
  public:
   using ar3_t = std::array<Real, 3>;
   using ai3_t = std::array<int, 3>;
-  void AddFace(std::size_t id, std::array<std::shared_ptr<Node>, 4> nodes_in, 
-               ar3_t xmin = {0.0, 0.0, 0.0}, ar3_t xmax = {1.0, 1.0, 1.0}) { 
+  void AddFace(std::size_t id, std::array<std::shared_ptr<Node>, 4> nodes_in,
+               ar3_t xmin = {0.0, 0.0, 0.0}, ar3_t xmax = {1.0, 1.0, 1.0}) {
     faces.emplace_back(Face::create(id, nodes_in));
     face_sizes.emplace_back(xmin, xmax, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1});
   }
-  
-  void AddBC(Edge edge, BoundaryFlag bf, std::optional<Edge> periodic_connection = {}) { 
-    if (bf == BoundaryFlag::periodic) 
-      PARTHENON_REQUIRE(periodic_connection, "Must specify another edge for periodic boundary conditions.");
+
+  void AddBC(Edge edge, BoundaryFlag bf, std::optional<Edge> periodic_connection = {}) {
+    if (bf == BoundaryFlag::periodic)
+      PARTHENON_REQUIRE(periodic_connection,
+                        "Must specify another edge for periodic boundary conditions.");
     bc_edges.emplace_back(ForestBC<Edge>{edge, bf, *periodic_connection});
   }
 
-  void AddInitialRefinement(const LogicalLocation &loc) { 
+  void AddInitialRefinement(const LogicalLocation &loc) {
     refinement_locations.push_back(loc);
   }
 
-  void SetBlockSize(const RegionSize &bs) {
-    block_size = bs;
-  }
+  void SetBlockSize(const RegionSize &bs) { block_size = bs; }
 };
 
 class Forest {

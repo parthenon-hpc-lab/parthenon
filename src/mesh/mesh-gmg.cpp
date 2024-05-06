@@ -71,8 +71,8 @@ void Mesh::SetMeshBlockNeighbors(
                                                        -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
       int lgid = forest.GetLeafGid(nloc.global_loc);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc, ranklist[lgid], gid,
-                                 offsets, bid, tid, f[0], f[1]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc,
+                                 ranklist[lgid], gid, offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
@@ -168,9 +168,9 @@ void Mesh::SetGMGNeighbors() {
         int gid = forest.GetGid(ploc);
         if (gid >= 0) {
           int leaf_gid = forest.GetLeafGid(ploc);
-          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid],
-                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
-                                                  0, 0);
+          pmb->gmg_coarser_neighbors.emplace_back(
+              pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
+              std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 

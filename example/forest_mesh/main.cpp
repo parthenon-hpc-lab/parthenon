@@ -99,9 +99,9 @@ Forest n_blocks(int nblocks_min, int nblocks_max) {
     nodes[nc + 2 * nblocks] = Node::create(nc + 2 * nblocks, {0.0 + xoffset, 0.0});
     auto &n = nodes;
     for (int t = 0; t < nblocks; ++t)
-      forest_def.AddFace(fc + t, {n[nc + 2 * t + 1], n[nc + 2 * t],
-                         n[nc + (2 * t + 2) % (2 * nblocks)],
-                         n[nc + 2 * nblocks]});
+      forest_def.AddFace(fc + t,
+                         {n[nc + 2 * t + 1], n[nc + 2 * t],
+                          n[nc + (2 * t + 2) % (2 * nblocks)], n[nc + 2 * nblocks]});
     nc += 2 * nblocks + 1;
     fc += nblocks;
     xoffset += 2.2;
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
   if (argc > 2) nblocks_max = atoi(argv[1]);
   PARTHENON_REQUIRE(nblocks_min > 1, "Need more than one block.");
   auto forest = nblocks_min > 2 ? n_blocks(nblocks_min, nblocks_max) : two_blocks();
-  
+
   auto locs = forest.GetMeshBlockListAndResolveGids();
 
   // Write out forest for matplotlib

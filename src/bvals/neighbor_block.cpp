@@ -44,8 +44,9 @@ NeighborBlock::NeighborBlock()
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc,
                              int rank, int gid, std::array<int, 3> offsets_in, int bid,
                              int target_id, int fi1, int fi2)
-    : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id}, loc{loc}, origin_loc{origin_loc},
-      fi1{fi1}, fi2{fi2}, block_size(mesh->GetBlockSize(loc)), offsets(offsets_in), ownership(true) {}
+    : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id}, loc{loc},
+      origin_loc{origin_loc}, fi1{fi1}, fi2{fi2}, block_size(mesh->GetBlockSize(loc)),
+      offsets(offsets_in), ownership(true) {}
 
 BufferID::BufferID(int dim, bool multilevel) {
   std::vector<int> x1offsets = dim > 0 ? std::vector<int>{0, -1, 1} : std::vector<int>{0};

@@ -345,7 +345,8 @@ ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
 ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0,
+                   0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
@@ -360,7 +361,8 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 
 ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0,
+                   0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 

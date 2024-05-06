@@ -253,7 +253,7 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
     const auto &face_size = forest_def.face_sizes[f];
     RegionSize tree_domain = forest_def.block_size;
     // TODO(LFR): Fix this to do something not stupid
-    tree_domain.xmin(X1DIR) = face_size.xmin(X1DIR); 
+    tree_domain.xmin(X1DIR) = face_size.xmin(X1DIR);
     tree_domain.xmax(X1DIR) = face_size.xmax(X1DIR);
     tree_domain.xmin(X2DIR) = face_size.xmin(X2DIR);
     tree_domain.xmax(X2DIR) = face_size.xmax(X2DIR);
