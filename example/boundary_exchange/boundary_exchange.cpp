@@ -89,9 +89,8 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
         parthenon::loop_pattern_mdrange_tag, "SetNaN", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          pack(b, morton_num(0), k, j, i) = std::numeric_limits<Real>::quiet_NaN();
-          pack(b, morton_num(1), k, j, i) = std::numeric_limits<Real>::quiet_NaN();
-          pack(b, morton_num(2), k, j, i) = std::numeric_limits<Real>::quiet_NaN();
+          for (int n = 0; n < 8; ++n)
+            pack(b, morton_num(n), k, j, i) = std::numeric_limits<Real>::quiet_NaN();
         });
   }
 
@@ -101,11 +100,13 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
   parthenon::ParArray1D<int> z_morton("z Morton number", pack.GetNBlocks());
   parthenon::ParArray1D<int> morton("Morton number", pack.GetNBlocks());
   parthenon::ParArray1D<int> tree("tree", pack.GetNBlocks());
+  parthenon::ParArray1D<int> gid("gid", pack.GetNBlocks());
   auto x_morton_h = Kokkos::create_mirror_view(x_morton);
   auto y_morton_h = Kokkos::create_mirror_view(y_morton);
   auto z_morton_h = Kokkos::create_mirror_view(z_morton);
   auto morton_h = Kokkos::create_mirror_view(morton);
   auto tree_h = Kokkos::create_mirror_view(tree);
+  auto gid_h = Kokkos::create_mirror_view(gid);
   for (int b = 0; b < md->NumBlocks(); ++b) {
     auto cpmb = md->GetBlockData(b)->GetBlockPointer();
     auto level = cpmb->loc.level();
@@ -121,12 +122,14 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
     y_morton_h(b) = my;
     z_morton_h(b) = mz;
     tree_h(b) = cpmb->loc.tree();
+    gid_h(b) = cpmb->gid;
   }
   Kokkos::deep_copy(x_morton, x_morton_h);
   Kokkos::deep_copy(y_morton, y_morton_h);
   Kokkos::deep_copy(z_morton, z_morton_h);
   Kokkos::deep_copy(morton, morton_h);
   Kokkos::deep_copy(tree, tree_h);
+  Kokkos::deep_copy(gid, gid_h);
 
   {
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -140,6 +143,10 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
           pack(b, morton_num(1), k, j, i) = x_morton(b);
           pack(b, morton_num(2), k, j, i) = y_morton(b);
           pack(b, morton_num(3), k, j, i) = z_morton(b);
+          pack(b, morton_num(4), k, j, i) = gid(b);
+          pack(b, morton_num(5), k, j, i) = i;
+          pack(b, morton_num(6), k, j, i) = j;
+          pack(b, morton_num(7), k, j, i) = k;
         });
   }
   return TaskStatus::complete;
@@ -150,7 +157,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Params &params = package->AllParams();
 
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
-             std::vector<int>{4});
+             std::vector<int>{8});
   package->AddField(morton_num::name(), m);
 
   return package;

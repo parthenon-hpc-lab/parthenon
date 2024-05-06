@@ -255,21 +255,18 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
 
   // Build the list of trees and set neighbors
   std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
-  printf("block = %i\n", BoundaryFlag::block);
-  printf("undef = %i\n", BoundaryFlag::undef);
-  printf("reflect = %i\n", BoundaryFlag::reflect);
-  printf("outflow = %i\n", BoundaryFlag::outflow);
-  printf("periodic = %i\n", BoundaryFlag::periodic);
-  printf("user = %i\n", BoundaryFlag::user);
-  for (const auto &face : faces) {
+  Real x_offset = 0.0;
+  for (int f = 0; f < faces.size(); ++f) {
+    const auto &face = faces[f];
+    const auto &face_size = forest_def.face_sizes[f];
     RegionSize tree_domain = forest_def.block_size;
     // TODO(LFR): Fix this to do something not stupid
-    tree_domain.xmin(X1DIR) = face->nodes[0]->x[0];
-    tree_domain.xmax(X1DIR) = face->nodes[3]->x[0];
-    tree_domain.xmin(X2DIR) = face->nodes[0]->x[1];
-    tree_domain.xmax(X2DIR) = face->nodes[3]->x[1];
-    tree_domain.xmin(X3DIR) = -0.5;
-    tree_domain.xmax(X3DIR) = 0.5;
+    tree_domain.xmin(X1DIR) = face_size.xmin(X1DIR); 
+    tree_domain.xmax(X1DIR) = face_size.xmax(X1DIR);
+    tree_domain.xmin(X2DIR) = face_size.xmin(X2DIR);
+    tree_domain.xmax(X2DIR) = face_size.xmax(X2DIR);
+    tree_domain.xmin(X3DIR) = face_size.xmin(X3DIR);
+    tree_domain.xmax(X3DIR) = face_size.xmax(X3DIR);
     auto &bcs = tree_bcs[face->GetId()];
     printf("[%li] %i %i %i %i %i %i\n", face->GetId(), bcs[0], bcs[1], bcs[2], bcs[3],
            bcs[4], bcs[5]);
@@ -277,6 +274,7 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
            tree_domain.xmin(X2DIR), tree_domain.xmax(X2DIR));
     trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
                                         tree_bcs[face->GetId()], face->nodes);
+    x_offset += 2.0;
   }
 
   for (const auto &face : faces) {
@@ -295,6 +293,11 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
   fout.forest_level = 0;
   for (auto &[id, tree] : trees)
     fout.AddTree(tree);
+
+  // Add requested refinement to base forest
+  for (const auto &loc : forest_def.refinement_locations)
+    fout.AddMeshBlock(loc);
+
   return fout;
 }
 

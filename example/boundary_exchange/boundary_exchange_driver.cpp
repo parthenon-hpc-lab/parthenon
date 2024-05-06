@@ -59,30 +59,51 @@ int main(int argc, char *argv[]) {
   nodes[3] = parthenon::forest::Node::create(3, {0.0, 1.0});
   nodes[4] = parthenon::forest::Node::create(4, {2.0, 0.0});
   nodes[5] = parthenon::forest::Node::create(5, {2.0, 1.0});
-
+  nodes[6] = parthenon::forest::Node::create(6, {0.0, 2.0});
+  nodes[7] = parthenon::forest::Node::create(7, {1.0, 2.0});
+  nodes[8] = parthenon::forest::Node::create(8, {2.0, 2.0});
+  
   auto &n = nodes;
   parthenon::forest::ForestDefinition forest_def;
   auto &faces = forest_def.faces;
-
-  faces.emplace_back(parthenon::forest::Face::create(0, {n[1], n[2], n[0], n[3]}));
-  faces.emplace_back(parthenon::forest::Face::create(1, {n[1], n[4], n[2], n[5]}));
+  auto &face_sizes = forest_def.face_sizes;
 
   auto &bcs = forest_def.bc_edges;
   using edge_t = parthenon::forest::Edge;
   using bc_t = parthenon::forest::ForestBC<edge_t>;
+  
+  faces.emplace_back(parthenon::forest::Face::create(0, {n[1], n[2], n[0], n[3]}));
   bcs.emplace_back(
       bc_t{edge_t({n[0], n[1]}), parthenon::BoundaryFlag::outflow, edge_t()});
   bcs.emplace_back(
       bc_t{edge_t({n[0], n[3]}), parthenon::BoundaryFlag::outflow, edge_t()});
-  bcs.emplace_back(
-      bc_t{edge_t({n[2], n[3]}), parthenon::BoundaryFlag::outflow, edge_t()});
+  using ar3_t = std::array<Real, 3>;
+  using ai3_t = std::array<int, 3>;
+  face_sizes.emplace_back(ar3_t{0.0, 0.0, 0.0}, ar3_t{1.0, 1.0, 1.0}, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1}); 
+  //faces.emplace_back(parthenon::forest::Face::create(0, {n[0], n[1], n[3], n[2]}));
+  
+  faces.emplace_back(parthenon::forest::Face::create(1, {n[1], n[4], n[2], n[5]}));
+  face_sizes.emplace_back(ar3_t{2.0, 0.0, 0.0}, ar3_t{3.0, 1.0, 1.0}, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1}); 
   bcs.emplace_back(
       bc_t{edge_t({n[1], n[4]}), parthenon::BoundaryFlag::outflow, edge_t()});
   bcs.emplace_back(
-      bc_t{edge_t({n[2], n[5]}), parthenon::BoundaryFlag::outflow, edge_t()});
-  bcs.emplace_back(
       bc_t{edge_t({n[4], n[5]}), parthenon::BoundaryFlag::outflow, edge_t()});
-
+  
+  faces.emplace_back(parthenon::forest::Face::create(3, {n[3], n[2], n[6], n[7]}));
+  face_sizes.emplace_back(ar3_t{0.0, 2.0, 0.0}, ar3_t{1.0, 3.0, 1.0}, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1}); 
+  bcs.emplace_back(
+      bc_t{edge_t({n[6], n[7]}), parthenon::BoundaryFlag::outflow, edge_t()});
+  bcs.emplace_back(
+      bc_t{edge_t({n[3], n[6]}), parthenon::BoundaryFlag::outflow, edge_t()});
+  
+  faces.emplace_back(parthenon::forest::Face::create(4, {n[2], n[5], n[7], n[8]}));
+  face_sizes.emplace_back(ar3_t{2.0, 2.0, 0.0}, ar3_t{3.0, 3.0, 1.0}, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1}); 
+  bcs.emplace_back(
+      bc_t{edge_t({n[5], n[8]}), parthenon::BoundaryFlag::outflow, edge_t()});
+  bcs.emplace_back(
+      bc_t{edge_t({n[7], n[8]}), parthenon::BoundaryFlag::outflow, edge_t()});
+  
+  forest_def.refinement_locations.emplace_back(0, 1, 0, 0, 0);
   pman.ParthenonInitPackagesAndMesh(forest_def);
 
   // This needs to be scoped so that the driver object is destructed before Finalize

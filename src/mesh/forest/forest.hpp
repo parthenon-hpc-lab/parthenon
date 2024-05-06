@@ -46,6 +46,8 @@ struct ForestDefinition {
   std::vector<std::shared_ptr<Face>> faces;
   RegionSize block_size;
   std::vector<ForestBC<Edge>> bc_edges;
+  std::vector<LogicalLocation> refinement_locations;
+  std::vector<RegionSize> face_sizes;
 };
 
 class Forest {
