@@ -1233,32 +1233,10 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                      BoundaryFlag *block_bcs) {
   bool valid_region = true;
-  block_size = GetBlockSize(loc);
-  if (loc.tree() >= 0) {
-    auto bcs = forest.GetBlockBCs(loc);
-    for (int i = 0; i < BOUNDARY_NFACES; ++i) {
-      block_bcs[i] = bcs[i];
-    }
-    return valid_region;
-  }
-
-  for (auto &dir : {X1DIR, X2DIR, X3DIR}) {
-    if (!block_size.symmetry(dir)) {
-      std::int64_t nrbx_ll = nrbx[dir - 1] << (loc.level() - root_level);
-      if (loc.level() < root_level) {
-        std::int64_t fac = 1 << (root_level - loc.level());
-        nrbx_ll = nrbx[dir - 1] / fac + (nrbx[dir - 1] % fac != 0);
-      }
-      block_bcs[GetInnerBoundaryFace(dir)] =
-          loc.l(dir - 1) == 0 ? mesh_bcs[GetInnerBoundaryFace(dir)] : BoundaryFlag::block;
-      block_bcs[GetOuterBoundaryFace(dir)] = loc.l(dir - 1) == nrbx_ll - 1
-                                                 ? mesh_bcs[GetOuterBoundaryFace(dir)]
-                                                 : BoundaryFlag::block;
-    } else {
-      block_bcs[GetInnerBoundaryFace(dir)] = mesh_bcs[GetInnerBoundaryFace(dir)];
-      block_bcs[GetOuterBoundaryFace(dir)] = mesh_bcs[GetOuterBoundaryFace(dir)];
-    }
-  }
+  block_size = forest.GetBlockDomain(loc);
+  auto bcs = forest.GetBlockBCs(loc);
+  for (int i = 0; i < BOUNDARY_NFACES; ++i)
+    block_bcs[i] = bcs[i];
   return valid_region;
 }
 
