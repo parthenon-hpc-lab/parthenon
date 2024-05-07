@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
 - [[PR 1060]](https://github.com/parthenon-hpc-lab/parthenon/pull/1060) Add the ability to request new MeshData/MeshBlockData objects by selecting variables by UID.
 - [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
 - [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
