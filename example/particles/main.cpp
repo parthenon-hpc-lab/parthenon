@@ -22,12 +22,13 @@ using namespace parthenon::BoundaryFunction;
 // Example inner boundary condition (this just reuses existing features) to show how to
 // create and enroll a user swarm boundary condition. Note that currently both Swarm and
 // field boundary conditions must be provided when "user" is specified.
+// Note that BCType::Periodic cannot be enrolled as a user boundary condition.
 void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(swarm);
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
 
 void SwarmUserOuterX1(std::shared_ptr<Swarm> &swarm) {
-  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Periodic>(swarm);
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(swarm);
 }
 
 int main(int argc, char *argv[]) {
