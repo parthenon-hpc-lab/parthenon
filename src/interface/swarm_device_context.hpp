@@ -63,12 +63,17 @@ class SwarmDeviceContext {
     // Particle is on neither this block nor a neighboring block
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
-      printf("[%i] k = %i j = %i i = %i\n", n, k, j, i);
-      printf("x = %e [%e %e]\n", x, x_min_, x_max_);
-      printf("y = %e [%e %e]\n", y, y_min_, y_max_);
-      printf("z = %e [%e %e]\n", z, z_min_, z_max_);
-      PARTHENON_FAIL("Particle neighbor indices out of bounds; particle has somehow "
-                     "moved beyond the halo of adjacent blocks which is not permitted.");
+      std::stringstream msg;
+      msg << "Particle neighbor indices out of bounds!" << std::endl;
+      msg << "particle has somehow moved beyond the halo of adjacent blocks without "
+             "first being communicated which is not permitted."
+          << std::endl;
+      msg << "[" << n << "]"
+          << " k = " << k << " j = " << j << " i = " << i << std::endl;
+      msg << "x = " << x << " [" << x_min_ << " " << x_max_ << "]" << std::endl;
+      msg << "y = " << x << " [" << y_min_ << " " << y_max_ << "]" << std::endl;
+      msg << "z = " << x << " [" << z_min_ << " " << z_max_ << "]" << std::endl;
+      PARTHENON_FAIL(msg);
     }
 
     // Ignore k,j indices as necessary based on problem dimension

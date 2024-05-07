@@ -81,7 +81,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
   num_active_ = 0;
-  max_active_index_ = -1;
+  max_active_index_ = inactive_max_active_index_;
 
   // TODO(BRR) Do this in a device kernel?
   auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
@@ -280,7 +280,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
-// No active particles: nmax_active_index = -1
+// No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {

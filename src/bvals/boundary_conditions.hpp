@@ -42,8 +42,6 @@ TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
                                                    bool coarse);
 
-inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc);
-
 TaskStatus ApplySwarmBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
 
 TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm);

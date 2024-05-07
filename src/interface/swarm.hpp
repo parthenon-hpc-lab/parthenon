@@ -257,7 +257,8 @@ class Swarm {
   std::size_t uid_;
   inline static UniqueIDGenerator<std::string> get_uid_;
 
-  int max_active_index_ = 0;
+  static constexpr int inactive_max_active_index_ = -1;
+  int max_active_index_ = inactive_max_active_index_;
   int num_active_ = 0;
   std::string label_;
   Metadata m_;
