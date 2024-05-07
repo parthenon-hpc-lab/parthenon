@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -84,8 +84,10 @@ class Forest {
     return trees.at(loc.tree())->FindNeighbors(loc, ox1, ox2, ox3);
   }
 
-  std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc) const {
-    return trees.at(loc.tree())->FindNeighbors(loc);
+  std::vector<NeighborLocation>
+  FindNeighbors(const LogicalLocation &loc,
+                GridIdentifier grid_id = GridIdentifier::leaf()) const {
+    return trees.at(loc.tree())->FindNeighbors(loc, grid_id);
   }
   std::size_t CountMeshBlock() const {
     std::size_t count{0};
@@ -132,6 +134,13 @@ class Forest {
   std::int64_t GetGid(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees.at(loc.tree())->GetGid(loc);
+  }
+
+  // Get the gid of the leaf block with the same Morton number
+  // as loc (on the same tree)
+  std::int64_t GetLeafGid(const LogicalLocation &loc) const {
+    PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
+    return trees.at(loc.tree())->GetLeafGid(loc);
   }
 
   std::int64_t GetOldGid(const LogicalLocation &loc) const {

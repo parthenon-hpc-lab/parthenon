@@ -142,7 +142,8 @@ class MGSolver {
     using namespace utils;
     iter_counter = 0;
 
-    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings, 0);
+    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
+                             pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
 
     return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
@@ -153,7 +154,8 @@ class MGSolver {
   TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
     using namespace utils;
 
-    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings, 0);
+    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
+                             pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
 
     return AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
