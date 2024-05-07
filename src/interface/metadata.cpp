@@ -251,12 +251,13 @@ bool Metadata::IsValid(bool throw_on_fail) const {
       PARTHENON_THROW("Either the Independent or Derived flag must be set");
     }
   }
-  
+
   // Independent
   if (CountSet({Independent, Fine}) > 1) {
     valid = false;
     if (throw_on_fail) {
-      PARTHENON_THROW("Fine variables cannot be independent since they are not supported in restarts.");
+      PARTHENON_THROW("Fine variables cannot be independent since they are not supported "
+                      "in restarts.");
     }
   }
 
