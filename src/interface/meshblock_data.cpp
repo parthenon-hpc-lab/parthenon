@@ -193,7 +193,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(
-      GetVariablesByName(var_names, sparse_ids),
+      GetVariablesByName(var_names, sparse_ids, FluxRequest::NoFlux),
       GetVariablesByName(flx_names, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
@@ -203,7 +203,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(
-      GetVariablesByFlag(flags, sparse_ids),
+      GetVariablesByFlag(flags, sparse_ids, FluxRequest::NoFlux),
       GetVariablesByFlag(flags, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
@@ -211,7 +211,7 @@ const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
+  return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids, FluxRequest::NoFlux),
                                       GetAllVariables(sparse_ids, FluxRequest::OnlyFlux),
                                       map, key);
 }
