@@ -18,7 +18,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
 #include <set>
 #include <string>
 #include <tuple>
@@ -28,10 +27,7 @@
 
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/metadata.hpp"
-#include "interface/state_descriptor.hpp"
 #include "interface/swarm_pack.hpp"
-#include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {

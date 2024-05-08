@@ -79,7 +79,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto swarm = pmb->meshblock_data.Get()->GetSwarmData().Get()->Get("my_particles");
+  auto swarm = rc->GetSwarmData().Get()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto &cfl = pkg->Param<Real>("cfl");
 
