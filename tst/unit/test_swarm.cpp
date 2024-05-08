@@ -97,7 +97,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   swarm->AllocateBoundaries();
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
-  REQUIRE(swarm->GetMaxActiveIndex() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == -1);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
