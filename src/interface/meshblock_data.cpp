@@ -259,8 +259,10 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
+      const auto &m = v->metadata();
+      if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
       if (flux == FluxRequest::OnlyFlux) {
-        const auto &vf = varMap_.at(v->metadata().GetFluxName());
+        const auto &vf = varMap_.at(m.GetFluxName());
         var_list.Add(vf, sparse_ids_set);
       } else {
         var_list.Add(v, sparse_ids_set);
@@ -273,8 +275,10 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
+        const auto &m = v->metadata();
+        if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
         if (flux == FluxRequest::OnlyFlux) {
-          const auto &vf = varMap_.at(v->metadata().GetFluxName());
+          const auto &vf = varMap_.at(m.GetFluxName());
           var_list.Add(vf, sparse_ids_set);
         } else {
           var_list.Add(v, sparse_ids_set);
@@ -336,8 +340,9 @@ MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids,
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
     auto v = GetVarPtr(i);
+    const auto &m = v->metadata();
+    if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
     if (flux == FluxRequest::OnlyFlux) {
-      const auto &m = v->metadata();
       if (!m.IsSet(Metadata::WithFluxes)) {
         PARTHENON_FAIL("Flux of var " + v->label() +
                        " requested, but var does not have fluxes.");
