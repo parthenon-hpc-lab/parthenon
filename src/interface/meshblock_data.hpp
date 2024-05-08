@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
@@ -227,34 +228,38 @@ class MeshBlockData {
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
   VarList GetVariablesByName(const std::vector<std::string> &names,
-                             const std::vector<int> &sparse_ids = {}, bool flux = false);
+                             const std::vector<int> &sparse_ids = {},
+                             const FluxRequest flux = FluxRequest::NoFlux);
 
   /// Get list of variables and UIDs by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                             const std::vector<int> &sparse_ids = {}, bool flux = false);
+                             const std::vector<int> &sparse_ids = {},
+                             const FluxRequest flux = FluxRequest::NoFlux);
 
   // Get list of variables specified by unique identifiers
-  VarList GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux = false);
+  VarList GetVariablesByUid(const std::vector<Uid_t> &uids,
+                            const FluxRequest flux = FluxRequest::NoFlux);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarList GetAllVariables(const std::vector<int> &sparse_ids = {}, bool flux = false) {
+  VarList GetAllVariables(const std::vector<int> &sparse_ids = {},
+                          const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids, flux);
   }
 
   std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByName(names, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
                                      const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByFlag(flags, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetAllVariables(sparse_ids, flux).unique_ids();
   }
 

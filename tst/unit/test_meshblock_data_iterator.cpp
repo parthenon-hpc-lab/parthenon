@@ -38,6 +38,7 @@
 #include "parthenon_arrays.hpp"
 
 using parthenon::DevExecSpace;
+using parthenon::FluxRequest;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
@@ -115,6 +116,17 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
           REQUIRE(m.IsSet(Metadata::WithFluxes));
           REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
+          REQUIRE(!(m.IsSet(Metadata::Flux)));
+        }
+      }
+      WHEN("We construct a list of only fluxes") {
+        auto varlist = mbd.GetVariablesByFlag(flags, {}, FluxRequest::OnlyFlux).vars();
+        THEN("The list contains the desired variables") {
+          REQUIRE(varlist.size() > 0);
+          for (const auto &v : varlist) {
+            const auto &m = v->metadata();
+            REQUIRE(m.IsSet(Metadata::Flux));
+          }
         }
       }
       WHEN("We construct a metadata flag collection with only unions") {

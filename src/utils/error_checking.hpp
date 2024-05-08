@@ -159,6 +159,11 @@ fail(const char *const message, const char *const filename, int const linenumber
   }
 }
 
+[[noreturn]] inline void fail(std::string const &message, const char *const filename,
+                              int const linenumber) {
+  fail(message.c_str(), filename, linenumber);
+}
+
 [[noreturn]] inline void fail(std::stringstream const &message,
                               const char *const filename, int const linenumber) {
   fail(message.str().c_str(), filename, linenumber);

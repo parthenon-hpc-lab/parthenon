@@ -192,9 +192,9 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids, true),
-                                      map, key);
+  return PackListedVariablesAndFluxes(
+      GetVariablesByName(var_names, sparse_ids),
+      GetVariablesByName(flx_names, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -202,9 +202,9 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
-                                      GetVariablesByFlag(flags, sparse_ids, true), map,
-                                      key);
+  return PackListedVariablesAndFluxes(
+      GetVariablesByFlag(flags, sparse_ids),
+      GetVariablesByFlag(flags, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
@@ -212,7 +212,8 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
   return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
-                                      GetAllVariables(sparse_ids, true), map, key);
+                                      GetAllVariables(sparse_ids, FluxRequest::OnlyFlux),
+                                      map, key);
 }
 
 /// Variables by Name
@@ -247,7 +248,9 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids, bool flux) {
+                                     const std::vector<int> &sparse_ids,
+                                     const FluxRequest flux) {
+  PARTHENON_INSTRUMENT
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -256,7 +259,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
-      if (flux) {
+      if (flux == FluxRequest::OnlyFlux) {
         const auto &vf = varMap_.at(v->metadata().GetFluxName());
         var_list.Add(vf, sparse_ids_set);
       } else {
@@ -270,7 +273,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-        if (flux) {
+        if (flux == FluxRequest::OnlyFlux) {
           const auto &vf = varMap_.at(v->metadata().GetFluxName());
           var_list.Add(vf, sparse_ids_set);
         } else {
@@ -298,7 +301,8 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                                     const std::vector<int> &sparse_ids, bool flux) {
+                                     const std::vector<int> &sparse_ids,
+                                     const FluxRequest flux) {
   PARTHENON_INSTRUMENT
 
   typename MeshBlockData<T>::VarList var_list;
@@ -307,8 +311,14 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   auto vars = MetadataUtils::GetByFlag<VariableSet<T>>(flags, varMap_, flagsToVars_);
 
   for (auto &v : vars) {
-    if (flux) {
-      const auto &vf = varMap_.at(v->metadata().GetFluxName());
+    const auto &m = v->metadata();
+    if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
+    if (flux == FluxRequest::OnlyFlux) {
+      if (!m.IsSet(Metadata::WithFluxes)) {
+        PARTHENON_FAIL("Flux of var " + v->label() +
+                       " requested, but var does not have fluxes.");
+      }
+      const auto &vf = varMap_.at(m.GetFluxName());
       var_list.Add(vf, sparse_ids_set);
     } else {
       var_list.Add(v, sparse_ids_set);
@@ -320,12 +330,19 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
 
 template <typename T>
 typename MeshBlockData<T>::VarList
-MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux) {
+MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids,
+                                    const FluxRequest flux) {
+  PARTHENON_INSTRUMENT
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
     auto v = GetVarPtr(i);
-    if (flux) {
-      const auto &vf = varMap_.at(v->metadata().GetFluxName());
+    if (flux == FluxRequest::OnlyFlux) {
+      const auto &m = v->metadata();
+      if (!m.IsSet(Metadata::WithFluxes)) {
+        PARTHENON_FAIL("Flux of var " + v->label() +
+                       " requested, but var does not have fluxes.");
+      }
+      const auto &vf = varMap_.at(m.GetFluxName());
       var_list.Add(vf);
     } else {
       var_list.Add(v);
