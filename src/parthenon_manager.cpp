@@ -379,7 +379,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Swarm data
   using FC = parthenon::Metadata::FlagCollection;
   auto flags = FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
-  auto swarms = (mb.meshblock_data.Get()->GetSwarmData().Get())->GetSwarmsByFlag(flags);
+  auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
     if (Globals::my_rank == 0) {
@@ -396,7 +396,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     std::size_t block_index = 0;
     // only want to do this once per block
     for (auto &pmb : rm.block_list) {
-      auto pswarm_blk = (pmb->meshblock_data.Get()->GetSwarmData().Get())->Get(swarmname);
+      auto pswarm_blk = (pmb->meshblock_data.Get()->GetSwarmData())->Get(swarmname);
       pswarm_blk->AddEmptyParticles(counts[block_index]);
       block_index++;
     }

@@ -54,7 +54,7 @@ void MeshBlockData<T>::Initialize(
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
 
-  const auto &swarm_container = GetSwarmData().Get();
+  const auto &swarm_container = GetSwarmData();
   swarm_container->SetBlockPointer(pmb);
   for (auto const &q : resolved_packages->AllSwarms()) {
     swarm_container->Add(q.first, q.second);

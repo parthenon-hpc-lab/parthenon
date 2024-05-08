@@ -461,8 +461,9 @@ class MeshData {
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
-  DataCollection<SwarmContainer> &GetSwarmData(int n) {
-    assert(n >= 0 && n < block_data_.size());
+  std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
+    PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
+                      "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
     return block_data_[n]->GetSwarmData();
   }
 
