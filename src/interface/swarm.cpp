@@ -241,8 +241,8 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   nmax_pool_ = nmax_pool;
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
-  pm->mesh_data.Get("base")->ClearSwarmCaches();
   pmb->meshblock_data.Get()->ClearSwarmCaches();
+  pm->mesh_data.Get("base")->ClearSwarmCaches();
   for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
     pm->mesh_data.GetOrAdd("base", i)->ClearSwarmCaches();
   }
