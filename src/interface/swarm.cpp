@@ -202,6 +202,7 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
+  auto pm = pmb->pmy_mesh;
 
   for (std::int64_t n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
@@ -240,25 +241,23 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   nmax_pool_ = nmax_pool;
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
-  // NOTE(@pdmullen): I worry about a potential race condition when, in the future,
-  // multiple threads are trying to erase the same pack_map entry.  We may need mutex.
-  // NOTE(@pdmullen): I am deleting the cache associated with MeshData "base", each
-  // partition associated with MeshData "base", and the MeshBlockData cache.  This is
-  // overkill, but the alternative is more involved...
-  auto pm = pmb->pmy_mesh;
-  auto &pmd = pm->mesh_data.Get("base");
-  auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
-  auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
-  if (real_md_cache.size() > 0) real_md_cache.clear();
-  if (int_md_cache.size() > 0) int_md_cache.clear();
+  // (1): MeshData "base" partitions
   for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
-    auto &pmdp = pm->mesh_data.GetOrAdd("base", i);
+    auto pmdp = pm->mesh_data.GetOrAdd("base", i);
     auto &real_mdp_cache = pmdp->GetSwarmPackCache<Real>().pack_map;
     auto &int_mdp_cache = pmdp->GetSwarmPackCache<int>().pack_map;
     if (real_mdp_cache.size() > 0) real_mdp_cache.clear();
     if (int_mdp_cache.size() > 0) int_mdp_cache.clear();
   }
 
+  // (2): MeshData "base"
+  auto pmd = pm->mesh_data.Get("base");
+  auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
+  auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
+  if (real_md_cache.size() > 0) real_md_cache.clear();
+  if (int_md_cache.size() > 0) int_md_cache.clear();
+
+  // (3): MeshBlockData
   auto pmbd = pmb->meshblock_data.Get().get();
   auto &real_mbd_cache = pmbd->GetSwarmPackCache<Real>().pack_map;
   auto &int_mbd_cache = pmbd->GetSwarmPackCache<int>().pack_map;

@@ -18,78 +18,23 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "coordinates/coordinates.hpp"
+#include "interface/pack_utils.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
-
-namespace {
-// SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData
-template <class T, class F>
-inline auto ForEachBlock(T *pmd, F func) -> decltype(T().GetBlockData(0), void()) {
-  for (int b = 0; b < pmd->NumBlocks(); ++b) {
-    auto &pmbd = pmd->GetBlockData(b);
-    func(b, pmbd.get());
-  }
-}
-
-template <class T, class F>
-inline auto ForEachBlock(T *pmbd, F func) -> decltype(T().GetBlockPointer(), void()) {
-  func(0, pmbd);
-}
-
-// Check data types of requested swarm variables
-template <typename Head, typename... Tail>
-struct GetDataType {
-  using value = typename Head::data_type;
-  static_assert(std::is_same<value, typename GetDataType<Tail...>::value>::value,
-                "Types must all be the same");
-};
-template <typename T>
-struct GetDataType<T> {
-  using value = typename T::data_type;
-};
-} // namespace
 
 namespace parthenon {
 
 namespace impl {
 template <typename TYPE>
-struct SwarmPackDescriptor {
-  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
-      : swarm_name(swarm_name), vars(vars), identifier(GetIdentifier()) {}
-
-  // Determining if variable pv should be included in SwarmPack
-  bool IncludeVariable(int vidx,
-                       const std::shared_ptr<ParticleVariable<TYPE>> &pv) const {
-    if (vars[vidx] == pv->label()) return true;
-    return false;
-  }
-
-  const std::string swarm_name;
-  const std::vector<std::string> vars;
-  const std::string identifier;
-
- private:
-  std::string GetIdentifier() const {
-    std::string ident("");
-    for (const auto &var : vars)
-      ident += var;
-    ident += "|swarm_name:";
-    ident += swarm_name;
-    return ident;
-  }
-};
-} // namespace impl
-
-using SwarmPackIdxMap = std::unordered_map<std::string, std::size_t>;
+struct SwarmPackDescriptor;
+}
 
 template <typename TYPE>
 class SwarmPackBase {
@@ -103,24 +48,25 @@ class SwarmPackBase {
   using contexts_h_t = typename ParArray1D<SwarmDeviceContext>::HostMirror;
   using max_active_indices_t = ParArray1D<int>;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
+  using idx_map_t = std::unordered_map<std::string, std::size_t>;
 
   // Build supplemental entries to SwarmPack that change on a cadence faster than the
   // other pack cache
-  template <class MBD>
-  static void BuildSupplemental(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc,
+  template <class T>
+  static void BuildSupplemental(T *pmd, const SwarmPackDescriptor<TYPE> &desc,
                                 SwarmPackBase<TYPE> &pack) {
     // Fill the views
     auto flat_index_map_h = Kokkos::create_mirror_view(pack.flat_index_map_);
     auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
-    ForEachBlock(pmd, [&](int b, auto *pmbd) {
+    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       pack.contexts_h_(b) = swarm->GetDeviceContext();
       max_active_indices_h(b) = swarm->GetMaxActiveIndex();
       flat_index_map_h(b) =
           (b == 0 ? 0 : flat_index_map_h(b - 1) + max_active_indices_h(b - 1) + 1);
     });
-    flat_index_map_h(pack.nblocks_) = flat_index_map_h(pack.nblocks_ - 1) +
-                                      max_active_indices_h(pack.nblocks_ - 1) + 1;
+    flat_index_map_h(pack.nblocks_) =
+        flat_index_map_h(pack.nblocks_ - 1) + max_active_indices_h(pack.nblocks_ - 1) + 1;
     // make it an inclusive bound
     pack.max_flat_index_ = flat_index_map_h(pack.nblocks_) - 1;
 
@@ -132,8 +78,8 @@ class SwarmPackBase {
   // Actually build a `SwarmPackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained
   // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
-  template <class MBD>
-  static SwarmPackBase<TYPE> Build(MBD *pmd, const SwarmPackDescriptor<TYPE> &desc) {
+  template <class T>
+  static SwarmPackBase<TYPE> Build(T *pmd, const SwarmPackDescriptor<TYPE> &desc) {
     int nvar = desc.vars.size();
 
     SwarmPackBase<TYPE> pack;
@@ -144,7 +90,7 @@ class SwarmPackBase {
     int nblocks = 0;
     int ndim = 3;
     std::vector<int> vardims;
-    ForEachBlock(pmd, [&](int b, auto *pmbd) {
+    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       int size = 0;
       nblocks++;
@@ -175,7 +121,7 @@ class SwarmPackBase {
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
 
     // Fill the views
-    ForEachBlock(pmd, [&](int b, auto *pmbd) {
+    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, auto *pmbd) {
       int idx = 0;
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       for (int i = 0; i < nvar; ++i) {
@@ -230,33 +176,32 @@ class SwarmPackBase {
     return pack;
   }
 
-  template <class MBD>
-  static SwarmPackBase<TYPE> BuildAndAdd(MBD *pmd,
-                                         const SwarmPackDescriptor<TYPE> &desc) {
+  template <class T>
+  static SwarmPackBase<TYPE> BuildAndAdd(T *pmd, const SwarmPackDescriptor<TYPE> &desc) {
     auto &pack_map = pmd->template GetSwarmPackCache<TYPE>().pack_map;
-    pack_map[desc.identifier] = Build<MBD>(pmd, desc);
+    pack_map[desc.identifier] = Build<T>(pmd, desc);
     return pack_map[desc.identifier];
   }
 
-  template <class MBD>
-  static SwarmPackBase<TYPE> Get(MBD *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
+  template <class T>
+  static SwarmPackBase<TYPE> Get(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
     auto &pack_map = pmd->template GetSwarmPackCache<TYPE>().pack_map;
     if (pack_map.count(desc.identifier) > 0) {
       // Cached version is not stale, so just return a reference to it
       BuildSupplemental(pmd, desc, pack_map[desc.identifier]);
       return pack_map[desc.identifier];
     }
-    return BuildAndAdd<MBD>(pmd, desc);
+    return BuildAndAdd<T>(pmd, desc);
   }
 
-  template <class MBD>
-  static SwarmPackBase<TYPE> GetPack(MBD *pmd,
+  template <class T>
+  static SwarmPackBase<TYPE> GetPack(T *pmd,
                                      const impl::SwarmPackDescriptor<TYPE> &desc) {
-    return Get<MBD>(pmd, desc);
+    return Get<T>(pmd, desc);
   }
 
-  static SwarmPackIdxMap GetIdxMap(const desc_t &desc) {
-    SwarmPackIdxMap map;
+  static idx_map_t GetIdxMap(const desc_t &desc) {
+    idx_map_t map;
     std::size_t idx = 0;
     for (const auto &var : desc.vars) {
       map[var] = idx;
@@ -277,6 +222,35 @@ class SwarmPackBase {
   int nvar_;
   int max_flat_index_;
 };
+
+namespace impl {
+template <typename TYPE>
+struct SwarmPackDescriptor {
+  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
+      : swarm_name(swarm_name), vars(vars), identifier(GetIdentifier()) {}
+
+  // Determining if variable pv should be included in SwarmPack
+  bool IncludeVariable(int vidx,
+                       const std::shared_ptr<ParticleVariable<TYPE>> &pv) const {
+    if (vars[vidx] == pv->label()) return true;
+    return false;
+  }
+
+  const std::string swarm_name;
+  const std::vector<std::string> vars;
+  const std::string identifier;
+
+ private:
+  std::string GetIdentifier() const {
+    std::string ident("");
+    for (const auto &var : vars)
+      ident += var;
+    ident += "|swarm_name:";
+    ident += swarm_name;
+    return ident;
+  }
+};
+} // namespace impl
 
 template <typename TYPE>
 class SwarmPackCache {

@@ -132,6 +132,7 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
+  interface/pack_utils.hpp
   interface/params.cpp
   interface/params.hpp
   interface/sparse_pack.hpp

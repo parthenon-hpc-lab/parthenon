@@ -231,14 +231,14 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   static auto desc_id = MakeSwarmPackDescriptor<int>(swarm_name, vars_id);
   auto pack_id = desc_id.GetPack(md);
   auto pack_id_map = desc_id.GetMap();
-  parthenon::SwarmPackIdx spi_id(pack_id_map["id"]);
+  parthenon::PackIdx spi_id(pack_id_map["id"]);
 
   // Make a SwarmPack via strings to get v (note that v is a vector!)
   std::vector<std::string> vars_v{"v"};
   static auto desc_v = MakeSwarmPackDescriptor<Real>(swarm_name, vars_v);
   auto pack_v = desc_v.GetPack(md);
   auto pack_v_map = desc_v.GetMap();
-  parthenon::SwarmPackIdx spi_v(pack_v_map["v"]);
+  parthenon::PackIdx spi_v(pack_v_map["v"]);
 
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,

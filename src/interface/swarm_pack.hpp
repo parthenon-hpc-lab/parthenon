@@ -18,7 +18,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
 #include <set>
 #include <string>
 #include <tuple>
@@ -26,9 +25,9 @@
 #include <utility>
 #include <vector>
 
-#include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/pack_utils.hpp"
 #include "interface/swarm.hpp"
 #include "interface/swarm_pack_base.hpp"
 #include "interface/variable.hpp"
@@ -37,89 +36,12 @@
 
 namespace parthenon {
 
-class SwarmPackIdx {
- public:
-  KOKKOS_INLINE_FUNCTION
-  explicit SwarmPackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
-  KOKKOS_INLINE_FUNCTION
-  SwarmPackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
-
-  KOKKOS_INLINE_FUNCTION
-  SwarmPackIdx &operator=(std::size_t var_idx) {
-    vidx = var_idx;
-    offset = 0;
-    return *this;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  std::size_t VariableIdx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Offset() { return offset; }
-
- private:
-  std::size_t vidx;
-  int offset;
-};
-
-// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
-template <class T, REQUIRES(std::is_integral<T>::value)>
-KOKKOS_INLINE_FUNCTION SwarmPackIdx operator+(SwarmPackIdx idx, T offset) {
-  return SwarmPackIdx(idx.VariableIdx(), idx.Offset() + offset);
-}
-
-template <class T, REQUIRES(std::is_integral<T>::value)>
-KOKKOS_INLINE_FUNCTION SwarmPackIdx operator+(T offset, SwarmPackIdx idx) {
-  return idx + offset;
-}
-
-// Namespace in which to put variable name types that are used for indexing into
-// SwarmPack<[type list of variable name types]> on device
-namespace swarm_variable_names {
-// Struct that all variable_name types should inherit from
-template <bool REGEX, typename T = Real, int... NCOMP>
-struct base_t {
-  using data_type = T;
-
-  KOKKOS_INLINE_FUNCTION
-  base_t() : idx(0) {}
-
-  KOKKOS_INLINE_FUNCTION
-  explicit base_t(int idx1) : idx(idx1) {}
-
-  virtual ~base_t() = default;
-
-  // All of these are just static methods so that there is no
-  // extra storage in the struct
-  static std::string name() {
-    PARTHENON_FAIL("Need to implement your own name method.");
-    return "error";
-  }
-  KOKKOS_INLINE_FUNCTION
-  static bool regex() { return REGEX; }
-  KOKKOS_INLINE_FUNCTION
-  static int ndim() { return sizeof...(NCOMP); }
-  KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
-
-  const int idx;
-};
-
-} // namespace swarm_variable_names
-
 template <typename TYPE, class... Ts>
 class SwarmPack : public SwarmPackBase<TYPE> {
  public:
-  using typename SwarmPackBase<TYPE>::pack_t;
-  using typename SwarmPackBase<TYPE>::desc_t;
-  using typename SwarmPackBase<TYPE>::bounds_t;
-  using typename SwarmPackBase<TYPE>::contexts_t;
-  using typename SwarmPackBase<TYPE>::contexts_h_t;
-  using typename SwarmPackBase<TYPE>::max_active_indices_t;
-
   using SwarmPackBase<TYPE>::pack_;
   using SwarmPackBase<TYPE>::bounds_;
   using SwarmPackBase<TYPE>::contexts_;
-  using SwarmPackBase<TYPE>::contexts_h_;
   using SwarmPackBase<TYPE>::max_active_indices_;
   using SwarmPackBase<TYPE>::flat_index_map_;
   using SwarmPackBase<TYPE>::nvar_;
@@ -154,19 +76,17 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     }
   };
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  const SwarmDeviceContext &GetContext(const int b = 0) const { return contexts_(b); }
-
-  // max index in the space flattened over blocks and particles.  inclusive.
-  KOKKOS_FORCEINLINE_FUNCTION
-  const auto &GetMaxFlatIndex() const { return max_flat_index_; }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  const int &GetMaxActiveIndex(const int b = 0) const { return max_active_indices_(b); }
-
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNBlocks() const { return nblocks_; }
+
+  // inclusive max index of active particles at block level.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const int &GetMaxActiveIndex(const int b = 0) const { return max_active_indices_(b); }
+
+  // inclusive max index in the space flattened over blocks and particles.
+  KOKKOS_FORCEINLINE_FUNCTION
+  const auto &GetMaxFlatIndex() const { return max_flat_index_; }
 
   // map from flat index to block and particle indices
   KOKKOS_FORCEINLINE_FUNCTION
@@ -186,6 +106,9 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return std::make_tuple(b, idx - flat_index_map_(b));
   }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  const SwarmDeviceContext &GetContext(const int b = 0) const { return contexts_(b); }
+
   // Bound overloads
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b) const { return bounds_(0, b, 0); }
 
@@ -193,12 +116,12 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return bounds_(1, b, nvar_ - 1);
   }
 
-  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, SwarmPackIdx idx) const {
+  KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     return bounds_(0, b, idx.VariableIdx());
   }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, SwarmPackIdx idx) const {
+  KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0, "Cannot create a string/type hybrid pack");
     return bounds_(1, b, idx.VariableIdx());
   }
