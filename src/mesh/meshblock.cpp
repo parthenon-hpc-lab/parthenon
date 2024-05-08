@@ -110,15 +110,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
-    // Only set default block pgen when no mesh pgen is set
-  } else if (app_in->MeshProblemGenerator == nullptr) {
-    ProblemGenerator = &ProblemGeneratorDefault;
   }
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
-    // Only set default post-init when no mesh post-init is set
-  } else if (app_in->MeshPostInitialization == nullptr) {
-    PostInitialization = &PostInitializationDefault;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -176,9 +170,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   const auto vars =
       real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
-  for (const auto &v : vars) {
-    RegisterMeshBlockData(v);
-  }
+  for (const auto &v : vars)
+    vars_cc_.push_back(v);
 
   // No RemeshComm
   if (pm->multilevel) {
@@ -193,7 +186,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  app = InitApplicationMeshBlockData(this, pin);
+  if (InitApplicationMeshBlockData != nullptr) {
+    app = InitApplicationMeshBlockData(this, pin);
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -267,11 +262,6 @@ void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
     cost_ += lb_timer.seconds();
   }
-}
-
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
-  return;
 }
 
 void MeshBlock::AllocateSparse(std::string const &label, bool only_control,

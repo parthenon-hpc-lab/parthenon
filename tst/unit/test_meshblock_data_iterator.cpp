@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -135,7 +135,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
     }
 
-    auto v = mbd.PackVariables();
+    using FS_t = Metadata::FlagCollection;
+    auto flags =
+        (FS_t({Metadata::Independent, Metadata::Derived}, true) - FS_t(Metadata::Flux));
+    auto v = mbd.PackVariables(flags);
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,

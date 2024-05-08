@@ -93,8 +93,10 @@ class Mesh {
   std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
-  const RegionSize &GetBlockSize() const;
-  RegionSize GetBlockSize(const LogicalLocation &loc) const;
+  const RegionSize &GetDefaultBlockSize() const { return base_block_size; }
+  RegionSize GetBlockSize(const LogicalLocation &loc) const {
+    return forest.GetBlockDomain(loc);
+  }
   const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   const forest::Forest &Forest() const { return forest; }
@@ -119,12 +121,10 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  LogicalLocMap_t leaf_grid_locs;
-  std::vector<LogicalLocMap_t> gmg_grid_locs;
-  std::vector<BlockList_t> gmg_block_lists;
-  std::vector<DataCollection<MeshData<Real>>> gmg_mesh_data;
-  int GetGMGMaxLevel() { return gmg_grid_locs.size() - 1; }
-  int GetGMGMinLogicalLevel() { return gmg_min_logical_level_; }
+  std::map<int, BlockList_t> gmg_block_lists;
+  std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
+  int GetGMGMaxLevel() const { return current_level; }
+  int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
@@ -153,9 +153,12 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
+  void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                        SimTime const &time, OutputParameters *pparams);
+
   // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
-  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
+  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
@@ -165,19 +168,18 @@ class Mesh {
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
-      &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(
-      Mesh *, ParameterInput *,
-      SimTime const &); // default behavior for pre- and post-step user work
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
 
-  static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
+      UserMeshWorkBeforeOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &,
+                     OutputParameters *pparams)>
+      UserWorkBeforeRestartOutput = nullptr;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);
@@ -193,32 +195,13 @@ class Mesh {
     return forest.root_level + forest.forest_level;
   }
 
-  RootGridInfo GetRootGridInfo() const noexcept {
-    return RootGridInfo(
-        root_level, nrbx[0], nrbx[1], nrbx[2],
-        mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic && ndim > 0,
-        mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic && ndim > 1,
-        mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic && ndim > 2);
-  }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
   std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
-  // TODO(JMM): Put in implementation file?
-  auto GetLevelsAndLogicalLocationsFlat() const noexcept {
-    std::vector<std::int64_t> levels, logicalLocations;
-    levels.reserve(nbtotal);
-    logicalLocations.reserve(nbtotal * 3);
-    for (auto loc : loclist) {
-      loc = forest.GetLegacyTreeLocation(loc);
-      levels.push_back(loc.level() - GetLegacyTreeRootLevel());
-      logicalLocations.push_back(loc.lx1());
-      logicalLocations.push_back(loc.lx2());
-      logicalLocations.push_back(loc.lx3());
-    }
-    return std::make_pair(levels, logicalLocations);
-  }
+  std::pair<std::vector<std::int64_t>, std::vector<std::int64_t>>
+  GetLevelsAndLogicalLocationsFlat() const noexcept;
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
@@ -229,7 +212,7 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t =
       std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
-  comm_buf_map_t boundary_comm_map, boundary_comm_flxcor_map;
+  comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
 #ifdef MPI_PARALLEL
@@ -317,20 +300,15 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
-  void BuildGMGHierarchy(int nbs, ParameterInput *pin, ApplicationInput *app_in);
+  void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
+  void SetGMGNeighbors();
   void
-  SetMeshBlockNeighbors(BlockList_t &block_list, int nbs,
+  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
-  void
-  SetSameLevelNeighbors(BlockList_t &block_list, const LogicalLocMap_t &loc_map,
-                        RootGridInfo root_grid, int nbs, bool gmg_neighbors,
-                        int composite_logical_level = 0,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
-      InitUserMeshDataDefault;
+
+  // Optionally defined in the problem file
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
 
@@ -338,7 +316,6 @@ class Mesh {
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
-  void PopulateLeafLocationMap();
   void BuildTagMapAndBoundaryBuffers();
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();

@@ -134,7 +134,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       mesh_type = "2DSMesh";
       dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
     } else {
-      PARTHENON_FAIL("1D curvilinear meshes not supported.");
+      PARTHENON_FAIL("Custom coordinates not supported in XDMF for 1D meshes.");
     }
   } else {
     mesh_type = "3DRectMesh";

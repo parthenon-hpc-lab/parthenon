@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -91,11 +91,42 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       }
     }
     AND_WHEN("We want only a subset of variables in a new MeshBlockData") {
-      // reset vars
+      // reset vars so that we can check this is overwritten/or is a
+      // new stage
       par_for(
           loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
           KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
       auto x = d.Add("part", mbd, {"var2", "var3"});
+      THEN("Requesting the missing variables should throw") {
+        REQUIRE_THROWS(x->Get("var1"));
+      }
+      AND_THEN("Requesting the specified variables should work as expected") {
+        auto &xv2 = x->Get("var2").data;
+        auto &xv3 = x->Get("var3").data;
+        par_for(
+            loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+            KOKKOS_LAMBDA(const int i) {
+              xv2(0) = 22;
+              xv3(0) = 33;
+            });
+        auto hv2 = v2.GetHostMirrorAndCopy();
+        auto hv3 = v3.GetHostMirrorAndCopy();
+        auto hxv2 = xv2.GetHostMirrorAndCopy();
+        auto hxv3 = xv3.GetHostMirrorAndCopy();
+        REQUIRE(hxv3(0) != hv3(0));
+        REQUIRE(hxv2(0) == hv2(0));
+      }
+    }
+    AND_WHEN("We want only a subset of variables in a new MeshBlockData by UID") {
+      // reset vars so that we can check this is overwritten/or is a
+      // new stage
+      par_for(
+          loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+          KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
+      std::vector<parthenon::Uid_t> uids;
+      uids.push_back(mbd->UniqueID("var2"));
+      uids.push_back(mbd->UniqueID("var3"));
+      auto x = d.Add("part", mbd, uids);
       THEN("Requesting the missing variables should throw") {
         REQUIRE_THROWS(x->Get("var1"));
       }

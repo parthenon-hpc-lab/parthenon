@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -96,8 +96,12 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
-      pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
-      pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PreStepUserWorkInLoop != nullptr) {
+        pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PreStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
       TaskListStatus status = Step();
       if (status != TaskListStatus::complete) {
@@ -105,8 +109,12 @@ DriverStatus EvolutionDriver::Execute() {
         return DriverStatus::failed;
       }
 
-      pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
-      pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PostStepUserWorkInLoop != nullptr) {
+        pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PostStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
       tm.ncycle++;
       tm.time += tm.dt;
@@ -140,7 +148,9 @@ DriverStatus EvolutionDriver::Execute() {
       // ======================================================
   }   // Main t < tmax loop region
 
-  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  if (pmesh->UserWorkAfterLoop != nullptr) {
+    pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  }
 
   DriverStatus status = DriverStatus::complete;
   // Do *not* write the "final" output, if this is analysis run.
@@ -185,14 +195,13 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   }
   // calculate the first time step using Mesh function
   pmesh->boundary_comm_map.clear();
-  pmesh->boundary_comm_flxcor_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
     BuildBoundaryBuffers(mbase);
-    for (int gmg_level = 0; gmg_level < pmesh->gmg_mesh_data.size(); ++gmg_level) {
-      auto &mdg = pmesh->gmg_mesh_data[gmg_level].GetOrAdd(gmg_level, "base", i);
+    for (auto &[gmg_level, mdc] : pmesh->gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }

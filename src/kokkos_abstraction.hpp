@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -28,6 +28,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
@@ -642,6 +643,12 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
               function(l, m, n, k, j, i);
 }
 
+template <typename Tag, typename... Args>
+inline void par_dispatch(const std::string &name, Args &&...args) {
+  par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
+                    std::forward<Args>(args)...);
+}
+
 template <class... Args>
 inline void par_for(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
@@ -724,6 +731,12 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
         k += kl;
         function(team_member, n, k, j);
       });
+}
+
+template <typename... Args>
+inline void par_for_outer(const std::string &name, Args &&...args) {
+  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, DevExecSpace(),
+                std::forward<Args>(args)...);
 }
 
 // Inner parallel loop using TeamThreadRange
@@ -912,6 +925,11 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
   for (int i = il; i <= iu; i++) {
     function(i);
   }
+}
+
+template <typename... Args>
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(team_mbr_t team_member, Args &&...args) {
+  par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, std::forward<Args>(args)...);
 }
 
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp

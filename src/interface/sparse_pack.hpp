@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
@@ -156,11 +157,23 @@ struct base_t {
 
 // An example variable name type that selects all variables available
 // on Mesh*Data
-struct any : public base_t<true> {
+struct any_withautoflux : public base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any(Ts &&...args) : base_t<true>(std::forward<Ts>(args)...) {}
+  KOKKOS_INLINE_FUNCTION any_withautoflux(Ts &&...args)
+      : base_t<true>(std::forward<Ts>(args)...) {}
   static std::string name() { return ".*"; }
 };
+
+struct any_nonautoflux : public base_t<true> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION any_nonautoflux(Ts &&...args)
+      : base_t<true>(std::forward<Ts>(args)...) {}
+  static std::string name() {
+    return "^(?!" + internal_fluxname + internal_varname_seperator + ").+";
+  }
+};
+
+using any = any_nonautoflux;
 } // namespace variable_names
 
 template <class... Ts>
@@ -344,6 +357,11 @@ class SparsePack : public SparsePackBase {
     return (... && ContainsHost(b, Args()));
   }
 
+  // Informational
+  auto LabelHost(int b, int idx) const { return pack_h_(0, b, idx).label(); }
+  template <typename... Vars>
+  friend std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp);
+
   // operator() overloads
   using TE = TopologicalElement;
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
@@ -474,6 +492,19 @@ class SparsePack : public SparsePackBase {
     return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
   }
 };
+
+template <typename... Vars>
+inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp) {
+  os << "Sparse pack contains on each block:\n";
+  for (int b = 0; b < sp.GetNBlocks(); b++) {
+    os << "\tb = " << b << "\n";
+    for (int n = sp.GetLowerBoundHost(b); n <= sp.GetUpperBoundHost(b); n++) {
+      os << "\t\t" << sp.LabelHost(b, n) << "\n";
+    }
+  }
+  os << "\n";
+  return os;
+}
 
 } // namespace parthenon
 

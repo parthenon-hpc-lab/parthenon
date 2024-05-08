@@ -201,8 +201,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (op.file_type == "hst") {
-        op.packages = pin->GetOrAddVector<std::string>(pib->block_name, "packages",
-                                                       std::vector<std::string>());
+        // Do not use GetOrAddVector because it will pollute the input parameters for
+        // restarts
+        if (pin->DoesParameterExist(pib->block_name, "packages")) {
+          op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
+        } else {
+          op.packages = std::vector<std::string>();
+        }
       }
 
       // set output variable and optional data format string used in formatted writes
@@ -437,7 +442,16 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
            ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
+        for (const auto &pkg : pm->packages.AllPackages()) {
+          pkg.second->UserWorkBeforeOutput(pm, pin, *tm);
+        }
         first = false;
+      }
+      if (ptype->output_params.file_type == "rst") {
+        pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+        for (const auto &pkg : pm->packages.AllPackages()) {
+          pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+        }
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }

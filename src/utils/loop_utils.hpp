@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -127,32 +127,33 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
           }
         }
       } else {
-        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
+        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
+          constexpr bool flx_bound =
+              bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
           for (auto &nb : pmb->neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
-              if (nb.snb.rank != Globals::my_rank) continue;
+              if (nb.rank != Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::nonlocal) {
-              if (!v->IsSet(Metadata::FillGhost)) {
-                continue;
-              }
-              if (nb.snb.rank == Globals::my_rank) continue;
+              if (!v->IsSet(Metadata::FillGhost)) continue;
+              if (nb.rank == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
-            } else if constexpr (bound == BoundaryType::flxcor_send) {
-              if (!v->IsSet(Metadata::WithFluxes)) continue;
+            } else if constexpr (flx_bound) {
+              if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction
-              if (nb.snb.level != pmb->loc.level() - 1) continue;
-              // No flux correction required unless boundaries share a face
-              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) !=
+                  pmb->loc.level() - (bound == BoundaryType::flxcor_send))
                 continue;
-            } else if constexpr (bound == BoundaryType::flxcor_recv) {
-              if (!v->IsSet(Metadata::WithFluxes)) continue;
-              // Check if this boundary requires flux correction
-              if (nb.snb.level - 1 != pmb->loc.level()) continue;
-              // No flux correction required unless boundaries share a face
-              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
-                continue;
+              bool correct = false;
+              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&
+                  v->IsSet(Metadata::Edge))
+                correct = true;
+              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) &&
+                  v->IsSet(Metadata::Node))
+                correct = true;
+              if (!correct) continue;
             }
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }

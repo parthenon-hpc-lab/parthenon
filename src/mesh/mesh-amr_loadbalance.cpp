@@ -124,8 +124,7 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
-            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
@@ -217,8 +216,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
-            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
@@ -792,7 +790,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   BlockList_t new_block_list(nbe - nbs + 1);
   { // AMR Construct new MeshBlockList region
     PARTHENON_INSTRUMENT
-    RegionSize block_size = GetBlockSize();
+    RegionSize block_size = GetDefaultBlockSize();
 
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
@@ -927,7 +925,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     loclist = std::move(newloc);
     ranklist = std::move(newrank);
     costlist = std::move(newcost);
-    PopulateLeafLocationMap();
+
+    BuildGMGBlockLists(pin, app_in);
 
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
@@ -936,8 +935,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
     // init meshblock data
-    for (auto &pmb : block_list)
-      pmb->InitMeshBlockUserData(pmb.get(), pin);
+    for (auto &pmb : block_list) {
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb.get(), pin);
+      }
+    }
 
     // Find the non-cell centered fields that are communicated
     Metadata::FlagCollection fc;
@@ -954,7 +956,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(block_list, nbs, ranklist, newly_refined);
+      SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
       for (int i = 0; i < DefaultNumPartitions(); ++i) {
@@ -973,8 +976,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetMeshBlockNeighbors(block_list, nbs, ranklist);
-    BuildGMGHierarchy(nbs, pin, app_in);
+    SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+    SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
     if (noncc_names.size() == 0) BuildTagMapAndBoundaryBuffers();
