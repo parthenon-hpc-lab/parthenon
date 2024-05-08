@@ -15,6 +15,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1070]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Correctly exclude flux vars from searches by default
 - [[PR 1049]](https://github.com/parthenon-hpc-lab/parthenon/pull/1049) Catch task failures from threads
 - [[PR 1058]](https://github.com/parthenon-hpc-lab/parthenon/pull/1058) Vector history not being output if no scalar history present
 - [[PR 1057]](https://github.com/parthenon-hpc-lab/parthenon/pull/1057) Fix history output after restarts
