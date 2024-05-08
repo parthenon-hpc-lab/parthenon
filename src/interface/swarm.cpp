@@ -241,28 +241,11 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   nmax_pool_ = nmax_pool;
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
-  // (1): MeshData "base" partitions
+  pm->mesh_data.Get("base")->ClearSwarmCaches();
+  pmb->meshblock_data.Get()->ClearSwarmCaches();
   for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
-    auto pmdp = pm->mesh_data.GetOrAdd("base", i);
-    auto &real_mdp_cache = pmdp->GetSwarmPackCache<Real>().pack_map;
-    auto &int_mdp_cache = pmdp->GetSwarmPackCache<int>().pack_map;
-    if (real_mdp_cache.size() > 0) real_mdp_cache.clear();
-    if (int_mdp_cache.size() > 0) int_mdp_cache.clear();
+    pm->mesh_data.GetOrAdd("base", i)->ClearSwarmCaches();
   }
-
-  // (2): MeshData "base"
-  auto pmd = pm->mesh_data.Get("base");
-  auto &real_md_cache = pmd->GetSwarmPackCache<Real>().pack_map;
-  auto &int_md_cache = pmd->GetSwarmPackCache<int>().pack_map;
-  if (real_md_cache.size() > 0) real_md_cache.clear();
-  if (int_md_cache.size() > 0) int_md_cache.clear();
-
-  // (3): MeshBlockData
-  auto pmbd = pmb->meshblock_data.Get().get();
-  auto &real_mbd_cache = pmbd->GetSwarmPackCache<Real>().pack_map;
-  auto &int_mbd_cache = pmbd->GetSwarmPackCache<int>().pack_map;
-  if (real_mbd_cache.size() > 0) real_mbd_cache.clear();
-  if (int_mbd_cache.size() > 0) int_mbd_cache.clear();
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {

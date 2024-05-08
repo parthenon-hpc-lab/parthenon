@@ -298,6 +298,11 @@ class MeshBlockData {
     PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
   }
 
+  void ClearSwarmCaches() {
+    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
+    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+  }
+
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,

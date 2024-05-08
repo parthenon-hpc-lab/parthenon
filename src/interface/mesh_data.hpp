@@ -479,6 +479,11 @@ class MeshData {
     PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
   }
 
+  void ClearSwarmCaches() {
+    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
+    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+  }
+
  private:
   bool BlockDataIsWholeRank_() const;
 
