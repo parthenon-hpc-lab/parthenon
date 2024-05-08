@@ -4,7 +4,8 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
-- [[PR 1062]](https://github.com/parthenon-hpc-lab/parthenon/pull/1062) UserWorkBeforeRestartOutput #1062
+- [[PR 1068]](https://github.com/parthenon-hpc-lab/parthenon/pull/1068) Add ability to dump sparse pack contents as a string
+- [[PR1062]](https://github.com/parthenon-hpc-lab/parthenon/pull/1062) UserWorkBeforeRestartOutput #1062
 - [[PR 1043]](https://github.com/parthenon-hpc-lab/parthenon/pull/1043) Unify flux correction with boundary communication, make fluxes variables, allow fluxes for non-cell fields
 - [[PR 1060]](https://github.com/parthenon-hpc-lab/parthenon/pull/1060) Add the ability to request new MeshData/MeshBlockData objects by selecting variables by UID.
 - [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
