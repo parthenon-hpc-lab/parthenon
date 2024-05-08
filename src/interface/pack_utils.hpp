@@ -38,7 +38,6 @@ inline auto ForEachBlock(T *pmbd, const std::vector<bool> &include_block, F func
 }
 } // namespace
 
-
 // Check data types of requested variables
 namespace {
 template <typename Head, typename... Tail>
@@ -147,7 +146,6 @@ struct any_nonautoflux : public base_t<true> {
 using any = any_nonautoflux;
 } // namespace variable_names
 
-
 // Namespace in which to put swarm variable name types that are used for indexing into
 // SwarmPack<[type list of variable name types]> on device
 namespace swarm_variable_names {
@@ -156,7 +154,6 @@ struct base_t : public variable_names::var_base_t<false, T, NCOMP...> {
   using variable_names::var_base_t<false, T, NCOMP...>::var_base_t;
 };
 } // namespace swarm_variable_names
-
 
 // Sparse/Swarm pack index types which allow for relatively simple indexing into
 // non-variable name type based SparsePacks/SwarmPacks (i.e. objects of type
