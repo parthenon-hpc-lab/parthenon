@@ -115,14 +115,12 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using typename SwarmPackBase<TYPE>::contexts_t;
   using typename SwarmPackBase<TYPE>::contexts_h_t;
   using typename SwarmPackBase<TYPE>::max_active_indices_t;
-  using typename SwarmPackBase<TYPE>::max_active_indices_h_t;
 
   using SwarmPackBase<TYPE>::pack_;
   using SwarmPackBase<TYPE>::bounds_;
   using SwarmPackBase<TYPE>::contexts_;
   using SwarmPackBase<TYPE>::contexts_h_;
   using SwarmPackBase<TYPE>::max_active_indices_;
-  using SwarmPackBase<TYPE>::max_active_indices_h_;
   using SwarmPackBase<TYPE>::flat_index_map_;
   using SwarmPackBase<TYPE>::nvar_;
   using SwarmPackBase<TYPE>::nblocks_;
@@ -165,9 +163,6 @@ class SwarmPack : public SwarmPackBase<TYPE> {
 
   KOKKOS_FORCEINLINE_FUNCTION
   const int &GetMaxActiveIndex(const int b = 0) const { return max_active_indices_(b); }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  const auto &GetMaxActiveIndicesHost() const { return max_active_indices_h_; }
 
   // Methods for getting parts of the shape of the pack
   KOKKOS_FORCEINLINE_FUNCTION

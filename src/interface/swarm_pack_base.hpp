@@ -102,7 +102,6 @@ class SwarmPackBase {
   using contexts_t = ParArray1D<SwarmDeviceContext>;
   using contexts_h_t = typename ParArray1D<SwarmDeviceContext>::HostMirror;
   using max_active_indices_t = ParArray1D<int>;
-  using max_active_indices_h_t = typename ParArray1D<int>::HostMirror;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
 
   // Build supplemental entries to SwarmPack that change on a cadence faster than the
@@ -112,20 +111,21 @@ class SwarmPackBase {
                                 SwarmPackBase<TYPE> &pack) {
     // Fill the views
     auto flat_index_map_h = Kokkos::create_mirror_view(pack.flat_index_map_);
+    auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
     ForEachBlock(pmd, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
       pack.contexts_h_(b) = swarm->GetDeviceContext();
-      pack.max_active_indices_h_(b) = swarm->GetMaxActiveIndex();
+      max_active_indices_h(b) = swarm->GetMaxActiveIndex();
       flat_index_map_h(b) =
-          (b == 0 ? 0 : flat_index_map_h(b - 1) + pack.max_active_indices_h_(b - 1) + 1);
+          (b == 0 ? 0 : flat_index_map_h(b - 1) + max_active_indices_h(b - 1) + 1);
     });
     flat_index_map_h(pack.nblocks_) = flat_index_map_h(pack.nblocks_ - 1) +
-                                      pack.max_active_indices_h_(pack.nblocks_ - 1) + 1;
-    // make it an inclusive bound because we're silly
+                                      max_active_indices_h(pack.nblocks_ - 1) + 1;
+    // make it an inclusive bound
     pack.max_flat_index_ = flat_index_map_h(pack.nblocks_) - 1;
 
     Kokkos::deep_copy(pack.contexts_, pack.contexts_h_);
-    Kokkos::deep_copy(pack.max_active_indices_, pack.max_active_indices_h_);
+    Kokkos::deep_copy(pack.max_active_indices_, max_active_indices_h);
     Kokkos::deep_copy(pack.flat_index_map_, flat_index_map_h);
   }
 
@@ -224,7 +224,6 @@ class SwarmPackBase {
     pack.contexts_ = contexts_t("contexts", nblocks);
     pack.contexts_h_ = Kokkos::create_mirror_view(pack.contexts_);
     pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
-    pack.max_active_indices_h_ = Kokkos::create_mirror_view(pack.max_active_indices_);
     pack.flat_index_map_ = max_active_indices_t("flat_index_map", nblocks + 1);
     BuildSupplemental(pmd, desc, pack);
 
@@ -272,7 +271,6 @@ class SwarmPackBase {
   contexts_t contexts_;
   contexts_h_t contexts_h_;
   max_active_indices_t max_active_indices_;
-  max_active_indices_h_t max_active_indices_h_;
   max_active_indices_t flat_index_map_;
 
   int nblocks_;
