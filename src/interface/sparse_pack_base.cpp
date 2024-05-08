@@ -163,7 +163,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     leading_dim += 2;
   }
   pack.pack_ = pack_t("data_ptr", leading_dim, pack.nblocks_, max_size);
-  auto pack_h = Kokkos::create_mirror_view(pack.pack_);
+  pack.pack_h_ = Kokkos::create_mirror_view(pack.pack_);
 
   // For non-flat packs, shape of pack is type x block x var x k x j x i
   // where type here might be a flux.
@@ -208,48 +208,52 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
                 for (int v = 0; v < pv->GetDim(4); ++v) {
                   if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge)) {
                     if (pack.coarse_) {
-                      pack_h(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
-                      pack_h(1, b, idx) = pv->coarse_s.Get(1, t, u, v);
-                      pack_h(2, b, idx) = pv->coarse_s.Get(2, t, u, v);
+                      pack.pack_h_(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
+                      pack.pack_h_(1, b, idx) = pv->coarse_s.Get(1, t, u, v);
+                      pack.pack_h_(2, b, idx) = pv->coarse_s.Get(2, t, u, v);
                     } else {
-                      pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
-                      pack_h(1, b, idx) = pv->data.Get(1, t, u, v);
-                      pack_h(2, b, idx) = pv->data.Get(2, t, u, v);
+                      pack.pack_h_(0, b, idx) = pv->data.Get(0, t, u, v);
+                      pack.pack_h_(1, b, idx) = pv->data.Get(1, t, u, v);
+                      pack.pack_h_(2, b, idx) = pv->data.Get(2, t, u, v);
                     }
                     if (pv->IsSet(Metadata::Vector)) {
-                      pack_h(0, b, idx).vector_component = X1DIR;
-                      pack_h(1, b, idx).vector_component = X2DIR;
-                      pack_h(2, b, idx).vector_component = X3DIR;
+                      pack.pack_h_(0, b, idx).vector_component = X1DIR;
+                      pack.pack_h_(1, b, idx).vector_component = X2DIR;
+                      pack.pack_h_(2, b, idx).vector_component = X3DIR;
                     }
 
                     if (pv->IsSet(Metadata::Face)) {
-                      pack_h(0, b, idx).topological_element = TopologicalElement::E1;
-                      pack_h(1, b, idx).topological_element = TopologicalElement::E2;
-                      pack_h(2, b, idx).topological_element = TopologicalElement::E3;
+                      pack.pack_h_(0, b, idx).topological_element =
+                          TopologicalElement::E1;
+                      pack.pack_h_(1, b, idx).topological_element =
+                          TopologicalElement::E2;
+                      pack.pack_h_(2, b, idx).topological_element =
+                          TopologicalElement::E3;
                     }
 
                   } else { // This is a cell, node, or a variable that doesn't have
                            // topology information
                     if (pack.coarse_) {
-                      pack_h(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
+                      pack.pack_h_(0, b, idx) = pv->coarse_s.Get(0, t, u, v);
                     } else {
-                      pack_h(0, b, idx) = pv->data.Get(0, t, u, v);
+                      pack.pack_h_(0, b, idx) = pv->data.Get(0, t, u, v);
                     }
                     if (pv->IsSet(Metadata::Vector))
-                      pack_h(0, b, idx).vector_component = v + 1;
+                      pack.pack_h_(0, b, idx).vector_component = v + 1;
 
                     if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-                      pack_h(1, b, idx) = pvf->data.Get(0, t, u, v);
-                      pack_h(2, b, idx) = pvf->data.Get(1, t, u, v);
-                      pack_h(3, b, idx) = pvf->data.Get(2, t, u, v);
+                      pack.pack_h_(1, b, idx) = pvf->data.Get(0, t, u, v);
+                      pack.pack_h_(2, b, idx) = pvf->data.Get(1, t, u, v);
+                      pack.pack_h_(3, b, idx) = pvf->data.Get(2, t, u, v);
                     }
                   }
                   for (auto el :
-                       GetTopologicalElements(pack_h(0, b, idx).topological_type)) {
-                    pack_h(static_cast<int>(el) % 3, b, idx).topological_element = el;
+                       GetTopologicalElements(pack.pack_h_(0, b, idx).topological_type)) {
+                    pack.pack_h_(static_cast<int>(el) % 3, b, idx).topological_element =
+                        el;
                   }
                   PARTHENON_REQUIRE(
-                      pack_h(0, b, idx).size() > 0,
+                      pack.pack_h_(0, b, idx).size() > 0,
                       "Seems like this variable might not actually be allocated.");
 
                   if (desc.flat) {
@@ -274,7 +278,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     pack.bounds_h_(1, blidx, nvar) = idx - 1;
     blidx++;
   });
-  Kokkos::deep_copy(pack.pack_, pack_h);
+  Kokkos::deep_copy(pack.pack_, pack.pack_h_);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
 
