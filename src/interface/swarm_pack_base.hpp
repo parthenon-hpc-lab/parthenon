@@ -88,7 +88,6 @@ class SwarmPackBase {
     // Count up the size of the array that is required
     int max_size = 0;
     int nblocks = 0;
-    int ndim = 3;
     std::vector<int> vardims;
     ForEachBlock(pmd, std::vector<bool>{}, [&](int b, auto *pmbd) {
       auto swarm = pmbd->GetSwarm(desc.swarm_name);
@@ -99,11 +98,6 @@ class SwarmPackBase {
           if (desc.IncludeVariable(i, pv)) {
             size += pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4) * pv->GetDim(3) *
                     pv->GetDim(2);
-            ndim = 1;
-            int vardim = (pv->GetDim(6) > 1 ? 1 : 0) + (pv->GetDim(5) > 1 ? 1 : 0) +
-                         (pv->GetDim(4) > 1 ? 1 : 0) + (pv->GetDim(3) > 1 ? 1 : 0) +
-                         (pv->GetDim(2) > 1 ? 1 : 0);
-            vardims.push_back(vardim);
           }
         }
       }
@@ -116,8 +110,7 @@ class SwarmPackBase {
     pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
     auto pack_h = Kokkos::create_mirror_view(pack.pack_);
 
-    int bounds_leading_size = 2 + 1 + *max_element(vardims.begin(), vardims.end());
-    pack.bounds_ = bounds_t("bounds", bounds_leading_size, nblocks, nvar);
+    pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
 
     // Fill the views
@@ -143,16 +136,8 @@ class SwarmPackBase {
                 }
               }
             }
-            bounds_h(2, b, i) = (pv->GetDim(6) > 1 ? 1 : 0) +
-                                (pv->GetDim(5) > 1 ? 1 : 0) +
-                                (pv->GetDim(4) > 1 ? 1 : 0) +
-                                (pv->GetDim(3) > 1 ? 1 : 0) + (pv->GetDim(2) > 1 ? 1 : 0);
-            for (int d = 0; d < bounds_h(2, b, i); d++) {
-              bounds_h(3 + d, b, i) = pv->GetDim(2 + d);
-            }
           }
         }
-
         bounds_h(1, b, i) = idx - 1;
 
         if (bounds_h(1, b, i) < bounds_h(0, b, i)) {
