@@ -28,9 +28,13 @@ be added as:
 
    Swarm.Add(name, metadata)
 
-For a given species, each ``MeshBlock`` contains its own ``Swarm`` that
-holds the particles of that species that are spatially contained by that
-``MeshBlock``. The ``MeshBlock`` is pointed to by ``Swarm::pmy_block``.
+Instances of ``MeshBlockData`` own the ``Swarm``s that hold particles spatially contained
+by the associated ``MeshBlock``. The ``MeshBlock`` is pointed to by ``Swarm::pmy_block``.
+``Swarm``s can be retrieved via both ``MeshBlockData::GetSwarmData()`` or
+``MeshData::GetSwarmData(b)`` where the latter returns the ``Swarm``s associated with the
+``MeshBlockData`` pointed to by the ``b`` index within a ``MeshData``.  We currently only
+permit ``Swarm``s to be retrieved from ``"base"`` ``MeshBlockData`` and ``MeshData``.
+
 
 The ``Swarm`` is a host-side object, but some of its data members are
 required for device- side compution. To access this data, a
@@ -179,7 +183,7 @@ example), the type can be inferred automatically:
    auto pack = desc.GetPack(md);
 
 
-For example ``SwarmPack`` useage, see the ``particle_leapfrog`` example.
+For example ``SwarmPack`` usage, see the ``particle_leapfrog`` example.
 
 
 
