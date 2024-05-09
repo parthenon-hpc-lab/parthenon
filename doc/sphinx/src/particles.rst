@@ -147,6 +147,38 @@ Similarly to grid variables, particle swarms support
 This also supports ``FlatIdx`` for indexing; see the
 ``particle_leapfrog`` example for usage.
 
+Swarm Packing
+----------------
+
+Similar to grid variables, swarms can be packed over `MeshBlock`s via `SwarmPack`s.
+`SwarmPack`s are the particle analog to `SparsePack`s for field variables.  A single
+`SwarmPack` can contain either `int` or `Real` entries, but not both.  One can pack a
+`SwarmPack` via a `std::vector<std::string>` or the type-based variable prescription
+previously used by `SparsePack`s.
+
+For packing via string (wherein below, `swarm_position::x::name()` returns a string),
+one must specify the data type by template argument:
+```c++
+std::vector<std::string> vars{swarm_position::x::name(),
+                              swarm_position::y::name(),
+                              swarm_position::z::name()};
+static auto desc = MakeSwarmPackDescriptor<Real>(swarm_name, vars);
+auto pack = desc.GetPack(md);
+```
+
+For packing via type-based variables (see interface/swarm_default_names.hpp for an
+example), the type can be inferred automatically:
+```c++
+static auto desc = MakeSwarmPackDescriptor<swarm_position::x,
+                                           swarm_position::y,
+                                           swarm_position::z>(swarm_name);
+auto pack = desc.GetPack(md);
+```
+
+For example `SwarmPack` useage, see the `particle_leapfrog` example.
+
+
+
 Boundary conditions
 -------------------
 
