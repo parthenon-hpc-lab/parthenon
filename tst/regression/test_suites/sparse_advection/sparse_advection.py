@@ -33,6 +33,27 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "parthenon/sparse/enable_sparse=false",
             ]
 
+        # Run a test with two trees
+        if step == 2:
+            parameters.driver_cmd_line_args = [
+                "parthenon/mesh/nx2=32",
+                "parthenon/job/problem_id=sparse_twotree",
+            ]
+
+        # Run a test with two trees and a statically refined region
+        if step == 3:
+            parameters.driver_cmd_line_args = [
+                "parthenon/mesh/nx2=32",
+                "parthenon/time/nlim=50",
+                "parthenon/job/problem_id=sparse_twotree_static",
+                "parthenon/mesh/refinement=static",
+                "parthenon/static_refinement0/x1min=-0.75",
+                "parthenon/static_refinement0/x1max=-0.5",
+                "parthenon/static_refinement0/x2min=-0.75",
+                "parthenon/static_refinement0/x2max=-0.5",
+                "parthenon/static_refinement0/level=3",
+            ]
+
         return parameters
 
     def Analyse(self, parameters):
@@ -72,6 +93,32 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "sparse.out0.final.phdf",
                     parameters.parthenon_path
                     + "/tst/regression/gold_standard/sparse_true.out0.final.phdf",
+                ],
+                one=True,
+                tol=1e-12,
+                check_metadata=False,
+            )
+            if delta != 0:
+                return False
+
+            delta = compare(
+                [
+                    "sparse_twotree.out0.final.phdf",
+                    parameters.parthenon_path
+                    + "/tst/regression/gold_standard/sparse_twotree.out0.final.phdf",
+                ],
+                one=True,
+                tol=1e-12,
+                check_metadata=False,
+            )
+            if delta != 0:
+                return False
+
+            delta = compare(
+                [
+                    "sparse_twotree_static.out0.final.phdf",
+                    parameters.parthenon_path
+                    + "/tst/regression/gold_standard/sparse_twotree_static.out0.final.phdf",
                 ],
                 one=True,
                 tol=1e-12,
