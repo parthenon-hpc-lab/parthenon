@@ -46,6 +46,10 @@ namespace parthenon {
 // memory by wrapping the persistent new_indices_ array.
 class NewParticlesContext {
  public:
+  KOKKOS_DEFAULTED_FUNCTION
+  NewParticlesContext() = default;
+
+  KOKKOS_FUNCTION
   NewParticlesContext(const int new_indices_max_idx, const ParArray1D<int> new_indices)
       : new_indices_max_idx_(new_indices_max_idx), new_indices_(new_indices) {}
 
@@ -63,7 +67,7 @@ class NewParticlesContext {
   }
 
  private:
-  const int new_indices_max_idx_;
+  int new_indices_max_idx_;
   ParArray1D<int> new_indices_;
 };
 
@@ -234,6 +238,8 @@ class Swarm {
     return std::get<getType<T>()>(vectors_);
   }
 
+  static constexpr int inactive_max_active_index = -1;
+
  private:
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
@@ -256,9 +262,7 @@ class Swarm {
 
   std::size_t uid_;
   inline static UniqueIDGenerator<std::string> get_uid_;
-
-  static constexpr int inactive_max_active_index_ = -1;
-  int max_active_index_ = inactive_max_active_index_;
+  int max_active_index_ = inactive_max_active_index;
   int num_active_ = 0;
   std::string label_;
   Metadata m_;

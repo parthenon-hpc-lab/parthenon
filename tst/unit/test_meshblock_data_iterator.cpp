@@ -450,7 +450,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
     pkg->AddField("var", m);
 
-    MeshBlockData<Real> mbd;
+    MeshBlockData<Real> mbd("base");
     mbd.Initialize(pkg, dummy_mb);
     auto &var = mbd.Get("var");
 

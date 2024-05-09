@@ -25,6 +25,9 @@
 #include "basic_types.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm.hpp"
+#include "interface/swarm_container.hpp"
+#include "interface/swarm_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -263,6 +266,23 @@ class MeshBlockData {
     return GetAllVariables(sparse_ids, flux).unique_ids();
   }
 
+  // Queries related to swarm data
+  std::shared_ptr<SwarmContainer> &GetSwarmData(int n = 0) {
+    PARTHENON_REQUIRE(stage_name_ == "base",
+                      "Swarm data must be accessed through base register!");
+    PARTHENON_REQUIRE(n == 0, "MeshBlockData::GetSwarmData requires n==0");
+    return swarm_data;
+  }
+  std::vector<std::shared_ptr<Swarm>> GetAllSwarms() {
+    return this->GetSwarmData()->GetSwarmVector();
+  }
+  std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
+    auto swarm_map = this->GetSwarmData()->GetSwarmMap();
+    auto it = swarm_map.find(name);
+    PARTHENON_REQUIRE(it != swarm_map.end(), "Couldn't find swarm '" + name + "'");
+    return it->second;
+  }
+
   /// Queries related to variable packs
   /// For all of these functions, vmap and key are optional output parameters, they will
   /// be set if not null.
@@ -272,6 +292,21 @@ class MeshBlockData {
   /// variable
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
+
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, Real>::value) {
+      return swarm_pack_real_cache_;
+    }
+    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+  }
+
+  void ClearSwarmCaches() {
+    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
+    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+  }
 
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
@@ -540,6 +575,11 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<Real> swarm_pack_real_cache_;
+
+  // swarm data
+  std::shared_ptr<SwarmContainer> swarm_data = std::make_shared<SwarmContainer>();
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &

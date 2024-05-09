@@ -142,11 +142,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  auto &swarm_container = swarm_data.Get();
-
   real_container->Initialize(resolved_packages, shared_from_this());
-
-  swarm_container->Initialize(resolved_packages, shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
