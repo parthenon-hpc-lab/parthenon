@@ -573,7 +573,10 @@ class Metadata {
   const std::string &getAssociated() const { return associated_; }
 
   void SetFluxName(const std::string &name) { flux_var_ = name; }
-  const std::string &GetFluxName() const { return flux_var_; }
+  const std::string &GetFluxName() const {
+    PARTHENON_DEBUG_REQUIRE(IsSet(WithFluxes), "Variable has a flux.");
+    return flux_var_;
+  }
 
   const std::vector<std::string> getComponentLabels() const noexcept {
     return component_labels_;
