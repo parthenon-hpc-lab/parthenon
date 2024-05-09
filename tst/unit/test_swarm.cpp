@@ -79,6 +79,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "nx1 = 4" << endl;
   is << "nx2 = 4" << endl;
   is << "nx3 = 4" << endl;
+  is << "pack_size = 1" << endl;
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
