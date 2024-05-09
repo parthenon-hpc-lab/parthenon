@@ -191,11 +191,8 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetLegacyTreeRootLevel() const noexcept {
-    PARTHENON_REQUIRE(
-        forest.forest_level,
-        "The level of the forest must be defined to reference the legacy tree.");
-    return forest.root_level + *(forest.forest_level);
+  int GetLegacyTreeRootLevel() const {
+    return forest.root_level + forest.forest_level.value();
   }
 
   int GetMaxLevel() const noexcept { return max_level; }

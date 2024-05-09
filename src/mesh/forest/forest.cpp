@@ -180,7 +180,7 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   // Sort trees by their logical location in the tree mesh
   Forest fout;
   fout.root_level = ref_level;
-  *(fout.forest_level) = level;
+  fout.forest_level = level;
   for (auto &[loc, p] : ll_map)
     fout.AddTree(p.second);
   return fout;
