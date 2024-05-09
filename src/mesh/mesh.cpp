@@ -287,7 +287,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
         }
         int ref_lev = pin->GetInteger(pib->block_name, "level");
-        int lrlev = ref_lev + root_level;
+        int lrlev = ref_lev + GetLegacyTreeRootLevel();
         // range check
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -324,9 +324,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         for (auto dir : {X1DIR, X2DIR, X3DIR}) {
           if (!mesh_size.symmetry(dir)) {
             l_region_min[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+                GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
             l_region_max[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+                GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
             l_region_min[dir - 1] =
                 std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
             l_region_max[dir - 1] =
@@ -335,7 +335,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
             auto current_loc =
                 LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
             // Remove last block if it just it's boundary overlaps with the region
-            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+            if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
                 ref_size.xmax(dir))
               l_region_max[dir - 1]--;
             if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
