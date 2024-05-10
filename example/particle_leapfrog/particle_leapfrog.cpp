@@ -262,6 +262,11 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
           pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
           pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+          // bool on_current_mesh_block;
+          // swarm_d.GetNeighborBlockIndex(
+          //    n, pack_pos(b, swarm_position::x(), n), pack_pos(b, swarm_position::y(),
+          //    n), pack_pos(b, swarm_position::z(), n), on_current_mesh_block);
         }
       });
 
@@ -271,6 +276,9 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
+
+  // Enforce fixed timestep
+  integrator.dt = tm.dt;
 
   status = MakeParticlesUpdateTaskCollection().Execute();
 
