@@ -132,10 +132,12 @@ class Swarm {
   // pointer?
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
+    PARTHENON_DEBUG_REQUIRE(Contains(label), "Non-existent swarm variable requested!");
     return *std::get<getType<T>()>(maps_).at(label);
   }
   template <class T>
   std::shared_ptr<ParticleVariable<T>> GetP(const std::string &label) const {
+    PARTHENON_DEBUG_REQUIRE(Contains(label), "Non-existent swarm variable requested!");
     return std::get<getType<T>()>(maps_).at(label);
   }
 

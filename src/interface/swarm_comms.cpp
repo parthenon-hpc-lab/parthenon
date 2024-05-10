@@ -331,6 +331,7 @@ int Swarm::CountParticlesToSend_() {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int nbmax = vbswarm->bd_var_.nbmax;
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Fence to make sure particles aren't currently being transported locally
   // TODO(BRR) do this operation on device.
@@ -341,12 +342,13 @@ int Swarm::CountParticlesToSend_() {
   }
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // TODO(BRR) This kernel launch should be folded into the subsequent logic once we
   // convert that to kernel-based reductions
-  auto &x = Get<Real>("x").Get();
-  auto &y = Get<Real>("y").Get();
-  auto &z = Get<Real>("z").Get();
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
   const int max_active_index = GetMaxActiveIndex();
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
@@ -355,6 +357,7 @@ int Swarm::CountParticlesToSend_() {
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   int max_indices_size = 0;
   int total_noblock_particles = 0;
@@ -373,6 +376,7 @@ int Swarm::CountParticlesToSend_() {
       }
     }
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
   // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic
   // that indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
@@ -393,6 +397,7 @@ int Swarm::CountParticlesToSend_() {
     }
     noblock_indices.DeepCopy(noblock_indices_h);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // TODO(BRR) don't allocate dynamically
   particle_indices_to_send_ =
@@ -409,6 +414,7 @@ int Swarm::CountParticlesToSend_() {
   }
   num_particles_to_send_.DeepCopy(num_particles_to_send_h);
   particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   num_particles_sent_ = 0;
   for (int n = 0; n < pmb->neighbors.size(); n++) {
@@ -422,6 +428,7 @@ int Swarm::CountParticlesToSend_() {
     vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   return max_indices_size;
 }
@@ -473,9 +480,11 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   if (nneighbor == 0) {
     // TODO(BRR) Do we ever reach this branch?
@@ -510,15 +519,20 @@ void Swarm::Send(BoundaryCommSubset phase) {
       new_indices.DeepCopy(new_indices_h);
     }
   } else {
+    printf("%s:%i\n", __FILE__, __LINE__);
     // Query particles for those to be sent
     int max_indices_size = CountParticlesToSend_();
 
     // Prepare buffers for send operations
+    printf("%s:%i\n", __FILE__, __LINE__);
     LoadBuffers_(max_indices_size);
 
     // Send buffer data
+    printf("%s:%i\n", __FILE__, __LINE__);
     vbswarm->Send(phase);
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::CountReceivedParticles_() {

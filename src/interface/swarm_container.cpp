@@ -171,11 +171,15 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 void SwarmContainer::SetBoundaries() {}
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+  printf("HERE!!!!\n");
+  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     s->Send(phase);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   return TaskStatus::complete;
 }

@@ -27,6 +27,7 @@
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -48,9 +49,9 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
 
   auto pmb = swarm->GetBlockPointer();
 
-  auto &x_ = swarm->Get<Real>("x").Get();
-  auto &y_ = swarm->Get<Real>("y").Get();
-  auto &z_ = swarm->Get<Real>("z").Get();
+  auto &x_ = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y_ = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z_ = swarm->Get<Real>(swarm_position::z::name()).Get();
 
   // TODO(BRR) do something about all these if statements
   pmb->par_for(
