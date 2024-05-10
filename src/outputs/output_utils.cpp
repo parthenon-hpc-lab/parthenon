@@ -239,7 +239,7 @@ std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
         data[i++] = pmb->lid;
         data[i++] = pmb->cnghost;
         data[i++] = pmb->gflag;
-        data[i++] = pmb->pmr ? pmb->pmr->DereferenceCount() : 0;
+        data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
       });
 }
 

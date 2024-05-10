@@ -692,7 +692,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
     if (block_list[i - nbs]->pmr)
-      block_list[i - nbs]->pmr->DereferenceCount() =
+      block_list[i - nbs]->pmr->DerefinementCount() =
           locLevelGidLidCnghostGflag[6 * i + 5];
   }
   BuildGMGBlockLists(pin, app_in);
