@@ -34,7 +34,9 @@ void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_
       swarm->Add(m.first, m.second);
     }
   }
+}
 
+void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) {
   std::stringstream msg;
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
   // Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
@@ -44,13 +46,13 @@ void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_
       if (pmb->pmy_mesh->MeshSwarmBndryFnctn[iFace] == nullptr) {
         msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
             << " user boundary requested but provided function is null!";
-        PARTHENON_THROW(msg);
+        PARTHENON_FAIL(msg);
       }
     } else if (bcs[iFace] != BoundaryFlag::outflow &&
                bcs[iFace] != BoundaryFlag::periodic) {
       msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
           << static_cast<int>(bcs[iFace]) << " not supported!";
-      PARTHENON_THROW(msg);
+      PARTHENON_FAIL(msg);
     }
   }
 }
