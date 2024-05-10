@@ -272,9 +272,7 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
 
-  printf("%s:%i\n", __FILE__, __LINE__);
   status = MakeParticlesUpdateTaskCollection().Execute();
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Use a more traditional task list for predictable post-MPI evaluations.
   status = MakeFinalizationTaskCollection().Execute();
@@ -286,7 +284,6 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   const int num_partitions = pmesh->DefaultNumPartitions();
   const int num_task_lists_executed_independently = blocks.size();
@@ -300,7 +297,6 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
       auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
     }
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   TaskRegion &tr = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
@@ -308,7 +304,6 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     auto &base = pmesh->mesh_data.GetOrAdd("base", i);
     auto transport = tl.AddTask(none, TransportParticles, base.get(), &integrator);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
@@ -323,7 +318,6 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   return tc;
 }
