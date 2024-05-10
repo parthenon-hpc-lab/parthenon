@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -18,6 +18,7 @@
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 
 // only proceed if HDF5 output enabled
@@ -204,15 +205,17 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
         "      <Geometry GeometryType=\"VXVYVZ\">\n",
         swmname.c_str(), swminfo.global_count, swminfo.global_count, swminfo.global_count,
         hdfFile.c_str(), swmname.c_str());
-    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float", "",
-                               swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::x::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::y::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
+    xdmf << ParticleDatasetRef("        ", swmname, swarm_position::z::name(), hdfFile,
+                               "Float", "", swminfo.global_count);
     xdmf << "      </Geometry>" << std::endl;
     for (const auto &[varname, varinfo] : swminfo.var_info) {
-      if ((varname == "id") || (varname == "x") || (varname == "y") || (varname == "z")) {
+      if ((varname == "id") || (varname == swarm_position::x::name()) ||
+          (varname == swarm_position::y::name()) ||
+          (varname == swarm_position::z::name())) {
         continue; // We already did this one!
       }
       ParticleVariableRef(xdmf, varname, varinfo, swmname, hdfFile, swminfo.global_count);

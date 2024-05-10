@@ -1,9 +1,9 @@
 # =========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2022 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # =========================================================================================
-# (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -59,15 +59,15 @@ class Swarm:
 
     @property
     def x(self):
-        return self.Get("x")
+        return self.Get("swarm.x")
 
     @property
     def y(self):
-        return self.Get("y")
+        return self.Get("swarm.y")
 
     @property
     def z(self):
-        return self.Get("z")
+        return self.Get("swarm.z")
 
     def __getitem__(self, key):
         return self.Get(key)

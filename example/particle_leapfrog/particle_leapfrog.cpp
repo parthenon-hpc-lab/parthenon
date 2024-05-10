@@ -79,7 +79,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = rc->GetSwarmData()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
   const auto &cfl = pkg->Param<Real>("cfl");
 
@@ -135,7 +135,7 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
+  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -178,9 +178,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<int>("id").Get();
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   auto &v = swarm->Get<Real>("v").Get();
   auto &vv = swarm->Get<Real>("vv").Get();
 
@@ -207,45 +207,66 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       });
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("my_particles");
-  auto pkg = pmb->packages.Get("particles_package");
+TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integrator) {
+  const auto swarm_name = "my_particles";
+  const Real dt = integrator->dt;
 
-  int max_active_index = swarm->GetMaxActiveIndex();
-
-  Real dt = integrator->dt;
-
-  auto &id = swarm->Get<int>("id").Get();
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
-  auto &v = swarm->Get<Real>("v").Get();
-
-  auto swarm_d = swarm->GetDeviceContext();
   // keep particles on existing trajectory for now
   const Real ax = 0.0;
   const Real ay = 0.0;
   const Real az = 0.0;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+
+  // Make a SwarmPack via types to get positions
+  // NOTE(@pdmullen): the data type for Positions (Real) are automatically deduced from
+  // the variable typing
+  static auto desc_pos =
+      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+          swarm_name);
+  auto pack_pos = desc_pos.GetPack(md);
+
+  // Make a SwarmPack via strings to get ids
+  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
+  // the datatype associated with ids (i.e., int).  We also extract an indexing map.
+  std::vector<std::string> vars_id{"id"};
+  static auto desc_id = MakeSwarmPackDescriptor<int>(swarm_name, vars_id);
+  auto pack_id = desc_id.GetPack(md);
+  auto pack_id_map = desc_id.GetMap();
+  parthenon::PackIdx spi_id(pack_id_map["id"]);
+
+  // Make a SwarmPack via strings to get v (note that v is a vector!)
+  std::vector<std::string> vars_v{"v"};
+  static auto desc_v = MakeSwarmPackDescriptor<Real>(swarm_name, vars_v);
+  auto pack_v = desc_v.GetPack(md);
+  auto pack_v_map = desc_v.GetMap();
+  parthenon::PackIdx spi_v(pack_v_map["v"]);
+
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
+      pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
+        auto [b, n] = pack_pos.GetBlockParticleIndices(idx);
+        const int iid = pack_id.GetLowerBound(b, spi_id);
+        const int iv = pack_v.GetLowerBound(b, spi_v);
+        const auto swarm_d = pack_pos.GetContext(b);
         if (swarm_d.IsActive(n)) {
           // drift
-          x(n) += v(0, n) * 0.5 * dt;
-          y(n) += v(1, n) * 0.5 * dt;
-          z(n) += v(2, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
           // kick
-          v(0, n) += ax * dt;
-          v(1, n) += ay * dt;
-          v(2, n) += az * dt;
+          pack_v(b, iv + 0, n) += ax * dt;
+          pack_v(b, iv + 1, n) += ay * dt;
+          pack_v(b, iv + 2, n) += az * dt;
 
           // drift
-          x(n) += v(0, n) * 0.5 * dt;
-          y(n) += v(1, n) * 0.5 * dt;
-          z(n) += v(2, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+          bool on_current_mesh_block;
+          swarm_d.GetNeighborBlockIndex(
+              n, pack_pos(b, swarm_position::x(), n), pack_pos(b, swarm_position::y(), n),
+              pack_pos(b, swarm_position::z(), n), on_current_mesh_block);
         }
       });
 
@@ -273,31 +294,36 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
 
-  auto num_task_lists_executed_independently = blocks.size();
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  const int num_task_lists_executed_independently = blocks.size();
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
   {
     for (int i = 0; i < blocks.size(); i++) {
       auto &tl = sync_region0[0];
       auto &pmb = blocks[i];
-      auto &sc = pmb->swarm_data.Get();
+      auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
       auto reset_comms = tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
     }
+  }
+
+  TaskRegion &tr = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = tr[i];
+    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto transport = tl.AddTask(none, TransportParticles, base.get(), &integrator);
   }
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
 
     auto &tl = async_region0[i];
 
-    auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
-
-    auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
-                           BoundaryCommSubset::all);
+    auto send =
+        tl.AddTask(none, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
@@ -315,7 +341,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
 
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
-    auto &sc = pmb->swarm_data.Get();
+    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
     auto &tl = async_region1[i];
 
     // Defragment if swarm memory pool occupancy is 90%
