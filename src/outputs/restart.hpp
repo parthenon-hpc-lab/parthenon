@@ -49,6 +49,8 @@ class RestartReader {
     // can't use std::vector here because std::vector<hbool_t> is the same as
     // std::vector<bool> and it doesn't have .data() member
     std::unique_ptr<bool[]> allocated;
+    
+    std::vector<int> dealloc_count;
 
     int num_blocks = 0;
     int num_sparse = 0;
@@ -62,6 +64,17 @@ class RestartReader {
                                "Invalid sparse field index in SparseInfo::IsAllocated");
 
       return allocated[block * num_sparse + sparse_field_idx];
+    }
+
+    int DeallocCount(int block, int sparse_field_idx) const {
+      PARTHENON_REQUIRE_THROWS(allocated != nullptr,
+                               "Tried to get allocation status but no data present");
+      PARTHENON_REQUIRE_THROWS((block >= 0) && (block < num_blocks),
+                               "Invalid block index in SparseInfo::IsAllocated");
+      PARTHENON_REQUIRE_THROWS((sparse_field_idx >= 0) && (sparse_field_idx < num_sparse),
+                               "Invalid sparse field index in SparseInfo::IsAllocated");
+
+      return dealloc_count[block * num_sparse + sparse_field_idx];
     }
   };
 

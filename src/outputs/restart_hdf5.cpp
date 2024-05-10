@@ -85,7 +85,8 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
     // SparseInfo exists, read its contents
     auto hdl = OpenDataset<bool>("SparseInfo");
     PARTHENON_REQUIRE_THROWS(hdl.rank == 2, "SparseInfo expected to have rank 2");
-
+    auto hdl_dealloc = OpenDataset<int>("SparseDeallocCount");
+    
     info.labels = HDF5ReadAttributeVec<std::string>(hdl.dataset, "SparseFields");
     info.num_sparse = static_cast<int>(info.labels.size());
     PARTHENON_REQUIRE_THROWS(info.num_sparse == static_cast<int>(hdl.dims[1]),
@@ -102,6 +103,11 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
     // Read data from file
     PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
                                  H5P_DEFAULT, static_cast<void *>(info.allocated.get())));
+    info.dealloc_count.resize(hdl_dealloc.count);                            
+    PARTHENON_HDF5_CHECK(H5Dread(hdl_dealloc.dataset, hdl_dealloc.type, 
+                                 H5S::FromHIDCheck(H5Screate_simple(hdl_dealloc.rank, hdl_dealloc.dims.data(), NULL)), 
+                                 hdl_dealloc.dataspace,
+                                 H5P_DEFAULT, static_cast<void *>(info.dealloc_count.data())));
   }
 
   return info;
