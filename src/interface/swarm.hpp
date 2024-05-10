@@ -124,7 +124,7 @@ class Swarm {
 
   /// Check whether swarm contains this variable
   template <typename T>
-  bool Contains(const std::string &label) {
+  bool Contains(const std::string &label) const {
     return std::get<getType<T>()>(maps_).count(label);
   }
 
