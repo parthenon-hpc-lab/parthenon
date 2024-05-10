@@ -53,7 +53,6 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
   auto &y_ = swarm->Get<Real>(swarm_position::y::name()).Get();
   auto &z_ = swarm->Get<Real>(swarm_position::z::name()).Get();
 
-  // TODO(BRR) do something about all these if statements
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         // convenient shorthands
