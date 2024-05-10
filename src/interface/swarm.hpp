@@ -122,22 +122,23 @@ class Swarm {
   /// Remote a variable from swarm
   void Remove(const std::string &label);
 
-  /// Get particle variable
+  /// Check whether swarm contains this variable
   template <typename T>
   bool Contains(const std::string &label) {
     return std::get<getType<T>()>(maps_).count(label);
   }
-  // TODO(JMM): Kind of sucks to have two Gets here.
-  // Ben could we remove the get reference one and always get a
-  // pointer?
+
+  /// Get particle variable
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
-    PARTHENON_DEBUG_REQUIRE(Contains(label), "Non-existent swarm variable requested!");
+    PARTHENON_DEBUG_REQUIRE(Contains<T>(label), "Non-existent swarm variable requested!");
     return *std::get<getType<T>()>(maps_).at(label);
   }
+
+  /// Get pointer to particle variable
   template <class T>
   std::shared_ptr<ParticleVariable<T>> GetP(const std::string &label) const {
-    PARTHENON_DEBUG_REQUIRE(Contains(label), "Non-existent swarm variable requested!");
+    PARTHENON_DEBUG_REQUIRE(Contains<T>(label), "Non-existent swarm variable requested!");
     return std::get<getType<T>()>(maps_).at(label);
   }
 
