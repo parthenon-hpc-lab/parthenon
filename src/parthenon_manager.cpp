@@ -348,8 +348,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
           pmb->AllocateSparse(label);
           auto dealloc_count = sparse_info.DeallocCount(pmb->gid, sparse_idxs.at(label));
-          // Warning: For this to work, it is required that the controlling variable is 
-          // stored in the restart files. 
+          // Warning: For this to work, it is required that the controlling variable is
+          // stored in the restart files.
           pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = dealloc_count;
         } else {
           // nothing to read for this block, advance reading index

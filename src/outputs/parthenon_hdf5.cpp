@@ -443,8 +443,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_dealloc_count, sparse_names, num_sparse, file, pl_xfer,
-                     my_offset, max_blocks_global);
+    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_dealloc_count, sparse_names,
+                     num_sparse, file, pl_xfer, my_offset, max_blocks_global);
   } // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
@@ -676,9 +676,9 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
   HDF5Write2D(file, "SparseInfo", sparse_allocated, &loc_offset[0], &loc_cnt[0],
               &glob_cnt[0], pl);
-  
-  HDF5Write2D(file, "SparseDeallocCount", dealloc_count.data(), &loc_offset[0], &loc_cnt[0],
-              &glob_cnt[0], pl);
+
+  HDF5Write2D(file, "SparseDeallocCount", dealloc_count.data(), &loc_offset[0],
+              &loc_cnt[0], &glob_cnt[0], pl);
 
   // write names of sparse fields as attribute, first convert to vector of const char*
   std::vector<const char *> names(num_sparse);

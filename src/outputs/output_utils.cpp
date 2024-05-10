@@ -27,8 +27,8 @@
 #include "interface/swarm_container.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {

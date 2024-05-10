@@ -49,7 +49,7 @@ class RestartReader {
     // can't use std::vector here because std::vector<hbool_t> is the same as
     // std::vector<bool> and it doesn't have .data() member
     std::unique_ptr<bool[]> allocated;
-    
+
     std::vector<int> dealloc_count;
 
     int num_blocks = 0;
