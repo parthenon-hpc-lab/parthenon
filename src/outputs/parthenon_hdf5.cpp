@@ -268,7 +268,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // get list of all vars, just use the first block since the list is
   // the same for all blocks
-  auto all_vars_info = VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds, f_cellbounds);
+  auto all_vars_info =
+      VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds, f_cellbounds);
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
