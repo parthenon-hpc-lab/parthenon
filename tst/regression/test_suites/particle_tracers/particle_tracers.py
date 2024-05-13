@@ -48,7 +48,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0
 
-        # see examples/particle_tracers/particle_tracers.cpp for reference data
+        # Sourced by sampling in examples/particle_tracers/particle_tracers.cpp. Note that all
+        # tracers should be in the +x region.
         ref_data = np.array(
             [
                 [0.08365301, -0.47193529, 0.16082123],
