@@ -167,7 +167,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
-  // TODO(LFR): Remove this
   Metadata m_fine(
       {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
   pkg->AddField("advected_fine", m_fine);
