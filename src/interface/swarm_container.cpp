@@ -24,9 +24,6 @@ namespace parthenon {
 
 void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                                 const std::shared_ptr<MeshBlock> pmb) {
-  PARTHENON_REQUIRE(is_initialized_ == false,
-                    "This SwarmContainer has already been initialized!");
-  is_initialized_ = true;
   SetBlockPointer(pmb);
 
   for (auto const &q : resolved_packages->AllSwarms()) {
@@ -40,9 +37,6 @@ void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_
 }
 
 void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) {
-  PARTHENON_REQUIRE(
-      is_initialized_ == true,
-      "SwarmContainer must be initialized before initializaing boundaries!");
   if (swarmVector_.empty()) {
     // No Swarms in this container, so no need to initialize boundaries
     // This allows default reflecting boundary conditions to be used when no

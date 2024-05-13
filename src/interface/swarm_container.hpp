@@ -193,7 +193,6 @@ class SwarmContainer {
   std::string swarm_name_;
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
-  bool is_initialized_ = false;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};
