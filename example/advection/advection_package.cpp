@@ -534,30 +534,6 @@ TaskStatus FillFine(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
-// TODO(LFR): Remove this
-TaskStatus PrintFine(MeshData<Real> *md) {
-  auto pmb = md->GetBlockData(0)->GetParentPointer();
-  const int ndim = md->GetMeshPointer()->ndim;
-
-  IndexRange ib = pmb->f_cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->f_cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->f_cellbounds.GetBoundsK(IndexDomain::entire);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "advected_fine"});
-  PackIndexMap imap;
-  const auto &v = md->PackVariables(vars, imap);
-
-  const int in = imap.get("advected").first;
-  const int out = imap.get("advected_fine").first;
-  pmb->par_for(
-      "advection_package::PrintFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
-      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        printf("[%i: %i %i %i] %e\n", b, k, j, i, v(b, out, k, j, i));
-      });
-  return TaskStatus::complete;
-}
-
 // Compute fluxes at faces given the constant velocity field and
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
