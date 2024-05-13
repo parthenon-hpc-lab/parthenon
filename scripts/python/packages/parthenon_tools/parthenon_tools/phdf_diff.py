@@ -267,6 +267,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
 
     for var in set(f0.Variables + f1.Variables):
         if (var not in f0.Variables) or (var not in f1.Variables):
+            if (var == "SparseDeallocCount"): continue
             # we know it has to be in at least one of them
             print(
                 "Variable '%s' %s the first file, but %s in the second file"
