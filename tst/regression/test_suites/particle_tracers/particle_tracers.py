@@ -65,4 +65,5 @@ class TestCase(utils.test_case.TestCaseAbs):
         )
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
-      
+            return False
+        return (np.abs(final_data - ref_data) <= 1e-8).all()

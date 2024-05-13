@@ -38,6 +38,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
 - [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
