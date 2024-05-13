@@ -25,6 +25,7 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/pack_utils.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -45,26 +46,6 @@ void PackDescriptor::Print() const {
 }
 } // namespace impl
 } // namespace parthenon
-
-namespace {
-// SFINAE for block iteration so that sparse packs can work for MeshBlockData and MeshData
-template <class T, class F>
-inline auto ForEachBlock(T *pmd, const std::vector<bool> &include_block, F func)
-    -> decltype(T().GetBlockData(0), void()) {
-  for (int b = 0; b < pmd->NumBlocks(); ++b) {
-    if (include_block.size() == 0 || include_block[b]) {
-      auto &pmbd = pmd->GetBlockData(b);
-      func(b, pmbd.get());
-    }
-  }
-}
-
-template <class T, class F>
-inline auto ForEachBlock(T *pmbd, const std::vector<bool> &include_block, F func)
-    -> decltype(T().GetBlockPointer(), void()) {
-  if (include_block.size() == 0 || include_block[0]) func(0, pmbd);
-}
-} // namespace
 
 namespace parthenon {
 

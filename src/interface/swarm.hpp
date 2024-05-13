@@ -51,6 +51,10 @@ struct BoundaryDeviceContext {
 // memory by wrapping the persistent new_indices_ array.
 class NewParticlesContext {
  public:
+  KOKKOS_DEFAULTED_FUNCTION
+  NewParticlesContext() = default;
+
+  KOKKOS_FUNCTION
   NewParticlesContext(const int new_indices_max_idx, const ParArray1D<int> new_indices)
       : new_indices_max_idx_(new_indices_max_idx), new_indices_(new_indices) {}
 
@@ -68,7 +72,7 @@ class NewParticlesContext {
   }
 
  private:
-  const int new_indices_max_idx_;
+  int new_indices_max_idx_;
   ParArray1D<int> new_indices_;
 };
 
