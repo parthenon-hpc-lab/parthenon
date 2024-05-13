@@ -107,7 +107,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  std::int64_t nbmax;
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -167,6 +166,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
+  if (app_in->UserWorkBeforeRestartOutput != nullptr) {
+    UserWorkBeforeRestartOutput = app_in->UserWorkBeforeRestartOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -211,7 +213,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
     nrbx[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
   }
-  nbmax = *std::max_element(std::begin(nrbx), std::end(nrbx));
   base_block_size = block_size;
 
   // check consistency of the block and mesh
@@ -252,7 +253,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData != nullptr) {
+    InitUserMeshData(this, pin);
+  }
 
   if (multilevel) {
     if (block_size.nx(X1DIR) % 2 == 1 || (block_size.nx(X2DIR) % 2 == 1 && (ndim >= 2)) ||
@@ -586,7 +589,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData != nullptr) {
+    InitUserMeshData(this, pin);
+  }
 
   // Populate legacy logical locations
   auto lx123 = mesh_info.lx123;
@@ -903,11 +908,26 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeOutput != nullptr) {
+    mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeOutput != nullptr) {
+      pmb->UserWorkBeforeOutput(pmb.get(), pin, time);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
+// \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
+void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                            SimTime const &time,
+                                            OutputParameters *pparams) {
+  if (mesh->UserWorkBeforeRestartOutput != nullptr) {
+    mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
 
@@ -934,7 +954,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   // Create send/recv MPI_Requests for swarms
   for (int i = 0; i < nmb; ++i) {
     auto &pmb = block_list[i];
-    pmb->swarm_data.Get()->SetupPersistentMPI();
+    pmb->meshblock_data.Get()->GetSwarmData()->SetupPersistentMPI();
   }
 
   // Wait for boundary buffers to be no longer in use
@@ -954,7 +974,6 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
-  boundary_comm_flxcor_map.clear();
 
   // Build the boundary buffers for the current mesh
   for (int i = 0; i < num_partitions; i++) {
@@ -1079,7 +1098,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb, pin);
+      }
     }
 
     const int num_partitions = DefaultNumPartitions();
@@ -1106,7 +1127,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->ProblemGenerator(pmb.get(), pin);
+          if (pmb->ProblemGenerator != nullptr) {
+            pmb->ProblemGenerator(pmb.get(), pin);
+          }
         }
       }
 
@@ -1122,7 +1145,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostInitialization != nullptr) {
+            pmb->PostInitialization(pmb.get(), pin);
+          }
         }
       }
 
@@ -1253,23 +1278,14 @@ void Mesh::SetupMPIComms() {
     auto &metadata = pair.second;
     // Create both boundary and flux communicators for everything with either FillGhost
     // or WithFluxes just to be safe
-    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::WithFluxes) ||
+    if (metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::Independent) ||
         metadata.IsSet(Metadata::ForceRemeshComm) ||
         metadata.IsSet(Metadata::GMGProlongate) ||
-        metadata.IsSet(Metadata::GMGRestrict)) {
+        metadata.IsSet(Metadata::GMGRestrict) || metadata.IsSet(Metadata::Flux)) {
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
       PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
-
-      if (multilevel) {
-        MPI_Comm mpi_comm_flcor;
-        PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm_flcor));
-        const auto ret =
-            mpi_comm_map_.insert({pair.first.label() + "_flcor", mpi_comm_flcor});
-        PARTHENON_REQUIRE_THROWS(ret.second,
-                                 "Flux corr. communicator with same name already in map");
-      }
     }
   }
   for (auto &pair : resolved_packages->AllSwarms()) {

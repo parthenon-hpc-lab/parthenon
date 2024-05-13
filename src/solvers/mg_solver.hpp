@@ -195,8 +195,7 @@ class MGSolver {
     auto pack = desc.GetPack(md.get(), include_block);
     if (params_.two_by_two_diagonal) {
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0,
-          pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
 
@@ -357,7 +356,8 @@ class MGSolver {
     bool multilevel = (level != min_level);
 
     auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
-    std::string label = "comm_" + std::to_string(level) + "_" + std::to_string(partition);
+    std::string label =
+        "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
     auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(
         label, md, std::vector<std::string>{u::name(), res_err::name()});
 
@@ -456,8 +456,8 @@ class MGSolver {
       // prolongation
       copy_over = tl.AddTask(copy_over, CopyData<u, temp, false>, md);
       copy_over = tl.AddTask(copy_over, CopyData<res_err, u, false>, md);
-      auto boundary =
-          AddBoundaryExchangeTasks<BoundaryType::gmg_same>(copy_over, tl, md, multilevel);
+      auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+          copy_over, tl, md_comm, multilevel);
       auto copy_back = tl.AddTask(boundary, CopyData<u, res_err, true>, md);
       copy_back = tl.AddTask(copy_back, CopyData<temp, u, false>, md);
       last_task =

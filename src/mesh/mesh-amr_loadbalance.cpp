@@ -124,8 +124,7 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
-            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
@@ -217,8 +216,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
-            DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, nt, 0, nu, 0,
-            nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
                           const int i) {
               fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
@@ -937,8 +935,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
 #endif
     // init meshblock data
-    for (auto &pmb : block_list)
-      pmb->InitMeshBlockUserData(pmb.get(), pin);
+    for (auto &pmb : block_list) {
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb.get(), pin);
+      }
+    }
 
     // Find the non-cell centered fields that are communicated
     Metadata::FlagCollection fc;

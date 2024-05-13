@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -75,8 +75,7 @@ class PoissonEquation {
     auto desc = parthenon::MakePackDescriptor<diag_t, D>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "StoreDiagonal", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        "StoreDiagonal", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
@@ -122,8 +121,7 @@ class PoissonEquation {
         parthenon::MakePackDescriptor<var_t, D>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get(), include_block);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0, pack.GetNBlocks() - 1,
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack.GetCoordinates(b);
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
@@ -185,9 +183,8 @@ class PoissonEquation {
         parthenon::MakePackDescriptor<in_t, out_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get(), include_block);
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(), 0,
-        pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        "FluxMultiplyMatrix", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+        ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack.GetCoordinates(b);
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           pack(b, te, out_t(), k, j, i) = -alpha * pack(b, te, in_t(), k, j, i);

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -315,6 +315,9 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
       arrDims[i + 3] = 1;
     if (IsSet(Cell)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
+    } else if (IsSet(Face) && IsSet(Flux)) {
+      // 3 directions but keep the same ijk shape as cell var for performance
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
     } else if (IsSet(Face) || IsSet(Edge)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
       arrDims[0]++;
@@ -341,11 +344,12 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
-    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION);
+    assert(N >= 1 && N < MAX_VARIABLE_DIMENSION);
     for (int i = 0; i < N; i++)
       arrDims[i] = shape[i];
     for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
+    if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
   }
 
   return arrDims;

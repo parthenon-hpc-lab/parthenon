@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,18 +36,6 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
-namespace {
-enum class InterfaceType { SameToSame, CoarseToFine, FineToCoarse };
-enum class IndexRangeType {
-  BoundaryInteriorSend,
-  BoundaryExteriorRecv,
-  InteriorSend,
-  InteriorRecv
-};
-
-using namespace parthenon;
-
-} // namespace
 namespace parthenon {
 
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
@@ -77,12 +65,51 @@ void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real
   }
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const std::shared_ptr<Variable<Real>> &var,
-                                     const NeighborBlock &nb, MeshBlock *pmb,
+// Determines which topological elements need to be restricted and communicated for flux
+// correction, which only occurs on shared elements between two blocks
+std::vector<TopologicalElement>
+GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
+                          const CellCentOffsets &offsets) {
+  using TE = TopologicalElement;
+  std::vector<TopologicalElement> elements;
+  if (v->IsSet(Metadata::Face)) {
+    if (offsets.IsFace()) {
+      if (std::abs(offsets(X1DIR))) elements = {TE::F1};
+      if (std::abs(offsets(X2DIR))) elements = {TE::F2};
+      if (std::abs(offsets(X3DIR))) elements = {TE::F3};
+    } else {
+      PARTHENON_FAIL("Flux correction for face fluxes only occurs on shared faces.");
+    }
+  } else if (v->IsSet(Metadata::Edge)) {
+    if (offsets.IsFace()) {
+      if (std::abs(offsets(X1DIR))) elements = {TE::E2, TE::E3};
+      if (std::abs(offsets(X2DIR))) elements = {TE::E3, TE::E1};
+      if (std::abs(offsets(X3DIR))) elements = {TE::E1, TE::E2};
+    } else if (offsets.IsEdge()) {
+      if (offsets(X1DIR) == 0) elements = {TE::E1};
+      if (offsets(X2DIR) == 0) elements = {TE::E2};
+      if (offsets(X3DIR) == 0) elements = {TE::E3};
+    } else {
+      PARTHENON_FAIL(
+          "Flux correction for edge fluxes only occurs on shared faces and edges.");
+    }
+  } else if (v->IsSet(Metadata::Node)) {
+    elements = {TE::NN};
+  } else {
+    PARTHENON_FAIL("Only faces, edges, and nodes can be fluxes.");
+  }
+  return elements;
+}
+
+SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+                                     const std::shared_ptr<Variable<Real>> &v,
                                      TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores, std::array<int, 3> tensor_shape) {
+                                     bool prores) {
+  std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
+  const bool flux = v->IsSet(Metadata::Flux);
+
   const auto &loc = pmb->loc;
-  bool is_fine_field = var->IsSet(Metadata::Fine);
+  bool is_fine_field = v->IsSet(Metadata::Fine);
   auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
@@ -173,11 +200,12 @@ SpatiallyMaskedIndexer6D CalcIndices(const std::shared_ptr<Variable<Real>> &var,
         e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
-      s[dir] = bounds[dir].e - interior_offset + 1 - top_offset[dir];
-      e[dir] = bounds[dir].e + exterior_offset;
+      // Fluxes are only communicated on shared elements
+      s[dir] = bounds[dir].e + (flux ? 0 : -interior_offset + 1 - top_offset[dir]);
+      e[dir] = bounds[dir].e + (flux ? 0 : exterior_offset);
     } else {
-      s[dir] = bounds[dir].s - exterior_offset;
-      e[dir] = bounds[dir].s + interior_offset - 1 + top_offset[dir];
+      s[dir] = bounds[dir].s + (flux ? 0 : -exterior_offset);
+      e[dir] = bounds[dir].s + (flux ? 0 : interior_offset - 1 + top_offset[dir]);
     }
   }
 
@@ -223,43 +251,55 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
          v->GetDim(5) * v->GetDim(4) * topo_comp;
 }
 
+BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                 std::shared_ptr<Variable<Real>> v,
+                 CommBuffer<buf_pool_t<Real>::owner_t> *combuf,
+                 IndexRangeType idx_range_type) {
+  allocated = v->IsAllocated();
+  alloc_status = v->GetAllocationStatus();
+
+  buf = combuf->buffer();
+  if (!allocated) return;
+
+  if (nb.loc.level() < pmb->loc.level()) {
+    var = v->coarse_s.Get();
+  } else {
+    var = v->data.Get();
+  }
+
+  auto elements = v->GetTopologicalElements();
+  if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
+  ntopological_elements = elements.size();
+
+  int idx{0};
+  for (auto el : elements) {
+    topo_idx[idx] = static_cast<int>(el) % 3;
+    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    idx++;
+  }
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
-  if (!out.allocated) return out;
-
-  out.buf = buf->buffer();
-
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-  int mylevel = pmb->loc.level();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
+  // Test if the neighbor block is not offset from this block (i.e. is a
+  // parent or daughter block of pmb), and change the IndexRangeType
+  // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
-  for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(v, nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
-  }
-  if (nb.loc.level() < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-  return out;
+  return BndInfo(pmb, nb, v, buf, idx_range_type);
 }
 
 BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-  out.buf = buf->buffer();
+  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
+  // Test if the neighbor block is not offset from this block (i.e. is a
+  // parent or daughter block of pmb), and change the IndexRangeType
+  // accordingly
+  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
+  BndInfo out(pmb, nb, v, buf, idx_range_type);
+
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
@@ -268,58 +308,32 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   } else {
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
-
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
-  if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
-  for (auto el : elements) {
-    int idx = static_cast<int>(el) % 3;
-    out.idxer[idx] = CalcIndices(v, nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
-  }
-  if (nb.loc.level() < mylevel) {
-    out.var = v->coarse_s.Get();
-  } else {
-    out.var = v->data.Get();
-  }
-
   return out;
+}
+
+ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                       std::shared_ptr<Variable<Real>> v) {
+  allocated = v->IsAllocated();
+  alloc_status = v->GetAllocationStatus();
+  ntopological_elements = v->GetTopologicalElements().size();
+  coords = pmb->coords;
+
+  if (pmb->pmr) coarse_coords = pmb->pmr->GetCoarseCoords();
+
+  fine = v->data.Get();
+  coarse = v->coarse_s.Get();
 }
 
 ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
+    out.IncludeTopoEl(el) = true;
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(v, nb, pmb, el, IndexRangeType::InteriorSend, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
   }
   out.refinement_op = RefinementOp_t::Restriction;
   return out;
@@ -327,101 +341,61 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 
 ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                              std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
+  for (auto el : v->GetTopologicalElements())
+    out.IncludeTopoEl(el) = true;
   for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
     out.idxer[static_cast<int>(el)] =
-        CalcIndices(v, nb, pmb, el, IndexRangeType::InteriorRecv, true, {Nt, Nu, Nv});
+        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
   out.refinement_op = RefinementOp_t::Prolongation;
   return out;
 }
 
 ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
+  ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
-
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  if (nb.loc.level() < mylevel) {
+  if (nb.loc.level() < pmb->loc.level()) {
+    auto elements = v->GetTopologicalElements();
+    if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
     for (auto el : elements) {
-      out.idxer[static_cast<int>(el)] = CalcIndices(
-          v, nb, pmb, el, IndexRangeType::BoundaryInteriorSend, true, {Nt, Nu, Nv});
-      out.refinement_op = RefinementOp_t::Restriction;
+      out.IncludeTopoEl(el) = true;
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryInteriorSend, true);
     }
+    out.refinement_op = RefinementOp_t::Restriction;
   }
   return out;
 }
 
 ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
-  ProResInfo out;
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
-  int Nv = v->GetDim(4);
-  int Nu = v->GetDim(5);
-  int Nt = v->GetDim(6);
-
-  int mylevel = pmb->loc.level();
-  out.coords = pmb->coords;
-  if (pmb->pmr) out.coarse_coords = pmb->pmr->GetCoarseCoords();
-  out.fine = v->data.Get();
-  out.coarse = v->coarse_s.Get();
+  ProResInfo out(pmb, nb, v);
 
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
   // regions that were filled by coarser neighbors
   bool restricted = false;
+  int mylevel = pmb->loc.level();
   if (mylevel > 0) {
     for (const auto &nb : pmb->neighbors) {
       restricted = restricted || (nb.loc.level() == (mylevel - 1));
     }
   }
 
-  auto elements = v->GetTopologicalElements();
-  out.ntopological_elements = elements.size();
-  for (auto el : elements) {
+  for (auto el : v->GetTopologicalElements()) {
+    out.IncludeTopoEl(el) = true;
     if (nb.loc.level() < mylevel) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
         out.refinement_op = RefinementOp_t::Restriction;
-        out.idxer[static_cast<int>(el)] = CalcIndices(
-            v, nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+        out.idxer[static_cast<int>(el)] =
+            CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);
       }
     }
   }
@@ -437,141 +411,9 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      10 indexers per bound info even if the field isn't allocated
   if (nb.loc.level() < mylevel) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-      out.idxer[static_cast<int>(el)] = CalcIndices(
-          v, nb, pmb, el, IndexRangeType::BoundaryExteriorRecv, true, {Nt, Nu, Nv});
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);
   }
   return out;
 }
-
-BndInfo BndInfo::GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
-                                  std::shared_ptr<Variable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-  out.allocated = v->IsAllocated();
-  out.alloc_status = v->GetAllocationStatus();
-  if (!v->IsAllocated()) {
-    // Not going to actually do anything with this buffer
-    return out;
-  }
-  out.buf = buf->buffer();
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // This is the index range for the coarse field
-  int sk = kb.s;
-  int ek = sk + std::max((kb.e - kb.s + 1) / 2, 1) - 1;
-  int sj = jb.s;
-  int ej = sj + std::max((jb.e - jb.s + 1) / 2, 1) - 1;
-  int si = ib.s;
-  int ei = si + std::max((ib.e - ib.s + 1) / 2, 1) - 1;
-
-  PARTHENON_REQUIRE(nb.offsets.IsFace(),
-                    "Flux corrections only occur on faces for CC variables.");
-  if (nb.offsets(X1DIR) != 0) {
-    out.dir = X1DIR;
-    si = nb.offsets(X1DIR) < 0 ? ib.s : ib.e + 1;
-    ei = si;
-  } else if (nb.offsets(X2DIR) != 0) {
-    out.dir = X2DIR;
-    sj = nb.offsets(X2DIR) < 0 ? jb.s : jb.e + 1;
-    ej = sj;
-  } else if (nb.offsets(X3DIR) != 0) {
-    out.dir = X3DIR;
-    sk = nb.offsets(X3DIR) < 0 ? kb.s : kb.e + 1;
-    ek = sk;
-  }
-
-  out.var = v->flux[out.dir];
-  out.coords = pmb->coords;
-  block_ownership_t owns(true);
-  out.idxer[0] = SpatiallyMaskedIndexer6D(
-      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
-  return out;
-}
-
-BndInfo BndInfo::GetSetCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
-                                 std::shared_ptr<Variable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
-  BndInfo out;
-
-  if (!v->IsAllocated() || buf->GetState() != BufferState::received) {
-    out.allocated = false;
-    out.alloc_status = v->GetAllocationStatus();
-    return out;
-  }
-  out.allocated = true;
-  out.alloc_status = v->GetAllocationStatus();
-  out.buf = buf->buffer();
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  int sk = kb.s;
-  int sj = jb.s;
-  int si = ib.s;
-  int ek = kb.e;
-  int ej = jb.e;
-  int ei = ib.e;
-  PARTHENON_REQUIRE(nb.offsets.IsFace(),
-                    "Flux corrections only occur on faces for CC variables.");
-  if (nb.offsets(X1DIR) != 0) {
-    out.dir = X1DIR;
-    if (nb.offsets(X1DIR) == -1)
-      ei = si;
-    else
-      si = ++ei;
-    if (nb.fi1 == 0)
-      ej -= pmb->block_size.nx(X2DIR) / 2;
-    else
-      sj += pmb->block_size.nx(X2DIR) / 2;
-    if (nb.fi2 == 0)
-      ek -= pmb->block_size.nx(X3DIR) / 2;
-    else
-      sk += pmb->block_size.nx(X3DIR) / 2;
-  } else if (nb.offsets(X2DIR) != 0) {
-    out.dir = X2DIR;
-    if (nb.offsets(X2DIR) == -1)
-      ej = sj;
-    else
-      sj = ++ej;
-    if (nb.fi1 == 0)
-      ei -= pmb->block_size.nx(X1DIR) / 2;
-    else
-      si += pmb->block_size.nx(X1DIR) / 2;
-    if (nb.fi2 == 0)
-      ek -= pmb->block_size.nx(X3DIR) / 2;
-    else
-      sk += pmb->block_size.nx(X3DIR) / 2;
-  } else if (nb.offsets(X3DIR) != 0) {
-    out.dir = X3DIR;
-    if (nb.offsets(X3DIR) == -1)
-      ek = sk;
-    else
-      sk = ++ek;
-    if (nb.fi1 == 0)
-      ei -= pmb->block_size.nx(X1DIR) / 2;
-    else
-      si += pmb->block_size.nx(X1DIR) / 2;
-    if (nb.fi2 == 0)
-      ej -= pmb->block_size.nx(X2DIR) / 2;
-    else
-      sj += pmb->block_size.nx(X2DIR) / 2;
-  } else {
-    PARTHENON_FAIL("Flux corrections only occur on faces for CC variables.");
-  }
-
-  out.var = v->flux[out.dir];
-
-  out.coords = pmb->coords;
-  block_ownership_t owns(true);
-  out.idxer[0] = SpatiallyMaskedIndexer6D(
-      owns, {0, out.var.GetDim(6) - 1}, {0, out.var.GetDim(5) - 1},
-      {0, out.var.GetDim(4) - 1}, {sk, ek}, {sj, ej}, {si, ei});
-  return out;
-}
-
 } // namespace parthenon

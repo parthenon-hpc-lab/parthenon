@@ -24,6 +24,7 @@
 
 #include "bvals/comms/bnd_info.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
@@ -460,7 +461,28 @@ class MeshData {
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
+  std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
+    PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
+                      "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
+    return block_data_[n]->GetSwarmData();
+  }
+
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
+
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, Real>::value) {
+      return swarm_pack_real_cache_;
+    }
+    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+  }
+
+  void ClearSwarmCaches() {
+    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
+    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+  }
 
  private:
   bool BlockDataIsWholeRank_() const;
@@ -474,6 +496,8 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<Real> swarm_pack_real_cache_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

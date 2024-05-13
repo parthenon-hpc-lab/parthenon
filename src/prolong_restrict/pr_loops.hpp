@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -130,16 +130,28 @@ ProlongationRestrictionLoop(const ProResInfoArr_t &info, const Idx_t &buffer_idx
         const std::size_t buf = buffer_idxs(sub_idx);
         if (DoRefinementOp(info(buf), op)) {
           using TE = TopologicalElement;
-          if (info(buf).fine.topological_type == TopologicalType::Cell)
+          if (info(buf).IncludeTopoEl(TE::CC))
             IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::CC>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
-          if (info(buf).fine.topological_type == TopologicalType::Face)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
+          if (info(buf).IncludeTopoEl(TE::F1))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F1>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
-          if (info(buf).fine.topological_type == TopologicalType::Edge)
-            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2, TE::E1>(
+          if (info(buf).IncludeTopoEl(TE::F2))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F2>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
-          if (info(buf).fine.topological_type == TopologicalType::Node)
+          if (info(buf).IncludeTopoEl(TE::F3))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::F3>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).IncludeTopoEl(TE::E1))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E1>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).IncludeTopoEl(TE::E2))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E2>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).IncludeTopoEl(TE::E3))
+            IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::E3>(
+                team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
+          if (info(buf).IncludeTopoEl(TE::NN))
             IterateInnerProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
                 team_member, buf, info, ckb, cjb, cib, kb, jb, ib);
         }
@@ -159,8 +171,8 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const ProResInfoArrHost_t 
   auto coarse = info(buf).coarse;
   auto fine = info(buf).fine;
   par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, 0, 0, 0, 0,
-      idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
+      PARTHENON_AUTO_LABEL, 0, 0, 0, 0, 0, idxer.size() - 1,
+      KOKKOS_LAMBDA(const int, const int, const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
         if (idxer.IsActive(k, j, i)) {
           Stencil::template Do<DIM, FEL, CEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,
@@ -220,16 +232,28 @@ ProlongationRestrictionLoop(const ProResInfoArrHost_t &info_h,
     const std::size_t buf = buffer_idxs_h(sub_idx);
     if (DoRefinementOp(info_h(buf), op)) {
       using TE = TopologicalElement;
-      if (info_h(buf).fine.topological_type == TopologicalType::Cell)
+      if (info_h(buf).IncludeTopoEl(TE::CC))
         IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::CC>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
-      if (info_h(buf).fine.topological_type == TopologicalType::Face)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F1, TE::F2, TE::F3>(
+      if (info_h(buf).IncludeTopoEl(TE::F1))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F1>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
-      if (info_h(buf).fine.topological_type == TopologicalType::Edge)
-        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E3, TE::E2, TE::E1>(
+      if (info_h(buf).IncludeTopoEl(TE::F2))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F2>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
-      if (info_h(buf).fine.topological_type == TopologicalType::Node)
+      if (info_h(buf).IncludeTopoEl(TE::F3))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::F3>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).IncludeTopoEl(TE::E1))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E1>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).IncludeTopoEl(TE::E2))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E2>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).IncludeTopoEl(TE::E3))
+        IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::E3>(
+            buf, info_h, ckb, cjb, cib, kb, jb, ib);
+      if (info_h(buf).IncludeTopoEl(TE::NN))
         IterateInnerHostProlongationRestrictionLoop<DIM, Stencil, TE::NN>(
             buf, info_h, ckb, cjb, cib, kb, jb, ib);
     }

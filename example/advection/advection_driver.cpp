@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -124,9 +124,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
-    auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
-    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
+    auto set_flx = parthenon::AddFluxCorrectionTasks(none, tl, mc0, pmesh->multilevel);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =

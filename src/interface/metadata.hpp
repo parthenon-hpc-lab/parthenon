@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -118,6 +118,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
   /** the variable will have twice as many active zones in each direction **/            \
   PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
+  /** this variable is the flux for another variable **/                                 \
+  PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -448,7 +450,7 @@ class Metadata {
   // and false otherwise.
   bool IsRefined() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
-            IsSet(GMGProlongate) || IsSet(GMGRestrict));
+            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
   }
 
   // Returns true if this variable is a coords var
@@ -572,6 +574,12 @@ class Metadata {
   void Associate(const std::string &name) { associated_ = name; }
   const std::string &getAssociated() const { return associated_; }
 
+  void SetFluxName(const std::string &name) { flux_var_ = name; }
+  const std::string &GetFluxName() const {
+    PARTHENON_DEBUG_REQUIRE(IsSet(WithFluxes), "Variable has a flux.");
+    return flux_var_;
+  }
+
   const std::vector<std::string> getComponentLabels() const noexcept {
     return component_labels_;
   }
@@ -583,6 +591,7 @@ class Metadata {
   std::vector<int> shape_ = {1};
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
+  std::string flux_var_ = "";
 
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;

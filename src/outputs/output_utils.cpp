@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -152,7 +152,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
                            bool is_restart) {
   for (auto &pmb : block_list) {
-    auto &swarm_container = pmb->swarm_data.Get();
+    const auto &swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
