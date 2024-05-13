@@ -252,15 +252,6 @@ bool Metadata::IsValid(bool throw_on_fail) const {
     }
   }
 
-  // Independent
-  if (CountSet({Independent, Fine}) > 1) {
-    valid = false;
-    if (throw_on_fail) {
-      PARTHENON_THROW("Fine variables cannot be independent since they are not supported "
-                      "in restarts.");
-    }
-  }
-
   // Prolongation/restriction
   if (IsRefined()) {
     if (refinement_funcs_.label().size() == 0) {

@@ -172,7 +172,8 @@ struct VarInfo {
                 var->IsSparse(), var->IsSet(Metadata::Vector), cellbounds) {}
 
   static std::vector<VarInfo> GetAll(const VariableVector<Real> &vars,
-                                     const IndexShape &cellbounds);
+                                     const IndexShape &cellbounds,
+                                     const IndexShape &f_cellbounds);
 
   bool operator==(const std::string &other) const { return other == label; }
 

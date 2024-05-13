@@ -83,6 +83,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   auto const &first_block = *(pm->block_list.front());
 
   const auto &cellbounds = first_block.cellbounds;
+  const auto &f_cellbounds = first_block.f_cellbounds;
   const IndexRange out_ib = cellbounds.GetBoundsI(theDomain);
   const IndexRange out_jb = cellbounds.GetBoundsJ(theDomain);
   const IndexRange out_kb = cellbounds.GetBoundsK(theDomain);
@@ -267,7 +268,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // get list of all vars, just use the first block since the list is
   // the same for all blocks
-  auto all_vars_info = VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds);
+  auto all_vars_info = VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds, f_cellbounds);
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse

@@ -289,7 +289,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
   const auto all_vars_info =
-      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds);
+      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds, mb.f_cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
