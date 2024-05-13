@@ -43,13 +43,13 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "-t",
                 "00:00:02",
             ]
-        # Test restarting on a step that should have non-zero 
+        # Test restarting on a step that should have non-zero
         # derefinement counts on some blocks
         elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00009.rhdf",
-                "parthenon/job/problem_id=silver9"
+                "parthenon/job/problem_id=silver9",
             ]
         # now restart from the walltime based output
         else:
@@ -75,7 +75,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         success = True
 
-        def compare_files(name, base = "silver"):
+        def compare_files(name, base="silver"):
             delta = compare(
                 [
                     "gold.out0.%s.rhdf" % name,
