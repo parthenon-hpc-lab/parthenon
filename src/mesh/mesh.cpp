@@ -906,7 +906,8 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       MeshSwarmBndryFnctn[f] = speriodic[f];
       break;
     case BoundaryFlag::reflect:
-      PARTHENON_FAIL("No default \"reflect\" boundary conditions provided for particles");
+      // Default "reflect" boundaries not available for swarms; catch later on if swarms
+      // are present
       break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
