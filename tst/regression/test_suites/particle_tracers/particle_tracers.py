@@ -47,22 +47,22 @@ class TestCase(utils.test_case.TestCaseAbs):
         final_data = np.vstack((swarm.x, swarm.y, swarm.z))
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0
+        print(final_data)
 
         # Sourced by sampling in examples/particle_tracers/particle_tracers.cpp. Note that all
         # tracers should be in the +x region.
         ref_data = np.array(
             [
-                [0.08365301, -0.47193529, 0.16082123],
-                [0.46202008, -0.29930838, -0.23241539],
-                [0.07983044, -0.18021412, -0.27073458],
-                [0.29650397, -0.19697732, 0.2891521],
-                [0.08365301, 0.02806471, 0.16082123],
-                [0.46202008, 0.20069162, -0.23241539],
-                [0.07983044, 0.31978588, -0.27073458],
-                [0.29650397, 0.30302268, 0.2891521],
+                [0.08444359, -0.3121717, -0.47703363],
+                [0.25117872, -0.43392261, 0.17052895],
+                [0.1887266, -0.21990098, -0.43307513],
+                [0.27823534, -0.05306855, 0.36869215],
+                [0.07034217, 0.17493737, -0.16868733],
+                [0.27436085, 0.10335561, -0.4434526],
+                [0.12410318, 0.44082736, 0.44992147],
+                [0.31997097, 0.32557197, -0.09350522],
             ]
         )
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
-            return False
-        return (np.abs(final_data - ref_data) <= 1e-8).all()
+      

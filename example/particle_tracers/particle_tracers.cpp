@@ -144,12 +144,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
   pkg->AddParam<>("num_tracers", num_tracers);
 
-  // Initialize random number generator pool
-  int rng_seed = pin->GetOrAddInteger("Tracers", "rng_seed", 1273);
-  pkg->AddParam<>("rng_seed", rng_seed);
-  RNGPool rng_pool(rng_seed);
-  pkg->AddParam<>("rng_pool", rng_pool);
-
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
@@ -320,7 +314,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &advected = mbd->Get("advected").data;
   auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
   const auto num_tracers = tr_pkg->Param<int>("num_tracers");
-  auto rng_pool = tr_pkg->Param<RNGPool>("rng_pool");
+  auto rng_pool =
+      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
 
   const int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim <= 2, "Tracer particles example only supports <= 2D!");
