@@ -27,6 +27,7 @@
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -35,7 +36,106 @@ namespace parthenon {
 namespace BoundaryFunction {
 
 enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
+enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace, Periodic };
+
+// TODO(BRR) add support for specific swarms?
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
+void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
+  // make sure DIR is X[123]DIR so we don't have to check again
+  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  auto swarm_d_ = swarm->GetDeviceContext();
+  int max_active_index = swarm->GetMaxActiveIndex();
+
+  auto pmb = swarm->GetBlockPointer();
+
+  auto &x_ = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y_ = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z_ = swarm->Get<Real>(swarm_position::z::name()).Get();
+
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        // convenient shorthands
+        [[maybe_unused]] constexpr bool X1 = (DIR == X1DIR);
+        [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
+        [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
+        // Cannot capture variables inside constexpr if context
+        [[maybe_unused]] const auto &x = x_;
+        [[maybe_unused]] const auto &y = y_;
+        [[maybe_unused]] const auto &z = z_;
+        const auto &swarm_d = swarm_d_;
+        constexpr bool INNER = (SIDE == BCSide::Inner);
+        if (swarm_d.IsActive(n)) {
+          if constexpr (X1) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (x(n) > swarm_d.x_max_global_) {
+                  x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (x(n) < swarm_d.x_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (x(n) < swarm_d.x_min_global_) {
+                  x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (x(n) > swarm_d.x_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          } else if constexpr (X2) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (y(n) > swarm_d.y_max_global_) {
+                  y(n) = swarm_d.y_min_global_ + (y(n) - swarm_d.y_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (y(n) < swarm_d.y_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (y(n) < swarm_d.y_min_global_) {
+                  y(n) = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (y(n) > swarm_d.y_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          } else if constexpr (X3) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (z(n) > swarm_d.z_max_global_) {
+                  z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (z(n) < swarm_d.z_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (z(n) < swarm_d.z_min_global_) {
+                  z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (z(n) > swarm_d.z_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          }
+        }
+      });
+}
 
 namespace impl {
 using desc_key_t = std::tuple<bool, TopologicalType>;

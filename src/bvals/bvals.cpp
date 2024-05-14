@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -169,17 +169,6 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
                                ParameterInput *pin)
     : pmy_block_(wpmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
-  // TODO(BRR) Add physical particle boundary conditions, maybe using the below code
-  /*for (int i = 0; i < 6; i++) {
-    switch (block_bcs[i]) {
-    case BoundaryFlag::reflect:
-    case BoundaryFlag::outflow:
-      apply_bndry_fn_[i] = true;
-      break;
-    default: // already initialized to false in class
-      break;
-    }
-  }*/
   for (int i = 0; i < 6; ++i)
     block_bcs[i] = input_bcs[i];
 

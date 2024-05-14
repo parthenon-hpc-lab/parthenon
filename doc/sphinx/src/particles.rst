@@ -190,17 +190,23 @@ For example ``SwarmPack`` usage, see the ``particle_leapfrog`` example.
 Boundary conditions
 -------------------
 
-Particle boundary conditions are not applied in separate kernel calls;
-instead, inherited classes containing boundary condition functions for
-updating particles or removing them when they are in boundary regions
-are allocated depending on the boundary flags specified in the input
-file. Currently, outflow and periodic boundaries are supported natively.
-User-specified boundary conditions must be set by specifying the “user”
-flag in the input parameter file and then updating the appropriate
-Swarm::bounds array entries to factory functions that allocate
-device-side boundary condition objects. An example is given in the
-``particles`` example when ix1 and ox1 are set to ``user`` in the input
-parameter file.
+Particle boundary conditions are applied in per-block per-boundary kernel
+launches analogous to grid-based variables. Outflow and periodic boundaries
+are supported natively, but other boundary conditions (including reflecting)
+must be provided by the downstream application. Particle boundary conditions are
+enrolled by setting entries in ``ApplicationInput::swarm_boundary_conditions``
+to per-boundary (inner ``x1``, outer ``x2``, etc.) custom boundary functions
+with signature
+
+.. code:: cpp
+
+   void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm);
+
+The ``particles`` example demonstrates how to create and enroll custom particle
+boundary conditions.
+
+Note that periodic boundary conditions cannot be enrolled by the user; the
+default ``periodic`` option for Parthenon must be requested in the input file.
 
 Outputs
 --------
