@@ -198,8 +198,8 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetLegacyTreeRootLevel() const noexcept {
-    return forest.root_level + forest.forest_level;
+  int GetLegacyTreeRootLevel() const {
+    return forest.root_level + forest.forest_level.value();
   }
 
   int GetMaxLevel() const noexcept { return max_level; }

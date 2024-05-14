@@ -332,6 +332,9 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
+    if (block_list[i - nbs]->pmr)
+      block_list[i - nbs]->pmr->DerefinementCount() =
+          locLevelGidLidCnghostGflag[6 * i + 5];
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
@@ -1060,19 +1063,19 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   for (auto dir : {X1DIR, X2DIR, X3DIR})
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
 
-  auto GetMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
-                                        const LogicalLocation &loc) -> Real {
+  auto GetLegacyMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
+                                              const LogicalLocation &loc) -> Real {
     auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac =
-        static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     xll *= root_fac;
     return this->mesh_size.xmin(dir) * (1.0 - xll) + this->mesh_size.xmax(dir) * xll;
   };
 
-  auto GetLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
-                                              Real xmesh) -> std::int64_t {
-    auto root_fac =
-        static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+  auto GetLegacyLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
+                                                    Real xmesh) -> std::int64_t {
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     auto xLL = (xmesh - this->mesh_size.xmin(dir)) /
                (this->mesh_size.xmax(dir) - this->mesh_size.xmin(dir)) / root_fac;
     return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
@@ -1099,7 +1102,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
         ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
       }
       int ref_lev = pin->GetInteger(pib->block_name, "level");
-      int lrlev = ref_lev + root_level;
+      int lrlev = ref_lev + GetLegacyTreeRootLevel();
       // range check
       if (ref_lev < 1) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -1135,8 +1138,8 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+          l_region_min[dir - 1] = GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+          l_region_max[dir - 1] = GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
           l_region_min[dir - 1] =
               std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
           l_region_max[dir - 1] =
@@ -1145,7 +1148,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
           auto current_loc =
               LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
           // Remove last block if it just it's boundary overlaps with the region
-          if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+          if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
               ref_size.xmax(dir))
             l_region_max[dir - 1]--;
           if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
