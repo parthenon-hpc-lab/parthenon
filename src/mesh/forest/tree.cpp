@@ -385,8 +385,10 @@ std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
 
 void Tree::EnrollBndryFncts(
     ApplicationInput *app_in,
-    std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in) {
+    std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
+    std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
   UserBoundaryFunctions = UserBoundaryFunctions_in;
+  UserSwarmBoundaryFunctions = UserSwarmBoundaryFunctions_in;
   static const BValFunc outflow[6] = {
       BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
       BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
@@ -395,6 +397,14 @@ void Tree::EnrollBndryFncts(
       BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
       BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
       BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+  static const SBValFunc soutflow[6] = {
+      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
+      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
+      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
     switch (boundary_conditions[f]) {
@@ -403,6 +413,7 @@ void Tree::EnrollBndryFncts(
       break;
     case BoundaryFlag::outflow:
       MeshBndryFnctn[f] = outflow[f];
+      SwarmBndryFnctn[f] = soutflow[f];
       break;
     case BoundaryFlag::user:
       if (app_in->boundary_conditions[f] != nullptr) {
@@ -419,6 +430,16 @@ void Tree::EnrollBndryFncts(
     }
 
     switch (boundary_conditions[f]) {
+    case BoundaryFlag::outflow:
+      SwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      SwarmBndryFnctn[f] = speriodic[f];
+      break;
+    case BoundaryFlag::reflect:
+      // Default "reflect" boundaries not available for swarms; catch later on if swarms
+      // are present
+      break;  
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user

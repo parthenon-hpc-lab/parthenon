@@ -119,10 +119,12 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // Boundary Functions
   void EnrollBndryFncts(
       ApplicationInput *app_in,
-      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in);
+      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
+      std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in);
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
   SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
