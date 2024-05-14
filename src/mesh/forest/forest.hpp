@@ -138,7 +138,8 @@ class Forest {
       std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
       std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
     for (auto &[id, ptree] : trees)
-      ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in, UserSwarmBoundaryFunctions_in);
+      ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in,
+                              UserSwarmBoundaryFunctions_in);
   }
 
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,

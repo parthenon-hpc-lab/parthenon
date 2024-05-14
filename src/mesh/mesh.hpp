@@ -165,12 +165,6 @@ class Mesh {
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                         SimTime const &time, OutputParameters *pparams);
 
-  // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
-  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
-
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
       nullptr;
@@ -322,8 +316,6 @@ class Mesh {
 
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
-
-  void EnrollBndryFncts_(ApplicationInput *app_in);
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);

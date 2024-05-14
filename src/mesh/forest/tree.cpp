@@ -439,7 +439,7 @@ void Tree::EnrollBndryFncts(
     case BoundaryFlag::reflect:
       // Default "reflect" boundaries not available for swarms; catch later on if swarms
       // are present
-      break;  
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user

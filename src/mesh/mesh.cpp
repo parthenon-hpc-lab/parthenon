@@ -78,11 +78,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-      nslist(Globals::nranks), nblist(Globals::nranks), nref(Globals::nranks),
-      nderef(Globals::nranks), rdisp(Globals::nranks), ddisp(Globals::nranks),
-      bnref(Globals::nranks), bnderef(Globals::nranks), brdisp(Globals::nranks),
-      bddisp(Globals::nranks) {
+      lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
+      nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
+      ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
+      brdisp(Globals::nranks), bddisp(Globals::nranks) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -170,11 +169,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Load balancing flag and parameters
-  EnrollBndryFncts_(app_in);
-
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions, resolved_packages->UserSwarmBoundaryFunctions);
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
 
   // SMR / AMR:
   if (adaptive) {
@@ -184,8 +182,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   CheckMeshValidity();
 }
@@ -217,10 +213,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   ndim = 2;
   // Load balancing flag and parameters
-  EnrollBndryFncts_(app_in);
   forest = forest::Forest::Make2D(forest_def);
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions, resolved_packages->UserSwarmBoundaryFunctions);
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
   BuildBlockList(pin, app_in, packages, -1);
 }
 
@@ -533,73 +528,6 @@ void Mesh::OutputMeshStructure(const int ndim,
   std::cout << "Use 'python ../vis/python/plot_mesh.py' or gnuplot"
             << " to visualize mesh structure." << std::endl
             << std::endl;
-}
-
-//----------------------------------------------------------------------------------------
-//  Enroll user-defined functions for boundary conditions
-void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
-  static const BValFunc outflow[6] = {
-      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
-      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
-      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
-  static const BValFunc reflect[6] = {
-      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
-      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
-      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
-  static const SBValFunc soutflow[6] = {
-      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
-      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
-      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
-  static const SBValFunc speriodic[6] = {
-      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
-      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
-      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
-
-  for (int f = 0; f < BOUNDARY_NFACES; f++) {
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::reflect:
-      MeshBndryFnctn[f] = reflect[f];
-      break;
-    case BoundaryFlag::outflow:
-      MeshBndryFnctn[f] = outflow[f];
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::user:
-      if (app_in->boundary_conditions[f] != nullptr) {
-        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested. but no condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      break;
-    default: // periodic/block BCs handled elsewhere.
-      break;
-    }
-
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::outflow:
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::periodic:
-      MeshSwarmBndryFnctn[f] = speriodic[f];
-      break;
-    case BoundaryFlag::reflect:
-      // Default "reflect" boundaries not available for swarms; catch later on if swarms
-      // are present
-      break;
-    case BoundaryFlag::user:
-      if (app_in->swarm_boundary_conditions[f] != nullptr) {
-        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
-        // boundaries are requested but no swarms are used.
-        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      }
-      break;
-    default: // Default BCs handled elsewhere
-      break;
-    }
-  }
 }
 
 //----------------------------------------------------------------------------------------
