@@ -254,12 +254,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Populate logical locations
   loclist = std::vector<LogicalLocation>(nbtotal);
+  std::unordered_map<LogicalLocation, int> dealloc_count;
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[6 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
+    dealloc_count[loclist[i]] = locLevelGidLidCnghostGflag[6 * i + 5];
   }
 
   // rebuild the Block Tree
@@ -275,11 +277,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
-  BuildBlockList(pin, app_in, packages, mesh_test);
+  BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count);
 }
 
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
-                          Packages_t &packages, int mesh_test) {
+                          Packages_t &packages, int mesh_test,
+                          const std::unordered_map<LogicalLocation, int> &dealloc_count) {
   // LFR: This routine should work for general block lists
   std::stringstream msg;
 
@@ -334,7 +337,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                         packages, resolved_packages, gflag, costlist[i]);
     if (block_list[i - nbs]->pmr)
       block_list[i - nbs]->pmr->DerefinementCount() =
-          locLevelGidLidCnghostGflag[6 * i + 5];
+          dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
@@ -1138,8 +1141,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] = GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] = GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+          l_region_min[dir - 1] =
+              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+          l_region_max[dir - 1] =
+              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
           l_region_min[dir - 1] =
               std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
           l_region_max[dir - 1] =

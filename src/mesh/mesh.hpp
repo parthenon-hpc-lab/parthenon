@@ -295,7 +295,8 @@ class Mesh {
   // functions
   void CheckMeshValidity() const;
   void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-                      int mesh_test);
+                      int mesh_test,
+                      const std::unordered_map<LogicalLocation, int> &dealloc_count = {});
   void DoStaticRefinement(ParameterInput *pin);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
