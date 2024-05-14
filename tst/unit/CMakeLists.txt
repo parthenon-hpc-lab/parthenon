@@ -1,10 +1,10 @@
 
 ##========================================================================================
 ## Parthenon performance portable AMR framework
-## Copyright(C) 2020-2022 The Parthenon collaboration
+## Copyright(C) 2020-2024 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
-## (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+## (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 ##
 ## This program was produced under U.S. Government contract 89233218CNA000001 for Los
 ## Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,7 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
-    test_concepts_lite.cpp    
+    test_concepts_lite.cpp
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp

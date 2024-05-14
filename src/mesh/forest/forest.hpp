@@ -81,7 +81,7 @@ class Forest {
 
  public:
   int root_level;
-  int forest_level;
+  std::optional<int> forest_level{};
 
   std::vector<std::shared_ptr<Tree>> GetTrees() {
     std::vector<std::shared_ptr<Tree>> trees_out;

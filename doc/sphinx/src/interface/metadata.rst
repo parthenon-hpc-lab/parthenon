@@ -180,6 +180,24 @@ classes may be allocated. The behaviours are the following:
    mask errors in the ``FillDerived`` implementation in downstream
    codes.*
 
+Requesting or excluding flux variables from searches
+-----------------------------------------------------
+
+As discussed above, fluxes are themselves ``Metadata::OneCopy``
+variables. A flux variable will have ``Metadata::Flux`` flag
+set. Several functions allow one to request variables by various
+properties such as name, unique ID, or metadata flag. These functions
+often take an optional enum argument ``FluxRequest``. This variable
+can take on the values ``FluxRequest::Any``, ``FluxRequest::NoFlux``,
+and ``FluxRequest::OnlyFlux``. The default is
+``FluxRequest::NoFlux``. Specifying ``FluxRequest::NoFlux`` enforces
+that no variables returned by the search will be flux
+variables. Specifying ``FluxRequest::OnlyFlux`` specifically pulls out
+the flux variable **associated** with the variable
+requested. ``FluxRequest::Any`` does not modify search parameters. You
+will get flux or non-flux variables, and variable associations will be
+ignored.
+
 Application Metadata Flags
 ---------------------------
 

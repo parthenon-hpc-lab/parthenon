@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -72,7 +72,7 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
-    --num_steps 3")
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Calculate pi example
@@ -132,7 +132,14 @@ if (ENABLE_HDF5)
   list(APPEND TEST_DIRS sparse_advection)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
-    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection")
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection \
+    --num_steps 3")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS particle_tracers)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_tracers/particle-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers/parthinput.particle_tracers")
   list(APPEND EXTRA_TEST_LABELS "")
 
 endif()

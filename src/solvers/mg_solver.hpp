@@ -195,8 +195,7 @@ class MGSolver {
     auto pack = desc.GetPack(md.get(), include_block);
     if (params_.two_by_two_diagonal) {
       parthenon::par_for(
-          DEFAULT_LOOP_PATTERN, "CaclulateFluxes", DevExecSpace(), 0,
-          pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
           KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack.GetCoordinates(b);
 

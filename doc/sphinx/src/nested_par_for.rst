@@ -210,7 +210,7 @@ An ``IndexSplit`` object is typically used as:
   
   // Par for
   par_for_outer(
-	  DEFAULT_OUTER_LOOP_PATTERN, "KernalOuter", DevExecSpace(), scratch_size,
+	  "KernelOuter", scratch_size,
 	  scratch_level, 0, nblocks - 1, 0, idx_sp.outer_size() - 1,
 	  KOKKOS_LAMBDA(team_mbr_t member, const int b, const int outer_idx) {
 	    ScratchPad1D<Real> scratch(member.team_scratch(scratch_level), Nmax);
@@ -231,7 +231,7 @@ An ``IndexSplit`` object is typically used as:
 	      Real *var = &pack(b, ivar, k, jrange.s, flattened_inner_ijrange.s);
 
 	      // Do something with the pointer in the inner loop.
-	      par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, flattened_inner_size,
+	      par_for_inner(member, 0, flattened_inner_size,
 	        [&](const int i) {
 		  foo(var[i]);
 		});

@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -27,6 +27,7 @@
 #include "interface/swarm_container.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 
@@ -152,7 +153,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
                            bool is_restart) {
   for (auto &pmb : block_list) {
-    auto &swarm_container = pmb->swarm_data.Get();
+    const auto &swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
@@ -231,13 +232,14 @@ std::vector<int64_t> ComputeLocs(Mesh *pm) {
 
 std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
   return FlattenBlockInfo<int>(
-      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+      pm, 6, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
         auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
         data[i++] = loc.level();
         data[i++] = pmb->gid;
         data[i++] = pmb->lid;
         data[i++] = pmb->cnghost;
         data[i++] = pmb->gflag;
+        data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
       });
 }
 

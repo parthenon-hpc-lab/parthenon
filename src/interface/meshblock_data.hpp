@@ -22,8 +22,12 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/sparse_pack_base.hpp"
+#include "interface/swarm.hpp"
+#include "interface/swarm_container.hpp"
+#include "interface/swarm_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
@@ -227,35 +231,56 @@ class MeshBlockData {
   /// Get list of variables and labels by names (either a full variable name or sparse
   /// base name), optionally selecting only given sparse ids
   VarList GetVariablesByName(const std::vector<std::string> &names,
-                             const std::vector<int> &sparse_ids = {}, bool flux = false);
+                             const std::vector<int> &sparse_ids = {},
+                             const FluxRequest flux = FluxRequest::NoFlux);
 
   /// Get list of variables and UIDs by metadata flags (must match all flags if
   /// match_all is true, otherwise must only match at least one), optionally selecting
   /// only given sparse ids
   VarList GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                             const std::vector<int> &sparse_ids = {}, bool flux = false);
+                             const std::vector<int> &sparse_ids = {},
+                             const FluxRequest flux = FluxRequest::NoFlux);
 
   // Get list of variables specified by unique identifiers
-  VarList GetVariablesByUid(const std::vector<Uid_t> &uids, bool flux = false);
+  VarList GetVariablesByUid(const std::vector<Uid_t> &uids,
+                            const FluxRequest flux = FluxRequest::NoFlux);
 
   /// Get list of all variables and labels, optionally selecting only given sparse ids
-  VarList GetAllVariables(const std::vector<int> &sparse_ids = {}, bool flux = false) {
+  VarList GetAllVariables(const std::vector<int> &sparse_ids = {},
+                          const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByFlag(Metadata::FlagCollection(), sparse_ids, flux);
   }
 
   std::vector<Uid_t> GetVariableUIDs(const std::vector<std::string> &names,
                                      const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByName(names, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const Metadata::FlagCollection &flags,
                                      const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetVariablesByFlag(flags, sparse_ids, flux).unique_ids();
   }
   std::vector<Uid_t> GetVariableUIDs(const std::vector<int> &sparse_ids = {},
-                                     bool flux = false) {
+                                     const FluxRequest flux = FluxRequest::NoFlux) {
     return GetAllVariables(sparse_ids, flux).unique_ids();
+  }
+
+  // Queries related to swarm data
+  std::shared_ptr<SwarmContainer> &GetSwarmData(int n = 0) {
+    PARTHENON_REQUIRE(stage_name_ == "base",
+                      "Swarm data must be accessed through base register!");
+    PARTHENON_REQUIRE(n == 0, "MeshBlockData::GetSwarmData requires n==0");
+    return swarm_data;
+  }
+  std::vector<std::shared_ptr<Swarm>> GetAllSwarms() {
+    return this->GetSwarmData()->GetSwarmVector();
+  }
+  std::shared_ptr<Swarm> GetSwarm(const std::string &name) {
+    auto swarm_map = this->GetSwarmData()->GetSwarmMap();
+    auto it = swarm_map.find(name);
+    PARTHENON_REQUIRE(it != swarm_map.end(), "Couldn't find swarm '" + name + "'");
+    return it->second;
   }
 
   /// Queries related to variable packs
@@ -267,6 +292,21 @@ class MeshBlockData {
   /// variable
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
+
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, Real>::value) {
+      return swarm_pack_real_cache_;
+    }
+    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+  }
+
+  void ClearSwarmCaches() {
+    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
+    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+  }
 
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
@@ -535,6 +575,11 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<Real> swarm_pack_real_cache_;
+
+  // swarm data
+  std::shared_ptr<SwarmContainer> swarm_data = std::make_shared<SwarmContainer>();
 
   // These functions have private scope and are visible only to MeshData
   const VariableFluxPack<T> &

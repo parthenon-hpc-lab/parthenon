@@ -332,11 +332,13 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 }
 
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                           LogicalCoordinateTransformation lcoord_trans) {
+                           LogicalCoordinateTransformation lcoord_trans, const bool periodic) {
   int location_idx = offset.GetIdx();
   neighbors[location_idx].insert({neighbor_tree, lcoord_trans});
   BoundaryFace fidx = offset.Face();
-  if (fidx >= 0) boundary_conditions[fidx] = BoundaryFlag::block;
+
+  if (fidx >= 0)
+    boundary_conditions[fidx] = periodic ? BoundaryFlag::periodic : BoundaryFlag::block;
 }
 
 void Tree::InsertGid(const LogicalLocation &loc, std::int64_t gid) {

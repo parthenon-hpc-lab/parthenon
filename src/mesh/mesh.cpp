@@ -102,6 +102,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
+  if (app_in->UserWorkBeforeRestartOutput != nullptr) {
+    UserWorkBeforeRestartOutput = app_in->UserWorkBeforeRestartOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -127,7 +130,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   mesh_data.SetMeshPointer(this);
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData) InitUserMeshData(this, pin);
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -182,6 +185,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
+  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   CheckMeshValidity();
 }
@@ -286,12 +290,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // Populate logical locations
   loclist = std::vector<LogicalLocation>(nbtotal);
+  std::unordered_map<LogicalLocation, int> dealloc_count;
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[6 * i], lx123[3 * i],
                                  lx123[3 * i + 1], lx123[3 * i + 2]);
+    dealloc_count[loclist[i]] = locLevelGidLidCnghostGflag[6 * i + 5];
   }
 
   // rebuild the Block Tree
@@ -307,11 +313,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
-  BuildBlockList(pin, app_in, packages, mesh_test);
+  BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count);
 }
 
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
-                          Packages_t &packages, int mesh_test) {
+                          Packages_t &packages, int mesh_test,
+                          const std::unordered_map<LogicalLocation, int> &dealloc_count) {
   // LFR: This routine should work for general block lists
   std::stringstream msg;
 
@@ -364,6 +371,9 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
+    if (block_list[i - nbs]->pmr)
+      block_list[i - nbs]->pmr->DerefinementCount() =
+          dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
@@ -536,6 +546,14 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
       BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
       BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+  static const SBValFunc soutflow[6] = {
+      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
+      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
+      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
     switch (mesh_bcs[f]) {
@@ -544,6 +562,7 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       break;
     case BoundaryFlag::outflow:
       MeshBndryFnctn[f] = outflow[f];
+      MeshSwarmBndryFnctn[f] = soutflow[f];
       break;
     case BoundaryFlag::user:
       if (app_in->boundary_conditions[f] != nullptr) {
@@ -560,11 +579,21 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     }
 
     switch (mesh_bcs[f]) {
+    case BoundaryFlag::outflow:
+      MeshSwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      MeshSwarmBndryFnctn[f] = speriodic[f];
+      break;
+    case BoundaryFlag::reflect:
+      // Default "reflect" boundaries not available for swarms; catch later on if swarms
+      // are present
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
         // boundaries are requested but no swarms are used.
-        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
       }
       break;
     default: // Default BCs handled elsewhere
@@ -580,11 +609,26 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeOutput != nullptr) {
+    mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeOutput != nullptr) {
+      pmb->UserWorkBeforeOutput(pmb.get(), pin, time);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
+// \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
+void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                            SimTime const &time,
+                                            OutputParameters *pparams) {
+  if (mesh->UserWorkBeforeRestartOutput != nullptr) {
+    mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
 
@@ -611,7 +655,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   // Create send/recv MPI_Requests for swarms
   for (int i = 0; i < nmb; ++i) {
     auto &pmb = block_list[i];
-    pmb->swarm_data.Get()->SetupPersistentMPI();
+    pmb->meshblock_data.Get()->GetSwarmData()->SetupPersistentMPI();
   }
 
   // Wait for boundary buffers to be no longer in use
@@ -755,7 +799,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb, pin);
+      }
     }
 
     const int num_partitions = DefaultNumPartitions();
@@ -782,7 +828,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->ProblemGenerator(pmb.get(), pin);
+          if (pmb->ProblemGenerator != nullptr) {
+            pmb->ProblemGenerator(pmb.get(), pin);
+          }
         }
       }
 
@@ -798,7 +846,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostInitialization != nullptr) {
+            pmb->PostInitialization(pmb.get(), pin);
+          }
         }
       }
 
@@ -1052,19 +1102,19 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   for (auto dir : {X1DIR, X2DIR, X3DIR})
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
 
-  auto GetMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
-                                        const LogicalLocation &loc) -> Real {
+  auto GetLegacyMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
+                                              const LogicalLocation &loc) -> Real {
     auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac =
-        static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     xll *= root_fac;
     return this->mesh_size.xmin(dir) * (1.0 - xll) + this->mesh_size.xmax(dir) * xll;
   };
 
-  auto GetLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
-                                              Real xmesh) -> std::int64_t {
-    auto root_fac =
-        static_cast<Real>(1 << this->root_level) / static_cast<Real>(nrbx[dir - 1]);
+  auto GetLegacyLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
+                                                    Real xmesh) -> std::int64_t {
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     auto xLL = (xmesh - this->mesh_size.xmin(dir)) /
                (this->mesh_size.xmax(dir) - this->mesh_size.xmin(dir)) / root_fac;
     return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
@@ -1091,7 +1141,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
         ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
       }
       int ref_lev = pin->GetInteger(pib->block_name, "level");
-      int lrlev = ref_lev + root_level;
+      int lrlev = ref_lev + GetLegacyTreeRootLevel();
       // range check
       if (ref_lev < 1) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -1127,8 +1177,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] = GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+          l_region_min[dir - 1] =
+              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+          l_region_max[dir - 1] =
+              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
           l_region_min[dir - 1] =
               std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
           l_region_max[dir - 1] =
@@ -1137,7 +1189,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
           auto current_loc =
               LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
           // Remove last block if it just it's boundary overlaps with the region
-          if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+          if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
               ref_size.xmax(dir))
             l_region_max[dir - 1]--;
           if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;

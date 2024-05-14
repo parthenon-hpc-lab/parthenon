@@ -165,11 +165,13 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
       CellCentOffsets ox(offsets.GetIdxArray(o));
       std::array<int, 3> nx;
       bool add = true;
+      bool p = false;
       for (int dir = 0; dir < 3; ++dir) {
         nx[dir] = ix[dir] + ox[dir];
         if (nx[dir] >= ntree[dir] || nx[dir] < 0) {
           if (periodic[dir]) {
             nx[dir] = (nx[dir] + ntree[dir]) % ntree[dir];
+            p = true;
           } else {
             add = false;
           }
@@ -180,7 +182,7 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
         LogicalCoordinateTransformation lcoord_trans;
         lcoord_trans.use_offset = true;
         lcoord_trans.offset = ox;
-        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, lcoord_trans);
+        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, lcoord_trans, p);
       }
     }
   }

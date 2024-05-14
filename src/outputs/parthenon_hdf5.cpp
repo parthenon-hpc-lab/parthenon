@@ -297,6 +297,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // can't use std::vector here because std::vector<hbool_t> is the same as
   // std::vector<bool> and it doesn't have .data() member
   std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
+  std::vector<int> sparse_dealloc_count(num_blocks_local * num_sparse);
 
   // allocate space for largest size variable
   int varSize_max = 0;
@@ -356,7 +357,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
       bool is_allocated = false;
-
+      int dealloc_count = 0;
       // for each variable that this local meshblock actually has
       const auto vars = get_vars(pmb);
       for (auto &v : vars) {
@@ -369,8 +370,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
               [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
                 tmpData[index] = static_cast<OutT>(v_h(topo, t, u, v, k, j, i));
               });
-
           is_allocated = true;
+          dealloc_count = v->dealloc_count;
           break;
         }
       }
@@ -378,6 +379,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       if (vinfo.is_sparse) {
         size_t sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
+        sparse_dealloc_count[b_idx * num_sparse + sparse_idx] = dealloc_count;
       }
 
       if (!is_allocated) {
@@ -441,8 +443,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_names, num_sparse, file, pl_xfer,
-                     my_offset, max_blocks_global);
+    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_dealloc_count, sparse_names,
+                     num_sparse, file, pl_xfer, my_offset, max_blocks_global);
   } // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
@@ -594,8 +596,8 @@ void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl
 
   {
     // (LOC.)level, GID, LID, cnghost, gflag
-    hsize_t loc_cnt[2] = {num_blocks_local, 5};
-    hsize_t glob_cnt[2] = {max_blocks_global, 5};
+    hsize_t loc_cnt[2] = {num_blocks_local, 6};
+    hsize_t glob_cnt[2] = {max_blocks_global, 6};
     std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
     HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
                 &loc_cnt[0], &glob_cnt[0], pl);
@@ -660,6 +662,7 @@ void PHDF5Output::WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
 }
 
 void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                                   const std::vector<int> dealloc_count,
                                    const std::vector<std::string> &sparse_names,
                                    hsize_t num_sparse, hid_t file, const HDF5::H5P &pl,
                                    size_t offset, hsize_t max_blocks_global) const {
@@ -673,6 +676,9 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
   HDF5Write2D(file, "SparseInfo", sparse_allocated, &loc_offset[0], &loc_cnt[0],
               &glob_cnt[0], pl);
+
+  HDF5Write2D(file, "SparseDeallocCount", dealloc_count.data(), &loc_offset[0],
+              &loc_cnt[0], &glob_cnt[0], pl);
 
   // write names of sparse fields as attribute, first convert to vector of const char*
   std::vector<const char *> names(num_sparse);

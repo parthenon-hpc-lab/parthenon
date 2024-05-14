@@ -1,5 +1,5 @@
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,35 +12,28 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = restart
-
-<parthenon/sparse>
-dealloc_count = 5
+problem_id = particle_tracers
 
 <parthenon/mesh>
-refinement = adaptive
-numlevel = 3
+refinement = none
 
-nx1 = 128
-x1min = -1
-x1max = 1
-ix1_bc = outflow
-ox1_bc = reflecting
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
 
-nx2 = 128
-x2min = -1
-x2max = 1
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
 ix2_bc = periodic
 ox2_bc = periodic
 
 nx3 = 1
-x3min = -1
-x3max = 1
+x3min = -0.5
+x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
-
-derefine_count = 999999 # disable this since derefinement counter resets on
-                        # restart and thus leads to different results
 
 <parthenon/meshblock>
 nx1 = 16
@@ -48,23 +41,25 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 0.5  # need enough time here to run for a few seconds at least with MPI
-integrator = rk2
+tlim = 1.0
+nlim = 100000
+integrator = rk1
 
-<sparse_advection>
-restart_test = true
-
-cfl = 0.45
-vx = 1.0
-vy = 1.0
-vz = 1.0
-profile = hard_sphere
-
-refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.01 # with larger value test will fail because de-refinement counters
-                    # are reset on restart
-compute_error = false
+<Background>
+cfl = 0.3
+v = 1.0
 
 <parthenon/output0>
-file_type = rst
+file_type = hdf5
 dt = 0.05
+variables = advected, tracer_deposition
+
+<Tracers>
+num_tracers = 10
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = advected
+swarms = tracers
+swarm_variables = id

@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -28,6 +28,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
@@ -213,6 +214,17 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 }
 
 } // namespace dispatch_impl
+
+// this pattern does not support reductions yet
+template <typename Tag, typename Function>
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int &il, const int &iu,
+                         const Function &function) {
+  PARTHENON_INSTRUMENT_REGION(name)
+#pragma omp simd
+  for (auto i = il; i <= iu; i++)
+    function(i);
+}
 
 // 1D loop using RangePolicy loops
 template <typename Tag, typename Function, class... Args>
@@ -631,6 +643,12 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
               function(l, m, n, k, j, i);
 }
 
+template <typename Tag, typename... Args>
+inline void par_dispatch(const std::string &name, Args &&...args) {
+  par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
+                    std::forward<Args>(args)...);
+}
+
 template <class... Args>
 inline void par_for(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
@@ -713,6 +731,12 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
         k += kl;
         function(team_member, n, k, j);
       });
+}
+
+template <typename... Args>
+inline void par_for_outer(const std::string &name, Args &&...args) {
+  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, DevExecSpace(),
+                std::forward<Args>(args)...);
 }
 
 // Inner parallel loop using TeamThreadRange
@@ -903,6 +927,11 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
   }
 }
 
+template <typename... Args>
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(team_mbr_t team_member, Args &&...args) {
+  par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, std::forward<Args>(args)...);
+}
+
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
 template <class ExecSpace>
@@ -934,42 +963,6 @@ struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
-
-// Design from "Runtime Polymorphism in Kokkos Applications", SAND2019-0279PE
-template <typename MS = DevMemSpace>
-struct DeviceDeleter {
-  template <typename T>
-  void operator()(T *ptr) {
-    Kokkos::kokkos_free<MS>(ptr);
-  }
-};
-
-template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
-std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
-  static_assert(std::is_trivially_destructible<T>::value,
-                "DeviceAllocate only supports trivially destructible classes!");
-  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
-      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
-  auto p = up.get();
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
-  Kokkos::fence();
-  return up;
-}
-
-template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
-std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
-  static_assert(std::is_trivially_destructible<T>::value,
-                "DeviceCopy only supports trivially destructible classes!");
-  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
-      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
-  auto p = up.get();
-  Kokkos::parallel_for(
-      Kokkos::RangePolicy<ES>(0, 1),
-      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
-  Kokkos::fence();
-  return up;
-}
 
 } // namespace parthenon
 

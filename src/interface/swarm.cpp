@@ -19,6 +19,7 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -77,11 +78,11 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
 
   uid_ = get_uid_(label_);
 
-  Add("x", Metadata({Metadata::Real}));
-  Add("y", Metadata({Metadata::Real}));
-  Add("z", Metadata({Metadata::Real}));
+  Add(swarm_position::x::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::y::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::z::name(), Metadata({Metadata::Real}));
   num_active_ = 0;
-  max_active_index_ = 0;
+  max_active_index_ = inactive_max_active_index;
 
   // TODO(BRR) Do this in a device kernel?
   auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
@@ -201,6 +202,7 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
+  auto pm = pmb->pmy_mesh;
 
   for (std::int64_t n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
@@ -237,6 +239,13 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   }
 
   nmax_pool_ = nmax_pool;
+
+  // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
+  pmb->meshblock_data.Get()->ClearSwarmCaches();
+  pm->mesh_data.Get("base")->ClearSwarmCaches();
+  for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
+    pm->mesh_data.GetOrAdd("base", i)->ClearSwarmCaches();
+  }
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
@@ -280,7 +289,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
-// No active particles: nmax_active_index = -1
+// No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
@@ -403,9 +412,9 @@ void Swarm::Defrag() {
 void Swarm::SortParticlesByCell() {
   auto pmb = GetBlockPointer();
 
-  auto &x = Get<Real>("x").Get();
-  auto &y = Get<Real>("y").Get();
-  auto &z = Get<Real>("z").Get();
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
 
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::entire);

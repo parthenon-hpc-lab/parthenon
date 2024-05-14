@@ -28,9 +28,13 @@ be added as:
 
    Swarm.Add(name, metadata)
 
-For a given species, each ``MeshBlock`` contains its own ``Swarm`` that
-holds the particles of that species that are spatially contained by that
-``MeshBlock``. The ``MeshBlock`` is pointed to by ``Swarm::pmy_block``.
+Instances of ``MeshBlockData`` own the ``Swarm``s that hold particles spatially contained
+by the associated ``MeshBlock``. The ``MeshBlock`` is pointed to by ``Swarm::pmy_block``.
+``Swarm``s can be retrieved via both ``MeshBlockData::GetSwarmData()`` or
+``MeshData::GetSwarmData(b)`` where the latter returns the ``Swarm``s associated with the
+``MeshBlockData`` pointed to by the ``b`` index within a ``MeshData``.  We currently only
+permit ``Swarm``s to be retrieved from ``"base"`` ``MeshBlockData`` and ``MeshData``.
+
 
 The ``Swarm`` is a host-side object, but some of its data members are
 required for device- side compution. To access this data, a
@@ -147,20 +151,62 @@ Similarly to grid variables, particle swarms support
 This also supports ``FlatIdx`` for indexing; see the
 ``particle_leapfrog`` example for usage.
 
+``SwarmPack``s
+----------------
+
+Similar to grid variables, swarms can be packed over ``MeshBlock``s via ``SwarmPack``s.
+``SwarmPack``s are the particle analog to ``SparsePack``s for field variables.  A single
+``SwarmPack`` can contain either ``int`` or ``Real`` entries, but not both.  One can pack
+a ``SwarmPack`` via a ``std::vector<std::string>`` or the type-based variable prescription
+previously used by ``SparsePack``s.
+
+For packing via string (wherein below, ``swarm_position::x::name()`` returns a string),
+one must specify the data type by template argument:
+
+.. code:: cpp
+
+   std::vector<std::string> vars{swarm_position::x::name(),
+                                 swarm_position::y::name(),
+                                 swarm_position::z::name()};
+   static auto desc = MakeSwarmPackDescriptor<Real>(swarm_name, vars);
+   auto pack = desc.GetPack(md);
+
+
+For packing via type-based variables (see interface/swarm_default_names.hpp for an
+example), the type can be inferred automatically:
+
+.. code:: cpp
+
+   static auto desc = MakeSwarmPackDescriptor<swarm_position::x,
+                                              swarm_position::y,
+                                              swarm_position::z>(swarm_name);
+   auto pack = desc.GetPack(md);
+
+
+For example ``SwarmPack`` usage, see the ``particle_leapfrog`` example.
+
+
+
 Boundary conditions
 -------------------
 
-Particle boundary conditions are not applied in separate kernel calls;
-instead, inherited classes containing boundary condition functions for
-updating particles or removing them when they are in boundary regions
-are allocated depending on the boundary flags specified in the input
-file. Currently, outflow and periodic boundaries are supported natively.
-User-specified boundary conditions must be set by specifying the “user”
-flag in the input parameter file and then updating the appropriate
-Swarm::bounds array entries to factory functions that allocate
-device-side boundary condition objects. An example is given in the
-``particles`` example when ix1 and ox1 are set to ``user`` in the input
-parameter file.
+Particle boundary conditions are applied in per-block per-boundary kernel
+launches analogous to grid-based variables. Outflow and periodic boundaries
+are supported natively, but other boundary conditions (including reflecting)
+must be provided by the downstream application. Particle boundary conditions are
+enrolled by setting entries in ``ApplicationInput::swarm_boundary_conditions``
+to per-boundary (inner ``x1``, outer ``x2``, etc.) custom boundary functions
+with signature
+
+.. code:: cpp
+
+   void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm);
+
+The ``particles`` example demonstrates how to create and enroll custom particle
+boundary conditions.
+
+Note that periodic boundary conditions cannot be enrolled by the user; the
+default ``periodic`` option for Parthenon must be requested in the input file.
 
 Outputs
 --------
