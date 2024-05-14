@@ -272,7 +272,7 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
       for (int ox2 = -1; ox2 < 2; ++ox2) {
         for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
           trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0),
-                                                trees[neighbor->GetId()], ct);
+                                                trees[neighbor->GetId()], ct, false);
         }
       }
     }
