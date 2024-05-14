@@ -133,4 +133,6 @@ Parthenon implements AMR via a forest of octrees type approach.
   fact to make ``LogicalLocation`` hashable so that it can be used with ``std::map`` 
   and other hashed containers. 
 - Unlike in the Athena++ ``MeshBlockTree`` implementation that was historically used by 
-  Parthenon, the entire logical index space of the 
+  Parthenon, the entire logical index space of each tree is within the domain of the problem. 
+  Even for some hyper-rectangular base meshes, this can result in forests that contain 
+  multiple trees.  
