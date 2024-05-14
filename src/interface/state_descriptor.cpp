@@ -447,6 +447,11 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
       state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
                                              package->UserBoundaryFunctions[i].begin(),
                                              package->UserBoundaryFunctions[i].end());
+    for (int i = 0; i < 6; ++i)
+      state->UserSwarmBoundaryFunctions[i].insert(
+          state->UserSwarmBoundaryFunctions[i].end(),
+          package->UserSwarmBoundaryFunctions[i].begin(),
+          package->UserSwarmBoundaryFunctions[i].end());
   }
 
   // check that dependent variables are provided somewhere

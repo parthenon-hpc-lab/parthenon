@@ -46,6 +46,7 @@ template <typename T>
 class MeshData;
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
+using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -456,6 +457,7 @@ class StateDescriptor {
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
  protected:
   void InvertControllerMap();

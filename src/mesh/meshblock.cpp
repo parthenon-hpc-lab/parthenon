@@ -134,13 +134,18 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // mesh-related objects
   // Boundary
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
-  pbswarm->SetBoundaryFlags(boundary_flag);
+  for (int n = 0; n < 6; n++) {
+    boundary_flag[n] = input_bcs[n];
+  }
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
   real_container->Initialize(resolved_packages, shared_from_this());
+
+  // Initialize swarm boundary condition flags
+  real_container->GetSwarmData()->InitializeBoundaries(shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used

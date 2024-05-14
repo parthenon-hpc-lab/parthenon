@@ -11,8 +11,6 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "particles.hpp"
-
 #include <algorithm>
 #include <limits>
 #include <memory>
@@ -20,29 +18,20 @@
 #include <utility>
 #include <vector>
 
+#include "particles.hpp"
+
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//
 namespace particles_example {
 
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIX1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1User>();
-}
-
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmOX1UserBC() {
-  return DeviceAllocate<ParticleBoundOX1User>();
-}
+using namespace parthenon;
+using namespace parthenon::BoundaryFunction;
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages.Add(particles_example::Particles::Initialize(pin.get()));
   return packages;
-}
-
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  // Don't do anything for now
 }
 
 enum class DepositionMethod { per_particle, per_cell };
@@ -534,8 +523,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
       // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
       // if (nb.snb.rank != Globals::my_rank) {
       //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-      //    printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
-      //    //return TaskStatus::incomplete;
+      //    return TaskStatus::incomplete;
       //  }
       //}
 
