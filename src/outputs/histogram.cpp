@@ -3,7 +3,7 @@
 // Copyright(C) 2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -287,8 +287,7 @@ void Histogram::CalcHist(Mesh *pm) {
     const auto kb = md->GetBoundsK(IndexDomain::interior);
 
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "CalcHist", DevExecSpace(), 0, md->NumBlocks() - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
+        "CalcHist", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           auto &coords = x_var.GetCoords(b);
           auto x_val = std::numeric_limits<Real>::quiet_NaN();

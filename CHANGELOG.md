@@ -3,16 +3,21 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
+- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
+- [[PR 1068]](https://github.com/parthenon-hpc-lab/parthenon/pull/1068) Add ability to dump sparse pack contents as a string
+- [[PR 1062]](https://github.com/parthenon-hpc-lab/parthenon/pull/1062) UserWorkBeforeRestartOutput #1062
 - [[PR 1043]](https://github.com/parthenon-hpc-lab/parthenon/pull/1043) Unify flux correction with boundary communication, make fluxes variables, allow fluxes for non-cell fields
 - [[PR 1060]](https://github.com/parthenon-hpc-lab/parthenon/pull/1060) Add the ability to request new MeshData/MeshBlockData objects by selecting variables by UID.
-- [[PR1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
-- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
+- [[PR 1039]](https://github.com/parthenon-hpc-lab/parthenon/pull/1039) Add ability to output custom coordinate positions for Visit/Paraview
+- [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1070]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Correctly exclude flux vars from searches by default
 - [[PR 1049]](https://github.com/parthenon-hpc-lab/parthenon/pull/1049) Catch task failures from threads
 - [[PR 1058]](https://github.com/parthenon-hpc-lab/parthenon/pull/1058) Vector history not being output if no scalar history present
 - [[PR 1057]](https://github.com/parthenon-hpc-lab/parthenon/pull/1057) Fix history output after restarts
@@ -22,6 +27,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1055]](https://github.com/parthenon-hpc-lab/parthenon/pull/1055) Refactor mesh constructors
+- [[PR 1066]](https://github.com/parthenon-hpc-lab/parthenon/pull/1066) Re-introduce default loop patterns and exec spaces
 - [[PR 1064]](https://github.com/parthenon-hpc-lab/parthenon/pull/1064) Forbid erroneous edge case when adding MeshData on a partition
 - [[PR 1035]](https://github.com/parthenon-hpc-lab/parthenon/pull/1035) Fix multigrid infrastructure to work with forest
 - [[PR 1048]](https://github.com/parthenon-hpc-lab/parthenon/pull/1048) Tiny fixes to custom coords logic
@@ -33,8 +39,10 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
+- [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
-- [[PR1019](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
+- [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Remove support for file formats < 3
 
 
 ## Release 24.03
@@ -129,6 +137,7 @@ Date: 2023-11-16
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 930](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
+
 
 ## Release 0.8.0
 Date: 2023-05-26
@@ -335,7 +344,7 @@ Date: 09/22/2021
 - [[PR 519]](https://github.com/parthenon-hpc-lab/parthenon/pull/519) Add checksum to bash uploader script to verify file is trusted
 - [[PR 549]](https://github.com/parthenon-hpc-lab/parthenon/pull/549) Add deep-code badge.
 - [[PR 554]](https://github.com/parthenon-hpc-lab/parthenon/pull/554) Small fix to documentation related to python parthenon tools README
-- [[PR 555](https://github.com/parthenon-hpc-lab/parthenon/pull/555) Added documentation for darwin CI and scripts
+- [[PR 555]](https://github.com/parthenon-hpc-lab/parthenon/pull/555) Added documentation for darwin CI and scripts
 - [[PR 560]](https://github.com/parthenon-hpc-lab/parthenon/pull/560) Rename `png_files_to_upload` to more generic `figure_files_to_upload`
 - [[PR 561]](https://github.com/parthenon-hpc-lab/parthenon/pull/561) Adding documentation to help with adding new performance regression tests.
 
@@ -402,7 +411,7 @@ Date: 01/19/2021
 - [[PR 332]](https://github.com/parthenon-hpc-lab/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[\#401]](https://github.com/parthenon-hpc-lab/parthenon/issues/401) Fix missing initial timestep for MeshData functions
+- [[PR 401]](https://github.com/parthenon-hpc-lab/parthenon/issues/401) Fix missing initial timestep for MeshData functions
 - [[PR 387]](https://github.com/parthenon-hpc-lab/parthenon/pull/387) Add missing const that was needed
 - [[PR 353]](https://github.com/parthenon-hpc-lab/parthenon/pull/353) Fixed small error in input\_parameter logic
 - [[PR 352]](https://github.com/parthenon-hpc-lab/parthenon/pull/352) Code compiles cleanly (no warnings) with nvcc_wrapper
@@ -462,7 +471,7 @@ Date: 9/12/2020
 - [[PR 298]](https://github.com/parthenon-hpc-lab/parthenon/pull/298) Introduced Partition, a tiny utility for partitioning STL containers. Used for MeshBlockPacks, to enable packing over a fraction of the mesh.
 
 ### Changed
-- [\#68](https://github.com/parthenon-hpc-lab/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock`
+- [[PR 68]](https://github.com/parthenon-hpc-lab/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock`
 - [[PR 243]](https://github.com/parthenon-hpc-lab/parthenon/pull/243) Automatically find/check Python version used in regression tests. Bumps CMake minimum version to 3.12
 - [[PR 266]](https://github.com/parthenon-hpc-lab/parthenon/pull/266): It is no longer necessary to specify Kokkos_ENABLE_OPENMP this is by default enabled, to turn off one can specify PARTHENON_DISABLE_OPENMP.
 
@@ -476,6 +485,7 @@ Date: 9/12/2020
 ### Removed
 - [[PR 282]](https://github.com/parthenon-hpc-lab/parthenon/pull/282) Integrated MeshBlockPack and tasking in pi example
 - [[PR 294]](https://github.com/parthenon-hpc-lab/parthenon/pull/294) Fix `IndexShape::GetTotal(IndexDomain)` - previously was returning opposite of expected domain result.
+
 
 ## Release 0.1.0
 Date: 8/4/2020

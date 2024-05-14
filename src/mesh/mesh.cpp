@@ -102,6 +102,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->UserMeshWorkBeforeOutput != nullptr) {
     UserMeshWorkBeforeOutput = app_in->UserMeshWorkBeforeOutput;
   }
+  if (app_in->UserWorkBeforeRestartOutput != nullptr) {
+    UserWorkBeforeRestartOutput = app_in->UserWorkBeforeRestartOutput;
+  }
   if (app_in->PreStepDiagnosticsInLoop != nullptr) {
     PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
   }
@@ -180,7 +183,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-
+  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
+  
   CheckMeshValidity();
 }
 
@@ -500,6 +504,14 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
       BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
       BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+  static const SBValFunc soutflow[6] = {
+      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
+      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
+      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
     switch (mesh_bcs[f]) {
@@ -508,6 +520,7 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
       break;
     case BoundaryFlag::outflow:
       MeshBndryFnctn[f] = outflow[f];
+      MeshSwarmBndryFnctn[f] = soutflow[f];
       break;
     case BoundaryFlag::user:
       if (app_in->boundary_conditions[f] != nullptr) {
@@ -524,11 +537,21 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
     }
 
     switch (mesh_bcs[f]) {
+    case BoundaryFlag::outflow:
+      MeshSwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      MeshSwarmBndryFnctn[f] = speriodic[f];
+      break;
+    case BoundaryFlag::reflect:
+      // Default "reflect" boundaries not available for swarms; catch later on if swarms
+      // are present
+      break;
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
         // boundaries are requested but no swarms are used.
-        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
       }
       break;
     default: // Default BCs handled elsewhere
@@ -544,11 +567,26 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 void Mesh::ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin,
                                      SimTime const &time) {
   // call Mesh version
-  mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  if (mesh->UserMeshWorkBeforeOutput != nullptr) {
+    mesh->UserMeshWorkBeforeOutput(mesh, pin, time);
+  }
 
   // call MeshBlock version
   for (auto &pmb : block_list) {
-    pmb->UserWorkBeforeOutput(pmb.get(), pin);
+    if (pmb->UserWorkBeforeOutput != nullptr) {
+      pmb->UserWorkBeforeOutput(pmb.get(), pin, time);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+// \!fn void Mesh::ApplyUserWorkBeforeRestartOutput
+// \brief Apply Mesh and Meshblock versions of UserWorkBeforeRestartOutput
+void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                            SimTime const &time,
+                                            OutputParameters *pparams) {
+  if (mesh->UserWorkBeforeRestartOutput != nullptr) {
+    mesh->UserWorkBeforeRestartOutput(mesh, pin, time, pparams);
   }
 }
 
@@ -575,7 +613,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   // Create send/recv MPI_Requests for swarms
   for (int i = 0; i < nmb; ++i) {
     auto &pmb = block_list[i];
-    pmb->swarm_data.Get()->SetupPersistentMPI();
+    pmb->meshblock_data.Get()->GetSwarmData()->SetupPersistentMPI();
   }
 
   // Wait for boundary buffers to be no longer in use
@@ -719,7 +757,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // init meshblock data
     for (int i = 0; i < nmb; ++i) {
       MeshBlock *pmb = block_list[i].get();
-      pmb->InitMeshBlockUserData(pmb, pin);
+      if (pmb->InitMeshBlockUserData != nullptr) {
+        pmb->InitMeshBlockUserData(pmb, pin);
+      }
     }
 
     const int num_partitions = DefaultNumPartitions();
@@ -746,7 +786,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->ProblemGenerator(pmb.get(), pin);
+          if (pmb->ProblemGenerator != nullptr) {
+            pmb->ProblemGenerator(pmb.get(), pin);
+          }
         }
       }
 
@@ -762,7 +804,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostInitialization != nullptr) {
+            pmb->PostInitialization(pmb.get(), pin);
+          }
         }
       }
 

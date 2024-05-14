@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
@@ -28,6 +29,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
+#include "interface/pack_utils.hpp"
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "utils/concepts_lite.hpp"
@@ -45,135 +47,6 @@ IndexShape GetIndexShape(const ParArray3D<Real, VariableState> &arr, int ng) {
   int nx3 = arr.GetDim(3) > 1 ? arr.GetDim(3) - extra_zone - 2 * ng : 0;
   return IndexShape::GetFromSeparateInts(nx3, nx2, nx1, ng);
 }
-
-// Sparse pack index type which allows for relatively simple indexing
-// into non-variable name type based SparsePacks (i.e. objects of
-// type SparsePack<> which are created with a vector of variable
-// names and/or regexes)
-class PackIdx {
- public:
-  KOKKOS_INLINE_FUNCTION
-  explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
-  KOKKOS_INLINE_FUNCTION
-  PackIdx(std::size_t var_idx, int off) : vidx(var_idx), offset(off) {}
-
-  KOKKOS_INLINE_FUNCTION
-  PackIdx &operator=(std::size_t var_idx) {
-    vidx = var_idx;
-    offset = 0;
-    return *this;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  std::size_t VariableIdx() { return vidx; }
-  KOKKOS_INLINE_FUNCTION
-  int Offset() { return offset; }
-
- private:
-  std::size_t vidx;
-  int offset;
-};
-
-// Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
-template <class T, REQUIRES(std::is_integral<T>::value)>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
-  return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
-}
-
-template <class T, REQUIRES(std::is_integral<T>::value)>
-KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
-  return idx + offset;
-}
-
-// Namespace in which to put variable name types that are used for
-// indexing into SparsePack<[type list of variable name types]> on
-// device
-namespace variable_names {
-// Struct that all variable_name types should inherit from
-constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
-template <bool REGEX, int... NCOMP>
-struct base_t {
-  KOKKOS_INLINE_FUNCTION
-  base_t() : idx(0) {}
-
-  KOKKOS_INLINE_FUNCTION
-  explicit base_t(int idx1) : idx(idx1) {}
-
-  /*
-    for 2D:, (M, N),
-    idx(m, n) = N*m + n
-    for 3D: (L, M, N)
-    idx(l, m, n) = (M*l + m)*N + n
-                 = l*M*N + m*N + n
-   */
-  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
-  KOKKOS_INLINE_FUNCTION explicit base_t(Args... args)
-      : idx(GetIndex_(std::forward<Args>(args)...)) {
-    static_assert(CheckArgs_(NCOMP...),
-                  "All dimensions must be strictly positive, "
-                  "except the first (slowest), which may be ANYDIM.");
-  }
-  virtual ~base_t() = default;
-
-  // All of these are just static methods so that there is no
-  // extra storage in the struct
-  static std::string name() {
-    PARTHENON_FAIL("Need to implement your own name method.");
-    return "error";
-  }
-  template <int idx>
-  static constexpr auto GetDim() {
-    return std::get<sizeof...(NCOMP) - idx>(std::make_tuple(NCOMP...));
-  }
-  static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
-  KOKKOS_INLINE_FUNCTION
-  static bool regex() { return REGEX; }
-  KOKKOS_INLINE_FUNCTION
-  static int ndim() { return sizeof...(NCOMP); }
-  KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
-
-  const int idx;
-
- private:
-  template <typename... Tail, REQUIRES(all_implement<integral(Tail...)>::value)>
-  static constexpr bool CheckArgs_(int head, Tail... tail) {
-    return (... && (tail > 0));
-  }
-  template <class... Args>
-  KOKKOS_INLINE_FUNCTION static auto GetIndex_(Args... args) {
-    int idx = 0;
-    (
-        [&] {
-          idx *= NCOMP;
-          idx += args;
-        }(),
-        ...);
-    return idx;
-  }
-};
-
-// An example variable name type that selects all variables available
-// on Mesh*Data
-struct any_withautoflux : public base_t<true> {
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_withautoflux(Ts &&...args)
-      : base_t<true>(std::forward<Ts>(args)...) {}
-  static std::string name() { return ".*"; }
-};
-
-struct any_nonautoflux : public base_t<true> {
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_nonautoflux(Ts &&...args)
-      : base_t<true>(std::forward<Ts>(args)...) {}
-  static std::string name() {
-    return "^(?!" + internal_fluxname + internal_varname_seperator + ").+";
-  }
-};
-
-using any = any_nonautoflux;
-} // namespace variable_names
 
 template <class... Ts>
 class SparsePack : public SparsePackBase {
@@ -356,6 +229,11 @@ class SparsePack : public SparsePackBase {
     return (... && ContainsHost(b, Args()));
   }
 
+  // Informational
+  auto LabelHost(int b, int idx) const { return pack_h_(0, b, idx).label(); }
+  template <typename... Vars>
+  friend std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp);
+
   // operator() overloads
   using TE = TopologicalElement;
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
@@ -486,6 +364,19 @@ class SparsePack : public SparsePackBase {
     return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
   }
 };
+
+template <typename... Vars>
+inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp) {
+  os << "Sparse pack contains on each block:\n";
+  for (int b = 0; b < sp.GetNBlocks(); b++) {
+    os << "\tb = " << b << "\n";
+    for (int n = sp.GetLowerBoundHost(b); n <= sp.GetUpperBoundHost(b); n++) {
+      os << "\t\t" << sp.LabelHost(b, n) << "\n";
+    }
+  }
+  os << "\n";
+  return os;
+}
 
 } // namespace parthenon
 
