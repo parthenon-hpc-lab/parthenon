@@ -130,7 +130,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   mesh_data.SetMeshPointer(this);
 
-  InitUserMeshData(this, pin);
+  if (InitUserMeshData) InitUserMeshData(this, pin);
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -184,7 +184,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Register user defined boundary conditions
   UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
   UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
-  
+
   CheckMeshValidity();
 }
 
