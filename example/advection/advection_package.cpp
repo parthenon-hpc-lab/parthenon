@@ -169,7 +169,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   Metadata m_fine(
       {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
-  pkg->AddField("advected_fine", m_fine);
+  pkg->AddField("fine_advected", m_fine);
   if (!v_const) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost, Metadata::Vector},
@@ -506,12 +506,12 @@ TaskStatus FillFine(MeshData<Real> *md) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "advected_fine"});
+  std::vector<std::string> vars({"advected", "fine_advected"});
   PackIndexMap imap;
   const auto &v = md->PackVariables(vars, imap);
 
   const int in = imap.get("advected").first;
-  const int out = imap.get("advected_fine").first;
+  const int out = imap.get("fine_advected").first;
   pmb->par_for(
       "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
