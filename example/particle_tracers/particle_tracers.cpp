@@ -144,12 +144,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
   pkg->AddParam<>("num_tracers", num_tracers);
 
-  // Initialize random number generator pool
-  int rng_seed = pin->GetOrAddInteger("Tracers", "rng_seed", 1273);
-  pkg->AddParam<>("rng_seed", rng_seed);
-  RNGPool rng_pool(rng_seed);
-  pkg->AddParam<>("rng_pool", rng_pool);
-
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
@@ -187,9 +181,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
           x(n) += vx * dt;
           y(n) += vy * dt;
           z(n) += vz * dt;
-
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
 
@@ -237,7 +228,8 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
-          // For testing in this example we make sure the indices are correct
+          // For testing in this example we make sure the indices are correct; these could
+          // be demoted to Debug-only calls
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
@@ -322,7 +314,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &advected = mbd->Get("advected").data;
   auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
   const auto num_tracers = tr_pkg->Param<int>("num_tracers");
-  auto rng_pool = tr_pkg->Param<RNGPool>("rng_pool");
+  auto rng_pool =
+      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
 
   const int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim <= 2, "Tracer particles example only supports <= 2D!");
@@ -515,7 +508,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
 
       // Defragment if swarm memory pool occupancy is 90%
-      auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
+      auto defrag = tl.AddTask(deposit, &SwarmContainer::Defrag, sc.get(), 0.9);
     }
   }
 

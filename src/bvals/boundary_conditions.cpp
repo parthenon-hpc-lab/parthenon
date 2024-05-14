@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,6 +29,8 @@ namespace parthenon {
 namespace boundary_cond_impl {
 bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
                          const int ndim);
+bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                              const int ndim);
 } // namespace boundary_cond_impl
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
@@ -50,6 +52,25 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
     }
   }
 
+  return TaskStatus::complete;
+}
+
+TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm) {
+  PARTHENON_INSTRUMENT
+  using namespace boundary_cond_impl;
+  const auto pmb = swarm->GetBlockPointer();
+  Mesh *pmesh = pmb->pmy_mesh;
+  const int ndim = pmesh->ndim;
+
+  for (int i = 0; i < BOUNDARY_NFACES; i++) {
+    if (DoPhysicalSwarmBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i),
+                                 ndim)) {
+      pmesh->MeshSwarmBndryFnctn[i](swarm);
+      for (auto &bnd_func : pmesh->UserSwarmBoundaryFunctions[i]) {
+        bnd_func(swarm);
+      }
+    }
+  }
   return TaskStatus::complete;
 }
 
@@ -116,6 +137,54 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   GenericBC<X3DIR, BCSide::Outer, BCType::Reflect, variable_names::any>(rc, coarse);
 }
 
+void SwarmOutflowInnerX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
+}
+
+void SwarmOutflowOuterX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Outflow>(swarm);
+}
+
+void SwarmOutflowInnerX2(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X2DIR, BCSide::Inner, BCType::Outflow>(swarm);
+}
+
+void SwarmOutflowOuterX2(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X2DIR, BCSide::Outer, BCType::Outflow>(swarm);
+}
+
+void SwarmOutflowInnerX3(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X3DIR, BCSide::Inner, BCType::Outflow>(swarm);
+}
+
+void SwarmOutflowOuterX3(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Outflow>(swarm);
+}
+
+void SwarmPeriodicInnerX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Periodic>(swarm);
+}
+
+void SwarmPeriodicOuterX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Outer, BCType::Periodic>(swarm);
+}
+
+void SwarmPeriodicInnerX2(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X2DIR, BCSide::Inner, BCType::Periodic>(swarm);
+}
+
+void SwarmPeriodicOuterX2(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X2DIR, BCSide::Outer, BCType::Periodic>(swarm);
+}
+
+void SwarmPeriodicInnerX3(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X3DIR, BCSide::Inner, BCType::Periodic>(swarm);
+}
+
+void SwarmPeriodicOuterX3(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X3DIR, BCSide::Outer, BCType::Periodic>(swarm);
+}
+
 } // namespace BoundaryFunction
 
 namespace boundary_cond_impl {
@@ -133,6 +202,14 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   } // ndim always at least 1
 
   return true; // reflect, outflow, user, dims correct
+}
+
+bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                              const int ndim) {
+  if (flag == BoundaryFlag::undef) return false;
+  if (flag == BoundaryFlag::block) return false;
+
+  return true; // outflow, periodic, user, dims (particles always 3D) correct
 }
 
 } // namespace boundary_cond_impl

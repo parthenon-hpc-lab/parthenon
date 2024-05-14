@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -149,12 +149,6 @@ class BoundarySwarms : public BoundaryCommunication {
 
   // variable-length arrays of references to all BoundarySwarm instances
   std::vector<std::shared_ptr<BoundarySwarm>> bswarms;
-
-  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
-    for (int i = 0; i < 6; i++) {
-      bc_flag[i] = block_bcs[i];
-    }
-  }
 
   // inherited functions:
   // ------

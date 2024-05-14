@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -476,61 +476,5 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   SECTION("1D loops") {
     REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
                                  default_exec_space) == true);
-  }
-}
-
-struct MyTestStruct {
-  int i;
-};
-
-constexpr int test_int = 2;
-
-class MyTestBaseClass {
-  KOKKOS_INLINE_FUNCTION
-  virtual int GetInt() = 0;
-};
-
-struct MyTestDerivedClass : public MyTestBaseClass {
-  KOKKOS_INLINE_FUNCTION
-  int GetInt() { return test_int; }
-};
-
-TEST_CASE("Device Object Allocation", "[wrapper]") {
-  parthenon::ParArray1D<int> buffer("Testing buffer", 1);
-
-  GIVEN("A struct") {
-    THEN("We can create a unique_ptr to this on device") {
-      { auto ptr = parthenon::DeviceAllocate<MyTestStruct>(); }
-    }
-  }
-
-  GIVEN("An initialized host struct") {
-    MyTestStruct s;
-    s.i = 5;
-    THEN("We can create a unique_ptr to a copy on device") {
-      auto ptr = parthenon::DeviceCopy<MyTestStruct>(s);
-      auto devptr = ptr.get();
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<DevExecSpace>(0, 1),
-          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->i; });
-
-      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
-      REQUIRE(buffer_h[0] == s.i);
-    }
-  }
-
-  GIVEN("A derived class") {
-    THEN("We can create a unique_ptr to this on device") {
-      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
-      auto devptr = ptr.get();
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<DevExecSpace>(0, 1),
-          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
-
-      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
-      REQUIRE(buffer_h[0] == test_int);
-    }
   }
 }

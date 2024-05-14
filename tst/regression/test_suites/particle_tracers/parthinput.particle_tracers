@@ -1,9 +1,5 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-#  Licensed under the 3-clause BSD License, see LICENSE file for details
-# ========================================================================================
-#  (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,20 +12,18 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = particles
+problem_id = particle_tracers
 
 <parthenon/mesh>
 refinement = none
 
-nx1 = 16
+nx1 = 64
 x1min = -0.5
 x1max = 0.5
-ix1_bc = user
-ox1_bc = user
-# ix1_bc = periodic # Optionally use periodic boundary conditions everywhere
-# ox1_bc = periodic
+ix1_bc = periodic
+ox1_bc = periodic
 
-nx2 = 16
+nx2 = 64
 x2min = -0.5
 x2max = 0.5
 ix2_bc = periodic
@@ -42,22 +36,30 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 8
+nx1 = 16
+nx2 = 16
+nx3 = 1
+
+<parthenon/time>
+tlim = 1.0
+nlim = 100000
+integrator = rk1
+
+<Background>
+cfl = 0.3
+v = 1.0
 
 <parthenon/output0>
 file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
+dt = 0.05
+variables = advected, tracer_deposition
 
-<parthenon/time>
-tlim = 1.e2
-integrator = rk1
+<Tracers>
+num_tracers = 10
 
-<Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
-const_dt = 0.5
-deposition_method = per_cell
-destroy_particles_frac = 0.1
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = advected
+swarms = tracers
+swarm_variables = id
