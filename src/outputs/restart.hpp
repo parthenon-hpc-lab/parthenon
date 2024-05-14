@@ -70,9 +70,9 @@ class RestartReader {
       PARTHENON_REQUIRE_THROWS(allocated != nullptr,
                                "Tried to get allocation status but no data present");
       PARTHENON_REQUIRE_THROWS((block >= 0) && (block < num_blocks),
-                               "Invalid block index in SparseInfo::IsAllocated");
+                               "Invalid block index in SparseInfo:: DeallocCount");
       PARTHENON_REQUIRE_THROWS((sparse_field_idx >= 0) && (sparse_field_idx < num_sparse),
-                               "Invalid sparse field index in SparseInfo::IsAllocated");
+                               "Invalid sparse field index in SparseInfo:: DeallocCount");
 
       return dealloc_count[block * num_sparse + sparse_field_idx];
     }
