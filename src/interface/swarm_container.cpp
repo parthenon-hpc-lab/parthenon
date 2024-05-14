@@ -86,7 +86,8 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
 
   auto swarm = std::make_shared<Swarm>(label, metadata);
   swarm->SetBlockPointer(GetBlockPointer());
-  swarm->AllocateComms(GetBlockPointer());
+  const int swarm_idx = swarmVector_.size() - 1;
+  swarm->AllocateComms(GetBlockPointer(), swarm_idx);
   Add(swarm);
 }
 
