@@ -55,16 +55,7 @@ void MeshBlockData<T>::Initialize(
   }
 
   const auto &swarm_container = GetSwarmData();
-  swarm_container->SetBlockPointer(pmb);
-  for (auto const &q : resolved_packages->AllSwarms()) {
-    swarm_container->Add(q.first, q.second);
-    // Populate swarm values
-    auto &swarm = swarm_container->Get(q.first);
-    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
-      swarm->Add(m.first, m.second);
-    }
-  }
-  swarm_container->AllocateBoundaries();
+  swarm_container->Initialize(resolved_packages, pmb);
 
   Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
   auto vars = GetVariablesByFlag(flags);

@@ -144,7 +144,6 @@ add_library(parthenon
   interface/state_descriptor.cpp
   interface/swarm.cpp
   interface/swarm.hpp
-  interface/swarm_boundaries.hpp
   interface/swarm_comms.cpp
   interface/swarm_container.cpp
   interface/swarm_default_names.hpp
