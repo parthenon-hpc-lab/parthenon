@@ -192,8 +192,8 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetLegacyTreeRootLevel() const noexcept {
-    return forest.root_level + forest.forest_level;
+  int GetLegacyTreeRootLevel() const {
+    return forest.root_level + forest.forest_level.value();
   }
 
   int GetMaxLevel() const noexcept { return max_level; }
@@ -324,17 +324,19 @@ class Mesh {
 
   // Transform from logical location coordinates to uniform mesh coordinates accounting
   // for root grid
-  Real GetMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
-                         const LogicalLocation &loc) const {
+  Real GetLegacyMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
+                               const LogicalLocation &loc) const {
     auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     xll *= root_fac;
     return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll;
   }
 
-  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level,
-                                       Real xmesh) const {
-    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
+  std::int64_t GetLegacyLLFromMeshCoordinate(CoordinateDirection dir, int level,
+                                             Real xmesh) const {
+    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
+                    static_cast<Real>(nrbx[dir - 1]);
     auto xLL = (xmesh - mesh_size.xmin(dir)) /
                (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;
     return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
