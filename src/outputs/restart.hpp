@@ -35,6 +35,8 @@ namespace parthenon {
 class Mesh;
 class Param;
 
+constexpr int NumIDsAndFlags{6};
+
 class RestartReader {
  public:
   RestartReader() = default;
