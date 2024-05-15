@@ -287,7 +287,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
         }
         int ref_lev = pin->GetInteger(pib->block_name, "level");
-        int lrlev = ref_lev + root_level;
+        int lrlev = ref_lev + GetLegacyTreeRootLevel();
         // range check
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -324,9 +324,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
         for (auto dir : {X1DIR, X2DIR, X3DIR}) {
           if (!mesh_size.symmetry(dir)) {
             l_region_min[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
+                GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
             l_region_max[dir - 1] =
-                GetLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
+                GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
             l_region_min[dir - 1] =
                 std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
             l_region_max[dir - 1] =
@@ -335,7 +335,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
             auto current_loc =
                 LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
             // Remove last block if it just it's boundary overlaps with the region
-            if (GetMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
+            if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
                 ref_size.xmax(dir))
               l_region_max[dir - 1]--;
             if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
@@ -599,12 +599,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
-                                 lx123[3 * i + 1], lx123[3 * i + 2]);
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i],
+                                 lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
   }
 
   // rebuild the Block Tree
-
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
@@ -693,6 +692,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
+    if (block_list[i - nbs]->pmr)
+      block_list[i - nbs]->pmr->DerefinementCount() =
+          locLevelGidLidCnghostGflag[NumIDsAndFlags * i + 5];
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);

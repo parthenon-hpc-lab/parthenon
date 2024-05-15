@@ -27,6 +27,7 @@
 #include "interface/swarm_container.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 
@@ -232,13 +233,14 @@ std::vector<int64_t> ComputeLocs(Mesh *pm) {
 
 std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
   return FlattenBlockInfo<int>(
-      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+      pm, 6, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
         auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
         data[i++] = loc.level();
         data[i++] = pmb->gid;
         data[i++] = pmb->lid;
         data[i++] = pmb->cnghost;
         data[i++] = pmb->gflag;
+        data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
       });
 }
 
