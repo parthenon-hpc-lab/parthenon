@@ -599,12 +599,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[5 * i], lx123[3 * i],
-                                 lx123[3 * i + 1], lx123[3 * i + 2]);
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i],
+                                 lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
   }
 
   // rebuild the Block Tree
-
   for (int i = 0; i < nbtotal; i++) {
     forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
                         false);
@@ -693,6 +692,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
+    if (block_list[i - nbs]->pmr)
+      block_list[i - nbs]->pmr->DerefinementCount() =
+          locLevelGidLidCnghostGflag[NumIDsAndFlags * i + 5];
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
