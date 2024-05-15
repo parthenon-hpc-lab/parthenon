@@ -56,7 +56,7 @@ mutually exclusive:
    pointwise.
 
 For any type of topology, the flag ``Metadata::Fine`` can be set which 
-causes the field will have twice the resolution of normal fields.
+causes the field to have twice the resolution of normal fields.
 
 Variable Behaviors
 ------------------
