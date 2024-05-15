@@ -496,7 +496,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   return cfl * min_dt;
 }
 
-// TODO(LFR): Remove this
 TaskStatus FillFine(MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetParentPointer();
   const int ndim = md->GetMeshPointer()->ndim;
