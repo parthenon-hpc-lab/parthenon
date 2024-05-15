@@ -99,6 +99,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 check_metadata=False,
             )
             if delta != 0:
+                print("Sparse advection failed for standard AMR grid setup.")
                 return False
 
             delta = compare(
@@ -112,6 +113,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 check_metadata=False,
             )
             if delta != 0:
+                print("Sparse advection failed for two-tree AMR grid setup.")
                 return False
 
             delta = compare(
@@ -124,5 +126,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 tol=1e-12,
                 check_metadata=False,
             )
+            if delta != 0:
+                print("Sparse advection failed for two-tree SMR grid setup.")
 
         return delta == 0

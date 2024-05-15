@@ -40,6 +40,7 @@
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
+#include "outputs/restart.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -596,8 +597,8 @@ void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl
 
   {
     // (LOC.)level, GID, LID, cnghost, gflag
-    hsize_t loc_cnt[2] = {num_blocks_local, 6};
-    hsize_t glob_cnt[2] = {max_blocks_global, 6};
+    hsize_t loc_cnt[2] = {num_blocks_local, NumIDsAndFlags};
+    hsize_t glob_cnt[2] = {max_blocks_global, NumIDsAndFlags};
     std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
     HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
                 &loc_cnt[0], &glob_cnt[0], pl);
@@ -662,7 +663,7 @@ void PHDF5Output::WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
 }
 
 void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
-                                   const std::vector<int> dealloc_count,
+                                   const std::vector<int> &dealloc_count,
                                    const std::vector<std::string> &sparse_names,
                                    hsize_t num_sparse, hid_t file, const HDF5::H5P &pl,
                                    size_t offset, hsize_t max_blocks_global) const {
