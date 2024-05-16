@@ -140,7 +140,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
     
     if (include_fine)
-      update = tl.AddTask(update, advection_package::FillFine, mc1.get());
+      update = tl.AddTask(update, advection_package::AverageFine, mc0.get(), mc1.get());
 
     // do boundary exchange
     parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
