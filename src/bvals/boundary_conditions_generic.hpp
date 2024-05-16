@@ -161,7 +161,7 @@ GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
                                   MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
     my_map.emplace(std::make_pair(desc_key_t{false, false, tt},
                                   MakePackDescriptor<var_ts...>(rc.get(), flags)));
-    flags.push_back(Metadata::Fine); 
+    flags.push_back(Metadata::Fine);
     my_map.emplace(std::make_pair(desc_key_t{true, true, tt},
                                   MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
     my_map.emplace(std::make_pair(desc_key_t{false, true, tt},
@@ -185,8 +185,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
 
   static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
   for (auto fine : {false, true}) {
-    auto q =
-        descriptors[impl::desc_key_t{coarse, fine, GetTopologicalType(el)}].GetPack(rc.get());
+    auto q = descriptors[impl::desc_key_t{coarse, fine, GetTopologicalType(el)}].GetPack(
+        rc.get());
     const int b = 0;
     const int lstart = q.GetLowerBoundHost(b);
     const int lend = q.GetUpperBoundHost(b);
@@ -194,7 +194,8 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
     auto nb = IndexRange{lstart, lend};
 
     MeshBlock *pmb = rc->GetBlockPointer();
-    const auto &bounds = fine ? (coarse ? pmb->cellbounds : pmb->f_cellbounds) : (coarse ? pmb->c_cellbounds : pmb->cellbounds);
+    const auto &bounds = fine ? (coarse ? pmb->cellbounds : pmb->f_cellbounds)
+                              : (coarse ? pmb->c_cellbounds : pmb->cellbounds);
 
     const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
                            : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
@@ -223,11 +224,12 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
           if (TYPE == BCType::Reflect) {
             const bool reflect = (q(b, el, l).vector_component == DIR);
             q(b, el, l, k, j, i) =
-                (reflect ? -1.0 : 1.0) *
-                q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
+                (reflect ? -1.0 : 1.0) * q(b, el, l, X3 ? offset - k : k,
+                                           X2 ? offset - j : j, X1 ? offset - i : i);
           } else if (TYPE == BCType::FixedFace) {
-            q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k,
-                                                 X2 ? offset - j : j, X1 ? offset - i : i);
+            q(b, el, l, k, j, i) =
+                2.0 * val - q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j,
+                              X1 ? offset - i : i);
           } else if (TYPE == BCType::ConstantDeriv) {
             Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
                         X1 ? ref + offsetin : i) -
