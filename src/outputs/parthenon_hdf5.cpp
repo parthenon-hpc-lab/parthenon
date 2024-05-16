@@ -85,13 +85,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   const auto &cellbounds = first_block.cellbounds;
   const auto &f_cellbounds = first_block.f_cellbounds;
-  const IndexRange out_ib = cellbounds.GetBoundsI(theDomain);
-  const IndexRange out_jb = cellbounds.GetBoundsJ(theDomain);
-  const IndexRange out_kb = cellbounds.GetBoundsK(theDomain);
 
-  auto const nx1 = out_ib.e - out_ib.s + 1;
-  auto const nx2 = out_jb.e - out_jb.s + 1;
-  auto const nx3 = out_kb.e - out_kb.s + 1;
+  auto const nx1 = cellbounds.ncellsi(theDomain);
+  auto const nx2 = cellbounds.ncellsj(theDomain);
+  auto const nx3 = cellbounds.ncellsk(theDomain);
 
   const int rootLevel = pm->GetLegacyTreeRootLevel();
   const int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
