@@ -75,6 +75,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
   pkg->AddParam<>("fill_derived", fill_derived);
+  
+  auto include_fine = pin->GetOrAddBoolean("Advection", "include_fine", false);
+  pkg->AddParam<>("include_fine", include_fine);
 
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
@@ -167,9 +170,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
-  Metadata m_fine(
-      {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
-  pkg->AddField("fine_advected", m_fine);
+  
+  if (include_fine) {
+    Metadata m_fine(
+        {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
+    pkg->AddField("fine_advected", m_fine);
+  }
+
   if (!v_const) {
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
                   Metadata::FillGhost, Metadata::Vector},
