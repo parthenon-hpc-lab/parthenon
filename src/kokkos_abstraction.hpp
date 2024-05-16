@@ -212,31 +212,35 @@ template <class... Args>
 inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
   Kokkos::parallel_scan(std::forward<Args>(args)...);
 }
-
 } // namespace dispatch_impl
 
-// this pattern does not support reductions yet
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
-                         DevExecSpace exec_space, const int &il, const int &iu,
-                         const Function &function) {
+// 1D loop using RangePolicy loops
+template <typename Tag, typename Pattern, typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(Pattern, const std::string &name, DevExecSpace exec_space, const int &il,
+             const int &iu, const Function &function, Args &&...args) {
   PARTHENON_INSTRUMENT_REGION(name)
+  if constexpr (std::is_same<Pattern, LoopPatternSimdFor>::value &&
+                std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value) {
 #pragma omp simd
-  for (auto i = il; i <= iu; i++)
-    function(i);
+    for (auto i = il; i <= iu; i++) {
+      function(i);
+    }
+  } else {
+    Tag tag;
+    kokkos_dispatch(tag, name,
+                    Kokkos::Experimental::require(
+                        Kokkos::RangePolicy<>(exec_space, il, iu + 1),
+                        Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                    function, std::forward<Args>(args)...);
+  }
 }
 
-// 1D loop using RangePolicy loops
-template <typename Tag, typename Function, class... Args>
+template <typename Tag, typename Pattern, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-             const int &il, const int &iu, const Function &function, Args &&...args) {
-  Tag tag;
-  kokkos_dispatch(tag, name,
-                  Kokkos::Experimental::require(
-                      Kokkos::RangePolicy<>(exec_space, il, iu + 1),
-                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                  function, std::forward<Args>(args)...);
+par_dispatch(Pattern p, const std::string &name, DevExecSpace exec_space,
+             const IndexRange &r, const Function &function, Args &&...args) {
+  par_dispatch<Tag>(p, name, exec_space, r.s, r.e, function, std::forward<Args>(args)...);
 }
 
 // 2D loop using MDRange loops
@@ -925,6 +929,13 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
   for (int i = il; i <= iu; i++) {
     function(i);
   }
+}
+
+template <typename Tag, typename Function>
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const Tag &t, team_mbr_t member,
+                                               const IndexRange r,
+                                               const Function &function) {
+  par_for_inner(t, member, r.s, r.e, function);
 }
 
 template <typename... Args>
