@@ -63,6 +63,10 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
       auto &pair_map = map_[other_rank];
       // Add channel key with an invalid tag
       pair_map[MakeChannelPair(pmb, nb)] = -1;
+      if (swarm_map_.count(other_rank) < 1) swarm_map_[other_rank] = rank_pair_map_t();
+      auto &swarm_pair_map = swarm_map_[other_rank];
+      // Add channel key with an invalid tag
+      swarm_pair_map[MakeChannelPair(pmb, nb)] = -1;
     }
   }
 }
@@ -88,15 +92,22 @@ void TagMap::ResolveMap() {
     PARTHENON_FAIL("MPI error, cannot query largest supported MPI tag value.");
   }
 #endif
-  for (auto it = map_.begin(); it != map_.end(); ++it) {
+  auto it = map_.begin();
+  auto swarm_it = swarm_map_.begin();
+  while (it != map_.end() && swarm_it != swarm_map_.end()) {
     auto &pair_map = it->second;
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
                   [&idx](auto &pair) { pair.second = idx++; });
+    auto &swarm_pair_map = swarm_it->second;
+    std::for_each(swarm_pair_map.begin(), swarm_pair_map.end(),
+                  [&idx](auto &swarm_pair) { swarm_pair.second = idx++; });
 #ifdef MPI_PARALLEL
     if (idx > (*reinterpret_cast<int *>(max_tag)) && it->first != Globals::my_rank)
       PARTHENON_FAIL("Number of tags exceeds the maximum allowed by this MPI version.");
 #endif
+    ++it;
+    ++swarm_it;
   }
 }
 
@@ -107,6 +118,15 @@ int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
   PARTHENON_REQUIRE(pair_map.count(cpair) == 1,
                     "Trying to get tag for key that hasn't been entered.\n");
   return pair_map[cpair];
+}
+
+int TagMap::GetSwarmTag(const MeshBlock *pmb, const NeighborBlock &nb) {
+  const int other_rank = nb.rank;
+  auto &swarm_pair_map = swarm_map_[other_rank];
+  auto cpair = MakeChannelPair(pmb, nb);
+  PARTHENON_REQUIRE(swarm_pair_map.count(cpair) == 1,
+                    "Trying to get tag for key that hasn't been entered.\n");
+  return swarm_pair_map[cpair];
 }
 
 } // namespace parthenon
