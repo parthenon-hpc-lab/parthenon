@@ -95,6 +95,8 @@ void TagMap::ResolveMap() {
   auto it = map_.begin();
   auto swarm_it = swarm_map_.begin();
   while (it != map_.end() && swarm_it != swarm_map_.end()) {
+    PARTHENON_REQUIRE(it->first == swarm_it->first,
+                      "Field and swarm tag maps must be synchronized");
     auto &pair_map = it->second;
     int idx = 0;
     std::for_each(pair_map.begin(), pair_map.end(),
