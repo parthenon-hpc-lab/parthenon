@@ -85,7 +85,6 @@ class TagMap {
   using tag_map_t = std::unordered_map<int, rank_pair_map_t>;
 
   tag_map_t map_;
-  tag_map_t swarm_map_;
 
   // Given the two blocks (one described by the MeshBlock and the other described by the
   // firsts NeighborBlock information) return an ordered pair of BlockGeometricElementIds
@@ -109,7 +108,6 @@ class TagMap {
   // After the map has been resolved, get the tag for a particular MeshBlock NeighborBlock
   // pair
   int GetTag(const MeshBlock *pmb, const NeighborBlock &nb);
-  int GetSwarmTag(const MeshBlock *pmb, const NeighborBlock &nb);
 };
 } // namespace parthenon
 
