@@ -23,15 +23,12 @@
 #include <type_traits>
 #include <vector>
 
+#include <Kokkos_Core.hpp>
+
 #include "basic_types.hpp"
 #include "defs.hpp"
 
 namespace parthenon {
-
-struct IndexRange {
-  int s = 0; /// Starting Index (inclusive)
-  int e = 0; /// Ending Index (inclusive)
-};
 
 // Assuming we have a block
 //

@@ -23,6 +23,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
 using parthenon::DevExecSpace;
@@ -476,5 +477,35 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   SECTION("1D loops") {
     REQUIRE(test_wrapper_scan_1d(parthenon::loop_pattern_flatrange_tag,
                                  default_exec_space) == true);
+  }
+}
+
+template <class T>
+bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
+  constexpr int N = 10;
+  parthenon::IndexRange r{0, N - 1};
+  parthenon::ParArray1D<int> buffer("Testing buffer", N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel reduce array", exec_space, r,
+      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
+  int total = 0;
+  for (int i = 0; i < N; ++i) {
+    total += i;
+  }
+  int test_tot = 0;
+  parthenon::par_reduce(
+      loop_pattern, "Sum via par reduce", exec_space, r,
+      KOKKOS_LAMBDA(const int i, int &t) { t += i; }, Kokkos::Sum<int>(test_tot));
+  return total == test_tot;
+}
+
+TEST_CASE("Parallel reduce", "[par_reduce]") {
+  auto default_exec_space = DevExecSpace();
+  REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
+  if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) {
+    REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
+                                   default_exec_space) == true);
   }
 }
