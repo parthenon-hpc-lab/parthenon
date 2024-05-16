@@ -259,8 +259,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i], lx123[3 * i],
-                                 lx123[3 * i + 1], lx123[3 * i + 2]);
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i],
+                                 lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
     dealloc_count[loclist[i]] = locLevelGidLidCnghostGflag[NumIDsAndFlags * i + 5];
   }
 
