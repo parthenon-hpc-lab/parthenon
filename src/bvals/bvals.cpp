@@ -74,8 +74,8 @@ void BoundarySwarm::SetupPersistentMPI() {
     NeighborBlock &nb = pmb->neighbors[n];
     // Neighbor on different MPI process
     if (nb.rank != Globals::my_rank) {
-      send_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetTag(pmb.get(), nb);
-      recv_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetTag(pmb.get(), nb);
+      send_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetSwarmTag(pmb.get(), nb);
+      recv_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetSwarmTag(pmb.get(), nb);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       }
