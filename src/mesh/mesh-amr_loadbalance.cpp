@@ -202,7 +202,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
       
-      auto &c_cellbounds = var->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
+      auto &c_cellbounds = var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
         IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
