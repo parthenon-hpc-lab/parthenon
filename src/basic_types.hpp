@@ -38,6 +38,11 @@ using Real = double;
 #endif
 #endif
 
+struct IndexRange {
+  int s = 0; /// Starting Index (inclusive)
+  int e = 0; /// Ending Index (inclusive)
+};
+
 // Enum speficying whether or not you requested a flux variable in
 // GetVariablesByFlag type methods
 // TODO(JMM): Is this the right place for this?
