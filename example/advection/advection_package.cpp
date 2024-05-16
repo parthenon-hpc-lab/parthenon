@@ -75,7 +75,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
   pkg->AddParam<>("fill_derived", fill_derived);
-  
+
   auto include_fine = pin->GetOrAddBoolean("Advection", "include_fine", false);
   pkg->AddParam<>("include_fine", include_fine);
 
@@ -170,7 +170,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
   }
-  
+
   if (include_fine) {
     Metadata m_fine(
         {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
@@ -520,8 +520,8 @@ TaskStatus AverageFine(MeshData<Real> *mdin, MeshData<Real> *mdout) {
   const int in = imap.get("fine_advected").first;
   const int out = imapout.get("fine_advected").first;
   pmb->par_for(
-      "advection_package::AverageFine", 0, mdin->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "advection_package::AverageFine", 0, mdin->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         vout(b, out, k, j, i) = vout(b, in, k, j, i);
         vout(b, out, k, j, i) += vout(b, in, k, j, i - 1);
         vout(b, out, k, j, i) += vout(b, in, k, j, i + 1);

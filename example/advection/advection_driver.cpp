@@ -57,7 +57,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   using namespace parthenon::Update;
   TaskCollection tc;
   TaskID none(0);
-  
+
   auto pkg = pmesh->packages.Get("advection_package");
   auto include_fine = pkg->Param<bool>("include_fine");
 
@@ -138,7 +138,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // apply du/dt to all independent fields in the container
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
-    
+
     if (include_fine)
       update = tl.AddTask(update, advection_package::AverageFine, mc0.get(), mc1.get());
 
