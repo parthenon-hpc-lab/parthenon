@@ -1,4 +1,3 @@
-
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2024 The Parthenon collaboration
@@ -22,9 +21,11 @@
 #ifndef UTILS_ROBUST_HPP_
 #define UTILS_ROBUST_HPP_
 
+#include <algorithm>
+#include <limits>
+
 #include <config.hpp>
 #include <kokkos_abstraction.hpp>
-#include <limits>
 
 namespace parthenon {
 namespace robust {

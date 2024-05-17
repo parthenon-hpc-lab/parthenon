@@ -22,6 +22,8 @@
 #ifndef UTILS_INTERPOLATION_HPP_
 #define UTILS_INTERPOLATION_HPP_
 
+#include <algorithm>
+
 // Parthenon includes
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
@@ -31,9 +33,6 @@
 
 namespace parthenon {
 namespace interpolation {
-
-// using namespace parthenon::package::prelude;
-// using parthenon::Coordinates_t;
 
 // From https://github.com/lanl/spiner/blob/main/spiner/regular_grid_1d.hpp
 // a poor-man's std::pair
@@ -45,85 +44,13 @@ struct weights_t {
   }
 };
 
-/// Base class for providing interpolation methods on uniformly spaced data.
-/// Constructor is provided with spacing, number of support points, and desired
-/// shift. GetIndicesAndWeights then updates arrays of indices and weights for
-/// calculating the interpolated data. These arrays are of size StencilSize().
-/// Data is forced to zero outside the boundaries.
-class Interpolation {
- public:
-  KOKKOS_FUNCTION
-  Interpolation(const int n_support, const Real dx, const Real shift)
-      : n_support_(n_support), dx_(dx), shift_(shift), ishift_(std::round(shift)) {}
-
-  KOKKOS_INLINE_FUNCTION
-  virtual void GetIndicesAndWeights(const int i, int *idx, Real *wgt) const {}
-  KOKKOS_INLINE_FUNCTION
-  virtual int StencilSize() const { return 0; }
-
-  static constexpr int maxStencilSize = 2;
-
- protected:
-  const int n_support_;
-  const Real dx_;
-  Real shift_;
-  int ishift_;
-};
-
-class PiecewiseConstant : public Interpolation {
- public:
-  KOKKOS_FUNCTION
-  PiecewiseConstant(const int n_support, const Real dx, const Real shift)
-      : Interpolation(n_support, dx, shift) {}
-
-  KOKKOS_INLINE_FUNCTION
-  void GetIndicesAndWeights(const int i, int *idx, Real *wgt) const override {
-    idx[0] = i + ishift_;
-    wgt[0] = 1.;
-    if (idx[0] < 0 || idx[0] >= n_support_) {
-      idx[0] = 0;
-      wgt[0] = 0.;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int StencilSize() const override { return 1; }
-};
-
-class Linear : public Interpolation {
- public:
-  KOKKOS_FUNCTION
-  Linear(const int n_support, const Real dx, const Real shift)
-      : Interpolation(n_support, dx, shift) {
-    PARTHENON_FAIL("Not written yet!");
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void GetIndicesAndWeights(const int i, int *idx, Real *wgt) const override {
-    idx[0] = std::floor(i + shift_);
-    idx[1] = idx[0] + 1;
-
-    wgt[0] = wgt[1] = 1. - wgt[0];
-
-    for (int nsup = 0; nsup < 2; nsup++) {
-      if (idx[nsup] < 0 || idx[nsup] >= n_support_) {
-        idx[nsup] = 0;
-        wgt[nsup] = 0.;
-      }
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int StencilSize() const override { return 2; }
-};
-
 // TODO(JMM): Is this interpolation::Do syntax reasonable? An
 // alternative path would be a class called "LCInterp with all
 // static functions. Then it could have an `operator()` which would
 // be maybe nicer?
 // TODO(JMM): Merge this w/ what Ben has done.
-namespace Cent {
-namespace Linear {
+namespace cent {
+namespace linear {
 
 /*
  * Get interpolation weights for linear interpolation
@@ -235,8 +162,8 @@ KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X
   }
 }
 
-} // namespace Linear
-} // namespace Cent
+} // namespace linear
+} // namespace cent
 } // namespace interpolation
 } // namespace parthenon
 #endif // UTILS_INTERPOLATION_HPP_
