@@ -15,8 +15,7 @@
 problem_id = restart
 
 <parthenon/sparse>
-dealloc_count = 999999 # disable this since deallcoation counter resets on
-                       # restart and thus leads to different results
+dealloc_count = 5
 
 <parthenon/mesh>
 refinement = adaptive

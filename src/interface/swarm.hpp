@@ -31,26 +31,25 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/bvals.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
-#include "swarm_boundaries.hpp"
 #include "swarm_device_context.hpp"
 #include "variable.hpp"
 #include "variable_pack.hpp"
 
 namespace parthenon {
 
-struct BoundaryDeviceContext {
-  ParticleBound *bounds[6];
-};
-
 // This class is returned by AddEmptyParticles. It provides accessors to the new particle
 // memory by wrapping the persistent new_indices_ array.
 class NewParticlesContext {
  public:
+  KOKKOS_DEFAULTED_FUNCTION
+  NewParticlesContext() = default;
+
+  KOKKOS_FUNCTION
   NewParticlesContext(const int new_indices_max_idx, const ParArray1D<int> new_indices)
       : new_indices_max_idx_(new_indices_max_idx), new_indices_(new_indices) {}
 
@@ -68,7 +67,7 @@ class NewParticlesContext {
   }
 
  private:
-  const int new_indices_max_idx_;
+  int new_indices_max_idx_;
   ParArray1D<int> new_indices_;
 };
 
@@ -104,8 +103,6 @@ class Swarm {
 
   SwarmDeviceContext GetDeviceContext() const;
 
-  void AllocateBoundaries();
-
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
@@ -125,29 +122,23 @@ class Swarm {
   /// Remote a variable from swarm
   void Remove(const std::string &label);
 
-  /// Set a custom boundary condition
-  void SetBoundary(
-      const int n,
-      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<parthenon::DevMemSpace>>
-          bc) {
-    bounds_uptrs[n] = std::move(bc);
-    bounds_d.bounds[n] = bounds_uptrs[n].get();
+  /// Check whether swarm contains this variable
+  template <typename T>
+  bool Contains(const std::string &label) const {
+    return std::get<getType<T>()>(maps_).count(label);
   }
 
   /// Get particle variable
-  template <typename T>
-  bool Contains(const std::string &label) {
-    return std::get<getType<T>()>(maps_).count(label);
-  }
-  // TODO(JMM): Kind of sucks to have two Gets here.
-  // Ben could we remove the get reference one and always get a
-  // pointer?
   template <class T>
   ParticleVariable<T> &Get(const std::string &label) {
+    PARTHENON_DEBUG_REQUIRE(Contains<T>(label), "Non-existent swarm variable requested!");
     return *std::get<getType<T>()>(maps_).at(label);
   }
+
+  /// Get pointer to particle variable
   template <class T>
   std::shared_ptr<ParticleVariable<T>> GetP(const std::string &label) const {
+    PARTHENON_DEBUG_REQUIRE(Contains<T>(label), "Non-existent swarm variable requested!");
     return std::get<getType<T>()>(maps_).at(label);
   }
 
@@ -240,21 +231,17 @@ class Swarm {
   int num_particles_sent_;
   bool finished_transport;
 
-  // Class to store raw pointers to boundary conditions on device. Copy locally for
-  // compute kernel capture.
-  BoundaryDeviceContext bounds_d;
-
   void LoadBuffers_(const int max_indices_size);
   void UnloadBuffers_();
 
-  void ApplyBoundaries_(const int nparticles, ParArray1D<int> indices);
-
-  std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>> bounds_uptrs[6];
+  int CountParticlesToSend_(); // Must be public for launching kernel
 
   template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);
   }
+
+  static constexpr int inactive_max_active_index = -1;
 
  private:
   template <class T>
@@ -262,14 +249,10 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
-  template <class BOutflow, class BPeriodic, int iFace>
-  void AllocateBoundariesImpl_(MeshBlock *pmb);
-
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
   void SetNeighborIndices3D_();
 
-  int CountParticlesToSend_();
   void CountReceivedParticles_();
   void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
                                            ParArray1D<int> &buffer_index);
@@ -282,8 +265,7 @@ class Swarm {
 
   std::size_t uid_;
   inline static UniqueIDGenerator<std::string> get_uid_;
-
-  int max_active_index_ = 0;
+  int max_active_index_ = inactive_max_active_index;
   int num_active_ = 0;
   std::string label_;
   Metadata m_;

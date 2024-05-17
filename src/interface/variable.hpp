@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -81,14 +81,16 @@ class Variable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
     // we can't query data.GetDim() here because data may be unallocated
-    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION, "Index out of bounds");
     return dims_[i - 1];
   }
+
+  auto GetDim() const { return dims_; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetCoarseDim(const int i) const {
     // we can't query coarse_s.GetDim() here because it may be unallocated
-    assert(0 < i && i <= MAX_VARIABLE_DIMENSION && "ParArrayNDs are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= MAX_VARIABLE_DIMENSION, "Index out of bounds");
     return coarse_dims_[i - 1];
   }
 
@@ -134,7 +136,6 @@ class Variable {
   inline bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T, VariableState> data;
-  ParArrayND<T, VariableState> flux[4];  // used for boundary calculation
   ParArrayND<T, VariableState> coarse_s; // used for sending coarse boundary calculation
 
   int dealloc_count = 0;
@@ -168,7 +169,7 @@ class Variable {
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
-  void AllocateFluxesAndCoarse(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateCoarse(std::weak_ptr<MeshBlock> wpmb);
 
   VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 
@@ -186,7 +187,6 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
-  ParArrayND<T> flux_data_; // unified par array for the fluxes
 };
 
 template <typename T>
@@ -212,7 +212,7 @@ class ParticleVariable {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const {
-    PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "ParArrayNDGenerics are max 6D");
+    PARTHENON_DEBUG_REQUIRE(0 < i && i <= 6, "Index out of bounds");
     return dims_[i - 1];
   }
 

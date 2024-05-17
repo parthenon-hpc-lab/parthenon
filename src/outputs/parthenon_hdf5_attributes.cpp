@@ -111,13 +111,26 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 // JMM: A little circular but it works.
 template <>
 std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
-  HostArray1D<bool> temp;
-  HDF5ReadAttribute(location, name, temp);
-  std::vector<bool> out(temp.size());
-  for (int i = 0; i < temp.size(); ++i) {
-    out[i] = temp[i];
+  H5A attr;
+  auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
+
+  // Check type
+  const hid_t type = H5T_NATIVE_HBOOL;
+  const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
+  auto status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
+
+  // Read data from file
+  // can't use std::vector here because std::vector<bool>  doesn't have .data() member
+  std::unique_ptr<hbool_t[]> data(new hbool_t[size]);
+  PARTHENON_HDF5_CHECK(H5Aread(attr, type, data.get()));
+
+  std::vector<bool> res(size);
+  for (size_t i = 0; i < res.size(); ++i) {
+    res[i] = data[i];
   }
-  return out;
+
+  return res;
 }
 
 template <>

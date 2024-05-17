@@ -38,6 +38,8 @@ if(${Kokkos_BUILT_WITH_CUDA})
   endif()
 endif()
 
+find_package(Threads)
+
 if(@MPI_FOUND@)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()

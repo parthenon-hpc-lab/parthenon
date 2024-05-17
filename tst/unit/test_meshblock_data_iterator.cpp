@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,6 +38,7 @@
 #include "parthenon_arrays.hpp"
 
 using parthenon::DevExecSpace;
+using parthenon::FluxRequest;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
@@ -115,6 +116,17 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
           REQUIRE(m.IsSet(Metadata::WithFluxes));
           REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
+          REQUIRE(!(m.IsSet(Metadata::Flux)));
+        }
+      }
+      WHEN("We construct a list of only fluxes") {
+        auto varlist = mbd.GetVariablesByFlag(flags, {}, FluxRequest::OnlyFlux).vars();
+        THEN("The list contains the desired variables") {
+          REQUIRE(varlist.size() > 0);
+          for (const auto &v : varlist) {
+            const auto &m = v->metadata();
+            REQUIRE(m.IsSet(Metadata::Flux));
+          }
         }
       }
       WHEN("We construct a metadata flag collection with only unions") {
@@ -135,7 +147,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       }
     }
 
-    auto v = mbd.PackVariables();
+    using FS_t = Metadata::FlagCollection;
+    auto flags =
+        (FS_t({Metadata::Independent, Metadata::Derived}, true) - FS_t(Metadata::Flux));
+    auto v = mbd.PackVariables(flags);
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -435,7 +450,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
     pkg->AddField("var", m);
 
-    MeshBlockData<Real> mbd;
+    MeshBlockData<Real> mbd("base");
     mbd.Initialize(pkg, dummy_mb);
     auto &var = mbd.Get("var");
 
