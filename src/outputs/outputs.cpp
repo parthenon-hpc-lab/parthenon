@@ -282,7 +282,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
         op.write_swarm_xdmf =
             (restart) ? false
-                      : pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", true);
+                      : pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl

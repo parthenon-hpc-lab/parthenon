@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1068]](https://github.com/parthenon-hpc-lab/parthenon/pull/1068) Add ability to dump sparse pack contents as a string
@@ -18,6 +19,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
 - [[PR 1071]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Fix bug in static mesh refinement related to redefinition of Mesh::root_level
 - [[PR 1073]](https://github.com/parthenon-hpc-lab/parthenon/pull/1073) Fix bug in AMR and sparse restarts
 - [[PR 1070]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Correctly exclude flux vars from searches by default
