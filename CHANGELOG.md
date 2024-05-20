@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR1020]](https://github.com/parthenon-hpc-lab/parthenon/pull/1020) Add bi- and trilinear interpolation routines
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1068]](https://github.com/parthenon-hpc-lab/parthenon/pull/1068) Add ability to dump sparse pack contents as a string
