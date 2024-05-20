@@ -12,9 +12,9 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+if( "advection-new-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
-      advection-example
+      advection-new-example
           advection_driver.cpp
           advection_driver.hpp
           advection_package.cpp
@@ -22,6 +22,6 @@ if( "advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           main.cpp
           parthenon_app_inputs.cpp
   )
-  target_link_libraries(advection-example PRIVATE Parthenon::parthenon)
-  lint_target(advection-example)
+  target_link_libraries(advection-new-example PRIVATE Parthenon::parthenon)
+  lint_target(advection-new-example)
 endif()
