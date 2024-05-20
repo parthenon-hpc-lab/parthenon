@@ -17,24 +17,64 @@
 #include <vector>
 
 #include <parthenon/package.hpp>
+#include <utils/robust.hpp>
+
+#define VARIABLE(ns, varname)                                                            \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return #ns "." #varname; }                               \
+  }
 
 namespace advection_package {
 using namespace parthenon::package::prelude;
 
+namespace Conserved {
+  VARIABLE(advection, scalar);
+}
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
-void PreFill(MeshBlockData<Real> *rc);
-void SquareIt(MeshBlockData<Real> *rc);
-void PostFill(MeshBlockData<Real> *rc);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
-TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
-TaskStatus FillFine(MeshData<Real> *md);
-TaskStatus AverageFine(MeshData<Real> *mdin, MeshData<Real> *mdout);
-template <typename T>
-Real AdvectionHst(MeshData<Real> *md);
-template <typename T>
-std::vector<Real> AdvectionVecHst(MeshData<Real> *md);
+Real EstimateTimestep(MeshData<Real> *md);
+
+template <parthenon::TopologicalElement FACE> 
+TaskStatus CalculateFluxes(MeshData<Real> *md) { 
+  using TE = parthenon::TopologicalElement;
+
+  std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("advection_package"); 
+  
+  // Pull out velocity and piecewise constant reconstruction offsets
+  // for the given direction
+  Real v;
+  int ioff{0}, joff{0}, koff{0}; 
+  if (FACE == TE::F1) { 
+    v = pkg->Param<Real>("vx");
+    if (v > 0) ioff = -1;
+  } else if (FACE == TE::F2) { 
+    v = pkg->Param<Real>("vy");
+    if (v > 0) joff = -1;
+  } else if (FACE == TE::F3) { 
+    v = pkg->Param<Real>("vz");
+    if (v > 0) koff = -1;
+  }
+
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md, {Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes}); 
+  auto pack = desc.GetPack(md);
+  
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior, FACE);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, FACE);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, FACE);
+
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        // Calculate the flux using upwind donor cell reconstruction
+        pack.flux(b, static_cast<int>(FACE), Conserved::scalar(), k, j, i) = v * pack(b, Conserved::scalar(), k + koff, j + joff, i + ioff); 
+      }
+    );
+  return TaskStatus::complete;
+}
 } // namespace advection_package
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

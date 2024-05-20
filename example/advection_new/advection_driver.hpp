@@ -20,6 +20,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
+
 namespace advection_example {
 using namespace parthenon::driver::prelude;
 
@@ -37,11 +38,7 @@ class AdvectionDriver : public MultiStageDriver {
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
-void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
-                       parthenon::SimTime &tm);
-void UserMeshWorkBeforeOutput(Mesh *pmb, ParameterInput *pin, parthenon::SimTime const &);
-void PostStepMeshUserWorkInLoop(Mesh *mesh, parthenon::ParameterInput *pin,
-                                parthenon::SimTime const &tm);
+
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
 } // namespace advection_example

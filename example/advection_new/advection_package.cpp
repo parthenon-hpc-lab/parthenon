@@ -47,12 +47,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
   pkg->AddParam<>("cfl", cfl);
 
-  // Use constant, uniform velocity or vector valued velocity.
-  // Latter is used for testing boundary conditions.
-  auto v_const = pin->GetOrAddBoolean("Advection", "v_const", true);
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
-  Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
-  Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
+  Real vy = pin->GetOrAddReal("Advection", "vy", 0.0);
+  Real vz = pin->GetOrAddReal("Advection", "vz", 0.0);
+  pkg->AddParam<>("vx", vx);
+  pkg->AddParam<>("vy", vy);
+  pkg->AddParam<>("vz", vz);
+
   Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
@@ -64,221 +65,44 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);
+  
+  pkg->AddField<Conserved::scalar>(Metadata({Metadata::Cell, 
+                                  Metadata::Independent,
+                                  Metadata::WithFluxes,
+                                  Metadata::FillGhost}));
 
-  Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
-  Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
-  Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
-  Real ang_3 = pin->GetOrAddReal("Advection", "ang_3", -999.9);
-
-  Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
-  Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
-
-  auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
-  pkg->AddParam<>("fill_derived", fill_derived);
-
-  auto include_fine = pin->GetOrAddBoolean("Advection", "include_fine", false);
-  pkg->AddParam<>("include_fine", include_fine);
-
-  // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
-  //    For example, for 1D problem use ang_2 = ang_3 = 0.0
-  //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
-  // Code below will automatically calculate these imposing periodicity and exactly one
-  // wavelength along each grid direction
-  Real x1size = pin->GetOrAddReal("parthenon/mesh", "x1max", 1.5) -
-                pin->GetOrAddReal("parthenon/mesh", "x1min", -1.5);
-  Real x2size = pin->GetOrAddReal("parthenon/mesh", "x2max", 1.0) -
-                pin->GetOrAddReal("parthenon/mesh", "x2min", -1.0);
-  Real x3size = pin->GetOrAddReal("parthenon/mesh", "x3max", 1.0) -
-                pin->GetOrAddReal("parthenon/mesh", "x3min", -1.0);
-
-  // User should never input -999.9 in angles
-  if (ang_3 == -999.9) ang_3 = std::atan(x1size / x2size);
-  Real sin_a3 = std::sin(ang_3);
-  Real cos_a3 = std::cos(ang_3);
-
-  // Override ang_3 input and hardcode vertical (along x2 axis) wavevector
-  if (ang_3_vert) {
-    sin_a3 = 1.0;
-    cos_a3 = 0.0;
-    ang_3 = 0.5 * M_PI;
-  }
-
-  if (ang_2 == -999.9)
-    ang_2 = std::atan(0.5 * (x1size * cos_a3 + x2size * sin_a3) / x3size);
-  Real sin_a2 = std::sin(ang_2);
-  Real cos_a2 = std::cos(ang_2);
-
-  // Override ang_2 input and hardcode vertical (along x3 axis) wavevector
-  if (ang_2_vert) {
-    sin_a2 = 1.0;
-    cos_a2 = 0.0;
-    ang_2 = 0.5 * M_PI;
-  }
-
-  Real x1 = x1size * cos_a2 * cos_a3;
-  Real x2 = x2size * cos_a2 * sin_a3;
-  Real x3 = x3size * sin_a2;
-
-  // For lambda choose the smaller of the 3
-  Real lambda = x1;
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
-    lambda = std::min(lambda, x2);
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
-    lambda = std::min(lambda, x3);
-
-  // If cos_a2 or cos_a3 = 0, need to override lambda
-  if (ang_3_vert) lambda = x2;
-  if (ang_2_vert) lambda = x3;
-
-  // Initialize k_parallel
-  Real k_par = 2.0 * (M_PI) / lambda;
-
-  pkg->AddParam<>("amp", amp);
-  pkg->AddParam<>("vel", vel);
-  pkg->AddParam<>("vx", vx);
-  pkg->AddParam<>("vy", vy);
-  pkg->AddParam<>("vz", vz);
-  pkg->AddParam<>("k_par", k_par);
-  pkg->AddParam<>("cos_a2", cos_a2);
-  pkg->AddParam<>("cos_a3", cos_a3);
-  pkg->AddParam<>("sin_a2", sin_a2);
-  pkg->AddParam<>("sin_a3", sin_a3);
-
-  // number of variable in variable vector
-  const auto vec_size = pin->GetOrAddInteger("Advection", "vec_size", 1);
-  const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
-  pkg->AddParam<>("vec_size", vec_size);
-  pkg->AddParam<>("num_vars", num_vars);
-
-  // Give a custom labels to advected in the data output
-  std::string field_name_base = "advected";
-  std::string field_name;
-  Metadata m;
-  for (int var = 0; var < num_vars; ++var) {
-    std::vector<std::string> advected_labels;
-    advected_labels.reserve(vec_size);
-    for (int j = 0; j < vec_size; ++j) {
-      advected_labels.push_back(std::to_string(var) + "_" + std::to_string(j));
-    }
-    if (var == 0) { // first var is always called just "advected"
-      field_name = field_name_base;
-    } else {
-      field_name = field_name_base + "_" + std::to_string(var);
-    }
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                  Metadata::FillGhost},
-                 std::vector<int>({vec_size}), advected_labels);
-    pkg->AddField(field_name, m);
-  }
-
-  if (include_fine) {
-    Metadata m_fine(
-        {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
-    pkg->AddField("fine_advected", m_fine);
-  }
-
-  if (!v_const) {
-    m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                  Metadata::FillGhost, Metadata::Vector},
-                 std::vector<int>({3}), std::vector<std::string>{"vx", "vy", "vz"});
-    pkg->AddField(std::string("v"), m);
-  }
-  if (fill_derived) {
-    field_name = "one_minus_advected";
-    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-                 std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
-
-    field_name = "one_minus_advected_sq";
-    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-                 std::vector<int>({num_vars}));
-    pkg->AddField(field_name, m);
-
-    // for fun make this last one a multi-component field using SparsePool
-    field_name = "one_minus_sqrt_one_minus_advected_sq";
-    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
-                  Metadata::Restart},
-                 std::vector<int>({num_vars}));
-    pkg->AddSparsePool(field_name, m, std::vector<int>{12, 37});
-  }
-
-  // add derived output variable
-  m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
-  pkg->AddField("my_derived_var", m);
-
-  // List (vector) of HistoryOutputVar that will all be enrolled as output variables
-  parthenon::HstVar_list hst_vars = {};
-  // Now we add a couple of callback functions
-  // Note that the specialization of AdvectionHst is completely artificial here and used
-  // in the function to differentiate between different behavior.
-  // In other words, it's independent of the history machinery itself and just controls
-  // the behavior of the AdvectionHst example.
-  hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, HostExecSpace>>,
-      "total_advected"));
-  hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, HostExecSpace>>,
-      "max_advected"));
-  hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, HostExecSpace>>,
-      "min_advected"));
-
-  // Enroll example vector history output
-  parthenon::HstVec_list hst_vecs = {};
-  hst_vecs.emplace_back(parthenon::HistoryOutputVec(
-      UserHistoryOperation::sum, AdvectionVecHst<Kokkos::Sum<Real, HostExecSpace>>,
-      "advected_powers"));
-
-  // add callbacks for HST output identified by the `hist_param_key`
-  pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
-  pkg->AddParam<>(parthenon::hist_vec_param_key, hst_vecs);
-
-  if (fill_derived) {
-    pkg->FillDerivedBlock = SquareIt;
-  }
   pkg->CheckRefinementBlock = CheckRefinement;
-  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-  pkg->UserWorkBeforeLoopMesh = AdvectionGreetings;
+  pkg->EstimateTimestepMesh = EstimateTimestep;
 
   return pkg;
 }
 
-void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
-  if (parthenon::Globals::my_rank == 0) {
-    std::cout << "Hello from the advection package in the advection example!\n"
-              << "This run is a restart: " << pmesh->is_restart << "\n"
-              << std::endl;
-  }
-}
-
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
-  int num_vars = pkg->Param<int>("num_vars");
-  std::vector<std::string> vars = {"advected"};
-  for (int var = 1; var < num_vars; ++var) {
-    vars.push_back("advected_" + std::to_string(var));
-  }
-  // type is parthenon::VariablePack<Variable<Real>>
-  auto v = rc->PackVariables(vars);
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(rc); 
+  auto pack = desc.GetPack(rc);
 
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag,
+      PARTHENON_AUTO_LABEL, DevExecSpace(), 
+      pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), 
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
-            (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+            (pack(n, k, j, i) < lminmax.min_val ? pack(n, k, j, i) : lminmax.min_val);
         lminmax.max_val =
-            (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
+            (pack(n, k, j, i) > lminmax.max_val ? pack(n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
-
+  
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
@@ -287,445 +111,36 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   return AmrTag::same;
 }
 
-// demonstrate usage of a "pre" fill derived routine
-void PreFill(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
-  bool fill_derived = pkg->Param<bool>("fill_derived");
-
-  if (fill_derived) {
-    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-
-    // packing in principle unnecessary/convoluted here and just done for demonstration
-    std::vector<std::string> vars({"advected", "one_minus_advected"});
-    PackIndexMap imap;
-    const auto &v = rc->PackVariables(vars, imap);
-
-    const int in = imap.get("advected").first;
-    const int out = imap.get("one_minus_advected").first;
-    const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
-        });
-  }
-}
-
-// this is the package registered function to fill derived
-void SquareIt(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  PackIndexMap imap;
-  const auto &v = rc->PackVariables(vars, imap);
-
-  const int in = imap.get("one_minus_advected").first;
-  const int out = imap.get("one_minus_advected_sq").first;
-  const auto num_vars = rc->Get("advected").data.GetDim(4);
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
-      });
-
-  // The following block/logic is also just added for regression testing.
-  // More specifically, the "smooth_gaussian" profile is initially != 0 everywhere, but
-  // initialializes IndexDomain::interior.
-  // FillDerived (here, SquareIt) is called after the ghost cells are exchanged and over
-  // IndexDomain::entire.
-  // Thus, no 0 (from initializing Kokkos views) should be left if all faces/corners/edges
-  // are correct, which is what we check in the loop below.
-  auto pkg = pmb->packages.Get("advection_package");
-  const auto &profile = pkg->Param<std::string>("profile");
-  if (profile == "smooth_gaussian") {
-    const auto &advected = rc->Get("advected").data;
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
-                            "Advected not properly initialized.");
-        });
-  }
-}
-
-// demonstrate usage of a "post" fill derived routine
-void PostFill(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
-  bool fill_derived = pkg->Param<bool>("fill_derived");
-
-  if (fill_derived) {
-    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-
-    // check that we have the sparse indices we want
-    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
-    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
-
-    // packing in principle unnecessary/convoluted here and just done for demonstration
-    std::vector<std::string> vars(
-        {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-    PackIndexMap imap;
-    const auto &v = rc->PackVariables(vars, imap);
-
-    const int in = imap.get("one_minus_advected_sq").first;
-    // we can get sparse fields either by specifying base name and sparse id, or the full
-    // name
-    const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq", 12).first;
-    const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
-    const auto num_vars = rc->Get("advected").data.GetDim(4);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
-          v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
-        });
-  }
-}
-
-template <typename T>
-std::vector<Real> AdvectionVecHst(MeshData<Real> *md) {
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-
-  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
-  // collection of blocks
-  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
-
-  const int nvec = 3;
-
-  std::vector<Real> result(nvec, 0);
-
-  // We choose to apply volume weighting when using the sum reduction.
-  // Downstream this choice will be done on a variable by variable basis and volume
-  // weighting needs to be applied in the reduction region.
-  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
-
-  for (int n = 0; n < nvec; n++) {
-    T reducer(result[n]);
-    parthenon::par_reduce(
-        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
-        advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
-          const auto &coords = advected_pack.GetCoords(b);
-          // `join` is a function of the Kokkos::ReducerConecpt that allows to use the
-          // same call for different reductions
-          const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
-          reducer.join(lresult, pow(advected_pack(b, 0, k, j, i), n + 1) * vol);
-        },
-        reducer);
-  }
-
-  return result;
-}
-
-// Example of how to enroll a history function.
-// Templating is *NOT* required and just implemented here to reuse this function
-// for testing of the UserHistoryOperations curently available in Parthenon (Sum, Min,
-// Max), which translate to the MPI reduction being called over all ranks. T should be
-// either Kokkos::Sum, Kokkos::Min, or Kokkos::Max.
-template <typename T>
-Real AdvectionHst(MeshData<Real> *md) {
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-
-  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
-  // collection of blocks
-  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
-
-  Real result = 0.0;
-  T reducer(result);
-
-  // We choose to apply volume weighting when using the sum reduction.
-  // Downstream this choice will be done on a variable by variable basis and volume
-  // weighting needs to be applied in the reduction region.
-  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
-
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
-      advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
-        const auto &coords = advected_pack.GetCoords(b);
-        // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
-        // call for different reductions
-        const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
-        reducer.join(lresult, advected_pack(b, 0, k, j, i) * vol);
-      },
-      reducer);
-
-  return result;
-}
-
-// provide the routine that estimates a stable timestep for this package
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
+Real EstimateTimestep(MeshData<Real> *md) {
+  std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
+  
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md); 
+  auto pack = desc.GetPack(md);
+  
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  auto &coords = pmb->coords;
-
-  // this is obviously overkill for this constant velocity problem
+  // This is obviously overkill for this constant velocity problem
   Real min_dt;
-  pmb->par_reduce(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
-        if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
-        if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy));
-        if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz));
-      },
-      Kokkos::Min<Real>(min_dt));
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag,
+      PARTHENON_AUTO_LABEL, DevExecSpace(), 
+      0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lmin_dt) {
+        auto &coords = pack.GetCoordinates(b);
+        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X1DIR>(k, j, i), std::abs(vx)));
+        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X2DIR>(k, j, i), std::abs(vy)));
+        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X3DIR>(k, j, i), std::abs(vz)));
+      }, Kokkos::Min<Real>(min_dt)
+    );
 
   return cfl * min_dt;
-}
-
-TaskStatus AverageFine(MeshData<Real> *mdin, MeshData<Real> *mdout) {
-  auto pmb = mdin->GetBlockData(0)->GetParentPointer();
-  const int ndim = mdin->GetMeshPointer()->ndim;
-
-  IndexRange ib = pmb->f_cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->f_cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->f_cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "fine_advected"});
-  PackIndexMap imap, imapout;
-  const auto &vin = mdin->PackVariables(vars, imap);
-  const auto &vout = mdout->PackVariables(vars, imapout);
-
-  const int in = imap.get("fine_advected").first;
-  const int out = imapout.get("fine_advected").first;
-  pmb->par_for(
-      "advection_package::AverageFine", 0, mdin->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
-      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        vout(b, out, k, j, i) = vout(b, in, k, j, i);
-        vout(b, out, k, j, i) += vout(b, in, k, j, i - 1);
-        vout(b, out, k, j, i) += vout(b, in, k, j, i + 1);
-        if (ndim > 1) {
-          vout(b, out, k, j, i) += vout(b, in, k, j - 1, i);
-          vout(b, out, k, j, i) += vout(b, in, k, j + 1, i);
-        }
-        if (ndim > 2) {
-          vout(b, out, k, j, i) += vout(b, in, k - 1, j, i);
-          vout(b, out, k, j, i) += vout(b, in, k + 1, j, i);
-        }
-        vout(b, out, k, j, i) /= 1.0 + ndim * 2.0;
-      });
-  return TaskStatus::complete;
-}
-
-TaskStatus FillFine(MeshData<Real> *md) {
-  auto pmb = md->GetBlockData(0)->GetParentPointer();
-  const int ndim = md->GetMeshPointer()->ndim;
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "fine_advected"});
-  PackIndexMap imap;
-  const auto &v = md->PackVariables(vars, imap);
-
-  const int in = imap.get("advected").first;
-  const int out = imap.get("fine_advected").first;
-  pmb->par_for(
-      "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        int fi = (i - ib.s) * 2 + ib.s;
-        int fj = (j - jb.s) * 2 + jb.s;
-        int fk = (k - kb.s) * 2 + kb.s;
-        v(b, out, fk, fj, fi) = v(b, in, k, j, i);
-        v(b, out, fk, fj, fi + 1) = v(b, in, k, j, i);
-        if (ndim > 1) {
-          v(b, out, fk, fj + 1, fi) = v(b, in, k, j, i);
-          v(b, out, fk, fj + 1, fi + 1) = v(b, in, k, j, i);
-        }
-        if (ndim > 2) {
-          v(b, out, fk + 1, fj, fi) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj, fi + 1) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj + 1, fi) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj + 1, fi + 1) = v(b, in, k, j, i);
-        }
-      });
-  return TaskStatus::complete;
-}
-
-// Compute fluxes at faces given the constant velocity field and
-// some field "advected" that we are pushing around.
-// This routine implements all the "physics" in this example
-TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  using parthenon::MetadataFlag;
-
-  PARTHENON_INSTRUMENT
-  auto pmb = rc->GetBlockPointer();
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  auto pkg = pmb->packages.Get("advection_package");
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
-
-  PackIndexMap index_map;
-  auto v = rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes},
-                                      index_map);
-
-  // For non constant velocity, we need the index of the velocity vector as it's part of
-  // the variable pack.
-  const auto idx_v = index_map["v"].first;
-  const auto v_const = idx_v < 0; // using "at own perill" magic number
-
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
-  const int nvar = v.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  // get x-fluxes
-  pmb->par_for_outer(
-      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
-      jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
-        parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
-        parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
-        // get reconstructed state on faces
-        parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, v, ql, qr);
-        // Sync all threads in the team so that scratch memory is consistent
-        member.team_barrier();
-
-        for (int n = 0; n < nvar; n++) {
-          par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-            // standard avection with fixed, global vx
-            if (v_const) {
-              if (vx > 0.0) {
-                v.flux(X1DIR, n, k, j, i) = ql(n, i) * vx;
-              } else {
-                v.flux(X1DIR, n, k, j, i) = qr(n, i) * vx;
-              }
-              // Custom flux function to move isolated, cells around. Just used for
-              // bvals testing.
-            } else {
-              v.flux(X1DIR, n, k, j, i) =
-                  ql(idx_v, i) > 0.0 ? ql(n, i) * ql(idx_v, i) : 0.0;
-              v.flux(X1DIR, n, k, j, i) +=
-                  qr(idx_v, i) < 0.0 ? qr(n, i) * qr(idx_v, i) : 0.0;
-            }
-          });
-        }
-      });
-
-  // get y-fluxes
-  if (pmb->pmy_mesh->ndim >= 2) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
-        jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
-          // the overall algorithm/use of scratch pad here is clear inefficient and kept
-          // just for demonstrating purposes. The key point is that we cannot reuse
-          // reconstructed arrays for different `j` with `j` being part of the outer
-          // loop given that this loop can be handled by multiple threads simultaneously.
-
-          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
-          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
-          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
-                                                 nx1);
-          // get reconstructed state on faces
-          parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, v, ql, q_unused);
-          parthenon::DonorCellX2(member, k, j, ib.s, ib.e, v, q_unused, qr);
-          // Sync all threads in the team so that scratch memory is consistent
-          member.team_barrier();
-          for (int n = 0; n < nvar; n++) {
-            par_for_inner(member, ib.s, ib.e, [&](const int i) {
-              // standard avection with fixed, global vy
-              if (v_const) {
-                if (vy > 0.0) {
-                  v.flux(X2DIR, n, k, j, i) = ql(n, i) * vy;
-                } else {
-                  v.flux(X2DIR, n, k, j, i) = qr(n, i) * vy;
-                }
-                // Custom flux function to move isolated, cells around. Just used for
-                // bvals testing.
-              } else {
-                v.flux(X2DIR, n, k, j, i) = ql(idx_v + X2DIR - 1, i) > 0.0
-                                                ? ql(n, i) * ql(idx_v + X2DIR - 1, i)
-                                                : 0.0;
-                v.flux(X2DIR, n, k, j, i) += qr(idx_v + X2DIR - 1, i) < 0.0
-                                                 ? qr(n, i) * qr(idx_v + X2DIR - 1, i)
-                                                 : 0.0;
-              }
-            });
-          }
-        });
-  }
-
-  // get z-fluxes
-  if (pmb->pmy_mesh->ndim == 3) {
-    pmb->par_for_outer(
-        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
-        jb.s, jb.e,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
-          // the overall algorithm/use of scratch pad here is clear inefficient and kept
-          // just for demonstrating purposes. The key point is that we cannot reuse
-          // reconstructed arrays for different `j` with `j` being part of the outer
-          // loop given that this loop can be handled by multiple threads simultaneously.
-
-          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
-          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
-          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
-                                                 nx1);
-          // get reconstructed state on faces
-          parthenon::DonorCellX3(member, k - 1, j, ib.s, ib.e, v, ql, q_unused);
-          parthenon::DonorCellX3(member, k, j, ib.s, ib.e, v, q_unused, qr);
-          // Sync all threads in the team so that scratch memory is consistent
-          member.team_barrier();
-          for (int n = 0; n < nvar; n++) {
-            par_for_inner(member, ib.s, ib.e, [&](const int i) {
-              // standard avection with fixed, global vz
-              if (v_const) {
-                if (vz > 0.0) {
-                  v.flux(X3DIR, n, k, j, i) = ql(n, i) * vz;
-                } else {
-                  v.flux(X3DIR, n, k, j, i) = qr(n, i) * vz;
-                }
-                // Custom flux function to move isolated, cells around. Just used for
-                // bvals testing.
-              } else {
-                v.flux(X3DIR, n, k, j, i) = ql(idx_v + X3DIR - 1, i) > 0.0
-                                                ? ql(n, i) * ql(idx_v + X3DIR - 1, i)
-                                                : 0.0;
-                v.flux(X3DIR, n, k, j, i) += qr(idx_v + X3DIR - 1, i) < 0.0
-                                                 ? qr(n, i) * qr(idx_v + X3DIR - 1, i)
-                                                 : 0.0;
-              }
-            });
-          }
-        });
-  }
-
-  return TaskStatus::complete;
 }
 
 } // namespace advection_package
