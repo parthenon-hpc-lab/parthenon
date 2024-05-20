@@ -46,14 +46,18 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // Pull out velocity and piecewise constant reconstruction offsets
   // for the given direction
   Real v;
+  parthenon::CoordinateDirection dir;
   int ioff{0}, joff{0}, koff{0}; 
-  if (FACE == TE::F1) { 
+  if (FACE == TE::F1) {
+    dir = X1DIR;
     v = pkg->Param<Real>("vx");
     if (v > 0) ioff = -1;
   } else if (FACE == TE::F2) { 
+    dir = X2DIR;
     v = pkg->Param<Real>("vy");
     if (v > 0) joff = -1;
   } else if (FACE == TE::F3) { 
+    dir = X3DIR;
     v = pkg->Param<Real>("vz");
     if (v > 0) koff = -1;
   }
@@ -64,13 +68,12 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, FACE);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, FACE);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, FACE);
-
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         // Calculate the flux using upwind donor cell reconstruction
-        pack.flux(b, static_cast<int>(FACE), Conserved::scalar(), k, j, i) = v * pack(b, Conserved::scalar(), k + koff, j + joff, i + ioff); 
+        pack.flux(b, dir, Conserved::scalar(), k, j, i) = v * pack(b, Conserved::scalar(), k + koff, j + joff, i + ioff); 
       }
     );
   return TaskStatus::complete;

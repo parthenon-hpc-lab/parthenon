@@ -58,9 +58,22 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskCollection tc;
   TaskID none(0);
 
+  // Build MeshBlockData containers that will be included in MeshData. It is gross that 
+  // this has to be done by hand.
+  const auto &stage_name = integrator->stage_name;
+  if (stage == 1) {
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &pmb = blocks[i];
+      // first make other useful containers
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("dUdt", base);
+      for (int s = 1; s < integrator->nstages; s++)
+        pmb->meshblock_data.Add(stage_name[s], base);
+    }
+  }
+
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  const auto &stage_name = integrator->stage_name;
   
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel

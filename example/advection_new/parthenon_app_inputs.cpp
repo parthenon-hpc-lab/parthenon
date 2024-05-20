@@ -40,9 +40,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &data = pmb->meshblock_data.Get();
 
   auto pkg = pmb->packages.Get("advection_package");
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
   const auto &profile = pkg->Param<std::string>("profile");
 
   auto cellbounds = pmb->cellbounds;
@@ -51,15 +48,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
-  PackIndexMap index_map;
-  auto q =
-      data->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, index_map);
-  const auto num_vars = q.GetDim(4);
 
-  // For non constant velocity, we need the index of the velocity vector as it's part of
-  // the variable pack.
-  const auto idx_v = index_map["v"].first;
-  const auto idx_adv = index_map.get("advected").first;
+  static auto desc = parthenon::MakePackDescriptor<advection_package::Conserved::scalar>(data.get()); 
+  auto pack = desc.GetPack(data.get());
 
   int profile_type;
   if (profile == "wave") profile_type = 0;
@@ -67,9 +58,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "hard_sphere") profile_type = 2;
   if (profile == "block") profile_type = 3;
   Real amp = 1.0;
-
+  
+  const int b = 0;
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, pack.GetLowerBoundHost(b), pack.GetUpperBoundHost(b), 
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         if (profile_type == 0) {
           PARTHENON_FAIL("Fuxklg you1"); 
@@ -77,14 +70,14 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          pack(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile_type == 2) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          pack(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
-          q(n, k, j, i) = 0.0;
+          pack(n, k, j, i) = 0.0;
         }
       });
 
