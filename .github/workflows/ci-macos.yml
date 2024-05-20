@@ -41,6 +41,6 @@ jobs:
 
      - uses: actions/upload-artifact@v3
         with:
-          name: configure-log-unit-${{ matrix.device }}
+          name: configure-log-unit-macos
           path: build/CMakeFiles/CMakeOutput.log
           retention-days: 3
