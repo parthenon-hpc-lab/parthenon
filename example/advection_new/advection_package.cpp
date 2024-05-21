@@ -66,7 +66,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
-  pkg->AddField<Conserved::scalar_fine>(Metadata({Metadata::Cell, 
+  pkg->AddField<Conserved::scalar_fine>(Metadata({Metadata::Cell,
+                                        Metadata::Fine, 
                                         Metadata::Independent,
                                         Metadata::WithFluxes,
                                         Metadata::FillGhost}));

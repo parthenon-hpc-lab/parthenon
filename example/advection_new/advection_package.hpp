@@ -39,7 +39,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 Real EstimateTimestep(MeshData<Real> *md);
 
 template <class pack_desc_t> 
-TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE, MeshData<Real> *md) { 
+TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE, parthenon::CellLevel cl, MeshData<Real> *md) { 
   using TE = parthenon::TopologicalElement;
 
   std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("advection_package"); 
@@ -61,9 +61,9 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
 
   auto pack = desc.GetPack(md);
   
-  IndexRange ib = md->GetBoundsI(parthenon::CellLevel::same, IndexDomain::interior, FACE);
-  IndexRange jb = md->GetBoundsJ(parthenon::CellLevel::same, IndexDomain::interior, FACE);
-  IndexRange kb = md->GetBoundsK(parthenon::CellLevel::same, IndexDomain::interior, FACE);
+  IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, FACE);
+  IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, FACE);
+  IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, FACE);
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1,
       pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), // Warning: only works for dense variables

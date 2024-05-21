@@ -275,6 +275,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
       std::vector<MetadataFlag> mFlags = {Metadata::OneCopy, Metadata::Flux};
       if (m.IsSet(Metadata::Sparse)) mFlags.push_back(Metadata::Sparse);
+      if (m.IsSet(Metadata::Fine)) mFlags.push_back(Metadata::Fine);
       if (m.IsSet(Metadata::Cell))
         mFlags.push_back(Metadata::Face);
       else if (m.IsSet(Metadata::Face))

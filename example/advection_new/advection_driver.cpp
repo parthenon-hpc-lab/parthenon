@@ -105,24 +105,37 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     if (pmesh->ndim > 1) faces.push_back(TE::F2); 
     if (pmesh->ndim > 2) faces.push_back(TE::F3); 
     auto flx = none;
+    auto flx_fine = none;
     for (auto face : faces) {
-      flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>, desc, face, mc0.get());
+      flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>, desc, face, parthenon::CellLevel::same, mc0.get());
+      flx_fine = flx_fine | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_fine_t>, desc_fine, face, parthenon::CellLevel::fine, mc0.get());
     }
 
-    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx, tl, mc0, pmesh->multilevel);
+    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx | flx_fine, tl, mc0, pmesh->multilevel);
 
     auto flux_div = tl.AddTask(set_flx, Stokes<pack_desc_t>, 
                                parthenon::CellLevel::same,
                                parthenon::TopologicalType::Cell,
                                desc, pmesh->ndim, 
                                mc0.get(), mdudt.get());
+    
+    auto flux_div_fine = tl.AddTask(set_flx, Stokes<pack_desc_fine_t>, 
+                                    parthenon::CellLevel::fine,
+                                    parthenon::TopologicalType::Cell,
+                                    desc_fine, pmesh->ndim, 
+                                    mc0.get(), mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
         parthenon::TopologicalElement::CC, desc, mc0.get(), mbase.get(), beta, 1.0 - beta, mc0.get());
+    auto avg_data_fine = tl.AddTask(flux_div_fine, WeightedSumData<pack_desc_fine_t>, parthenon::CellLevel::fine, 
+        parthenon::TopologicalElement::CC, desc_fine, mc0.get(), mbase.get(), beta, 1.0 - beta, mc0.get());
+
     auto update = tl.AddTask(avg_data, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
         parthenon::TopologicalElement::CC, desc, mc0.get(), mdudt.get(), 1.0, beta * dt, mc1.get());
+    auto update_fine = tl.AddTask(avg_data_fine, WeightedSumData<pack_desc_fine_t>, parthenon::CellLevel::fine, 
+        parthenon::TopologicalElement::CC, desc_fine, mc0.get(), mdudt.get(), 1.0, beta * dt, mc1.get());
 
-    auto boundaries = parthenon::AddBoundaryExchangeTasks(update | start_send, tl, mc1, pmesh->multilevel);
+    auto boundaries = parthenon::AddBoundaryExchangeTasks(update | update_fine | start_send, tl, mc1, pmesh->multilevel);
 
     auto fill_derived = tl.AddTask(
         boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mc1.get());

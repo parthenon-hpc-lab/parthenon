@@ -264,13 +264,6 @@ bool Metadata::IsValid(bool throw_on_fail) const {
   }
 
   // Limitations on fine fields
-  if (CountSet({Fine, WithFluxes}) > 1) {
-    valid = false;
-    if (throw_on_fail) {
-      PARTHENON_THROW("Update routines are not written to handle fine fields.");
-    }
-  }
-
   if (CountSet({Fine, Sparse}) > 1) {
     valid = false;
     if (throw_on_fail) {
