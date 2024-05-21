@@ -58,8 +58,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskCollection tc;
   TaskID none(0);
 
-  // Build MeshBlockData containers that will be included in MeshData. It is gross that 
-  // this has to be done by hand.
+  // Build MeshBlockData containers that will be included in MeshData containers. It is
+  // gross that this has to be done by hand.
   const auto &stage_name = integrator->stage_name;
   if (stage == 1) {
     for (int i = 0; i < blocks.size(); i++) {
@@ -75,10 +75,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
   
-  // note that task within this region that contains one tasklist per pack
-  // could still be executed in parallel
   const int num_partitions = pmesh->DefaultNumPartitions();
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
+  
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
@@ -88,24 +87,33 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-     
-    auto flx1 = tl.AddTask(none, advection_package::CalculateFluxes<parthenon::TopologicalElement::F1>, mc0.get());
+
+    using TE = parthenon::TopologicalElement; 
+    auto flx1 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F1>, mc0.get());
     auto flx2 = none; 
-    if (pmesh->ndim > 1) flx2 = tl.AddTask(none, advection_package::CalculateFluxes<parthenon::TopologicalElement::F2>, mc0.get());
+    if (pmesh->ndim > 1) 
+      flx2 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F2>, mc0.get());
     auto flx3 = none; 
-    if (pmesh->ndim > 2) flx3 = tl.AddTask(none, advection_package::CalculateFluxes<parthenon::TopologicalElement::F3>, mc0.get());
+    if (pmesh->ndim > 2) 
+      flx3 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F3>, mc0.get());
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx1 | flx2 | flx3, tl, mc0, pmesh->multilevel);
 
-    // compute the divergence of fluxes of conserved variables
-    auto flux_div =
-        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+    static auto desc = parthenon::MakePackDescriptor<advection_package::Conserved::scalar>(pmesh->resolved_packages.get(), 
+                                                                                           {parthenon::Metadata::WithFluxes},
+                                                                                           {parthenon::PDOpt::WithFluxes});
+    using pack_desc_t = decltype(desc); 
 
-    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
-                               mc0.get(), mbase.get(), beta);
-    // apply du/dt to all independent fields in the container
-    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
-                             mdudt.get(), beta * dt, mc1.get());
+    auto flux_div = tl.AddTask(set_flx, advection_package::Stokes<pack_desc_t>, 
+                               parthenon::CellLevel::same,
+                               parthenon::TopologicalType::Cell,
+                               desc, pmesh->ndim, 
+                               mc0.get(), mdudt.get());
+
+    auto avg_data = tl.AddTask(flux_div, advection_package::WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
+        parthenon::TopologicalElement::CC, desc, mc0.get(), mbase.get(), beta, 1.0 - beta, mc0.get());
+    auto update = tl.AddTask(avg_data, advection_package::WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
+        parthenon::TopologicalElement::CC, desc, mc0.get(), mdudt.get(), 1.0, beta * dt, mc1.get());
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(update | start_send, tl, mc1, pmesh->multilevel);
 

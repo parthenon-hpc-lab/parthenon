@@ -65,7 +65,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);
-  
+
+  pkg->AddField<Conserved::scalar_fine>(Metadata({Metadata::Cell, 
+                                        Metadata::Independent,
+                                        Metadata::WithFluxes,
+                                        Metadata::FillGhost}));
+
   pkg->AddField<Conserved::scalar>(Metadata({Metadata::Cell, 
                                   Metadata::Independent,
                                   Metadata::WithFluxes,
@@ -140,7 +145,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
       }, Kokkos::Min<Real>(min_dt)
     );
 
-  return cfl * min_dt;
+  return cfl * min_dt / 2.0;
 }
 
 } // namespace advection_package

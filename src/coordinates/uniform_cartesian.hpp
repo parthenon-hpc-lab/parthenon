@@ -269,6 +269,31 @@ class UniformCartesian {
     return 0.0;
   }
 
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(TopologicalElement el, Args... args) const {
+    using TE = TopologicalElement;
+    if (el == TE::CC) {
+      return cell_volume_;
+    } else if (el == TE::F1) {
+      return area_[X1DIR - 1];
+    } else if (el == TE::F2) {
+      return area_[X2DIR - 1];
+    } else if (el == TE::F3) {
+      return area_[X3DIR - 1];
+    } else if (el == TE::E1) {
+      return dx_[X1DIR - 1];
+    } else if (el == TE::E2) {
+      return dx_[X2DIR - 1];
+    } else if (el == TE::E3) {
+      return dx_[X3DIR - 1];
+    } else if (el == TE::NN) {
+      return 1.0;
+    }
+    PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
+                   "TopologicalElement enum.");
+    return 0.0;
+  }
+
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
