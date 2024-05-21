@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_ADVECTION_NEW_STOKES_HPP_
-#define EXAMPLE_ADVECTION_NEW_STOKES_HPP_
+#ifndef EXAMPLE_FINE_ADVECTION_STOKES_HPP_
+#define EXAMPLE_FINE_ADVECTION_STOKES_HPP_
 
 #include <memory>
 #include <vector>
@@ -147,4 +147,4 @@ TaskStatus Stokes(parthenon::CellLevel cl, parthenon::TopologicalType TtVar,
 
 } // namespace advection_example
 
-#endif // EXAMPLE_ADVECTION_NEW_STOKES_HPP_
+#endif // EXAMPLE_FINE_ADVECTION_STOKES_HPP_

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_NEW_ADVECTION_PACKAGE_HPP_
-#define EXAMPLE_ADVECTION_NEW_ADVECTION_PACKAGE_HPP_
+#ifndef EXAMPLE_FINE_ADVECTION_ADVECTION_PACKAGE_HPP_
+#define EXAMPLE_FINE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
 #include <string>
@@ -83,4 +83,4 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
 
 } // namespace advection_package
 
-#endif // EXAMPLE_ADVECTION_NEW_ADVECTION_PACKAGE_HPP_
+#endif // EXAMPLE_FINE_ADVECTION_ADVECTION_PACKAGE_HPP_

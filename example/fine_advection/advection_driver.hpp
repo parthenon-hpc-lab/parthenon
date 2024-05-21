@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_ADVECTION_NEW_ADVECTION_DRIVER_HPP_
-#define EXAMPLE_ADVECTION_NEW_ADVECTION_DRIVER_HPP_
+#ifndef EXAMPLE_FINE_ADVECTION_ADVECTION_DRIVER_HPP_
+#define EXAMPLE_FINE_ADVECTION_ADVECTION_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -42,4 +42,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace advection_example
 
-#endif // EXAMPLE_ADVECTION_NEW_ADVECTION_DRIVER_HPP_
+#endif // EXAMPLE_FINE_ADVECTION_ADVECTION_DRIVER_HPP_
