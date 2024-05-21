@@ -160,30 +160,30 @@ class SparsePack : public SparsePackBase {
   }
 
   // Host Bound overloads
-  inline int GetLowerBoundHost(const int b) const {
+  int GetLowerBoundHost(const int b) const {
     return (flat_ && (b > 0)) ? (bounds_h_(1, b - 1, nvar_) + 1) : 0;
   }
 
-  inline int GetUpperBoundHost(const int b) const { return bounds_h_(1, b, nvar_); }
+  int GetUpperBoundHost(const int b) const { return bounds_h_(1, b, nvar_); }
 
-  inline int GetLowerBoundHost(const int b, PackIdx idx) const {
+  int GetLowerBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     return bounds_h_(0, b, idx.VariableIdx());
   }
 
-  inline int GetUpperBoundHost(const int b, PackIdx idx) const {
+  int GetUpperBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     return bounds_h_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
-  inline int GetLowerBoundHost(const int b, const TIn &) const {
+  int GetLowerBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
-  inline int GetUpperBoundHost(const int b, const TIn &) const {
+  int GetUpperBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(1, b, vidx);
   }
@@ -194,7 +194,7 @@ class SparsePack : public SparsePackBase {
     return GetUpperBound(b, t) - GetLowerBound(b, t) + 1;
   }
   template <typename T>
-  inline int GetSizeHost(const int b, const T &t) const {
+  int GetSizeHost(const int b, const T &t) const {
     return GetUpperBoundHost(b, t) - GetLowerBoundHost(b, t) + 1;
   }
 
@@ -204,7 +204,7 @@ class SparsePack : public SparsePackBase {
     return GetLowerBound(b, var) + var.idx;
   }
   template <typename TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
-  inline int GetIndexHost(const int b, const TIn &var) const {
+  int GetIndexHost(const int b, const TIn &var) const {
     return GetLowerBoundHost(b, var) + var.idx;
   }
 
@@ -231,17 +231,17 @@ class SparsePack : public SparsePackBase {
     return (... && Contains(b, Args()));
   }
   // Host versions
-  inline bool ContainsHost(const int b) const { return GetUpperBoundHost(b) >= 0; }
+  bool ContainsHost(const int b) const { return GetUpperBoundHost(b) >= 0; }
   template <typename T>
-  inline bool ContainsHost(const int b, const T t) const {
+  bool ContainsHost(const int b, const T t) const {
     return GetUpperBoundHost(b, t) >= 0;
   }
   template <typename... Args>
-  inline bool ContainsHost(const int b, Args... args) const {
+  bool ContainsHost(const int b, Args... args) const {
     return (... && ContainsHost(b, args));
   }
   template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
-  inline bool ContainsHost(const int b) const {
+  bool ContainsHost(const int b) const {
     return (... && ContainsHost(b, Args()));
   }
 
