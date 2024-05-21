@@ -160,34 +160,52 @@ class SparsePack : public SparsePackBase {
   }
 
   // Host Bound overloads
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b) const {
+  int GetLowerBoundHost(const int b) const {
     return (flat_ && (b > 0)) ? (bounds_h_(1, b - 1, nvar_) + 1) : 0;
   }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b) const {
-    return bounds_h_(1, b, nvar_);
-  }
+  int GetUpperBoundHost(const int b) const { return bounds_h_(1, b, nvar_); }
 
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, PackIdx idx) const {
+  int GetLowerBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     return bounds_h_(0, b, idx.VariableIdx());
   }
 
-  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, PackIdx idx) const {
+  int GetUpperBoundHost(const int b, PackIdx idx) const {
     static_assert(sizeof...(Ts) == 0);
     return bounds_h_(1, b, idx.VariableIdx());
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
-  KOKKOS_INLINE_FUNCTION int GetLowerBoundHost(const int b, const TIn &) const {
+  int GetLowerBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(0, b, vidx);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
-  KOKKOS_INLINE_FUNCTION int GetUpperBoundHost(const int b, const TIn &) const {
+  int GetUpperBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(1, b, vidx);
+  }
+
+  // Number of components of a variable on a block
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION int GetSize(const int b, const T &t) const {
+    return GetUpperBound(b, t) - GetLowerBound(b, t) + 1;
+  }
+  template <typename T>
+  int GetSizeHost(const int b, const T &t) const {
+    return GetUpperBoundHost(b, t) - GetLowerBoundHost(b, t) + 1;
+  }
+
+  // Index in pack
+  template <typename TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION int GetIndex(const int b, const TIn &var) const {
+    return GetLowerBound(b, var) + var.idx;
+  }
+  template <typename TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  int GetIndexHost(const int b, const TIn &var) const {
+    return GetLowerBoundHost(b, var) + var.idx;
   }
 
   /* Usage:
@@ -213,19 +231,17 @@ class SparsePack : public SparsePackBase {
     return (... && Contains(b, Args()));
   }
   // Host versions
-  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b) const {
-    return GetUpperBoundHost(b) >= 0;
-  }
+  bool ContainsHost(const int b) const { return GetUpperBoundHost(b) >= 0; }
   template <typename T>
-  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b, const T t) const {
+  bool ContainsHost(const int b, const T t) const {
     return GetUpperBoundHost(b, t) >= 0;
   }
   template <typename... Args>
-  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b, Args... args) const {
+  bool ContainsHost(const int b, Args... args) const {
     return (... && ContainsHost(b, args));
   }
   template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
-  KOKKOS_INLINE_FUNCTION bool ContainsHost(const int b) const {
+  bool ContainsHost(const int b) const {
     return (... && ContainsHost(b, Args()));
   }
 
