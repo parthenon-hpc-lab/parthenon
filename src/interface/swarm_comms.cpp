@@ -645,7 +645,7 @@ void Swarm::ResetCommunication() {
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
     if (vbswarm->bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
-      MPI_Request_Free(vbswarm->bd_var_.req_send[nb.bufid]);
+      MPI_Request_Free(&(vbswarm->bd_var_.req_send[nb.bufid]));
     }
   }
 #endif
