@@ -71,7 +71,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
         const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
         if (profile_type == 0) {
-          PARTHENON_FAIL("Fuxklg you1");
+          PARTHENON_FAIL("Profile type wave not implemented.");
         } else if (profile_type == 1) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
