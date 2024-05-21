@@ -270,24 +270,44 @@ class UniformCartesian {
   }
 
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Volume(TopologicalElement el, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(CellLevel cl, TopologicalElement el, Args... args) const {
     using TE = TopologicalElement;
-    if (el == TE::CC) {
-      return cell_volume_;
-    } else if (el == TE::F1) {
-      return area_[X1DIR - 1];
-    } else if (el == TE::F2) {
-      return area_[X2DIR - 1];
-    } else if (el == TE::F3) {
-      return area_[X3DIR - 1];
-    } else if (el == TE::E1) {
-      return dx_[X1DIR - 1];
-    } else if (el == TE::E2) {
-      return dx_[X2DIR - 1];
-    } else if (el == TE::E3) {
-      return dx_[X3DIR - 1];
-    } else if (el == TE::NN) {
-      return 1.0;
+    if (cl == CellLevel::same) {
+      if (el == TE::CC) {
+        return cell_volume_;
+      } else if (el == TE::F1) {
+        return area_[X1DIR - 1];
+      } else if (el == TE::F2) {
+        return area_[X2DIR - 1];
+      } else if (el == TE::F3) {
+        return area_[X3DIR - 1];
+      } else if (el == TE::E1) {
+        return dx_[X1DIR - 1];
+      } else if (el == TE::E2) {
+        return dx_[X2DIR - 1];
+      } else if (el == TE::E3) {
+        return dx_[X3DIR - 1];
+      } else if (el == TE::NN) {
+        return 1.0;
+      }
+    } else if (cl == CellLevel::fine) {
+      if (el == TE::CC) {
+        return cell_volume_ / 8.0;
+      } else if (el == TE::F1) {
+        return area_[X1DIR - 1] / 4.0;
+      } else if (el == TE::F2) {
+        return area_[X2DIR - 1] / 4.0;
+      } else if (el == TE::F3) {
+        return area_[X3DIR - 1] / 4.0;
+      } else if (el == TE::E1) {
+        return dx_[X1DIR - 1] / 2.0;
+      } else if (el == TE::E2) {
+        return dx_[X2DIR - 1] / 2.0;
+      } else if (el == TE::E3) {
+        return dx_[X3DIR - 1] / 2.0;
+      } else if (el == TE::NN) {
+        return 1.0;
+      }
     }
     PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
                    "TopologicalElement enum.");
