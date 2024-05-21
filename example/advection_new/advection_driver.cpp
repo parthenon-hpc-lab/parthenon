@@ -25,6 +25,7 @@
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "stokes.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -104,15 +105,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                                                                                            {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc); 
 
-    auto flux_div = tl.AddTask(set_flx, advection_package::Stokes<pack_desc_t>, 
+    auto flux_div = tl.AddTask(set_flx, Stokes<pack_desc_t>, 
                                parthenon::CellLevel::same,
                                parthenon::TopologicalType::Cell,
                                desc, pmesh->ndim, 
                                mc0.get(), mdudt.get());
 
-    auto avg_data = tl.AddTask(flux_div, advection_package::WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
+    auto avg_data = tl.AddTask(flux_div, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
         parthenon::TopologicalElement::CC, desc, mc0.get(), mbase.get(), beta, 1.0 - beta, mc0.get());
-    auto update = tl.AddTask(avg_data, advection_package::WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
+    auto update = tl.AddTask(avg_data, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same, 
         parthenon::TopologicalElement::CC, desc, mc0.get(), mdudt.get(), 1.0, beta * dt, mc1.get());
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(update | start_send, tl, mc1, pmesh->multilevel);
