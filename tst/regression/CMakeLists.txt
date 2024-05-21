@@ -75,6 +75,14 @@ if (ENABLE_HDF5)
     --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Restart fine
+  list(APPEND TEST_DIRS restart_fine)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection_new/advection-new-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_fine/parthinput.restart_fine \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
