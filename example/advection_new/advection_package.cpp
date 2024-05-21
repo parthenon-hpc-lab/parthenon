@@ -76,10 +76,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                                   Metadata::Independent,
                                   Metadata::WithFluxes,
                                   Metadata::FillGhost}));
-
+  pkg->AddField<Conserved::scalar_fine_restricted>(Metadata({Metadata::Cell,
+                                        Metadata::Derived,
+                                        Metadata::OneCopy}));
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
-
+  pkg->FillDerivedMesh = RestrictScalarFine;
   return pkg;
 }
 
@@ -149,4 +151,35 @@ Real EstimateTimestep(MeshData<Real> *md) {
   return cfl * min_dt / 2.0;
 }
 
+TaskStatus RestrictScalarFine(MeshData<Real> *md) {
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar_fine, Conserved::scalar_fine_restricted>(md); 
+  auto pack = desc.GetPack(md);
+  
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+  const int ndim = md->GetMeshPointer()->ndim;
+  const int nghost = parthenon::Globals::nghost; 
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL,
+      0, pack.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
+        const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
+        const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
+        pack(b, Conserved::scalar_fine_restricted(), k, j, i) = 0.0; 
+        Real ntot = 0.0;
+        for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+        for (int joff = 0; joff <= (ndim > 1); ++joff)
+        for (int koff = 0; koff <= (ndim > 2); ++koff) {
+          ntot += 1.0;
+          pack(b, Conserved::scalar_fine_restricted(), k, j, i) += pack(b, Conserved::scalar_fine(), kf + koff, jf + joff, fi + ioff);
+        }
+        pack(b, Conserved::scalar_fine_restricted(), k, j, i) /= ntot; 
+      }
+    );
+
+  return TaskStatus::complete;
+}
 } // namespace advection_package

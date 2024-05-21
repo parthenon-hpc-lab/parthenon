@@ -33,10 +33,12 @@ using namespace parthenon::package::prelude;
 namespace Conserved {
   VARIABLE(advection, scalar);
   VARIABLE(advection, scalar_fine);
+  VARIABLE(advection, scalar_fine_restricted);
 }
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 Real EstimateTimestep(MeshData<Real> *md);
+TaskStatus RestrictScalarFine(MeshData<Real> *md);
 
 template <class pack_desc_t> 
 TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE, parthenon::CellLevel cl, MeshData<Real> *md) { 

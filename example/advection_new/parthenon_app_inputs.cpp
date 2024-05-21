@@ -48,8 +48,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
-
-  static auto desc = parthenon::MakePackDescriptor<advection_package::Conserved::scalar>(data.get()); 
+  
+  using scalar = advection_package::Conserved::scalar;
+  using scalar_fine = advection_package::Conserved::scalar_fine;
+  static auto desc = parthenon::MakePackDescriptor<scalar, scalar_fine>(data.get()); 
   auto pack = desc.GetPack(data.get());
 
   int profile_type;
@@ -60,24 +62,44 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   Real amp = 1.0;
   
   const int b = 0;
+  const int ndim = pmb->pmy_mesh->ndim;
+  const int nghost = parthenon::Globals::nghost;
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, pack.GetLowerBoundHost(b), pack.GetUpperBoundHost(b), 
+      PARTHENON_AUTO_LABEL,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k; 
+        const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j; 
+        const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i; 
         if (profile_type == 0) {
           PARTHENON_FAIL("Fuxklg you1"); 
         } else if (profile_type == 1) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          pack(b, scalar(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+          for (int joff = 0; joff <= (ndim > 1); ++joff)
+          for (int koff = 0; koff <= (ndim > 2); ++koff) {
+            pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) = 1. + amp * exp(-100.0 * rsq);
+          }
         } else if (profile_type == 2) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          pack(b, scalar(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+          for (int joff = 0; joff <= (ndim > 1); ++joff)
+          for (int koff = 0; koff <= (ndim > 2); ++koff) {
+            pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          }
         } else {
-          pack(n, k, j, i) = 0.0;
+          pack(b, scalar(), k, j, i) = 0.0;
+          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+          for (int joff = 0; joff <= (ndim > 1); ++joff)
+          for (int koff = 0; koff <= (ndim > 2); ++koff) {
+            pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
+          }
         }
       });
 
