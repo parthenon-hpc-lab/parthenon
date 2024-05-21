@@ -58,9 +58,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskCollection tc;
   TaskID none(0);
 
-  auto pkg = pmesh->packages.Get("advection_package");
-  auto include_fine = pkg->Param<bool>("include_fine");
-
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
@@ -138,9 +135,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // apply du/dt to all independent fields in the container
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
-
-    if (include_fine)
-      update = tl.AddTask(update, advection_package::AverageFine, mc0.get(), mc1.get());
 
     // do boundary exchange
     parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);

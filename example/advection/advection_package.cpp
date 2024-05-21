@@ -76,9 +76,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
   pkg->AddParam<>("fill_derived", fill_derived);
 
-  auto include_fine = pin->GetOrAddBoolean("Advection", "include_fine", false);
-  pkg->AddParam<>("include_fine", include_fine);
-
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
   //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
@@ -169,12 +166,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                   Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
-  }
-
-  if (include_fine) {
-    Metadata m_fine(
-        {Metadata::Cell, Metadata::Independent, Metadata::Fine, Metadata::FillGhost});
-    pkg->AddField("fine_advected", m_fine);
   }
 
   if (!v_const) {
@@ -501,78 +492,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       Kokkos::Min<Real>(min_dt));
 
   return cfl * min_dt;
-}
-
-TaskStatus AverageFine(MeshData<Real> *mdin, MeshData<Real> *mdout) {
-  auto pmb = mdin->GetBlockData(0)->GetParentPointer();
-  const int ndim = mdin->GetMeshPointer()->ndim;
-
-  IndexRange ib = pmb->f_cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->f_cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->f_cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "fine_advected"});
-  PackIndexMap imap, imapout;
-  const auto &vin = mdin->PackVariables(vars, imap);
-  const auto &vout = mdout->PackVariables(vars, imapout);
-
-  const int in = imap.get("fine_advected").first;
-  const int out = imapout.get("fine_advected").first;
-  pmb->par_for(
-      "advection_package::AverageFine", 0, mdin->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
-      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        vout(b, out, k, j, i) = vout(b, in, k, j, i);
-        vout(b, out, k, j, i) += vout(b, in, k, j, i - 1);
-        vout(b, out, k, j, i) += vout(b, in, k, j, i + 1);
-        if (ndim > 1) {
-          vout(b, out, k, j, i) += vout(b, in, k, j - 1, i);
-          vout(b, out, k, j, i) += vout(b, in, k, j + 1, i);
-        }
-        if (ndim > 2) {
-          vout(b, out, k, j, i) += vout(b, in, k - 1, j, i);
-          vout(b, out, k, j, i) += vout(b, in, k + 1, j, i);
-        }
-        vout(b, out, k, j, i) /= 1.0 + ndim * 2.0;
-      });
-  return TaskStatus::complete;
-}
-
-TaskStatus FillFine(MeshData<Real> *md) {
-  auto pmb = md->GetBlockData(0)->GetParentPointer();
-  const int ndim = md->GetMeshPointer()->ndim;
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  std::vector<std::string> vars({"advected", "fine_advected"});
-  PackIndexMap imap;
-  const auto &v = md->PackVariables(vars, imap);
-
-  const int in = imap.get("advected").first;
-  const int out = imap.get("fine_advected").first;
-  pmb->par_for(
-      "advection_package::FillFine", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        int fi = (i - ib.s) * 2 + ib.s;
-        int fj = (j - jb.s) * 2 + jb.s;
-        int fk = (k - kb.s) * 2 + kb.s;
-        v(b, out, fk, fj, fi) = v(b, in, k, j, i);
-        v(b, out, fk, fj, fi + 1) = v(b, in, k, j, i);
-        if (ndim > 1) {
-          v(b, out, fk, fj + 1, fi) = v(b, in, k, j, i);
-          v(b, out, fk, fj + 1, fi + 1) = v(b, in, k, j, i);
-        }
-        if (ndim > 2) {
-          v(b, out, fk + 1, fj, fi) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj, fi + 1) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj + 1, fi) = v(b, in, k, j, i);
-          v(b, out, fk + 1, fj + 1, fi + 1) = v(b, in, k, j, i);
-        }
-      });
-  return TaskStatus::complete;
 }
 
 // Compute fluxes at faces given the constant velocity field and
