@@ -520,6 +520,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
     }
     if (output_params.write_swarm_xdmf) {
+      // TODO(@pdmullen): Here and above, we have worked with temp vectors pos_tmp and
+      // swarm_positions so that we can take the existing swarm position data structures
+      // and recast them into a format that XDMF/VisIt prefers.  Future efforts may (1)
+      // eliminate the extra geometry dump and/or (2) directly write the auxillary
+      // positions via low-level HDF writes, such that the vector manipulation below is
+      // unnecessary.
       const int npart = pos_tmp.size() / 3;
       std::vector<Real> swarm_positions(pos_tmp.size());
       int spcnt = 0;
