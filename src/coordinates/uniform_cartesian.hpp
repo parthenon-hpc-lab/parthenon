@@ -270,7 +270,8 @@ class UniformCartesian {
   }
 
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real Volume(CellLevel cl, TopologicalElement el, Args... args) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Volume(CellLevel cl, TopologicalElement el,
+                                          Args... args) const {
     using TE = TopologicalElement;
     if (cl == CellLevel::same) {
       if (el == TE::CC) {

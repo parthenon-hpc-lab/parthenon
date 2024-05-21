@@ -96,10 +96,10 @@ class MeshBlockData {
   IndexRange GetBoundsK(Ts &&...args) const {
     return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
-  
+
   template <class... Ts>
   IndexRange GetBoundsI(CellLevel cl, Ts &&...args) const {
-      return GetBlockPointer()->GetCellBounds(cl).GetBoundsI(std::forward<Ts>(args)...);
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsI(std::forward<Ts>(args)...);
   }
   template <class... Ts>
   IndexRange GetBoundsJ(CellLevel cl, Ts &&...args) const {

@@ -66,19 +66,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
-  pkg->AddField<Conserved::scalar_fine>(Metadata({Metadata::Cell,
-                                        Metadata::Fine, 
-                                        Metadata::Independent,
-                                        Metadata::WithFluxes,
-                                        Metadata::FillGhost}));
+  pkg->AddField<Conserved::scalar_fine>(
+      Metadata({Metadata::Cell, Metadata::Fine, Metadata::Independent,
+                Metadata::WithFluxes, Metadata::FillGhost}));
 
-  pkg->AddField<Conserved::scalar>(Metadata({Metadata::Cell, 
-                                  Metadata::Independent,
-                                  Metadata::WithFluxes,
-                                  Metadata::FillGhost}));
-  pkg->AddField<Conserved::scalar_fine_restricted>(Metadata({Metadata::Cell,
-                                        Metadata::Derived,
-                                        Metadata::OneCopy}));
+  pkg->AddField<Conserved::scalar>(Metadata({Metadata::Cell, Metadata::Independent,
+                                             Metadata::WithFluxes, Metadata::FillGhost}));
+  pkg->AddField<Conserved::scalar_fine_restricted>(
+      Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
   pkg->FillDerivedMesh = RestrictScalarFine;
@@ -87,7 +82,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(rc); 
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(rc);
   auto pack = desc.GetPack(rc);
 
   auto pmb = rc->GetBlockPointer();
@@ -97,10 +92,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag,
-      PARTHENON_AUTO_LABEL, DevExecSpace(), 
-      pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), 
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e, ib.s,
+      ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
@@ -109,7 +103,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
             (pack(n, k, j, i) > lminmax.max_val ? pack(n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
-  
+
   auto pkg = pmb->packages.Get("advection_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
@@ -120,15 +114,16 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 }
 
 Real EstimateTimestep(MeshData<Real> *md) {
-  std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("advection_package");
+  std::shared_ptr<StateDescriptor> pkg =
+      md->GetMeshPointer()->packages.Get("advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
-  
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md); 
+
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md);
   auto pack = desc.GetPack(md);
-  
+
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
@@ -136,49 +131,49 @@ Real EstimateTimestep(MeshData<Real> *md) {
   // This is obviously overkill for this constant velocity problem
   Real min_dt;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag,
-      PARTHENON_AUTO_LABEL, DevExecSpace(), 
-      0, pack.GetNBlocks() - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lmin_dt) {
         auto &coords = pack.GetCoordinates(b);
-        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X1DIR>(k, j, i), std::abs(vx)));
-        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X2DIR>(k, j, i), std::abs(vy)));
-        lmin_dt = std::min(lmin_dt, parthenon::robust::ratio(coords.Dxc<X3DIR>(k, j, i), std::abs(vz)));
-      }, Kokkos::Min<Real>(min_dt)
-    );
+        lmin_dt = std::min(
+            lmin_dt, parthenon::robust::ratio(coords.Dxc<X1DIR>(k, j, i), std::abs(vx)));
+        lmin_dt = std::min(
+            lmin_dt, parthenon::robust::ratio(coords.Dxc<X2DIR>(k, j, i), std::abs(vy)));
+        lmin_dt = std::min(
+            lmin_dt, parthenon::robust::ratio(coords.Dxc<X3DIR>(k, j, i), std::abs(vz)));
+      },
+      Kokkos::Min<Real>(min_dt));
 
   return cfl * min_dt / 2.0;
 }
 
 TaskStatus RestrictScalarFine(MeshData<Real> *md) {
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar_fine, Conserved::scalar_fine_restricted>(md); 
+  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar_fine,
+                                                   Conserved::scalar_fine_restricted>(md);
   auto pack = desc.GetPack(md);
-  
+
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
   const int ndim = md->GetMeshPointer()->ndim;
-  const int nghost = parthenon::Globals::nghost; 
+  const int nghost = parthenon::Globals::nghost;
   parthenon::par_for(
-      PARTHENON_AUTO_LABEL,
-      0, pack.GetNBlocks() - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
         const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
         const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
-        pack(b, Conserved::scalar_fine_restricted(), k, j, i) = 0.0; 
+        pack(b, Conserved::scalar_fine_restricted(), k, j, i) = 0.0;
         Real ntot = 0.0;
         for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
-        for (int joff = 0; joff <= (ndim > 1); ++joff)
-        for (int koff = 0; koff <= (ndim > 2); ++koff) {
-          ntot += 1.0;
-          pack(b, Conserved::scalar_fine_restricted(), k, j, i) += pack(b, Conserved::scalar_fine(), kf + koff, jf + joff, fi + ioff);
-        }
-        pack(b, Conserved::scalar_fine_restricted(), k, j, i) /= ntot; 
-      }
-    );
+          for (int joff = 0; joff <= (ndim > 1); ++joff)
+            for (int koff = 0; koff <= (ndim > 2); ++koff) {
+              ntot += 1.0;
+              pack(b, Conserved::scalar_fine_restricted(), k, j, i) +=
+                  pack(b, Conserved::scalar_fine(), kf + koff, jf + joff, fi + ioff);
+            }
+        pack(b, Conserved::scalar_fine_restricted(), k, j, i) /= ntot;
+      });
 
   return TaskStatus::complete;
 }
