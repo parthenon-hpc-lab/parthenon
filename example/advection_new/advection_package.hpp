@@ -38,8 +38,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 Real EstimateTimestep(MeshData<Real> *md);
 
-template <parthenon::TopologicalElement FACE> 
-TaskStatus CalculateFluxes(MeshData<Real> *md) { 
+template <class pack_desc_t> 
+TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE, MeshData<Real> *md) { 
   using TE = parthenon::TopologicalElement;
 
   std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("advection_package"); 
@@ -59,7 +59,6 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
     if (v > 0) koff = -1;
   }
 
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md, {Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes}); 
   auto pack = desc.GetPack(md);
   
   IndexRange ib = md->GetBoundsI(parthenon::CellLevel::same, IndexDomain::interior, FACE);
@@ -67,10 +66,11 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   IndexRange kb = md->GetBoundsK(parthenon::CellLevel::same, IndexDomain::interior, FACE);
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1,
+      pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), // Warning: only works for dense variables
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         // Calculate the flux using upwind donor cell reconstruction
-        pack.flux(b, FACE, Conserved::scalar(), k, j, i) = v * pack(b, Conserved::scalar(), k + koff, j + joff, i + ioff); 
+        pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff); 
       }
     );
   return TaskStatus::complete;

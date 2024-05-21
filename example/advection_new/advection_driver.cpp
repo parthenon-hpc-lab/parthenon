@@ -89,21 +89,27 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-    using TE = parthenon::TopologicalElement; 
-    auto flx1 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F1>, mc0.get());
-    auto flx2 = none; 
-    if (pmesh->ndim > 1) 
-      flx2 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F2>, mc0.get());
-    auto flx3 = none; 
-    if (pmesh->ndim > 2) 
-      flx3 = tl.AddTask(none, advection_package::CalculateFluxes<TE::F3>, mc0.get());
-
-    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx1 | flx2 | flx3, tl, mc0, pmesh->multilevel);
-
     static auto desc = parthenon::MakePackDescriptor<advection_package::Conserved::scalar>(pmesh->resolved_packages.get(), 
-                                                                                           {parthenon::Metadata::WithFluxes},
-                                                                                           {parthenon::PDOpt::WithFluxes});
-    using pack_desc_t = decltype(desc); 
+                                                                                       {parthenon::Metadata::WithFluxes},
+                                                                                       {parthenon::PDOpt::WithFluxes});
+    using pack_desc_t = decltype(desc);
+
+    static auto desc_fine = parthenon::MakePackDescriptor<advection_package::Conserved::scalar_fine>(pmesh->resolved_packages.get(), 
+                                                                                       {parthenon::Metadata::WithFluxes},
+                                                                                       {parthenon::PDOpt::WithFluxes});
+    using pack_desc_fine_t = decltype(desc_fine); 
+
+
+    using TE = parthenon::TopologicalElement;
+    std::vector<TE> faces{TE::F1};
+    if (pmesh->ndim > 1) faces.push_back(TE::F2); 
+    if (pmesh->ndim > 2) faces.push_back(TE::F3); 
+    auto flx = none;
+    for (auto face : faces) {
+      flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>, desc, face, mc0.get());
+    }
+
+    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx, tl, mc0, pmesh->multilevel);
 
     auto flux_div = tl.AddTask(set_flx, Stokes<pack_desc_t>, 
                                parthenon::CellLevel::same,
