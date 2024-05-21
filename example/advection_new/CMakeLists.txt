@@ -21,6 +21,7 @@ if( "advection-new-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLE
           advection_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
+          stokes.hpp
   )
   target_link_libraries(advection-new-example PRIVATE Parthenon::parthenon)
   lint_target(advection-new-example)
