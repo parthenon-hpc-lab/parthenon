@@ -144,7 +144,19 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int gid, lid;
   int cnghost;
   int gflag;
-
+  
+  const IndexShape &GetCellBounds(CellLevel cl) const { 
+    if (cl == CellLevel::same) {
+      return cellbounds;
+    } else if (cl == CellLevel::fine) {
+      return f_cellbounds;
+    } else if (cl == CellLevel::coarse) {
+      return c_cellbounds;
+    } else { 
+      PARTHENON_FAIL("This should not be accessible.");
+      return cellbounds;
+    }
+  }
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
 
