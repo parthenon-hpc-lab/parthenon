@@ -91,8 +91,12 @@ class IndexSplit {
   KOKKOS_INLINE_FUNCTION
   int get_max_ni() const { return ibe_entire_ + 1; }
   // TODO(@jdolence) these overestimate max size...should probably fix
+  KOKKOS_INLINE_FUNCTION
   int get_max_nj() const { return (jbe_entire_ + 1) / njp_ + 1; }
+  KOKKOS_INLINE_FUNCTION
   int get_max_nk() const { return (kbe_entire_ + 1) / nkp_ + 1; }
+  KOKKOS_INLINE_FUNCTION
+  int get_max_nij() const { return get_max_ni() * get_max_nj(); }
   // inner_size could be used to find the bounds for a loop that is collapsed over
   // 1, 2, or 3 dimensions by providing the right starting and stopping indices
   template <typename V>
