@@ -41,7 +41,7 @@ jobs:
     - name: Test
       run: |
         cd build
-        ctest -LE 'performance|regression'
+        ctest
 
     - uses: actions/upload-artifact@v3
       with:
