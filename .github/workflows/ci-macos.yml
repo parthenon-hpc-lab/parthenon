@@ -30,8 +30,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install openmpi hdf5@1.10 || true
-        brew link --force hdf5@1.10
+        brew install openmpi hdf5-mpi || true
 
     - name: Output HDF5 configuration (verbose)
       run: h5cc -showconfig
