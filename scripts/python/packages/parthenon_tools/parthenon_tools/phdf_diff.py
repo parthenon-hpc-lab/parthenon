@@ -461,6 +461,7 @@ def compare(
             "Info",
             "Params",
             "SparseInfo",
+            "SparseDeallocCount",
             "Input",
             "Blocks",
         ]:

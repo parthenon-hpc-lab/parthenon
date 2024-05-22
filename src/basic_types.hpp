@@ -38,6 +38,16 @@ using Real = double;
 #endif
 #endif
 
+struct IndexRange {
+  int s = 0; /// Starting Index (inclusive)
+  int e = 0; /// Ending Index (inclusive)
+};
+
+// Enum speficying whether or not you requested a flux variable in
+// GetVariablesByFlag type methods
+// TODO(JMM): Is this the right place for this?
+enum class FluxRequest { NoFlux, OnlyFlux, Any };
+
 // needed for arrays dimensioned over grid directions
 // enumerator type only used in Mesh::EnrollUserMeshGenerator()
 // X0DIR time-like direction

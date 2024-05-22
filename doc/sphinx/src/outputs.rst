@@ -143,6 +143,13 @@ selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
 required by the developer.
 
+Additional user work at the per-mesh and per-meshblock levels can be performed
+immediately prior to restart files being written with the optional
+``UserWorkBeforeRestart`` callbacks at either the per-Mesh (via
+``ApplicationInput``) or the per-package level (via ``StateDescriptor``). Both
+callbacks (if provided) will be called in that order before restart files are
+written.
+
 Postprocessing/native analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
