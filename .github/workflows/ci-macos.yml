@@ -1,0 +1,46 @@
+name: CI macOS
+
+on: [pull_request]
+
+# Cancel "duplicated" workflows triggered by pushes to internal
+# branches with associated PRs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CTEST_OUTPUT_ON_FAILURE: 1
+  CMAKE_BUILD_PARALLEL_LEVEL: 4 # num threads for build
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip' # caching pip dependencies
+
+    - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+
+    - name: Build
+        run: cmake --build build
+
+    - name: Test
+        run: |
+          cd build
+          ctest -LE 'regression'
+
+     - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-unit-macos
+          path: build/CMakeFiles/CMakeOutput.log
+          retention-days: 3
