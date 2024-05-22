@@ -28,6 +28,17 @@ jobs:
         cache-dependency-path: '**/requirements.txt'
     - run: pip install -r requirements.txt
 
+    - name: Install dependencies
+      run: |
+        brew install openmpi hdf5@1.10 || true
+        brew link --force hdf5@1.10
+
+    - name: Output HDF5 configuration (verbose)
+      run: h5cc -showconfig
+
+    - name: Output HDF5 compile flags
+      run: h5cc -show
+
     - name: Configure
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
