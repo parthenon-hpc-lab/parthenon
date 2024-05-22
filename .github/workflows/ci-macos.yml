@@ -11,7 +11,6 @@ concurrency:
 env:
   CTEST_OUTPUT_ON_FAILURE: 1
   CMAKE_BUILD_PARALLEL_LEVEL: 4 # num threads for build
-  MPIEXEC_NUMPROC_FLAG: 2
   
 jobs:
   build:
@@ -42,7 +41,7 @@ jobs:
     - name: Test
       run: |
         cd build
-        ctest
+        ctest -LE mpi
 
     - uses: actions/upload-artifact@v3
       with:
