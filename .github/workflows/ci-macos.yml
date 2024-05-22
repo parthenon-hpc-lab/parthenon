@@ -30,7 +30,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install openmpi hdf5-mpi || true
+        brew install openmpi hdf5-mpi adios2 || true
 
     - name: Configure
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
