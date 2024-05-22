@@ -78,7 +78,7 @@ else()
 endif()
 
 if (${PAR_LOOP_INNER_LAYOUT} STREQUAL "TVR_INNER_LOOP")
-  set(PAR_LOOP_INNER_LAYOUT_TAG InnerLoopPatternTVR())
+  set(PAR_LOOP_INNER_LAYOUT_TAG "InnerLoopPatternTVR()")
 elseif (${PAR_LOOP_INNER_LAYOUT} STREQUAL "SIMDFOR_INNER_LOOP")
   set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_simdfor_tag)
 else()
