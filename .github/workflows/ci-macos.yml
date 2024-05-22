@@ -27,19 +27,18 @@ jobs:
         cache: 'pip' # caching pip dependencies
 
     - name: Configure
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
-        run: cmake --build build
+      run: cmake --build build
 
     - name: Test
-        run: |
-          cd build
-          ctest -LE 'regression'
+      run: |
+        cd build
+        ctest -LE 'regression'
 
-     - uses: actions/upload-artifact@v3
-        with:
-          name: configure-log-unit-macos
-          path: build/CMakeFiles/CMakeOutput.log
-          retention-days: 3
+    - uses: actions/upload-artifact@v3
+      with:
+        name: configure-log-unit-macos
+        path: build/CMakeFiles/CMakeOutput.log
+        retention-days: 3
