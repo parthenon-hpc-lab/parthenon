@@ -32,12 +32,6 @@ jobs:
       run: |
         brew install openmpi hdf5-mpi || true
 
-    - name: Output HDF5 configuration (verbose)
-      run: h5cc -showconfig
-
-    - name: Output HDF5 compile flags
-      run: h5cc -show
-
     - name: Configure
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
