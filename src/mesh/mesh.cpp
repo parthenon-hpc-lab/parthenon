@@ -604,11 +604,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // files works.
   auto NumIDsAndFlags_in_file = NumIDsAndFlags;
   if (locLevelGidLidCnghostGflag.size() / nbtotal == 5) {
+    NumIDsAndFlags_in_file = 5;
+  } else {
     PARTHENON_REQUIRE_THROWS(locLevelGidLidCnghostGflag.size() / nbtotal ==
                                  NumIDsAndFlags,
                              "Trying to restart with an unexpected number of entries. "
                              "Did NumIDsAndFlags change?");
-    NumIDsAndFlags_in_file = 5;
   }
   for (int i = 0; i < nbtotal; i++) {
     loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags_in_file * i],
