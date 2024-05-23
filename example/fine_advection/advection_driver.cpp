@@ -115,10 +115,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                             desc_fine, face, parthenon::CellLevel::fine, mc0.get());
     }
     
-    tl.AddTask(none, advection_package::CalculateVectorFluxes<advection_package::Conserved::C, advection_package::Conserved::D>,
-                             TE::E1, parthenon::CellLevel::same, mc0.get());
+    auto vf_dep = none;
+    for (auto edge : std::vector<TE>{TE::E1, TE::E2, TE::E3}) { 
+      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<advection_package::Conserved::C, advection_package::Conserved::D>,
+                               edge, parthenon::CellLevel::same, mc0.get());
+      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<advection_package::Conserved::D, advection_package::Conserved::C>,
+                               edge, parthenon::CellLevel::same, mc0.get());
+    }
 
-    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx | flx_fine, tl,
+    auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx | flx_fine | vf_dep, tl,
                                                      mc0, pmesh->multilevel);
 
     auto flux_div = tl.AddTask(set_flx, Stokes<pack_desc_t>, parthenon::CellLevel::same,
