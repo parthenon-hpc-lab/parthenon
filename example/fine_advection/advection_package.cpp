@@ -90,7 +90,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
-  pkg->FillDerivedMesh = RestrictPhiFine;
+  pkg->FillDerivedMesh = FillDerived;
   return pkg;
 }
 
@@ -161,9 +161,11 @@ Real EstimateTimestep(MeshData<Real> *md) {
   return cfl * min_dt / 2.0;
 }
 
-TaskStatus RestrictPhiFine(MeshData<Real> *md) {
+TaskStatus FillDerived(MeshData<Real> *md) {
   static auto desc = parthenon::MakePackDescriptor<Conserved::phi_fine,
-                                                   Conserved::phi_fine_restricted>(md);
+                                                   Conserved::phi_fine_restricted,
+                                                   Conserved::C, Conserved::C_cc,
+                                                   Conserved::D, Conserved::D_cc>(md);
   auto pack = desc.GetPack(md);
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -188,7 +190,18 @@ TaskStatus RestrictPhiFine(MeshData<Real> *md) {
             }
         pack(b, Conserved::phi_fine_restricted(), k, j, i) /= ntot;
       });
-
+  
+  using TE = parthenon::TopologicalElement;
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        pack(b, Conserved::C_cc(0), k, j, i) = 0.5 * (pack(b, TE::F1, Conserved::C(), k, j, i) + pack(b, TE::F1, Conserved::C(), k, j, i + ndim > 0)); 
+        pack(b, Conserved::C_cc(1), k, j, i) = 0.5 * (pack(b, TE::F2, Conserved::C(), k, j, i) + pack(b, TE::F2, Conserved::C(), k, j + ndim > 1, i)); 
+        pack(b, Conserved::C_cc(2), k, j, i) = 0.5 * (pack(b, TE::F3, Conserved::C(), k, j, i) + pack(b, TE::F3, Conserved::C(), k + ndim > 2, j, i)); 
+        pack(b, Conserved::D_cc(0), k, j, i) = 0.5 * (pack(b, TE::F1, Conserved::D(), k, j, i) + pack(b, TE::F1, Conserved::D(), k, j, i + ndim > 0)); 
+        pack(b, Conserved::D_cc(1), k, j, i) = 0.5 * (pack(b, TE::F2, Conserved::D(), k, j, i) + pack(b, TE::F2, Conserved::D(), k, j + ndim > 1, i)); 
+        pack(b, Conserved::D_cc(2), k, j, i) = 0.5 * (pack(b, TE::F3, Conserved::D(), k, j, i) + pack(b, TE::F3, Conserved::D(), k + ndim > 2, j, i)); 
+      });
   return TaskStatus::complete;
 }
 } // namespace advection_package

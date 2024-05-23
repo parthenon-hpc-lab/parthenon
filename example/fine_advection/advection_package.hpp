@@ -47,7 +47,7 @@ VARIABLE(advection, D_cc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 Real EstimateTimestep(MeshData<Real> *md);
-TaskStatus RestrictPhiFine(MeshData<Real> *md);
+TaskStatus FillDerived(MeshData<Real> *md);
 
 template <class pack_desc_t>
 TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE,
