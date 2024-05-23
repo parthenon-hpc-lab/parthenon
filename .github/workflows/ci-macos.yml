@@ -11,7 +11,7 @@ concurrency:
 env:
   CTEST_OUTPUT_ON_FAILURE: 1
   CMAKE_BUILD_PARALLEL_LEVEL: 4 # num threads for build
-  
+
 jobs:
   build:
     runs-on: macos-latest
