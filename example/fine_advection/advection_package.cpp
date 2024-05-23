@@ -74,6 +74,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                                              Metadata::WithFluxes, Metadata::FillGhost}));
   pkg->AddField<Conserved::scalar_fine_restricted>(
       Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+
+  Metadata m({Metadata::Face, Metadata::Independent,
+              Metadata::WithFluxes, Metadata::FillGhost});
+  pkg->AddField<Conserved::C>(m);
+  pkg->AddField<Conserved::D>(m);
+  pkg->AddField<Conserved::recon>(
+      Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{4}));
+  pkg->AddField<Conserved::recon_f>(
+      Metadata({Metadata::Face, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{2}));
+
+
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
   pkg->FillDerivedMesh = RestrictScalarFine;

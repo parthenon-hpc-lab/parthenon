@@ -114,6 +114,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                  tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_fine_t>,
                             desc_fine, face, parthenon::CellLevel::fine, mc0.get());
     }
+    
+    tl.AddTask(none, advection_package::CalculateVectorFluxes<advection_package::Conserved::C, advection_package::Conserved::D>,
+                             TE::E1, parthenon::CellLevel::same, mc0.get());
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx | flx_fine, tl,
                                                      mc0, pmesh->multilevel);
