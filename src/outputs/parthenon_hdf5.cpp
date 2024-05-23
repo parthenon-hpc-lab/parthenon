@@ -603,6 +603,16 @@ void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl
     HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
                 &loc_cnt[0], &glob_cnt[0], pl);
   }
+
+  {
+    // derefinement count
+    hsize_t loc_cnt[2] = {num_blocks_local, 1};
+    hsize_t glob_cnt[2] = {max_blocks_global, 1};
+    std::vector<int> tmpID = OutputUtils::ComputeDerefinementCount(pm);
+    HDF5Write2D(gBlocks, "derefinement_count", tmpID.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
+  }
+
   Kokkos::Profiling::popRegion(); // write block metadata
 }
 

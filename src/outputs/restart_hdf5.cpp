@@ -134,6 +134,12 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.level_gid_lid_cnghost_gflag =
       ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
 
+  try {
+    mesh_info.derefinement_count = ReadDataset<int>("/Blocks/derefinement_count");
+  } catch (const std::runtime_error &e) {
+    // File does not contain this dataset, so must be older. Set to default value of zero
+    mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
+  }
   return mesh_info;
 }
 
