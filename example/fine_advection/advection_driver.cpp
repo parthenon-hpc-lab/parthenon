@@ -53,6 +53,15 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
   pin->CheckDesired("Advection", "derefine_tol");
 }
 
+template <class pack_desc_t> 
+TaskID AddUpdateTasks(TaskID dep, TaskList &tl, parthenon::CellLevel cl, parthenon::TopologicalType tt, Real beta, Real dt, 
+                      pack_desc_t &desc, MeshData<Real> *mbase, MeshData<Real> *mc0, MeshData<Real> *mdudt, MeshData<Real> *mc1) {
+  const int ndim = mc0->GetParentPointer()->ndim; 
+  auto flux_div = tl.AddTask(dep, Stokes<pack_desc_t>, cl, tt, desc, ndim, mc0, mdudt);
+  auto avg_data = tl.AddTask(flux_div, WeightedSumData<pack_desc_t>, cl, tt, desc, mc0, mbase, beta, 1.0 - beta, mc0);
+  return tl.AddTask(avg_data, WeightedSumData<pack_desc_t>, cl, tt, desc, mc0, mdudt, 1.0, beta * dt, mc1);
+}
+
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const int stage) {
   using namespace parthenon::Update;
@@ -105,7 +114,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         parthenon::MakePackDescriptor<advection_package::Conserved::C, advection_package::Conserved::D>(
             pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
             {parthenon::PDOpt::WithFluxes});
-    using pack_desc_vec_t = decltype(desc_vec); 
 
     using TT = parthenon::TopologicalType;
     using TE = parthenon::TopologicalElement;
@@ -132,43 +140,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(start_flxcor | flx | flx_fine | vf_dep, tl,
                                                      mc0, pmesh->multilevel);
-
-    auto flux_div = tl.AddTask(set_flx, Stokes<pack_desc_t>, parthenon::CellLevel::same,
-                               TT::Cell, desc, pmesh->ndim,
-                               mc0.get(), mdudt.get());
-    auto flux_div_vec = tl.AddTask(set_flx, Stokes<pack_desc_vec_t>, parthenon::CellLevel::same,
-                               TT::Face, desc_vec, pmesh->ndim,
-                               mc0.get(), mdudt.get());
-
-    auto flux_div_fine = tl.AddTask(
-        set_flx, Stokes<pack_desc_fine_t>, parthenon::CellLevel::fine,
-        TT::Cell, desc_fine, pmesh->ndim, mc0.get(), mdudt.get());
-
-    auto avg_data =
-        tl.AddTask(flux_div, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same,
-                   TT::Cell, desc, mc0.get(), mbase.get(), beta,
-                   1.0 - beta, mc0.get());
-    auto avg_data_vec =
-        tl.AddTask(flux_div_vec, WeightedSumData<pack_desc_vec_t>, parthenon::CellLevel::same,
-                   TT::Face, desc_vec, mc0.get(), mbase.get(), beta,
-                   1.0 - beta, mc0.get());
-    auto avg_data_fine =
-        tl.AddTask(flux_div_fine, WeightedSumData<pack_desc_fine_t>,
-                   parthenon::CellLevel::fine, TT::Cell,
-                   desc_fine, mc0.get(), mbase.get(), beta, 1.0 - beta, mc0.get());
-
-    auto update =
-        tl.AddTask(avg_data, WeightedSumData<pack_desc_t>, parthenon::CellLevel::same,
-                   TT::Cell, desc, mc0.get(), mdudt.get(), 1.0,
-                   beta * dt, mc1.get());
-    auto update_vec =
-        tl.AddTask(avg_data_vec, WeightedSumData<pack_desc_vec_t>, parthenon::CellLevel::same,
-                   TT::Face, desc_vec, mc0.get(), mdudt.get(), 1.0,
-                   beta * dt, mc1.get());
-    auto update_fine =
-        tl.AddTask(avg_data_fine, WeightedSumData<pack_desc_fine_t>,
-                   parthenon::CellLevel::fine, TT::Cell,
-                   desc_fine, mc0.get(), mdudt.get(), 1.0, beta * dt, mc1.get());
+    
+    auto update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt, 
+                                 desc, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    
+    auto update_fine = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::fine, TT::Cell, beta, dt, 
+                                      desc_fine, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    
+    auto update_vec = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Face, beta, dt, 
+                                     desc_vec, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(
         update | update_vec | update_fine | start_send, tl, mc1, pmesh->multilevel);
