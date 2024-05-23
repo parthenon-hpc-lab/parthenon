@@ -49,9 +49,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto coords = pmb->coords;
 
-  using scalar = advection_package::Conserved::scalar;
-  using scalar_fine = advection_package::Conserved::scalar_fine;
-  static auto desc = parthenon::MakePackDescriptor<scalar, scalar_fine>(data.get());
+  using phi = advection_package::Conserved::phi;
+  using phi_fine = advection_package::Conserved::phi_fine;
+  static auto desc = parthenon::MakePackDescriptor<phi, phi_fine>(data.get());
   auto pack = desc.GetPack(data.get());
 
   int profile_type;
@@ -76,30 +76,30 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(b, scalar(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          pack(b, phi(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
           for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
             for (int joff = 0; joff <= (ndim > 1); ++joff)
               for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) =
+                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                     1. + amp * exp(-100.0 * rsq);
               }
         } else if (profile_type == 2) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(b, scalar(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          pack(b, phi(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
             for (int joff = 0; joff <= (ndim > 1); ++joff)
               for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) =
+                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                     (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
               }
         } else {
-          pack(b, scalar(), k, j, i) = 0.0;
+          pack(b, phi(), k, j, i) = 0.0;
           for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
             for (int joff = 0; joff <= (ndim > 1); ++joff)
               for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, scalar_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
+                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
               }
         }
       });

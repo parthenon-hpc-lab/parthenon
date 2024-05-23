@@ -97,21 +97,22 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-
+    
+    using namespace advection_package::Conserved; 
     static auto desc =
-        parthenon::MakePackDescriptor<advection_package::Conserved::scalar>(
+        parthenon::MakePackDescriptor<phi>(
             pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
             {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc);
 
     static auto desc_fine =
-        parthenon::MakePackDescriptor<advection_package::Conserved::scalar_fine>(
+        parthenon::MakePackDescriptor<phi_fine>(
             pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
             {parthenon::PDOpt::WithFluxes});
     using pack_desc_fine_t = decltype(desc_fine);
 
     static auto desc_vec =
-        parthenon::MakePackDescriptor<advection_package::Conserved::C, advection_package::Conserved::D>(
+        parthenon::MakePackDescriptor<C, D>(
             pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
             {parthenon::PDOpt::WithFluxes});
 
@@ -132,9 +133,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     
     auto vf_dep = none;
     for (auto edge : std::vector<TE>{TE::E1, TE::E2, TE::E3}) { 
-      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<advection_package::Conserved::C, advection_package::Conserved::D>,
+      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<C, D>,
                                edge, parthenon::CellLevel::same, mc0.get());
-      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<advection_package::Conserved::D, advection_package::Conserved::C>,
+      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<D, C>,
                                edge, parthenon::CellLevel::same, mc0.get());
     }
 
