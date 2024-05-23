@@ -24,9 +24,10 @@ namespace advection_example {
 using namespace parthenon::driver::prelude;
 
 template <class pack_desc_t>
-TaskStatus WeightedSumDataElement(parthenon::CellLevel cl, parthenon::TopologicalElement te,
-                           pack_desc_t pd, MeshData<Real> *in1, MeshData<Real> *in2,
-                           Real w1, Real w2, MeshData<Real> *out) {
+TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
+                                  parthenon::TopologicalElement te, pack_desc_t pd,
+                                  MeshData<Real> *in1, MeshData<Real> *in2, Real w1,
+                                  Real w2, MeshData<Real> *out) {
   auto pack1 = pd.GetPack(in1);
   auto pack2 = pd.GetPack(in2);
   auto pack_out = pd.GetPack(out);
