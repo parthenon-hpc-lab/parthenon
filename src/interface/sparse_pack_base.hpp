@@ -91,7 +91,7 @@ class SparsePackBase {
   bounds_t bounds_;
   bounds_h_t bounds_h_;
   coords_t coords_;
-  
+
   int flx_idx_;
   bool with_fluxes_;
   bool coarse_;

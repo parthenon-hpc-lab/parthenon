@@ -123,8 +123,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
         if (uid_map.count(uid) > 0) {
           const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
-            if (pv->IsSet(Metadata::Edge))
-              contains_face_or_edge = true;
+            if (pv->IsSet(Metadata::Edge)) contains_face_or_edge = true;
             if (pv->IsSet(Metadata::Face)) {
               if (pv->IsSet(Metadata::WithFluxes) && desc.with_fluxes) {
                 contains_face_with_fluxes = true;
@@ -231,7 +230,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
                       pack.pack_h_(0, b, idx) = pv->data.Get(0, t, u, v);
                     }
                     if (pv->IsSet(Metadata::Vector))
-                      pack.pack_h_(0, b, idx).vector_component = v + 1; 
+                      pack.pack_h_(0, b, idx).vector_component = v + 1;
                   }
 
                   if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
