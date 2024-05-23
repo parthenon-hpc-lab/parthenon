@@ -138,10 +138,12 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
     mesh_info.derefinement_count = ReadDataset<int>("/Blocks/derefinement_count");
   } catch (const std::runtime_error &e) {
     // File does not contain this dataset, so must be older. Set to default value of zero
-    PARTHENON_WARN(
-        "Restarting from an HDF5 file that doesn't contain /Blocks/derefinement_count. \n"
-        "If you are running with AMR, this may cause restarts to not be bitwise exact \n"
-        "with simulations that are run without restarting.");
+    if (Globals::my_rank == 0)
+      PARTHENON_WARN("Restarting from an HDF5 file that doesn't contain "
+                     "/Blocks/derefinement_count. \n"
+                     "If you are running with AMR, this may cause restarts to not be "
+                     "bitwise exact \n"
+                     "with simulations that are run without restarting.");
     mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
   }
   return mesh_info;
