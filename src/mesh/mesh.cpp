@@ -598,8 +598,20 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
   current_level = -1;
+  // Ugly fix to adjust to the change the number of component for each block when the
+  // deallocation counter was introduced
+  // (https://github.com/parthenon-hpc-lab/parthenon/pull/1073) so that restarting older
+  // files works.
+  auto NumIDsAndFlags_in_file = NumIDsAndFlags;
+  if (locLevelGidLidCnghostGflag.size() / nbtotal == 5) {
+    PARTHENON_REQUIRE_THROWS(locLevelGidLidCnghostGflag.size() / nbtotal ==
+                                 NumIDsAndFlags,
+                             "Trying to restart with an unexpected number of entries. "
+                             "Did NumIDsAndFlags change?");
+    NumIDsAndFlags_in_file = 5;
+  }
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i],
+    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags_in_file * i],
                                  lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
   }
 
@@ -692,9 +704,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
-    if (block_list[i - nbs]->pmr)
+    if (block_list[i - nbs]->pmr) {
+      // NumIDsAndFlags == 5 is a "older" format that did not contain the derefinement
+      // count so it's set to 0 (which was the previous default behavior)
       block_list[i - nbs]->pmr->DerefinementCount() =
-          locLevelGidLidCnghostGflag[NumIDsAndFlags * i + 5];
+          NumIDsAndFlags_in_file == 5
+              ? 0
+              : locLevelGidLidCnghostGflag[NumIDsAndFlags * i + 5];
+    }
   }
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);

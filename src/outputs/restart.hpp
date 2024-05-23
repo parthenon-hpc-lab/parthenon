@@ -35,6 +35,8 @@ namespace parthenon {
 class Mesh;
 class Param;
 
+// If this number changes, the logic for reading previously written restart files in
+// mesh.cpp needs to be adjusted.
 constexpr int NumIDsAndFlags{6};
 
 class RestartReader {
