@@ -350,7 +350,7 @@ class SparsePack : public SparsePackBase {
   auto &flux(const int b, const int dir, const int idx) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    return pack_(dir, b, idx);
+    return pack_(dir - 1 + flx_idx_, b, idx);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -358,14 +358,14 @@ class SparsePack : public SparsePackBase {
              const int i) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    return pack_(dir, b, idx)(k, j, i);
+    return pack_(dir - 1 + flx_idx_, b, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   Real &flux(const int dir, const int idx, const int k, const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(flat_, "Accessor must only be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
-    return pack_(dir, 0, idx)(k, j, i);
+    return pack_(dir - 1 + flx_idx_, 0, idx)(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -375,7 +375,7 @@ class SparsePack : public SparsePackBase {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int n = bounds_(0, b, idx.VariableIdx()) + idx.Offset();
-    return pack_(dir, b, n)(k, j, i);
+    return pack_(dir - 1 + flx_idx_, b, n)(k, j, i);
   }
 
   template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
@@ -384,7 +384,7 @@ class SparsePack : public SparsePackBase {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     PARTHENON_DEBUG_REQUIRE(dir > 0 && dir < 4 && with_fluxes_, "Bad input to flux call");
     const int vidx = GetLowerBound(b, t) + t.idx;
-    return pack_(dir, b, vidx)(k, j, i);
+    return pack_(dir - 1 + flx_idx_, b, vidx)(k, j, i);
   }
 
   template <class... VTs>
