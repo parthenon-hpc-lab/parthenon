@@ -96,8 +96,7 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   int ndim = md->GetParentPointer()->ndim;
   static auto desc =
         parthenon::MakePackDescriptor<var, flux_var, advection_package::Conserved::recon, advection_package::Conserved::recon_f>(
-            md, {parthenon::Metadata::WithFluxes},
-            {parthenon::PDOpt::WithFluxes});
+            md, {}, {parthenon::PDOpt::WithFluxes});
   auto pack = desc.GetPack(md);
 
   // 1. Reconstruct the component of the flux field pointing in the direction of edge in the quartants of the chosen edge 
@@ -113,7 +112,7 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   int ioff = edge == TE::E1 ? ndim > 0 : 0; 
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1,
-      kb.s - 1, kb.e + 1, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
+      kb.s - (ndim > 2), kb.e + (ndim > 2), jb.s - (ndim > 1), jb.e + (ndim > 1), ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         // Piecewise linear in the orthogonal directions, could do something better here
         pack(b, TE::CC, recon(0), k, j, i) = 0.5 * (pack(b, fe, flux_var(), k, j, i) + pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
