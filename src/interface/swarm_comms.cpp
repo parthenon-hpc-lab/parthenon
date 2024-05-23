@@ -84,24 +84,24 @@ void Swarm::SetNeighborIndices2D_() {
   auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
 
   // Initialize array in event of zero neighbors
-  for (int k = 0; k < 4; k++) {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 4; i++) {
+  for (int k = 0; k <= 3; k++) {
+    for (int j = 0; j <= 3; j++) {
+      for (int i = 0; i <= 3; i++) {
         neighbor_indices_h(k, j, i) = no_block_;
       }
     }
   }
 
   // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = 0;
-  const int kmax = 4;
-  const int jmin = 1;
-  const int jmax = 3;
+  const int kmin = ndim < 3 ? 0 : 1;
+  const int kmax = ndim < 3 ? 3 : 2;
+  const int jmin = ndim < 2 ? 0 : 1;
+  const int jmax = ndim < 2 ? 3 : 2;
   const int imin = 1;
-  const int imax = 3;
-  for (int k = kmin; k < kmax; k++) {
-    for (int j = jmin; j < jmax; j++) {
-      for (int i = imin; i < imax; i++) {
+  const int imax = 2;
+  for (int k = kmin; k <= kmax; k++) {
+    for (int j = jmin; j <= jmax; j++) {
+      for (int i = imin; i <= imax; i++) {
         neighbor_indices_h(k, j, i) = this_block_;
       }
     }
@@ -112,18 +112,19 @@ void Swarm::SetNeighborIndices2D_() {
   const std::array<Real, 3> dx_test = {(bsize.xmax_[0] - bsize.xmin_[0]) / 2.,
                                        (bsize.xmax_[1] - bsize.xmin_[1]) / 2.,
                                        (bsize.xmax_[2] - bsize.xmin_[2]) / 2.};
-  // printf("gid: %i loc: %i %i %i\n", pmb->gid, pmb->loc.lx1(), pmb->loc.lx2(),
-  //       pmb->loc.lx3());
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        const std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - 0.5) * dx_test[0],
-                                            bsize.xmin_[1] + (j - 0.5) * dx_test[1],
-                                            (bsize.xmin_[2] + bsize.xmax_[2]) / 2.};
+        const std::array<Real, 3> x_test = {
+            bsize.xmin_[0] + (i - 0.5) * dx_test[0],
+            ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
+                     : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
+            ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / 2.
+                     : bsize.xmin_[2] + (k - 0.5) * dx_test[2]};
+        // TODO(BRR) account for periodic boundary conditions by applying BCs to x_test
         for (int n = 0; n < pmb->neighbors.size(); n++) {
           NeighborBlock &nb = pmb->neighbors[n];
           const auto &nbsize = nb.block_size;
-          // TODO(BRR) account for periodic boundary conditions
           if ((x_test[0] > nbsize.xmin_[0] && x_test[0] < nbsize.xmax_[0]) &&
               (x_test[1] > nbsize.xmin_[1] && x_test[1] < nbsize.xmax_[1]) &&
               (x_test[2] > nbsize.xmin_[2] && x_test[2] < nbsize.xmax_[2])) {
@@ -131,117 +132,11 @@ void Swarm::SetNeighborIndices2D_() {
             break;
           }
         }
-
-        // printf("ni[%i][%i][%i] = %i gid: %i\n", k, j, i, neighbor_indices_h(k, j, i),
-        //       pmb->neighbors[neighbor_indices_h(k, j, i)].gid);
       }
     }
   }
   neighbor_indices_.DeepCopy(neighbor_indices_h);
-  return;
-  // exit(-1);
-
-  // Indicate which neighbor regions correspond to each neighbor meshblock
-  printf("gid: %i loc: %i %i %i\n", pmb->gid, pmb->loc.lx1(), pmb->loc.lx2(),
-         pmb->loc.lx3());
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.offsets(X1DIR);
-    const int j = nb.offsets(X2DIR);
-    // if (pmb->gid == 0) {
-    //  printf("neighbor gid: %i\n", nb.gid);
-    //}
-
-    if (nb.offsets.IsEdge()) {
-      // One connection regardless of *MR
-      if (pmb->gid == 0 || pmb->gid == 12) {
-        printf("  EDGE nb gid: %i\n", nb.gid);
-        printf("  EDGE offset: %i %i %i\n", nb.offsets(X1DIR), nb.offsets(X2DIR),
-               nb.offsets(X3DIR));
-        printf("  EDGE loc: lx: %i %i %i level: %i \n", nb.loc.lx1(), nb.loc.lx2(),
-               nb.loc.lx3(), nb.loc.level());
-        printf("\n");
-      }
-      for (int k = 0; k < 4; k++) {
-        int ii = nb.offsets(X1DIR) == -1 ? 0 : 3;
-        int jj = nb.offsets(X2DIR) == -1 ? 0 : 3;
-        neighbor_indices_h(k, jj, ii) = n;
-      }
-    }
-    if (nb.offsets.IsFace()) {
-      // One, two, or three connections depending on *MR
-      if (pmb->gid == 0 || pmb->gid == 12) {
-        printf("  FACE nb.gid: %i\n", nb.gid);
-        printf("  FACE offset: %i %i %i\n", nb.offsets(X1DIR), nb.offsets(X2DIR),
-               nb.offsets(X3DIR));
-        printf("  FACE loc: lx: %i %i %i level: %i \n", nb.loc.lx1(), nb.loc.lx2(),
-               nb.loc.lx3(), nb.loc.level());
-        printf("\n");
-      }
-      for (int k = 0; k < 4; k++) {
-        std::vector<int> ii;
-        std::vector<int> jj;
-        if (pmb->loc.level() == nb.loc.level()) {
-          ii = nb.offsets(X1DIR) == 0    ? std::vector<int>{1, 2}
-               : nb.offsets(X1DIR) == -1 ? std::vector<int>{0}
-                                         : std::vector<int>{3};
-          jj = nb.offsets(X2DIR) == 0    ? std::vector<int>{1, 2}
-               : nb.offsets(X2DIR) == -1 ? std::vector<int>{0}
-                                         : std::vector<int>{3};
-        } else if (pmb->loc.level() < nb.loc.level()) {
-          // ii = nb.offsets(X1DIR) == 0 ?
-        }
-        for (int iii : ii) {
-          for (int jjj : jj) {
-            neighbor_indices_h(k, jjj, iii) = n;
-          }
-        }
-      }
-    }
-
-    if (i == -1) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 0) = n;
-      } else if (j == 0) {
-        neighbor_indices_h(0, 1, 0) = n;
-        neighbor_indices_h(0, 2, 0) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 0) = n;
-      }
-    } else if (i == 0) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 1) = n;
-        neighbor_indices_h(0, 0, 2) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 1) = n;
-        neighbor_indices_h(0, 3, 2) = n;
-      }
-    } else if (i == 1) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 3) = n;
-      } else if (j == 0) {
-        neighbor_indices_h(0, 1, 3) = n;
-        neighbor_indices_h(0, 2, 3) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 3) = n;
-      }
-    }
-  }
-  if (pmb->gid == 0) {
-    printf("gid=0: xmin: %e %e %e\n", pmb->block_size.xmin_[0], pmb->block_size.xmin_[1],
-           pmb->block_size.xmin_[2]);
-    for (int i = 0; i < 4; i++) {
-      for (int j = 0; j < 4; j++) {
-        printf("ni[%i][%i]: %i (nb gid: %i)\n", i, j, neighbor_indices_h(0, j, i),
-               pmb->neighbors[neighbor_indices_h(0, j, i)].gid);
-      }
-    }
-  }
-  printf("gid: %i level: %i loc: %i %i %i\n", pmb->gid, pmb->loc.level(), pmb->loc.lx1(),
-         pmb->loc.lx2(), pmb->loc.lx3());
-
-  neighbor_indices_.DeepCopy(neighbor_indices_h);
-} // namespace parthenon
+}
 
 void Swarm::SetNeighborIndices3D_() {
   auto pmb = GetBlockPointer();
