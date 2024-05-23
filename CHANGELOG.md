@@ -3,6 +3,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1084]](https://github.com/parthenon-hpc-lab/parthenon/pull/1084) Properly free swarm boundary MPI requests 
+- [[PR 1020]](https://github.com/parthenon-hpc-lab/parthenon/pull/1020) Add bi- and trilinear interpolation routines
+- [[PR 1081]](https://github.com/parthenon-hpc-lab/parthenon/pull/1081) Add GetSize and GetIndex to sparse pack
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1068]](https://github.com/parthenon-hpc-lab/parthenon/pull/1068) Add ability to dump sparse pack contents as a string
@@ -18,6 +21,9 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1088]](https://github.com/parthenon-hpc-lab/parthenon/pull/1088) Correctly fill fluxes for non-cell variables in SparsePacks
+- [[PR 1083]](https://github.com/parthenon-hpc-lab/parthenon/pull/1083) Correctly fill VariableFluxPack for edge fluxes in 2D
+- [[PR 1087]](https://github.com/parthenon-hpc-lab/parthenon/pull/1087) Make sure InnerLoopPatternTVR is resolved on device properly when it is the default loop pattern
 - [[PR 1071]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Fix bug in static mesh refinement related to redefinition of Mesh::root_level
 - [[PR 1073]](https://github.com/parthenon-hpc-lab/parthenon/pull/1073) Fix bug in AMR and sparse restarts
 - [[PR 1070]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Correctly exclude flux vars from searches by default
