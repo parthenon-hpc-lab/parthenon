@@ -24,8 +24,8 @@ namespace advection_example {
 using namespace parthenon::driver::prelude;
 
 template <class pack_desc_t>
-TaskStatus WeightedSumData(parthenon::CellLevel cl, parthenon::TopologicalElement te,
-                           pack_desc_t &pd, MeshData<Real> *in1, MeshData<Real> *in2,
+TaskStatus WeightedSumDataElement(parthenon::CellLevel cl, parthenon::TopologicalElement te,
+                           pack_desc_t pd, MeshData<Real> *in1, MeshData<Real> *in2,
                            Real w1, Real w2, MeshData<Real> *out) {
   auto pack1 = pd.GetPack(in1);
   auto pack2 = pd.GetPack(in2);
@@ -42,6 +42,15 @@ TaskStatus WeightedSumData(parthenon::CellLevel cl, parthenon::TopologicalElemen
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         pack_out(b, l, k, j, i) = w1 * pack1(b, l, k, j, i) + w2 * pack2(b, l, k, j, i);
       });
+  return TaskStatus::complete;
+}
+
+template <class pack_desc_t>
+TaskStatus WeightedSumData(parthenon::CellLevel cl, parthenon::TopologicalType tt,
+                           pack_desc_t pd, MeshData<Real> *in1, MeshData<Real> *in2,
+                           Real w1, Real w2, MeshData<Real> *out) {
+  for (auto te : parthenon::GetTopologicalElements(tt))
+    WeightedSumDataElement(cl, te, pd, in1, in2, w1, w2, out);
   return TaskStatus::complete;
 }
 
