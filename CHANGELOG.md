@@ -22,6 +22,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1089]](https://github.com/parthenon-hpc-lab/parthenon/pull/1089) Fix loading restart files without derefinement counter
+- [[PR 1088]](https://github.com/parthenon-hpc-lab/parthenon/pull/1088) Correctly fill fluxes for non-cell variables in SparsePacks
 - [[PR 1083]](https://github.com/parthenon-hpc-lab/parthenon/pull/1083) Correctly fill VariableFluxPack for edge fluxes in 2D
 - [[PR 1087]](https://github.com/parthenon-hpc-lab/parthenon/pull/1087) Make sure InnerLoopPatternTVR is resolved on device properly when it is the default loop pattern
 - [[PR 1071]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Fix bug in static mesh refinement related to redefinition of Mesh::root_level
