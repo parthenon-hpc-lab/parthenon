@@ -67,13 +67,49 @@ void Swarm::SetNeighborIndices_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        const std::array<Real, 3> x_test = {
-            bsize.xmin_[0] + (i - 0.5) * dx_test[0],
-            ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
-                     : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
-            ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / 2.
-                     : bsize.xmin_[2] + (k - 0.5) * dx_test[2]};
-        // TODO(BRR) account for periodic boundary conditions by applying BCs to x_test
+        std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - 0.5) * dx_test[0],
+                                      ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
+                                               : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
+                                      ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / 2.
+                                               : bsize.xmin_[2] + (k - 0.5) * dx_test[2]};
+        // Account for periodic boundary conditions by applying BCs to x_test
+        // Assumes mesh is hyper-rectangular and Mesh::mesh_size represents the entire
+        // domain.
+        auto &msize = pmb->pmy_mesh->mesh_size;
+        if (pmb->boundary_flag[0] == BoundaryFlag::periodic) {
+          if (x_test[0] < msize.xmin(X1DIR)) {
+            x_test[0] = msize.xmax(X1DIR) - (msize.xmin(X1DIR) - x_test[0]);
+          }
+        }
+        if (pmb->boundary_flag[1] == BoundaryFlag::periodic) {
+          if (x_test[0] > msize.xmax(X1DIR)) {
+            x_test[0] = msize.xmin(X1DIR) + (x_test[0] - msize.xmax(X1DIR));
+          }
+        }
+        if (ndim > 1) {
+          if (pmb->boundary_flag[2] == BoundaryFlag::periodic) {
+            if (x_test[1] < msize.xmin(X2DIR)) {
+              x_test[1] = msize.xmax(X2DIR) - (msize.xmin(X2DIR) - x_test[1]);
+            }
+          }
+          if (pmb->boundary_flag[3] == BoundaryFlag::periodic) {
+            if (x_test[1] > msize.xmax(X2DIR)) {
+              x_test[1] = msize.xmin(X2DIR) + (x_test[1] - msize.xmax(X2DIR));
+            }
+          }
+        }
+        if (ndim > 2) {
+          if (pmb->boundary_flag[4] == BoundaryFlag::periodic) {
+            if (x_test[2] < msize.xmin(X3DIR)) {
+              x_test[2] = msize.xmax(X3DIR) - (msize.xmin(X3DIR) - x_test[2]);
+            }
+          }
+          if (pmb->boundary_flag[5] == BoundaryFlag::periodic) {
+            if (x_test[2] > msize.xmax(X3DIR)) {
+              x_test[2] = msize.xmin(X3DIR) + (x_test[2] - msize.xmax(X3DIR));
+            }
+          }
+        }
         for (int n = 0; n < pmb->neighbors.size(); n++) {
           NeighborBlock &nb = pmb->neighbors[n];
           const auto &nbsize = nb.block_size;
