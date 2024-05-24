@@ -26,8 +26,8 @@
 namespace parthenon {
 
 ///
-/// Routine for precomputing neighbor indices to efficiently compute particle
-/// position in terms of neighbor blocks based on spatial position. See
+/// Routine for precomputing neighbor indices to efficiently compute particle position
+/// in terms of neighbor blocks based on spatial position for communication. See
 /// GetNeighborBlockIndex()
 ///
 void Swarm::SetNeighborIndices_() {
@@ -59,7 +59,8 @@ void Swarm::SetNeighborIndices_() {
     }
   }
 
-  // Just create a point in middle of each region and test whether block includes it?
+  // Create a point in the center of each ghost halo region at maximum refinement level
+  // and then test whether each neighbor block includes that point.
   const auto &bsize = pmb->block_size;
   const std::array<Real, 3> dx_test = {(bsize.xmax_[0] - bsize.xmin_[0]) / 2.,
                                        (bsize.xmax_[1] - bsize.xmin_[1]) / 2.,
@@ -67,11 +68,14 @@ void Swarm::SetNeighborIndices_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
+        // Midpoint of meshblock at highest possible refinement level in this i,j,k ghost
+        // halo.
         std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - 0.5) * dx_test[0],
                                       ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
                                                : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
                                       ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / 2.
                                                : bsize.xmin_[2] + (k - 0.5) * dx_test[2]};
+
         // Account for periodic boundary conditions by applying BCs to x_test
         // Assumes mesh is hyper-rectangular and Mesh::mesh_size represents the entire
         // domain.
@@ -110,6 +114,8 @@ void Swarm::SetNeighborIndices_() {
             }
           }
         }
+
+        // Loop over neighbor blocks and see if any contains this test point.
         for (int n = 0; n < pmb->neighbors.size(); n++) {
           NeighborBlock &nb = pmb->neighbors[n];
           const auto &nbsize = nb.block_size;
@@ -123,6 +129,7 @@ void Swarm::SetNeighborIndices_() {
       }
     }
   }
+
   neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
