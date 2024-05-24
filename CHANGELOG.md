@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1090]](https://github.com/parthenon-hpc-lab/parthenon/pull/1090) SMR with swarms
 - [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
 - [[PR 1084]](https://github.com/parthenon-hpc-lab/parthenon/pull/1084) Properly free swarm boundary MPI requests
 - [[PR 1020]](https://github.com/parthenon-hpc-lab/parthenon/pull/1020) Add bi- and trilinear interpolation routines
