@@ -23,6 +23,9 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
+- [[PR 1088]](https://github.com/parthenon-hpc-lab/parthenon/pull/1088) Correctly fill fluxes for non-cell variables in SparsePacks
+- [[PR 1083]](https://github.com/parthenon-hpc-lab/parthenon/pull/1083) Correctly fill VariableFluxPack for edge fluxes in 2D
+- [[PR 1087]](https://github.com/parthenon-hpc-lab/parthenon/pull/1087) Make sure InnerLoopPatternTVR is resolved on device properly when it is the default loop pattern
 - [[PR 1071]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Fix bug in static mesh refinement related to redefinition of Mesh::root_level
 - [[PR 1073]](https://github.com/parthenon-hpc-lab/parthenon/pull/1073) Fix bug in AMR and sparse restarts
 - [[PR 1070]](https://github.com/parthenon-hpc-lab/parthenon/pull/1070) Correctly exclude flux vars from searches by default
