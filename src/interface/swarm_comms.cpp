@@ -68,8 +68,8 @@ void Swarm::SetNeighborIndices_() {
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        // Midpoint of meshblock at highest possible refinement level in this i,j,k ghost
-        // halo.
+        // Midpoint of meshblock at highest possible refinement level in this i,j,k
+        // ghost halo.
         std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - 0.5) * dx_test[0],
                                       ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
                                                : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
@@ -129,6 +129,36 @@ void Swarm::SetNeighborIndices_() {
       }
     }
   }
+
+  // Draft alternative approach due to LFR utilizing mesh offset comparisons at the
+  // highest refinement level
+  // auto ll_block = pmb->loc.GetDaughter(0, 0, 0);
+  // int finest_level = pmb->loc.level() + 1;
+  // for (auto &n : pmb->neighbors) {
+  //  std::vector<LogicalLocation> dlocs;
+  //  auto &nloc =
+  //      n.loc; // Would need to use the location in the coordinates of the origin tree
+  //  if (nloc.level() == finest_level) {
+  //    dlocs.emplace_back(nloc);
+  //  } else if (nloc.level() == finest_level) {
+  //    dlocs = nloc.GetDaughters(ndim);
+  //  } else if (nloc.level() == finest_level - 2) {
+  //    auto tlocs = nloc.GetDaughters(ndim);
+  //    for (auto &t : tlocs) {
+  //      auto gdlocs = t.GetDaughters(ndim);
+  //      dlocs.insert(dlocs.end(), gdlocs.begin(), gdlocs.end());
+  //    }
+  //  } else {
+  //    PARTHENON_FAIL("Proper nesting is not being respected.");
+  //  }
+  //  for (auto &d : dlocs) {
+  //    const int k = d.lx3() - ll_block.lx3() + 1;
+  //    const int j = d.lx2() - ll_block.lx2() + 1;
+  //    const int i = d.lx1() - ll_block.lx1() + 1;
+  //    if (i >= 0 && i <= 3 && j >= 0 && j <= 3 && k >= 0 && k <= 3)
+  //      neighbor_indices_h(k, j, i) = n.gid;
+  //  }
+  //}
 
   neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
