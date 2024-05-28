@@ -66,13 +66,6 @@ class MeshBlockData {
   MeshBlockData<T>() = default;
   explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
 
-  // Constructors for getting sub-containers
-  // the variables returned are all shallow copies of the src container.
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
-                   const std::vector<int> &sparse_ids = {});
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
-                   const std::vector<int> &sparse_ids = {});
-
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
