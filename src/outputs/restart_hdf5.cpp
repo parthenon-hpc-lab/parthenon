@@ -134,6 +134,20 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.level_gid_lid_cnghost_gflag =
       ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
 
+  auto status =
+      PARTHENON_HDF5_CHECK(H5Lexists(fh_, "Blocks/derefinement_count", H5P_DEFAULT));
+  if (status > 0) {
+    mesh_info.derefinement_count = ReadDataset<int>("/Blocks/derefinement_count");
+  } else {
+    // File does not contain this dataset, so must be older. Set to default value of zero
+    if (Globals::my_rank == 0 && (GetAttr<int>("Info", "Multilevel") != 0))
+      PARTHENON_WARN("Restarting from an HDF5 file that doesn't contain "
+                     "/Blocks/derefinement_count. \n"
+                     "  If you are running with AMR, this may cause restarts to not be "
+                     "bitwise exact \n"
+                     "  with simulations that are run without restarting.");
+    mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
+  }
   return mesh_info;
 }
 
