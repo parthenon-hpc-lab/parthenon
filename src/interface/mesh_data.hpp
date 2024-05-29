@@ -195,6 +195,7 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
+  int partition;
 
   const auto &StageName() const { return stage_name_; }
 

@@ -25,6 +25,11 @@
 
 namespace parthenon {
 class Mesh;
+class MeshBlock;
+template<class T> 
+class MeshData;
+template<class T>
+class MeshBlockData;
 /// The DataCollection class is an abstract container that contains at least a
 /// "base" container of some type (e.g., of MeshData or MeshBlockData) plus
 /// additional containers identified by string labels.
@@ -49,13 +54,12 @@ class DataCollection {
   template <class SRC_t, typename ID_t>
   std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields, const bool shallow) {
-    // This is commented out for now, as we don't include headers for the types below
-    //if constexpr (!(
-    //  (std::is_same_v<SRC_t, MeshBlock> && std::is_same_v<T, MeshBlockData<Real>>)
-    //  || std::is_same_v<SRC_t, T>)) {
-    //  // SRC_t and T are incompatible
-    //  static_assert(alway_false<SRC_t>);
-    //}
+    if constexpr (!(
+      (std::is_same_v<SRC_t, MeshBlock> && std::is_same_v<T, MeshBlockData<Real>>)
+      || std::is_same_v<SRC_t, T>)) {
+      // SRC_t and T are incompatible
+      static_assert(always_false<SRC_t>);
+    }
 
     auto it = containers_.find(name);
     if (it != containers_.end()) {
@@ -67,10 +71,9 @@ class DataCollection {
 
     auto c = std::make_shared<T>(name);
     c->Initialize(src, fields, shallow);
-
-    Set(name, c);
-
-    return containers_[name];
+    auto key = GetKey(name, src);
+    containers_[key] = c;
+    return containers_[key];
   }
   template <class SRC_t, typename ID_t = std::string>
   std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<SRC_t> &src,
@@ -115,6 +118,26 @@ class DataCollection {
   }
 
  private:
+  template <class U>
+  std::string GetKey(const std::string& stage_label, const std::shared_ptr<U>&in) { 
+    if constexpr (std::is_same_v<U, MeshData<Real>>) { 
+      std::string key = stage_label + "_part-" + std::to_string(in->partition);
+      if (in->grid.type == GridType::two_level_composite) key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+      return key;
+    } else { 
+      return stage_label;
+    }
+  }
+  std::string GetKey(const std::string& stage_label, std::optional<int> partition_id, std::optional<int> gmg_level) { 
+    std::string key = stage_label;
+    if (partition_id) key = key + "_part-" + std::to_string(*partition_id);
+    if (gmg_level) key = key + "_gmg-" + std::to_string(*gmg_level);  
+    return key;
+  }
+
+  std::shared_ptr<T> &GetOrAdd_impl(const std::string &mbd_label,
+                                    const int &partition_id, const std::optional<int> gmg_level);
+
   Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
 };
