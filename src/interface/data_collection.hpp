@@ -72,7 +72,7 @@ class DataCollection {
 
     auto c = std::make_shared<T>(name);
     c->Initialize(src, fields, shallow);
-    
+
     containers_[key] = c;
     return containers_[key];
   }
