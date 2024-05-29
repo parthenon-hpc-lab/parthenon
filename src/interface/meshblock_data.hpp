@@ -119,19 +119,17 @@ class MeshBlockData {
   /// and possibly shallow.  Note when shallow=false, new storage is allocated
   /// for non-OneCopy vars, but the data from src is not actually deep copied
   template <class SRC_t, typename ID_t = std::string>
-  void Initialize(const std::shared_ptr<SRC_t> src,
-                  const std::vector<ID_t> &vars = {},
+  void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
                   const bool shallow_copy = false) {
     Initialize(src->resolved_packages, src, vars, shallow_copy);
   }
-                
+
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
-                  const std::shared_ptr<SRC_t> src,
-                  const std::vector<ID_t> &vars = {},
+                  const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
                   const bool shallow_copy = false) {
-    if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>>
-                 || std::is_same_v<SRC_t, MeshBlock>)) {
+    if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
+                    std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
       static_assert(always_false<SRC_t>);
     }
@@ -185,11 +183,12 @@ class MeshBlockData {
           }
         }
       } else {
-        PARTHENON_FAIL("Variable subset selection not yet implemented for MeshBlock input.");
+        PARTHENON_FAIL(
+            "Variable subset selection not yet implemented for MeshBlock input.");
       }
     }
-    
-    // TODO(LFR): Not sure why we only do this in the MeshBlock case, but this carries 
+
+    // TODO(LFR): Not sure why we only do this in the MeshBlock case, but this carries
     // over from the previous iteration.
     if constexpr (std::is_same_v<SRC_t, MeshBlock>) {
       if (stage_name_ == "base") {
@@ -197,8 +196,8 @@ class MeshBlockData {
         swarm_container->Initialize(resolved_packages, GetBlockSharedPointer());
       }
 
-      // This seems to work fine outside the constexpr if, but having it inside is consistent
-      // with the old code.
+      // This seems to work fine outside the constexpr if, but having it inside is
+      // consistent with the old code.
       Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
       auto alloc_vars = GetVariablesByFlag(flags);
       for (auto &v : alloc_vars.vars()) {

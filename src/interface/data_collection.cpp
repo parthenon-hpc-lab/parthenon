@@ -34,15 +34,16 @@ std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label) {
 
 template <>
 std::shared_ptr<MeshData<Real>> &
-DataCollection<MeshData<Real>>::GetOrAdd_impl(
-              const std::string &mbd_label,
-              const int &partition_id, const std::optional<int> gmg_level) {
+DataCollection<MeshData<Real>>::GetOrAdd_impl(const std::string &mbd_label,
+                                              const int &partition_id,
+                                              const std::optional<int> gmg_level) {
   std::string label = GetKey(mbd_label, partition_id, gmg_level);
   auto it = containers_.find(label);
   if (it == containers_.end()) {
     // TODO(someone) add caching of partitions to Mesh at some point
     const int pack_size = pmy_mesh_->DefaultPackSize();
-    auto &block_list = gmg_level ? pmy_mesh_->gmg_block_lists[*gmg_level] : pmy_mesh_->block_list;
+    auto &block_list =
+        gmg_level ? pmy_mesh_->gmg_block_lists[*gmg_level] : pmy_mesh_->block_list;
     auto partitions = partition::ToSizeN(block_list, pack_size);
     // Account for possibly empty block_list
     if (partitions.size() == 0) partitions = std::vector<BlockList_t>(1);

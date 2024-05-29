@@ -243,12 +243,12 @@ class MeshData {
     }
   }
 
-  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim, std::optional<int> gmg_level = {});
+  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim,
+                  std::optional<int> gmg_level = {});
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   template <typename ID_t>
-  void Initialize(std::shared_ptr<MeshData<T>> src,
-                  const std::vector<ID_t> &vars,
+  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
                   const bool shallow) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
