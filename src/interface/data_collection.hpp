@@ -61,17 +61,18 @@ class DataCollection {
       static_assert(always_false<SRC_t>);
     }
 
-    auto it = containers_.find(name);
+    auto key = GetKey(name, src);
+    auto it = containers_.find(key);
     if (it != containers_.end()) {
       if (fields.size() && !(it->second)->Contains(fields)) {
-        PARTHENON_THROW(name + " already exists in collection but fields do not match.");
+        PARTHENON_THROW(key + " already exists in collection but fields do not match.");
       }
       return it->second;
     }
 
     auto c = std::make_shared<T>(name);
     c->Initialize(src, fields, shallow);
-    auto key = GetKey(name, src);
+    
     containers_[key] = c;
     return containers_[key];
   }
