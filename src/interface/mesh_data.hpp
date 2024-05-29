@@ -242,8 +242,8 @@ class MeshData {
     }
   }
 
-  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim);
-  void Initialize(BlockList_t blocks, Mesh *pmesh);
+  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim, std::optional<int> gmg_level = {});
+  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   template <typename ID_t>
   void Initialize(std::shared_ptr<MeshData<T>> src,
