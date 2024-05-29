@@ -257,17 +257,16 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   std::unordered_map<LogicalLocation, int> dealloc_count;
   auto lx123 = mesh_info.lx123;
   auto locLevelGidLidCnghostGflag = mesh_info.level_gid_lid_cnghost_gflag;
-  current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    loclist[i] = LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i],
-                                 lx123[3 * i], lx123[3 * i + 1], lx123[3 * i + 2]);
+    loclist[i] = forest.GetForestLocationFromLegacyTreeLocation(
+        LogicalLocation(locLevelGidLidCnghostGflag[NumIDsAndFlags * i], lx123[3 * i],
+                        lx123[3 * i + 1], lx123[3 * i + 2]));
     dealloc_count[loclist[i]] = mesh_info.derefinement_count[i];
   }
 
   // rebuild the Block Tree
   for (int i = 0; i < nbtotal; i++)
-    forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(loclist[i]),
-                        false);
+    forest.AddMeshBlock(loclist[i], false);
 
   int nnb = forest.CountMeshBlock();
   if (nnb != nbtotal) {
