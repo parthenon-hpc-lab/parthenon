@@ -58,7 +58,7 @@ class DataCollection {
                      std::is_same_v<T, MeshBlockData<Real>>) ||
                     std::is_same_v<SRC_t, T>)) {
       // SRC_t and T are incompatible
-      static_assert(always_false<SRC_t>);
+      static_assert(always_false<SRC_t>, "Incompatible source and container types.");
     }
 
     auto key = GetKey(name, src);

@@ -131,7 +131,7 @@ class MeshBlockData {
     if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
                     std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
-      static_assert(always_false<SRC_t>);
+      static_assert(always_false<SRC_t>, "Bad source type for initialization.");
     }
     PARTHENON_DEBUG_REQUIRE(src != nullptr, "Source data must be non-null.");
     SetBlockPointer(src);
