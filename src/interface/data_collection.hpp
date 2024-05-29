@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -48,6 +49,14 @@ class DataCollection {
   template <class SRC_t, typename ID_t>
   std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields, const bool shallow) {
+    // This is commented out for now, as we don't include headers for the types below
+    //if constexpr (!(
+    //  (std::is_same_v<SRC_t, MeshBlock> && std::is_same_v<T, MeshBlockData<Real>>)
+    //  || std::is_same_v<SRC_t, T>)) {
+    //  // SRC_t and T are incompatible
+    //  static_assert(alway_false<SRC_t>);
+    //}
+
     auto it = containers_.find(name);
     if (it != containers_.end()) {
       if (fields.size() && !(it->second)->Contains(fields)) {
