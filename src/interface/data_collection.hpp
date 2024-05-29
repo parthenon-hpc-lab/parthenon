@@ -45,8 +45,8 @@ class DataCollection {
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  template <typename ID_t>
-  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t>
+  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields, const bool shallow) {
     auto it = containers_.find(name);
     if (it != containers_.end()) {
@@ -63,13 +63,13 @@ class DataCollection {
 
     return containers_[name];
   }
-  template <typename ID_t = std::string>
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, false);
   }
-  template <typename ID_t = std::string>
-  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<SRC_t> &src,
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
