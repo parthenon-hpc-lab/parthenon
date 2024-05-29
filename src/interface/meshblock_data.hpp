@@ -194,9 +194,11 @@ class MeshBlockData {
     // TODO(LFR): Not sure why we only do this in the MeshBlock case, but this carries 
     // over from the previous iteration.
     if constexpr (std::is_same_v<SRC_t, MeshBlock>) {
-      const auto &swarm_container = GetSwarmData();
-      swarm_container->Initialize(resolved_packages, GetBlockSharedPointer());
-    
+      if (stage_name_ == "base") {
+        const auto &swarm_container = GetSwarmData();
+        swarm_container->Initialize(resolved_packages, GetBlockSharedPointer());
+      }
+
       // This seems to work fine outside the constexpr if, but having it inside is consistent
       // with the old code.
       Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
