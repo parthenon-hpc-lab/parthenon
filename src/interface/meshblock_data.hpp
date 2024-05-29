@@ -31,13 +31,11 @@
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
 
 namespace parthenon {
-
-template <class...> constexpr std::false_type always_false{};
-
 /// Interface to underlying infrastructure for data declaration and access.
 ///
 /// The MeshBlockData class is a container for the variables that make up

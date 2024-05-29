@@ -16,6 +16,12 @@
 #include <type_traits>
 #include <utility>
 
+// This is a class template that is required for doing something like static_assert(false) 
+// in constexpr if blocks. Actually writing static_assert(false) will always cause a 
+// compilation error, even if it is an unchosen constexpr if block. This is fixed in C++23
+// I think.
+template <class...> constexpr std::false_type always_false{};
+
 // These macros are just to make code more readable and self-explanatory,
 // generally it is best to write template<..., REQUIRES(... && ...)> in the code
 // but there are some instance where this causes issues. Switching to the construct
