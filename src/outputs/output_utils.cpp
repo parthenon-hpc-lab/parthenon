@@ -233,15 +233,21 @@ std::vector<int64_t> ComputeLocs(Mesh *pm) {
 
 std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
   return FlattenBlockInfo<int>(
-      pm, 6, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
         auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
         data[i++] = loc.level();
         data[i++] = pmb->gid;
         data[i++] = pmb->lid;
         data[i++] = pmb->cnghost;
         data[i++] = pmb->gflag;
-        data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
       });
+}
+
+std::vector<int> ComputeDerefinementCount(Mesh *pm) {
+  return FlattenBlockInfo<int>(pm, 1,
+                               [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+                                 data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
+                               });
 }
 
 // TODO(JMM): I could make this use the other loop

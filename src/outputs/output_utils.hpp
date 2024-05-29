@@ -339,6 +339,7 @@ void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &
 std::vector<Real> ComputeXminBlocks(Mesh *pm);
 std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
+std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
