@@ -1214,7 +1214,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list, this);
+  mesh_data.Get()->Initialize(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.

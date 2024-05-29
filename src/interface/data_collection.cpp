@@ -50,7 +50,7 @@ GetOrAdd_impl(Mesh *pmy_mesh_,
       std::string md_label = mbd_label + "_part-" + std::to_string(i);
       if (gmg_level) md_label = md_label + "_gmg-" + std::to_string(*gmg_level);
       containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
-      containers_[md_label]->Set(partitions[i], pmy_mesh_);
+      containers_[md_label]->Initialize(partitions[i], pmy_mesh_);
       if (gmg_level) {
         containers_[md_label]->grid = GridIdentifier::two_level_composite(*gmg_level);
       } else {

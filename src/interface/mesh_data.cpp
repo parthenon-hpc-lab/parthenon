@@ -17,7 +17,7 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh, int ndim) {
   const int nblocks = blocks.size();
   ndim_ = ndim;
   block_data_.resize(nblocks);
@@ -28,12 +28,12 @@ void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
 }
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh) {
   int ndim;
   if (pmesh != nullptr) {
     ndim = pmesh->ndim;
   }
-  Set(blocks, pmesh, ndim);
+  Initialize(blocks, pmesh, ndim);
 }
 
 template <typename T>

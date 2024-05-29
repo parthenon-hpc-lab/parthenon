@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -56,7 +57,7 @@ class DataCollection {
     }
 
     auto c = std::make_shared<T>(name);
-    c->Initialize(src.get(), fields, shallow);
+    c->Initialize(src, fields, shallow);
 
     Set(name, c);
 
