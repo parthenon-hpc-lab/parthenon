@@ -90,7 +90,7 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
 
 template <class var, class flux_var>
 TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
-                                 parthenon::CellLevel cl, MeshData<Real> *md) {
+                                 parthenon::CellLevel cl, Real fac, MeshData<Real> *md) {
   using TE = parthenon::TopologicalElement;
   using recon = Conserved::recon;
   using recon_f = Conserved::recon_f;
@@ -154,6 +154,7 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
                   pack(b, TE::CC, recon(0), k + dk, j + dj, i + di);
             }
         pack.flux(b, edge, var(), k, j, i) /= npoints;
+        pack.flux(b, edge, var(), k, j, i) *= fac;
       });
 
   // 3. Reconstruct the transverse components of the advected field at the edge

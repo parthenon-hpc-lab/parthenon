@@ -135,9 +135,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto vf_dep = none;
     for (auto edge : std::vector<TE>{TE::E1, TE::E2, TE::E3}) {
       vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<C, D>, edge,
-                          parthenon::CellLevel::same, mc0.get());
+                          parthenon::CellLevel::same, 1.0, mc0.get());
       vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<D, C>, edge,
-                          parthenon::CellLevel::same, mc0.get());
+                          parthenon::CellLevel::same, -1.0, mc0.get());
     }
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(
