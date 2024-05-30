@@ -119,7 +119,7 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else
-  RestartReaderHDF5::MeshInfo mesh_info;  
+  RestartReaderHDF5::MeshInfo mesh_info;
   mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
   mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
   mesh_info.nbtotal = GetAttr<int>("Info", "NumMeshBlocks");
