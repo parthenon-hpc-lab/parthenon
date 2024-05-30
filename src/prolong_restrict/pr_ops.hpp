@@ -371,6 +371,75 @@ struct ProlongateInternalAverage {
   }
 };
 
+struct ProlongateInternalTothAndRoe {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return (cel == TE::CC) && (GetTopologicalType(fel) == TopologicalType::Face);
+  }
+  // Here, fel is the topological element on which the field is defined and
+  // cel is the topological element on which we are filling the internal values
+  // of the field. So, for instance, we could fill the fine cell values of an
+  // x-face field within the volume of a coarse cell. This is assumes that the
+  // values of the fine cells on the elements corresponding with the coarse cell
+  // have been filled.
+  template <int DIM, TopologicalElement fel = TopologicalElement::CC,
+            TopologicalElement cel = TopologicalElement::CC>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArrayND<Real, VariableState> *,
+     const ParArrayND<Real, VariableState> *pfine) {
+    using namespace util;
+
+    if constexpr (!IsSubmanifold(fel, cel)) {
+      return;
+    } else {
+      auto &fine = *pfine;
+
+      constexpr int element_idx = static_cast<int>(fel) % 3;
+
+      const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
+      const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
+      const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
+      
+      // Here, we write the update for the x-component of the B-field and recover the other 
+      // components by cyclic permutation
+      auto sg = [](int a) {return a == 0 ? -1.0 : 1.0;};
+      const int eidx1 = (element_idx + 0) % 3;
+      const int eidx2 = (element_idx + 1) % 3;
+      const int eidx3 = (element_idx + 2) % 3;
+      for (int ok = 0; ok <= 1; ++ok) {
+        for (int oj = 0; oj <= 1; ++oj) {
+          int idxs_l[3], idxs_m[3], idxs_h[3];
+          idxs_l[eidx1] = 0; idxs_l[eidx2] = oj; idxs_l[eidx3] = ok; 
+          idxs_m[eidx1] = 1; idxs_m[eidx2] = oj; idxs_m[eidx3] = ok; 
+          idxs_h[eidx1] = 2; idxs_h[eidx2] = oj; idxs_h[eidx3] = ok; 
+          Real f = 0.5 * (fine(element_idx, l, m, n, fk + idxs_l[2] * (DIM > 2), fj + idxs_l[1] * (DIM > 1), fi + idxs_l[0])
+                        + fine(element_idx, l, m, n, fk + idxs_h[2] * (DIM > 2), fj + idxs_h[1] * (DIM > 1), fi + idxs_h[0])); 
+          for (int nn = 0; nn <= 1; ++nn)
+          for (int mm = 0; mm <= 2; mm += 2)
+          for (int ll = 0; ll <= 1; ++ll) {
+            int idxs[3];
+            idxs[eidx1] = ll; idxs[eidx2] = mm; idxs[eidx3] = nn;
+            // !!!!WARNING!!!! we are not correctly accounting for dx^2/(dy^2 + dz^2), just assume it is 0.5
+            f += sg(ll) * sg(mm) * (1.0 + 0.5 * sg(ok) * sg(nn)) * fine(eidx2, l, m, n, fk + idxs[2] * (DIM > 2), fj + idxs[1] * (DIM > 1), fi + idxs[0]) / 8.0;
+          }
+          for (int nn = 0; nn <= 2; nn += 2)
+          for (int mm = 0; mm <= 1; ++mm)
+          for (int ll = 0; ll <= 1; ++ll) {
+            int idxs[3];
+            idxs[eidx1] = ll; idxs[eidx2] = mm; idxs[eidx3] = nn; 
+            f += sg(ll) * sg(nn) * (1.0 + 0.5 * sg(oj) * sg(mm)) * fine(eidx3, l, m, n, fk + idxs[2] * (DIM > 2), fj + idxs[1] * (DIM > 1), fi + idxs[0]) / 8.0; 
+          }
+          fine(element_idx, l, m, n, fk + idxs_m[2] * (DIM > 2), fj + idxs_m[1] * (DIM > 1), fi + idxs_m[0]) = f;
+        }
+      }
+    }
+  }
+};
+
 } // namespace refinement_ops
 } // namespace parthenon
 

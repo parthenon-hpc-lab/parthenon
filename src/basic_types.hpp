@@ -152,7 +152,7 @@ enum class TopologicalElement : std::size_t {
 enum class TopologicalType { Cell, Face, Edge, Node };
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalType GetTopologicalType(TopologicalElement el) {
+constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (el == TE::CC) {

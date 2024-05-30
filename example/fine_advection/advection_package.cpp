@@ -77,6 +77,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Metadata m(
       {Metadata::Face, Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
+  m.RegisterRefinementOps<parthenon::refinement_ops::ProlongateSharedMinMod,
+                          parthenon::refinement_ops::RestrictAverage,
+                          parthenon::refinement_ops::ProlongateInternalTothAndRoe>();
   pkg->AddField<Conserved::C>(m);
   pkg->AddField<Conserved::D>(m);
   pkg->AddField<Conserved::recon>(Metadata(
