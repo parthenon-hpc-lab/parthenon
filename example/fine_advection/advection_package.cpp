@@ -87,6 +87,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3}));
   pkg->AddField<Conserved::D_cc>(Metadata(
       {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3}));
+  pkg->AddField<Conserved::divC>(Metadata(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+  pkg->AddField<Conserved::divD>(Metadata(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
@@ -165,7 +169,7 @@ TaskStatus FillDerived(MeshData<Real> *md) {
   static auto desc =
       parthenon::MakePackDescriptor<Conserved::phi_fine, Conserved::phi_fine_restricted,
                                     Conserved::C, Conserved::C_cc, Conserved::D,
-                                    Conserved::D_cc>(md);
+                                    Conserved::D_cc, Conserved::divC, Conserved::divD>(md);
   auto pack = desc.GetPack(md);
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -204,6 +208,11 @@ TaskStatus FillDerived(MeshData<Real> *md) {
         pack(b, Conserved::C_cc(2), k, j, i) =
             0.5 * (pack(b, TE::F3, Conserved::C(), k, j, i) +
                    pack(b, TE::F3, Conserved::C(), k + ndim > 2, j, i));
+        auto &coords = pack.GetCoordinates(b); 
+        pack(b, Conserved::divC(), k, j, i) = (pack(b, TE::F1, Conserved::C(), k, j, i + ndim > 0) - pack(b, TE::F1, Conserved::C(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
+                                              (pack(b, TE::F2, Conserved::C(), k, j + ndim > 1, i) - pack(b, TE::F2, Conserved::C(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
+                                              (pack(b, TE::F3, Conserved::C(), k + ndim > 2, j, i) - pack(b, TE::F3, Conserved::C(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i); 
+        
         pack(b, Conserved::D_cc(0), k, j, i) =
             0.5 * (pack(b, TE::F1, Conserved::D(), k, j, i) +
                    pack(b, TE::F1, Conserved::D(), k, j, i + ndim > 0));
@@ -213,6 +222,9 @@ TaskStatus FillDerived(MeshData<Real> *md) {
         pack(b, Conserved::D_cc(2), k, j, i) =
             0.5 * (pack(b, TE::F3, Conserved::D(), k, j, i) +
                    pack(b, TE::F3, Conserved::D(), k + ndim > 2, j, i));
+        pack(b, Conserved::divD(), k, j, i) = (pack(b, TE::F1, Conserved::D(), k, j, i + ndim > 0) - pack(b, TE::F1, Conserved::D(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
+                                              (pack(b, TE::F2, Conserved::D(), k, j + ndim > 1, i) - pack(b, TE::F2, Conserved::D(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
+                                              (pack(b, TE::F3, Conserved::D(), k + ndim > 2, j, i) - pack(b, TE::F3, Conserved::D(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i);         
       });
   return TaskStatus::complete;
 }

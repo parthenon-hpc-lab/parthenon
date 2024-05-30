@@ -42,6 +42,8 @@ VARIABLE(advection, recon);
 VARIABLE(advection, recon_f);
 VARIABLE(advection, C_cc);
 VARIABLE(advection, D_cc);
+VARIABLE(advection, divC);
+VARIABLE(advection, divD);
 } // namespace Conserved
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
