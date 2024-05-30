@@ -31,7 +31,14 @@ using namespace parthenon;
 // *************************************************//
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
-
+namespace {
+  Real sign(Real a, Real b) { 
+    if (a == 0.0) { 
+      return b > 0.0 ? 1.0 : -1.0; 
+    }
+    return a > 0.0 ? 1.0 : -1.0;
+  }
+}
 namespace advection_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -48,10 +55,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto coords = pmb->coords;
-
-  using phi = advection_package::Conserved::phi;
-  using phi_fine = advection_package::Conserved::phi_fine;
-  static auto desc = parthenon::MakePackDescriptor<phi, phi_fine>(data.get());
+  
+  using namespace advection_package::Conserved;
+  static auto desc = parthenon::MakePackDescriptor<phi, phi_fine, C, D>(data.get());
   auto pack = desc.GetPack(data.get());
 
   int profile_type;
@@ -64,7 +70,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const int b = 0;
   const int ndim = pmb->pmy_mesh->ndim;
   const int nghost = parthenon::Globals::nghost;
-  pmb->par_for(
+  parthenon::par_for(
       PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
@@ -103,6 +109,35 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
               }
         }
       });
+  
+  ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F2);
+  jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F2);
+  kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F2);
+  const Real x0 = 0.2;
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      auto &coords = pack.GetCoordinates(b);
+      Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
+      Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
+      Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
+      Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
+      pack(b, TE::F2, C(), k, j, i) = (Alo - Ahi) / (xhi - xlo);      
+    });
+  
+  ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F3);
+  jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F3);
+  kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F3);
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      auto &coords = pack.GetCoordinates(b);
+      Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
+      Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
+      Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
+      Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
+      pack(b, TE::F3, D(), k, j, i) = (Alo - Ahi) / (xhi - xlo);      
+    });
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
