@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -147,6 +147,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bicgstab_params.max_iters = max_poisson_iterations;
   bicgstab_params.residual_tolerance = res_tol;
   bicgstab_params.precondition = precondition;
+  bicgstab_params.print_per_step = true;
   parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
       pkg.get(), bicgstab_params, eq);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,

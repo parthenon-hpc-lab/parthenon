@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,9 +28,10 @@
 namespace parthenon {
 // forward declarations
 namespace XDMF {
-void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int nx3,
-             const std::vector<OutputUtils::VarInfo> &var_list,
-             const OutputUtils::AllSwarmInfo &all_swarm_info);
+void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
+             int nx2, int nx3, const std::vector<OutputUtils::VarInfo> &var_list,
+             const OutputUtils::AllSwarmInfo &all_swarm_info, const bool mesh_xdmf,
+             const bool swarm_xdmf);
 } // namespace XDMF
 } // namespace parthenon
 

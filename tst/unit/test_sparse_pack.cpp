@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -77,13 +77,84 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   static std::string name() { return "v5"; }
 };
 
+using parthenon::variable_names::ANYDIM;
+struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
+      : parthenon::variable_names::base_t<false, ANYDIM, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v7"; }
+};
+
 } // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
+  constexpr int N = 6;
+  constexpr int NDIM = 3;
+  constexpr int NBLOCKS = 9;
+
+  GIVEN("A tensor variable on a mesh") {
+    const std::vector<int> tensor_shape{N, N, N, 3, 3};
+    Metadata m_tensor({Metadata::Independent}, tensor_shape);
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddField<v7>(m_tensor);
+    BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
+
+    MeshData<Real> mesh_data("base");
+    mesh_data.Set(block_list, nullptr);
+
+    WHEN("We initialize the independent variables by hand and deallocate one") {
+      auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+      auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+      auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+      for (int b = 0; b < NBLOCKS; ++b) {
+        auto &pmb = block_list[b];
+        auto &pmbd = pmb->meshblock_data.Get();
+        auto var = pmbd->Get("v7");
+        auto var5 = var.data.Get<5>();
+        int slower_rank = var5.GetDim(5);
+        int faster_rank = var5.GetDim(4);
+        par_for(
+            loop_pattern_mdrange_tag, "initializev7", DevExecSpace(), kb.s, kb.e, jb.s,
+            jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
+              for (int l = 0; l < slower_rank; ++l) {
+                for (int m = 0; m < faster_rank; ++m) {
+                  Real n = m + 1e1 * l;
+                  var5(l, m, k, j, i) = n;
+                }
+              }
+            });
+      }
+      THEN("A sparse pack can correctly index into tensor types") {
+        auto desc = parthenon::MakePackDescriptor<v7>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        int nwrong = 0;
+        int nl = tensor_shape[4];
+        int nm = tensor_shape[3];
+        par_reduce(
+            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              // 0-th is ANYDIM, 1st is 3.
+              for (int l = 0; l < nl; ++l) {
+                for (int m = 0; m < nm; ++m) {
+                  Real n = m + 1e1 * l;
+                  if (sparse_pack(b, v7(l, m), k, j, i) != n) {
+                    ltot += 1;
+                  }
+                }
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+
+        AND_THEN("A sparse pack can correctly output variable names") {
+          REQUIRE(sparse_pack.LabelHost(0, 0) == "v7");
+        }
+      }
+    }
+  }
+
   GIVEN("A set of meshblocks and meshblock and mesh data") {
-    constexpr int N = 6;
-    constexpr int NDIM = 3;
-    constexpr int NBLOCKS = 9;
     const std::vector<int> scalar_shape{N, N, N};
     const std::vector<int> vector_shape{N, N, N, 3};
 
@@ -122,6 +193,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               });
         }
       }
+
       // Deallocate a variable on an arbitrary block
       block_list[2]->DeallocateSparse("v3");
 
@@ -145,6 +217,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(pack.ContainsHost(2, v5()));
         REQUIRE(!pack.ContainsHost(2, v1(), v3(), v5()));
         REQUIRE(pack.ContainsHost<v1, v5>(2));
+        REQUIRE(pack.GetSizeHost(2, v1()) == 1);
+        REQUIRE(pack.GetSizeHost(2, v3()) == 0);
+        REQUIRE(pack.GetSizeHost(1, v3()) == 3);
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "
@@ -192,8 +267,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
         using parthenon::PDOpt;
-        using parthenon::variable_names::any;
-        auto desc = parthenon::MakePackDescriptor<any>(
+        using parthenon::variable_names::any_nonautoflux;
+        auto desc = parthenon::MakePackDescriptor<any_nonautoflux>(
             pkg.get(), {}, {PDOpt::WithFluxes, PDOpt::Flatten});
         auto sparse_pack = desc.GetPack(&mesh_data);
         REQUIRE(sparse_pack.GetNBlocks() == 1);
@@ -260,11 +335,15 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack correctly reads based on a regex variable") {
         auto desc =
-            parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get());
+            parthenon::MakePackDescriptor<parthenon::variable_names::any_nonautoflux>(
+                pkg.get());
         auto sparse_pack = desc.GetPack(&mesh_data);
 
         auto desc_notype = MakePackDescriptor(
-            pkg.get(), std::vector<std::pair<std::string, bool>>{{".*", true}});
+            pkg.get(), std::vector<std::pair<std::string, bool>>{
+                           {"^(?!" + parthenon::internal_fluxname +
+                                parthenon::internal_varname_seperator + ").+",
+                            true}});
         auto sparse_pack_notype = desc_notype.GetPack(&mesh_data);
         auto pack_map = desc_notype.GetMap();
         parthenon::PackIdx iall(pack_map[".*"]);
@@ -274,8 +353,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             loop_pattern_mdrange_tag, "check all", DevExecSpace(), 0, NBLOCKS - 1, kb.s,
             kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
-              int lo = sparse_pack.GetLowerBound(b, parthenon::variable_names::any());
-              int hi = sparse_pack.GetUpperBound(b, parthenon::variable_names::any());
+              int lo = sparse_pack.GetLowerBound(
+                  b, parthenon::variable_names::any_nonautoflux());
+              int hi = sparse_pack.GetUpperBound(
+                  b, parthenon::variable_names::any_nonautoflux());
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e3 * b;
                 if (std::abs(n - std::fmod(sparse_pack(b, lo + c, k, j, i), 1e4)) >
@@ -298,7 +379,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
       THEN("A sparse pack built with a subset of blocks is the right size") {
         auto desc =
-            parthenon::MakePackDescriptor<parthenon::variable_names::any>(pkg.get());
+            parthenon::MakePackDescriptor<parthenon::variable_names::any_nonautoflux>(
+                pkg.get());
         std::vector<bool> include_blocks(NBLOCKS);
         for (int i = 0; i < NBLOCKS; i++)
           include_blocks[i] = (i % 2 == 0);

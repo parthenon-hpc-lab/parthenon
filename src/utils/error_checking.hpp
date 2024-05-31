@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -157,6 +157,11 @@ fail(const char *const message, const char *const filename, int const linenumber
   // loop to supress a warning that the function does not return.
   while (true) {
   }
+}
+
+[[noreturn]] inline void fail(std::string const &message, const char *const filename,
+                              int const linenumber) {
+  fail(message.c_str(), filename, linenumber);
 }
 
 [[noreturn]] inline void fail(std::stringstream const &message,

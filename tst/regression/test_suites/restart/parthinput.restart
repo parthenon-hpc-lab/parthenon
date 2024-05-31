@@ -15,8 +15,7 @@
 problem_id = restart
 
 <parthenon/sparse>
-dealloc_count = 999999 # disable this since deallcoation counter resets on
-                       # restart and thus leads to different results
+dealloc_count = 5
 
 <parthenon/mesh>
 refinement = adaptive
@@ -39,9 +38,6 @@ x3min = -1
 x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
-
-derefine_count = 999999 # disable this since derefinement counter resets on
-                        # restart and thus leads to different results
 
 <parthenon/meshblock>
 nx1 = 16

@@ -22,6 +22,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "interface/state_descriptor.hpp"
+#include "outputs/output_parameters.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -45,6 +46,11 @@ struct ApplicationInput {
       PostStepMeshUserWorkInLoop = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      UserMeshWorkBeforeOutput = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &, OutputParameters *)>
+      UserWorkBeforeRestartOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PreStepDiagnosticsInLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PostStepDiagnosticsInLoop = nullptr;
@@ -60,8 +66,8 @@ struct ApplicationInput {
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> MeshBlockUserWorkBeforeOutput =
-      nullptr;
+  std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
+      MeshBlockUserWorkBeforeOutput = nullptr;
 };
 
 } // namespace parthenon

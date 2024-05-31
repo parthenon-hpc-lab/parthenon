@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -44,7 +44,7 @@ class SwarmDeviceContext {
   bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
-  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == this_block_; }
+  bool IsOnCurrentMeshBlock(int n) const { return block_index_(n) == this_block_; }
 
   KOKKOS_FUNCTION
   void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
@@ -60,24 +60,29 @@ class SwarmDeviceContext {
     int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
     int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
 
-    // Something went wrong
+    // Particle is on neither this block nor a neighboring block
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
-      PARTHENON_FAIL("Particle neighbor indices out of bounds");
+      printf("[%i] k = %i j = %i i = %i\n", n, k, j, i);
+      printf("x = %e [%e %e]\n", x, x_min_, x_max_);
+      printf("y = %e [%e %e]\n", y, y_min_, y_max_);
+      printf("z = %e [%e %e]\n", z, z_min_, z_max_);
+      PARTHENON_FAIL("Particle neighbor indices out of bounds; particle has somehow "
+                     "moved beyond the halo of adjacent blocks which is not permitted.");
     }
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      blockIndex_(n) = neighborIndices_(0, 0, i);
+      block_index_(n) = neighbor_indices_(0, 0, i);
     } else if (ndim_ == 2) {
-      blockIndex_(n) = neighborIndices_(0, j, i);
+      block_index_(n) = neighbor_indices_(0, j, i);
     } else {
-      blockIndex_(n) = neighborIndices_(k, j, i);
+      block_index_(n) = neighbor_indices_(k, j, i);
     }
 
-    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
+    is_on_current_mesh_block = (block_index_(n) == this_block_);
 
-    return blockIndex_(n);
+    return block_index_(n);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -101,14 +106,14 @@ class SwarmDeviceContext {
 
   KOKKOS_INLINE_FUNCTION
   int GetParticleCountPerCell(const int k, const int j, const int i) const {
-    return cellSortedNumber_(k, j, i);
+    return cell_sorted_number_(k, j, i);
   }
 
   KOKKOS_INLINE_FUNCTION
   int GetFullIndex(const int k, const int j, const int i, const int n) const {
-    PARTHENON_DEBUG_REQUIRE(n < cellSortedNumber_(k, j, i),
+    PARTHENON_DEBUG_REQUIRE(n < cell_sorted_number_(k, j, i),
                             "Particle index out of range!");
-    return cellSorted_(cellSortedBegin_(k, j, i) + n).swarm_idx_;
+    return cell_sorted_(cell_sorted_begin_(k, j, i) + n).swarm_idx_;
   }
 
   // private:
@@ -129,11 +134,11 @@ class SwarmDeviceContext {
   Real z_max_global_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
-  ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
-  ParArray1D<SwarmKey> cellSorted_;
-  ParArrayND<int> cellSortedBegin_;
-  ParArrayND<int> cellSortedNumber_;
+  ParArrayND<int> block_index_;
+  ParArrayND<int> neighbor_indices_; // 4x4x4 array of possible block AMR regions
+  ParArray1D<SwarmKey> cell_sorted_;
+  ParArrayND<int> cell_sorted_begin_;
+  ParArrayND<int> cell_sorted_number_;
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
