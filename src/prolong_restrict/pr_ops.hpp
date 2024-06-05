@@ -396,44 +396,50 @@ struct ProlongateInternalTothAndRoe {
     if constexpr (!IsSubmanifold(fel, cel)) {
       return;
     } else {
-      auto &fine = *pfine;
-
-      constexpr int element_idx = static_cast<int>(fel) % 3;
-
       const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
       const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
       const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
       
       // Here, we write the update for the x-component of the B-field and recover the other 
       // components by cyclic permutation
-      auto sg = [](int a) {return a == 0 ? -1.0 : 1.0;};
-      const int eidx1 = (element_idx + 0) % 3;
-      const int eidx2 = (element_idx + 1) % 3;
-      const int eidx3 = (element_idx + 2) % 3;
-      for (int ok = 0; ok <= 1; ++ok) {
-        for (int oj = 0; oj <= 1; ++oj) {
-          int idxs_l[3], idxs_m[3], idxs_h[3];
-          idxs_l[eidx1] = 0; idxs_l[eidx2] = oj; idxs_l[eidx3] = ok; 
-          idxs_m[eidx1] = 1; idxs_m[eidx2] = oj; idxs_m[eidx3] = ok; 
-          idxs_h[eidx1] = 2; idxs_h[eidx2] = oj; idxs_h[eidx3] = ok; 
-          Real f = 0.5 * (fine(element_idx, l, m, n, fk + idxs_l[2] * (DIM > 2), fj + idxs_l[1] * (DIM > 1), fi + idxs_l[0])
-                        + fine(element_idx, l, m, n, fk + idxs_h[2] * (DIM > 2), fj + idxs_h[1] * (DIM > 1), fi + idxs_h[0])); 
-          for (int nn = 0; nn <= 1; ++nn)
-          for (int mm = 0; mm <= 2; mm += 2)
-          for (int ll = 0; ll <= 1; ++ll) {
-            int idxs[3];
-            idxs[eidx1] = ll; idxs[eidx2] = mm; idxs[eidx3] = nn;
-            // !!!!WARNING!!!! we are not correctly accounting for dx^2/(dy^2 + dz^2), just assume it is 0.5
-            f += sg(ll) * sg(mm) * (1.0 + 0.5 * sg(ok) * sg(nn)) * fine(eidx2, l, m, n, fk + idxs[2] * (DIM > 2), fj + idxs[1] * (DIM > 1), fi + idxs[0]) / 8.0;
+      constexpr int element_idx = static_cast<int>(fel) % 3;
+      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real& {
+        eidx = (element_idx + eidx) % 3;
+        if constexpr (fel == TE::F1) {
+          return (*pfine)(eidx, l, m, n, fk + ok * (DIM > 2), fj + oj * (DIM > 1), fi + oi); 
+        } else if constexpr (fel == TE::F2) {
+          return (*pfine)(eidx, l, m, n, fk + oj * (DIM > 2), fj + oi * (DIM > 1), fi + ok); 
+        } else {
+          return (*pfine)(eidx, l, m, n, fk + oi * (DIM > 2), fj + ok * (DIM > 1), fi + oj); 
+        }
+      };
+      
+      using iarr2 = std::array<int, 2>;
+      auto sg = [](int offset) -> Real {return offset == 0 ? -1.0 : 1.0;};
+      Real Uxx{0.0}; 
+      Real Vxyz{0.0};
+      Real Wxyz{0.0};
+      for (const int v : iarr2{0, 1}) {
+        for (const int u : iarr2{0, 2}) { // Note step size of 2 for the direction normal to the eidx2/eidx3 
+          for (const int t : iarr2{0, 1}) {
+            const auto fine2 = get_fine_permuted(1, v, u, t);
+            const auto fine3 = get_fine_permuted(2, u, v, t);
+            Uxx += sg(t) * sg(u) * (fine2 + fine3); 
+            Vxyz += sg(t) * sg(u) * sg(v) * fine2;
+            Wxyz += sg(t) * sg(u) * sg(v) * fine3;
           }
-          for (int nn = 0; nn <= 2; nn += 2)
-          for (int mm = 0; mm <= 1; ++mm)
-          for (int ll = 0; ll <= 1; ++ll) {
-            int idxs[3];
-            idxs[eidx1] = ll; idxs[eidx2] = mm; idxs[eidx3] = nn; 
-            f += sg(ll) * sg(nn) * (1.0 + 0.5 * sg(oj) * sg(mm)) * fine(eidx3, l, m, n, fk + idxs[2] * (DIM > 2), fj + idxs[1] * (DIM > 1), fi + idxs[0]) / 8.0; 
-          }
-          fine(element_idx, l, m, n, fk + idxs_m[2] * (DIM > 2), fj + idxs_m[1] * (DIM > 1), fi + idxs_m[0]) = f;
+        }
+      }
+      Uxx *= 0.125;
+      const auto dx2 = std::pow(coarse_coords.DxcFA((element_idx + 0) % 3 + 1, k, j, i), 2); 
+      const auto dy2 = std::pow(coarse_coords.DxcFA((element_idx + 1) % 3 + 1, k, j, i), 2); 
+      const auto dz2 = std::pow(coarse_coords.DxcFA((element_idx + 2) % 3 + 1, k, j, i), 2);
+      Vxyz *= 0.125 * dz2 / (dx2 + dz2);
+      Wxyz *= 0.125 * dy2 / (dx2 + dy2); 
+
+      for (int ok : iarr2{0, 1}) {
+        for (int oj : iarr2{0, 1}) {
+          get_fine_permuted(0, ok, oj, 1) = 0.5 * (get_fine_permuted(0, ok, oj, 0) + get_fine_permuted(0, ok, oj, 2)) + Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz;  
         }
       }
     }
