@@ -32,6 +32,7 @@ using namespace parthenon;
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
 namespace {
+KOKKOS_INLINE_FUNCTION
 Real sign(Real a, Real b) {
   if (a == 0.0) {
     return b > 0.0 ? 1.0 : -1.0;
