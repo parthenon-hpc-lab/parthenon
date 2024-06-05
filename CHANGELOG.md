@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1091]](https://github.com/parthenon-hpc-lab/parthenon/pull/1091) Add vector wave equation example.
 - [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
 - [[PR 1084]](https://github.com/parthenon-hpc-lab/parthenon/pull/1084) Properly free swarm boundary MPI requests 
 - [[PR 1020]](https://github.com/parthenon-hpc-lab/parthenon/pull/1020) Add bi- and trilinear interpolation routines
