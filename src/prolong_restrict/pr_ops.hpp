@@ -399,47 +399,57 @@ struct ProlongateInternalTothAndRoe {
       const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
       const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
       const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
-      
-      // Here, we write the update for the x-component of the B-field and recover the other 
-      // components by cyclic permutation
+
+      // Here, we write the update for the x-component of the B-field and recover the
+      // other components by cyclic permutation
       constexpr int element_idx = static_cast<int>(fel) % 3;
-      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real& {
+      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real & {
         eidx = (element_idx + eidx) % 3;
         if constexpr (fel == TE::F1) {
-          return (*pfine)(eidx, l, m, n, fk + ok * (DIM > 2), fj + oj * (DIM > 1), fi + oi); 
+          return (*pfine)(eidx, l, m, n, fk + ok * (DIM > 2), fj + oj * (DIM > 1),
+                          fi + oi);
         } else if constexpr (fel == TE::F2) {
-          return (*pfine)(eidx, l, m, n, fk + oj * (DIM > 2), fj + oi * (DIM > 1), fi + ok); 
+          return (*pfine)(eidx, l, m, n, fk + oj * (DIM > 2), fj + oi * (DIM > 1),
+                          fi + ok);
         } else {
-          return (*pfine)(eidx, l, m, n, fk + oi * (DIM > 2), fj + ok * (DIM > 1), fi + oj); 
+          return (*pfine)(eidx, l, m, n, fk + oi * (DIM > 2), fj + ok * (DIM > 1),
+                          fi + oj);
         }
       };
-      
+
       using iarr2 = std::array<int, 2>;
-      auto sg = [](int offset) -> Real {return offset == 0 ? -1.0 : 1.0;};
-      Real Uxx{0.0}; 
+      auto sg = [](int offset) -> Real { return offset == 0 ? -1.0 : 1.0; };
+      Real Uxx{0.0};
       Real Vxyz{0.0};
       Real Wxyz{0.0};
       for (const int v : iarr2{0, 1}) {
-        for (const int u : iarr2{0, 2}) { // Note step size of 2 for the direction normal to the eidx2/eidx3 
+        for (const int u : iarr2{
+                 0,
+                 2}) { // Note step size of 2 for the direction normal to the eidx2/eidx3
           for (const int t : iarr2{0, 1}) {
             const auto fine2 = get_fine_permuted(1, v, u, t);
             const auto fine3 = get_fine_permuted(2, u, v, t);
-            Uxx += sg(t) * sg(u) * (fine2 + fine3); 
+            Uxx += sg(t) * sg(u) * (fine2 + fine3);
             Vxyz += sg(t) * sg(u) * sg(v) * fine2;
             Wxyz += sg(t) * sg(u) * sg(v) * fine3;
           }
         }
       }
       Uxx *= 0.125;
-      const auto dx2 = std::pow(coarse_coords.DxcFA((element_idx + 0) % 3 + 1, k, j, i), 2); 
-      const auto dy2 = std::pow(coarse_coords.DxcFA((element_idx + 1) % 3 + 1, k, j, i), 2); 
-      const auto dz2 = std::pow(coarse_coords.DxcFA((element_idx + 2) % 3 + 1, k, j, i), 2);
+      const auto dx2 =
+          std::pow(coarse_coords.DxcFA((element_idx + 0) % 3 + 1, k, j, i), 2);
+      const auto dy2 =
+          std::pow(coarse_coords.DxcFA((element_idx + 1) % 3 + 1, k, j, i), 2);
+      const auto dz2 =
+          std::pow(coarse_coords.DxcFA((element_idx + 2) % 3 + 1, k, j, i), 2);
       Vxyz *= 0.125 * dz2 / (dx2 + dz2);
-      Wxyz *= 0.125 * dy2 / (dx2 + dy2); 
+      Wxyz *= 0.125 * dy2 / (dx2 + dy2);
 
       for (int ok : iarr2{0, 1}) {
         for (int oj : iarr2{0, 1}) {
-          get_fine_permuted(0, ok, oj, 1) = 0.5 * (get_fine_permuted(0, ok, oj, 0) + get_fine_permuted(0, ok, oj, 2)) + Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz;  
+          get_fine_permuted(0, ok, oj, 1) =
+              0.5 * (get_fine_permuted(0, ok, oj, 0) + get_fine_permuted(0, ok, oj, 2)) +
+              Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz;
         }
       }
     }

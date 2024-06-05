@@ -41,7 +41,8 @@ TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
       pack1.GetUpperBoundHost(0), // This is safe for dense vars
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        pack_out(b, te, l, k, j, i) = w1 * pack1(b, te, l, k, j, i) + w2 * pack2(b, te, l, k, j, i);
+        pack_out(b, te, l, k, j, i) =
+            w1 * pack1(b, te, l, k, j, i) + w2 * pack2(b, te, l, k, j, i);
       });
   return TaskStatus::complete;
 }

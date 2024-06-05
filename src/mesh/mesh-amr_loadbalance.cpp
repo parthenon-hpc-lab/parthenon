@@ -217,8 +217,10 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         if (ox3 == 0 && ndim > 2) kb.e -= TopologicalOffsetK(te);
         if (ox2 == 0 && ndim > 1) jb.e -= TopologicalOffsetJ(te);
         if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
-        const int ks = (ox3 == 0 || ndim < 3) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
-        const int js = (ox2 == 0 || ndim < 2) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
+        const int ks =
+            (ox3 == 0 || ndim < 3) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
+        const int js =
+            (ox2 == 0 || ndim < 2) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
