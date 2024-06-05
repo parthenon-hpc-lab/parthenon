@@ -24,6 +24,8 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1095]](https://github.com/parthenon-hpc-lab/parthenon/pull/1095) Add missing include guards in hdf5 restart
+- [[PR 1093]](https://github.com/parthenon-hpc-lab/parthenon/pull/1093) Fix forest size for symmetry dimensions
 - [[PR 1089]](https://github.com/parthenon-hpc-lab/parthenon/pull/1089) Fix loading restart files without derefinement counter
 - [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
 - [[PR 1088]](https://github.com/parthenon-hpc-lab/parthenon/pull/1088) Correctly fill fluxes for non-cell variables in SparsePacks
