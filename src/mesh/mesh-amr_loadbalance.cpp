@@ -172,6 +172,7 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
+  const int ndim = pmb->pmy_mesh->ndim;
   const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
   const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
   const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
@@ -213,11 +214,11 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         // space if fine block is on the left side of a direction. I think this
         // should work fine even if the ownership model is changed elsewhere, since
         // the fine blocks should be consistent in their shared elements at this point
-        if (ox3 == 0) kb.e -= TopologicalOffsetK(te);
-        if (ox2 == 0) jb.e -= TopologicalOffsetJ(te);
+        if (ox3 == 0 && ndim > 2) kb.e -= TopologicalOffsetK(te);
+        if (ox2 == 0 && ndim > 1) jb.e -= TopologicalOffsetJ(te);
         if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
-        const int ks = (ox3 == 0) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
-        const int js = (ox2 == 0) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
+        const int ks = (ox3 == 0 || ndim < 3) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
+        const int js = (ox2 == 0 || ndim < 2) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
         const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
         const int idx_te = static_cast<int>(te) % 3;
         parthenon::par_for(
