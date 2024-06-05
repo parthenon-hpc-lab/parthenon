@@ -116,6 +116,9 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 }
 
 RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
   RestartReaderHDF5::MeshInfo mesh_info;
   mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
   mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
@@ -149,6 +152,7 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
     mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
   }
   return mesh_info;
+#endif
 }
 
 SimTime RestartReaderHDF5::GetTimeInfo() const {
