@@ -183,9 +183,9 @@ TaskStatus FillDerived(MeshData<Real> *md) {
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
-        const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
-        const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
+        const int kf = (ndim > 2) ? (k - nghost) * 2 + nghost : k;
+        const int jf = (ndim > 1) ? (j - nghost) * 2 + nghost : j;
+        const int fi = (ndim > 0) ? (i - nghost) * 2 + nghost : i;
         pack(b, Conserved::phi_fine_restricted(), k, j, i) = 0.0;
         Real ntot = 0.0;
         for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
@@ -204,30 +204,30 @@ TaskStatus FillDerived(MeshData<Real> *md) {
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         pack(b, Conserved::C_cc(0), k, j, i) =
             0.5 * (pack(b, TE::F1, Conserved::C(), k, j, i) +
-                   pack(b, TE::F1, Conserved::C(), k, j, i + ndim > 0));
+                   pack(b, TE::F1, Conserved::C(), k, j, i + (ndim > 0)));
         pack(b, Conserved::C_cc(1), k, j, i) =
             0.5 * (pack(b, TE::F2, Conserved::C(), k, j, i) +
-                   pack(b, TE::F2, Conserved::C(), k, j + ndim > 1, i));
+                   pack(b, TE::F2, Conserved::C(), k, j + (ndim > 1), i));
         pack(b, Conserved::C_cc(2), k, j, i) =
             0.5 * (pack(b, TE::F3, Conserved::C(), k, j, i) +
-                   pack(b, TE::F3, Conserved::C(), k + ndim > 2, j, i));
+                   pack(b, TE::F3, Conserved::C(), k + (ndim > 2), j, i));
         auto &coords = pack.GetCoordinates(b); 
-        pack(b, Conserved::divC(), k, j, i) = (pack(b, TE::F1, Conserved::C(), k, j, i + ndim > 0) - pack(b, TE::F1, Conserved::C(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
-                                              (pack(b, TE::F2, Conserved::C(), k, j + ndim > 1, i) - pack(b, TE::F2, Conserved::C(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
-                                              (pack(b, TE::F3, Conserved::C(), k + ndim > 2, j, i) - pack(b, TE::F3, Conserved::C(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i); 
+        pack(b, Conserved::divC(), k, j, i) = (pack(b, TE::F1, Conserved::C(), k, j, i + (ndim > 0)) - pack(b, TE::F1, Conserved::C(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
+                                              (pack(b, TE::F2, Conserved::C(), k, j + (ndim > 1), i) - pack(b, TE::F2, Conserved::C(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
+                                              (pack(b, TE::F3, Conserved::C(), k + (ndim > 2), j, i) - pack(b, TE::F3, Conserved::C(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i); 
         
         pack(b, Conserved::D_cc(0), k, j, i) =
             0.5 * (pack(b, TE::F1, Conserved::D(), k, j, i) +
-                   pack(b, TE::F1, Conserved::D(), k, j, i + ndim > 0));
+                   pack(b, TE::F1, Conserved::D(), k, j, i + (ndim > 0)));
         pack(b, Conserved::D_cc(1), k, j, i) =
             0.5 * (pack(b, TE::F2, Conserved::D(), k, j, i) +
-                   pack(b, TE::F2, Conserved::D(), k, j + ndim > 1, i));
+                   pack(b, TE::F2, Conserved::D(), k, j + (ndim > 1), i));
         pack(b, Conserved::D_cc(2), k, j, i) =
             0.5 * (pack(b, TE::F3, Conserved::D(), k, j, i) +
-                   pack(b, TE::F3, Conserved::D(), k + ndim > 2, j, i));
-        pack(b, Conserved::divD(), k, j, i) = (pack(b, TE::F1, Conserved::D(), k, j, i + ndim > 0) - pack(b, TE::F1, Conserved::D(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
-                                              (pack(b, TE::F2, Conserved::D(), k, j + ndim > 1, i) - pack(b, TE::F2, Conserved::D(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
-                                              (pack(b, TE::F3, Conserved::D(), k + ndim > 2, j, i) - pack(b, TE::F3, Conserved::D(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i);         
+                   pack(b, TE::F3, Conserved::D(), k + (ndim > 2), j, i));
+        pack(b, Conserved::divD(), k, j, i) = (pack(b, TE::F1, Conserved::D(), k, j, i + (ndim > 0)) - pack(b, TE::F1, Conserved::D(), k, j, i)) / coords.Dxc<X1DIR>(k, j, i) +
+                                              (pack(b, TE::F2, Conserved::D(), k, j + (ndim > 1), i) - pack(b, TE::F2, Conserved::D(), k, j, i)) / coords.Dxc<X2DIR>(k, j, i) +
+                                              (pack(b, TE::F3, Conserved::D(), k + (ndim > 2), j, i) - pack(b, TE::F3, Conserved::D(), k, j, i)) / coords.Dxc<X3DIR>(k, j, i);         
       });
   return TaskStatus::complete;
 }
