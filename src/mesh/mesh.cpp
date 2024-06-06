@@ -1068,21 +1068,6 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   auto GetStaticRefLLIndexRange = [](CoordinateDirection dir, int num_root_block,
                                      int ref_level, const RegionSize &ref_size,
                                      const RegionSize &mesh_size) {
-    auto GetSymmetrizedCoordinate = [&mesh_size](CoordinateDirection dir, int index,
-                                                 int nrange) {
-      // Old comment from Athena++:
-      // map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
-      // if nrange is even, there is an index at center x=0.0; map it to (int) 0
-      // if nrange is odd, the center x=0.0 is between two indices; map them to -1, 1
-      std::int64_t noffset = index - (nrange) / 2;
-      std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
-      // average the (possibly) biased integer indexing
-      Real x = static_cast<Real>(noffset + noffset_ceil) / (2.0 * nrange);
-      // Now map from this symmetrized logical space to the mesh_size space
-      return static_cast<Real>(0.5) * (mesh_size.xmin(dir) + mesh_size.xmax(dir)) +
-             (x * mesh_size.xmax(dir) - x * mesh_size.xmin(dir));
-    };
-
     int lxtot = num_root_block * (1 << ref_level);
     int lxmin, lxmax;
     for (lxmin = 0; lxmin < lxtot; lxmin++) {
