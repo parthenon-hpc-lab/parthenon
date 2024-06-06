@@ -69,7 +69,7 @@ Real LogicalLocation::IndexToSymmetrizedCoordinate(int index, BlockLocation bloc
   std::int64_t noffset = index - (nrange) / 2;
   std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
   // average the (possibly) biased integer indexing
-  return (static_cast<Real>(noffset + noffset_ceil) + 0.5 * static_cast<Real>(bloc)) /
+  return static_cast<Real>(noffset + noffset_ceil + static_cast<std::int64_t>(bloc)) /
          (2.0 * nrange);
 }
 
