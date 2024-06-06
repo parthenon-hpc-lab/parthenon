@@ -1083,6 +1083,34 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
   };
 
+  auto GetStaticRefLLIndexRange = [](CoordinateDirection dir, int num_root_block, int ref_level, const RegionSize &ref_size, const RegionSize &mesh_size) {
+    auto GetSymmetrizedCoordinate = [&mesh_size](CoordinateDirection dir, int index, int nrange) {
+      // Old comment from Athena++:
+      // map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
+      // if nrange is even, there is an index at center x=0.0; map it to (int) 0
+      // if nrange is odd, the center x=0.0 is between two indices; map them to -1, 1
+      std::int64_t noffset = index - (nrange) / 2;
+      std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
+      // average the (possibly) biased integer indexing
+      Real x = static_cast<Real>(noffset + noffset_ceil) / (2.0 * nrange);
+      // Now map from this symmetrized logical space to the mesh_size space
+      return static_cast<Real>(0.5) * (mesh_size.xmin(dir) + mesh_size.xmax(dir)) 
+          + (x * mesh_size.xmax(dir) - x * mesh_size.xmin(dir));
+    }; 
+    
+    int lxtot = num_root_block * (1 << ref_level); 
+    int lxmin, lxmax;
+    for (lxmin = 0; lxmin < lxtot; lxmin++) {
+      if (GetSymmetrizedCoordinate(dir, lxmin + 1, lxtot) > ref_size.xmin(dir)) break;
+    }
+    for (lxmax = lxmin; lxmax < lxtot; lxmax++) {
+      if (GetSymmetrizedCoordinate(dir, lxmax + 1, lxtot) >= ref_size.xmax(dir)) break;
+    }
+    if (lxmin % 2 == 1) lxmin--;
+    if (lxmax % 2 == 0) lxmax++;
+    return std::pair<int, int>{lxmin, lxmax};
+  };
+
   InputBlock *pib = pin->pfirst_block;
   while (pib != nullptr) {
     if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
@@ -1140,23 +1168,9 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] =
-              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] =
-              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
-          l_region_min[dir - 1] =
-              std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
-          l_region_max[dir - 1] =
-              std::min(l_region_max[dir - 1],
-                       static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
-          auto current_loc =
-              LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
-          // Remove last block if it just it's boundary overlaps with the region
-          if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
-              ref_size.xmax(dir))
-            l_region_max[dir - 1]--;
-          if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
-          if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
+          auto [lmin, lmax] = GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size); 
+          l_region_min[dir - 1] = lmin;
+          l_region_max[dir - 1] = lmax;
         }
       }
       for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
