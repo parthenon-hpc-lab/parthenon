@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,10 +23,10 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
-#include "tasks/task_id.hpp"
-#include "tasks/task_list.hpp"
+
+#include "tasks/tasks.hpp"
 #include "utils/object_pool.hpp"
 
 namespace parthenon {
@@ -66,15 +66,27 @@ inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return ProlongateBounds<BoundaryType::any>(md);
 }
 
-TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md);
+static TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+}
+static TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufs<BoundaryType::flxcor_send>(md);
+}
+static TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
+}
+static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
+  return SetBounds<BoundaryType::flxcor_recv>(md);
+}
 
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel);
+
+// Adds all relevant flux correction tasks to a single task list
+TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
+                              std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -40,7 +40,6 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -111,9 +110,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
-    // Only set default block pgen when no mesh pgen is set
-  } else if (app_in->MeshProblemGenerator == nullptr) {
-    ProblemGenerator = &ProblemGeneratorDefault;
+  }
+  if (app_in->PostInitialization != nullptr) {
+    PostInitialization = app_in->PostInitialization;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -134,30 +133,19 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-  pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
-  pbswarm->SetBoundaryFlags(boundary_flag);
+  for (int n = 0; n < 6; n++) {
+    boundary_flag[n] = input_bcs[n];
+  }
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  auto &swarm_container = swarm_data.Get();
-
   real_container->Initialize(resolved_packages, shared_from_this());
 
-  swarm_container->SetBlockPointer(shared_from_this());
-  for (auto const &q : resolved_packages->AllSwarms()) {
-    swarm_container->Add(q.first, q.second);
-    // Populate swarm values
-    auto &swarm = swarm_container->Get(q.first);
-    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
-      swarm->Add(m.first, m.second);
-    }
-  }
-
-  swarm_container->AllocateBoundaries();
+  // Initialize swarm boundary condition flags
+  real_container->GetSwarmData()->InitializeBoundaries(shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
@@ -187,9 +175,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   const auto vars =
       real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
           .vars();
-  for (const auto &v : vars) {
-    RegisterMeshBlockData(v);
-  }
+  for (const auto &v : vars)
+    vars_cc_.push_back(v);
 
   // No RemeshComm
   if (pm->multilevel) {
@@ -204,7 +191,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  app = InitApplicationMeshBlockData(this, pin);
+  if (InitApplicationMeshBlockData != nullptr) {
+    app = InitApplicationMeshBlockData(this, pin);
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -278,11 +267,6 @@ void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
     cost_ += lb_timer.seconds();
   }
-}
-
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
-  return;
 }
 
 void MeshBlock::AllocateSparse(std::string const &label, bool only_control,

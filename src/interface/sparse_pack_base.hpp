@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -56,8 +56,9 @@ class SparsePackBase {
   using alloc_t = std::vector<int>;
   using include_t = std::vector<bool>;
   using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
+  using pack_h_t = typename pack_t::HostMirror;
   using bounds_t = ParArray3D<int>;
-  using bounds_h_t = typename ParArray3D<int>::HostMirror;
+  using bounds_h_t = typename bounds_t::HostMirror;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken
@@ -86,10 +87,12 @@ class SparsePackBase {
                               const std::vector<bool> &include_block);
 
   pack_t pack_;
+  pack_h_t pack_h_;
   bounds_t bounds_;
   bounds_h_t bounds_h_;
   coords_t coords_;
 
+  int flx_idx_;
   bool with_fluxes_;
   bool coarse_;
   bool flat_;

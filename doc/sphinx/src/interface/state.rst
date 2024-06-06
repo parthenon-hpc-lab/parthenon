@@ -113,12 +113,19 @@ several useful features and functions.
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
 - ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
-  &tm)`` performs a per-package, mesh-wide calculation after the mesh
-  has been generated, and problem generators called, but before any
-  time evolution. This work is done both on first initialization and
-  on restart. If you would like to avoid doing the work upon restart,
-  you can check for the const ``is_restart`` member field of the ``Mesh``
-  object.
+  &tm)`` performs a per-package, mesh-wide calculation after (1) the mesh
+  has been generated, (2) problem generators are called, and (3) comms
+  are executed, but before any time evolution. This work is done both on
+  first initialization and on restart. If you would like to avoid doing the
+  work upon restart, you can check for the const ``is_restart`` member
+  field of the ``Mesh`` object.  It is worth making a clear distinction
+  between ``UserWorkBeforeLoopMesh`` and ``ApplicationInput``s
+  ``PostInitialization``.  ``PostInitialization`` is very much so tied to
+  initialization, and will not be called upon restarts.  ``PostInitialization``
+  is also carefully positioned after ``ProblemGenerator`` and before
+  ``PreCommFillDerived`` (and hence communications).  In practice, when
+  additional granularity is required inbetween initialization and communication,
+  ``PostInitialization`` may be the desired hook.
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and
@@ -152,7 +159,7 @@ functions that are all called at the interval according to the input
 parameters, see :ref:`output documention <output hist files>`.
 
 To enroll functions create a list of callback function with the
-appropriate reduction operation:
+appropriate reduction operations for either scalar data:
 
 .. code:: cpp
 
@@ -164,6 +171,19 @@ appropriate reduction operation:
 
    // add callbacks for HST output identified by the `hist_param_key`
    pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
+
+or vector data:
+
+.. code:: cpp
+
+   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
+   parthenon::HstVec_list hst_vecs = {};
+
+   // Add a callback function
+   hst_vecs.emplace_back(parthenon::HistoryOutputVec(UserHistoryOperation::sum, MyHstVecFunction, "my vector label"));
+
+   // add callbacks for HST output identified by the `hist_vec_param_key`
+   pkg->AddParam<>(parthenon::hist_vec_param_key, hst_vecs);
 
 Here, ``HistoryOutputVar`` is a ``struct`` containing the global (over
 all blocks of all ranks) reduction operation, ``MyHstFunction`` is a
@@ -187,6 +207,7 @@ Callback functions need to have the following signature
 .. code:: cpp
 
    Real MyHstFunction(MeshData<Real> *md);
+   std::vector<Real> MyHstVecFunction(MeshData<Real> *md);
 
 i.e., they will always work on ``MeshData``. *Note*, currently history
 output will always be calculated for the “base” container. More
@@ -218,9 +239,7 @@ preceded by ``_`` have private scope):
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 | Member Data                | Description                                                                                                                                     |
 +============================+=================================================================================================================================================+
-| ``ParArrayND<T> data``     | Storage for the cell-centered associated with the object.                                                                                       |
-+----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``ParArrayND<T> flux[3]``  | Storage for the face-centered intercell fluxes in each direction. Only allocated for fields registered with the ``Metadata::Independent`` flag. |
+| ``ParArrayND<T> data``     | Storage for the cell-, face-, edge-, or node-centered data associated with the object.                                                                                       |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``ParArrayND<T> coarse_s`` | Storage for coarse buffers need for multilevel setups.                                                                                          |
 +----------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -236,12 +255,6 @@ that array.
 Finally, the ``bool IsSet(const MetadataFlag bit)`` member function
 provides a convenient mechanism to query whether a particular
 ``Metadata`` flag is set for the ``Variable``.
-
-FaceVariable (Work in progress...)
-----------------------------------
-
-EdgeVariable (Work in progress...)
-----------------------------------
 
 Sparse fields
 -------------

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,18 +17,28 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Initialize(const MeshData<T> *src,
-                             const std::vector<std::string> &names, const bool shallow) {
-  if (src == nullptr) {
-    PARTHENON_THROW("src points at null");
-  }
-  pmy_mesh_ = src->GetParentPointer();
-  const int nblocks = src->NumBlocks();
+void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+  const int nblocks = blocks.size();
+  ndim_ = ndim;
   block_data_.resize(nblocks);
+  SetMeshPointer(pmesh);
   for (int i = 0; i < nblocks; i++) {
-    block_data_[i] = pmy_mesh_->block_list[i]->meshblock_data.Add(
-        stage_name_, src->GetBlockData(i), names, shallow);
+    block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
   }
+}
+
+template <typename T>
+void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
+  int ndim;
+  if (pmesh != nullptr) {
+    ndim = pmesh->ndim;
+  }
+  Set(blocks, pmesh, ndim);
+}
+
+template <typename T>
+bool MeshData<T>::BlockDataIsWholeRank_() const {
+  return block_data_.size() == (pmy_mesh_->block_list).size();
 }
 
 template class MeshData<Real>;

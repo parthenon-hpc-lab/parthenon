@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -54,6 +54,9 @@ void MeshBlockData<T>::Initialize(
     AddField(q.first.base_name, q.second, q.first.sparse_id);
   }
 
+  const auto &swarm_container = GetSwarmData();
+  swarm_container->Initialize(resolved_packages, pmb);
+
   Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
   auto vars = GetVariablesByFlag(flags);
   for (auto &v : vars.vars()) {
@@ -76,45 +79,6 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
     pvar->Allocate(pmy_block);
-  }
-}
-
-// TODO(JMM): Move to unique IDs at some point
-template <typename T>
-void MeshBlockData<T>::Initialize(const MeshBlockData<T> *src,
-                                  const std::vector<std::string> &names,
-                                  const bool shallow_copy) {
-  assert(src != nullptr);
-  SetBlockPointer(src);
-  resolved_packages_ = src->resolved_packages_;
-  is_shallow_ = shallow_copy;
-
-  auto add_var = [=](auto var) {
-    if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
-      Add(var);
-    } else {
-      Add(var->AllocateCopy(pmy_block));
-    }
-  };
-
-  // special case when the list of names is empty, copy everything
-  if (names.empty()) {
-    for (auto v : src->GetVariableVector()) {
-      add_var(v);
-    }
-  } else {
-    auto var_map = src->GetVariableMap();
-
-    for (const auto &name : names) {
-      bool found = false;
-      auto v = var_map.find(name);
-      if (v != var_map.end()) {
-        found = true;
-        add_var(v->second);
-      }
-      PARTHENON_REQUIRE_THROWS(found, "MeshBlockData::CopyFrom: Variable '" + name +
-                                          "' not found");
-    }
   }
 }
 
@@ -231,9 +195,9 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByName(var_names, sparse_ids),
-                                      GetVariablesByName(flx_names, sparse_ids), map,
-                                      key);
+  return PackListedVariablesAndFluxes(
+      GetVariablesByName(var_names, sparse_ids, FluxRequest::NoFlux),
+      GetVariablesByName(flx_names, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
 /// Variables and fluxes by Metadata Flags
@@ -241,16 +205,18 @@ template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const Metadata::FlagCollection &flags, const std::vector<int> &sparse_ids,
     PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetVariablesByFlag(flags, sparse_ids),
-                                      GetVariablesByFlag(flags, sparse_ids), map, key);
+  return PackListedVariablesAndFluxes(
+      GetVariablesByFlag(flags, sparse_ids, FluxRequest::NoFlux),
+      GetVariablesByFlag(flags, sparse_ids, FluxRequest::OnlyFlux), map, key);
 }
 
 /// All variables and fluxes by Metadata Flags
 template <typename T>
 const VariableFluxPack<T> &MeshBlockData<T>::PackVariablesAndFluxesImpl(
     const std::vector<int> &sparse_ids, PackIndexMap *map, vpack_types::UidVecPair *key) {
-  return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids),
-                                      GetAllVariables(sparse_ids), map, key);
+  return PackListedVariablesAndFluxes(GetAllVariables(sparse_ids, FluxRequest::NoFlux),
+                                      GetAllVariables(sparse_ids, FluxRequest::OnlyFlux),
+                                      map, key);
 }
 
 /// Variables by Name
@@ -285,7 +251,9 @@ MeshBlockData<T>::PackVariablesImpl(const std::vector<int> &sparse_ids, bool coa
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
-                                     const std::vector<int> &sparse_ids) {
+                                     const std::vector<int> &sparse_ids,
+                                     const FluxRequest flux) {
+  PARTHENON_INSTRUMENT
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
 
@@ -294,7 +262,14 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
     if (itr != varMap_.end()) {
       const auto &v = itr->second;
       // this name exists, add it
-      var_list.Add(v, sparse_ids_set);
+      const auto &m = v->metadata();
+      if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
+      if (flux == FluxRequest::OnlyFlux) {
+        const auto &vf = varMap_.at(m.GetFluxName());
+        var_list.Add(vf, sparse_ids_set);
+      } else {
+        var_list.Add(v, sparse_ids_set);
+      }
     } else if ((resolved_packages_ != nullptr) &&
                (resolved_packages_->SparseBaseNamePresent(name))) {
       const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
@@ -303,7 +278,14 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       for (const auto iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
-        var_list.Add(v, sparse_ids_set);
+        const auto &m = v->metadata();
+        if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
+        if (flux == FluxRequest::OnlyFlux) {
+          const auto &vf = varMap_.at(m.GetFluxName());
+          var_list.Add(vf, sparse_ids_set);
+        } else {
+          var_list.Add(v, sparse_ids_set);
+        }
       }
     }
   }
@@ -326,8 +308,9 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
 template <typename T>
 typename MeshBlockData<T>::VarList
 MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
-                                     const std::vector<int> &sparse_ids) {
-  Kokkos::Profiling::pushRegion("GetVariablesByFlag");
+                                     const std::vector<int> &sparse_ids,
+                                     const FluxRequest flux) {
+  PARTHENON_INSTRUMENT
 
   typename MeshBlockData<T>::VarList var_list;
   std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
@@ -335,20 +318,43 @@ MeshBlockData<T>::GetVariablesByFlag(const Metadata::FlagCollection &flags,
   auto vars = MetadataUtils::GetByFlag<VariableSet<T>>(flags, varMap_, flagsToVars_);
 
   for (auto &v : vars) {
-    var_list.Add(v, sparse_ids_set);
+    const auto &m = v->metadata();
+    if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
+    if (flux == FluxRequest::OnlyFlux) {
+      if (!m.IsSet(Metadata::WithFluxes)) {
+        PARTHENON_FAIL("Flux of var " + v->label() +
+                       " requested, but var does not have fluxes.");
+      }
+      const auto &vf = varMap_.at(m.GetFluxName());
+      var_list.Add(vf, sparse_ids_set);
+    } else {
+      var_list.Add(v, sparse_ids_set);
+    }
   }
 
-  Kokkos::Profiling::popRegion(); // GetVariablesByFlag
   return var_list;
 }
 
 template <typename T>
 typename MeshBlockData<T>::VarList
-MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids) {
+MeshBlockData<T>::GetVariablesByUid(const std::vector<Uid_t> &uids,
+                                    const FluxRequest flux) {
+  PARTHENON_INSTRUMENT
   typename MeshBlockData<T>::VarList var_list;
   for (auto i : uids) {
     auto v = GetVarPtr(i);
-    var_list.Add(v);
+    const auto &m = v->metadata();
+    if ((flux != FluxRequest::Any) && m.IsSet(Metadata::Flux)) continue;
+    if (flux == FluxRequest::OnlyFlux) {
+      if (!m.IsSet(Metadata::WithFluxes)) {
+        PARTHENON_FAIL("Flux of var " + v->label() +
+                       " requested, but var does not have fluxes.");
+      }
+      const auto &vf = varMap_.at(m.GetFluxName());
+      var_list.Add(vf);
+    } else {
+      var_list.Add(v);
+    }
   }
   return var_list;
 }

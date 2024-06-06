@@ -26,9 +26,7 @@
 #include <mesh/meshblock_pack.hpp>
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>
-#include <tasks/task_id.hpp>
-#include <tasks/task_list.hpp>
-#include <tasks/task_types.hpp>
+#include <tasks/tasks.hpp>
 #include <utils/partition_stl_containers.hpp>
 #include <utils/reductions.hpp>
 #include <utils/unique_id.hpp>
@@ -66,6 +64,7 @@ using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
 using ::parthenon::TaskListStatus;
+using ::parthenon::TaskQualifier;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::TaskType;

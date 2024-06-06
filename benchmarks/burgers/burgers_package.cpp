@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -93,6 +93,48 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField("derived", m);
 
+  // Compute the octants
+  std::vector<Region> octants;
+  std::vector<Real> mesh_mins, mesh_maxs, mesh_mids;
+  Real mesh_vol = 1;
+  for (int d = 1; d <= 3; ++d) {
+    mesh_mins.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "min"));
+    mesh_maxs.push_back(pin->GetReal("parthenon/mesh", "x" + std::to_string(d) + "max"));
+    mesh_vol *= (mesh_maxs.back() - mesh_mins.back());
+    mesh_mids.push_back(0.5 * (mesh_mins.back() + mesh_maxs.back()));
+  }
+  pkg->AddParam("mesh_volume", mesh_vol);
+  for (int side1 = 0; side1 < 2; ++side1) {
+    Region r;
+    r.xmin[0] = side1 ? mesh_mids[0] : mesh_mins[0];
+    r.xmax[0] = side1 ? mesh_maxs[0] : mesh_mids[0];
+    for (int side2 = 0; side2 < 2; ++side2) {
+      r.xmin[1] = side2 ? mesh_mids[1] : mesh_mins[1];
+      r.xmax[1] = side2 ? mesh_maxs[1] : mesh_mids[1];
+      for (int side3 = 0; side3 < 2; ++side3) {
+        r.xmin[2] = side3 ? mesh_mids[2] : mesh_mins[2];
+        r.xmax[2] = side3 ? mesh_maxs[2] : mesh_mids[2];
+        octants.push_back(r);
+      }
+    }
+  }
+
+  // Histories
+  auto HstSum = parthenon::UserHistoryOperation::sum;
+  using parthenon::HistoryOutputVar;
+  parthenon::HstVar_list hst_vars = {};
+  int i_octant = 0;
+  for (auto &octant : octants) {
+    auto ReduceMass = [=](MeshData<Real> *md) {
+      return MassHistory(md, octant.xmin[0], octant.xmax[0], octant.xmin[1],
+                         octant.xmax[1], octant.xmin[2], octant.xmax[2]);
+    };
+    hst_vars.emplace_back(HstSum, ReduceMass, "MS Mass " + std::to_string(i_octant));
+    i_octant++;
+  }
+  hst_vars.emplace_back(HstSum, MeshCountHistory, "Meshblock count");
+  pkg->AddParam(parthenon::hist_param_key, hst_vars);
+
   pkg->EstimateTimestepMesh = EstimateTimestepMesh;
   pkg->FillDerivedMesh = CalculateDerived;
 
@@ -110,7 +152,7 @@ void CalculateDerived(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "CalculateDerived", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e, jb.s, jb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k, const int j) {
         Real *out = &v(b, 0, k, j, 0);
@@ -127,8 +169,8 @@ void CalculateDerived(MeshData<Real> *md) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepMesh(MeshData<Real> *md) {
-  Kokkos::Profiling::pushRegion("Task_burgers_EstimateTimestepMesh");
-  auto pm = md->GetParentPointer();
+  PARTHENON_INSTRUMENT
+  Mesh *pm = md->GetMeshPointer();
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
@@ -155,14 +197,13 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
       },
       Kokkos::Min<Real>(min_dt));
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_EstimateTimestepMesh
   return cfl * min_dt;
 }
 
 TaskStatus CalculateFluxes(MeshData<Real> *md) {
   using parthenon::ScratchPad1D;
   using parthenon::team_mbr_t;
-  Kokkos::Profiling::pushRegion("Task_burgers_CalculateFluxes");
+  PARTHENON_INSTRUMENT
 
   auto pm = md->GetParentPointer();
   const int ndim = pm->ndim;
@@ -194,7 +235,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
@@ -265,7 +306,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // now we'll solve the Riemann problems to get fluxes
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "burgers::reconstruction", DevExecSpace(), scratch_size,
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
       scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
@@ -360,8 +401,44 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
         }
       });
 
-  Kokkos::Profiling::popRegion(); // Task_burgers_CalculateFluxes
   return TaskStatus::complete;
 }
+
+Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const Real x2min,
+                 const Real x2max, const Real x3min, const Real x3max) {
+  const auto ib = md->GetBoundsI(IndexDomain::interior);
+  const auto jb = md->GetBoundsJ(IndexDomain::interior);
+  const auto kb = md->GetBoundsK(IndexDomain::interior);
+
+  Mesh *pm = md->GetMeshPointer();
+  auto &params = pm->packages.Get("burgers_package")->AllParams();
+  const auto &mesh_vol = params.Get<Real>("mesh_volume");
+
+  std::vector<std::string> vars = {"U"};
+  const auto pack = md->PackVariables(vars);
+
+  Real result = 0.0;
+  parthenon::par_reduce(
+      parthenon::LoopPatternMDRange(), "MassHistory", DevExecSpace(), 0,
+      pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int v, const int k, const int j, const int i,
+                    Real &lresult) {
+        const auto &coords = pack.GetCoords(b);
+        const Real vol = coords.CellVolume(k, j, i);
+        const Real weight = vol / (mesh_vol + 1e-20);
+        const Real x1 = coords.Xc<X1DIR>(k, j, i);
+        const Real x2 = coords.Xc<X2DIR>(k, j, i);
+        const Real x3 = coords.Xc<X3DIR>(k, j, i);
+        // Inclusive bounds are appropriate here because cell-centered
+        // coordinates are passed in, not edges.
+        const Real mask = (x1min <= x1) && (x1 <= x1max) && (x2min <= x2) &&
+                          (x2 <= x2max) && (x3min <= x3) && (x3 <= x3max);
+        lresult += mask * pack(b, v, k, j, i) * pack(b, v, k, j, i) * weight;
+      },
+      Kokkos::Sum<Real>(result));
+  return result;
+}
+
+Real MeshCountHistory(MeshData<Real> *md) { return md->NumBlocks(); }
 
 } // namespace burgers_package

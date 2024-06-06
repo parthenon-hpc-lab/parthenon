@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -67,18 +67,21 @@ DriverStatus EvolutionDriver::Execute() {
   SetGlobalTimeStep();
 
   // Before loop do work
-  // App input version
-  Kokkos::Profiling::pushRegion("Driver_UserWorkBeforeLoop");
-  if (app_input->UserWorkBeforeLoop != nullptr) {
-    app_input->UserWorkBeforeLoop(pmesh, pinput, tm);
-  }
-  // packages version
-  for (auto &[name, pkg] : pmesh->packages.AllPackages()) {
-    pkg->UserWorkBeforeLoop(pmesh, pinput, tm);
-  }
-  Kokkos::Profiling::popRegion(); // Driver_UserWorkBeforeLoop
+  { // UserWorkBeforeLoop
+    PARTHENON_INSTRUMENT
+    // App input version
+    if (app_input->UserWorkBeforeLoop != nullptr) {
+      app_input->UserWorkBeforeLoop(pmesh, pinput, tm);
+    }
+    // packages version
+    for (auto &[name, pkg] : pmesh->packages.AllPackages()) {
+      pkg->UserWorkBeforeLoop(pmesh, pinput, tm);
+    }
+  } // UserWorkBeforeLoop
 
-  OutputSignal signal = OutputSignal::none;
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
@@ -88,57 +91,73 @@ DriverStatus EvolutionDriver::Execute() {
   // Defaults must be set across all ranks
   DumpInputParameters();
 
-  Kokkos::Profiling::pushRegion("Driver_Main");
-  while (tm.KeepGoing()) {
-    if (Globals::my_rank == 0) OutputCycleDiagnostics();
+  { // Main t < tmax loop region
+    PARTHENON_INSTRUMENT
+    while (tm.KeepGoing() && signal != OutputSignal::analysis) {
+      if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
-    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
-    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PreStepUserWorkInLoop != nullptr) {
+        pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PreStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
-    TaskListStatus status = Step();
-    if (status != TaskListStatus::complete) {
-      std::cerr << "Step failed to complete all tasks." << std::endl;
-      return DriverStatus::failed;
-    }
+      TaskListStatus status = Step();
+      if (status != TaskListStatus::complete) {
+        std::cerr << "Step failed to complete all tasks." << std::endl;
+        return DriverStatus::failed;
+      }
 
-    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
-    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      if (pmesh->PostStepUserWorkInLoop != nullptr) {
+        pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+      }
+      if (pmesh->PostStepUserDiagnosticsInLoop != nullptr) {
+        pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
 
-    tm.ncycle++;
-    tm.time += tm.dt;
-    pmesh->mbcnt += pmesh->nbtotal;
-    pmesh->step_since_lb++;
+      tm.ncycle++;
+      tm.time += tm.dt;
+      pmesh->mbcnt += pmesh->nbtotal;
+      pmesh->step_since_lb++;
 
-    timer_LBandAMR.reset();
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
-    if (pmesh->modified) InitializeBlockTimeStepsAndBoundaries();
-    time_LBandAMR += timer_LBandAMR.seconds();
-    SetGlobalTimeStep();
+      timer_LBandAMR.reset();
+      pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
+      if (pmesh->modified) InitializeBlockTimeStepsAndBoundaries();
+      time_LBandAMR += timer_LBandAMR.seconds();
+      SetGlobalTimeStep();
 
-    // check for signals
-    signal = SignalHandler::CheckSignalFlags();
+      // check for signals
+      signal = SignalHandler::CheckSignalFlags();
 
-    if (signal == OutputSignal::final) {
-      break;
-    }
+      if (signal == OutputSignal::final) {
+        break;
+      }
 
-    // skip the final (last) output at the end of the simulation time as it happens later
-    if (tm.KeepGoing()) {
-      pouts->MakeOutputs(pmesh, pinput, &tm, signal);
-    }
+      // skip the final (last) output at the end of the simulation time as it happens
+      // later
+      if (tm.KeepGoing()) {
+        pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+      }
 
-    if (tm.ncycle == perf_cycle_offset) {
-      pmesh->mbcnt = 0;
-      timer_main.reset();
-    }
-  } // END OF MAIN INTEGRATION LOOP ======================================================
-  Kokkos::Profiling::popRegion(); // Driver_Main
+      if (tm.ncycle == perf_cycle_offset) {
+        pmesh->mbcnt = 0;
+        timer_main.reset();
+      }
+    } // END OF MAIN INTEGRATION LOOP
+      // ======================================================
+  }   // Main t < tmax loop region
 
-  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  if (pmesh->UserWorkAfterLoop != nullptr) {
+    pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
+  }
 
   DriverStatus status = DriverStatus::complete;
-
-  pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  // Do *not* write the "final" output, if this is analysis run.
+  // The analysis output itself has already been written above before the main loop.
+  if (signal != OutputSignal::analysis) {
+    pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
+  }
   PostExecute(status);
   return status;
 }
@@ -176,12 +195,16 @@ void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
   }
   // calculate the first time step using Mesh function
   pmesh->boundary_comm_map.clear();
-  pmesh->boundary_comm_flxcor_map.clear();
   const int num_partitions = pmesh->DefaultNumPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
     Update::EstimateTimestep(mbase.get());
     BuildBoundaryBuffers(mbase);
+    for (auto &[gmg_level, mdc] : pmesh->gmg_mesh_data) {
+      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+      BuildBoundaryBuffers(mdg);
+      BuildGMGBoundaryBuffers(mdg);
+    }
   }
 }
 

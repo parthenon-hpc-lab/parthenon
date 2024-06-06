@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -24,8 +24,12 @@
 
 #include <catch2/catch.hpp>
 
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/boundary_conditions.hpp"
+#include "bvals/boundary_conditions_generic.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "interface/swarm.hpp"
+#include "interface/swarm_default_names.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 
 #include <parthenon/driver.hpp>
@@ -34,34 +38,23 @@
 using Real = double;
 using parthenon::ApplicationInput;
 using parthenon::BoundaryFlag;
-using parthenon::DeviceAllocate;
-using parthenon::DeviceDeleter;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
+using parthenon::ParArray1D;
 using parthenon::ParArrayND;
-using parthenon::ParticleBound;
 using parthenon::Swarm;
 using parthenon::SwarmDeviceContext;
+using namespace parthenon::BoundaryFunction;
+using parthenon::X1DIR;
 using std::endl;
 
 constexpr int NUMINIT = 10;
 
-class ParticleBoundIX1User : public ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                    const SwarmDeviceContext &swarm_d) const override {
-    if (x < swarm_d.x_min_global_) {
-      swarm_d.MarkParticleForRemoval(n);
-    }
-  }
-};
-
-std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>
-SetSwarmIX1UserBC() {
-  return DeviceAllocate<ParticleBoundIX1User>();
+void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
+  GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
@@ -76,25 +69,34 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "nx1 = 4" << endl;
   is << "nx2 = 4" << endl;
   is << "nx3 = 4" << endl;
+  is << "ix1_bc = outflow" << endl;
+  is << "ox1_bc = outflow" << endl;
+  is << "ix2_bc = outflow" << endl;
+  is << "ox2_bc = outflow" << endl;
+  is << "ix3_bc = outflow" << endl;
+  is << "ox3_bc = outflow" << endl;
+  is << "pack_size = 1" << endl;
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+  mesh->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  mesh->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
   mesh->mesh_bcs[0] = BoundaryFlag::user;
-  mesh->SwarmBndryFnctn[0] = SetSwarmIX1UserBC;
+  meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
     mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+    meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
-  swarm->AllocateBoundaries();
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
-  REQUIRE(swarm->GetMaxActiveIndex() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == Swarm::inactive_max_active_index);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
@@ -118,10 +120,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
 
-  ParArrayND<int> new_indices;
-  auto new_mask = swarm->AddEmptyParticles(1, new_indices);
+  swarm->AddEmptyParticles(1);
   swarm_d = swarm->GetDeviceContext();
-  auto x_d = swarm->Get<Real>("x").Get();
+  auto x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
   auto i_d = swarm->Get<int>("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
@@ -132,9 +133,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   x_d.DeepCopy(x_h);
   i_d.DeepCopy(i_h);
 
-  new_mask = swarm->AddEmptyParticles(11, new_indices);
+  swarm->AddEmptyParticles(11);
   swarm_d = swarm->GetDeviceContext();
-  x_d = swarm->Get<Real>("x").Get();
+  x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
   i_d = swarm->Get<int>("i").Get();
   x_h = x_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
@@ -153,7 +154,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
   // Check that existing data was successfully copied during pool resize
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(0) == 0.5);
 
   // Remove particles 3 and 5
@@ -181,7 +182,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Enter some data to be moved during defragment
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   x_h(10) = 1.1;
   x_h(11) = 1.2;
   x_d.DeepCopy(x_h);
@@ -205,20 +206,21 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Check that data was moved during defrag
-  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(2) == 1.2);
   REQUIRE(x_h(4) == 1.1);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 
   // "Transport" a particle across the IX1 (custom) boundary
-  ParArrayND<int> bc_indices("Boundary indices", 1);
+  ParArray1D<int> bc_indices("Boundary indices", 1);
   meshblock->par_for(
       "Transport", 0, 0, KOKKOS_LAMBDA(const int n) {
         x_d(0) = -0.6;
         bc_indices(0) = 0;
       });
-  swarm->ApplyBoundaries_(1, bc_indices);
+
+  ApplySwarmBoundaryConditions(swarm);
   swarm->RemoveMarkedParticles();
 
   // Check that particle that crossed boundary has been removed

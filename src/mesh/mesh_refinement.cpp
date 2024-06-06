@@ -113,11 +113,8 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
         ks = 0;
         ke = 0;
       }
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = -1; i <= 1; i++)
-            if (pmb->pbval->nblevel[k + 1][j + 1][i + 1] > pmb->loc.level()) ec++;
-        }
+      for (const auto &nb : pmb->neighbors) {
+        if (nb.loc.level() > pmb->loc.level()) ec++;
       }
       if (ec > 0) {
         refine_flag_ = 0;

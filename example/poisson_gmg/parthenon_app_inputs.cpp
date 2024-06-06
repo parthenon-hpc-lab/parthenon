@@ -42,9 +42,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real exterior_D = pin->GetOrAddReal("poisson", "exterior_D", 1.0);
 
   auto desc =
-      parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::res_err,
-                                    poisson_package::u, poisson_package::D,
-                                    poisson_package::exact>(md);
+      parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::u,
+                                    poisson_package::D, poisson_package::exact>(md);
   auto pack = desc.GetPack(md);
 
   constexpr auto te = poisson_package::te;
@@ -72,13 +71,16 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         rad = std::sqrt(rad);
         Real val = 0.0;
         if (rad < radius0) {
-          val = 1.0; // / (4.0 / 3.0 * M_PI * std::pow(rad, 3));
+          val = 1.0;
         }
+
         pack(b, te, poisson_package::rhs(), k, j, i) = val;
-        pack(b, te, poisson_package::res_err(), k, j, i) = 0.0;
         pack(b, te, poisson_package::u(), k, j, i) = 0.0;
 
+        // This may be used as the exact solution u to A.u = rhs, by replacing the
+        // above rhs with A.exact
         pack(b, te, poisson_package::exact(), k, j, i) = -exp(-10.0 * rad * rad);
+
         auto inside_region = [ndim](Real x, Real y, Real z) {
           bool inside1 = (x < -0.25) && (x > -0.75);
           if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5);

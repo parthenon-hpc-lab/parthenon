@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -32,6 +32,7 @@
 #include "interface/mesh_data.hpp"
 #include "io_wrapper.hpp"
 #include "kokkos_abstraction.hpp"
+#include "outputs/output_parameters.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -40,37 +41,6 @@ namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
-
-//----------------------------------------------------------------------------------------
-//! \struct OutputParameters
-//  \brief  container for parameters read from <output> block in the input file
-
-struct OutputParameters {
-  int block_number;
-  std::string block_name;
-  std::string file_basename;
-  int file_number_width;
-  bool file_label_final;
-  std::string file_id;
-  std::vector<std::string> variables;
-  std::vector<std::string> component_labels;
-  std::map<std::string, std::set<std::string>> swarms;
-  std::vector<std::string> swarm_vars;
-  std::string file_type;
-  std::string data_format;
-  Real next_time, dt;
-  int file_number;
-  bool include_ghost_zones, cartesian_vector;
-  bool single_precision_output;
-  bool sparse_seed_nans;
-  int hdf5_compression_level;
-  // TODO(felker): some of the parameters in this class are not initialized in constructor
-  OutputParameters()
-      : block_number(0), next_time(0.0), dt(-1.0), file_number(0),
-        include_ghost_zones(false), cartesian_vector(false),
-        single_precision_output(false), sparse_seed_nans(false),
-        hdf5_compression_level(5) {}
-};
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputData
@@ -135,6 +105,7 @@ class OutputType {
 
 // Function signature for currently supported user output functions
 using HstFun_t = std::function<Real(MeshData<Real> *md)>;
+using HstVecFun_t = std::function<std::vector<Real>(MeshData<Real> *md)>;
 
 // Container
 struct HistoryOutputVar {
@@ -146,9 +117,20 @@ struct HistoryOutputVar {
       : hst_op(hst_op_), hst_fun(hst_fun_), label(label_) {}
 };
 
+struct HistoryOutputVec {
+  UserHistoryOperation hst_op;
+  HstVecFun_t hst_vec_fun;
+  std::string label;
+  HistoryOutputVec(const UserHistoryOperation &hst_op_, const HstVecFun_t &hst_vec_fun_,
+                   const std::string &label_)
+      : hst_op(hst_op_), hst_vec_fun(hst_vec_fun_), label(label_) {}
+};
+
 using HstVar_list = std::vector<HistoryOutputVar>;
+using HstVec_list = std::vector<HistoryOutputVec>;
 // Hardcoded global entry to be used by each package to enroll user output functions
 const char hist_param_key[] = "HistoryFunctions";
+const char hist_vec_param_key[] = "HistoryVectorFunctions";
 
 //----------------------------------------------------------------------------------------
 //! \class HistoryFile
@@ -208,14 +190,19 @@ class PHDF5Output : public OutputType {
  private:
   std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
                                 const SignalHandler::OutputSignal signal);
+  void WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
+                            hsize_t max_blocks_global) const;
+  void WriteCoordinates_(Mesh *pm, const IndexDomain &domain, hid_t file,
+                         const HDF5::H5P &pl, hsize_t offset,
+                         hsize_t max_blocks_global) const;
+  void WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl, hsize_t offset,
+                           hsize_t max_blocks_global) const;
+  void WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                        const std::vector<int> &dealloc_count,
+                        const std::vector<std::string> &sparse_names, hsize_t num_sparse,
+                        hid_t file, const HDF5::H5P &pl, size_t offset,
+                        hsize_t max_blocks_global) const;
   const bool restart_; // true if we write a restart file, false for regular output files
-  // TODO(JMM): these methods might want to live in the base class or in output_utils.hpp
-  void ComputeXminBlocks_(Mesh *pm, std::vector<Real> &data);
-  void ComputeLocs_(Mesh *pm, std::vector<int64_t> &locs);
-  void ComputeIDsAndFlags_(Mesh *pm, std::vector<int> &data);
-  void ComputeCoords_(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
-                      const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
-                      std::vector<Real> &z);
 };
 
 //----------------------------------------------------------------------------------------

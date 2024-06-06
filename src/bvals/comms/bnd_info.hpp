@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
@@ -40,13 +40,22 @@ class NeighborBlock;
 template <typename T>
 class Variable;
 
+enum class IndexRangeType {
+  BoundaryInteriorSend,
+  BoundaryExteriorRecv,
+  InteriorSend,
+  InteriorRecv
+};
+
 struct BndInfo {
   int ntopological_elements = 1;
+  int topo_idx[3]{0, 0, 0};
   SpatiallyMaskedIndexer6D idxer[3];
 
   CoordinateDirection dir;
   bool allocated = true;
   bool buf_allocated = true;
+  int alloc_status;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
@@ -54,31 +63,36 @@ struct BndInfo {
 
   BndInfo() = default;
   BndInfo(const BndInfo &) = default;
+  BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
+          CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static BndInfo GetSendBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetBndInfo(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSendCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                  std::shared_ptr<Variable<Real>> v,
-                                  CommBuffer<buf_pool_t<Real>::owner_t> *buf);
-  static BndInfo GetSetCCFluxCor(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
-                                 std::shared_ptr<Variable<Real>> v,
-                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
 struct ProResInfo {
   int ntopological_elements = 1;
   // Has to be large enough to allow for maximum integer
   // conversion of TopologicalElements
+  bool include_el[10]{false, false, false, false, false,
+                      false, false, false, false, false};
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool &IncludeTopoEl(TopologicalElement te) { return include_el[static_cast<int>(te)]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool IncludeTopoEl(TopologicalElement te) const {
+    return include_el[static_cast<int>(te)];
+  }
   SpatiallyMaskedIndexer6D idxer[10];
 
   CoordinateDirection dir;
   bool allocated = true;
+  int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
@@ -86,26 +100,24 @@ struct ProResInfo {
 
   ProResInfo() = default;
   ProResInfo(const ProResInfo &) = default;
-
+  ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
-  static ProResInfo GetNull(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetNull(MeshBlock *pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v) {
     return ProResInfo();
   }
-  static ProResInfo GetSend(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                             std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetSet(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+  static ProResInfo GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                            std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorProlongate(std::shared_ptr<MeshBlock> pmb,
-                                          const NeighborBlock &nb,
+  static ProResInfo GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                           std::shared_ptr<Variable<Real>> v);
-  static ProResInfo GetInteriorRestrict(std::shared_ptr<MeshBlock> pmb,
-                                        const NeighborBlock &nb,
+  static ProResInfo GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(std::shared_ptr<MeshBlock> pmb, const NeighborBlock &nb,
+int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1D<BndInfo>;

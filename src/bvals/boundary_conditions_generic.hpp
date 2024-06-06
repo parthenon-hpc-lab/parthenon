@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,12 +18,16 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/sparse_pack.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -32,7 +36,135 @@ namespace parthenon {
 namespace BoundaryFunction {
 
 enum class BCSide { Inner, Outer };
-enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace };
+enum class BCType { Outflow, Reflect, ConstantDeriv, Fixed, FixedFace, Periodic };
+
+// TODO(BRR) add support for specific swarms?
+template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE>
+void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
+  // make sure DIR is X[123]DIR so we don't have to check again
+  static_assert(DIR == X1DIR || DIR == X2DIR || DIR == X3DIR, "DIR must be X[123]DIR");
+
+  auto swarm_d_ = swarm->GetDeviceContext();
+  int max_active_index = swarm->GetMaxActiveIndex();
+
+  auto pmb = swarm->GetBlockPointer();
+
+  auto &x_ = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y_ = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z_ = swarm->Get<Real>(swarm_position::z::name()).Get();
+
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        // convenient shorthands
+        [[maybe_unused]] constexpr bool X1 = (DIR == X1DIR);
+        [[maybe_unused]] constexpr bool X2 = (DIR == X2DIR);
+        [[maybe_unused]] constexpr bool X3 = (DIR == X3DIR);
+        // Cannot capture variables inside constexpr if context
+        [[maybe_unused]] const auto &x = x_;
+        [[maybe_unused]] const auto &y = y_;
+        [[maybe_unused]] const auto &z = z_;
+        const auto &swarm_d = swarm_d_;
+        constexpr bool INNER = (SIDE == BCSide::Inner);
+        if (swarm_d.IsActive(n)) {
+          if constexpr (X1) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (x(n) > swarm_d.x_max_global_) {
+                  x(n) = swarm_d.x_min_global_ + (x(n) - swarm_d.x_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (x(n) < swarm_d.x_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (x(n) < swarm_d.x_min_global_) {
+                  x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (x(n) > swarm_d.x_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          } else if constexpr (X2) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (y(n) > swarm_d.y_max_global_) {
+                  y(n) = swarm_d.y_min_global_ + (y(n) - swarm_d.y_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (y(n) < swarm_d.y_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (y(n) < swarm_d.y_min_global_) {
+                  y(n) = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (y(n) > swarm_d.y_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          } else if constexpr (X3) {
+            if constexpr (INNER) {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (z(n) > swarm_d.z_max_global_) {
+                  z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (z(n) < swarm_d.z_min_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            } else {
+              if constexpr (TYPE == BCType::Periodic) {
+                if (z(n) < swarm_d.z_min_global_) {
+                  z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
+                }
+              } else if constexpr (TYPE == BCType::Outflow) {
+                if (z(n) > swarm_d.z_max_global_) {
+                  swarm_d.MarkParticleForRemoval(n);
+                }
+              }
+            }
+          }
+        }
+      });
+}
+
+namespace impl {
+using desc_key_t = std::tuple<bool, TopologicalType>;
+template <class... var_ts>
+using map_bc_pack_descriptor_t =
+    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor,
+                       tuple_hash<desc_key_t>>;
+
+template <class... var_ts>
+map_bc_pack_descriptor_t<var_ts...>
+GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  std::vector<std::pair<TopologicalType, MetadataFlag>> elements{
+      {TopologicalType::Cell, Metadata::Cell},
+      {TopologicalType::Face, Metadata::Face},
+      {TopologicalType::Edge, Metadata::Edge},
+      {TopologicalType::Node, Metadata::Node}};
+  map_bc_pack_descriptor_t<var_ts...> my_map;
+  for (auto [tt, md] : elements) {
+    std::vector<MetadataFlag> flags{Metadata::FillGhost};
+    flags.push_back(md);
+    std::set<PDOpt> opts{PDOpt::Coarse};
+    my_map.emplace(std::make_pair(desc_key_t{true, tt},
+                                  MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
+    my_map.emplace(std::make_pair(desc_key_t{false, tt},
+                                  MakePackDescriptor<var_ts...>(rc.get(), flags)));
+  }
+  return my_map;
+}
+} // namespace impl
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
@@ -46,24 +178,16 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
-  std::vector<MetadataFlag> flags{Metadata::FillGhost};
-  if (GetTopologicalType(el) == TopologicalType::Cell) flags.push_back(Metadata::Cell);
-  if (GetTopologicalType(el) == TopologicalType::Face) flags.push_back(Metadata::Face);
-  if (GetTopologicalType(el) == TopologicalType::Edge) flags.push_back(Metadata::Edge);
-  if (GetTopologicalType(el) == TopologicalType::Node) flags.push_back(Metadata::Node);
-
-  std::set<PDOpt> opts;
-  if (coarse) opts = {PDOpt::Coarse};
-  auto desc = MakePackDescriptor<var_ts...>(
-      rc->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, opts);
-  auto q = desc.GetPack(rc.get());
+  static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
+  auto q =
+      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
   const int b = 0;
   const int lstart = q.GetLowerBoundHost(b);
   const int lend = q.GetUpperBoundHost(b);
   if (lend < lstart) return;
   auto nb = IndexRange{lstart, lend};
 
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  MeshBlock *pmb = rc->GetBlockPointer();
   const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
 
   const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
@@ -88,7 +212,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   const int offsetin = INNER;
   const int offsetout = !INNER;
   pmb->par_for_bndry(
-      label, nb, domain, el, coarse,
+      PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
         if (TYPE == BCType::Reflect) {
           const bool reflect = (q(b, el, l).vector_component == DIR);

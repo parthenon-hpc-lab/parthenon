@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -272,9 +272,9 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
       auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
       par_for(
-          DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,
-          inOrOut.GetDim(4) - 1, nghost, inOrOut.GetDim(3) - nghost - 1, nghost,
-          inOrOut.GetDim(2) - nghost - 1, nghost, inOrOut.GetDim(1) - nghost - 1,
+          PARTHENON_AUTO_LABEL, 0, inOrOut.GetDim(4) - 1, nghost,
+          inOrOut.GetDim(3) - nghost - 1, nghost, inOrOut.GetDim(2) - nghost - 1, nghost,
+          inOrOut.GetDim(1) - nghost - 1,
           KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
                         const int i_grid) {
             const Real x =

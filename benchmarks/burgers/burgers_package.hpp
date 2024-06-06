@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,6 +25,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 void CalculateDerived(MeshData<Real> *md);
 Real EstimateTimestepMesh(MeshData<Real> *md);
 TaskStatus CalculateFluxes(MeshData<Real> *md);
+Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const Real x2min,
+                 const Real x2max, const Real x3min, const Real x3max);
+Real MeshCountHistory(MeshData<Real> *md);
 
 // compute the hll flux for Burgers' equation
 KOKKOS_INLINE_FUNCTION
@@ -39,6 +42,13 @@ void lr_to_flux(const Real uxl, const Real uxr, const Real uyl, const Real uyr,
   fuy = 0.5 * (sr * uyl * upl - sl * uyr * upr + sl * sr * (uyr - uyl)) * islsr;
   fuz = 0.5 * (sr * uzl * upl - sl * uzr * upr + sl * sr * (uzr - uzl)) * islsr;
 }
+
+// JMM: I could have instead used the parthenon::RegionSize
+// class. However, this little Region struct is lighter weight and
+// easier to work with in this context.
+struct Region {
+  std::array<Real, 3> xmin, xmax;
+};
 
 } // namespace burgers_package
 

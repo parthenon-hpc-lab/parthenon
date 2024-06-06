@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,49 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                                const std::shared_ptr<MeshBlock> pmb) {
+  SetBlockPointer(pmb);
+
+  for (auto const &q : resolved_packages->AllSwarms()) {
+    Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = Get(q.first);
+    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
+    }
+  }
+}
+
+void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) {
+  if (swarmVector_.empty()) {
+    // No Swarms in this container, so no need to initialize boundaries
+    // This allows default reflecting boundary conditions to be used when no
+    // swarms are present in a parthenon calculation.
+    // NOTE SwarmContainer::Initialize must have already been called.
+    return;
+  }
+
+  std::stringstream msg;
+  auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  // Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
+  // are not being used
+  for (int iFace = 0; iFace < 6; iFace++) {
+    if (bcs[iFace] == BoundaryFlag::user) {
+      if (pmb->pmy_mesh->MeshSwarmBndryFnctn[iFace] == nullptr) {
+        msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
+            << " user boundary requested but provided function is null!";
+        PARTHENON_FAIL(msg);
+      }
+    } else if (bcs[iFace] != BoundaryFlag::outflow &&
+               bcs[iFace] != BoundaryFlag::periodic) {
+      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
+          << static_cast<int>(bcs[iFace]) << " not supported!";
+      PARTHENON_FAIL(msg);
+    }
+  }
+}
 
 void SwarmContainer::Add(const std::vector<std::string> &labelArray,
                          const Metadata &metadata) {
@@ -83,16 +126,15 @@ void SwarmContainer::Remove(const std::string &label) {
 
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
-  Kokkos::Profiling::pushRegion("GetSwarmsByFlag");
+  PARTHENON_INSTRUMENT
 
   auto swarms = MetadataUtils::GetByFlag<SwarmSet>(flags, swarmMap_, swarmMetadataMap_);
 
-  Kokkos::Profiling::popRegion(); // GetSwarmsByFlag
   return swarms;
 }
 
 TaskStatus SwarmContainer::Defrag(double min_occupancy) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_INSTRUMENT
   PARTHENON_REQUIRE_THROWS(min_occupancy >= 0. && min_occupancy <= 1.,
                            "Max fractional occupancy of swarm must be >= 0 and <= 1");
 
@@ -103,28 +145,23 @@ TaskStatus SwarmContainer::Defrag(double min_occupancy) {
     }
   }
 
-  Kokkos::Profiling::popRegion();
-
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::DefragAll() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Defrag");
+  PARTHENON_INSTRUMENT
   for (auto &s : swarmVector_) {
     s->Defrag();
   }
-  Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::SortParticlesByCell() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_SortParticlesByCell");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->SortParticlesByCell();
   }
-
-  Kokkos::Profiling::popRegion();
 
   return TaskStatus::complete;
 }
@@ -143,52 +180,45 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
 
-void SwarmContainer::AllocateBoundaries() {
-  for (auto &s : swarmVector_) {
-    s->AllocateBoundaries();
-  }
-}
-
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Send");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->Send(phase);
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Send
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Receive");
+  PARTHENON_INSTRUMENT
 
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
       success++;
+      ApplySwarmBoundaryConditions(s);
+      s->RemoveMarkedParticles();
     }
     total++;
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Receive
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 TaskStatus SwarmContainer::ResetCommunication() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_ResetCommunication");
+  PARTHENON_INSTRUMENT
 
   for (auto &s : swarmVector_) {
     s->ResetCommunication();
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_ResetCommunication
   return TaskStatus::complete;
 }
 
 TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_FinalizeCommunicationIterative");
+  PARTHENON_INSTRUMENT
 
   PARTHENON_THROW("FinalizeCommunicationIterative not yet fully implemented!")
 
@@ -200,7 +230,6 @@ TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
     total++;
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_FinalizeCommunicationIterative
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
