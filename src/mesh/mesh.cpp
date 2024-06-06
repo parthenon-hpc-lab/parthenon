@@ -1065,26 +1065,11 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   for (auto dir : {X1DIR, X2DIR, X3DIR})
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
 
-  auto GetLegacyMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
-                                              const LogicalLocation &loc) -> Real {
-    auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    xll *= root_fac;
-    return this->mesh_size.xmin(dir) * (1.0 - xll) + this->mesh_size.xmax(dir) * xll;
-  };
-
-  auto GetLegacyLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
-                                                    Real xmesh) -> std::int64_t {
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    auto xLL = (xmesh - this->mesh_size.xmin(dir)) /
-               (this->mesh_size.xmax(dir) - this->mesh_size.xmin(dir)) / root_fac;
-    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
-  };
-
-  auto GetStaticRefLLIndexRange = [](CoordinateDirection dir, int num_root_block, int ref_level, const RegionSize &ref_size, const RegionSize &mesh_size) {
-    auto GetSymmetrizedCoordinate = [&mesh_size](CoordinateDirection dir, int index, int nrange) {
+  auto GetStaticRefLLIndexRange = [](CoordinateDirection dir, int num_root_block,
+                                     int ref_level, const RegionSize &ref_size,
+                                     const RegionSize &mesh_size) {
+    auto GetSymmetrizedCoordinate = [&mesh_size](CoordinateDirection dir, int index,
+                                                 int nrange) {
       // Old comment from Athena++:
       // map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
       // if nrange is even, there is an index at center x=0.0; map it to (int) 0
@@ -1094,17 +1079,23 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       // average the (possibly) biased integer indexing
       Real x = static_cast<Real>(noffset + noffset_ceil) / (2.0 * nrange);
       // Now map from this symmetrized logical space to the mesh_size space
-      return static_cast<Real>(0.5) * (mesh_size.xmin(dir) + mesh_size.xmax(dir)) 
-          + (x * mesh_size.xmax(dir) - x * mesh_size.xmin(dir));
-    }; 
-    
-    int lxtot = num_root_block * (1 << ref_level); 
+      return static_cast<Real>(0.5) * (mesh_size.xmin(dir) + mesh_size.xmax(dir)) +
+             (x * mesh_size.xmax(dir) - x * mesh_size.xmin(dir));
+    };
+
+    int lxtot = num_root_block * (1 << ref_level);
     int lxmin, lxmax;
     for (lxmin = 0; lxmin < lxtot; lxmin++) {
-      if (GetSymmetrizedCoordinate(dir, lxmin + 1, lxtot) > ref_size.xmin(dir)) break;
+      Real r = LogicalLocation::IndexToSymmetrizedCoordinate(lxmin + 1,
+                                                             BlockLocation::Left, lxtot);
+      if (mesh_size.SymmetrizedLogicalToActualPosition(r, dir) > ref_size.xmin(dir))
+        break;
     }
     for (lxmax = lxmin; lxmax < lxtot; lxmax++) {
-      if (GetSymmetrizedCoordinate(dir, lxmax + 1, lxtot) >= ref_size.xmax(dir)) break;
+      Real r = LogicalLocation::IndexToSymmetrizedCoordinate(lxmax + 1,
+                                                             BlockLocation::Left, lxtot);
+      if (mesh_size.SymmetrizedLogicalToActualPosition(r, dir) >= ref_size.xmax(dir))
+        break;
     }
     if (lxmin % 2 == 1) lxmin--;
     if (lxmax % 2 == 0) lxmax++;
@@ -1168,7 +1159,8 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          auto [lmin, lmax] = GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size); 
+          auto [lmin, lmax] =
+              GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size);
           l_region_min[dir - 1] = lmin;
           l_region_max[dir - 1] = lmax;
         }

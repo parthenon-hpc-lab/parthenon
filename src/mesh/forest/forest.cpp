@@ -107,26 +107,29 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     RegionSize tree_domain = block_size;
-    auto LLCoordLeft = [](int idx, int npoints) {
-      return static_cast<double>(idx) / npoints;
-    };
-    auto LLCoordRight = [](int idx, int npoints) {
-      return static_cast<double>(idx + 1) / npoints;
-    };
-    tree_domain.xmin(X1DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix1, ntree[0]), X1DIR);
-    tree_domain.xmax(X1DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix1, ntree[0]), X1DIR);
+    tree_domain.xmin(X1DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix1, BlockLocation::Left, ntree[0]),
+        X1DIR);
+    tree_domain.xmax(X1DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix1, BlockLocation::Right,
+                                                      ntree[0]),
+        X1DIR);
 
-    tree_domain.xmin(X2DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix2, ntree[1]), X2DIR);
-    tree_domain.xmax(X2DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix2, ntree[1]), X2DIR);
+    tree_domain.xmin(X2DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix2, BlockLocation::Left, ntree[1]),
+        X2DIR);
+    tree_domain.xmax(X2DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix2, BlockLocation::Right,
+                                                      ntree[1]),
+        X2DIR);
 
-    tree_domain.xmin(X3DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix3, ntree[2]), X3DIR);
-    tree_domain.xmax(X3DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix3, ntree[2]), X3DIR);
+    tree_domain.xmin(X3DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix3, BlockLocation::Left, ntree[2]),
+        X3DIR);
+    tree_domain.xmax(X3DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix3, BlockLocation::Right,
+                                                      ntree[2]),
+        X3DIR);
     LogicalLocation loc(level, ix1, ix2, ix3);
     ll_map[loc] = std::make_pair(tree_domain, std::shared_ptr<Tree>());
   }

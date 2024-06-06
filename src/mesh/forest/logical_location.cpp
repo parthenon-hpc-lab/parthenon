@@ -58,10 +58,24 @@ int LogicalLocation::NeighborTreeIndex() const {
   return idx;
 }
 
+Real LogicalLocation::IndexToSymmetrizedCoordinate(int index, BlockLocation bloc,
+                                                   int nrange) {
+  // Return a position in the range [-0.5, 0.5], which helps to ensure floating point
+  // symmetry (as compared to the range [0, 1])
+  // Old comment from Athena++:
+  // map to a [-0.5, 0.5] range, rescale int indices around 0 before FP conversion
+  // if nrange is even, there is an index at center x=0.0; map it to (int) 0
+  // if nrange is odd, the center x=0.0 is between two indices; map them to -1, 1
+  std::int64_t noffset = index - (nrange) / 2;
+  std::int64_t noffset_ceil = index - (nrange + 1) / 2; // = noffset if nrange is even
+  // average the (possibly) biased integer indexing
+  return (static_cast<Real>(noffset + noffset_ceil) + 0.5 * static_cast<Real>(bloc)) /
+         (2.0 * nrange);
+}
+
 Real LogicalLocation::LLCoord(CoordinateDirection dir, BlockLocation bloc) const {
   auto nblocks_tot = 1 << std::max(level(), 0);
-  return (static_cast<Real>(l(dir - 1)) + 0.5 * static_cast<Real>(bloc)) /
-         static_cast<Real>(nblocks_tot);
+  return IndexToSymmetrizedCoordinate(l(dir - 1), bloc, nblocks_tot);
 }
 
 bool LogicalLocation::IsContainedIn(const LogicalLocation &container) const {
