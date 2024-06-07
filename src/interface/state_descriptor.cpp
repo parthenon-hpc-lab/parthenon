@@ -281,11 +281,20 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
         mFlags.push_back(Metadata::Edge);
       else if (m.IsSet(Metadata::Edge))
         mFlags.push_back(Metadata::Node);
-      Metadata mf(mFlags, m.Shape());
+
+      Metadata mf;
+      if (m.GetRefinementFunctions().label().size() > 0) {
+        // Propagate custom refinement ops to flux field
+        mf = Metadata(mFlags, m.Shape(), std::vector<std::string>(), std::string(),
+                      m.GetRefinementFunctions());
+      } else {
+        mf = Metadata(mFlags, m.Shape());
+      }
       auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
                        vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
+      refinementFuncMaps_.Register(mf, fId.label());
     }
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
