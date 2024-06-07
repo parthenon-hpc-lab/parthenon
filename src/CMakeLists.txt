@@ -258,6 +258,7 @@ add_library(parthenon
   utils/morton_number.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
+  utils/nameof.hpp
   utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp

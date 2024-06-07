@@ -38,6 +38,7 @@
 #include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
+#include "utils/nameof.hpp"
 
 namespace parthenon {
 
@@ -412,17 +413,17 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
 
   // auto out = (pro_local | pro);
-
-  auto send = tl.AddTask(dependency, SendBoundBufs<bounds>, md);
-  auto recv = tl.AddTask(dependency, ReceiveBoundBufs<bounds>, md);
-  auto set = tl.AddTask(recv, SetBounds<bounds>, md);
+  
+  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
+  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
+  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
 
   auto pro = set;
   if (md->GetMeshPointer()->multilevel) {
-    auto cbound = tl.AddTask(set, ApplyBoundaryConditionsOnCoarseOrFineMD, md, true);
-    pro = tl.AddTask(cbound, ProlongateBounds<bounds>, md);
+    auto cbound = tl.AddTask(set, TF(ApplyBoundaryConditionsOnCoarseOrFineMD), md, true);
+    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
   }
-  auto fbound = tl.AddTask(pro, ApplyBoundaryConditionsOnCoarseOrFineMD, md, false);
+  auto fbound = tl.AddTask(pro, TF(ApplyBoundaryConditionsOnCoarseOrFineMD), md, false);
 
   return fbound;
 }
@@ -437,8 +438,8 @@ AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   if (!multilevel) return dependency;
-  tl.AddTask(dependency, SendBoundBufs<BoundaryType::flxcor_send>, md);
-  auto receive = tl.AddTask(dependency, ReceiveBoundBufs<BoundaryType::flxcor_recv>, md);
-  return tl.AddTask(receive, SetBounds<BoundaryType::flxcor_recv>, md);
+  tl.AddTask(dependency, TF(SendBoundBufs<BoundaryType::flxcor_send>), md);
+  auto receive = tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
+  return tl.AddTask(receive, TF(SetBounds<BoundaryType::flxcor_recv>), md);
 }
 } // namespace parthenon

@@ -87,7 +87,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // known when we solve A.u = rhs
     auto get_rhs = none;
     if (use_exact_rhs) {
-      auto copy_exact = tl.AddTask(get_rhs, solvers::utils::CopyData<exact, u>, md);
+      auto copy_exact = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<exact, u>), md);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
       PoissonEquation eqs;
       eqs.do_flux_cor = flux_correct;
@@ -95,7 +95,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     }
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(get_rhs, solvers::utils::SetToZero<u>, md);
+    auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<u>), md);
 
     auto solve = zero_u;
     if (solver == "BiCGSTAB") {
@@ -111,7 +111,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
     if (use_exact_rhs) {
-      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<exact, u, u>, md,
+      auto diff = tl.AddTask(solve, TF(solvers::utils::AddFieldsAndStore<exact, u, u>), md,
                              1.0, -1.0);
       auto get_err = solvers::utils::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(
@@ -127,7 +127,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           this, i);
     }
   }
-
+  tc.PrintGraph();
   return tc;
 }
 

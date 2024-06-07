@@ -31,6 +31,9 @@
 
 #include "thread_pool.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/nameof.hpp"
+
+#define TF( ... ) std::string(NAMEOF_FULL(__VA_ARGS__)), __VA_ARGS__ 
 
 namespace parthenon {
 
@@ -169,18 +172,50 @@ class Task {
   std::string label_;
 };
 
+inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>>& tasks) {
+  std::vector<std::pair<std::regex, std::string>> replacements; 
+  replacements.emplace_back("parthenon::", "");
+  replacements.emplace_back("std::", "");
+  replacements.emplace_back("MeshData<[^>]*>", "MD");
+  replacements.emplace_back("MeshBlockData<[^>]*>", "MBD");
+  replacements.emplace_back("shared_ptr", "sptr");
+  replacements.emplace_back("TaskStatus ", "");
+  replacements.emplace_back("BoundaryType::", "");
+
+  printf("digraph {\n");
+  printf("node [fontname=\"Helvetica,Arial,sans-serif\"]\n");
+  printf("edge [fontname=\"Helvetica,Arial,sans-serif\"]\n");
+  for (auto &ptask : tasks) {
+    std::string cleaned_label = ptask->GetLabel();
+    for (auto & [re, str] : replacements)
+      cleaned_label = std::regex_replace(cleaned_label, re, str); 
+    printf(" n%p [label=\"%s\"];\n", ptask->GetID().GetTask(), cleaned_label.c_str());
+  } 
+  for (auto &ptask : tasks) { 
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) { 
+      printf(" n%p -> n%p [style=\"solid\"];\n", ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+    }
+  }
+  for (auto &ptask : tasks) { 
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) { 
+      printf(" n%p -> n%p [style=\"dashed\"];\n", ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+    }
+  }
+  printf("}\n");
+}
+
 class TaskRegion;
 class TaskList {
   friend class TaskRegion;
-
+  friend class TaskCollection;
  public:
-  TaskList() : TaskList(TaskID(), {1, 1}) {}
-  explicit TaskList(const TaskID &dep, std::pair<int, int> limits)
-      : dependency(dep), exec_limits(limits), current_task_iid{0} {
+  TaskList() : TaskList(TaskID(), {1, 1}, -1, -1) {}
+  explicit TaskList(const TaskID &dep, std::pair<int, int> limits, int uid, int ruid)
+      : dependency(dep), exec_limits(limits), current_task_iid{0}, unique_id{uid} {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "trivial first_task",
+        current_task_iid++, "trivial first_task [reg = " + std::to_string(ruid) + ", tl = " + std::to_string(unique_id) + "]",
         dependency,
         [&tasks = tasks]() {
           for (auto &t : tasks) {
@@ -347,37 +382,9 @@ class TaskList {
 
   template <typename TID>
   std::pair<TaskList &, TaskID> AddSublist(TID &&dep, std::pair<int, int> minmax_iters) {
-    sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters));
+    sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters, unique_id, -1));
     auto &tl = *sublists.back();
-    tl.SetID(unique_id);
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));
-  }
-  
-  void PrintGraph() {
-    std::regex parthenon_namespace("parthenon::");    
-    std::regex std_namespace("std::");    
-    
-
-    printf("digraph regexp {\n");
-    printf("fontname=\"Helvetica,Arial,sans-serif\"\n");
-    printf("node [fontname=\"Helvetica,Arial,sans-serif\"]\n");
-    printf("edge [fontname=\"Helvetica,Arial,sans-serif\"]\n");
-    for (auto &ptask : tasks) { 
-      auto cleaned_label = std::regex_replace(ptask->GetLabel(), parthenon_namespace, "");
-      cleaned_label = std::regex_replace(cleaned_label, std_namespace, "");
-      printf(" n%lu [label=\"%s\"];\n", ptask->GetIID(), cleaned_label.c_str());
-    } 
-    for (auto &ptask : tasks) { 
-      for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) { 
-        printf(" n%lu -> n%lu [style=\"solid\"];\n", ptask->GetIID(), pdtask->GetIID());
-      }
-    }
-    for (auto &ptask : tasks) { 
-      for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) { 
-        printf(" n%lu -> n%lu [style=\"dashed\"];\n", ptask->GetIID(), pdtask->GetIID());
-      }
-    }
-    printf("}\n");
   }
 
  private:
@@ -430,13 +437,15 @@ class TaskList {
 
   template <class F, class... Args>
   void AddUserTask(TaskID &dep, std::optional<std::string> label, F &&func, Args &&...args) {
-    if (!label.has_value()) {
-      int status;
-      label = std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
-    }
+    if (!label.has_value()) label = "anon";
+    int status;
+    auto signature = std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
+    
+    auto n = signature.find('(');
+    signature.insert(n--, *label);
 
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, *label,
+        current_task_iid++, signature,
         dep,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
@@ -446,11 +455,12 @@ class TaskList {
 };
 
 class TaskRegion {
+ friend class TaskCollection;
  public:
   TaskRegion() = delete;
-  explicit TaskRegion(const int num_lists) : task_lists(num_lists) {
+  explicit TaskRegion(const int num_lists, int uid) : task_lists(), unique_id{uid} {
     for (int i = 0; i < num_lists; i++)
-      task_lists[i].SetID(i);
+      task_lists.emplace_back(TaskID(), std::pair<int, int>{1, 1}, i, uid);
   }
 
   TaskListStatus Execute(ThreadPool &pool) {
@@ -496,6 +506,7 @@ class TaskRegion {
  private:
   std::vector<TaskList> task_lists;
   bool graph_built = false;
+  int unique_id;
 
   void BuildGraph() {
     // first handle regional dependencies
@@ -538,7 +549,7 @@ class TaskCollection {
   TaskCollection() = default;
 
   TaskRegion &AddRegion(const int num_lists) {
-    regions.emplace_back(num_lists);
+    regions.emplace_back(num_lists, ruid++);
     return regions.back();
   }
   TaskListStatus Execute() {
@@ -553,9 +564,23 @@ class TaskCollection {
     }
     return TaskListStatus::complete;
   }
-
+  void PrintGraph() { 
+    std::vector<std::shared_ptr<Task>> tasks;
+    int iregion{0};
+    for (auto &region : regions) {
+      int itl{0};
+      for (auto &tl : region.task_lists) {
+        tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
+        for (auto &stl : tl.sublists) { 
+          tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
+        }
+      }
+    }
+    PrintTaskGraph(tasks);
+  }
  private:
   std::list<TaskRegion> regions;
+  int ruid{0};
 };
 
 } // namespace parthenon

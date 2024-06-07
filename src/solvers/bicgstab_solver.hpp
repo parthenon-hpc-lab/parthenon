@@ -103,11 +103,11 @@ class BiCGSTABSolver {
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    auto zero_x = tl.AddTask(dependence, SetToZero<x>, md);
-    auto zero_u_init = tl.AddTask(dependence, SetToZero<u>, md);
-    auto copy_r = tl.AddTask(dependence, CopyData<rhs, r>, md);
-    auto copy_p = tl.AddTask(dependence, CopyData<rhs, p>, md);
-    auto copy_rhat0 = tl.AddTask(dependence, CopyData<rhs, rhat0>, md);
+    auto zero_x = tl.AddTask(dependence, TF(SetToZero<x>), md);
+    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<u>), md);
+    auto copy_r = tl.AddTask(dependence, TF(CopyData<rhs, r>), md);
+    auto copy_p = tl.AddTask(dependence, TF(CopyData<rhs, p>), md);
+    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<rhs, rhat0>), md);
     auto get_rhat0r_init = DotProduct<rhat0, r>(dependence, tl, &rhat0r, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
