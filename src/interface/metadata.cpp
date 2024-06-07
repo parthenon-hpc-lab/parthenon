@@ -126,10 +126,8 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   }
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
-  printf("Is refined? %i\n", static_cast<int>(IsRefined()));
   if (IsRefined()) {
     refinement_funcs_ = ref_funcs_;
-    printf("label size? %i\n", refinement_funcs_.label().size());
   }
 
   // check if all flag constraints are satisfied, throw if not
