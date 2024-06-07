@@ -16,9 +16,11 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cxxabi.h>
 #include <functional>
 #include <list>
 #include <memory>
+#include <regex>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -92,9 +94,9 @@ class Task {
  public:
   Task() = default;
   template <typename TID>
-  Task(TID &&dep, const std::function<TaskStatus()> &func,
+  Task(std::int64_t iid, const std::string &label, TID &&dep, const std::function<TaskStatus()> &func,
        std::pair<int, int> limits = {1, 1})
-      : f(func), exec_limits(limits) {
+      : iid_(iid), label_(label), f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
     } else {
@@ -122,6 +124,8 @@ class Task {
     return status;
   }
   TaskID GetID() { return this; }
+  std::uint64_t GetIID() const {return iid_;}
+  std::string GetLabel() const {return label_;}
   bool ready() {
     // check that no dependency is incomplete
     bool go = true;
@@ -161,6 +165,8 @@ class Task {
   int num_calls = 0;
   TaskStatus task_status = TaskStatus::incomplete;
   std::mutex mutex;
+  std::uint64_t iid_;
+  std::string label_;
 };
 
 class TaskRegion;
@@ -170,10 +176,11 @@ class TaskList {
  public:
   TaskList() : TaskList(TaskID(), {1, 1}) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits)
-      : dependency(dep), exec_limits(limits) {
+      : dependency(dep), exec_limits(limits), current_task_iid{0} {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
+        current_task_iid++, "trivial first_task",
         dependency,
         [&tasks = tasks]() {
           for (auto &t : tasks) {
@@ -191,6 +198,7 @@ class TaskList {
     // make a trivial last_task that tasks dependent on this list's execution
     // can depend on.  Also simplifies exiting completed iterations
     tasks.push_back(std::make_shared<Task>(
+        current_task_iid++, "trivial last_task",
         TaskID(),
         [&completion_tasks = completion_tasks]() {
           for (auto t : completion_tasks) {
@@ -202,21 +210,36 @@ class TaskList {
     last_task = tasks.back().get();
   }
 
+  template <class Arg1, class... Args, REQUIRES(!std::is_convertible_v<Arg1, std::optional<std::string>>)>
+  TaskID AddTask(TaskID dep, Arg1 &&arg1, Args &&...args) {
+    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...);
+  }
+  
   template <class... Args>
-  TaskID AddTask(TaskID dep, Args &&...args) {
-    return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
+  TaskID AddTask(TaskID dep, std::string label, Args &&...args) {
+    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(label), std::forward<Args>(args)...);
+  }
+
+  template <class Arg1, class... Args, REQUIRES(!std::is_convertible_v<Arg1, std::optional<std::string>>)>
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, Arg1 &&arg1, Args &&...args) {
+    return AddTask(tq, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...); 
+  }
+  
+  template <class... Args>
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, std::string label, Args &&...args) {
+    return AddTask(tq, dep, std::optional<std::string>(label), std::forward<Args>(args)...); 
   }
 
   template <class... Args>
-  TaskID AddTask(const TaskQualifier tq, TaskID dep, Args &&...args) {
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, std::optional<std::string> label, Args &&...args) {
     // user-space tasks always depend on something. if no dependencies are given,
     // make the task dependent on the list's first_task
     if (dep.empty()) dep = TaskID(first_task);
-
+    
     if (!tq.Once() || (tq.Once() && unique_id == 0)) {
-      AddUserTask(dep, std::forward<Args>(args)...);
+      AddUserTask(dep, label, std::forward<Args>(args)...);
     } else {
-      tasks.push_back(std::make_shared<Task>(
+      tasks.push_back(std::make_shared<Task>(current_task_iid++, "blank single task",
           dep, [=]() { return TaskStatus::complete; }, exec_limits));
     }
 
@@ -251,6 +274,7 @@ class TaskList {
 #ifdef MPI_PARALLEL
         // add a task that starts the Iallreduce on the task statuses
         tasks.push_back(std::make_shared<Task>(
+            current_task_iid++, "start Iallreduce",
             id,
             [my_task, &stat = *global_status.back(), &req = *global_request.back(),
              &comm = *global_comm.back()]() {
@@ -271,6 +295,7 @@ class TaskList {
         start = TaskID(tasks.back().get());
         // add a task that tests for completion of the Iallreduces of statuses
         tasks.push_back(std::make_shared<Task>(
+            current_task_iid++, "check Iallreduce complete",
             start,
             [&stat = *global_status.back(), &req = *global_request.back()]() {
               int check;
@@ -284,10 +309,10 @@ class TaskList {
 #endif         // MPI_PARALLEL
       } else { // unique_id != 0
         // just add empty tasks
-        tasks.push_back(std::make_shared<Task>(
+        tasks.push_back(std::make_shared<Task>(current_task_iid++, "empty",
             id, [&]() { return TaskStatus::complete; }, exec_limits));
         start = TaskID(tasks.back().get());
-        tasks.push_back(std::make_shared<Task>(
+        tasks.push_back(std::make_shared<Task>(current_task_iid++, "empty",
             start, [my_task]() { return my_task->GetStatus(); }, exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
@@ -327,6 +352,33 @@ class TaskList {
     tl.SetID(unique_id);
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));
   }
+  
+  void PrintGraph() {
+    std::regex parthenon_namespace("parthenon::");    
+    std::regex std_namespace("std::");    
+    
+
+    printf("digraph regexp {\n");
+    printf("fontname=\"Helvetica,Arial,sans-serif\"\n");
+    printf("node [fontname=\"Helvetica,Arial,sans-serif\"]\n");
+    printf("edge [fontname=\"Helvetica,Arial,sans-serif\"]\n");
+    for (auto &ptask : tasks) { 
+      auto cleaned_label = std::regex_replace(ptask->GetLabel(), parthenon_namespace, "");
+      cleaned_label = std::regex_replace(cleaned_label, std_namespace, "");
+      printf(" n%lu [label=\"%s\"];\n", ptask->GetIID(), cleaned_label.c_str());
+    } 
+    for (auto &ptask : tasks) { 
+      for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) { 
+        printf(" n%lu -> n%lu [style=\"solid\"];\n", ptask->GetIID(), pdtask->GetIID());
+      }
+    }
+    for (auto &ptask : tasks) { 
+      for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) { 
+        printf(" n%lu -> n%lu [style=\"dashed\"];\n", ptask->GetIID(), pdtask->GetIID());
+      }
+    }
+    printf("}\n");
+  }
 
  private:
   TaskID dependency;
@@ -348,6 +400,7 @@ class TaskList {
   Task *last_task;
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
+  int current_task_iid;
 
   Task *GetStartupTask() { return first_task; }
   size_t NumRegional() const { return regional_tasks.size(); }
@@ -364,9 +417,10 @@ class TaskList {
   }
 
   template <class T, class U, class... Args1, class... Args2>
-  void AddUserTask(TaskID &dep, TaskStatus (T::*func)(Args1...), U *obj,
+  void AddUserTask(TaskID &dep, std::optional<std::string> label, TaskStatus (T::*func)(Args1...), U *obj,
                    Args2 &&...args) {
     tasks.push_back(std::make_shared<Task>(
+        current_task_iid++, "user",
         dep,
         [=]() mutable -> TaskStatus {
           return (obj->*func)(std::forward<Args2>(args)...);
@@ -375,8 +429,14 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  void AddUserTask(TaskID &dep, F &&func, Args &&...args) {
+  void AddUserTask(TaskID &dep, std::optional<std::string> label, F &&func, Args &&...args) {
+    if (!label.has_value()) {
+      int status;
+      label = std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
+    }
+
     tasks.push_back(std::make_shared<Task>(
+        current_task_iid++, *label,
         dep,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
