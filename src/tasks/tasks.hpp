@@ -423,11 +423,15 @@ class TaskList {
 
   inline friend std::ostream &operator<<(std::ostream &stream, const TaskList &tl) {
     std::vector<std::shared_ptr<Task>> tasks;
-    tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
-    for (const auto &stl : tl.sublists) {
+    tl.AppendTasks(tasks);
+    return WriteTaskGraph(stream, tasks);
+  }
+
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks) const {
+    tasks.insert(tasks.end(), tasks.begin(), tasks.end());
+    for (const auto &stl : sublists) {
       tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
     }
-    return WriteTaskGraph(stream, tasks);
   }
 
  private:
@@ -553,10 +557,7 @@ class TaskRegion {
   inline friend std::ostream &operator<<(std::ostream &stream, const TaskRegion &region) {
     std::vector<std::shared_ptr<Task>> tasks;
     for (const auto &tl : region.task_lists) {
-      tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
-      for (const auto &stl : tl.sublists) {
-        tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
-      }
+      tl.AppendTasks(tasks);
     }
     return WriteTaskGraph(stream, tasks);
   }
@@ -625,14 +626,9 @@ class TaskCollection {
 
   inline friend std::ostream &operator<<(std::ostream &stream, const TaskCollection &tc) {
     std::vector<std::shared_ptr<Task>> tasks;
-    int iregion{0};
     for (const auto &region : tc.regions) {
-      int itl{0};
       for (const auto &tl : region.task_lists) {
-        tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
-        for (const auto &stl : tl.sublists) {
-          tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
-        }
+        tl.AppendTasks(tasks);
       }
     }
     return WriteTaskGraph(stream, tasks);
