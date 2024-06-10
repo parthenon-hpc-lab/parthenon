@@ -244,8 +244,9 @@ class TaskList {
         exec_limits));
     last_task = tasks.back().get();
   }
-
-  template <class Arg1, class... Args, REQUIRES(!std::is_convertible_v<Arg1, std::optional<std::string>>)>
+  
+  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't compile while this does
+  template <class Arg1, class... Args, typename std::enable_if<!std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
   TaskID AddTask(TaskID dep, Arg1 &&arg1, Args &&...args) {
     return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...);
   }
@@ -255,7 +256,8 @@ class TaskList {
     return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(label), std::forward<Args>(args)...);
   }
 
-  template <class Arg1, class... Args, REQUIRES(!std::is_convertible_v<Arg1, std::optional<std::string>>)>
+  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't compile while this does
+  template <class Arg1, class... Args, typename std::enable_if<!std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, Arg1 &&arg1, Args &&...args) {
     return AddTask(tq, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...); 
   }
