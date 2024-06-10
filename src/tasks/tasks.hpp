@@ -561,7 +561,8 @@ class TaskRegion {
     }
     return WriteTaskGraph(stream, tasks);
   }
-
+  
+  const std::vector<TaskList> &GetTaskLists() const { return task_lists; }
  private:
   std::vector<TaskList> task_lists;
   bool graph_built = false;
@@ -627,7 +628,7 @@ class TaskCollection {
   inline friend std::ostream &operator<<(std::ostream &stream, const TaskCollection &tc) {
     std::vector<std::shared_ptr<Task>> tasks;
     for (const auto &region : tc.regions) {
-      for (const auto &tl : region.task_lists) {
+      for (const auto &tl : region.GetTaskLists()) {
         tl.AppendTasks(tasks);
       }
     }
