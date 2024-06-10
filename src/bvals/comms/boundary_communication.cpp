@@ -38,7 +38,6 @@
 #include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
-#include "utils/nameof.hpp"
 
 namespace parthenon {
 

@@ -36,9 +36,8 @@
 
 #include "thread_pool.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/nameof.hpp"
 
-#define TF(...) std::string(NAMEOF_FULL(__VA_ARGS__)), __VA_ARGS__
+#define TF(...) std::string(#__VA_ARGS__), __VA_ARGS__
 
 namespace parthenon {
 
