@@ -177,7 +177,8 @@ class Task {
   std::string label_;
 };
 
-inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>> &tasks) {
+inline std::ostream &WriteTaskGraph(std::ostream &stream,
+                                    const std::vector<std::shared_ptr<Task>> &tasks) {
   std::vector<std::pair<std::regex, std::string>> replacements;
   replacements.emplace_back("parthenon::", "");
   replacements.emplace_back("std::", "");
@@ -187,28 +188,35 @@ inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>> &tasks) {
   replacements.emplace_back("TaskStatus ", "");
   replacements.emplace_back("BoundaryType::", "");
 
-  printf("digraph {\n");
-  printf("node [fontname=\"Helvetica,Arial,sans-serif\"]\n");
-  printf("edge [fontname=\"Helvetica,Arial,sans-serif\"]\n");
+  stream << "digraph {\n";
+  stream << "node [fontname=\"Helvetica,Arial,sans-serif\"]\n";
+  stream << "edge [fontname=\"Helvetica,Arial,sans-serif\"]\n";
+  constexpr int kBufSize = 1024;
+  char buf[kBufSize];
   for (auto &ptask : tasks) {
     std::string cleaned_label = ptask->GetLabel();
     for (auto &[re, str] : replacements)
       cleaned_label = std::regex_replace(cleaned_label, re, str);
-    printf(" n%p [label=\"%s\"];\n", ptask->GetID().GetTask(), cleaned_label.c_str());
+    snprintf(buf, kBufSize, " n%p [label=\"%s\"];\n", ptask->GetID().GetTask(),
+             cleaned_label.c_str());
+    stream << std::string(buf);
   }
   for (auto &ptask : tasks) {
     for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) {
-      printf(" n%p -> n%p [style=\"solid\"];\n", ptask->GetID().GetTask(),
-             pdtask->GetID().GetTask());
+      snprintf(buf, kBufSize, " n%p -> n%p [style=\"solid\"];\n",
+               ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+      stream << std::string(buf);
     }
   }
   for (auto &ptask : tasks) {
     for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) {
-      printf(" n%p -> n%p [style=\"dashed\"];\n", ptask->GetID().GetTask(),
-             pdtask->GetID().GetTask());
+      snprintf(buf, kBufSize, " n%p -> n%p [style=\"dashed\"];\n",
+               ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+      stream << std::string(buf);
     }
   }
-  printf("}\n");
+  stream << "}\n";
+  return stream;
 }
 
 class TaskRegion;
@@ -593,19 +601,20 @@ class TaskCollection {
     }
     return TaskListStatus::complete;
   }
-  void PrintGraph() {
+
+  inline friend std::ostream &operator<<(std::ostream &stream, const TaskCollection &tc) {
     std::vector<std::shared_ptr<Task>> tasks;
     int iregion{0};
-    for (auto &region : regions) {
+    for (const auto &region : tc.regions) {
       int itl{0};
-      for (auto &tl : region.task_lists) {
+      for (const auto &tl : region.task_lists) {
         tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
-        for (auto &stl : tl.sublists) {
+        for (const auto &stl : tl.sublists) {
           tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
         }
       }
     }
-    PrintTaskGraph(tasks);
+    return WriteTaskGraph(stream, tasks);
   }
 
  private:
