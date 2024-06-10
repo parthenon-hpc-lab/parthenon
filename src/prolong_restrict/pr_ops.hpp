@@ -371,6 +371,11 @@ struct ProlongateInternalAverage {
   }
 };
 
+// Implements divergence-free prolongation to internal faces using the method
+// described in Toth & Roe (2002). Any prolongation method for faces shared
+// between the coarse and the fine grid can be used alongside this internal
+// prolongation operation. Obviously, this prolongation operation is only
+// defined for face fields.
 struct ProlongateInternalTothAndRoe {
   static constexpr bool OperationRequired(TopologicalElement fel,
                                           TopologicalElement cel) {
@@ -405,15 +410,15 @@ struct ProlongateInternalTothAndRoe {
       constexpr int element_idx = static_cast<int>(fel) % 3;
       auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real & {
         eidx = (element_idx + eidx) % 3;
+        // Guard against offsetting in symmetry dimensions
+        constexpr int g3 = (DIM > 2);
+        constexpr int g2 = (DIM > 1);
         if constexpr (fel == TE::F1) {
-          return (*pfine)(eidx, l, m, n, fk + ok * (DIM > 2), fj + oj * (DIM > 1),
-                          fi + oi);
+          return (*pfine)(eidx, l, m, n, fk + ok * g3, fj + oj * g2, fi + oi);
         } else if constexpr (fel == TE::F2) {
-          return (*pfine)(eidx, l, m, n, fk + oj * (DIM > 2), fj + oi * (DIM > 1),
-                          fi + ok);
+          return (*pfine)(eidx, l, m, n, fk + oj * g3, fj + oi * g2, fi + ok);
         } else {
-          return (*pfine)(eidx, l, m, n, fk + oi * (DIM > 2), fj + ok * (DIM > 1),
-                          fi + oj);
+          return (*pfine)(eidx, l, m, n, fk + oi * g3, fj + ok * g2, fi + oj);
         }
       };
 
@@ -423,9 +428,8 @@ struct ProlongateInternalTothAndRoe {
       Real Vxyz{0.0};
       Real Wxyz{0.0};
       for (const int v : iarr2{0, 1}) {
-        for (const int u : iarr2{
-                 0,
-                 2}) { // Note step size of 2 for the direction normal to the eidx2/eidx3
+        // Note step size of 2 for the direction normal to the eidx2/eidx3
+        for (const int u : iarr2{0, 2}) {
           for (const int t : iarr2{0, 1}) {
             const auto fine2 = get_fine_permuted(1, v, u, t);
             const auto fine3 = get_fine_permuted(2, u, v, t);
@@ -436,12 +440,12 @@ struct ProlongateInternalTothAndRoe {
         }
       }
       Uxx *= 0.125;
-      const auto dx2 =
-          std::pow(coarse_coords.DxcFA((element_idx + 0) % 3 + 1, k, j, i), 2);
-      const auto dy2 =
-          std::pow(coarse_coords.DxcFA((element_idx + 1) % 3 + 1, k, j, i), 2);
-      const auto dz2 =
-          std::pow(coarse_coords.DxcFA((element_idx + 2) % 3 + 1, k, j, i), 2);
+      const int dir1 = element_idx + 1;
+      const int dir2 = (element_idx + 1) % 3 + 1;
+      const int dir3 = (element_idx + 2) % 3 + 1;
+      const auto dx2 = std::pow(coarse_coords.DxcFA(dir1, k, j, i), 2);
+      const auto dy2 = std::pow(coarse_coords.DxcFA(dir2, k, j, i), 2);
+      const auto dz2 = std::pow(coarse_coords.DxcFA(dir3, k, j, i), 2);
       Vxyz *= 0.125 * dz2 / (dx2 + dz2);
       Wxyz *= 0.125 * dy2 / (dx2 + dy2);
 
