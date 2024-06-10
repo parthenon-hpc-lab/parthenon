@@ -43,6 +43,7 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1055]](https://github.com/parthenon-hpc-lab/parthenon/pull/1055) Refactor mesh constructors
 - [[PR 1066]](https://github.com/parthenon-hpc-lab/parthenon/pull/1066) Re-introduce default loop patterns and exec spaces
 - [[PR 1064]](https://github.com/parthenon-hpc-lab/parthenon/pull/1064) Forbid erroneous edge case when adding MeshData on a partition
 - [[PR 1035]](https://github.com/parthenon-hpc-lab/parthenon/pull/1035) Fix multigrid infrastructure to work with forest
