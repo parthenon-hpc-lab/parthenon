@@ -37,7 +37,7 @@
 #include "thread_pool.hpp"
 #include "utils/error_checking.hpp"
 
-// Macro for decorating functions passed to AddTask so that their names 
+// Macro for decorating functions passed to AddTask so that their names
 // are stored for outputing task graphs
 #define TF(...) std::string(#__VA_ARGS__), __VA_ARGS__
 
