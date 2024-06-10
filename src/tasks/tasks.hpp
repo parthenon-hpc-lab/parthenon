@@ -421,10 +421,10 @@ class TaskList {
     return WriteTaskGraph(stream, tasks);
   }
 
-  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks) const {
-    tasks.insert(tasks.end(), tasks.begin(), tasks.end());
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) const {
+    tasks_inout.insert(tasks_inout.end(), tasks.begin(), tasks.end());
     for (const auto &stl : sublists) {
-      tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
+      tasks_inout.insert(tasks_inout.end(), stl->tasks.begin(), stl->tasks.end());
     }
   }
 
