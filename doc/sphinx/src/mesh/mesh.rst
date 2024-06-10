@@ -135,4 +135,6 @@ Parthenon implements AMR via a forest of octrees type approach.
 - Unlike in the Athena++ ``MeshBlockTree`` implementation that was historically used by 
   Parthenon, the entire logical index space of each tree is within the domain of the problem. 
   Even for some hyper-rectangular base meshes, this can result in forests that contain 
-  multiple trees.  
+  multiple trees. 
+
+  Some implementation notes about our forest can be found in :ref:`these notes <doc/latex/main.pdf>`. 
