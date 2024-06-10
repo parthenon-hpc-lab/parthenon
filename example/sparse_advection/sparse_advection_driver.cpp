@@ -88,7 +88,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto advect_flux = tl.AddTask(none, TF(sparse_advection_package::CalculateFluxes), sc0);
+    auto advect_flux =
+        tl.AddTask(none, TF(sparse_advection_package::CalculateFluxes), sc0);
   }
 
   const int num_partitions = pmesh->DefaultNumPartitions();
@@ -110,14 +111,14 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
         parthenon::AddFluxCorrectionTasks(start_flxcor, tl, mc0, pmesh->multilevel);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div =
-        tl.AddTask(set_flxcor, TF(FluxDivergence<MeshData<Real>>), mc0.get(), mdudt.get());
+    auto flux_div = tl.AddTask(set_flxcor, TF(FluxDivergence<MeshData<Real>>), mc0.get(),
+                               mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, TF(AverageIndependentData<MeshData<Real>>),
                                mc0.get(), mbase.get(), beta);
     // apply du/dt to all independent fields in the container
-    auto update = tl.AddTask(avg_data, TF(UpdateIndependentData<MeshData<Real>>), mc0.get(),
-                             mdudt.get(), beta * dt, mc1.get());
+    auto update = tl.AddTask(avg_data, TF(UpdateIndependentData<MeshData<Real>>),
+                             mc0.get(), mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
     auto boundary =
@@ -142,7 +143,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(set_bc, TF(EstimateTimestep<MeshBlockData<Real>>), sc1.get());
+      auto new_dt =
+          tl.AddTask(set_bc, TF(EstimateTimestep<MeshBlockData<Real>>), sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {

@@ -413,7 +413,7 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
   // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
 
   // auto out = (pro_local | pro);
-  
+
   auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
   auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
   auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
@@ -439,7 +439,8 @@ TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   if (!multilevel) return dependency;
   tl.AddTask(dependency, TF(SendBoundBufs<BoundaryType::flxcor_send>), md);
-  auto receive = tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
+  auto receive =
+      tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
   return tl.AddTask(receive, TF(SetBounds<BoundaryType::flxcor_recv>), md);
 }
 } // namespace parthenon

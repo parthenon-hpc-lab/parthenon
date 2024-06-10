@@ -13,14 +13,19 @@
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
+#if __has_include(<cxxabi.h>)
+#include <cxxabi.h> //NOLINT
+#define HAS_CXX_ABI
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cxxabi.h>
 #include <functional>
 #include <list>
 #include <memory>
 #include <regex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -33,7 +38,7 @@
 #include "utils/error_checking.hpp"
 #include "utils/nameof.hpp"
 
-#define TF( ... ) std::string(NAMEOF_FULL(__VA_ARGS__)), __VA_ARGS__ 
+#define TF(...) std::string(NAMEOF_FULL(__VA_ARGS__)), __VA_ARGS__
 
 namespace parthenon {
 
@@ -97,8 +102,8 @@ class Task {
  public:
   Task() = default;
   template <typename TID>
-  Task(std::int64_t iid, const std::string &label, TID &&dep, const std::function<TaskStatus()> &func,
-       std::pair<int, int> limits = {1, 1})
+  Task(std::int64_t iid, const std::string &label, TID &&dep,
+       const std::function<TaskStatus()> &func, std::pair<int, int> limits = {1, 1})
       : iid_(iid), label_(label), f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
@@ -127,8 +132,8 @@ class Task {
     return status;
   }
   TaskID GetID() { return this; }
-  std::uint64_t GetIID() const {return iid_;}
-  std::string GetLabel() const {return label_;}
+  std::uint64_t GetIID() const { return iid_; }
+  std::string GetLabel() const { return label_; }
   bool ready() {
     // check that no dependency is incomplete
     bool go = true;
@@ -172,8 +177,8 @@ class Task {
   std::string label_;
 };
 
-inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>>& tasks) {
-  std::vector<std::pair<std::regex, std::string>> replacements; 
+inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>> &tasks) {
+  std::vector<std::pair<std::regex, std::string>> replacements;
   replacements.emplace_back("parthenon::", "");
   replacements.emplace_back("std::", "");
   replacements.emplace_back("MeshData<[^>]*>", "MD");
@@ -187,18 +192,20 @@ inline void PrintTaskGraph(const std::vector<std::shared_ptr<Task>>& tasks) {
   printf("edge [fontname=\"Helvetica,Arial,sans-serif\"]\n");
   for (auto &ptask : tasks) {
     std::string cleaned_label = ptask->GetLabel();
-    for (auto & [re, str] : replacements)
-      cleaned_label = std::regex_replace(cleaned_label, re, str); 
+    for (auto &[re, str] : replacements)
+      cleaned_label = std::regex_replace(cleaned_label, re, str);
     printf(" n%p [label=\"%s\"];\n", ptask->GetID().GetTask(), cleaned_label.c_str());
-  } 
-  for (auto &ptask : tasks) { 
-    for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) { 
-      printf(" n%p -> n%p [style=\"solid\"];\n", ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+  }
+  for (auto &ptask : tasks) {
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) {
+      printf(" n%p -> n%p [style=\"solid\"];\n", ptask->GetID().GetTask(),
+             pdtask->GetID().GetTask());
     }
   }
-  for (auto &ptask : tasks) { 
-    for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) { 
-      printf(" n%p -> n%p [style=\"dashed\"];\n", ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+  for (auto &ptask : tasks) {
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) {
+      printf(" n%p -> n%p [style=\"dashed\"];\n", ptask->GetID().GetTask(),
+             pdtask->GetID().GetTask());
     }
   }
   printf("}\n");
@@ -208,6 +215,7 @@ class TaskRegion;
 class TaskList {
   friend class TaskRegion;
   friend class TaskCollection;
+
  public:
   TaskList() : TaskList(TaskID(), {1, 1}, -1, -1) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits, int uid, int ruid)
@@ -215,7 +223,9 @@ class TaskList {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "trivial first_task [reg = " + std::to_string(ruid) + ", tl = " + std::to_string(unique_id) + "]",
+        current_task_iid++,
+        "trivial first_task [reg = " + std::to_string(ruid) +
+            ", tl = " + std::to_string(unique_id) + "]",
         dependency,
         [&tasks = tasks]() {
           for (auto &t : tasks) {
@@ -233,8 +243,7 @@ class TaskList {
     // make a trivial last_task that tasks dependent on this list's execution
     // can depend on.  Also simplifies exiting completed iterations
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "trivial last_task",
-        TaskID(),
+        current_task_iid++, "trivial last_task", TaskID(),
         [&completion_tasks = completion_tasks]() {
           for (auto t : completion_tasks) {
             t->reset_iteration();
@@ -244,40 +253,54 @@ class TaskList {
         exec_limits));
     last_task = tasks.back().get();
   }
-  
-  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't compile while this does
-  template <class Arg1, class... Args, typename std::enable_if<!std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
+
+  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't
+  // compile while this does
+  template <
+      class Arg1, class... Args,
+      typename std::enable_if<
+          !std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
   TaskID AddTask(TaskID dep, Arg1 &&arg1, Args &&...args) {
-    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...);
+    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(),
+                   std::forward<Arg1>(arg1), std::forward<Args>(args)...);
   }
-  
+
   template <class... Args>
   TaskID AddTask(TaskID dep, std::string label, Args &&...args) {
-    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(label), std::forward<Args>(args)...);
+    return AddTask(TaskQualifier::normal, dep, std::optional<std::string>(label),
+                   std::forward<Args>(args)...);
   }
 
-  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't compile while this does
-  template <class Arg1, class... Args, typename std::enable_if<!std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
+  // TODO(LFR): I don't know why the REQUIRES() macro does not work here, but it doesn't
+  // compile while this does
+  template <
+      class Arg1, class... Args,
+      typename std::enable_if<
+          !std::is_convertible<Arg1, std::optional<std::string>>::value, int>::type = 0>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, Arg1 &&arg1, Args &&...args) {
-    return AddTask(tq, dep, std::optional<std::string>(), std::forward<Arg1>(arg1), std::forward<Args>(args)...); 
+    return AddTask(tq, dep, std::optional<std::string>(), std::forward<Arg1>(arg1),
+                   std::forward<Args>(args)...);
   }
-  
+
   template <class... Args>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, std::string label, Args &&...args) {
-    return AddTask(tq, dep, std::optional<std::string>(label), std::forward<Args>(args)...); 
+    return AddTask(tq, dep, std::optional<std::string>(label),
+                   std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  TaskID AddTask(const TaskQualifier tq, TaskID dep, std::optional<std::string> label, Args &&...args) {
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, std::optional<std::string> label,
+                 Args &&...args) {
     // user-space tasks always depend on something. if no dependencies are given,
     // make the task dependent on the list's first_task
     if (dep.empty()) dep = TaskID(first_task);
-    
+
     if (!tq.Once() || (tq.Once() && unique_id == 0)) {
       AddUserTask(dep, label, std::forward<Args>(args)...);
     } else {
-      tasks.push_back(std::make_shared<Task>(current_task_iid++, "blank single task",
-          dep, [=]() { return TaskStatus::complete; }, exec_limits));
+      tasks.push_back(std::make_shared<Task>(
+          current_task_iid++, "blank single task", dep,
+          [=]() { return TaskStatus::complete; }, exec_limits));
     }
 
     Task *my_task = tasks.back().get();
@@ -311,8 +334,7 @@ class TaskList {
 #ifdef MPI_PARALLEL
         // add a task that starts the Iallreduce on the task statuses
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "start Iallreduce",
-            id,
+            current_task_iid++, "start Iallreduce", id,
             [my_task, &stat = *global_status.back(), &req = *global_request.back(),
              &comm = *global_comm.back()]() {
               // jump through a couple hoops to figure out statuses of all instances of
@@ -332,8 +354,7 @@ class TaskList {
         start = TaskID(tasks.back().get());
         // add a task that tests for completion of the Iallreduces of statuses
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "check Iallreduce complete",
-            start,
+            current_task_iid++, "check Iallreduce complete", start,
             [&stat = *global_status.back(), &req = *global_request.back()]() {
               int check;
               PARTHENON_MPI_CHECK(MPI_Test(&req, &check, MPI_STATUS_IGNORE));
@@ -346,11 +367,13 @@ class TaskList {
 #endif         // MPI_PARALLEL
       } else { // unique_id != 0
         // just add empty tasks
-        tasks.push_back(std::make_shared<Task>(current_task_iid++, "empty",
-            id, [&]() { return TaskStatus::complete; }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            current_task_iid++, "empty", id, [&]() { return TaskStatus::complete; },
+            exec_limits));
         start = TaskID(tasks.back().get());
-        tasks.push_back(std::make_shared<Task>(current_task_iid++, "empty",
-            start, [my_task]() { return my_task->GetStatus(); }, exec_limits));
+        tasks.push_back(std::make_shared<Task>(
+            current_task_iid++, "empty", start,
+            [my_task]() { return my_task->GetStatus(); }, exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
       id = TaskID(tasks.back().get());
@@ -426,11 +449,10 @@ class TaskList {
   }
 
   template <class T, class U, class... Args1, class... Args2>
-  void AddUserTask(TaskID &dep, std::optional<std::string> label, TaskStatus (T::*func)(Args1...), U *obj,
-                   Args2 &&...args) {
+  void AddUserTask(TaskID &dep, std::optional<std::string> label,
+                   TaskStatus (T::*func)(Args1...), U *obj, Args2 &&...args) {
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "user",
-        dep,
+        current_task_iid++, "user", dep,
         [=]() mutable -> TaskStatus {
           return (obj->*func)(std::forward<Args2>(args)...);
         },
@@ -438,17 +460,21 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  void AddUserTask(TaskID &dep, std::optional<std::string> label, F &&func, Args &&...args) {
+  void AddUserTask(TaskID &dep, std::optional<std::string> label, F &&func,
+                   Args &&...args) {
     if (!label.has_value()) label = "anon";
+#ifdef HAS_CXX_ABI
     int status;
-    auto signature = std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
-    
+    auto signature =
+        std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
+#else
+    std::string signature = " (...)";
+#endif
     auto n = signature.find('(');
     signature.insert(n--, *label);
 
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, signature,
-        dep,
+        current_task_iid++, signature, dep,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
         },
@@ -457,7 +483,8 @@ class TaskList {
 };
 
 class TaskRegion {
- friend class TaskCollection;
+  friend class TaskCollection;
+
  public:
   TaskRegion() = delete;
   explicit TaskRegion(const int num_lists, int uid) : task_lists(), unique_id{uid} {
@@ -566,20 +593,21 @@ class TaskCollection {
     }
     return TaskListStatus::complete;
   }
-  void PrintGraph() { 
+  void PrintGraph() {
     std::vector<std::shared_ptr<Task>> tasks;
     int iregion{0};
     for (auto &region : regions) {
       int itl{0};
       for (auto &tl : region.task_lists) {
         tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
-        for (auto &stl : tl.sublists) { 
+        for (auto &stl : tl.sublists) {
           tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
         }
       }
     }
     PrintTaskGraph(tasks);
   }
+
  private:
   std::list<TaskRegion> regions;
   int ruid{0};

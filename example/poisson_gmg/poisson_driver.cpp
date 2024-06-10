@@ -111,8 +111,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
     if (use_exact_rhs) {
-      auto diff = tl.AddTask(solve, TF(solvers::utils::AddFieldsAndStore<exact, u, u>), md,
-                             1.0, -1.0);
+      auto diff = tl.AddTask(solve, TF(solvers::utils::AddFieldsAndStore<exact, u, u>),
+                             md, 1.0, -1.0);
       auto get_err = solvers::utils::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(
           get_err,
