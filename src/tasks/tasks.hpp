@@ -473,8 +473,18 @@ class TaskList {
   template <class T, class U, class... Args1, class... Args2>
   void AddUserTask(TaskID &dep, std::optional<std::string> label,
                    TaskStatus (T::*func)(Args1...), U *obj, Args2 &&...args) {
+    if (!label.has_value()) label = "anon";
+#ifdef HAS_CXX_ABI
+    int status;
+    auto signature =
+        std::string(abi::__cxa_demangle(typeid(func).name(), NULL, NULL, &status));
+#else
+    std::string signature = " (...)";
+#endif
+    auto n = signature.find('(');
+    signature.insert(n--, *label);
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "user", dep,
+        signature, dep,
         [=]() mutable -> TaskStatus {
           return (obj->*func)(std::forward<Args2>(args)...);
         },
