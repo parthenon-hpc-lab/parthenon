@@ -420,6 +420,15 @@ class TaskList {
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));
   }
 
+  inline friend std::ostream &operator<<(std::ostream &stream, const TaskList &tl) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
+    for (const auto &stl : tl.sublists) {
+      tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
+    }
+    return WriteTaskGraph(stream, tasks);
+  }
+
  private:
   TaskID dependency;
   std::pair<int, int> exec_limits;
@@ -539,6 +548,17 @@ class TaskRegion {
   TaskList &operator[](const int i) { return task_lists[i]; }
 
   size_t size() const { return task_lists.size(); }
+
+  inline friend std::ostream &operator<<(std::ostream &stream, const TaskRegion &region) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    for (const auto &tl : region.task_lists) {
+      tasks.insert(tasks.end(), tl.tasks.begin(), tl.tasks.end());
+      for (const auto &stl : tl.sublists) {
+        tasks.insert(tasks.end(), stl->tasks.begin(), stl->tasks.end());
+      }
+    }
+    return WriteTaskGraph(stream, tasks);
+  }
 
  private:
   std::vector<TaskList> task_lists;
