@@ -153,7 +153,6 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
       }
     }
   }
-  std::cout << tc;
   return tc;
 }
 

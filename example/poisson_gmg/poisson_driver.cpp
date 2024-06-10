@@ -127,7 +127,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           this, i);
     }
   }
-  std::cout << tc;
   return tc;
 }
 
