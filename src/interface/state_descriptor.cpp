@@ -294,7 +294,6 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
                        vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
       m.SetFluxName(fId.label());
-      refinementFuncMaps_.Register(mf, fId.label());
     }
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
