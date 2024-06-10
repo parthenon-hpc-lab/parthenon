@@ -103,9 +103,9 @@ class Task {
  public:
   Task() = default;
   template <typename TID>
-  Task(std::int64_t iid, const std::string &label, TID &&dep,
-       const std::function<TaskStatus()> &func, std::pair<int, int> limits = {1, 1})
-      : iid_(iid), label_(label), f(func), exec_limits(limits) {
+  Task(const std::string &label, TID &&dep, const std::function<TaskStatus()> &func,
+       std::pair<int, int> limits = {1, 1})
+      : label_(label), f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
     } else {
@@ -133,7 +133,6 @@ class Task {
     return status;
   }
   TaskID GetID() { return this; }
-  std::uint64_t GetIID() const { return iid_; }
   std::string GetLabel() const { return label_; }
   bool ready() {
     // check that no dependency is incomplete
@@ -174,7 +173,6 @@ class Task {
   int num_calls = 0;
   TaskStatus task_status = TaskStatus::incomplete;
   std::mutex mutex;
-  std::uint64_t iid_;
   std::string label_;
 };
 
@@ -228,11 +226,10 @@ class TaskList {
  public:
   TaskList() : TaskList(TaskID(), {1, 1}, -1, -1) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits, int uid, int ruid)
-      : dependency(dep), exec_limits(limits), current_task_iid{0}, unique_id{uid} {
+      : dependency(dep), exec_limits(limits), unique_id{uid} {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++,
         "trivial first_task [reg = " + std::to_string(ruid) +
             ", tl = " + std::to_string(unique_id) + "]",
         dependency,
@@ -252,7 +249,7 @@ class TaskList {
     // make a trivial last_task that tasks dependent on this list's execution
     // can depend on.  Also simplifies exiting completed iterations
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, "trivial last_task", TaskID(),
+        "trivial last_task", TaskID(),
         [&completion_tasks = completion_tasks]() {
           for (auto t : completion_tasks) {
             t->reset_iteration();
@@ -308,8 +305,7 @@ class TaskList {
       AddUserTask(dep, label, std::forward<Args>(args)...);
     } else {
       tasks.push_back(std::make_shared<Task>(
-          current_task_iid++, "blank single task", dep,
-          [=]() { return TaskStatus::complete; }, exec_limits));
+          "blank single task", dep, [=]() { return TaskStatus::complete; }, exec_limits));
     }
 
     Task *my_task = tasks.back().get();
@@ -343,7 +339,7 @@ class TaskList {
 #ifdef MPI_PARALLEL
         // add a task that starts the Iallreduce on the task statuses
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "start Iallreduce", id,
+            "start Iallreduce", id,
             [my_task, &stat = *global_status.back(), &req = *global_request.back(),
              &comm = *global_comm.back()]() {
               // jump through a couple hoops to figure out statuses of all instances of
@@ -363,7 +359,7 @@ class TaskList {
         start = TaskID(tasks.back().get());
         // add a task that tests for completion of the Iallreduces of statuses
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "check Iallreduce complete", start,
+            "check Iallreduce complete", start,
             [&stat = *global_status.back(), &req = *global_request.back()]() {
               int check;
               PARTHENON_MPI_CHECK(MPI_Test(&req, &check, MPI_STATUS_IGNORE));
@@ -377,12 +373,10 @@ class TaskList {
       } else { // unique_id != 0
         // just add empty tasks
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "empty", id, [&]() { return TaskStatus::complete; },
-            exec_limits));
+            "empty", id, [&]() { return TaskStatus::complete; }, exec_limits));
         start = TaskID(tasks.back().get());
         tasks.push_back(std::make_shared<Task>(
-            current_task_iid++, "empty", start,
-            [my_task]() { return my_task->GetStatus(); }, exec_limits));
+            "empty", start, [my_task]() { return my_task->GetStatus(); }, exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
       id = TaskID(tasks.back().get());
@@ -454,7 +448,6 @@ class TaskList {
   Task *last_task;
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
-  int current_task_iid;
 
   Task *GetStartupTask() { return first_task; }
   size_t NumRegional() const { return regional_tasks.size(); }
@@ -506,7 +499,7 @@ class TaskList {
     signature.insert(n--, *label);
 
     tasks.push_back(std::make_shared<Task>(
-        current_task_iid++, signature, dep,
+        signature, dep,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
         },
@@ -571,8 +564,9 @@ class TaskRegion {
     }
     return WriteTaskGraph(stream, tasks);
   }
-  
+
   const std::vector<TaskList> &GetTaskLists() const { return task_lists; }
+
  private:
   std::vector<TaskList> task_lists;
   bool graph_built = false;
