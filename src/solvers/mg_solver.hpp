@@ -115,8 +115,8 @@ class MGSolver {
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
     calc_pointwise_res = itl.AddTask(
-        calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>), md,
-        1.0, -1.0, false);
+        calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<rhs, res_err, res_err>),
+        md, 1.0, -1.0, false);
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, itl, &residual, md);
 
     auto check = itl.AddTask(
@@ -263,8 +263,8 @@ class MGSolver {
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_comm, multilevel);
     auto mat_mult = eqs_.template Ax<in_t, out_t>(tl, comm, md);
-    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>), this, md,
-                      omega);
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi<rhs, out_t, D, in_t, out_t>), this,
+                      md, omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
@@ -321,7 +321,8 @@ class MGSolver {
 
     // If we are finer than the coarsest level:
     if (level > min_level) {
-      task_out = tl.AddTask(task_out, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md);
+      task_out =
+          tl.AddTask(task_out, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md);
       task_out = AddMultiGridSetupPartitionLevel(tl, task_out, partition, level - 1,
                                                  min_level, max_level, pmesh);
     }
@@ -388,8 +389,8 @@ class MGSolver {
         // entry into multigrid
         set_from_finer = eqs_.template Ax<u, temp>(tl, set_from_finer, md);
         set_from_finer = tl.AddTask(
-            set_from_finer, TF(AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>), md,
-            1.0, 1.0, true);
+            set_from_finer, TF(AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>),
+            md, 1.0, 1.0, true);
       }
     } else {
       set_from_finer = tl.AddTask(set_from_finer, TF(CopyData<u, u0, true>), md);
@@ -409,9 +410,9 @@ class MGSolver {
 
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.template Ax<u, temp>(tl, comm_u, md);
-      residual =
-          tl.AddTask(residual, TF(AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>),
-                     md, 1.0, -1.0, false);
+      residual = tl.AddTask(residual,
+                            TF(AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>),
+                            md, 1.0, -1.0, false);
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
@@ -426,12 +427,13 @@ class MGSolver {
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, TF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto prolongate = tl.AddTask( // TaskQualifier::local_sync, // is this required?
-          set_from_coarser, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+          set_from_coarser, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
+          md_comm);
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
-      auto update_sol =
-          tl.AddTask(prolongate, TF(AddFieldsAndStore<u, res_err, u, true>), md, 1.0, 1.0);
+      auto update_sol = tl.AddTask(prolongate, TF(AddFieldsAndStore<u, res_err, u, true>),
+                                   md, 1.0, 1.0);
 
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
@@ -448,8 +450,8 @@ class MGSolver {
       if (!do_FAS) {
         copy_over = tl.AddTask(post_smooth, TF(CopyData<u, res_err, true>), md);
       } else {
-        auto calc_err = tl.AddTask(post_smooth, TF(AddFieldsAndStore<u, u0, res_err, true>),
-                                   md, 1.0, -1.0);
+        auto calc_err = tl.AddTask(
+            post_smooth, TF(AddFieldsAndStore<u, u0, res_err, true>), md, 1.0, -1.0);
         copy_over = calc_err;
       }
       // This is required to make sure boundaries of res_err are up to date before

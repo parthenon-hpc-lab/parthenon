@@ -240,7 +240,8 @@ class BiCGSTABSolver {
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
-        TaskQualifier::local_sync, get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
+        TaskQualifier::local_sync, get_rhat0r | get_res2,
+        "p <- r + beta * (p - omega * v)",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;

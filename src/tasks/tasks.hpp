@@ -288,7 +288,6 @@ class TaskList {
                    std::forward<Args>(args)...);
   }
 
-
   template <class... Args>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, std::optional<std::string> label,
                  Args &&...args) {
