@@ -51,7 +51,10 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
-
+ 
+  // Create the nodes for the forest, the x-y positions are only used for
+  // visualizing the forest configuration and *do not* determine the global 
+  // coordinates of the trees.
   std::unordered_map<uint64_t, std::shared_ptr<parthenon::forest::Node>> nodes;
   nodes[0] = parthenon::forest::Node::create(0, {0.0, 0.0});
   nodes[1] = parthenon::forest::Node::create(1, {1.0, 0.0});
