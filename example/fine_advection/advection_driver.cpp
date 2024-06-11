@@ -162,7 +162,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mc1.get());
 
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(fill_derived, EstimateTimestep<MeshData<Real>>, mc1.get());
+      auto dealloc = tl.AddTask(fill_derived, SparseDealloc, mc1.get());
+      auto new_dt = tl.AddTask(dealloc, EstimateTimestep<MeshData<Real>>, mc1.get());
       if (pmesh->adaptive) {
         auto tag_refine =
             tl.AddTask(new_dt, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());

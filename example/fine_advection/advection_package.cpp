@@ -69,13 +69,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField<Conserved::phi_fine>(
       Metadata({Metadata::Cell, Metadata::Fine, Metadata::Independent,
                 Metadata::WithFluxes, Metadata::FillGhost}));
+  
+  Metadata m({Metadata::Cell, Metadata::Independent,
+              Metadata::WithFluxes, Metadata::FillGhost, Metadata::Sparse});
+  m.SetSparseThresholds(1.e-6, 5.e-7, 0.0);
+  pkg->AddSparsePool<Conserved::phi>(m, std::vector<int>{0});
 
-  pkg->AddField<Conserved::phi>(Metadata({Metadata::Cell, Metadata::Independent,
-                                          Metadata::WithFluxes, Metadata::FillGhost}));
   pkg->AddField<Conserved::phi_fine_restricted>(
       Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
 
-  Metadata m(
+  m = Metadata(
       {Metadata::Face, Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
   m.RegisterRefinementOps<parthenon::refinement_ops::ProlongateSharedMinMod,
                           parthenon::refinement_ops::RestrictAverage,

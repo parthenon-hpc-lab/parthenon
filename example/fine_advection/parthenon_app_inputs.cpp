@@ -58,6 +58,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto coords = pmb->coords;
 
   using namespace advection_package::Conserved;
+  pmb->AllocSparseID(phi::name(), 0);
   static auto desc = parthenon::MakePackDescriptor<phi, phi_fine, C, D>(data.get());
   auto pack = desc.GetPack(data.get());
 
@@ -67,7 +68,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "hard_sphere") profile_type = 2;
   if (profile == "block") profile_type = 3;
   Real amp = 1.0;
-
   const int b = 0;
   const int ndim = pmb->pmy_mesh->ndim;
   const int nghost = parthenon::Globals::nghost;
