@@ -151,10 +151,6 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
 
     auto &bcs = tree_bcs;
     auto &tree_domain = p.first;
-    printf("[%li] %i %i %i %i %i %i\n", tid, bcs[0], bcs[1], bcs[2], bcs[3], bcs[4],
-           bcs[5]);
-    printf("     (%e, %e) (%e, %e)\n", tree_domain.xmin(X1DIR), tree_domain.xmax(X1DIR),
-           tree_domain.xmin(X2DIR), tree_domain.xmax(X2DIR));
 
     p.second = Tree::create(tid++, ndim, ref_level, p.first, tree_bcs);
     p.second->athena_forest_loc = loc;
