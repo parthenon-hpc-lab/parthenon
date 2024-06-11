@@ -79,13 +79,17 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
   IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, FACE);
   IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, FACE);
   IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, FACE);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
-      pack.GetUpperBoundHost(0), // Warning: only works for dense variables
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        // Calculate the flux using upwind donor cell reconstruction
-        pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff);
+  constexpr int scratch_size = 0;
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, jb.s, jb.e, ib.s, ib.e, [&](const int j, const int i) {
+            // Calculate the flux using upwind donor cell reconstruction
+            pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff);
+          });
+        }
       });
   return TaskStatus::complete;
 }
