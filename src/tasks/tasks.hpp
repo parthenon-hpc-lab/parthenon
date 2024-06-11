@@ -560,10 +560,10 @@ class TaskRegion {
   std::vector<TaskList> &GetTaskLists() { return task_lists; }
 
   void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
-    BuildGraph(); 
+    BuildGraph();
     for (const auto &tl : task_lists) {
       tl.AppendTasks(tasks_inout);
-    } 
+    }
   }
 
  private:
@@ -633,12 +633,13 @@ class TaskCollection {
     tc.AppendTasks(tasks);
     return WriteTaskGraph(stream, tasks);
   }
-  
+
   void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
     for (auto &region : regions) {
       region.AppendTasks(tasks_inout);
     }
   }
+
  private:
   std::list<TaskRegion> regions;
   int ruid{0};
