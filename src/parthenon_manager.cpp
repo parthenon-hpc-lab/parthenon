@@ -289,7 +289,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Allocate space based on largest vector
   int max_vlen = 1;
   int num_sparse = 0;
-  size_t nCells = 1;
+  size_t max_nCells = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -314,7 +314,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     bsize.push_back(out_jb.e - out_jb.s + 1);
     bsize.push_back(out_kb.e - out_kb.s + 1);
 
-    nCells = std::max(nCells, bsize[0] * bsize[1] * bsize[2]);
+    max_nCells = std::max(max_nCells, bsize[0] * bsize[1] * bsize[2]);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -322,7 +322,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       num_sparse == sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
+  std::vector<Real> tmp(static_cast<size_t>(nb) * max_nCells * max_vlen);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components;
     const auto &label = v_info.label;
@@ -352,6 +352,12 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = dealloc_count;
         } else {
           // nothing to read for this block, advance reading index
+          IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
+          IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
+          IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
+          int nCells = (out_ib.e - out_ib.s + 1);
+          nCells *= (out_jb.e - out_jb.s + 1);
+          nCells *= (out_kb.e - out_kb.s + 1);
           index += nCells * vlen;
           continue;
         }
