@@ -288,11 +288,6 @@ class TaskList {
                    std::forward<Args>(args)...);
   }
 
-  template <class... Args>
-  TaskID AddTask(const TaskQualifier tq, TaskID dep, std::string label, Args &&...args) {
-    return AddTask(tq, dep, std::optional<std::string>(label),
-                   std::forward<Args>(args)...);
-  }
 
   template <class... Args>
   TaskID AddTask(const TaskQualifier tq, TaskID dep, std::optional<std::string> label,
@@ -557,8 +552,9 @@ class TaskRegion {
 
   size_t size() const { return task_lists.size(); }
 
-  inline friend std::ostream &operator<<(std::ostream &stream, const TaskRegion &region) {
+  inline friend std::ostream &operator<<(std::ostream &stream, TaskRegion &region) {
     std::vector<std::shared_ptr<Task>> tasks;
+    region.BuildGraph();
     for (const auto &tl : region.task_lists) {
       tl.AppendTasks(tasks);
     }
@@ -629,9 +625,10 @@ class TaskCollection {
     return TaskListStatus::complete;
   }
 
-  inline friend std::ostream &operator<<(std::ostream &stream, const TaskCollection &tc) {
+  inline friend std::ostream &operator<<(std::ostream &stream, TaskCollection &tc) {
     std::vector<std::shared_ptr<Task>> tasks;
-    for (const auto &region : tc.regions) {
+    for (auto &region : tc.regions) {
+      region.BuildGraph();
       for (const auto &tl : region.GetTaskLists()) {
         tl.AppendTasks(tasks);
       }
