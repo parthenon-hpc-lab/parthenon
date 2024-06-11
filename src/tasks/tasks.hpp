@@ -553,14 +553,18 @@ class TaskRegion {
 
   inline friend std::ostream &operator<<(std::ostream &stream, TaskRegion &region) {
     std::vector<std::shared_ptr<Task>> tasks;
-    region.BuildGraph();
-    for (const auto &tl : region.task_lists) {
-      tl.AppendTasks(tasks);
-    }
+    region.AppendTasks(tasks);
     return WriteTaskGraph(stream, tasks);
   }
 
-  const std::vector<TaskList> &GetTaskLists() const { return task_lists; }
+  std::vector<TaskList> &GetTaskLists() { return task_lists; }
+
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
+    BuildGraph(); 
+    for (const auto &tl : task_lists) {
+      tl.AppendTasks(tasks_inout);
+    } 
+  }
 
  private:
   std::vector<TaskList> task_lists;
@@ -626,15 +630,15 @@ class TaskCollection {
 
   inline friend std::ostream &operator<<(std::ostream &stream, TaskCollection &tc) {
     std::vector<std::shared_ptr<Task>> tasks;
-    for (auto &region : tc.regions) {
-      region.BuildGraph();
-      for (const auto &tl : region.GetTaskLists()) {
-        tl.AppendTasks(tasks);
-      }
-    }
+    tc.AppendTasks(tasks);
     return WriteTaskGraph(stream, tasks);
   }
-
+  
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
+    for (auto &region : regions) {
+      region.AppendTasks(tasks_inout);
+    }
+  }
  private:
   std::list<TaskRegion> regions;
   int ruid{0};
