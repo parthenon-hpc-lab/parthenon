@@ -63,16 +63,6 @@ Here we collect some notes about the implementation of selected aspects of \text
 
 To allow more complex topological meshes than are currently supported\footnote{The \texttt{Athena++} implementation  of octree AMR limits domains to having a logically hyper-rectangular shape.}, we would like to go to a forest of octrees type approach. We can then think of a topological macromesh of trees that share faces, edges, and nodes. The goal is to support an arbitrarily connected hexahedral macrosmesh, which implies that trees can have one tree neighbor per face, but an arbitrary number of edge and node connections (including zero even on internal elements). Additionally, the logical coordinate systems of the trees do not necessarily align, so it is necessary to encode information about the relative connectivity of the blocks with shared elements. 
 
-\begin{itemize}
-    \item \texttt{p4est} is a code that is similar to what we want to do, main reference is \cite{Burstedde:2011}, others are \cite{Isaac:2015, Burstedde:2020}
-    \item We can get some geometric inspiration (e.g. how to deal with coordinates on different trees and their interelation) from hexahedral mesh building. Building hexahedral meshes is complex, recent review of hex meshing in \cite{Pietroni:2022}. \cite{Kowalski:2014} build meshes based on frame fields, not a great reference but where I started. \cite{Ray:2008} gives a mathematical description of n-symmetry direction fields (e.g. crosses) which are useful for meshing. \cite{Corman:2019} cool meshing algorithm based on insights from continuous differential geometry. \cite{Liu:2018} has a nice discussion of generalities of hexmesh topologies and integer grid maps. \cite{Bommes:2013} widely cited reference with some more formal discussion of integer grid maps (which may be useful for thinking about how to define our coordinate charts and atlases). \cite{Kalberer:2007} nice description of a quadmeshing algorithm and discussion of how to define coordinate atlas and grids on discrete surfaces. 
-\end{itemize}
-
-General thoughts:
-\begin{itemize}
-    \item We probably require skew coordinate systems to deal with odd valence points. For trees that are normal valence everywhere, we can probably assume our integer grid maps are conformal. What is the relationship between skew coordinates and singular points?
-\end{itemize}
-
 A forest of octrees covering a manifold $\mathcal{M}$ is defined by a set of nodes, $\mathcal{N}$, and a set of faces, $\mathcal{F}$ (in 2D) or cells $\mathcal{C}$ (in 3D) that each contain an octree. Each face corresponds to a 4-tuple of nodes, $f_i$ and each cell corresponds to an 8-tuple of nodes, $c_i$. For now, we do not attach any further geometric information to the forest. Rather, we just assume that there exist integer grid maps $g_i: \Omega_i \rightarrow \mathcal{M}_i$, where $\mathcal{M}_i \in \mathcal{M}$ is the region of the manifold covered by face (cell) $i$ and $\Omega_i \in \Omega$ is a square (cubic) region of an integer grid $\Omega$ that is bounded by integer grid lines (planes) separated by one unit. The ghost halos and interiors of the the trees are connected by logical coordinate transformations $\tau_{i \rightarrow j}$.
 \begin{center}
 \input{mesh_overview.tex}
