@@ -94,8 +94,9 @@ struct RegionSize {
 
   // Returns global coordinate position within a block based on block local
   // coordinate u running from zero to one
-  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
-    return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
+  Real SymmetrizedLogicalToActualPosition(Real u, CoordinateDirection dir) const {
+    return static_cast<Real>(0.5) * (xmin_[dir - 1] + xmax_[dir - 1]) +
+           (u * xmax_[dir - 1] - u * xmin_[dir - 1]);
   }
   // A "symmetry" direction is a a direction that posesses a translational symmetry
   // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given

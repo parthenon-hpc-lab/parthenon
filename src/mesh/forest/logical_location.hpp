@@ -62,6 +62,8 @@ class LogicalLocation { // aggregate and POD type
         morton_(std::max(lev, 0), l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
+  static Real IndexToSymmetrizedCoordinate(int index, BlockLocation bloc, int range);
+
   std::string label() const;
   const auto &l(int i) const { return l_[i]; }
   const auto &lx1() const { return l_[0]; }
