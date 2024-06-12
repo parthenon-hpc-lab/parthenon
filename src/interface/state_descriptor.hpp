@@ -33,6 +33,7 @@
 #include "interface/swarm.hpp"
 #include "interface/var_id.hpp"
 #include "interface/variable.hpp"
+#include "outputs/output_parameters.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
@@ -45,6 +46,7 @@ template <typename T>
 class MeshData;
 
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
+using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -412,6 +414,17 @@ class StateDescriptor {
     if (UserWorkBeforeLoopMesh != nullptr) return UserWorkBeforeLoopMesh(pmesh, pin, tm);
   }
 
+  void UserWorkBeforeOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
+    if (UserWorkBeforeOutputMesh != nullptr)
+      return UserWorkBeforeOutputMesh(pmesh, pin, tm);
+  }
+
+  void UserWorkBeforeRestartOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm,
+                                   OutputParameters *pparams) const {
+    if (UserWorkBeforeRestartOutputMesh != nullptr)
+      return UserWorkBeforeRestartOutputMesh(pmesh, pin, tm, pparams);
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
   std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
@@ -424,6 +437,10 @@ class StateDescriptor {
   std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
       nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>
+      UserWorkBeforeRestartOutputMesh = nullptr;
 
   std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
       nullptr;
@@ -440,6 +457,7 @@ class StateDescriptor {
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
  protected:
   void InvertControllerMap();

@@ -281,7 +281,15 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
         mFlags.push_back(Metadata::Edge);
       else if (m.IsSet(Metadata::Edge))
         mFlags.push_back(Metadata::Node);
-      Metadata mf(mFlags, m.Shape());
+
+      Metadata mf;
+      if (m.GetRefinementFunctions().label().size() > 0) {
+        // Propagate custom refinement ops to flux field
+        mf = Metadata(mFlags, m.Shape(), std::vector<std::string>(), std::string(),
+                      m.GetRefinementFunctions());
+      } else {
+        mf = Metadata(mFlags, m.Shape());
+      }
       auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
                        vid.sparse_id};
       AddFieldImpl(fId, mf, control_vid);
@@ -447,6 +455,11 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
       state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
                                              package->UserBoundaryFunctions[i].begin(),
                                              package->UserBoundaryFunctions[i].end());
+    for (int i = 0; i < 6; ++i)
+      state->UserSwarmBoundaryFunctions[i].insert(
+          state->UserSwarmBoundaryFunctions[i].end(),
+          package->UserSwarmBoundaryFunctions[i].begin(),
+          package->UserSwarmBoundaryFunctions[i].end());
   }
 
   // check that dependent variables are provided somewhere

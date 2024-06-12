@@ -146,6 +146,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+
+        AND_THEN("A sparse pack can correctly output variable names") {
+          REQUIRE(sparse_pack.LabelHost(0, 0) == "v7");
+        }
       }
     }
   }
@@ -213,6 +217,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(pack.ContainsHost(2, v5()));
         REQUIRE(!pack.ContainsHost(2, v1(), v3(), v5()));
         REQUIRE(pack.ContainsHost<v1, v5>(2));
+        REQUIRE(pack.GetSizeHost(2, v1()) == 1);
+        REQUIRE(pack.GetSizeHost(2, v3()) == 0);
+        REQUIRE(pack.GetSizeHost(1, v3()) == 3);
       }
 
       THEN("A sparse pack correctly loads this data and can be read from v3 on all "

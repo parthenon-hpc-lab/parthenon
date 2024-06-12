@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -34,12 +34,14 @@
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
+#include "outputs/restart.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -297,6 +299,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // can't use std::vector here because std::vector<hbool_t> is the same as
   // std::vector<bool> and it doesn't have .data() member
   std::unique_ptr<hbool_t[]> sparse_allocated(new hbool_t[num_blocks_local * num_sparse]);
+  std::vector<int> sparse_dealloc_count(num_blocks_local * num_sparse);
 
   // allocate space for largest size variable
   int varSize_max = 0;
@@ -356,7 +359,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
       bool is_allocated = false;
-
+      int dealloc_count = 0;
       // for each variable that this local meshblock actually has
       const auto vars = get_vars(pmb);
       for (auto &v : vars) {
@@ -369,8 +372,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
               [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
                 tmpData[index] = static_cast<OutT>(v_h(topo, t, u, v, k, j, i));
               });
-
           is_allocated = true;
+          dealloc_count = v->dealloc_count;
           break;
         }
       }
@@ -378,6 +381,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       if (vinfo.is_sparse) {
         size_t sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
+        sparse_dealloc_count[b_idx * num_sparse + sparse_idx] = dealloc_count;
       }
 
       if (!is_allocated) {
@@ -441,8 +445,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
   if (num_sparse > 0) {
-    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_names, num_sparse, file, pl_xfer,
-                     my_offset, max_blocks_global);
+    WriteSparseInfo_(pm, sparse_allocated.get(), sparse_dealloc_count, sparse_names,
+                     num_sparse, file, pl_xfer, my_offset, max_blocks_global);
   } // SparseInfo and SparseFields sections
 
   // -------------------------------------------------------------------------------- //
@@ -482,6 +486,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       local_count[rank] = swinfo.count_on_rank;
       global_count[rank] = swinfo.global_count;
     };
+    auto SetCountsParticlePositions = [&](const SwarmInfo &swinfo) {
+      for (int i = 0; i < 6; ++i) {
+        local_offset[i] = 0; // reset everything
+        local_count[i] = 0;
+        global_count[i] = 0;
+      }
+      local_offset[0] = swinfo.global_offset;
+      local_count[0] = swinfo.count_on_rank;
+      global_count[0] = swinfo.global_count;
+      local_count[1] = global_count[1] = 3;
+    };
     auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : int_vars) {
       const auto &vinfo = swinfo.var_info.at(vname);
@@ -490,6 +505,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
+    std::vector<Real> pos_tmp; // tmp vector to (potentially) hold particle positions
     auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : rvars) {
       const auto &vinfo = swinfo.var_info.at(vname);
@@ -497,7 +513,32 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       SetCounts(swinfo, vinfo);
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
+      if (output_params.write_swarm_xdmf &&
+          (vname == swarm_position::x::name() || vname == swarm_position::y::name() ||
+           vname == swarm_position::z::name())) {
+        pos_tmp.insert(pos_tmp.end(), host_data.begin(), host_data.end());
+      }
     }
+    if (output_params.write_swarm_xdmf) {
+      // TODO(@pdmullen): Here and above, we have worked with temp vectors pos_tmp and
+      // swarm_positions so that we can take the existing swarm position data structures
+      // and recast them into a format that XDMF/VisIt prefers.  Future efforts may (1)
+      // eliminate the extra geometry dump and/or (2) directly write the auxillary
+      // positions via low-level HDF writes, such that the vector manipulation below is
+      // unnecessary.
+      const int npart = pos_tmp.size() / 3;
+      std::vector<Real> swarm_positions(pos_tmp.size());
+      int spcnt = 0;
+      for (int i = 0; i < npart; ++i) {
+        swarm_positions[spcnt++] = pos_tmp[i];
+        swarm_positions[spcnt++] = pos_tmp[npart + i];
+        swarm_positions[spcnt++] = pos_tmp[2 * npart + i];
+      }
+      SetCountsParticlePositions(swinfo);
+      HDF5WriteND(g_var, "swarm_positions", swarm_positions.data(), 2, local_offset,
+                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+    }
+
     // If swarm does not contain an "id" object, generate a sequential
     // one for vis.
     if (swinfo.var_info.count("id") == 0) {
@@ -512,10 +553,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
   Kokkos::Profiling::popRegion(); // write particle data
 
-  if (output_params.write_xdmf) {
+  if (output_params.write_xdmf || output_params.write_swarm_xdmf) {
     Kokkos::Profiling::pushRegion("genXDMF");
     // generate XDMF companion file
-    XDMF::genXDMF(filename, pm, tm, theDomain, nx1, nx2, nx3, all_vars_info, swarm_info);
+    XDMF::genXDMF(filename, pm, tm, theDomain, nx1, nx2, nx3, all_vars_info, swarm_info,
+                  output_params.write_xdmf, output_params.write_swarm_xdmf);
     Kokkos::Profiling::popRegion(); // genXDMF
   }
 
@@ -594,12 +636,22 @@ void PHDF5Output::WriteBlocksMetadata_(Mesh *pm, hid_t file, const HDF5::H5P &pl
 
   {
     // (LOC.)level, GID, LID, cnghost, gflag
-    hsize_t loc_cnt[2] = {num_blocks_local, 5};
-    hsize_t glob_cnt[2] = {max_blocks_global, 5};
+    hsize_t loc_cnt[2] = {num_blocks_local, NumIDsAndFlags};
+    hsize_t glob_cnt[2] = {max_blocks_global, NumIDsAndFlags};
     std::vector<int> tmpID = OutputUtils::ComputeIDsAndFlags(pm);
     HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), &loc_offset[0],
                 &loc_cnt[0], &glob_cnt[0], pl);
   }
+
+  {
+    // derefinement count
+    hsize_t loc_cnt[2] = {num_blocks_local, 1};
+    hsize_t glob_cnt[2] = {max_blocks_global, 1};
+    std::vector<int> tmpID = OutputUtils::ComputeDerefinementCount(pm);
+    HDF5Write2D(gBlocks, "derefinement_count", tmpID.data(), &loc_offset[0], &loc_cnt[0],
+                &glob_cnt[0], pl);
+  }
+
   Kokkos::Profiling::popRegion(); // write block metadata
 }
 
@@ -660,6 +712,7 @@ void PHDF5Output::WriteLevelsAndLocs_(Mesh *pm, hid_t file, const HDF5::H5P &pl,
 }
 
 void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
+                                   const std::vector<int> &dealloc_count,
                                    const std::vector<std::string> &sparse_names,
                                    hsize_t num_sparse, hid_t file, const HDF5::H5P &pl,
                                    size_t offset, hsize_t max_blocks_global) const {
@@ -673,6 +726,9 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
   HDF5Write2D(file, "SparseInfo", sparse_allocated, &loc_offset[0], &loc_cnt[0],
               &glob_cnt[0], pl);
+
+  HDF5Write2D(file, "SparseDeallocCount", dealloc_count.data(), &loc_offset[0],
+              &loc_cnt[0], &glob_cnt[0], pl);
 
   // write names of sparse fields as attribute, first convert to vector of const char*
   std::vector<const char *> names(num_sparse);

@@ -184,6 +184,7 @@ Mesh
 -  ``PostStepUserWorkInLoop``
 -  ``UserWorkAfterLoop``
 -  ``UserMeshWorkBeforeOutput``
+-  ``UserMeshWorkBeforeRestartOutput``
 
 MeshBlock
 ^^^^^^^^^

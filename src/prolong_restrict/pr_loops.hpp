@@ -171,8 +171,7 @@ InnerHostProlongationRestrictionLoop(std::size_t buf, const ProResInfoArrHost_t 
   auto coarse = info(buf).coarse;
   auto fine = info(buf).fine;
   par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, 0, 0, 0, 0,
-      idxer.size() - 1, KOKKOS_LAMBDA(const int, const int, const int ii) {
+      PARTHENON_AUTO_LABEL, 0, idxer.size() - 1, KOKKOS_LAMBDA(const int ii) {
         const auto [t, u, v, k, j, i] = idxer(ii);
         if (idxer.IsActive(k, j, i)) {
           Stencil::template Do<DIM, FEL, CEL>(t, u, v, k, j, i, ckb, cjb, cib, kb, jb, ib,

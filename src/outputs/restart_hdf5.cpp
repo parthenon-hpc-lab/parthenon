@@ -85,6 +85,7 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
     // SparseInfo exists, read its contents
     auto hdl = OpenDataset<bool>("SparseInfo");
     PARTHENON_REQUIRE_THROWS(hdl.rank == 2, "SparseInfo expected to have rank 2");
+    auto hdl_dealloc = OpenDataset<int>("SparseDeallocCount");
 
     info.labels = HDF5ReadAttributeVec<std::string>(hdl.dataset, "SparseFields");
     info.num_sparse = static_cast<int>(info.labels.size());
@@ -102,6 +103,12 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
     // Read data from file
     PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
                                  H5P_DEFAULT, static_cast<void *>(info.allocated.get())));
+    info.dealloc_count.resize(hdl_dealloc.count);
+    PARTHENON_HDF5_CHECK(H5Dread(hdl_dealloc.dataset, hdl_dealloc.type,
+                                 H5S::FromHIDCheck(H5Screate_simple(
+                                     hdl_dealloc.rank, hdl_dealloc.dims.data(), NULL)),
+                                 hdl_dealloc.dataspace, H5P_DEFAULT,
+                                 static_cast<void *>(info.dealloc_count.data())));
   }
 
   return info;
@@ -109,6 +116,9 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 }
 
 RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
   RestartReaderHDF5::MeshInfo mesh_info;
   mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
   mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
@@ -127,7 +137,22 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.level_gid_lid_cnghost_gflag =
       ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
 
+  auto status =
+      PARTHENON_HDF5_CHECK(H5Lexists(fh_, "Blocks/derefinement_count", H5P_DEFAULT));
+  if (status > 0) {
+    mesh_info.derefinement_count = ReadDataset<int>("/Blocks/derefinement_count");
+  } else {
+    // File does not contain this dataset, so must be older. Set to default value of zero
+    if (Globals::my_rank == 0 && (GetAttr<int>("Info", "Multilevel") != 0))
+      PARTHENON_WARN("Restarting from an HDF5 file that doesn't contain "
+                     "/Blocks/derefinement_count. \n"
+                     "  If you are running with AMR, this may cause restarts to not be "
+                     "bitwise exact \n"
+                     "  with simulations that are run without restarting.");
+    mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
+  }
   return mesh_info;
+#endif
 }
 
 SimTime RestartReaderHDF5::GetTimeInfo() const {

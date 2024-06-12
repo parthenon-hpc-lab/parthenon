@@ -19,328 +19,146 @@
 
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
+#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
 namespace parthenon {
 
-template <class BOutflow, class BPeriodic, int iFace>
-void Swarm::AllocateBoundariesImpl_(MeshBlock *pmb) {
-  std::stringstream msg;
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
-  if (bcs[iFace] == BoundaryFlag::outflow) {
-    bounds_uptrs[iFace] = DeviceAllocate<BOutflow>();
-  } else if (bcs[iFace] == BoundaryFlag::periodic) {
-    bounds_uptrs[iFace] = DeviceAllocate<BPeriodic>();
-  } else if (bcs[iFace] == BoundaryFlag::user) {
-    if (pmb->pmy_mesh->SwarmBndryFnctn[iFace] != nullptr) {
-      bounds_uptrs[iFace] = pmb->pmy_mesh->SwarmBndryFnctn[iFace]();
-    } else {
-      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
-          << " user boundary requested but provided function is null!";
-      PARTHENON_THROW(msg);
-    }
-  } else {
-    msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
-        << static_cast<int>(bcs[iFace]) << " not supported!";
-    PARTHENON_THROW(msg);
-  }
-}
-
-void Swarm::AllocateBoundaries() {
-  auto pmb = GetBlockPointer();
-  std::stringstream msg;
-
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
-
-  AllocateBoundariesImpl_<ParticleBoundIX1Outflow, ParticleBoundIX1Periodic, 0>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX1Outflow, ParticleBoundOX1Periodic, 1>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundIX2Outflow, ParticleBoundIX2Periodic, 2>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX2Outflow, ParticleBoundOX2Periodic, 3>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundIX3Outflow, ParticleBoundIX3Periodic, 4>(
-      pmb.get());
-  AllocateBoundariesImpl_<ParticleBoundOX3Outflow, ParticleBoundOX3Periodic, 5>(
-      pmb.get());
-
-  for (int n = 0; n < 6; n++) {
-    bounds_d.bounds[n] = bounds_uptrs[n].get();
-    std::stringstream msg;
-    msg << "Boundary condition on face " << n << " missing.\n"
-        << "Please set it to `outflow`, `periodic`, or `user` in the input deck.\n"
-        << "If you set it to user, you must also manually set "
-        << "the swarm boundary pointer in your application." << std::endl;
-    PARTHENON_REQUIRE(bounds_d.bounds[n] != nullptr, msg);
-  }
-}
-
 ///
-/// Routine for precomputing neighbor indices to efficiently compute particle
-/// position in terms of neighbor blocks based on spatial position. See
+/// Routine for precomputing neighbor indices to efficiently compute particle position
+/// in terms of neighbor blocks based on spatial position for communication. See
 /// GetNeighborBlockIndex()
 ///
-void Swarm::SetNeighborIndices1D_() {
+void Swarm::SetNeighborIndices_() {
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
   auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
 
   // Initialize array in event of zero neighbors
-  for (int k = 0; k < 4; k++) {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 4; i++) {
+  for (int k = 0; k <= 3; k++) {
+    for (int j = 0; j <= 3; j++) {
+      for (int i = 0; i <= 3; i++) {
         neighbor_indices_h(k, j, i) = no_block_;
       }
     }
   }
 
   // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = 0;
-  const int kmax = 4;
-  const int jmin = 0;
-  const int jmax = 4;
+  const int kmin = ndim < 3 ? 0 : 1;
+  const int kmax = ndim < 3 ? 3 : 2;
+  const int jmin = ndim < 2 ? 0 : 1;
+  const int jmax = ndim < 2 ? 3 : 2;
   const int imin = 1;
-  const int imax = 3;
-  for (int k = kmin; k < kmax; k++) {
-    for (int j = jmin; j < jmax; j++) {
-      for (int i = imin; i < imax; i++) {
+  const int imax = 2;
+  for (int k = kmin; k <= kmax; k++) {
+    for (int j = jmin; j <= jmax; j++) {
+      for (int i = imin; i <= imax; i++) {
         neighbor_indices_h(k, j, i) = this_block_;
       }
     }
   }
 
-  auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
-  // Indicate which neighbor regions correspond to each neighbor meshblock
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.offsets(X1DIR);
-
-    if (i == -1) {
-      neighbor_indices_h(0, 0, 0) = n;
-    } else if (i == 0) {
-      neighbor_indices_h(0, 0, 1) = n;
-      neighbor_indices_h(0, 0, 2) = n;
-    } else {
-      neighbor_indices_h(0, 0, 3) = n;
-    }
-  }
-
-  neighbor_indices_.DeepCopy(neighbor_indices_h);
-}
-
-void Swarm::SetNeighborIndices2D_() {
-  auto pmb = GetBlockPointer();
-  const int ndim = pmb->pmy_mesh->ndim;
-  auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
-
-  // Initialize array in event of zero neighbors
+  // Create a point in the center of each ghost halo region at maximum refinement level
+  // and then test whether each neighbor block includes that point.
+  const auto &bsize = pmb->block_size;
+  const std::array<Real, 3> dx_test = {(bsize.xmax_[0] - bsize.xmin_[0]) / 2.,
+                                       (bsize.xmax_[1] - bsize.xmin_[1]) / 2.,
+                                       (bsize.xmax_[2] - bsize.xmin_[2]) / 2.};
   for (int k = 0; k < 4; k++) {
     for (int j = 0; j < 4; j++) {
       for (int i = 0; i < 4; i++) {
-        neighbor_indices_h(k, j, i) = no_block_;
-      }
-    }
-  }
+        // Midpoint of meshblock at highest possible refinement level in this i,j,k
+        // ghost halo.
+        std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - 0.5) * dx_test[0],
+                                      ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / 2.
+                                               : bsize.xmin_[1] + (j - 0.5) * dx_test[1],
+                                      ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / 2.
+                                               : bsize.xmin_[2] + (k - 0.5) * dx_test[2]};
 
-  // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = 0;
-  const int kmax = 4;
-  const int jmin = 1;
-  const int jmax = 3;
-  const int imin = 1;
-  const int imax = 3;
-  for (int k = kmin; k < kmax; k++) {
-    for (int j = jmin; j < jmax; j++) {
-      for (int i = imin; i < imax; i++) {
-        neighbor_indices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
-  // Indicate which neighbor regions correspond to each neighbor meshblock
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.offsets(X1DIR);
-    const int j = nb.offsets(X2DIR);
-
-    if (i == -1) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 0) = n;
-      } else if (j == 0) {
-        neighbor_indices_h(0, 1, 0) = n;
-        neighbor_indices_h(0, 2, 0) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 0) = n;
-      }
-    } else if (i == 0) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 1) = n;
-        neighbor_indices_h(0, 0, 2) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 1) = n;
-        neighbor_indices_h(0, 3, 2) = n;
-      }
-    } else if (i == 1) {
-      if (j == -1) {
-        neighbor_indices_h(0, 0, 3) = n;
-      } else if (j == 0) {
-        neighbor_indices_h(0, 1, 3) = n;
-        neighbor_indices_h(0, 2, 3) = n;
-      } else if (j == 1) {
-        neighbor_indices_h(0, 3, 3) = n;
-      }
-    }
-  }
-
-  neighbor_indices_.DeepCopy(neighbor_indices_h);
-}
-
-void Swarm::SetNeighborIndices3D_() {
-  auto pmb = GetBlockPointer();
-  const int ndim = pmb->pmy_mesh->ndim;
-  auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
-
-  // Initialize array in event of zero neighbors
-  for (int k = 0; k < 4; k++) {
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < 4; i++) {
-        neighbor_indices_h(k, j, i) = no_block_;
-      }
-    }
-  }
-
-  // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = 1;
-  const int kmax = 3;
-  const int jmin = 1;
-  const int jmax = 3;
-  const int imin = 1;
-  const int imax = 3;
-  for (int k = kmin; k < kmax; k++) {
-    for (int j = jmin; j < jmax; j++) {
-      for (int i = imin; i < imax; i++) {
-        neighbor_indices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
-  // Indicate which neighbor regions correspond to each neighbor meshblock
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
-    const int i = nb.offsets(X1DIR);
-    const int j = nb.offsets(X2DIR);
-    const int k = nb.offsets(X3DIR);
-
-    if (i == -1) {
-      if (j == -1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 0, 0) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 0, 0) = n;
-          neighbor_indices_h(2, 0, 0) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 0, 0) = n;
+        // Account for periodic boundary conditions by applying BCs to x_test
+        // Assumes mesh is hyper-rectangular and Mesh::mesh_size represents the entire
+        // domain.
+        auto &msize = pmb->pmy_mesh->mesh_size;
+        if (pmb->boundary_flag[0] == BoundaryFlag::periodic) {
+          if (x_test[0] < msize.xmin(X1DIR)) {
+            x_test[0] = msize.xmax(X1DIR) - (msize.xmin(X1DIR) - x_test[0]);
+          }
         }
-      } else if (j == 0) {
-        if (k == -1) {
-          neighbor_indices_h(0, 1, 0) = n;
-          neighbor_indices_h(0, 2, 0) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 1, 0) = n;
-          neighbor_indices_h(1, 2, 0) = n;
-          neighbor_indices_h(2, 1, 0) = n;
-          neighbor_indices_h(2, 2, 0) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 1, 0) = n;
-          neighbor_indices_h(3, 2, 0) = n;
+        if (pmb->boundary_flag[1] == BoundaryFlag::periodic) {
+          if (x_test[0] > msize.xmax(X1DIR)) {
+            x_test[0] = msize.xmin(X1DIR) + (x_test[0] - msize.xmax(X1DIR));
+          }
         }
-      } else if (j == 1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 3, 0) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 3, 0) = n;
-          neighbor_indices_h(2, 3, 0) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 3, 0) = n;
+        if (ndim > 1) {
+          if (pmb->boundary_flag[2] == BoundaryFlag::periodic) {
+            if (x_test[1] < msize.xmin(X2DIR)) {
+              x_test[1] = msize.xmax(X2DIR) - (msize.xmin(X2DIR) - x_test[1]);
+            }
+          }
+          if (pmb->boundary_flag[3] == BoundaryFlag::periodic) {
+            if (x_test[1] > msize.xmax(X2DIR)) {
+              x_test[1] = msize.xmin(X2DIR) + (x_test[1] - msize.xmax(X2DIR));
+            }
+          }
         }
-      }
-    } else if (i == 0) {
-      if (j == -1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 0, 1) = n;
-          neighbor_indices_h(0, 0, 2) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 0, 1) = n;
-          neighbor_indices_h(1, 0, 2) = n;
-          neighbor_indices_h(2, 0, 1) = n;
-          neighbor_indices_h(2, 0, 2) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 0, 1) = n;
-          neighbor_indices_h(3, 0, 2) = n;
+        if (ndim > 2) {
+          if (pmb->boundary_flag[4] == BoundaryFlag::periodic) {
+            if (x_test[2] < msize.xmin(X3DIR)) {
+              x_test[2] = msize.xmax(X3DIR) - (msize.xmin(X3DIR) - x_test[2]);
+            }
+          }
+          if (pmb->boundary_flag[5] == BoundaryFlag::periodic) {
+            if (x_test[2] > msize.xmax(X3DIR)) {
+              x_test[2] = msize.xmin(X3DIR) + (x_test[2] - msize.xmax(X3DIR));
+            }
+          }
         }
-      } else if (j == 0) {
-        if (k == -1) {
-          neighbor_indices_h(0, 1, 1) = n;
-          neighbor_indices_h(0, 1, 2) = n;
-          neighbor_indices_h(0, 2, 1) = n;
-          neighbor_indices_h(0, 2, 2) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 1, 1) = n;
-          neighbor_indices_h(3, 1, 2) = n;
-          neighbor_indices_h(3, 2, 1) = n;
-          neighbor_indices_h(3, 2, 2) = n;
-        }
-      } else if (j == 1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 3, 1) = n;
-          neighbor_indices_h(0, 3, 2) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 3, 1) = n;
-          neighbor_indices_h(1, 3, 2) = n;
-          neighbor_indices_h(2, 3, 1) = n;
-          neighbor_indices_h(2, 3, 2) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 3, 1) = n;
-          neighbor_indices_h(3, 3, 2) = n;
-        }
-      }
-    } else if (i == 1) {
-      if (j == -1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 0, 3) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 0, 3) = n;
-          neighbor_indices_h(2, 0, 3) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 0, 3) = n;
-        }
-      } else if (j == 0) {
-        if (k == -1) {
-          neighbor_indices_h(0, 1, 3) = n;
-          neighbor_indices_h(0, 2, 3) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 1, 3) = n;
-          neighbor_indices_h(1, 2, 3) = n;
-          neighbor_indices_h(2, 1, 3) = n;
-          neighbor_indices_h(2, 2, 3) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 1, 3) = n;
-          neighbor_indices_h(3, 2, 3) = n;
-        }
-      } else if (j == 1) {
-        if (k == -1) {
-          neighbor_indices_h(0, 3, 3) = n;
-        } else if (k == 0) {
-          neighbor_indices_h(1, 3, 3) = n;
-          neighbor_indices_h(2, 3, 3) = n;
-        } else if (k == 1) {
-          neighbor_indices_h(3, 3, 3) = n;
+
+        // Loop over neighbor blocks and see if any contains this test point.
+        for (int n = 0; n < pmb->neighbors.size(); n++) {
+          NeighborBlock &nb = pmb->neighbors[n];
+          const auto &nbsize = nb.block_size;
+          if ((x_test[0] > nbsize.xmin_[0] && x_test[0] < nbsize.xmax_[0]) &&
+              (x_test[1] > nbsize.xmin_[1] && x_test[1] < nbsize.xmax_[1]) &&
+              (x_test[2] > nbsize.xmin_[2] && x_test[2] < nbsize.xmax_[2])) {
+            neighbor_indices_h(k, j, i) = n;
+            break;
+          }
         }
       }
     }
   }
+
+  // Draft alternative approach due to LFR utilizing mesh offset comparisons at the
+  // highest refinement level
+  // auto ll_block = pmb->loc.GetDaughter(0, 0, 0);
+  // int finest_level = pmb->loc.level() + 1;
+  // for (auto &n : pmb->neighbors) {
+  //  std::vector<LogicalLocation> dlocs;
+  //  auto &nloc =
+  //      n.loc; // Would need to use the location in the coordinates of the origin tree
+  //  if (nloc.level() == finest_level) {
+  //    dlocs.emplace_back(nloc);
+  //  } else if (nloc.level() == finest_level) {
+  //    dlocs = nloc.GetDaughters(ndim);
+  //  } else if (nloc.level() == finest_level - 2) {
+  //    auto tlocs = nloc.GetDaughters(ndim);
+  //    for (auto &t : tlocs) {
+  //      auto gdlocs = t.GetDaughters(ndim);
+  //      dlocs.insert(dlocs.end(), gdlocs.begin(), gdlocs.end());
+  //    }
+  //  } else {
+  //    PARTHENON_FAIL("Proper nesting is not being respected.");
+  //  }
+  //  for (auto &d : dlocs) {
+  //    const int k = d.lx3() - ll_block.lx3() + 1;
+  //    const int j = d.lx2() - ll_block.lx2() + 1;
+  //    const int i = d.lx1() - ll_block.lx1() + 1;
+  //    if (i >= 0 && i <= 3 && j >= 0 && j <= 3 && k >= 0 && k <= 3)
+  //      neighbor_indices_h(k, j, i) = n.gid;
+  //  }
+  //}
 
   neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
@@ -354,15 +172,7 @@ void Swarm::SetupPersistentMPI() {
   const int nbmax = vbswarm->bd_var_.nbmax;
 
   // Build up convenience array of neighbor indices
-  if (ndim == 1) {
-    SetNeighborIndices1D_();
-  } else if (ndim == 2) {
-    SetNeighborIndices2D_();
-  } else if (ndim == 3) {
-    SetNeighborIndices3D_();
-  } else {
-    PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
-  }
+  SetNeighborIndices_();
 
   neighbor_received_particles_.resize(nbmax);
 
@@ -379,7 +189,6 @@ void Swarm::SetupPersistentMPI() {
 }
 
 int Swarm::CountParticlesToSend_() {
-  auto block_index_h = block_index_.GetHostMirrorAndCopy();
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
@@ -395,8 +204,23 @@ int Swarm::CountParticlesToSend_() {
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
 
+  // TODO(BRR) This kernel launch should be folded into the subsequent logic once we
+  // convert that to kernel-based reductions
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
+  const int max_active_index = GetMaxActiveIndex();
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+        }
+      });
+
   int max_indices_size = 0;
   int total_noblock_particles = 0;
+  auto block_index_h = block_index_.GetHostMirrorAndCopy();
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
       // This particle should be sent
@@ -430,7 +254,6 @@ int Swarm::CountParticlesToSend_() {
       }
     }
     noblock_indices.DeepCopy(noblock_indices_h);
-    ApplyBoundaries_(total_noblock_particles, noblock_indices);
   }
 
   // TODO(BRR) don't allocate dynamically
@@ -517,6 +340,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
   auto swarm_d = GetDeviceContext();
 
   if (nneighbor == 0) {
+    // TODO(BRR) Do we ever reach this branch?
     // Process physical boundary conditions on "sent" particles
     auto block_index_h = block_index_.GetHostMirrorAndCopy();
     auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
@@ -546,8 +370,6 @@ void Swarm::Send(BoundaryCommSubset phase) {
         }
       }
       new_indices.DeepCopy(new_indices_h);
-
-      ApplyBoundaries_(total_sent_particles, new_indices);
     }
   } else {
     // Query particles for those to be sent
@@ -643,28 +465,7 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
         });
-
-    ApplyBoundaries_(total_received_particles_, new_indices_);
   }
-}
-
-void Swarm::ApplyBoundaries_(const int nparticles, ParArray1D<int> indices) {
-  auto pmb = GetBlockPointer();
-  auto &x = Get<Real>("x").Get();
-  auto &y = Get<Real>("y").Get();
-  auto &z = Get<Real>("z").Get();
-  auto swarm_d = GetDeviceContext();
-  auto bcs = this->bounds_d;
-
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
-        const int sid = indices(n);
-        for (int l = 0; l < 6; l++) {
-          bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
-        }
-      });
-
-  RemoveMarkedParticles();
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
@@ -674,30 +475,30 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   if (nneighbor == 0) {
     // Do nothing; no boundaries to receive
     return true;
-  } else {
-    // Ensure all local deep copies marked BoundaryStatus::completed are actually
-    // received
-    pmb->exec_space.fence();
-
-    // Populate buffers
-    vbswarm->Receive(phase);
-
-    // Transfer data from buffers to swarm memory pool
-    UnloadBuffers_();
-
-    auto &bdvar = vbswarm->bd_var_;
-    bool all_boundaries_received = true;
-    for (int n = 0; n < nneighbor; n++) {
-      NeighborBlock &nb = pmb->neighbors[n];
-      if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
-        bdvar.flag[nb.bufid] = BoundaryStatus::completed;
-      } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
-        all_boundaries_received = false;
-      }
-    }
-
-    return all_boundaries_received;
   }
+
+  // Ensure all local deep copies marked BoundaryStatus::completed are actually
+  // received
+  pmb->exec_space.fence();
+
+  // Populate buffers
+  vbswarm->Receive(phase);
+
+  // Transfer data from buffers to swarm memory pool
+  UnloadBuffers_();
+
+  auto &bdvar = vbswarm->bd_var_;
+  bool all_boundaries_received = true;
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = pmb->neighbors[n];
+    if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
+      bdvar.flag[nb.bufid] = BoundaryStatus::completed;
+    } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
+      all_boundaries_received = false;
+    }
+  }
+
+  return all_boundaries_received;
 }
 
 void Swarm::ResetCommunication() {
@@ -705,7 +506,9 @@ void Swarm::ResetCommunication() {
 #ifdef MPI_PARALLEL
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
-    vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
+    if (vbswarm->bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
+      MPI_Request_free(&(vbswarm->bd_var_.req_send[nb.bufid]));
+    }
   }
 #endif
 

@@ -74,8 +74,14 @@ class Mesh {
   friend class RestartOutput;
   friend class HistoryOutput;
   friend class MeshBlock;
-  friend class MeshBlockTree;
   friend class MeshRefinement;
+
+  struct base_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       base_constructor_selector_t);
+  struct hyper_rectangular_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       hyper_rectangular_constructor_selector_t);
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
@@ -103,11 +109,11 @@ class Mesh {
 
   // data
   bool modified;
-  const bool is_restart;
+  bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
-  const int ndim; // number of dimensions
+  int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;
@@ -153,10 +159,14 @@ class Mesh {
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
 
+  void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
+                                        SimTime const &time, OutputParameters *pparams);
+
   // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
-  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
+  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
@@ -165,19 +175,18 @@ class Mesh {
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
-      &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(
-      Mesh *, ParameterInput *,
-      SimTime const &); // default behavior for pre- and post-step user work
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
-      &UserWorkInLoopDefault;
+      nullptr;
 
-  static void UserMeshWorkBeforeOutputDefault(Mesh *, ParameterInput *, SimTime const &);
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
-      UserMeshWorkBeforeOutput = &UserMeshWorkBeforeOutputDefault;
+      UserMeshWorkBeforeOutput = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &,
+                     OutputParameters *pparams)>
+      UserWorkBeforeRestartOutput = nullptr;
 
   static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
                                                   SimTime const &);
@@ -189,8 +198,8 @@ class Mesh {
       PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
 
   int GetRootLevel() const noexcept { return root_level; }
-  int GetLegacyTreeRootLevel() const noexcept {
-    return forest.root_level + forest.forest_level;
+  int GetLegacyTreeRootLevel() const {
+    return forest.root_level + forest.forest_level.value();
   }
 
   int GetMaxLevel() const noexcept { return max_level; }
@@ -264,9 +273,6 @@ class Mesh {
 
   std::vector<LogicalLocation> loclist;
   forest::Forest forest;
-  // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
-  // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
-  std::array<int, 3> nrbx;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -287,6 +293,11 @@ class Mesh {
 #endif
 
   // functions
+  void CheckMeshValidity() const;
+  void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+                      int mesh_test,
+                      const std::unordered_map<LogicalLocation, int> &dealloc_count = {});
+  void DoStaticRefinement(ParameterInput *pin);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
@@ -305,10 +316,8 @@ class Mesh {
                         const std::vector<int> &ranklist,
                         const std::unordered_set<LogicalLocation> &newly_refined = {});
 
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin);
-  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData =
-      InitUserMeshDataDefault;
+  // Optionally defined in the problem file
+  std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
 
@@ -320,24 +329,6 @@ class Mesh {
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();
   void FillDerived();
-
-  // Transform from logical location coordinates to uniform mesh coordinates accounting
-  // for root grid
-  Real GetMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
-                         const LogicalLocation &loc) const {
-    auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
-    xll *= root_fac;
-    return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll;
-  }
-
-  std::int64_t GetLLFromMeshCoordinate(CoordinateDirection dir, int level,
-                                       Real xmesh) const {
-    auto root_fac = static_cast<Real>(1 << root_level) / static_cast<Real>(nrbx[dir - 1]);
-    auto xLL = (xmesh - mesh_size.xmin(dir)) /
-               (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;
-    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
-  }
 };
 
 } // namespace parthenon

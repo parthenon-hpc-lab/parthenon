@@ -39,7 +39,7 @@ class Forest {
 
  public:
   int root_level;
-  int forest_level;
+  std::optional<int> forest_level{};
 
   void AddTree(const std::shared_ptr<Tree> &in) {
     if (trees.count(in->GetId())) {

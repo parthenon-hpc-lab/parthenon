@@ -93,7 +93,7 @@ static MeshBlockData<Real> createTestContainer(std::shared_ptr<MeshBlock> &dummy
   pkg->AddField("v4", m_in_vec);
   pkg->AddField("v5", m_in);
 
-  MeshBlockData<Real> mbd;
+  MeshBlockData<Real> mbd("base");
   mbd.Initialize(pkg, dummy_mb);
 
   return mbd;

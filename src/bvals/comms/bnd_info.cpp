@@ -264,6 +264,8 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
     var = v->data.Get();
   }
 
+  coords = pmb->coords;
+
   auto elements = v->GetTopologicalElements();
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
   ntopological_elements = elements.size();

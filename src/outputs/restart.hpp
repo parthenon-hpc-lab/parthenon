@@ -35,6 +35,10 @@ namespace parthenon {
 class Mesh;
 class Param;
 
+// If this number changes, the logic for reading previously written restart files in
+// mesh.cpp needs to be adjusted.
+constexpr int NumIDsAndFlags{5};
+
 class RestartReader {
  public:
   RestartReader() = default;
@@ -50,6 +54,8 @@ class RestartReader {
     // std::vector<bool> and it doesn't have .data() member
     std::unique_ptr<bool[]> allocated;
 
+    std::vector<int> dealloc_count;
+
     int num_blocks = 0;
     int num_sparse = 0;
 
@@ -63,6 +69,17 @@ class RestartReader {
 
       return allocated[block * num_sparse + sparse_field_idx];
     }
+
+    int DeallocCount(int block, int sparse_field_idx) const {
+      PARTHENON_REQUIRE_THROWS(allocated != nullptr,
+                               "Tried to get allocation status but no data present");
+      PARTHENON_REQUIRE_THROWS((block >= 0) && (block < num_blocks),
+                               "Invalid block index in SparseInfo:: DeallocCount");
+      PARTHENON_REQUIRE_THROWS((sparse_field_idx >= 0) && (sparse_field_idx < num_sparse),
+                               "Invalid sparse field index in SparseInfo:: DeallocCount");
+
+      return dealloc_count[block * num_sparse + sparse_field_idx];
+    }
   };
 
   [[nodiscard]] virtual SparseInfo GetSparseInfo() const = 0;
@@ -74,6 +91,7 @@ class RestartReader {
     std::vector<Real> grid_dim;
     std::vector<int64_t> lx123;
     std::vector<int> level_gid_lid_cnghost_gflag; // what's this?!
+    std::vector<int> derefinement_count;
   };
   [[nodiscard]] virtual MeshInfo GetMeshInfo() const = 0;
 

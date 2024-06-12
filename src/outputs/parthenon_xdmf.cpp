@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -18,6 +18,7 @@
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 
 // only proceed if HDF5 output enabled
@@ -37,8 +38,6 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "utils/utils.hpp"
-
-#define PARTHENON_ENABLE_PARTICLE_XDMF 0
 
 namespace parthenon {
 using namespace OutputUtils;
@@ -62,6 +61,12 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const int nx3, const int nx2, const int nx1,
                                      const bool do_lowerd, const bool isVector,
                                      MetadataFlag where);
+static std::string ParticlePositionRef(const std::string &prefix,
+                                       const std::string &swmname,
+                                       const std::string &varname,
+                                       const std::string &hdffile,
+                                       const std::string &datatype,
+                                       const std::string &extradims, int particle_count);
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -78,7 +83,8 @@ static std::string LocationToStringRef(MetadataFlag where);
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
              int nx2, int nx3, const std::vector<VarInfo> &var_list,
-             const AllSwarmInfo &all_swarm_info) {
+             const AllSwarmInfo &all_swarm_info, const bool mesh_xdmf,
+             const bool swarm_xdmf) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;
@@ -89,143 +95,173 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   if (Globals::my_rank != 0) {
     return;
   }
-  std::string filename_aux = hdfFile + ".xdmf";
-  std::ofstream xdmf;
-  hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
-  // check whether or not coordinates field is provided and find it if it is present
-  auto coords_it = std::find_if(var_list.begin(), var_list.end(),
-                                [](const auto &v) { return v.is_coordinate_field; });
-  const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
-  const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
-  if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
-    PARTHENON_WARN("Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
-                   "3DRectMesh");
-  }
+  if (mesh_xdmf) {
+    std::string filename_aux = hdfFile + ".xdmf";
+    std::ofstream xdmf;
+    hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
-  // open file
-  xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
-
-  // Write header
-  xdmf << R"(<?xml version="1.0" ?>)" << std::endl;
-  xdmf << R"(<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">)" << std::endl;
-  xdmf << R"(<Xdmf Version="3.0">)" << std::endl;
-  xdmf << R"(<Information Name="TimeVaryingMetaData" Value="True"/>)" << std::endl;
-  xdmf << "  <Domain>" << std::endl;
-  xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
-  if (tm != nullptr) {
-    xdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
-         << std::endl;
-    xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
-  }
-
-  // Now write Grid for each block
-  int ndim;
-  dims[0] = pm->nbtotal;
-  const int n3_offset = output_coords ? (nx3 > 1) : 1;
-  const int n2_offset = output_coords ? (nx2 > 1) : 1;
-  std::string mesh_type, dimstring;
-  if (output_coords) {
-    if (nx3 > 1) {
-      mesh_type = "3DSMesh";
-      dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
-    } else if (nx2 > 1) {
-      mesh_type = "2DSMesh";
-      dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
-    } else {
-      PARTHENON_FAIL("Custom coordinates not supported in XDMF for 1D meshes.");
+    // check whether or not coordinates field is provided and find it if it is present
+    auto coords_it = std::find_if(var_list.begin(), var_list.end(),
+                                  [](const auto &v) { return v.is_coordinate_field; });
+    const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
+    const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
+    if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
+      PARTHENON_WARN(
+          "Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
+          "3DRectMesh");
     }
-  } else {
-    mesh_type = "3DRectMesh";
-    dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
-  }
-  for (int ib = 0; ib < pm->nbtotal; ib++) {
-    xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
-    xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
-                         mesh_type.c_str(), dimstring.c_str());
-    xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
-                         output_coords ? "X_Y_Z" : "VXVYVZ");
+
+    // open file
+    xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
+
+    // Write header
+    xdmf << R"(<?xml version="1.0" ?>)" << std::endl;
+    xdmf << R"(<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">)" << std::endl;
+    xdmf << R"(<Xdmf Version="3.0">)" << std::endl;
+    xdmf << R"(<Information Name="TimeVaryingMetaData" Value="True"/>)" << std::endl;
+    xdmf << "  <Domain>" << std::endl;
+    xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
+    if (tm != nullptr) {
+      xdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
+           << std::endl;
+      xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
+    }
+
+    // Now write Grid for each block
+    int ndim;
+    dims[0] = pm->nbtotal;
+    const int n3_offset = output_coords ? (nx3 > 1) : 1;
+    const int n2_offset = output_coords ? (nx2 > 1) : 1;
+    std::string mesh_type, dimstring;
     if (output_coords) {
-      ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
-      for (int d = 0; d < 3; ++d) {
-        xdmf << StringPrintf(
-                    "        <DataItem ItemType=\"Hyperslab\" Dimensions=\"%s\">\n"
-                    "          <DataItem Dimensions=\"3 5\" NumberType=\"Int\" "
-                    "Format=\"XML\">\n"
-                    "            %d %d 0 0 0\n"
-                    "            1 1 1 1 1\n"
-                    "            1 1 %d %d %d\n"
-                    "          </DataItem>\n",
-                    dimstring.c_str(), ib, d, nx3 + (nx3 > 1), nx2 + (nx2 > 1),
-                    nx1 + (nx1 > 1))
-             << stringXdmfArrayRef("          ", hdfFile + ":/", coords_it->label, dims,
-                                   ndim, "Float", 8)
-             << "        </DataItem>\n";
+      if (nx3 > 1) {
+        mesh_type = "3DSMesh";
+        dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
+      } else if (nx2 > 1) {
+        mesh_type = "2DSMesh";
+        dimstring = StringPrintf("%d %d", nx2 + n2_offset, nx1 + 1);
+      } else {
+        PARTHENON_FAIL("Custom coordinates not supported in XDMF for 1D meshes.");
       }
     } else {
-      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
-      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
-      BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+      mesh_type = "3DRectMesh";
+      dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
     }
-    xdmf << "      </Geometry>" << std::endl;
-
-    // write graphics variables
-    for (const auto &vinfo : var_list) {
-      // Skip coordinates field. This is output elsewhere.
-      if (output_coords && vinfo.is_coordinate_field) continue;
-      // JMM: Faces/Edges in xdmf appear to be not fully supported by
-      // Visit/Paraview.
-      if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
-          (vinfo.where != MetadataFlag({Metadata::Node}))) {
-        continue;
+    for (int ib = 0; ib < pm->nbtotal; ib++) {
+      xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
+      xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
+                           mesh_type.c_str(), dimstring.c_str());
+      xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
+                           output_coords ? "X_Y_Z" : "VXVYVZ");
+      if (output_coords) {
+        ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
+        for (int d = 0; d < 3; ++d) {
+          xdmf << StringPrintf(
+                      "        <DataItem ItemType=\"Hyperslab\" Dimensions=\"%s\">\n"
+                      "          <DataItem Dimensions=\"3 5\" NumberType=\"Int\" "
+                      "Format=\"XML\">\n"
+                      "            %d %d 0 0 0\n"
+                      "            1 1 1 1 1\n"
+                      "            1 1 %d %d %d\n"
+                      "          </DataItem>\n",
+                      dimstring.c_str(), ib, d, nx3 + (nx3 > 1), nx2 + (nx2 > 1),
+                      nx1 + (nx1 > 1))
+               << stringXdmfArrayRef("          ", hdfFile + ":/", coords_it->label, dims,
+                                     ndim, "Float", 8)
+               << "        </DataItem>\n";
+        }
+      } else {
+        BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
+        BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
+        BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
       }
-      ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
-      const int num_components = vinfo.num_components;
-      nx3 = dims[ndim - 3];
-      nx2 = dims[ndim - 2];
-      nx1 = dims[ndim - 1];
-      writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                               num_components, ndim, dims, nx3, nx2, nx1, output_coords,
-                               vinfo.is_vector, vinfo.where);
+      xdmf << "      </Geometry>" << std::endl;
+
+      // write graphics variables
+      for (const auto &vinfo : var_list) {
+        // Skip coordinates field. This is output elsewhere.
+        if (output_coords && vinfo.is_coordinate_field) continue;
+        // JMM: Faces/Edges in xdmf appear to be not fully supported by
+        // Visit/Paraview.
+        if ((vinfo.where != MetadataFlag({Metadata::Cell})) &&
+            (vinfo.where != MetadataFlag({Metadata::Node}))) {
+          continue;
+        }
+        ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
+        const int num_components = vinfo.num_components;
+        nx3 = dims[ndim - 3];
+        nx2 = dims[ndim - 2];
+        nx1 = dims[ndim - 1];
+        writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
+                                 num_components, ndim, dims, nx3, nx2, nx1, output_coords,
+                                 vinfo.is_vector, vinfo.where);
+      }
+      xdmf << "    </Grid>" << std::endl;
     }
+
+    // Cleanup
     xdmf << "    </Grid>" << std::endl;
+    xdmf << "  </Domain>" << std::endl;
+    xdmf << "</Xdmf>" << std::endl;
+    xdmf.close();
   }
+
   // Particles are defined as their own "mesh"
-#if PARTHENON_ENABLE_PARTICLE_XDMF
-  for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
-    xdmf << StringPrintf(
-        "    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
-        "      <Topology TopologyType=\"Polyvertex\" Dimensions=\"%d\" "
-        "NodesPerElement=\"%d\">\n"
-        "        <DataItem Format=\"HDF\" Dimensions=\"%d\" NumberType=\"Int\">\n"
-        "          %s:/%s/SwarmVars/id\n"
-        "        </DataItem>\n"
-        "      </Topology>\n"
-        "      <Geometry GeometryType=\"VXVYVZ\">\n",
-        swmname.c_str(), swminfo.global_count, swminfo.global_count, swminfo.global_count,
-        hdfFile.c_str(), swmname.c_str());
-    xdmf << ParticleDatasetRef("        ", swmname, "x", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "y", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << ParticleDatasetRef("        ", swmname, "z", hdfFile, "Float", "",
-                               swminfo.global_count);
-    xdmf << "      </Geometry>" << std::endl;
-    for (const auto &[varname, varinfo] : swminfo.var_info) {
-      if ((varname == "id") || (varname == "x") || (varname == "y") || (varname == "z")) {
-        continue; // We already did this one!
-      }
-      ParticleVariableRef(xdmf, varname, varinfo, swmname, hdfFile, swminfo.global_count);
-    }
-    xdmf << "    </Grid>" << std::endl;
-  }
-#endif
+  if (swarm_xdmf && all_swarm_info.all_info.size() > 0) {
+    std::string sfilename_aux = hdfFile + ".swarm.xdmf";
+    std::ofstream pxdmf;
+    hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
-  // Cleanup
-  xdmf << "    </Grid>" << std::endl;
-  xdmf << "  </Domain>" << std::endl;
-  xdmf << "</Xdmf>" << std::endl;
-  xdmf.close();
+    // open file
+    pxdmf = std::ofstream(sfilename_aux.c_str(), std::ofstream::trunc);
+
+    // Write header
+    pxdmf << R"(<?xml version="1.0" ?>)" << std::endl;
+    pxdmf << R"(<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd">)" << std::endl;
+    pxdmf << R"(<Xdmf Version="3.0">)" << std::endl;
+    pxdmf << R"(<Information Name="TimeVaryingMetaData" Value="True"/>)" << std::endl;
+    pxdmf << "  <Domain>" << std::endl;
+    pxdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
+    if (tm != nullptr) {
+      pxdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
+            << std::endl;
+      pxdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
+    }
+
+    for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
+      pxdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
+                            "      <Topology TopologyType=\"Polyvertex\" "
+                            "NodesPerElement=\"%d\">\n"
+                            "      </Topology>\n"
+                            "      <Geometry GeometryType=\"XYZ\">\n",
+                            swmname.c_str(), swminfo.global_count, swminfo.global_count,
+                            swminfo.global_count, hdfFile.c_str(), swmname.c_str());
+      pxdmf << ParticlePositionRef("        ", swmname, "swarm_positions", hdfFile,
+                                   "Float", "", swminfo.global_count);
+      pxdmf << "      </Geometry>" << std::endl;
+      for (const auto &[varname, varinfo] : swminfo.var_info) {
+        if ((varname == swarm_position::x::name()) ||
+            (varname == swarm_position::y::name()) ||
+            (varname == swarm_position::z::name())) {
+          continue; // We already did this one!
+        }
+        ParticleVariableRef(pxdmf, varname, varinfo, swmname, hdfFile,
+                            swminfo.global_count);
+      }
+      if (swminfo.var_info.count("id") == 0) {
+        auto swid = SwarmVarInfo(1, 1, 1, 1, 1, 0, "Int", false);
+        ParticleVariableRef(pxdmf, "id", swid, swmname, hdfFile, swminfo.global_count);
+      }
+      pxdmf << "    </Grid>" << std::endl;
+    }
+
+    // Cleanup
+    pxdmf << "    </Grid>" << std::endl;
+    pxdmf << "  </Domain>" << std::endl;
+    pxdmf << "</Xdmf>" << std::endl;
+    pxdmf.close();
+  }
 }
 
 namespace impl {
@@ -349,6 +385,23 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   }
   // TODO(BRR) Support tensor dims 2 and 3
 }
+static std::string ParticlePositionRef(const std::string &prefix,
+                                       const std::string &swmname,
+                                       const std::string &varname,
+                                       const std::string &hdffile,
+                                       const std::string &datatype,
+                                       const std::string &extradims, int particle_count) {
+  std::string precision_string = (datatype == "Float") ? " Precision=\"8\"" : "";
+  auto part =
+      StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d 3\" Name=\"%s\" "
+                   "NumberType=\"%s\"%s>\n"
+                   "%s  %s:/%s/SwarmVars/%s\n"
+                   "%s</DataItem>\n",
+                   prefix.c_str(), extradims.c_str(), particle_count, varname.c_str(),
+                   datatype.c_str(), precision_string.c_str(), prefix.c_str(),
+                   hdffile.c_str(), swmname.c_str(), varname.c_str(), prefix.c_str());
+  return part;
+}
 static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &swmname,
                                       const std::string &varname,
@@ -459,7 +512,7 @@ static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,
       "            %d 0 1\n"
       "            1 1 %d\n"
       "          </DataItem>\n",
-      nx + (nx > 1), ib, nx + (nx > 1));
+      nx + 1, ib, nx + 1);
   writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", dir, dims, 2, "Float",
                     8);
   xdmf << "        </DataItem>" << std::endl;
