@@ -72,6 +72,8 @@ RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   mesh_info.lx123 = it->getAttribute("loc.lx123").get<std::vector<int64_t>>();
   mesh_info.level_gid_lid_cnghost_gflag =
       it->getAttribute("loc.level-gid-lid-cnghost-gflag").get<std::vector<int>>();
+  mesh_info.derefinement_count =
+      it->getAttribute("derefinement_count").get<std::vector<int>>();
 
   return mesh_info;
 }

@@ -41,6 +41,9 @@ class RestartReaderOPMD : public RestartReader {
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
+  // Current not supported
+  [[nodiscard]] int HasGhost() const override { return 0; };
+
  public:
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
@@ -69,11 +72,9 @@ class RestartReaderOPMD : public RestartReader {
   // perhaps belongs in a destructor?
   void Close();
 
-  // Does file have ghost cells?
-  int hasGhost;
-
  private:
   const std::string filename_;
+
   openPMD::Series series;
   // Iteration is a pointer because it cannot be default constructed (it depends on the
   // Series).

@@ -315,6 +315,11 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     std::vector<int> id_local = OutputUtils::ComputeIDsAndFlags(pm);
     auto id_global = FlattendedLocalToGlobal<int>(pm, id_local);
     it.setAttribute("loc.level-gid-lid-cnghost-gflag", id_global);
+
+    // derefinement count
+    std::vector<int> derefcnt_local = OutputUtils::ComputeDerefinementCount(pm);
+    auto derefcnt_global = FlattendedLocalToGlobal<int>(pm, derefcnt_local);
+    it.setAttribute("derefinement_count", derefcnt_global);
   }
 
   // TODO(pgrete) check var name standard compatiblity
