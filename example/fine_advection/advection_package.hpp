@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <parthenon/package.hpp>
+#include <utils/indexer.hpp>
 #include <utils/robust.hpp>
 
 #define VARIABLE(ns, varname)                                                            \
@@ -84,8 +85,10 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
-          parthenon::par_for_inner(member, jb.s, jb.e, ib.s, ib.e, [&](const int j, const int i) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
             // Calculate the flux using upwind donor cell reconstruction
             pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff);
           });

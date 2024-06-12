@@ -19,6 +19,7 @@
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
+#include <utils/indexer.hpp>
 
 namespace advection_example {
 using namespace parthenon::driver::prelude;
@@ -41,8 +42,10 @@ TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack1.GetNBlocks() - 1, kb.s, kb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         for (int l = pack1.GetLowerBound(b); l <= pack1.GetUpperBound(b); ++l) {
-          parthenon::par_for_inner(member, jb.s, jb.e, ib.s, ib.e, [&](const int j, const int i) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
             pack_out(b, te, l, k, j, i) =
                 w1 * pack1(b, te, l, k, j, i) + w2 * pack2(b, te, l, k, j, i);
           });
@@ -74,8 +77,10 @@ void StokesZero(parthenon::CellLevel cl, parthenon::TopologicalElement TeVar,
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack_out.GetNBlocks() - 1, kb.s, kb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         for (int l = pack_out.GetLowerBound(b); l <= pack_out.GetUpperBound(b); ++l) {
-          parthenon::par_for_inner(member, jb.s, jb.e, ib.s, ib.e, [&](const int j, const int i) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
             pack_out(b, TeVar, l, k, j, i) = 0.0;
           });
         }
@@ -109,8 +114,10 @@ void StokesComponent(Real fac, parthenon::CellLevel cl,
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack_out.GetNBlocks() - 1, kb.s, kb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         auto &coords = pack_in.GetCoordinates(b);
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         for (int l = pack_out.GetLowerBound(b); l <= pack_out.GetUpperBound(b); ++l) {
-          parthenon::par_for_inner(member, jb.s, jb.e, ib.s, ib.e, [&](const int j, const int i) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
             pack_out(b, TeVar, l, k, j, i) +=
                 fac *
                 (coords.Volume(cl, TeFlux, k, j, i) * pack_in.flux(b, TeFlux, l, k, j, i) -
