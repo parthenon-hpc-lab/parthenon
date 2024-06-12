@@ -225,9 +225,6 @@ class RestartReaderHDF5 : public RestartReader {
   // perhaps belongs in a destructor?
   void Close();
 
-  // Does file have ghost cells?
-  int hasGhost;
-
  private:
   const std::string filename_;
 

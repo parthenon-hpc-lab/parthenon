@@ -245,8 +245,6 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                            "Buffer (size " + std::to_string(dataVec.size()) +
                                ") is too small for dataset " + name + " (size " +
                                std::to_string(total_count) + ")");
-  PARTHENON_HDF5_CHECK(
-      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
   const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
   PARTHENON_HDF5_CHECK(
