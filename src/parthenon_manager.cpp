@@ -287,9 +287,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // Allocate space based on largest vector
-  int max_vlen = 1;
   int num_sparse = 0;
-  size_t max_nCells = 1;
+  size_t max_size = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -304,7 +303,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info.num_components);
     IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
     IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
     IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
@@ -314,7 +312,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     bsize.push_back(out_jb.e - out_jb.s + 1);
     bsize.push_back(out_kb.e - out_kb.s + 1);
 
-    max_nCells = std::max(max_nCells, bsize[0] * bsize[1] * bsize[2]);
+    max_size = std::max(max_size, v_info.TensorSize() * bsize[0] * bsize[1] * bsize[2]);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -322,9 +320,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       num_sparse == sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * max_nCells * max_vlen);
+  std::vector<Real> tmp(static_cast<size_t>(nb) * max_size);
   for (const auto &v_info : all_vars_info) {
-    const auto vlen = v_info.num_components;
+    const auto vlen = v_info.TensorSize();
     const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
