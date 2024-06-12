@@ -58,6 +58,8 @@ class RestartReaderHDF5 : public RestartReader {
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
+  [[nodiscard]] int HasGhost() const override { return has_ghost; };
+
  private:
 #ifdef ENABLE_HDF5
   struct DatasetHandle {
@@ -227,6 +229,9 @@ class RestartReaderHDF5 : public RestartReader {
 
  private:
   const std::string filename_;
+
+  // Does file have ghost cells?
+  int has_ghost;
 
 #ifdef ENABLE_HDF5
   // Currently all restarts are HDF5 files
