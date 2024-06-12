@@ -1029,22 +1029,26 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   for (auto dir : {X1DIR, X2DIR, X3DIR})
     nrbx[dir - 1] = mesh_size.nx(dir) / base_block_size.nx(dir);
 
-  auto GetLegacyMeshCoordinate = [this, nrbx](CoordinateDirection dir, BlockLocation bloc,
-                                              const LogicalLocation &loc) -> Real {
-    auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    xll *= root_fac;
-    return this->mesh_size.xmin(dir) * (1.0 - xll) + this->mesh_size.xmax(dir) * xll;
-  };
-
-  auto GetLegacyLLFromMeshCoordinate = [this, nrbx](CoordinateDirection dir, int level,
-                                                    Real xmesh) -> std::int64_t {
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    auto xLL = (xmesh - this->mesh_size.xmin(dir)) /
-               (this->mesh_size.xmax(dir) - this->mesh_size.xmin(dir)) / root_fac;
-    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
+  auto GetStaticRefLLIndexRange = [](CoordinateDirection dir, int num_root_block,
+                                     int ref_level, const RegionSize &ref_size,
+                                     const RegionSize &mesh_size) {
+    int lxtot = num_root_block * (1 << ref_level);
+    int lxmin, lxmax;
+    for (lxmin = 0; lxmin < lxtot; lxmin++) {
+      Real r = LogicalLocation::IndexToSymmetrizedCoordinate(lxmin + 1,
+                                                             BlockLocation::Left, lxtot);
+      if (mesh_size.SymmetrizedLogicalToActualPosition(r, dir) > ref_size.xmin(dir))
+        break;
+    }
+    for (lxmax = lxmin; lxmax < lxtot; lxmax++) {
+      Real r = LogicalLocation::IndexToSymmetrizedCoordinate(lxmax + 1,
+                                                             BlockLocation::Left, lxtot);
+      if (mesh_size.SymmetrizedLogicalToActualPosition(r, dir) >= ref_size.xmax(dir))
+        break;
+    }
+    if (lxmin % 2 == 1) lxmin--;
+    if (lxmax % 2 == 0) lxmax++;
+    return std::pair<int, int>{lxmin, lxmax};
   };
 
   InputBlock *pib = pin->pfirst_block;
@@ -1104,23 +1108,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
       std::int64_t l_region_max[3]{1, 1, 1};
       for (auto dir : {X1DIR, X2DIR, X3DIR}) {
         if (!mesh_size.symmetry(dir)) {
-          l_region_min[dir - 1] =
-              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmin(dir));
-          l_region_max[dir - 1] =
-              GetLegacyLLFromMeshCoordinate(dir, lrlev, ref_size.xmax(dir));
-          l_region_min[dir - 1] =
-              std::max(l_region_min[dir - 1], static_cast<std::int64_t>(0));
-          l_region_max[dir - 1] =
-              std::min(l_region_max[dir - 1],
-                       static_cast<std::int64_t>(nrbx[dir - 1] * (1LL << ref_lev) - 1));
-          auto current_loc =
-              LogicalLocation(lrlev, l_region_max[0], l_region_max[1], l_region_max[2]);
-          // Remove last block if it just it's boundary overlaps with the region
-          if (GetLegacyMeshCoordinate(dir, BlockLocation::Left, current_loc) ==
-              ref_size.xmax(dir))
-            l_region_max[dir - 1]--;
-          if (l_region_min[dir - 1] % 2 == 1) l_region_min[dir - 1]--;
-          if (l_region_max[dir - 1] % 2 == 0) l_region_max[dir - 1]++;
+          auto [lmin, lmax] =
+              GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size);
+          l_region_min[dir - 1] = lmin;
+          l_region_max[dir - 1] = lmax;
         }
       }
       for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
