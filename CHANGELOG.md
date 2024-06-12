@@ -19,6 +19,7 @@
 - [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1105]](https://github.com/parthenon-hpc-lab/parthenon/pull/1105) Refactor parameter input for linear solvers
 - [[PR 1078]](https://github.com/parthenon-hpc-lab/parthenon/pull/1078) Add reduction fallback in 1D. Add IndexRange overload for 1D par loops
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
