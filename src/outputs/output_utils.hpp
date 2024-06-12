@@ -338,6 +338,7 @@ void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &
 std::vector<Real> ComputeXminBlocks(Mesh *pm);
 std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
+std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
 // Takes a vector containing flattened data of all rank local blocks and returns the
 // flattened data over all blocks.

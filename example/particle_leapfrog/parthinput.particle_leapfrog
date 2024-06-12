@@ -3,7 +3,7 @@
 #  Copyright(C) 2021 The Parthenon collaboration
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,7 +19,7 @@
 problem_id = particles
 
 <parthenon/mesh>
-refinement = none
+refinement = static
 
 nx1 = 16
 x1min = -0.5
@@ -43,6 +43,15 @@ ox3_bc = periodic
 nx1 = 8
 nx2 = 8
 nx3 = 8
+
+<parthenon/static_refinement1>
+level = 1
+x1min = -0.5
+x1max = 0
+x2min = -0.5
+x2max = 0
+x3min = -0.5
+x3max = 0
 
 <parthenon/time>
 tlim = 1.0

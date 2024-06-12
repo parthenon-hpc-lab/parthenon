@@ -39,9 +39,6 @@ x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
 
-derefine_count = 999999 # disable this since derefinement counter resets on
-                        # restart and thus leads to different results
-
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16

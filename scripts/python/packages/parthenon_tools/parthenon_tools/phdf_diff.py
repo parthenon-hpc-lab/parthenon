@@ -285,7 +285,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
             for key in f0.fid[var].keys():
                 if var == "Blocks" and key == "loc.level-gid-lid-cnghost-gflag":
                     continue  # depends on number of MPI ranks and distribution of blocks among ranks
-
+                if var == "Blocks" and key == "derefinement_count":
+                    continue  # Gold files have not been updated to include derefinement_count
                 # Compare raw data of these variables
                 val0 = f0.fid[var][key]
                 val1 = f1.fid[var][key]

@@ -253,7 +253,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
-      (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
+      (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -370,7 +370,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // TODO(pgrete) figure out what to do about versions of different outputs
       if (true || file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, resfile.hasGhost, index,
+            v_info, resfile.HasGhost() != 0, index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });

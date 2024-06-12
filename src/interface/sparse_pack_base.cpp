@@ -110,6 +110,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   int max_size = 0;
   int nblocks = 0;
   bool contains_face_or_edge = false;
+  bool contains_face_with_fluxes = false;
   int size = 0; // local var used to compute size/block
   ForEachBlock(pmd, include_block, [&](int b, mbd_t *pmbd) {
     if (!desc.flat) {
@@ -122,8 +123,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
         if (uid_map.count(uid) > 0) {
           const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
-            if (pv->IsSet(Metadata::Face) || pv->IsSet(Metadata::Edge))
+            if (pv->IsSet(Metadata::Edge)) contains_face_or_edge = true;
+            if (pv->IsSet(Metadata::Face)) {
+              if (pv->IsSet(Metadata::WithFluxes) && desc.with_fluxes) {
+                contains_face_with_fluxes = true;
+              }
               contains_face_or_edge = true;
+            }
             int prod = pv->GetDim(6) * pv->GetDim(5) * pv->GetDim(4);
             size += prod;       // max size/block (or total size for flat)
             pack.size_ += prod; // total ragged size
@@ -138,7 +144,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
 
   // Allocate the views
   int leading_dim = 1;
-  if (desc.with_fluxes) {
+  pack.flx_idx_ = 1;
+  if (contains_face_with_fluxes) {
+    leading_dim += 5;
+    pack.flx_idx_ = 3;
+  } else if (desc.with_fluxes) {
     leading_dim += 3;
   } else if (contains_face_or_edge) {
     leading_dim += 2;
@@ -205,11 +215,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
 
                     if (pv->IsSet(Metadata::Face)) {
                       pack.pack_h_(0, b, idx).topological_element =
-                          TopologicalElement::E1;
+                          TopologicalElement::F1;
                       pack.pack_h_(1, b, idx).topological_element =
-                          TopologicalElement::E2;
+                          TopologicalElement::F2;
                       pack.pack_h_(2, b, idx).topological_element =
-                          TopologicalElement::E3;
+                          TopologicalElement::F3;
                     }
 
                   } else { // This is a cell, node, or a variable that doesn't have
@@ -221,13 +231,16 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
                     }
                     if (pv->IsSet(Metadata::Vector))
                       pack.pack_h_(0, b, idx).vector_component = v + 1;
+                  }
 
-                    if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
-                      pack.pack_h_(1, b, idx) = pvf->data.Get(0, t, u, v);
-                      pack.pack_h_(2, b, idx) = pvf->data.Get(1, t, u, v);
-                      pack.pack_h_(3, b, idx) = pvf->data.Get(2, t, u, v);
+                  if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
+                    pack.pack_h_(0 + pack.flx_idx_, b, idx) = pvf->data.Get(0, t, u, v);
+                    if (!pv->IsSet(Metadata::Edge)) {
+                      pack.pack_h_(1 + pack.flx_idx_, b, idx) = pvf->data.Get(1, t, u, v);
+                      pack.pack_h_(2 + pack.flx_idx_, b, idx) = pvf->data.Get(2, t, u, v);
                     }
                   }
+
                   for (auto el :
                        GetTopologicalElements(pack.pack_h_(0, b, idx).topological_type)) {
                     pack.pack_h_(static_cast<int>(el) % 3, b, idx).topological_element =
