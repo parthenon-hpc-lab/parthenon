@@ -53,7 +53,7 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
 
-  hasGhost = GetAttr<int>("Info", "IncludesGhost");
+  has_ghost = GetAttr<int>("Info", "IncludesGhost");
 #endif // ENABLE_HDF5
 }
 
@@ -224,7 +224,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 
   offset[0] = static_cast<hsize_t>(range.s);
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-  const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
+  const IndexDomain domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
 
   // Currently supports versions 3 and 4.
   if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
@@ -245,8 +245,6 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                            "Buffer (size " + std::to_string(dataVec.size()) +
                                ") is too small for dataset " + name + " (size " +
                                std::to_string(total_count) + ")");
-  PARTHENON_HDF5_CHECK(
-      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
   const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
   PARTHENON_HDF5_CHECK(
