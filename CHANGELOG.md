@@ -24,6 +24,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1104]](https://github.com/parthenon-hpc-lab/parthenon/pull/1104) Fix reading restarts due to hidden ghost var
 - [[PR 1098]](https://github.com/parthenon-hpc-lab/parthenon/pull/1098) Move to symmetrized logical coordinates and fix SMR bug
 - [[PR 1095]](https://github.com/parthenon-hpc-lab/parthenon/pull/1095) Add missing include guards in hdf5 restart
 - [[PR 1093]](https://github.com/parthenon-hpc-lab/parthenon/pull/1093) Fix forest size for symmetry dimensions
