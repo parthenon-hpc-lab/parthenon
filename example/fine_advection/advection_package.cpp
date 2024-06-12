@@ -69,9 +69,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField<Conserved::phi_fine>(
       Metadata({Metadata::Cell, Metadata::Fine, Metadata::Independent,
                 Metadata::WithFluxes, Metadata::FillGhost}));
-  
-  Metadata m({Metadata::Cell, Metadata::Independent,
-              Metadata::WithFluxes, Metadata::FillGhost, Metadata::Sparse});
+
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+              Metadata::FillGhost, Metadata::Sparse});
   m.SetSparseThresholds(1.e-6, 5.e-7, 0.0);
   pkg->AddSparsePool<Conserved::phi>(m, std::vector<int>{0});
 
