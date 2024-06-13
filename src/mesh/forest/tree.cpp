@@ -116,7 +116,10 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
           // and trigger refinement there
           int n_idx =
               neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
-          for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+          for (auto &[neighbor_tree_wp, orientation] : neighbors[n_idx]) {
+            PARTHENON_REQUIRE(!neighbor_tree_wp.expired(),
+                              "Some trees have been deallocated.");
+            auto neighbor_tree = neighbor_tree_wp.lock();
             nadded += neighbor_tree->Refine(
                 orientation.Transform(neigh, neighbor_tree->GetId()));
           }
@@ -182,7 +185,9 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     }
   }
 
-  for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+  for (auto &[neighbor_tree_wp, orientation] : neighbors[n_idx]) {
+    PARTHENON_REQUIRE(!neighbor_tree_wp.expired(), "Some trees have been deallocated.");
+    auto neighbor_tree = neighbor_tree_wp.lock();
     auto tneigh = orientation.Transform(neigh, neighbor_tree->GetId());
     auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
     PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc,
@@ -239,7 +244,10 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
             // Need to check that this derefinement doesn't break proper nesting with
             // a neighboring tree or this tree
             int n_idx = neigh.NeighborTreeIndex();
-            for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+            for (auto &[neighbor_tree_wp, orientation] : neighbors[n_idx]) {
+              PARTHENON_REQUIRE(!neighbor_tree_wp.expired(),
+                                "Some trees have been deallocated.");
+              auto neighbor_tree = neighbor_tree_wp.lock();
               if (neighbor_tree->internal_nodes.count(
                       orientation.Transform(neigh, neighbor_tree->GetId())))
                 return 0;
@@ -323,7 +331,8 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                            RelativeOrientation orient, const bool periodic) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, orient});
+  neighbors[location_idx].push_back(
+      std::pair<std::weak_ptr<Tree>, RelativeOrientation>{neighbor_tree, orient});
   BoundaryFace fidx = offset.Face();
 
   if (fidx >= 0)
