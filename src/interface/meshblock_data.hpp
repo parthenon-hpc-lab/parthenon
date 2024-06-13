@@ -97,6 +97,19 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
 
+  template <class... Ts>
+  IndexRange GetBoundsI(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsI(std::forward<Ts>(args)...);
+  }
+  template <class... Ts>
+  IndexRange GetBoundsJ(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsJ(std::forward<Ts>(args)...);
+  }
+  template <class... Ts>
+  IndexRange GetBoundsK(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsK(std::forward<Ts>(args)...);
+  }
+
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
