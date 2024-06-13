@@ -82,6 +82,9 @@ class Params {
   template <typename T>
   const T &Get(const std::string &key) const {
     auto typed_ptr = GetTypedPointer_<T>(key);
+    // require that param is NOT mutable
+    PARTHENON_REQUIRE_THROWS(!static_cast<bool>(myMutable_.at(key)),
+                             "Parameter " + key + " must be NOT marked as mutable");
     return *typed_ptr->pValue;
   }
 
