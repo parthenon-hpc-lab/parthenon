@@ -92,9 +92,9 @@ void StokesComponent(Real fac, parthenon::CellLevel cl,
   koff = ndim > 2 ? koff : 0;
   joff = ndim > 1 ? joff : 0;
 
-  PARTHENON_REQUIRE(in.GetLowerBoundHost(0) == out.GetLowerBoundHost(0),
+  PARTHENON_REQUIRE(pack_in.GetLowerBoundHost(0) == pack_out.GetLowerBoundHost(0),
                     "Packs are different size.");
-  PARTHENON_REQUIRE(in.GetUpperBoundHost(0) == out.GetUpperBoundHost(0),
+  PARTHENON_REQUIRE(pack_in.GetUpperBoundHost(0) == pack_out.GetUpperBoundHost(0),
                     "Packs are different size.");
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack_in.GetNBlocks() - 1, pack_in.GetLowerBoundHost(0),
