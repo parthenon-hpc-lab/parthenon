@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
+- [[PR 1106]](https://github.com/parthenon-hpc-lab/parthenon/pull/1106) Add CMake options for turning on ASAN and HWASAN
 - [[PR 1100]](https://github.com/parthenon-hpc-lab/parthenon/pull/1100) Custom refinement ops propagated to fluxes
 - [[PR 1090]](https://github.com/parthenon-hpc-lab/parthenon/pull/1090) SMR with swarms
 - [[PR 1079]](https://github.com/parthenon-hpc-lab/parthenon/pull/1079) Address XDMF/Visit Issues
