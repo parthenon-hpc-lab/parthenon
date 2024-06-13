@@ -52,7 +52,7 @@ TEST_CASE("NaN payload tagging", "[NaN payload]") {
     // Test tagged NaN propagation
     real_t val1 = flag1;
     real_t val2 = 20.0 + flag1;
-    real_t val3 = NAN + flag1;
+    real_t val3 = std::numeric_limits<real_t>::signaling_NaN() + flag1;
 
     REQUIRE(parthenon::BitwiseCompare(flag1, val1));
     REQUIRE(parthenon::BitwiseCompare(flag1, val2));
