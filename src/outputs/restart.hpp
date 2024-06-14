@@ -132,8 +132,7 @@ class RestartReader {
   // perhaps belongs in a destructor?
   void Close();
 
-  // Does file have ghost cells?
-  int hasGhost;
+  [[nodiscard]] virtual int HasGhost() const = 0;
 };
 
 } // namespace parthenon
