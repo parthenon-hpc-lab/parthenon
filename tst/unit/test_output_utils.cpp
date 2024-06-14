@@ -96,6 +96,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     pmbd->Initialize(pkg, pmb);
 
     IndexShape cellbounds = pmb->cellbounds;
+    IndexShape f_cellbounds = pmb->f_cellbounds;
     THEN("The CellBounds object is reasonable") {
       REQUIRE(cellbounds.ncellsk(entire) == NSIDE + 2 * NG);
       REQUIRE(cellbounds.ncellsk(interior) == NSIDE);
@@ -265,7 +266,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
     WHEN("We request info from all vars") {
       auto vars = parthenon::GetAnyVariables(pmbd->GetVariableVector(),
                                              {parthenon::Metadata::Independent});
-      auto all_info = VarInfo::GetAll(vars, cellbounds);
+      auto all_info = VarInfo::GetAll(vars, cellbounds, f_cellbounds);
       THEN("The labels are all present") {
         for (const std::string &name : var_names) {
           auto pinfo = std::find(all_info.begin(), all_info.end(), name);
