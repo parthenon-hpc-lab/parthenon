@@ -33,12 +33,6 @@ jobs:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
-    if: matrix.device == 'host'
-      env:
-        ENABLE_ASAN_VALUE: 'ON'
-    if: matrix.device == 'cuda'
-      env:
-        ENABLE_ASAN_VALUE: 'OFF'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -50,11 +44,20 @@ jobs:
           path: tst/regression/gold_standard/
           key: gold-standard
 
+      - name: Set vars based on matrix
+        id: cmake-vars
+        run: |
+          if ${{ matrix.device == 'host' }}; then
+            echo "enable_asan=ON" >> $GITHUB_OUTPUT
+          else
+            echo "enable_asan=OFF" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_ASAN=$ENABLE_ASAN_VALUE \
+            -DENABLE_ASAN=${{ steps.cmake-vars.outputs.enable_asan }} \
             -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }}
 
       - name: Build
