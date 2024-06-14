@@ -55,6 +55,13 @@ mutually exclusive:
    cell-corners. The variable might be volume-averaged, or defined
    pointwise.
 
+For any type of topology, the flag ``Metadata::Fine`` can be set which 
+causes the field to have twice the resolution of normal fields. These 
+fields should be able to be specified for output, undergo ghost exchange,
+etc. but much of this has not been carefully tested. **As a result, ``Fine`` 
+fields should be handled with care in downstream codes and carefully checked 
+to make sure they are behaving as expected.**
+
 Variable Behaviors
 ------------------
 
