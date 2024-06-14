@@ -55,9 +55,10 @@
 
 
 ### Removed (removing behavior/API/varaibles/...)
-
+- [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock
