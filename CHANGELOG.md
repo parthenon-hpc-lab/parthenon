@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
 - [[PR 1106]](https://github.com/parthenon-hpc-lab/parthenon/pull/1106) Add CMake options for turning on ASAN and HWASAN
 - [[PR 1100]](https://github.com/parthenon-hpc-lab/parthenon/pull/1100) Custom refinement ops propagated to fluxes
 - [[PR 1090]](https://github.com/parthenon-hpc-lab/parthenon/pull/1090) SMR with swarms
@@ -26,6 +27,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
+- [[PR 1112]](https://github.com/parthenon-hpc-lab/parthenon/pull/1112) Remove shared_ptr cycle in forest::Tree
 - [[PR 1104]](https://github.com/parthenon-hpc-lab/parthenon/pull/1104) Fix reading restarts due to hidden ghost var
 - [[PR 1098]](https://github.com/parthenon-hpc-lab/parthenon/pull/1098) Move to symmetrized logical coordinates and fix SMR bug
 - [[PR 1095]](https://github.com/parthenon-hpc-lab/parthenon/pull/1095) Add missing include guards in hdf5 restart
@@ -56,9 +58,10 @@
 
 
 ### Removed (removing behavior/API/varaibles/...)
-
+- [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
 - [[PR 1042]](https://github.com/parthenon-hpc-lab/parthenon/pull/1042) Use Offset class and clean up of NeighborBlock

@@ -110,14 +110,17 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
 
+      auto &cellbounds = var->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
+      auto &c_cellbounds =
+          var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::entire, te);
-        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
-        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te);
+        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
+        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te);
 
-        IndexRange ib_int = pmb->cellbounds.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb_int = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb_int = pmb->cellbounds.GetBoundsK(IndexDomain::interior, te);
+        IndexRange ib_int = cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb_int = cellbounds.GetBoundsK(IndexDomain::interior, te);
 
         const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
         const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
@@ -200,10 +203,12 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
       const int nu = fb.GetDim(5) - 1;
       const int nv = fb.GetDim(4) - 1;
 
+      auto &c_cellbounds =
+          var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = pmb->c_cellbounds.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb = pmb->c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb = pmb->c_cellbounds.GetBoundsK(IndexDomain::interior, te);
+        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::interior, te);
+        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
+        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::interior, te);
         // Deal with ownership of shared elements by removing right side of index
         // space if fine block is on the left side of a direction. I think this
         // should work fine even if the ownership model is changed elsewhere, since
