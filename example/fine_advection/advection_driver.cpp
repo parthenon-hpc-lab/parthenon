@@ -108,8 +108,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // packs that operate on only the desired set of variables.
     using namespace advection_package::Conserved;
     static auto desc = parthenon::MakePackDescriptor<phi>(
-            pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
-            {parthenon::PDOpt::WithFluxes});
+        pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
+        {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc);
 
     static auto desc_fine = parthenon::MakePackDescriptor<phi_fine>(
