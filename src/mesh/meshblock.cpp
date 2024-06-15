@@ -142,7 +142,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  real_container->Initialize(resolved_packages, shared_from_this());
+  real_container->Initialize(shared_from_this());
 
   // Initialize swarm boundary condition flags
   real_container->GetSwarmData()->InitializeBoundaries(shared_from_this());
