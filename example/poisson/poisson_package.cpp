@@ -22,6 +22,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
+#include <utils/robust.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -296,7 +297,8 @@ TaskStatus CheckConvergence(T *u, T *du) {
       parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
-        Real reps = std::abs(dv(b, idphi, k, j, i) / v(b, iphi, k, j, i));
+        Real reps = std::abs(
+            parthenon::robust::ratio(dv(b, idphi, k, j, i), v(b, iphi, k, j, i)));
         Real aeps = std::abs(dv(b, idphi, k, j, i));
         eps = std::max(eps, std::min(reps, aeps));
       },
