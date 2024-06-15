@@ -36,6 +36,14 @@ TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
   IndexRange jb = in1->GetBoundsJ(cl, IndexDomain::entire, te);
   IndexRange kb = in1->GetBoundsK(cl, IndexDomain::entire, te);
 
+  PARTHENON_REQUIRE(pack1.GetLowerBoundHost(0) == pack2.GetLowerBoundHost(0),
+                    "Packs are different size.");
+  PARTHENON_REQUIRE(pack1.GetLowerBoundHost(0) == pack_out.GetLowerBoundHost(0),
+                    "Packs are different size.");
+  PARTHENON_REQUIRE(pack1.GetUpperBoundHost(0) == pack2.GetUpperBoundHost(0),
+                    "Packs are different size.");
+  PARTHENON_REQUIRE(pack1.GetUpperBoundHost(0) == pack_out.GetUpperBoundHost(0),
+                    "Packs are different size.");
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack1.GetNBlocks() - 1, pack1.GetLowerBoundHost(0),
       pack1.GetUpperBoundHost(0), // This is safe for dense vars
@@ -95,6 +103,10 @@ void StokesComponent(Real fac, parthenon::CellLevel cl,
   koff = ndim > 2 ? koff : 0;
   joff = ndim > 1 ? joff : 0;
 
+  PARTHENON_REQUIRE(pack_in.GetLowerBoundHost(0) == pack_out.GetLowerBoundHost(0),
+                    "Packs are different size.");
+  PARTHENON_REQUIRE(pack_in.GetUpperBoundHost(0) == pack_out.GetUpperBoundHost(0),
+                    "Packs are different size.");
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack_in.GetNBlocks() - 1, pack_in.GetLowerBoundHost(0),
       pack_in.GetUpperBoundHost(0), // This is safe for dense vars only

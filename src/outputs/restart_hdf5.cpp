@@ -53,7 +53,7 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
 
-  hasGhost = GetAttr<int>("Info", "IncludesGhost");
+  has_ghost = GetAttr<int>("Info", "IncludesGhost");
 #endif // ENABLE_HDF5
 }
 
@@ -116,6 +116,9 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 }
 
 RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
   RestartReaderHDF5::MeshInfo mesh_info;
   mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
   mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
@@ -134,7 +137,22 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.level_gid_lid_cnghost_gflag =
       ReadDataset<int>("/Blocks/loc.level-gid-lid-cnghost-gflag");
 
+  auto status =
+      PARTHENON_HDF5_CHECK(H5Lexists(fh_, "Blocks/derefinement_count", H5P_DEFAULT));
+  if (status > 0) {
+    mesh_info.derefinement_count = ReadDataset<int>("/Blocks/derefinement_count");
+  } else {
+    // File does not contain this dataset, so must be older. Set to default value of zero
+    if (Globals::my_rank == 0 && (GetAttr<int>("Info", "Multilevel") != 0))
+      PARTHENON_WARN("Restarting from an HDF5 file that doesn't contain "
+                     "/Blocks/derefinement_count. \n"
+                     "  If you are running with AMR, this may cause restarts to not be "
+                     "bitwise exact \n"
+                     "  with simulations that are run without restarting.");
+    mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
+  }
   return mesh_info;
+#endif
 }
 
 SimTime RestartReaderHDF5::GetTimeInfo() const {
@@ -206,7 +224,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 
   offset[0] = static_cast<hsize_t>(range.s);
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-  const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
+  const IndexDomain domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
 
   // Currently supports versions 3 and 4.
   if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
@@ -227,8 +245,6 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                            "Buffer (size " + std::to_string(dataVec.size()) +
                                ") is too small for dataset " + name + " (size " +
                                std::to_string(total_count) + ")");
-  PARTHENON_HDF5_CHECK(
-      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
   const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
   PARTHENON_HDF5_CHECK(

@@ -35,7 +35,9 @@ namespace parthenon {
 class Mesh;
 class Param;
 
-constexpr int NumIDsAndFlags{6};
+// If this number changes, the logic for reading previously written restart files in
+// mesh.cpp needs to be adjusted.
+constexpr int NumIDsAndFlags{5};
 
 class RestartReader {
  public:
@@ -89,6 +91,7 @@ class RestartReader {
     std::vector<Real> grid_dim;
     std::vector<int64_t> lx123;
     std::vector<int> level_gid_lid_cnghost_gflag; // what's this?!
+    std::vector<int> derefinement_count;
   };
   [[nodiscard]] virtual MeshInfo GetMeshInfo() const = 0;
 
@@ -129,8 +132,7 @@ class RestartReader {
   // perhaps belongs in a destructor?
   void Close();
 
-  // Does file have ghost cells?
-  int hasGhost;
+  [[nodiscard]] virtual int HasGhost() const = 0;
 };
 
 } // namespace parthenon

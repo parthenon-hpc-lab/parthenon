@@ -102,10 +102,14 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
+    // Make a sparse variable pack descriptors that can be used to build packs
+    // including some subset of the fields in this example. This will be passed
+    // to the Stokes update routines, so that they can internally create variable
+    // packs that operate on only the desired set of variables.
     using namespace advection_package::Conserved;
     static auto desc = parthenon::MakePackDescriptor<phi>(
-        pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+            pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
+            {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc);
 
     static auto desc_fine = parthenon::MakePackDescriptor<phi_fine>(

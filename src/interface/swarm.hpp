@@ -249,9 +249,7 @@ class Swarm {
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
-  void SetNeighborIndices1D_();
-  void SetNeighborIndices2D_();
-  void SetNeighborIndices3D_();
+  void SetNeighborIndices_();
 
   void CountReceivedParticles_();
   void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,

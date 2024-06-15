@@ -74,8 +74,14 @@ class Mesh {
   friend class RestartOutput;
   friend class HistoryOutput;
   friend class MeshBlock;
-  friend class MeshBlockTree;
   friend class MeshRefinement;
+
+  struct base_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       base_constructor_selector_t);
+  struct hyper_rectangular_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       hyper_rectangular_constructor_selector_t);
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
@@ -103,11 +109,11 @@ class Mesh {
 
   // data
   bool modified;
-  const bool is_restart;
+  bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
-  const int ndim; // number of dimensions
+  int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;
@@ -267,9 +273,6 @@ class Mesh {
 
   std::vector<LogicalLocation> loclist;
   forest::Forest forest;
-  // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
-  // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
-  std::array<int, 3> nrbx;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -290,6 +293,11 @@ class Mesh {
 #endif
 
   // functions
+  void CheckMeshValidity() const;
+  void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+                      int mesh_test,
+                      const std::unordered_map<LogicalLocation, int> &dealloc_count = {});
+  void DoStaticRefinement(ParameterInput *pin);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
@@ -321,26 +329,6 @@ class Mesh {
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();
   void FillDerived();
-
-  // Transform from logical location coordinates to uniform mesh coordinates accounting
-  // for root grid
-  Real GetLegacyMeshCoordinate(CoordinateDirection dir, BlockLocation bloc,
-                               const LogicalLocation &loc) const {
-    auto xll = loc.LLCoord(dir, bloc);
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    xll *= root_fac;
-    return mesh_size.xmin(dir) * (1.0 - xll) + mesh_size.xmax(dir) * xll;
-  }
-
-  std::int64_t GetLegacyLLFromMeshCoordinate(CoordinateDirection dir, int level,
-                                             Real xmesh) const {
-    auto root_fac = static_cast<Real>(1 << GetLegacyTreeRootLevel()) /
-                    static_cast<Real>(nrbx[dir - 1]);
-    auto xLL = (xmesh - mesh_size.xmin(dir)) /
-               (mesh_size.xmax(dir) - mesh_size.xmin(dir)) / root_fac;
-    return static_cast<std::int64_t>((1 << std::max(level, 0)) * xLL);
-  }
 };
 
 } // namespace parthenon
