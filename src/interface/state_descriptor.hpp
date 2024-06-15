@@ -123,18 +123,18 @@ class StateDescriptor {
   }
 
   template <typename T>
-  void AddParam(const std::string &key, T value, Params::Mutability mutability) {
-    params_.Add<T>(key, value, mutability);
+  void AddParam(const std::string &key, T &&object, Params::Mutability mutability) {
+    params_.Add<T>(key, std::forward<T>(object), mutability);
   }
 
   template <typename T>
-  void AddParam(const std::string &key, T value, bool is_mutable = false) {
-    params_.Add<T>(key, value, is_mutable);
+  void AddParam(const std::string &key, T &&object, bool is_mutable = false) {
+    params_.Add<T>(key, std::forward<T>(object), is_mutable);
   }
 
   template <typename T>
-  void UpdateParam(const std::string &key, T value) {
-    params_.Update<T>(key, value);
+  void UpdateParam(const std::string &key, T &&object) {
+    params_.Update<T>(key, std::forward<T>(object));
   }
 
   template <typename T>
@@ -150,8 +150,8 @@ class StateDescriptor {
   // Set (if not set) and get simultaneously.
   // infers type correctly.
   template <typename T>
-  const T &Param(const std::string &key, T value) const {
-    return params_.Get(key, value);
+  const T &Param(const std::string &key, T &&object) const {
+    return params_.Get(key, std::forward<T>(object));
   }
 
   const std::type_index &ParamType(const std::string &key) const {
