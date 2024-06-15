@@ -190,10 +190,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 template <typename T>
 class MeshData {
  public:
+  using parent_t = Mesh;
   MeshData() = default;
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
+  int partition;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -241,11 +243,12 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, Mesh *pmesh, int ndim);
-  void Set(BlockList_t blocks, Mesh *pmesh);
+  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim,
+                  std::optional<int> gmg_level = {});
+  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   template <typename ID_t>
-  void Initialize(const MeshData<T> *src, const std::vector<ID_t> &vars,
+  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
                   const bool shallow) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
