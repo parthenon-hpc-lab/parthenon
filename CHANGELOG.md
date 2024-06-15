@@ -27,6 +27,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
+- [[PR 1113]](https://github.com/parthenon-hpc-lab/parthenon/pull/1113) Prevent division by zero
 - [[PR 1112]](https://github.com/parthenon-hpc-lab/parthenon/pull/1112) Remove shared_ptr cycle in forest::Tree
 - [[PR 1104]](https://github.com/parthenon-hpc-lab/parthenon/pull/1104) Fix reading restarts due to hidden ghost var
 - [[PR 1098]](https://github.com/parthenon-hpc-lab/parthenon/pull/1098) Move to symmetrized logical coordinates and fix SMR bug
