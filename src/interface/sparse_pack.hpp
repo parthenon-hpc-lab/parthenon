@@ -333,6 +333,19 @@ class SparsePack : public SparsePackBase {
   }
 
   // flux() overloads
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION auto &flux(const int b, const TopologicalElement te,
+                                    Args &&...args) const {
+    const int dir = (static_cast<int>(te) % 3) + 1;
+    return flux(b, dir, std::forward<Args>(args)...);
+  }
+
+  template <class... Args>
+  KOKKOS_INLINE_FUNCTION auto &flux(const TopologicalElement te, Args &&...args) const {
+    const int dir = (static_cast<int>(te) % 3) + 1;
+    return flux(dir, std::forward<Args>(args)...);
+  }
+
   KOKKOS_INLINE_FUNCTION
   auto &flux(const int b, const int dir, const int idx) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
