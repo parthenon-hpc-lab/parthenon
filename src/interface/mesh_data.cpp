@@ -17,23 +17,30 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh, int ndim,
+                             std::optional<int> gmg_level) {
   const int nblocks = blocks.size();
   ndim_ = ndim;
   block_data_.resize(nblocks);
   SetMeshPointer(pmesh);
   for (int i = 0; i < nblocks; i++) {
-    block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
+    block_data_[i] = blocks[i]->meshblock_data.Add(stage_name_, blocks[i]);
+  }
+  if (gmg_level) {
+    grid = GridIdentifier::two_level_composite(*gmg_level);
+  } else {
+    grid = GridIdentifier::leaf();
   }
 }
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
+                             std::optional<int> gmg_level) {
   int ndim;
   if (pmesh != nullptr) {
     ndim = pmesh->ndim;
   }
-  Set(blocks, pmesh, ndim);
+  Initialize(blocks, pmesh, ndim, gmg_level);
 }
 
 template <typename T>
