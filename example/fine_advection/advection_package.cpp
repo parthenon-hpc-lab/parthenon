@@ -65,23 +65,44 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
-  pkg->AddField<Conserved::scalar_fine>(
+  pkg->AddField<Conserved::phi_fine>(
       Metadata({Metadata::Cell, Metadata::Fine, Metadata::Independent,
                 Metadata::WithFluxes, Metadata::FillGhost}));
 
-  pkg->AddField<Conserved::scalar>(Metadata({Metadata::Cell, Metadata::Independent,
-                                             Metadata::WithFluxes, Metadata::FillGhost}));
-  pkg->AddField<Conserved::scalar_fine_restricted>(
+  pkg->AddField<Conserved::phi>(Metadata({Metadata::Cell, Metadata::Independent,
+                                          Metadata::WithFluxes, Metadata::FillGhost}));
+  pkg->AddField<Conserved::phi_fine_restricted>(
       Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+
+  Metadata m(
+      {Metadata::Face, Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
+  m.RegisterRefinementOps<parthenon::refinement_ops::ProlongateSharedMinMod,
+                          parthenon::refinement_ops::RestrictAverage,
+                          parthenon::refinement_ops::ProlongateInternalTothAndRoe>();
+  pkg->AddField<Conserved::C>(m);
+  pkg->AddField<Conserved::D>(m);
+  pkg->AddField<Conserved::recon>(Metadata(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{4}));
+  pkg->AddField<Conserved::recon_f>(Metadata(
+      {Metadata::Face, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{2}));
+  pkg->AddField<Conserved::C_cc>(Metadata(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3}));
+  pkg->AddField<Conserved::D_cc>(Metadata(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, std::vector<int>{3}));
+  pkg->AddField<Conserved::divC>(
+      Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+  pkg->AddField<Conserved::divD>(
+      Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
-  pkg->FillDerivedMesh = RestrictScalarFine;
+  pkg->FillDerivedMesh = FillDerived;
   return pkg;
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(rc);
+  static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(rc);
   auto pack = desc.GetPack(rc);
 
   auto pmb = rc->GetBlockPointer();
@@ -120,7 +141,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar>(md);
+  static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
   auto pack = desc.GetPack(md);
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -146,9 +167,12 @@ Real EstimateTimestep(MeshData<Real> *md) {
   return cfl * min_dt / 2.0;
 }
 
-TaskStatus RestrictScalarFine(MeshData<Real> *md) {
-  static auto desc = parthenon::MakePackDescriptor<Conserved::scalar_fine,
-                                                   Conserved::scalar_fine_restricted>(md);
+TaskStatus FillDerived(MeshData<Real> *md) {
+  static auto desc =
+      parthenon::MakePackDescriptor<Conserved::phi_fine, Conserved::phi_fine_restricted,
+                                    Conserved::C, Conserved::C_cc, Conserved::D,
+                                    Conserved::D_cc, Conserved::divC, Conserved::divD>(
+          md);
   auto pack = desc.GetPack(md);
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -159,21 +183,66 @@ TaskStatus RestrictScalarFine(MeshData<Real> *md) {
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
-        const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
-        const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
-        pack(b, Conserved::scalar_fine_restricted(), k, j, i) = 0.0;
+        const int kf = (ndim > 2) ? (k - nghost) * 2 + nghost : k;
+        const int jf = (ndim > 1) ? (j - nghost) * 2 + nghost : j;
+        const int fi = (ndim > 0) ? (i - nghost) * 2 + nghost : i;
+        pack(b, Conserved::phi_fine_restricted(), k, j, i) = 0.0;
         Real ntot = 0.0;
         for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
           for (int joff = 0; joff <= (ndim > 1); ++joff)
             for (int koff = 0; koff <= (ndim > 2); ++koff) {
               ntot += 1.0;
-              pack(b, Conserved::scalar_fine_restricted(), k, j, i) +=
-                  pack(b, Conserved::scalar_fine(), kf + koff, jf + joff, fi + ioff);
+              pack(b, Conserved::phi_fine_restricted(), k, j, i) +=
+                  pack(b, Conserved::phi_fine(), kf + koff, jf + joff, fi + ioff);
             }
-        pack(b, Conserved::scalar_fine_restricted(), k, j, i) /= ntot;
+        pack(b, Conserved::phi_fine_restricted(), k, j, i) /= ntot;
       });
 
+  using TE = parthenon::TopologicalElement;
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        pack(b, Conserved::C_cc(0), k, j, i) =
+            0.5 * (pack(b, TE::F1, Conserved::C(), k, j, i) +
+                   pack(b, TE::F1, Conserved::C(), k, j, i + (ndim > 0)));
+        pack(b, Conserved::C_cc(1), k, j, i) =
+            0.5 * (pack(b, TE::F2, Conserved::C(), k, j, i) +
+                   pack(b, TE::F2, Conserved::C(), k, j + (ndim > 1), i));
+        pack(b, Conserved::C_cc(2), k, j, i) =
+            0.5 * (pack(b, TE::F3, Conserved::C(), k, j, i) +
+                   pack(b, TE::F3, Conserved::C(), k + (ndim > 2), j, i));
+        auto &coords = pack.GetCoordinates(b);
+        pack(b, Conserved::divC(), k, j, i) =
+            (pack(b, TE::F1, Conserved::C(), k, j, i + (ndim > 0)) -
+             pack(b, TE::F1, Conserved::C(), k, j, i)) /
+                coords.Dxc<X1DIR>(k, j, i) +
+            (pack(b, TE::F2, Conserved::C(), k, j + (ndim > 1), i) -
+             pack(b, TE::F2, Conserved::C(), k, j, i)) /
+                coords.Dxc<X2DIR>(k, j, i) +
+            (pack(b, TE::F3, Conserved::C(), k + (ndim > 2), j, i) -
+             pack(b, TE::F3, Conserved::C(), k, j, i)) /
+                coords.Dxc<X3DIR>(k, j, i);
+
+        pack(b, Conserved::D_cc(0), k, j, i) =
+            0.5 * (pack(b, TE::F1, Conserved::D(), k, j, i) +
+                   pack(b, TE::F1, Conserved::D(), k, j, i + (ndim > 0)));
+        pack(b, Conserved::D_cc(1), k, j, i) =
+            0.5 * (pack(b, TE::F2, Conserved::D(), k, j, i) +
+                   pack(b, TE::F2, Conserved::D(), k, j + (ndim > 1), i));
+        pack(b, Conserved::D_cc(2), k, j, i) =
+            0.5 * (pack(b, TE::F3, Conserved::D(), k, j, i) +
+                   pack(b, TE::F3, Conserved::D(), k + (ndim > 2), j, i));
+        pack(b, Conserved::divD(), k, j, i) =
+            (pack(b, TE::F1, Conserved::D(), k, j, i + (ndim > 0)) -
+             pack(b, TE::F1, Conserved::D(), k, j, i)) /
+                coords.Dxc<X1DIR>(k, j, i) +
+            (pack(b, TE::F2, Conserved::D(), k, j + (ndim > 1), i) -
+             pack(b, TE::F2, Conserved::D(), k, j, i)) /
+                coords.Dxc<X2DIR>(k, j, i) +
+            (pack(b, TE::F3, Conserved::D(), k + (ndim > 2), j, i) -
+             pack(b, TE::F3, Conserved::D(), k, j, i)) /
+                coords.Dxc<X3DIR>(k, j, i);
+      });
   return TaskStatus::complete;
 }
 } // namespace advection_package
