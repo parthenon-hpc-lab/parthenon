@@ -43,6 +43,14 @@ TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack1.GetNBlocks() - 1, kb.s,
       kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        PARTHENON_REQUIRE(pack1.GetLowerBound(b) == pack2.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetLowerBound(b) == pack_out.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetUpperBound(b) == pack2.GetUpperBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetUpperBound(b) == pack_out.GetUpperBound(b),
+                          "Packs are different size.");
         for (int l = pack1.GetLowerBound(b); l <= pack1.GetUpperBound(b); ++l) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
             const auto [j, i] = idxer(idx);
@@ -115,6 +123,10 @@ void StokesComponent(Real fac, parthenon::CellLevel cl,
       kb.s, kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         auto &coords = pack_in.GetCoordinates(b);
         parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        PARTHENON_REQUIRE(pack_in.GetLowerBound(b) == pack_out.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack_in.GetUpperBound(b) == pack_out.GetUpperBound(b),
+                          "Packs are different size.");
         for (int l = pack_out.GetLowerBound(b); l <= pack_out.GetUpperBound(b); ++l) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
             const auto [j, i] = idxer(idx);

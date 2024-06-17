@@ -75,17 +75,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   // Build MeshBlockData containers that will be included in MeshData containers. It is
   // gross that this has to be done by hand.
   const auto &stage_name = integrator->stage_name;
-  if (stage == 1) {
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &pmb = blocks[i];
-      // first make other useful containers
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int s = 1; s < integrator->nstages; s++)
-        pmb->meshblock_data.Add(stage_name[s], base);
-    }
-  }
-
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
 
@@ -102,6 +91,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
+    // Make a sparse variable pack descriptors that can be used to build packs
+    // including some subset of the fields in this example. This will be passed
+    // to the Stokes update routines, so that they can internally create variable
+    // packs that operate on only the desired set of variables.
     using namespace advection_package::Conserved;
     static auto desc = parthenon::MakePackDescriptor<phi>(
         pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},

@@ -39,7 +39,6 @@ using namespace parthenon::package::prelude;
 // *************************************************//
 
 namespace advection_package {
-using parthenon::UserHistoryOperation;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("advection_package");

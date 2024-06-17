@@ -75,11 +75,18 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (mesh_size.symmetry(dir)) {
       nblock[dir - 1] = 1;
+      // Symmetry directions have just a single zone for
+      // both the mesh and for each block
+      max_common_power2_divisor = 1;
       continue;
     }
     // Add error checking
     ndim = dir;
     nblock[dir - 1] = mesh_size.nx(dir) / block_size.nx(dir);
+    PARTHENON_REQUIRE(mesh_size.nx(dir) % block_size.nx(dir) == 0,
+                      "Block size is not evenly divisible into the base mesh size.");
+    PARTHENON_REQUIRE(nblock[dir - 1] > 0,
+                      "Must have a mesh that has a block size greater than one.");
     max_common_power2_divisor =
         std::min(max_common_power2_divisor, MaximumPowerOf2Divisor(nblock[dir - 1]));
   }
@@ -107,26 +114,29 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   for (int n = 0; n < idxer.size(); ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     RegionSize tree_domain = block_size;
-    auto LLCoordLeft = [](int idx, int npoints) {
-      return static_cast<double>(idx) / npoints;
-    };
-    auto LLCoordRight = [](int idx, int npoints) {
-      return static_cast<double>(idx + 1) / npoints;
-    };
-    tree_domain.xmin(X1DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix1, ntree[0]), X1DIR);
-    tree_domain.xmax(X1DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix1, ntree[0]), X1DIR);
+    tree_domain.xmin(X1DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix1, BlockLocation::Left, ntree[0]),
+        X1DIR);
+    tree_domain.xmax(X1DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix1, BlockLocation::Right,
+                                                      ntree[0]),
+        X1DIR);
 
-    tree_domain.xmin(X2DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix2, ntree[1]), X2DIR);
-    tree_domain.xmax(X2DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix2, ntree[1]), X2DIR);
+    tree_domain.xmin(X2DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix2, BlockLocation::Left, ntree[1]),
+        X2DIR);
+    tree_domain.xmax(X2DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix2, BlockLocation::Right,
+                                                      ntree[1]),
+        X2DIR);
 
-    tree_domain.xmin(X3DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordLeft(ix3, ntree[2]), X3DIR);
-    tree_domain.xmax(X3DIR) =
-        mesh_size.LogicalToActualPosition(LLCoordRight(ix3, ntree[2]), X3DIR);
+    tree_domain.xmin(X3DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix3, BlockLocation::Left, ntree[2]),
+        X3DIR);
+    tree_domain.xmax(X3DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
+        LogicalLocation::IndexToSymmetrizedCoordinate(ix3, BlockLocation::Right,
+                                                      ntree[2]),
+        X3DIR);
     LogicalLocation loc(level, ix1, ix2, ix3);
     ll_map[loc] = std::make_pair(tree_domain, std::shared_ptr<Tree>());
   }
