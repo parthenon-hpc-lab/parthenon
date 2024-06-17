@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1099]](https://github.com/parthenon-hpc-lab/parthenon/pull/1099) Functionality for outputting task graphs in GraphViz format.
 - [[PR 1091]](https://github.com/parthenon-hpc-lab/parthenon/pull/1091) Add vector wave equation example.
 - [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
 - [[PR 1106]](https://github.com/parthenon-hpc-lab/parthenon/pull/1106) Add CMake options for turning on ASAN and HWASAN
