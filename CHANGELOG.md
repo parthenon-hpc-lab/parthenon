@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1091]](https://github.com/parthenon-hpc-lab/parthenon/pull/1091) Add vector wave equation example.
 - [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
 - [[PR 1106]](https://github.com/parthenon-hpc-lab/parthenon/pull/1106) Add CMake options for turning on ASAN and HWASAN
 - [[PR 1100]](https://github.com/parthenon-hpc-lab/parthenon/pull/1100) Custom refinement ops propagated to fluxes
@@ -27,6 +28,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
+- [[PR 1092]](https://github.com/parthenon-hpc-lab/parthenon/pull/1092) Updates to DataCollection and MeshData to remove requirement of predefining MeshBlockData
 - [[PR 1113]](https://github.com/parthenon-hpc-lab/parthenon/pull/1113) Prevent division by zero
 - [[PR 1112]](https://github.com/parthenon-hpc-lab/parthenon/pull/1112) Remove shared_ptr cycle in forest::Tree
 - [[PR 1104]](https://github.com/parthenon-hpc-lab/parthenon/pull/1104) Fix reading restarts due to hidden ghost var
