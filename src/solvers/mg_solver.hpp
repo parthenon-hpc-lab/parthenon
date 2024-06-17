@@ -25,8 +25,8 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "solvers/solver_utils.hpp"
-
 #include "tasks/tasks.hpp"
+#include "utils/robust.hpp"
 
 namespace parthenon {
 
@@ -246,7 +246,8 @@ class MGSolver {
                   DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
                     const Real off_diag = Ax[idx] - diag[idx] * xo[idx];
                     const Real val = prhs[idx] - off_diag;
-                    xn[idx] = weight * val / diag[idx] + (1.0 - weight) * xo[idx];
+                    xn[idx] =
+                        weight * robust::ratio(val, diag[idx]) + (1.0 - weight) * xo[idx];
                   });
             }
           });

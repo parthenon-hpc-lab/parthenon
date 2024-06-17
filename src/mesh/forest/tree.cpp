@@ -323,7 +323,7 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                            RelativeOrientation orient, const bool periodic) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, orient});
+  neighbors[location_idx].insert({neighbor_tree.get(), orient});
   BoundaryFace fidx = offset.Face();
 
   if (fidx >= 0)
