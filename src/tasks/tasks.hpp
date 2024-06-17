@@ -35,6 +35,7 @@
 #include <parthenon_mpi.hpp>
 
 #include "thread_pool.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 // Macro for decorating functions passed to AddTask so that their names
@@ -178,6 +179,10 @@ class Task {
 
 inline std::ostream &WriteTaskGraph(std::ostream &stream,
                                     const std::vector<std::shared_ptr<Task>> &tasks) {
+#ifndef HAS_CXX_ABI
+  std::cout << "Warning: task graph output will not include function"
+               "signatures since libcxxabi is unavailable.\n";
+#endif
   std::vector<std::pair<std::regex, std::string>> replacements;
   replacements.emplace_back("parthenon::", "");
   replacements.emplace_back("std::", "");
@@ -225,7 +230,7 @@ class TaskList {
  public:
   TaskList() : TaskList(TaskID(), {1, 1}) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits)
-      : dependency(dep), exec_limits(limits) {
+      : dependency(dep), exec_limits(limits), graph_built{false} {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
@@ -270,13 +275,17 @@ class TaskList {
     } else if constexpr (std::is_convertible<Arg1, std::string>::value) {
       return AddTaskImpl(tq, dep, std::forward<Arg1>(arg1), std::forward<Args>(args)...);
     } else {
-      PARTHENON_FAIL("Bad signature for AddTask.");
+      static_assert(always_false<Arg1>, "Bad signature for AddTask.");
     }
   }
 
   template <class... Args>
   TaskID AddTaskImpl(const TaskQualifier tq, TaskID dep,
                      const std::optional<std::string> &label, Args &&...args) {
+    if (graph_built) {
+      PARTHENON_FAIL("Trying to add a task to a TaskList that has already"
+                     " been built into a completed TaskRegion graph.");
+    }
     // user-space tasks always depend on something. if no dependencies are given,
     // make the task dependent on the list's first_task
     if (dep.empty()) dep = TaskID(first_task);
@@ -424,12 +433,19 @@ class TaskList {
   Task *last_task;
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
+  bool graph_built;
 
   void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) const {
     tasks_inout.insert(tasks_inout.end(), tasks.begin(), tasks.end());
     for (const auto &stl : sublists) {
       tasks_inout.insert(tasks_inout.end(), stl->tasks.begin(), stl->tasks.end());
     }
+  }
+
+  void SetGraphBuilt() {
+    graph_built = true;
+    for (auto &tl : sublists)
+      tl->SetGraphBuilt();
   }
 
   Task *GetStartupTask() { return first_task; }
@@ -585,6 +601,9 @@ class TaskRegion {
     }
 
     graph_built = true;
+    for (auto &tl : task_lists) {
+      tl.SetGraphBuilt();
+    }
   }
 };
 
