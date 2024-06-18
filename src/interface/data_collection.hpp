@@ -55,15 +55,6 @@ class DataCollection {
   template <class SRC_t, typename ID_t>
   std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields, const bool shallow) {
-    if constexpr (!((std::is_same_v<SRC_t, MeshBlock> &&
-                     std::is_same_v<T, MeshBlockData<Real>>) ||
-                     (std::is_same_v<SRC_t, BlockListPartition> &&
-                     std::is_same_v<T, MeshData<Real>>) ||
-                    std::is_same_v<SRC_t, T>)) {
-      // SRC_t and T are incompatible
-      static_assert(always_false<SRC_t>, "Incompatible source and container types.");
-    }
-
     auto key = GetKey(name, src);
     auto it = containers_.find(key);
     if (it != containers_.end()) {
@@ -92,7 +83,7 @@ class DataCollection {
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
-
+  // TODO(LFR): Is this method used anywhere? Should insertion of empty containers be allowed?
   std::shared_ptr<T> &Add(const std::string &label);
 
   auto &Stages() { return containers_; }
@@ -109,7 +100,8 @@ class DataCollection {
   }
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
-
+  
+  // Legacy methods that are specific to MeshData
   std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
   std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
                                const int &partition_id);
@@ -137,16 +129,6 @@ class DataCollection {
       return stage_label;
     }
   }
-  std::string GetKey(const std::string &stage_label, std::optional<int> partition_id,
-                     std::optional<int> gmg_level) {
-    std::string key = stage_label;
-    if (partition_id) key = key + "_part-" + std::to_string(*partition_id);
-    if (gmg_level) key = key + "_gmg-" + std::to_string(*gmg_level);
-    return key;
-  }
-
-  std::shared_ptr<T> &GetOrAdd_impl(const std::string &mbd_label, const int &partition_id,
-                                    const std::optional<int> gmg_level);
 
   Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
