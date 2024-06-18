@@ -648,11 +648,11 @@ class phdf:
         if flatten:
             nblocks = vShape[0]
             if self.varTopology[variable] == "None":
-                remaining_size = np.product(vShape[1:])
+                remaining_size = np.prod(vShape[1:])
                 return self.varData[variable].reshape(nblocks, remaining_size)
             else:
                 preserved_shape = vShape[:-3]
-                remaining_size = np.product(vShape[-3:])
+                remaining_size = np.prod(vShape[-3:])
                 return self.varData[variable].reshape(*preserved_shape, remaining_size)
 
         if self.IncludesGhost and interior:
