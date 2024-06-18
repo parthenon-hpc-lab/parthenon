@@ -130,3 +130,43 @@ jobs:
             build/profile.txt
           retention-days: 3
 
+  integration-amdgpu:
+    runs-on: [self-hosted, navi1030]
+    container:
+      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      # Map to local user id on CI  machine to allow writing to build cache and
+      # forward device handles to access AMD GPU within container
+      options: --user 1001 --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=hip-mpi \
+            -DCMAKE_CXX_COMPILER=hipcc
+      # Test example with "variables" and output
+      - name: advection
+        run: |
+          cmake --build build -t advection-example
+          cd build
+          ctest -R regression_mpi_test:output_hdf5
+      # Test example with swarms
+      - name: particle-leapfrog
+        run: |
+          cmake --build build -t particle-leapfrog
+          cd build
+          ctest -R regression_mpi_test:particle_leapfrog
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-integration-amdgpu
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+          retention-days: 3
+

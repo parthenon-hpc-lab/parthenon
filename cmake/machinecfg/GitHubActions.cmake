@@ -29,9 +29,10 @@ if (${MACHINE_VARIANT} MATCHES "cuda")
     set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -Wno-unknown-cuda-version")
   endif()
 elseif (${MACHINE_VARIANT} MATCHES "hip")
-  # using an arbitrary arch as GitHub Action runners don't have GPUs
+  # using an arch that matches Hamilton at Hamburg Obs
   set(Kokkos_ARCH_NAVI1030 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_HIP ON CACHE BOOL "Enable HIP")
+  set(Kokkos_ENABLE_ZEN3 ON CACHE BOOL "Enable Zen3")
 else()
   set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -fopenmp-simd")
 endif()
