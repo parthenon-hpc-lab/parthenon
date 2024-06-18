@@ -74,34 +74,26 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
-    // first make other useful containers
-    if (stage == 1) {
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int i = 1; i < integrator->nstages; i++)
-        pmb->meshblock_data.Add(stage_name[i], base);
-    }
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
-    auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
-    // pull out the container that will hold the updated state
-    // effectively, sc1 = sc0 + dudt*dt
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
+    auto &base = pmb->meshblock_data.Add("base", pmb);
+    auto &sc0 = pmb->meshblock_data.Add(stage_name[stage - 1], base);
 
     auto advect_flux =
         tl.AddTask(none, TF(sparse_advection_package::CalculateFluxes), sc0);
   }
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetBlockPartitions();
+  const int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
     const auto any = parthenon::BoundaryType::any;
     auto start_flxcor = tl.AddTask(none, TF(parthenon::StartReceiveFluxCorrections), mc0);
