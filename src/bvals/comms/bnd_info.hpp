@@ -52,7 +52,7 @@ struct BndInfo {
   int topo_idx[3]{0, 0, 0};
   SpatiallyMaskedIndexer6D idxer[3];
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
   int alloc_status;
