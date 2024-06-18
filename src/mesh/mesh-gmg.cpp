@@ -149,6 +149,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Sort the gmg block lists by gid
   for (auto &[level, bl] : gmg_block_lists) {
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
+    BuildBlockPartitions(GridIdentifier::two_level_composite(level));
   }
 }
 

@@ -338,6 +338,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
       block_list[i - nbs]->pmr->DerefinementCount() =
           dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
   }
+  BuildBlockPartitions(GridIdentifier::leaf());
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
@@ -355,6 +356,20 @@ Mesh::~Mesh() {
   }
   mpi_comm_map_.clear();
 #endif
+}
+
+//----------------------------------------------------------------------------------------
+//  \brief Partition a given block list for use by MeshData
+
+void Mesh::BuildBlockPartitions(GridIdentifier grid) {
+  auto partition_blocklists = partition::ToSizeN(
+      grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
+      DefaultPackSize());
+  std::vector<std::shared_ptr<BlockListPartition>> out;
+  int id = 0;
+  for (auto &part_bl : partition_blocklists)
+    out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
+  block_partitions_[grid] = out;
 }
 
 //----------------------------------------------------------------------------------------

@@ -834,6 +834,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     block_list[n - nbs]->gid = n;
     block_list[n - nbs]->lid = n - nbs;
   }
+  BuildBlockPartitions(GridIdentifier::leaf());
 
   // Receive the data and load into MeshBlocks
   { // AMR Recv and unpack data
