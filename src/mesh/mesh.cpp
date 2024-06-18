@@ -604,8 +604,10 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+  }
+  for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+    for (auto &partition : GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
+      auto &mdg = mdc.Add("base", partition);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
@@ -613,6 +615,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(mdg);
     }
   }
+
   tag_map.ResolveMap();
 
   // Create send/recv MPI_Requests for swarms
@@ -643,8 +646,11 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.GetOrAdd("base", i);
     BuildBoundaryBuffers(md);
-    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
+  }
+  
+  for (auto &[gmg_level, mdc] : gmg_mesh_data) {
+    for (auto &partition : GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
+      auto &mdg = mdc.Add("base", partition);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
     }
@@ -781,12 +787,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        PARTHENON_REQUIRE(num_partitions == 1,
-                          "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
-                          "during first initialization.");
-
-        auto &md = mesh_data.GetOrAdd("base", 0);
-        ProblemGenerator(this, pin, md.get());
+        //PARTHENON_REQUIRE(num_partitions == 1,
+        //                  "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
+        //                  "during first initialization.");
+        for (auto &partition : GetBlockPartitions(GridIdentifier::leaf())) {  
+          auto &md = mesh_data.Add("base", partition);
+          ProblemGenerator(this, pin, md.get());
+        }
         // Call individual MeshBlock ProblemGenerator
       } else {
         for (int i = 0; i < nmb; ++i) {

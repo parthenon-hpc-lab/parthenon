@@ -26,6 +26,7 @@
 namespace parthenon {
 class Mesh;
 class MeshBlock;
+struct BlockListPartition;
 template <class T>
 class MeshData;
 template <class T>
@@ -56,6 +57,8 @@ class DataCollection {
                           const std::vector<ID_t> &fields, const bool shallow) {
     if constexpr (!((std::is_same_v<SRC_t, MeshBlock> &&
                      std::is_same_v<T, MeshBlockData<Real>>) ||
+                     (std::is_same_v<SRC_t, BlockListPartition> &&
+                     std::is_same_v<T, MeshData<Real>>) ||
                     std::is_same_v<SRC_t, T>)) {
       // SRC_t and T are incompatible
       static_assert(always_false<SRC_t>, "Incompatible source and container types.");
@@ -76,17 +79,20 @@ class DataCollection {
     containers_[key] = c;
     return containers_[key];
   }
+
   template <class SRC_t, typename ID_t = std::string>
   std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, false);
   }
+
   template <class SRC_t, typename ID_t = std::string>
   std::shared_ptr<T> &AddShallow(const std::string &label,
                                  const std::shared_ptr<SRC_t> &src,
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
+
   std::shared_ptr<T> &Add(const std::string &label);
 
   auto &Stages() { return containers_; }
@@ -122,7 +128,7 @@ class DataCollection {
  private:
   template <class U>
   std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
-    if constexpr (std::is_same_v<U, MeshData<Real>>) {
+    if constexpr (std::is_same_v<U, MeshData<Real>> || std::is_same_v<U, BlockListPartition>) {
       std::string key = stage_label + "_part-" + std::to_string(in->partition);
       if (in->grid.type == GridType::two_level_composite)
         key = key + "_gmg-" + std::to_string(in->grid.logical_level);

@@ -146,6 +146,16 @@ class Mesh {
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
+
+  std::vector<std::shared_ptr<BlockListPartition>> GetBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) {
+    auto partition_blocklists = partition::ToSizeN(grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level], DefaultPackSize());
+    std::vector<std::shared_ptr<BlockListPartition>> out; 
+    int id = 0; 
+    for (auto &part_bl : partition_blocklists)
+      out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
+    return out;
+  }
+
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
