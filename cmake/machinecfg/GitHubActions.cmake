@@ -30,7 +30,7 @@ if (${MACHINE_VARIANT} MATCHES "cuda")
   endif()
 elseif (${MACHINE_VARIANT} MATCHES "hip")
   # using an arbitrary arch as GitHub Action runners don't have GPUs
-  set(Kokkos_ARCH_VEGA908 ON CACHE BOOL "GPU architecture")
+  set(Kokkos_ARCH_NAVI1030 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_HIP ON CACHE BOOL "Enable HIP")
 else()
   set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -fopenmp-simd")
