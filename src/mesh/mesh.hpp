@@ -149,10 +149,6 @@ class Mesh {
 
   std::vector<std::shared_ptr<BlockListPartition>> &
   GetBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) {
-    if (block_partitions_.count(grid) == 0) {
-      PARTHENON_WARN("Adding empty partitions, should only happen in tests.");
-      block_partitions_[grid] = std::vector<std::shared_ptr<BlockListPartition>>();
-    }
     return block_partitions_.at(grid);
   }
 

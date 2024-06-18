@@ -316,6 +316,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
+    BuildBlockPartitions(GridIdentifier::leaf());
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
     return;
   }
