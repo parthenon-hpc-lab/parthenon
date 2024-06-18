@@ -371,6 +371,95 @@ struct ProlongateInternalAverage {
   }
 };
 
+// Implements divergence-free prolongation to internal faces using the method
+// described in Toth & Roe (2002). Any prolongation method for faces shared
+// between the coarse and the fine grid can be used alongside this internal
+// prolongation operation. Obviously, this prolongation operation is only
+// defined for face fields.
+struct ProlongateInternalTothAndRoe {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return (cel == TE::CC) && (GetTopologicalType(fel) == TopologicalType::Face);
+  }
+  // Here, fel is the topological element on which the field is defined and
+  // cel is the topological element on which we are filling the internal values
+  // of the field. So, for instance, we could fill the fine cell values of an
+  // x-face field within the volume of a coarse cell. This is assumes that the
+  // values of the fine cells on the elements corresponding with the coarse cell
+  // have been filled.
+  template <int DIM, TopologicalElement fel = TopologicalElement::CC,
+            TopologicalElement cel = TopologicalElement::CC>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArrayND<Real, VariableState> *,
+     const ParArrayND<Real, VariableState> *pfine) {
+    using namespace util;
+
+    if constexpr (!IsSubmanifold(fel, cel)) {
+      return;
+    } else {
+      const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
+      const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
+      const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
+
+      // Here, we write the update for the x-component of the B-field and recover the
+      // other components by cyclic permutation
+      constexpr int element_idx = static_cast<int>(fel) % 3;
+      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real & {
+        eidx = (element_idx + eidx) % 3;
+        // Guard against offsetting in symmetry dimensions
+        constexpr int g3 = (DIM > 2);
+        constexpr int g2 = (DIM > 1);
+        if constexpr (fel == TE::F1) {
+          return (*pfine)(eidx, l, m, n, fk + ok * g3, fj + oj * g2, fi + oi);
+        } else if constexpr (fel == TE::F2) {
+          return (*pfine)(eidx, l, m, n, fk + oj * g3, fj + oi * g2, fi + ok);
+        } else {
+          return (*pfine)(eidx, l, m, n, fk + oi * g3, fj + ok * g2, fi + oj);
+        }
+      };
+
+      using iarr2 = std::array<int, 2>;
+      auto sg = [](int offset) -> Real { return offset == 0 ? -1.0 : 1.0; };
+      Real Uxx{0.0};
+      Real Vxyz{0.0};
+      Real Wxyz{0.0};
+      for (const int v : iarr2{0, 1}) {
+        // Note step size of 2 for the direction normal to the eidx2/eidx3
+        for (const int u : iarr2{0, 2}) {
+          for (const int t : iarr2{0, 1}) {
+            const auto fine2 = get_fine_permuted(1, v, u, t);
+            const auto fine3 = get_fine_permuted(2, u, v, t);
+            Uxx += sg(t) * sg(u) * (fine2 + fine3);
+            Vxyz += sg(t) * sg(u) * sg(v) * fine2;
+            Wxyz += sg(t) * sg(u) * sg(v) * fine3;
+          }
+        }
+      }
+      Uxx *= 0.125;
+      const int dir1 = element_idx + 1;
+      const int dir2 = (element_idx + 1) % 3 + 1;
+      const int dir3 = (element_idx + 2) % 3 + 1;
+      const auto dx2 = std::pow(coarse_coords.DxcFA(dir1, k, j, i), 2);
+      const auto dy2 = std::pow(coarse_coords.DxcFA(dir2, k, j, i), 2);
+      const auto dz2 = std::pow(coarse_coords.DxcFA(dir3, k, j, i), 2);
+      Vxyz *= 0.125 * dz2 / (dx2 + dz2);
+      Wxyz *= 0.125 * dy2 / (dx2 + dy2);
+
+      for (int ok : iarr2{0, 1}) {
+        for (int oj : iarr2{0, 1}) {
+          get_fine_permuted(0, ok, oj, 1) =
+              0.5 * (get_fine_permuted(0, ok, oj, 0) + get_fine_permuted(0, ok, oj, 2)) +
+              Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz;
+        }
+      }
+    }
+  }
+};
+
 } // namespace refinement_ops
 } // namespace parthenon
 

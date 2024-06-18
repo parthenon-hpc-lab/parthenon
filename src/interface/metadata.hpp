@@ -116,6 +116,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
+  /** the variable will have twice as many active zones in each direction **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
   /************************************************/                                     \

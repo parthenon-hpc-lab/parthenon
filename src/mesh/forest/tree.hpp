@@ -74,7 +74,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     LogicalCoordinateTransformation lcoord_trans;
     lcoord_trans.use_offset = true;
     lcoord_trans.offset = {0, 0, 0};
-    ptree->neighbors[13].insert({ptree, lcoord_trans});
+    ptree->neighbors[13].insert({ptree.get(), lcoord_trans});
     return ptree;
   }
 
@@ -149,8 +149,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // multiple neighbors generally, we keep a map at each neighbor location from
   // the tree sptr to the relative logical coordinate transformation to the neighbor
   // block.
-  std::array<std::unordered_map<std::shared_ptr<Tree>, LogicalCoordinateTransformation>,
-             27>
+  std::array<std::unordered_map<Tree *, LogicalCoordinateTransformation>, 27>
       neighbors;
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;

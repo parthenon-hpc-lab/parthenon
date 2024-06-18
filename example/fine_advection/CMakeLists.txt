@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,15 +11,18 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(boundary_exchange)
-add_subdirectory(fine_advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(poisson)
-add_subdirectory(poisson_gmg)
-add_subdirectory(sparse_advection)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "fine_advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(
+      fine_advection-example
+          advection_driver.cpp
+          advection_driver.hpp
+          advection_package.cpp
+          advection_package.hpp
+          main.cpp
+          parthenon_app_inputs.cpp
+          stokes.hpp
+  )
+  target_link_libraries(fine_advection-example PRIVATE Parthenon::parthenon)
+  lint_target(fine_advection-example)
+endif()

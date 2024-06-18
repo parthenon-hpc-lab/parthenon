@@ -335,7 +335,7 @@ void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbo
                            LogicalCoordinateTransformation lcoord_trans,
                            const bool periodic) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, lcoord_trans});
+  neighbors[location_idx].insert({neighbor_tree.get(), lcoord_trans});
   BoundaryFace fidx = offset.Face();
 
   if (fidx >= 0)

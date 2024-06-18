@@ -126,10 +126,11 @@ int VarInfo::GetDim(int i) const {
 }
 
 std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
-                                     const IndexShape &cellbounds) {
+                                     const IndexShape &cellbounds,
+                                     const IndexShape &f_cellbounds) {
   std::vector<VarInfo> out;
   for (const auto &v : vars) {
-    out.emplace_back(v, cellbounds);
+    out.emplace_back(v, v->IsSet(Metadata::Fine) ? f_cellbounds : cellbounds);
   }
   std::sort(out.begin(), out.end(),
             [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });

@@ -33,37 +33,6 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
-
-template <typename T>
-void MeshBlockData<T>::Initialize(
-    const std::shared_ptr<StateDescriptor> resolved_packages,
-    const std::shared_ptr<MeshBlock> pmb) {
-  SetBlockPointer(pmb);
-  resolved_packages_ = resolved_packages;
-
-  // clear all variables, maps, and pack caches
-  varVector_.clear();
-  varMap_.clear();
-  varUidMap_.clear();
-  flagsToVars_.clear();
-  varPackMap_.clear();
-  coarseVarPackMap_.clear();
-  varFluxPackMap_.clear();
-
-  for (auto const &q : resolved_packages->AllFields()) {
-    AddField(q.first.base_name, q.second, q.first.sparse_id);
-  }
-
-  const auto &swarm_container = GetSwarmData();
-  swarm_container->Initialize(resolved_packages, pmb);
-
-  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
-  auto vars = GetVariablesByFlag(flags);
-  for (auto &v : vars.vars()) {
-    AllocateSparse(v->label());
-  }
-}
-
 ///
 /// The internal routine for adding a new field.  This subroutine
 /// is topology aware and will allocate accordingly.
@@ -270,9 +239,9 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       } else {
         var_list.Add(v, sparse_ids_set);
       }
-    } else if ((resolved_packages_ != nullptr) &&
-               (resolved_packages_->SparseBaseNamePresent(name))) {
-      const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
+    } else if ((resolved_packages != nullptr) &&
+               (resolved_packages->SparseBaseNamePresent(name))) {
+      const auto &sparse_pool = resolved_packages->GetSparsePool(name);
 
       // add all sparse ids of the pool
       for (const auto iter : sparse_pool.pool()) {
