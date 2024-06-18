@@ -104,7 +104,12 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   pcache->idx_vec = std::vector<std::size_t>(key_order.size());
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
     if (comm_map->count(std::get<2>(t)) == 0) {
-      PARTHENON_FAIL("Asking for buffer that doesn't exist");
+      auto key = std::get<2>(t);
+      PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist")
+                     + " (sender: " + std::to_string(std::get<0>(key)) 
+                     + ", receiver: " + std::to_string(std::get<1>(key))
+                     + ", var: " + std::get<2>(key)
+                     + ", location: " + std::to_string(std::get<3>(key)) + ")");
     }
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
