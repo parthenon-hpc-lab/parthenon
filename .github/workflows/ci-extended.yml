@@ -70,6 +70,10 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # Sanitizers options
+          export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
+          export UBSAN_OPTIONS=print_stacktrace=0
+          export LSAN_OPTIONS=
           ctest -L performance -LE perf-reg
 
       # run regression tests
@@ -78,6 +82,10 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # Sanitizers options (disable leak detection for MPI runs, due to OpenMPI leaks)
+          export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
+          export UBSAN_OPTIONS=print_stacktrace=0
+          export LSAN_OPTIONS=detect_leaks=0
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
