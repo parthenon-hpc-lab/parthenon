@@ -806,9 +806,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        // PARTHENON_REQUIRE(num_partitions == 1,
-        //                   "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
-        //                   "during first initialization.");
+        PARTHENON_REQUIRE(num_partitions == 1,
+                          "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
+                          "during first initialization.");
         for (auto &partition : GetBlockPartitions(GridIdentifier::leaf())) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
