@@ -149,8 +149,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // multiple neighbors generally, we keep a map at each neighbor location from
   // the tree sptr to the relative logical coordinate transformation to the neighbor
   // block.
-  std::array<std::unordered_map<Tree *, LogicalCoordinateTransformation>, 27>
-      neighbors;
+  std::array<std::unordered_map<Tree *, LogicalCoordinateTransformation>, 27> neighbors;
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;
 
