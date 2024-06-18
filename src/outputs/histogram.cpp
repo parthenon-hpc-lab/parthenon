@@ -257,10 +257,8 @@ void Histogram::CalcHist(Mesh *pm) {
   // https://github.com/kokkos/kokkos/issues/6363
   Kokkos::deep_copy(result, 0);
 
-  const int num_partitions = pm->DefaultNumPartitions();
-
-  for (int p = 0; p < num_partitions; p++) {
-    auto &md = pm->mesh_data.GetOrAdd("base", p);
+  for (auto partition : pm->GetBlockPartitions()) {
+    auto &md = pm->mesh_data.Add("base", partition);
 
     const auto x_var_pack_string = x_var_type == VarType::Var
                                        ? std::vector<std::string>{x_var_name_}

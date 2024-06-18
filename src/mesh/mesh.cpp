@@ -601,12 +601,13 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Build densely populated communication tags
   tag_map.clear();
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
   }
   for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-    for (auto &partition : GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
+    for (auto &partition :
+         GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
       auto &mdg = mdc.Add("base", partition);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
       tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
@@ -643,13 +644,14 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   boundary_comm_map.clear();
 
   // Build the boundary buffers for the current mesh
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     BuildBoundaryBuffers(md);
   }
-  
+
   for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-    for (auto &partition : GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
+    for (auto &partition :
+         GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
       auto &mdg = mdc.Add("base", partition);
       BuildBoundaryBuffers(mdg);
       BuildGMGBoundaryBuffers(mdg);
@@ -665,10 +667,11 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   bool all_sent;
   std::int64_t send_iters = 0;
 
+  auto partitions = GetBlockPartitions();
   do {
     all_sent = true;
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd(md_name, i);
+    for (int i = 0; i < partitions.size(); ++i) {
+      auto &md = mesh_data.Add(md_name, partitions[i]);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -691,8 +694,8 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   std::int64_t receive_iters = 0;
   do {
     all_received = true;
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd(md_name, i);
+    for (int i = 0; i < partitions.size(); ++i) {
+      auto &md = mesh_data.Add(md_name, partitions[i]);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -707,15 +710,15 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       receive_iters < max_it,
       "Too many iterations waiting to receive boundary communication buffers.");
 
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd(md_name, i);
+  for (auto &partition : partitions) {
+    auto &md = mesh_data.Add(md_name, partition);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd(md_name, i);
+  for (auto &partition : partitions) {
+    auto &md = mesh_data.Add(md_name, partition);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);
@@ -732,8 +735,8 @@ void Mesh::PreCommFillDerived() {
     auto &mbd = block_list[i]->meshblock_data.Get();
     Update::PreCommFillDerived(mbd.get());
   }
-  for (int i = 0; i < num_partitions; ++i) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -741,8 +744,8 @@ void Mesh::PreCommFillDerived() {
 void Mesh::FillDerived() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     // Call MeshData based FillDerived functions
     Update::FillDerived(md.get());
   }
@@ -787,10 +790,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        //PARTHENON_REQUIRE(num_partitions == 1,
-        //                  "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
-        //                  "during first initialization.");
-        for (auto &partition : GetBlockPartitions(GridIdentifier::leaf())) {  
+        // PARTHENON_REQUIRE(num_partitions == 1,
+        //                   "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
+        //                   "during first initialization.");
+        for (auto &partition : GetBlockPartitions(GridIdentifier::leaf())) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
         }
@@ -810,7 +813,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                           "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
                           "during first initialization.");
 
-        auto &md = mesh_data.GetOrAdd("base", 0);
+        auto &md = mesh_data.Add("base", GetBlockPartitions()[0]);
         PostInitialization(this, pin, md.get());
         // Call individual MeshBlock PostInitialization
       } else {

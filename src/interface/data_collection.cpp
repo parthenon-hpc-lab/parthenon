@@ -36,14 +36,16 @@ template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label, pmy_mesh_->GetBlockPartitions(GridIdentifier::leaf())[partition_id]);
+  return Add(mbd_label,
+             pmy_mesh_->GetBlockPartitions(GridIdentifier::leaf())[partition_id]);
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label, pmy_mesh_->GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))[partition_id]);
+  return Add(mbd_label, pmy_mesh_->GetBlockPartitions(GridIdentifier::two_level_composite(
+                            gmg_level))[partition_id]);
 }
 
 template class DataCollection<MeshData<Real>>;

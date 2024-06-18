@@ -461,8 +461,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 struct BlockListPartition {
-  BlockListPartition(int p, GridIdentifier g, const BlockList_t &bl, Mesh* pm) : 
-      partition{p}, grid{g}, block_list{bl}, pmesh{pm}{}
+  BlockListPartition(int p, GridIdentifier g, const BlockList_t &bl, Mesh *pm)
+      : partition{p}, grid{g}, block_list{bl}, pmesh{pm} {}
   int partition;
   GridIdentifier grid;
   BlockList_t block_list;

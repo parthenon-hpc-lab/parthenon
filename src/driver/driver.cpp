@@ -63,7 +63,7 @@ void Driver::PostExecute(DriverStatus status) {
 
 DriverStatus EvolutionDriver::Execute() {
   PreExecute();
-  InitializeBlockTimeStepsAndBoundaries();
+  InitializeBlockTimeSteps();
   SetGlobalTimeStep();
 
   // Before loop do work
@@ -123,7 +123,7 @@ DriverStatus EvolutionDriver::Execute() {
 
       timer_LBandAMR.reset();
       pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
-      if (pmesh->modified) InitializeBlockTimeStepsAndBoundaries();
+      if (pmesh->modified) InitializeBlockTimeSteps();
       time_LBandAMR += timer_LBandAMR.seconds();
       SetGlobalTimeStep();
 
@@ -188,23 +188,15 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
   Driver::PostExecute(status);
 }
 
-void EvolutionDriver::InitializeBlockTimeStepsAndBoundaries() {
+void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step using Block function
   for (auto &pmb : pmesh->block_list) {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
   }
   // calculate the first time step using Mesh function
-  pmesh->boundary_comm_map.clear();
-  const int num_partitions = pmesh->DefaultNumPartitions();
-  for (int i = 0; i < num_partitions; i++) {
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    Update::EstimateTimestep(mbase.get());
-    BuildBoundaryBuffers(mbase);
-    for (auto &[gmg_level, mdc] : pmesh->gmg_mesh_data) {
-      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
-      BuildBoundaryBuffers(mdg);
-      BuildGMGBoundaryBuffers(mdg);
-    }
+  for (auto &partition : pmesh->GetBlockPartitions()) {
+    auto &mbase = pmesh->mesh_data.Add("base", partition);
+    Update::EstimateTimestep(mbase.get())
   }
 }
 

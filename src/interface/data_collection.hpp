@@ -83,7 +83,8 @@ class DataCollection {
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
-  // TODO(LFR): Is this method used anywhere? Should insertion of empty containers be allowed?
+  // TODO(LFR): Is this method used anywhere? Should insertion of empty containers be
+  // allowed?
   std::shared_ptr<T> &Add(const std::string &label);
 
   auto &Stages() { return containers_; }
@@ -100,7 +101,7 @@ class DataCollection {
   }
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
-  
+
   // Legacy methods that are specific to MeshData
   std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
   std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
@@ -120,7 +121,8 @@ class DataCollection {
  private:
   template <class U>
   std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
-    if constexpr (std::is_same_v<U, MeshData<Real>> || std::is_same_v<U, BlockListPartition>) {
+    if constexpr (std::is_same_v<U, MeshData<Real>> ||
+                  std::is_same_v<U, BlockListPartition>) {
       std::string key = stage_label + "_part-" + std::to_string(in->partition);
       if (in->grid.type == GridType::two_level_composite)
         key = key + "_gmg-" + std::to_string(in->grid.logical_level);

@@ -112,8 +112,7 @@ class MGSolver {
     auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
 
     auto partitions = pmesh->GetBlockPartitions(GridIdentifier::leaf());
-    if (partition >= partitions.size()) 
-      return dependence;
+    if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
@@ -314,10 +313,10 @@ class MGSolver {
     using namespace utils;
 
     bool multilevel = (level != min_level);
-    
-    auto partitions = pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
-    if (partition >= partitions.size()) 
-      return dependence;
+
+    auto partitions =
+        pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->gmg_mesh_data[level].Add("base", partitions[partition]);
 
     auto task_out = dependence;
@@ -364,9 +363,9 @@ class MGSolver {
 
     bool multilevel = (level != min_level);
 
-    auto partitions = pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
-    if (partition >= partitions.size()) 
-      return dependence;
+    auto partitions =
+        pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->gmg_mesh_data[level].Add("base", partitions[partition]);
     std::string label =
         "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
