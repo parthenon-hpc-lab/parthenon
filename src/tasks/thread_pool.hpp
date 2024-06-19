@@ -151,7 +151,7 @@ class ThreadPool {
 
   template <typename F, class... Args>
   void enqueue(F &&f, Args &&...args) {
-    using return_t = typename std::result_of<F(Args...)>::type;
+    using return_t = typename std::invoke_result_t<F, Args...>;
     auto task = std::make_shared<std::packaged_task<return_t()>>(
         [=, func = std::forward<F>(f)] { return func(std::forward<Args>(args)...); });
     // If we're listing Prathenon "Tasks" (all current uses) keep the returns
