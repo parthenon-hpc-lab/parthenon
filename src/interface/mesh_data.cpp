@@ -32,10 +32,10 @@ void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
   }
 }
 
-// This method is basically here to get around the forward 
+// This method is basically here to get around the forward
 // declaration of Mesh in the mesh_data.hpp
 template <typename T>
-void MeshData<T>::SetMeshProperties(Mesh *pmesh) { 
+void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
   pmy_mesh_ = pmesh;
   ndim_ = pmesh == nullptr ? 0 : pmesh->ndim;
 }

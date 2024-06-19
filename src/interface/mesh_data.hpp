@@ -250,7 +250,7 @@ class MeshData {
         shallow == false,
         "Can't shallow copy when the source is not another MeshData object.");
     SetMeshProperties(part->pmesh);
-    auto &bl = part->block_list; 
+    auto &bl = part->block_list;
     block_data_.resize(bl.size());
     for (int i = 0; i < bl.size(); ++i)
       block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
