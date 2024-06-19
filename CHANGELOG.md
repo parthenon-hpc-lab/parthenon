@@ -53,6 +53,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1114]](https://github.com/parthenon-hpc-lab/parthenon/pull/1114) Enable sanitizers for extended CI host build
+- [[PR 1121]](https://github.com/parthenon-hpc-lab/parthenon/pull/1121) Default initialize BndInfo.dir
 - [[PR 1116]](https://github.com/parthenon-hpc-lab/parthenon/pull/1116) Fix NumPy 2.0 test script breakage
 - [[PR 1055]](https://github.com/parthenon-hpc-lab/parthenon/pull/1055) Refactor mesh constructors
 - [[PR 1066]](https://github.com/parthenon-hpc-lab/parthenon/pull/1066) Re-introduce default loop patterns and exec spaces
