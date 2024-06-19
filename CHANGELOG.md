@@ -52,6 +52,7 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1123]](https://github.com/parthenon-hpc-lab/parthenon/pull/1123) Default initialize ProResInfo.dir
 - [[PR 1121]](https://github.com/parthenon-hpc-lab/parthenon/pull/1121) Default initialize BndInfo.dir
 - [[PR 1116]](https://github.com/parthenon-hpc-lab/parthenon/pull/1116) Fix NumPy 2.0 test script breakage
 - [[PR 1055]](https://github.com/parthenon-hpc-lab/parthenon/pull/1055) Refactor mesh constructors
