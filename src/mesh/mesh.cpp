@@ -612,6 +612,7 @@ void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
 }
 
 void Mesh::BuildTagMapAndBoundaryBuffers() {
+  printf("Building boundary information %i\n", multigrid);
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
@@ -621,15 +622,18 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     auto &md = mesh_data.Add("base", partition);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
   }
-  for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-    for (auto &partition :
-         GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
-      auto &mdg = mdc.Add("base", partition);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(mdg);
+
+  if (multigrid) {
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetBlockPartitions(grid_id)) {
+        auto &md = mesh_data.Add("base", partition);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(md);
+      }
     }
   }
 
@@ -664,13 +668,14 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     auto &md = mesh_data.Add("base", partition);
     BuildBoundaryBuffers(md);
   }
-
-  for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-    for (auto &partition :
-         GetBlockPartitions(GridIdentifier::two_level_composite(gmg_level))) {
-      auto &mdg = mdc.Add("base", partition);
-      BuildBoundaryBuffers(mdg);
-      BuildGMGBoundaryBuffers(mdg);
+  if (multigrid) {
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetBlockPartitions(grid_id)) {
+        auto &mdg = mesh_data.Add("base", partition);
+        BuildBoundaryBuffers(mdg);
+        BuildGMGBoundaryBuffers(mdg);
+      }
     }
   }
 }

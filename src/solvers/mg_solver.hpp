@@ -317,7 +317,7 @@ class MGSolver {
     auto partitions =
         pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
-    auto &md = pmesh->gmg_mesh_data[level].Add("base", partitions[partition]);
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
 
     auto task_out = dependence;
     if (level < max_level) {
@@ -366,11 +366,9 @@ class MGSolver {
     auto partitions =
         pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
-    auto &md = pmesh->gmg_mesh_data[level].Add("base", partitions[partition]);
-    std::string label =
-        "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
-    auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(
-        label, md, std::vector<std::string>{u::name(), res_err::name()});
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md_comm = pmesh->mesh_data.AddShallow(
+        "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
 
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;

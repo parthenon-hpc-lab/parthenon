@@ -113,12 +113,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   gmg_min_logical_level_ = gmg_min_level;
   for (int level = gmg_min_level; level <= current_level; ++level) {
     gmg_block_lists[level] = BlockList_t();
-    gmg_mesh_data[level] = DataCollection<MeshData<Real>>();
   }
-
-  // Create MeshData objects for GMG
-  for (auto &[l, mdc] : gmg_mesh_data)
-    mdc.SetMeshPointer(this);
 
   // Fill/create gmg block lists based on this ranks block list
   for (auto &pmb : block_list) {
