@@ -249,18 +249,15 @@ class MeshData {
     PARTHENON_REQUIRE(
         shallow == false,
         "Can't shallow copy when the source is not another MeshData object.");
-    PARTHENON_REQUIRE(vars.size() == 0,
-                      "Non-copy initialization not implemented for variable subsets.");
-    if (part->grid.type == GridType::leaf) {
-      Initialize(part->block_list, part->pmesh, {});
-    } else {
-      Initialize(part->block_list, part->pmesh, std::optional<int>{part->grid.logical_level});
-    }
+    SetMeshProperties(part->pmesh);
+    auto &bl = part->block_list; 
+    block_data_.resize(bl.size());
+    for (int i = 0; i < bl.size(); ++i)
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+    grid = part->grid;
     partition = part->partition;
   }
 
-  void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim,
-                  std::optional<int> gmg_level = {});
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   template <typename ID_t>
@@ -269,28 +266,16 @@ class MeshData {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
-    pmy_mesh_ = src->GetParentPointer();
+    SetMeshProperties(src->GetParentPointer());
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
-
-    // TODO(JMM/LFR): There is an edge case where if you call
-    // Initialize() on a set of meshblocks where some blocks contain
-    // the desired MeshBlockData object and some don't, this call will
-    // fail. (It will raise a runtime error due to a dictionary not
-    // being found.) This was present in the previous iteration of
-    // this code, as well as this iteration. Fixing this requires
-    // modifying DataCollection::GetOrAdd. In the future we should
-    // make that "just work (tm)."
-    grid = src->grid;
-    partition = src->partition;
-    // PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
-    //                       src->BlockDataIsWholeRank_(),
-    //                   "Add may only be called on all blocks on a rank");
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
           stage_name_, pmbd, vars, shallow);
     }
+    grid = src->grid;
+    partition = src->partition;
   }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
@@ -505,7 +490,7 @@ class MeshData {
   }
 
  private:
-  bool BlockDataIsWholeRank_() const;
+  void SetMeshProperties(Mesh *pmesh);
 
   int ndim_;
   Mesh *pmy_mesh_;

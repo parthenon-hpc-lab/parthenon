@@ -997,6 +997,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
+    // TODO(LFR): Is this necessary? Do we every pull out the entire mesh MeshData?
     mesh_data.Get()->Initialize(block_list, this);
   } // AMR Recv and unpack data
 
