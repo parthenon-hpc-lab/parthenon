@@ -254,8 +254,9 @@ class MeshData {
     if (part->grid.type == GridType::leaf) {
       Initialize(part->block_list, part->pmesh, {});
     } else {
-      Initialize(part->block_list, part->pmesh, part->grid.logical_level);
+      Initialize(part->block_list, part->pmesh, std::optional<int>{part->grid.logical_level});
     }
+    partition = part->partition;
   }
 
   void Initialize(BlockList_t blocks, Mesh *pmesh, int ndim,
@@ -281,6 +282,7 @@ class MeshData {
     // modifying DataCollection::GetOrAdd. In the future we should
     // make that "just work (tm)."
     grid = src->grid;
+    partition = src->partition;
     // PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
     //                       src->BlockDataIsWholeRank_(),
     //                   "Add may only be called on all blocks on a rank");
