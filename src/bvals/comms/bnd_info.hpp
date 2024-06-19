@@ -90,7 +90,7 @@ struct ProResInfo {
   }
   SpatiallyMaskedIndexer6D idxer[10];
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
