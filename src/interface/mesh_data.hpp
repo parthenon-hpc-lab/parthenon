@@ -258,7 +258,6 @@ class MeshData {
     partition = part->partition;
   }
 
-
   template <typename ID_t>
   void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
                   const bool shallow) {
@@ -276,7 +275,7 @@ class MeshData {
     grid = src->grid;
     partition = src->partition;
   }
-  
+
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
