@@ -118,10 +118,10 @@ bool LogicalLocation::IsNeighbor(const LogicalLocation &in) const {
 
   bool neighbors = true;
   for (int dir = 0; dir < 3; ++dir) {
-    auto low = (l(dir) << level_shift_this) - 1;
+    auto low = l(dir) * block_size_this - 1;
     auto hi = low + block_size_this + 1;
 
-    auto low_in = (in.l(dir) << level_shift_in);
+    auto low_in = in.l(dir) * block_size_in;
     auto hi_in = low_in + block_size_in - 1;
     neighbors = neighbors && !(hi < low_in || low > hi_in);
   }
@@ -140,7 +140,7 @@ bool LogicalLocation::IsNeighborOfTE(const LogicalLocation &in,
 
   bool neighbors = true;
   for (int dir = 0; dir < 3; ++dir) {
-    auto low = (l(dir) << level_shift_this);
+    auto low = l(dir) * block_size_this;
     auto hi = low + block_size_this - 1;
     if (te_offset[dir] == -1) {
       low -= 1;
@@ -150,7 +150,7 @@ bool LogicalLocation::IsNeighborOfTE(const LogicalLocation &in,
       low = hi - 1;
     }
 
-    auto low_in = (in.l(dir) << level_shift_in);
+    auto low_in = in.l(dir) * block_size_in;
     auto hi_in = low_in + block_size_in - 1;
     neighbors = neighbors && !(hi < low_in || low > hi_in);
   }

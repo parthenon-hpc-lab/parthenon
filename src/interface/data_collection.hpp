@@ -19,10 +19,17 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 class Mesh;
+class MeshBlock;
+template <class T>
+class MeshData;
+template <class T>
+class MeshBlockData;
 /// The DataCollection class is an abstract container that contains at least a
 /// "base" container of some type (e.g., of MeshData or MeshBlockData) plus
 /// additional containers identified by string labels.
@@ -44,31 +51,39 @@ class DataCollection {
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  template <typename ID_t>
-  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t>
+  std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields, const bool shallow) {
-    auto it = containers_.find(name);
+    if constexpr (!((std::is_same_v<SRC_t, MeshBlock> &&
+                     std::is_same_v<T, MeshBlockData<Real>>) ||
+                    std::is_same_v<SRC_t, T>)) {
+      // SRC_t and T are incompatible
+      static_assert(always_false<SRC_t>, "Incompatible source and container types.");
+    }
+
+    auto key = GetKey(name, src);
+    auto it = containers_.find(key);
     if (it != containers_.end()) {
       if (fields.size() && !(it->second)->Contains(fields)) {
-        PARTHENON_THROW(name + " already exists in collection but fields do not match.");
+        PARTHENON_THROW(key + " already exists in collection but fields do not match.");
       }
       return it->second;
     }
 
     auto c = std::make_shared<T>(name);
-    c->Initialize(src.get(), fields, shallow);
+    c->Initialize(src, fields, shallow);
 
-    Set(name, c);
-
-    return containers_[name];
+    containers_[key] = c;
+    return containers_[key];
   }
-  template <typename ID_t = std::string>
-  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, false);
   }
-  template <typename ID_t = std::string>
-  std::shared_ptr<T> &AddShallow(const std::string &label, const std::shared_ptr<T> &src,
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &AddShallow(const std::string &label,
+                                 const std::shared_ptr<SRC_t> &src,
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
@@ -105,6 +120,28 @@ class DataCollection {
   }
 
  private:
+  template <class U>
+  std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
+    if constexpr (std::is_same_v<U, MeshData<Real>>) {
+      std::string key = stage_label + "_part-" + std::to_string(in->partition);
+      if (in->grid.type == GridType::two_level_composite)
+        key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+      return key;
+    } else {
+      return stage_label;
+    }
+  }
+  std::string GetKey(const std::string &stage_label, std::optional<int> partition_id,
+                     std::optional<int> gmg_level) {
+    std::string key = stage_label;
+    if (partition_id) key = key + "_part-" + std::to_string(*partition_id);
+    if (gmg_level) key = key + "_gmg-" + std::to_string(*gmg_level);
+    return key;
+  }
+
+  std::shared_ptr<T> &GetOrAdd_impl(const std::string &mbd_label, const int &partition_id,
+                                    const std::optional<int> gmg_level);
+
   Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
 };

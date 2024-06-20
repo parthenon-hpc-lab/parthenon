@@ -83,13 +83,13 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto &md_base = pm->mesh_data.Get();
   // Populated with all blocks
   if (md_base->NumBlocks() == 0) {
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   } else if (md_base->NumBlocks() != pm->block_list.size()) {
     PARTHENON_WARN(
         "Resetting \"base\" MeshData to contain all blocks. This indicates that "
         "the \"base\" MeshData container has been modified elsewhere. Double check "
         "that the modification was intentional and is compatible with this reset.")
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   }
 
   // Loop over all packages of the application

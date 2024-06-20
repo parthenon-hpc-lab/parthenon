@@ -54,7 +54,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
     RelativeOrientation orient;
     orient.use_offset = true;
     orient.offset = {0, 0, 0};
-    ptree->neighbors[13].insert({ptree, orient});
+    ptree->neighbors[13].insert({ptree.get(), orient});
     return ptree;
   }
 
@@ -117,8 +117,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // multiple neighbors generally, we keep a map at each neighbor location from
   // the tree sptr to the relative logical coordinate orientation of the neighbor
   // block.
-  std::array<std::unordered_map<std::shared_ptr<Tree>, RelativeOrientation>, 27>
-      neighbors;
+  std::array<std::unordered_map<Tree *, RelativeOrientation>, 27> neighbors;
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;
 
