@@ -103,15 +103,16 @@ class BiCGSTABSolver {
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    auto zero_x = tl.AddTask(dependence, SetToZero<x>, md);
-    auto zero_u_init = tl.AddTask(dependence, SetToZero<u>, md);
-    auto copy_r = tl.AddTask(dependence, CopyData<rhs, r>, md);
-    auto copy_p = tl.AddTask(dependence, CopyData<rhs, p>, md);
-    auto copy_rhat0 = tl.AddTask(dependence, CopyData<rhs, rhat0>, md);
+    auto zero_x = tl.AddTask(dependence, TF(SetToZero<x>), md);
+    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<u>), md);
+    auto copy_r = tl.AddTask(dependence, TF(CopyData<rhs, r>), md);
+    auto copy_p = tl.AddTask(dependence, TF(CopyData<rhs, p>), md);
+    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<rhs, rhat0>), md);
     auto get_rhat0r_init = DotProduct<rhat0, r>(dependence, tl, &rhat0r, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init,
+        "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->rhat0r_old = solver->rhat0r.val;
           solver->rhat0r.val = 0.0;
@@ -123,7 +124,7 @@ class BiCGSTABSolver {
           return TaskStatus::complete;
         },
         this);
-    tl.AddTask(TaskQualifier::once_per_region, dependence, [&]() {
+    tl.AddTask(TaskQualifier::once_per_region, dependence, "print to screen", [&]() {
       if (Globals::my_rank == 0 && params_.print_per_step)
         printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
       return TaskStatus::complete;
@@ -135,12 +136,12 @@ class BiCGSTABSolver {
     // 1. u <- M p
     auto precon1 = none;
     if (params_.precondition) {
-      auto set_rhs = itl.AddTask(precon1, CopyData<p, rhs>, md);
-      auto zero_u = itl.AddTask(precon1, SetToZero<u>, md);
+      auto set_rhs = itl.AddTask(precon1, TF(CopyData<p, rhs>), md);
+      auto zero_u = itl.AddTask(precon1, TF(SetToZero<u>), md);
       precon1 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
     } else {
-      precon1 = itl.AddTask(none, CopyData<p, u>, md);
+      precon1 = itl.AddTask(none, TF(CopyData<p, u>), md);
     }
 
     // 2. v <- A u
@@ -153,7 +154,7 @@ class BiCGSTABSolver {
 
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
-        get_rhat0v,
+        get_rhat0v, "h <- x + alpha u",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<x, u, h>(md, 1.0, alpha);
@@ -162,7 +163,7 @@ class BiCGSTABSolver {
 
     // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
     auto correct_s = itl.AddTask(
-        get_rhat0v,
+        get_rhat0v, "s <- r - alpha v",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<r, v, s>(md, 1.0, -alpha);
@@ -185,12 +186,12 @@ class BiCGSTABSolver {
     // 6. u <- M s
     auto precon2 = correct_s;
     if (params_.precondition) {
-      auto set_rhs = itl.AddTask(precon2, CopyData<s, rhs>, md);
-      auto zero_u = itl.AddTask(precon2, SetToZero<u>, md);
+      auto set_rhs = itl.AddTask(precon2, TF(CopyData<s, rhs>), md);
+      auto zero_u = itl.AddTask(precon2, TF(SetToZero<u>), md);
       precon2 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
     } else {
-      precon2 = itl.AddTask(precon2, CopyData<s, u>, md);
+      precon2 = itl.AddTask(precon2, TF(CopyData<s, u>), md);
     }
 
     // 7. t <- A u
@@ -204,7 +205,7 @@ class BiCGSTABSolver {
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
-        TaskQualifier::local_sync, get_tt | get_ts,
+        TaskQualifier::local_sync, get_tt | get_ts, "x <- h + omega u",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<h, u, x>(md, 1.0, omega);
@@ -213,7 +214,7 @@ class BiCGSTABSolver {
 
     // 10. r <- s - omega t
     auto correct_r = itl.AddTask(
-        get_tt | get_ts,
+        get_tt | get_ts, "r <- s - omega t",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<s, t, r>(md, 1.0, -omega);
@@ -240,6 +241,7 @@ class BiCGSTABSolver {
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
         TaskQualifier::local_sync, get_rhat0r | get_res2,
+        "p <- r + beta * (p - omega * v)",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;
@@ -256,7 +258,7 @@ class BiCGSTABSolver {
     auto check = itl.AddTask(
         TaskQualifier::completion | TaskQualifier::once_per_region |
             TaskQualifier::global_sync,
-        update_p | correct_x,
+        update_p | correct_x, "rhat0r_old <- rhat0r",
         [](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter, Real *res_tol) {
           solver->iter_counter++;
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
@@ -277,7 +279,7 @@ class BiCGSTABSolver {
         },
         this, pmesh, params_.max_iters, ptol);
 
-    return tl.AddTask(solver_id, CopyData<x, u>, md);
+    return tl.AddTask(solver_id, TF(CopyData<x, u>), md);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
