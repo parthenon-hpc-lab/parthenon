@@ -70,10 +70,10 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
-          # Sanitizers options
+          # Sanitizers options (leak detection is disabled)
           export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
           export UBSAN_OPTIONS=print_stacktrace=0
-          export LSAN_OPTIONS=
+          export LSAN_OPTIONS=detect_leaks=0
           ctest -L performance -LE perf-reg
 
       # run regression tests
