@@ -33,11 +33,20 @@ namespace solvers {
 
 struct BiCGSTABParams {
   MGParams mg_params;
-  int max_iters = 10;
+  int max_iters = 1000;
   Real residual_tolerance = 1.e-12;
-  Real restart_threshold = -1.0;
   bool precondition = true;
   bool print_per_step = false;
+
+  BiCGSTABParams() = default;
+  BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
+    max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
+    residual_tolerance =
+        pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
+    precondition = pin->GetOrAddBoolean(input_block, "precondition", precondition);
+    print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
+    mg_params = MGParams(pin, input_block);
+  }
 };
 
 // The equations class must include a template method
