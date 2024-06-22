@@ -450,7 +450,8 @@ class Metadata {
   // and false otherwise.
   bool IsRefined() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
-            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
+            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux) ||
+            IsSet(WithFluxes));
   }
 
   // Returns true if this variable is a coords var
