@@ -500,6 +500,33 @@ bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
   return total == test_tot;
 }
 
+template <class T>
+bool test_wrapper_reduce_3d(T loop_pattern, DevExecSpace exec_space) {
+  constexpr int N = 10;
+  parthenon::IndexRange r{0, N - 1};
+  parthenon::ParArray3D<int> buffer("Testing buffer", N, N, N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel reduce array", exec_space, 0, N-1, 0, N-1, 0, N-1,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) { buffer(k,j,i) = i+j+k; });
+  int max = 0;
+  for (int k = 0; k < N; ++k) {
+     for (int j = 0; j < N; ++j) {
+        for (int i = 0; i < N; ++i) {
+          max = std::max(max, i+j+k);
+        }
+     }
+  }
+  int test_max = 0;
+  parthenon::par_reduce(
+      loop_pattern, "Max via par reduce", exec_space,
+      0, N-1, 0, N-1, 0, N-1,
+      KOKKOS_LAMBDA(const int k, const int j, const int i, int &t) {
+         t = i+j+k; 
+      }, Kokkos::Max<int>(test_max));
+  return max == test_max;
+}
+
 TEST_CASE("Parallel reduce", "[par_reduce]") {
   auto default_exec_space = DevExecSpace();
   REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
@@ -508,4 +535,12 @@ TEST_CASE("Parallel reduce", "[par_reduce]") {
     REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
                                    default_exec_space) == true);
   }
+  REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
+  /* REQUIRE(test_wrapper_reduce_3d(parthenon::LoopPatternMDRange(), */
+  /*                                default_exec_space) == true); */
+  /* if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) { */
+  /*   REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_simdfor_tag, */
+  /*                                  default_exec_space) == true); */
+  /* } */
 }

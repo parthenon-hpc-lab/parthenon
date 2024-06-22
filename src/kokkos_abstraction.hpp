@@ -21,12 +21,14 @@
 #define KOKKOS_ABSTRACTION_HPP_
 
 #include <memory>
+#include <functional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
 
+#include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "parthenon_array_generic.hpp"
@@ -34,6 +36,7 @@
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
+
 
 namespace parthenon {
 
@@ -258,6 +261,37 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
                   function, std::forward<Args>(args)...);
 }
 
+template<typename> class Functor;
+
+template<typename R, typename T, typename... Args>
+class Functor<R(T::*)(const int, const int, const int, Args...) const>
+{
+   using F = std::function<R(const int, const int, const int, Args...)>;
+    F m_f;
+public:
+    Functor( F function, 
+          int _NjNi, int _Ni, int _kl, int _jl, int _il )
+       : m_f(function), NjNi(_NjNi), Ni(_Ni), kl(_kl), jl(_jl), il(_il)  {}
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const int &idx, Args... args) const {
+        int k = idx / NjNi;
+        int j = (idx - k * NjNi) / Ni;
+        int i = idx - k * NjNi - j * Ni;
+        k += kl;
+        j += jl;
+        i += il;
+       m_f(k, j, i, std::forward<Args>(args)...);
+    }
+    int NjNi, Ni, kl, jl, il;
+};
+
+template<typename F>
+auto MakeFunctor(F &function, const int &NjNi, const int &Ni,
+                 const int &kl, const int &jl, const int &il) {
+   return Functor<decltype(&F::operator())>(function, NjNi, Ni, kl, jl, il);
+}
+
+
 // 3D loop using Kokkos 1D Range
 template <typename Tag, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
@@ -270,17 +304,10 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int Ni = iu - il + 1;
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
+
   kokkos_dispatch(
       tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-      KOKKOS_LAMBDA(const int &idx) {
-        int k = idx / NjNi;
-        int j = (idx - k * NjNi) / Ni;
-        int i = idx - k * NjNi - j * Ni;
-        k += kl;
-        j += jl;
-        i += il;
-        function(k, j, i);
-      },
+      MakeFunctor(function, NjNi, Ni, kl, jl, il),
       std::forward<Args>(args)...);
 }
 
@@ -649,8 +676,13 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 
 template <typename Tag, typename... Args>
 inline void par_dispatch(const std::string &name, Args &&...args) {
-  par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
-                    std::forward<Args>(args)...);
+   if constexpr (std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value) {
+     par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
+                       std::forward<Args>(args)...);
+   } else {
+     par_dispatch<Tag>(loop_pattern_mdrange_tag, name, DevExecSpace(),
+                       std::forward<Args>(args)...);
+   }
 }
 
 template <class... Args>
