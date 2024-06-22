@@ -124,6 +124,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         ref_results = [
             ["time", 1.0, 1.0],
             ["dt", 1.75781e-03, 3.12500e-03],
+            ["ncycle", 5.69000e02, 2.14000e02],
+            ["nbtotal", 1.30000e02, 2.04000e02],
             ["total_advected", 7.06177e-02, 1.39160e-02],
             ["advected_powers_0", 7.06177e-02, 1.39160e-02],
             ["advected_powers_1", 3.88112e-02, 2.59597e-03],
@@ -141,7 +143,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 f.readline()
                 header = f.readline()[1:].split()
                 for i, val in enumerate(ref_results):
-                    col_label = header[i].strip()[4:]
+                    col_label = (header[i].strip()).split("=", 1)[1]
                     if col_label != val[0]:
                         print(
                             "Wrong",
