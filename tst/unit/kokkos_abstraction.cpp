@@ -568,10 +568,14 @@ TEST_CASE("Parallel reduce", "[par_reduce]") {
   SECTION("3D loops") {
   REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_flatrange_tag,
                                  default_exec_space) == true);
+  REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_mdrange_tag,
+                                 default_exec_space) == true);
   }
 
   SECTION("4D loops") {
   REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
+  REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_mdrange_tag,
                                  default_exec_space) == true);
   }
 }
