@@ -269,6 +269,36 @@ auto MakeFlatFunctor(F &function) {
 }
 
 template<typename R, typename T, typename... FArgs>
+class FlatFunctor<R(T::*)(const int &, const int &, const int &, FArgs...) const>
+{
+   public:
+      FlatFunctor(){};
+      template <typename Tag, typename F, typename... Args>
+         inline void operator()(Tag tag, const std::string &name, 
+                                DevExecSpace exec_space, const int kl, const int ku,
+                                const int jl, const int ju, const int il, const int iu,
+                                const F &function, Args ...args) const {
+            const int Nk = ku - kl + 1;
+            const int Nj = ju - jl + 1;
+            const int Ni = iu - il + 1;
+            const int NkNjNi = Nk * Nj * Ni;
+            const int NjNi = Nj * Ni;
+            kokkos_dispatch(
+                  tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
+                  KOKKOS_LAMBDA(const int &idx, FArgs ...fargs) {
+                  int k = idx / NjNi;
+                  int j = (idx - k * NjNi) / Ni;
+                  int i = idx - k * NjNi - j * Ni;
+                  k += kl;
+                  j += jl;
+                  i += il;
+                  function(k, j, i, std::forward<FArgs>(fargs)...);
+                  },
+                  std::forward<Args>(args)...);
+         }
+};
+
+template<typename R, typename T, typename... FArgs>
 class FlatFunctor<R(T::*)(const int, const int, const int, FArgs...) const>
 {
    public:
@@ -397,8 +427,43 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
         function(k, j, i);
 }
 
+
 template<typename R, typename T, typename... FArgs>
 class FlatFunctor<R(T::*)(const int, const int, const int, const int, FArgs...) const>
+{
+   public:
+      FlatFunctor(){};
+      template <typename Tag, typename F, typename... Args>
+         inline void operator()(Tag tag, const std::string &name, 
+               DevExecSpace exec_space, const int nl, const int nu,
+               const int kl, const int ku, const int jl, const int ju,
+               const int il, const int iu, const F &function, Args ...args) const {
+            const int Nn = nu - nl + 1;
+            const int Nk = ku - kl + 1;
+            const int Nj = ju - jl + 1;
+            const int Ni = iu - il + 1;
+            const int NnNkNjNi = Nn * Nk * Nj * Ni;
+            const int NkNjNi = Nk * Nj * Ni;
+            const int NjNi = Nj * Ni;
+            kokkos_dispatch(
+                  tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
+                  KOKKOS_LAMBDA(const int &idx, FArgs ...fargs) {
+                  int n = idx / NkNjNi;
+                  int k = (idx - n * NkNjNi) / NjNi;
+                  int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+                  int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+                  n += nl;
+                  k += kl;
+                  j += jl;
+                  i += il;
+                  function(n, k, j, i, std::forward<FArgs>(fargs)...);
+                  },
+                  std::forward<Args>(args)...);
+         }
+};
+
+template<typename R, typename T, typename... FArgs>
+class FlatFunctor<R(T::*)(const int &, const int &, const int &, const int &, FArgs...) const>
 {
    public:
       FlatFunctor(){};
