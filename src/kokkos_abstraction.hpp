@@ -268,7 +268,7 @@ auto MakeFlatFunctor(F &function) {
 
 template <typename... FArgs>
 struct FlatLoop3D {
-  FlatLoop3D() {};
+  FlatLoop3D() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, const std::string &name,
                          DevExecSpace exec_space, const int kl, const int ku,
@@ -297,10 +297,9 @@ struct FlatLoop3D {
 template <typename R, typename T, typename... FArgs>
 class FlatFunctor<R (T::*)(const int &, const int &, const int &, FArgs...) const> {
  public:
-  FlatFunctor() {};
+  FlatFunctor() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, Args... args) const {
-
     const FlatLoop3D<FArgs...> flat3D;
     flat3D(tag, function, std::forward<Args>(args)...);
   }
@@ -309,7 +308,7 @@ class FlatFunctor<R (T::*)(const int &, const int &, const int &, FArgs...) cons
 template <typename R, typename T, typename... FArgs>
 class FlatFunctor<R (T::*)(const int, const int, const int, FArgs...) const> {
  public:
-  FlatFunctor() {};
+  FlatFunctor() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, Args... args) const {
     const FlatLoop3D<FArgs...> flat3D;
@@ -419,7 +418,7 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 
 template <typename... FArgs>
 struct FlatLoop4D {
-  FlatLoop4D() {};
+  FlatLoop4D() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, const std::string &name,
                          DevExecSpace exec_space, const int nl, const int nu,
@@ -452,7 +451,7 @@ struct FlatLoop4D {
 template <typename R, typename T, typename... FArgs>
 class FlatFunctor<R (T::*)(const int, const int, const int, const int, FArgs...) const> {
  public:
-  FlatFunctor() {};
+  FlatFunctor() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, Args... args) const {
     const FlatLoop4D<FArgs...> flat4D;
@@ -464,7 +463,7 @@ template <typename R, typename T, typename... FArgs>
 class FlatFunctor<R (T::*)(const int &, const int &, const int &, const int &, FArgs...)
                       const> {
  public:
-  FlatFunctor() {};
+  FlatFunctor() {}
   template <typename Tag, typename F, typename... Args>
   inline void operator()(Tag tag, const F &function, Args... args) const {
     const FlatLoop4D<FArgs...> flat4D;
