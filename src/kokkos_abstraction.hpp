@@ -21,14 +21,12 @@
 #define KOKKOS_ABSTRACTION_HPP_
 
 #include <memory>
-#include <functional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
 
-#include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "parthenon_array_generic.hpp"
@@ -36,7 +34,6 @@
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
-
 
 namespace parthenon {
 
@@ -735,13 +732,8 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 
 template <typename Tag, typename... Args>
 inline void par_dispatch(const std::string &name, Args &&...args) {
-   if constexpr (std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value) {
-     par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
-                       std::forward<Args>(args)...);
-   } else {
-     par_dispatch<Tag>(loop_pattern_mdrange_tag, name, DevExecSpace(),
-                       std::forward<Args>(args)...);
-   }
+  par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
+                    std::forward<Args>(args)...);
 }
 
 template <class... Args>
