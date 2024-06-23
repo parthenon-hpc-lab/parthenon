@@ -258,64 +258,63 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
                   function, std::forward<Args>(args)...);
 }
 
-template<typename> class FlatFunctor;
+template <typename>
+class FlatFunctor;
 
-template<typename F>
+template <typename F>
 auto MakeFlatFunctor(F &function) {
-   return FlatFunctor<decltype(&F::operator())>();
+  return FlatFunctor<decltype(&F::operator())>();
 }
 
-template<typename... FArgs>
+template <typename... FArgs>
 struct FlatLoop3D {
-   FlatLoop3D(){};
-   template <typename Tag, typename F, typename... Args>
-      inline void operator()(Tag tag, const F &function, const std::string &name, 
-            DevExecSpace exec_space, const int kl, const int ku,
-            const int jl, const int ju, const int il, const int iu,
-             Args ...args) const {
-         const int Nk = ku - kl + 1;
-         const int Nj = ju - jl + 1;
-         const int Ni = iu - il + 1;
-         const int NkNjNi = Nk * Nj * Ni;
-         const int NjNi = Nj * Ni;
-         kokkos_dispatch(
-               tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-               KOKKOS_LAMBDA(const int &idx, FArgs ...fargs) {
-               int k = idx / NjNi;
-               int j = (idx - k * NjNi) / Ni;
-               int i = idx - k * NjNi - j * Ni;
-               k += kl;
-               j += jl;
-               i += il;
-               function(k, j, i, std::forward<FArgs>(fargs)...);
-               },
-               std::forward<Args>(args)...);
-      }
+  FlatLoop3D() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, const std::string &name,
+                         DevExecSpace exec_space, const int kl, const int ku,
+                         const int jl, const int ju, const int il, const int iu,
+                         Args... args) const {
+    const int Nk = ku - kl + 1;
+    const int Nj = ju - jl + 1;
+    const int Ni = iu - il + 1;
+    const int NkNjNi = Nk * Nj * Ni;
+    const int NjNi = Nj * Ni;
+    kokkos_dispatch(
+        tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
+        KOKKOS_LAMBDA(const int &idx, FArgs... fargs) {
+          int k = idx / NjNi;
+          int j = (idx - k * NjNi) / Ni;
+          int i = idx - k * NjNi - j * Ni;
+          k += kl;
+          j += jl;
+          i += il;
+          function(k, j, i, std::forward<FArgs>(fargs)...);
+        },
+        std::forward<Args>(args)...);
+  }
 };
 
-template<typename R, typename T, typename... FArgs>
-class FlatFunctor<R(T::*)(const int &, const int &, const int &, FArgs...) const>
-{
-   public:
-      FlatFunctor(){};
-      template <typename Tag, typename F, typename... Args>
-         inline void operator()(Tag tag, const F &function, Args ...args) const {
+template <typename R, typename T, typename... FArgs>
+class FlatFunctor<R (T::*)(const int &, const int &, const int &, FArgs...) const> {
+ public:
+  FlatFunctor() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, Args... args) const {
 
-            const FlatLoop3D<FArgs...> flat3D;
-            flat3D(tag, function, std::forward<Args>(args)...);
-         }
+    const FlatLoop3D<FArgs...> flat3D;
+    flat3D(tag, function, std::forward<Args>(args)...);
+  }
 };
 
-template<typename R, typename T, typename... FArgs>
-class FlatFunctor<R(T::*)(const int, const int, const int, FArgs...) const>
-{
-   public:
-      FlatFunctor(){};
-      template <typename Tag, typename F, typename... Args>
-         inline void operator()(Tag tag, const F &function, Args ...args) const {
-            const FlatLoop3D<FArgs...> flat3D;
-            flat3D(tag, function, std::forward<Args>(args)...);
-         }
+template <typename R, typename T, typename... FArgs>
+class FlatFunctor<R (T::*)(const int, const int, const int, FArgs...) const> {
+ public:
+  FlatFunctor() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, Args... args) const {
+    const FlatLoop3D<FArgs...> flat3D;
+    flat3D(tag, function, std::forward<Args>(args)...);
+  }
 };
 
 // 3D loop using Kokkos 1D Range
@@ -326,7 +325,8 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
              const int iu, const Function &function, Args &&...args) {
   Tag tag;
   const auto func = MakeFlatFunctor(function);
-  func(tag, function, name, exec_space, kl, ku, jl, ju, il, iu, std::forward<Args>(args)...);
+  func(tag, function, name, exec_space, kl, ku, jl, ju, il, iu,
+       std::forward<Args>(args)...);
 }
 
 // 3D loop using MDRange loops
@@ -417,60 +417,59 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
         function(k, j, i);
 }
 
-template<typename... FArgs>
+template <typename... FArgs>
 struct FlatLoop4D {
-   FlatLoop4D(){};
-   template <typename Tag, typename F, typename... Args>
-      inline void operator()(Tag tag, const F &function, const std::string &name, 
-                             DevExecSpace exec_space, const int nl, const int nu,
-                             const int kl, const int ku, const int jl, const int ju,
-                             const int il, const int iu,  Args ...args) const {
-            const int Nn = nu - nl + 1;
-            const int Nk = ku - kl + 1;
-            const int Nj = ju - jl + 1;
-            const int Ni = iu - il + 1;
-            const int NnNkNjNi = Nn * Nk * Nj * Ni;
-            const int NkNjNi = Nk * Nj * Ni;
-            const int NjNi = Nj * Ni;
-            kokkos_dispatch(
-                  tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                  KOKKOS_LAMBDA(const int &idx, FArgs ...fargs) {
-                  int n = idx / NkNjNi;
-                  int k = (idx - n * NkNjNi) / NjNi;
-                  int j = (idx - n * NkNjNi - k * NjNi) / Ni;
-                  int i = idx - n * NkNjNi - k * NjNi - j * Ni;
-                  n += nl;
-                  k += kl;
-                  j += jl;
-                  i += il;
-                  function(n, k, j, i, std::forward<FArgs>(fargs)...);
-                  },
-                  std::forward<Args>(args)...);
-      }
+  FlatLoop4D() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, const std::string &name,
+                         DevExecSpace exec_space, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, Args... args) const {
+    const int Nn = nu - nl + 1;
+    const int Nk = ku - kl + 1;
+    const int Nj = ju - jl + 1;
+    const int Ni = iu - il + 1;
+    const int NnNkNjNi = Nn * Nk * Nj * Ni;
+    const int NkNjNi = Nk * Nj * Ni;
+    const int NjNi = Nj * Ni;
+    kokkos_dispatch(
+        tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
+        KOKKOS_LAMBDA(const int &idx, FArgs... fargs) {
+          int n = idx / NkNjNi;
+          int k = (idx - n * NkNjNi) / NjNi;
+          int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+          int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+          n += nl;
+          k += kl;
+          j += jl;
+          i += il;
+          function(n, k, j, i, std::forward<FArgs>(fargs)...);
+        },
+        std::forward<Args>(args)...);
+  }
 };
 
-template<typename R, typename T, typename... FArgs>
-class FlatFunctor<R(T::*)(const int, const int, const int, const int, FArgs...) const>
-{
-   public:
-      FlatFunctor(){};
-      template <typename Tag, typename F, typename... Args>
-         inline void operator()(Tag tag, const F &function, Args ...args) const {
-            const FlatLoop4D<FArgs...> flat4D;
-            flat4D(tag, function, std::forward<Args>(args)...);
-         }
+template <typename R, typename T, typename... FArgs>
+class FlatFunctor<R (T::*)(const int, const int, const int, const int, FArgs...) const> {
+ public:
+  FlatFunctor() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, Args... args) const {
+    const FlatLoop4D<FArgs...> flat4D;
+    flat4D(tag, function, std::forward<Args>(args)...);
+  }
 };
 
-template<typename R, typename T, typename... FArgs>
-class FlatFunctor<R(T::*)(const int &, const int &, const int &, const int &, FArgs...) const>
-{
-   public:
-      FlatFunctor(){};
-      template <typename Tag, typename F, typename... Args>
-         inline void operator()(Tag tag, const F &function, Args ...args) const {
-            const FlatLoop4D<FArgs...> flat4D;
-            flat4D(tag, function, std::forward<Args>(args)...);
-         }
+template <typename R, typename T, typename... FArgs>
+class FlatFunctor<R (T::*)(const int &, const int &, const int &, const int &, FArgs...)
+                      const> {
+ public:
+  FlatFunctor() {};
+  template <typename Tag, typename F, typename... Args>
+  inline void operator()(Tag tag, const F &function, Args... args) const {
+    const FlatLoop4D<FArgs...> flat4D;
+    flat4D(tag, function, std::forward<Args>(args)...);
+  }
 };
 
 // 4D loop using Kokkos 1D Range
@@ -483,7 +482,7 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   Tag tag;
   const auto func = MakeFlatFunctor(function);
   func(tag, function, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
-        std::forward<Args>(args)...);
+       std::forward<Args>(args)...);
 }
 
 // 4D loop using MDRange loops
