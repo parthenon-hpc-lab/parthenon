@@ -21,7 +21,7 @@ parser = ArgumentParser(
     description="Compute difference between two history solvers parthenon VIBE",
 )
 parser.add_argument("file1", type=str, help="First file in diff")
-parser.add_argument("file2", type=str, help="Second fiel in diff")
+parser.add_argument("file2", type=str, help="Second file in diff")
 parser.add_argument(
     "-t", "--tolerance", type=float, default=1e-8, help="Relative tolerance for diff"
 )
@@ -54,4 +54,4 @@ def compare_files(file1, file2, tolerance, print_results=True):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    sys.exit(compare_files(args.file1, args.file1, args.tolerance, True))
+    sys.exit(compare_files(args.file1, args.file2, args.tolerance, True))
