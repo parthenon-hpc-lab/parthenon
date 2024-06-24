@@ -33,12 +33,25 @@ namespace parthenon {
 namespace solvers {
 
 struct MGParams {
-  int max_iters = 10;
+  int max_iters = 1000;
   Real residual_tolerance = 1.e-12;
   bool do_FAS = true;
   std::string smoother = "SRJ2";
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
+
+  MGParams() = default;
+  MGParams(ParameterInput *pin, const std::string &input_block) {
+    max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
+    residual_tolerance =
+        pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
+    do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
+    smoother = pin->GetOrAddString(input_block, "smoother", smoother);
+    two_by_two_diagonal =
+        pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
+    max_coarsenings =
+        pin->GetOrAddInteger(input_block, "max_coarsenings", max_coarsenings);
+  }
 };
 
 // The equations class must include a template method
