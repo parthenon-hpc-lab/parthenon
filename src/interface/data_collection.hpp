@@ -95,7 +95,7 @@ class DataCollection {
     return it->second;
   }
   std::shared_ptr<T> &Get() { return Get("base"); }
-  const std::shared_ptr<T> &Get() const { return Get("base"); }
+  const std::shared_ptr<T> &Get() const { return containers_.at("base"); }
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
 

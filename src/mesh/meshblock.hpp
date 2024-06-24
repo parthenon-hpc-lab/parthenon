@@ -463,9 +463,9 @@ using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 struct BlockListPartition {
   BlockListPartition(int p, GridIdentifier g, const BlockList_t &bl, Mesh *pm)
       : partition{p}, grid{g}, block_list{bl}, pmesh{pm} {}
-  int partition;
-  GridIdentifier grid;
-  BlockList_t block_list;
+  const int partition;
+  const GridIdentifier grid;
+  const BlockList_t block_list;
   Mesh *pmesh;
 };
 
