@@ -83,16 +83,11 @@ class DataCollection {
                                  const std::vector<ID_t> &fields = {}) {
     return Add(label, src, fields, true);
   }
-  // TODO(LFR): Is this method used anywhere? Should insertion of empty containers be
-  // allowed?
-  std::shared_ptr<T> &Add(const std::string &label);
 
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
 
-  std::shared_ptr<T> &Get() { return containers_.at("base"); }
-  const std::shared_ptr<T> &Get() const { return containers_.at("base"); }
-  std::shared_ptr<T> &Get(const std::string &label) {
+  std::shared_ptr<T> &Get(const std::string &label = "base") {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
