@@ -94,6 +94,7 @@ class DataCollection {
     }
     return it->second;
   }
+  const std::shared_ptr<T> &Get() const { return Get("base"); }
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
 
@@ -115,17 +116,11 @@ class DataCollection {
   }
 
  private:
+  std::string GetKey(const std::string &stage_label, const std::shared_ptr<BlockListPartition> &in); 
+  std::string GetKey(const std::string &stage_label, const std::shared_ptr<MeshData<Real>> &in);
   template <class U>
   std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
-    if constexpr (std::is_same_v<U, MeshData<Real>> ||
-                  std::is_same_v<U, BlockListPartition>) {
-      std::string key = stage_label + "_part-" + std::to_string(in->partition);
-      if (in->grid.type == GridType::two_level_composite)
-        key = key + "_gmg-" + std::to_string(in->grid.logical_level);
-      return key;
-    } else {
-      return stage_label;
-    }
+    return stage_label;
   }
 
   Mesh *pmy_mesh_;

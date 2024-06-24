@@ -17,19 +17,25 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label) {
-  // error check for duplicate names
-  auto it = containers_.find(label);
-  if (it != containers_.end()) {
-    return it->second;
-  }
-  containers_[label] = std::make_shared<T>();
-  return containers_[label];
+std::string DataCollection<T>::GetKey(const std::string &stage_label, const std::shared_ptr<BlockListPartition> &in) { 
+  auto key = stage_label;
+  for (const auto &pmb : in->block_list)
+    key += "_" + std::to_string(pmb->gid);
+  return key;
+}
+
+template <typename T>
+std::string DataCollection<T>::GetKey(const std::string &stage_label, const std::shared_ptr<MeshData<Real>> &in) { 
+  auto key = stage_label;
+  for (const auto &pmbd : in->GetAllBlockData())
+    key += "_" + std::to_string(pmbd->GetBlockPointer()->gid);
+  return key;
 }
 
 template <>

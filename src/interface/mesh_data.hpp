@@ -287,6 +287,11 @@ class MeshData {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }
+  
+  const auto &GetAllBlockData() const {
+    return block_data_;
+  }
+
 
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
