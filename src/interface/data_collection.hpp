@@ -110,7 +110,8 @@ class DataCollection {
   void PurgeNonBase() {
     auto c = containers_.begin();
     while (c != containers_.end()) {
-      if (c->first != "base") {
+      // Remove anything that doesn't contain the label base
+      if (c->first.find("base") == std::string::npos) {
         c = containers_.erase(c);
       } else {
         ++c;
