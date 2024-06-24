@@ -23,7 +23,8 @@
 namespace parthenon {
 
 template <typename T>
-std::string DataCollection<T>::GetKey(const std::string &stage_label, const std::shared_ptr<BlockListPartition> &in) { 
+std::string DataCollection<T>::GetKey(const std::string &stage_label,
+                                      const std::shared_ptr<BlockListPartition> &in) {
   auto key = stage_label;
   for (const auto &pmb : in->block_list)
     key += "_" + std::to_string(pmb->gid);
@@ -31,7 +32,8 @@ std::string DataCollection<T>::GetKey(const std::string &stage_label, const std:
 }
 
 template <typename T>
-std::string DataCollection<T>::GetKey(const std::string &stage_label, const std::shared_ptr<MeshData<Real>> &in) { 
+std::string DataCollection<T>::GetKey(const std::string &stage_label,
+                                      const std::shared_ptr<MeshData<Real>> &in) {
   auto key = stage_label;
   for (const auto &pmbd : in->GetAllBlockData())
     key += "_" + std::to_string(pmbd->GetBlockPointer()->gid);

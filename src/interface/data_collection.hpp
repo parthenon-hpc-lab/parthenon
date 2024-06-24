@@ -116,8 +116,10 @@ class DataCollection {
   }
 
  private:
-  std::string GetKey(const std::string &stage_label, const std::shared_ptr<BlockListPartition> &in); 
-  std::string GetKey(const std::string &stage_label, const std::shared_ptr<MeshData<Real>> &in);
+  std::string GetKey(const std::string &stage_label,
+                     const std::shared_ptr<BlockListPartition> &in);
+  std::string GetKey(const std::string &stage_label,
+                     const std::shared_ptr<MeshData<Real>> &in);
   template <class U>
   std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
     return stage_label;
