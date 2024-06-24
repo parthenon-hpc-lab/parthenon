@@ -87,13 +87,14 @@ class DataCollection {
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
 
-  std::shared_ptr<T> &Get(const std::string &label = "base") {
+  std::shared_ptr<T> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
     }
     return it->second;
   }
+  std::shared_ptr<T> &Get() { return Get("base"); }
   const std::shared_ptr<T> &Get() const { return Get("base"); }
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
