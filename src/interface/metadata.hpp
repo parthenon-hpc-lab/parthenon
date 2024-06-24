@@ -448,7 +448,7 @@ class Metadata {
 
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
-  bool IsRefined() const {
+  bool HasRefinementOps() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
             IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux) ||
             IsSet(WithFluxes));
@@ -531,7 +531,7 @@ class Metadata {
             class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
-        IsRefined(),
+        HasRefinementOps(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
