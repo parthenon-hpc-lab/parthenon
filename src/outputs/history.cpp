@@ -176,7 +176,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
       std::fprintf(pfile, "# [%d]=time     ", iout++);
       std::fprintf(pfile, "[%d]=dt       ", iout++);
-      std::fprintf(pfile, "[%d]=ncycle   ", iout++);
+      std::fprintf(pfile, "[%d]=cycle    ", iout++);
       std::fprintf(pfile, "[%d]=nbtotal  ", iout++);
       for (auto &op : ops) {
         for (auto &label : labels[op]) {
