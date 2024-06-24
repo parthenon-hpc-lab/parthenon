@@ -124,7 +124,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         ref_results = [
             ["time", 1.0, 1.0],
             ["dt", 1.75781e-03, 3.12500e-03],
-            ["ncycle", 5.69000e02, 2.14000e02],
+            ["cycle", 5.69000e02, 2.14000e02],
             ["nbtotal", 1.30000e02, 2.04000e02],
             ["total_advected", 7.06177e-02, 1.39160e-02],
             ["advected_powers_0", 7.06177e-02, 1.39160e-02],
