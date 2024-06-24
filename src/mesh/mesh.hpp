@@ -146,8 +146,8 @@ class Mesh {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
 
-  std::vector<std::shared_ptr<BlockListPartition>> &
-  GetBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) {
+  const std::vector<std::shared_ptr<BlockListPartition>> &
+  GetBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
     return block_partitions_.at(grid);
   }
 
