@@ -54,7 +54,7 @@ void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
 void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v,
                                        StateDescriptor *pkg) {
   prores_info_h(region) = pri;
-  if (v->IsRefined()) {
+  if (v->HasRefinementOps()) {
     // var must be registered for refinement
     // note this condition means that each subset contains
     // both prolongation and restriction conditions. The

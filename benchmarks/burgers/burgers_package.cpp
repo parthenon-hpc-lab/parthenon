@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -132,7 +132,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     hst_vars.emplace_back(HstSum, ReduceMass, "MS Mass " + std::to_string(i_octant));
     i_octant++;
   }
-  hst_vars.emplace_back(HstSum, MeshCountHistory, "Meshblock count");
   pkg->AddParam(parthenon::hist_param_key, hst_vars);
 
   pkg->EstimateTimestepMesh = EstimateTimestepMesh;
@@ -438,7 +437,5 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
       Kokkos::Sum<Real>(result));
   return result;
 }
-
-Real MeshCountHistory(MeshData<Real> *md) { return md->NumBlocks(); }
 
 } // namespace burgers_package
