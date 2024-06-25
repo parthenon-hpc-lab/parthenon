@@ -30,6 +30,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1131]](https://github.com/parthenon-hpc-lab/parthenon/pull/1131) Make deallocation of fine and sparse fields work
 - [[PR 1127]](https://github.com/parthenon-hpc-lab/parthenon/pull/1127) Add WithFluxes to IsRefined check
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
 - [[PR 1092]](https://github.com/parthenon-hpc-lab/parthenon/pull/1092) Updates to DataCollection and MeshData to remove requirement of predefining MeshBlockData
