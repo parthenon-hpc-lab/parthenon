@@ -212,7 +212,7 @@ TEST_CASE("Metadata FlagCollection", "[Metadata]") {
 TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
   GIVEN("A metadata struct with relevant flags set") {
     Metadata m({Metadata::Cell, Metadata::FillGhost});
-    THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
+    THEN("It knows it's registered for refinement") { REQUIRE(m.HasRefinementOps()); }
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
           parthenon::refinement_ops::ProlongateSharedMinMod,

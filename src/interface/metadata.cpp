@@ -126,7 +126,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   }
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     refinement_funcs_ = ref_funcs_;
   }
 
@@ -253,7 +253,7 @@ bool Metadata::IsValid(bool throw_on_fail) const {
   }
 
   // Prolongation/restriction
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     if (refinement_funcs_.label().size() == 0) {
       valid = false;
       if (throw_on_fail) {
