@@ -194,7 +194,7 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
   }
   // calculate the first time step using Mesh function
-  for (auto &partition : pmesh->GetBlockPartitions()) {
+  for (auto &partition : pmesh->GetDefaultBlockPartitions()) {
     auto &mbase = pmesh->mesh_data.Add("base", partition);
     Update::EstimateTimestep(mbase.get());
   }

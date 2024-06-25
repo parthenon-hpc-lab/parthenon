@@ -78,7 +78,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
 
   for (int i = 0; i < partitions.size(); i++) {

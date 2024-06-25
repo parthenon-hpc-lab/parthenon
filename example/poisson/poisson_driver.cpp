@@ -55,7 +55,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto fail_flag = pkg->Param<bool>("fail_without_convergence");
   auto warn_flag = pkg->Param<bool>("warn_without_convergence");
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   TaskRegion &solver_region = tc.AddRegion(num_partitions);
 

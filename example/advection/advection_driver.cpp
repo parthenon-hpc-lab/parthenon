@@ -62,7 +62,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel

@@ -64,7 +64,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
   // sample number of iterations task
   {
-    auto partitions = pmesh->GetBlockPartitions();
+    auto partitions = pmesh->GetDefaultBlockPartitions();
     const int num_partitions = partitions.size();
     TaskRegion &async_region = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
@@ -115,7 +115,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
   {
     const Real beta = integrator->beta[stage - 1];
     const Real dt = integrator->dt;
-    auto partitions = pmesh->GetBlockPartitions();
+    auto partitions = pmesh->GetDefaultBlockPartitions();
     const int num_partitions = partitions.size();
 
     // note that task within this region that contains one tasklist per pack

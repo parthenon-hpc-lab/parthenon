@@ -618,7 +618,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Build densely populated communication tags
   tag_map.clear();
-  for (auto &partition : GetBlockPartitions()) {
+  for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
   }
@@ -626,7 +626,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   if (multigrid) {
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
       const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetBlockPartitions(grid_id)) {
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
         auto &md = mesh_data.Add("base", partition);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
@@ -664,14 +664,14 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   boundary_comm_map.clear();
 
   // Build the boundary buffers for the current mesh
-  for (auto &partition : GetBlockPartitions()) {
+  for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
     BuildBoundaryBuffers(md);
   }
   if (multigrid) {
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
       const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetBlockPartitions(grid_id)) {
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
         auto &mdg = mesh_data.Add("base", partition);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
@@ -688,7 +688,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   bool all_sent;
   std::int64_t send_iters = 0;
 
-  auto partitions = GetBlockPartitions();
+  auto partitions = GetDefaultBlockPartitions();
   do {
     all_sent = true;
     for (int i = 0; i < partitions.size(); ++i) {
@@ -756,7 +756,7 @@ void Mesh::PreCommFillDerived() {
     auto &mbd = block_list[i]->meshblock_data.Get();
     Update::PreCommFillDerived(mbd.get());
   }
-  for (auto &partition : GetBlockPartitions()) {
+  for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
     Update::PreCommFillDerived(md.get());
   }
@@ -765,7 +765,7 @@ void Mesh::PreCommFillDerived() {
 void Mesh::FillDerived() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  for (auto &partition : GetBlockPartitions()) {
+  for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
     // Call MeshData based FillDerived functions
     Update::FillDerived(md.get());
@@ -811,7 +811,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        for (auto &partition : GetBlockPartitions(GridIdentifier::leaf())) {
+        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
         }
@@ -831,7 +831,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                           "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
                           "during first initialization.");
 
-        auto &md = mesh_data.Add("base", GetBlockPartitions()[0]);
+        auto &md = mesh_data.Add("base", GetDefaultBlockPartitions()[0]);
         PostInitialization(this, pin, md.get());
         // Call individual MeshBlock PostInitialization
       } else {

@@ -429,7 +429,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto advect_flux = tl.AddTask(none, tracers_example::CalculateFluxes, sc0.get());
   }
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel

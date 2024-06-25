@@ -77,7 +77,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
           "MGBiCGSTABsolver");
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   TaskRegion &region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {

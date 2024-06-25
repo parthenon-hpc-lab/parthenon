@@ -288,7 +288,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   const int num_task_lists_executed_independently = blocks.size();
 

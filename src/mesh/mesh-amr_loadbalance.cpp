@@ -969,7 +969,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
-      for (auto &partition : GetBlockPartitions()) {
+      for (auto &partition : GetDefaultBlockPartitions()) {
         auto &md = mesh_data.Add("base", partition);
         auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
       }

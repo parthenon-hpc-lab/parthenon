@@ -124,7 +124,7 @@ class MGSolver {
         &iter_counter);
     auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
 
-    auto partitions = pmesh->GetBlockPartitions(GridIdentifier::leaf());
+    auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
     if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
@@ -328,7 +328,7 @@ class MGSolver {
     bool multilevel = (level != min_level);
 
     auto partitions =
-        pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
 
@@ -377,7 +377,7 @@ class MGSolver {
     bool multilevel = (level != min_level);
 
     auto partitions =
-        pmesh->GetBlockPartitions(GridIdentifier::two_level_composite(level));
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto &md_comm = pmesh->mesh_data.AddShallow(

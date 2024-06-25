@@ -118,7 +118,7 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::ComputeArea;
   TaskCollection tc;
 
-  auto partitions = pmesh->GetBlockPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   ParArrayHost<Real> areas("areas", num_partitions);
   TaskRegion &async_region = tc.AddRegion(num_partitions);
