@@ -298,7 +298,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
 
     it.setAttribute("BoundaryConditions", boundary_condition_str);
-    Kokkos::Profiling::popRegion(); // write Info
   }                                 // Info section
 
   Kokkos::Profiling::popRegion(); // write Attributes
