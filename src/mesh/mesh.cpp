@@ -366,6 +366,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
       grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
       DefaultPackSize());
+  // Account for possibly empty block_list
+  if (partition_blocklists.size() == 0)
+    partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
