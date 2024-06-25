@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1130]](https://github.com/parthenon-hpc-lab/parthenon/pull/1130) Enable `parthenon::par_reduce` for MD loops with Kokkos 1D Range
+- [[PR 1128]](https://github.com/parthenon-hpc-lab/parthenon/pull/1128) Add cycle and nbtotal to hst
 - [[PR 1099]](https://github.com/parthenon-hpc-lab/parthenon/pull/1099) Functionality for outputting task graphs in GraphViz format.
 - [[PR 1091]](https://github.com/parthenon-hpc-lab/parthenon/pull/1091) Add vector wave equation example.
 - [[PR 991]](https://github.com/parthenon-hpc-lab/parthenon/pull/991) Add fine fields.
@@ -30,6 +31,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1127]](https://github.com/parthenon-hpc-lab/parthenon/pull/1127) Add WithFluxes to IsRefined check
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
 - [[PR 1092]](https://github.com/parthenon-hpc-lab/parthenon/pull/1092) Updates to DataCollection and MeshData to remove requirement of predefining MeshBlockData
 - [[PR 1113]](https://github.com/parthenon-hpc-lab/parthenon/pull/1113) Prevent division by zero
@@ -71,6 +73,7 @@
 - [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1128]](https://github.com/parthenon-hpc-lab/parthenon/pull/1128) Add cycle and nbtotal to hst
 - [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code
 - [[PR 1037]](https://github.com/parthenon-hpc-lab/parthenon/pull/1037) Add SwarmPacks
