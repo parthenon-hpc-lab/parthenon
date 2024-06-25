@@ -336,8 +336,21 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 
  public:
   template <typename... Args>
-  FlatFunctor(const Function _function, Args... args)
-      : function(_function), ranges({{args...}}) {
+  FlatFunctor(const Function _function, IndexRange idr, Args... args)
+      : function(_function), ranges({{idr, args...}}) {
+    Initialize();
+  }
+
+  template <typename... Args>
+  FlatFunctor(const Function _function, Args... args) : function(_function) {
+    std::array<int, 2 * sizeof...(Is)> indices{{args...}};
+    for (int i = 0; i < sizeof...(Is); i++) {
+      ranges[i] = {indices[2 * i], indices[2 * i + 1]};
+    }
+    Initialize();
+  }
+
+  inline void Initialize() {
     for (int ri = 1; ri < sizeof...(Is); ri++) {
       const int N = ranges[ri].e - ranges[ri].s + 1;
       strides[ri - 1] = N;
@@ -387,9 +400,9 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NkNjNi = Nk * Nj * Ni;
-  const IndexRange k{kl, ku}, j{jl, ju}, i{il, iu};
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-                  MakeFlatFunctor(function, k, j, i), std::forward<Args>(args)...);
+                  MakeFlatFunctor(function, kl, ku, jl, ju, il, iu),
+                  std::forward<Args>(args)...);
 }
 
 // 3D loop using MDRange loops
@@ -493,9 +506,9 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NnNkNjNi = Nn * Nk * Nj * Ni;
-  const IndexRange n{nl, nu}, k{kl, ku}, j{jl, ju}, i{il, iu};
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                  MakeFlatFunctor(function, n, k, j, i), std::forward<Args>(args)...);
+                  MakeFlatFunctor(function, nl, nu, kl, ku, jl, ju, il, iu),
+                  std::forward<Args>(args)...);
 }
 
 // 4D loop using MDRange loops
