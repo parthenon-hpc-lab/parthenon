@@ -612,7 +612,6 @@ void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
 }
 
 void Mesh::BuildTagMapAndBoundaryBuffers() {
-  printf("Building boundary information %i\n", multigrid);
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
