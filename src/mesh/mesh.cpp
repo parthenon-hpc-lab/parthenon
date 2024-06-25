@@ -826,12 +826,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh PostInitialization
       if (PostInitialization != nullptr) {
-        PARTHENON_REQUIRE(num_partitions == 1,
-                          "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
-                          "during first initialization.");
-
-        auto &md = mesh_data.Add("base", GetDefaultBlockPartitions()[0]);
-        PostInitialization(this, pin, md.get());
+        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+          auto &md = mesh_data.Add("base", partition);
+          PostInitialization(this, pin, md.get());
+        }
         // Call individual MeshBlock PostInitialization
       } else {
         for (int i = 0; i < nmb; ++i) {
