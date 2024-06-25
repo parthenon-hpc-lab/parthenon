@@ -27,6 +27,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "parthenon_array_generic.hpp"
@@ -214,6 +215,71 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 }
 } // namespace dispatch_impl
 
+namespace meta {
+template <bool B, typename T, typename F>
+struct if_else {
+   using type = T;
+};
+
+template <typename T, typename F>
+struct if_else<false, T, F> {
+   using type = F;
+};
+
+template <typename... Ts>
+struct PackList {};
+
+template<typename... Ts>
+constexpr int PackLength(PackList<Ts...>) {return sizeof...(Ts);}
+
+} // namespace meta
+
+namespace meta {
+
+template <typename IndexList, typename ArgList>
+struct GetIndexND {};
+
+template <typename... Is>
+struct GetIndexND<PackList<Is...>, PackList<>> {
+   using value = PackList<Is...>;
+};
+
+template <typename Index, typename... Is, typename T, typename... Args>
+struct GetIndexND<PackList<Index, Is...>, PackList<T, Args...>> {
+  using value = typename if_else<std::is_same<Index, T>::value,
+                        typename GetIndexND<PackList<Index, Is..., T>, PackList<Args...>>::value,
+                        PackList<Index, Is...>>::type ;
+};
+
+template <typename Index, typename ArgList>
+struct GetFArgs {};
+
+template <typename Index>
+struct GetFArgs<Index, PackList<>> {
+   using value = PackList<>;
+};
+
+template <typename Index, typename T, typename... Args>
+struct GetFArgs<Index, PackList<T, Args...>> {
+   using value 
+      = typename if_else<std::is_same<Index, T>::value,
+                         PackList<Args...>,
+                         typename GetFArgs<T,
+                           PackList<Args...>>::value>::type;
+};
+
+template <typename>
+struct FunctionSignature {};
+
+template <typename R, typename T, typename Index, typename... Args>
+struct FunctionSignature<R(T::*)(Index, Args...) const> {
+   using IndexND = GetIndexND<PackList<Index>, PackList<Args...>>;
+   using FArgs = GetFArgs<PackList<Index>, PackList<Args...>>;
+};
+
+} // namespace meta
+
+
 // 1D loop using RangePolicy loops
 template <typename Tag, typename Pattern, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
@@ -258,34 +324,56 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
                   function, std::forward<Args>(args)...);
 }
 
-template <typename, typename>
-class FlatFunctor;
+
+template<typename, typename, typename>
+class FlatFunctor {};
+
+template <typename Function, size_t... Is, typename... FArgs>
+class FlatFunctor<Function, std::integer_sequence<size_t, Is...>, meta::PackList<FArgs...>> {
+   Kokkos::Array<IndexRange, sizeof...(Is)> ranges;
+   Kokkos::Array<int, sizeof...(Is)-1> strides;
+   Function function;
+
+   public:
+      template <typename... Args>
+      FlatFunctor(const Function _function, Args ...args) 
+      : function(_function), ranges({{args...}}) {
+         for (int ri=1; ri<sizeof...(Is); ri++) {
+            const int N = ranges[ri].e - ranges[ri].s + 1;
+            strides[ri-1] = N;
+            for (int rj=0; rj<ri-1; rj++) {
+               strides[rj] *= N;
+            }
+         }
+      }
+
+      KOKKOS_INLINE_FUNCTION
+      void operator()(const int &idx, FArgs... fargs) const {
+         constexpr int ND = sizeof...(Is);
+         int inds[ND];
+         inds[0] = idx;
+         for (int i=1; i<ND; i++) {
+            inds[i] = idx;
+            inds[i-1] /= strides[i-1];
+            for (int j=0; j<i; j++) {
+               inds[i] -= inds[j]*strides[j];
+            }
+         }
+         for (int i=0; i<ND; i++) {
+            inds[i] += ranges[i].s;
+         }
+
+         function(inds[Is]...,std::forward<FArgs>(fargs)...);
+      }
+};
 
 template <typename F, typename... Args>
 auto MakeFlatFunctor(F &function, Args... args) {
-  return FlatFunctor<F, decltype(&F::operator())>(function, std::forward<Args>(args)...);
+   using signature = meta::FunctionSignature<decltype(&F::operator())>;
+   using IndexND = typename signature::IndexND::value;
+   return FlatFunctor<F, std::make_index_sequence<meta::PackLength(IndexND())>,
+                      typename signature::FArgs::value>(function, std::forward<Args>(args)...);
 }
-
-template <typename Function, typename R, typename T, typename Index, typename... FArgs>
-class FlatFunctor<Function, R (T::*)(Index, Index, Index, FArgs...) const> {
-  int NjNi, Nj, Ni, kl, jl, il;
-  Function function;
-
- public:
-  FlatFunctor(const Function _function, const int _NjNi, const int _Nj, const int _Ni,
-              const int _kl, const int _jl, const int _il)
-      : function(_function), NjNi(_NjNi), Nj(_Nj), Ni(_Ni), kl(_kl), jl(_jl), il(_il) {}
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const int &idx, FArgs &&...fargs) const {
-    int k = idx / NjNi;
-    int j = (idx - k * NjNi) / Ni;
-    int i = idx - k * NjNi - j * Ni;
-    k += kl;
-    j += jl;
-    i += il;
-    function(k, j, i, std::forward<FArgs>(fargs)...);
-  }
-};
 
 // 3D loop using Kokkos 1D Range
 template <typename Tag, typename Function, class... Args>
@@ -298,9 +386,9 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NkNjNi = Nk * Nj * Ni;
-  const int NjNi = Nj * Ni;
+  const IndexRange k{kl, ku}, j{jl, ju}, i{il, iu};
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-                  MakeFlatFunctor(function, NjNi, Nj, Ni, kl, jl, il),
+                  MakeFlatFunctor(function, k, j, i),
                   std::forward<Args>(args)...);
 }
 
@@ -392,29 +480,6 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
         function(k, j, i);
 }
 
-template <typename Function, typename R, typename T, typename Index, typename... FArgs>
-class FlatFunctor<Function, R (T::*)(Index, Index, Index, Index, FArgs...) const> {
-  int NkNjNi, NjNi, Nj, Ni, nl, kl, jl, il;
-  Function function;
-
- public:
-  FlatFunctor(const Function _function, const int _NkNjNi, const int _NjNi, const int _Nj,
-              const int _Ni, const int _nl, const int _kl, const int _jl, const int _il)
-      : function(_function), NkNjNi(_NkNjNi), NjNi(_NjNi), Nj(_Nj), Ni(_Ni), nl(_nl),
-        kl(_kl), jl(_jl), il(_il) {}
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const int &idx, FArgs &&...fargs) const {
-    int n = idx / NkNjNi;
-    int k = (idx - n * NkNjNi) / NjNi;
-    int j = (idx - n * NkNjNi - k * NjNi) / Ni;
-    int i = idx - n * NkNjNi - k * NjNi - j * Ni;
-    n += nl;
-    k += kl;
-    j += jl;
-    i += il;
-    function(n, k, j, i, std::forward<FArgs>(fargs)...);
-  }
-};
 
 // 4D loop using Kokkos 1D Range
 template <typename Tag, typename Function, class... Args>
@@ -429,10 +494,9 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NnNkNjNi = Nn * Nk * Nj * Ni;
-  const int NkNjNi = Nk * Nj * Ni;
-  const int NjNi = Nj * Ni;
+  const IndexRange n{nl, nu}, k{kl, ku}, j{jl, ju}, i{il, iu};
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                  MakeFlatFunctor(function, NkNjNi, NjNi, Nj, Ni, nl, kl, jl, il),
+                  MakeFlatFunctor(function, n, k, j, i),
                   std::forward<Args>(args)...);
 }
 
