@@ -174,13 +174,11 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
           const auto &var = pack(b, v);
           const Real threshold = var.deallocation_threshold;
           bool all_zero = true;
+          const auto &var_raw = var.data();
           Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, NkNjNi),
+              Kokkos::TeamThreadRange<>(team_member, var.size()),
               [&](const int idx, bool &lall_zero) {
-                const int k = kb.s + idx / NjNi;
-                const int j = jb.s + (idx % NjNi) / Ni;
-                const int i = ib.s + idx % Ni;
-                if (std::abs(var(k, j, i)) > threshold) {
+                if (std::abs(var_raw[idx]) > threshold) {
                   lall_zero = false;
                   return;
                 }
