@@ -78,15 +78,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
-  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
 
-  for (int i = 0; i < num_partitions; i++) {
+  for (int i = 0; i < partitions.size(); i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
     auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
