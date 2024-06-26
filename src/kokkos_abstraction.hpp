@@ -26,6 +26,7 @@
 #include <utility>
 
 #include <Kokkos_Core.hpp>
+#include <variant>
 
 #include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
@@ -250,6 +251,14 @@ struct PopList<N, PackList<T, Ts...>> {
 };
 
 template <typename, typename>
+struct AppendList {};
+
+template <typename T, typename... Ts>
+struct AppendList<T, PackList<Ts...>> {
+   using value = PackList<Ts..., T>;
+};
+
+template <typename, typename>
 struct MergeLists {};
 
 template <typename... Ts>
@@ -276,6 +285,25 @@ struct PackSameType<PackList<Index, Is...>, PackList<T, Args...>> {
       std::is_convertible<Index, T>::value,
       typename PackSameType<PackList<Index, Is..., T>, PackList<Args...>>::value,
       PackList<Index, Is...>>::type;
+};
+
+template<size_t, typename>
+struct SequenceOfOnes {};
+
+template<size_t... ones>
+struct SequenceOfOnes<0, std::integer_sequence<size_t, ones...>>{
+   using value = typename std::integer_sequence<size_t, ones...>;
+};
+
+template<size_t N, size_t... ones>
+struct SequenceOfOnes<N, std::integer_sequence<size_t, ones...>> {
+   using value = typename SequenceOfOnes<N-1, std::integer_sequence<size_t, 1>>::value;
+};
+
+template<size_t N>
+struct SequenceOfOnes<N, void> {
+   static_assert(N > 0, "N must be positive");
+   using value = typename SequenceOfOnes<N-1, std::integer_sequence<size_t, 1>>::value;
 };
 
 } // namespace meta
@@ -307,16 +335,40 @@ struct FunctionSignature<R (T::*)(Index, Args...) const> {
   using FArgs = PopList<PackLength(IndexND()), PackList<Index, Args...>>;
 };
 
+template<typename F>
+using function_signature = FunctionSignature<decltype(&F::operator())>;
+
+template<typename>
+struct GetLaunchBounds {};
+
+template <typename T, typename... Args>
+struct GetLaunchBounds<PackList<T,Args...>> {
+
+   template <typename, typename>
+   struct is_one_of : std::false_type {};
+
+   template <typename V, typename... Vs>
+   struct is_one_of<V, std::variant<Vs...>>
+   : std::bool_constant<(std::is_same_v<V, Vs> || ...)> {};
+
+   using bound_variants = std::variant<int, int&, IndexRange, IndexRange&>;
+   using bound = T;
+   using LaunchBounds = GetLaunchBounds<PackList<Args...>>;
+   using value = typename std::conditional < is_one_of<T, bound_variants>::type,
+         typename AppendList<T, typename LaunchBounds::value>::value, PackList<>>::type;
+};
+
 template <typename>
 struct DispatchSignature {};
 
 template <typename Index, typename... AllArgs>
 struct DispatchSignature<PackList<Index, AllArgs...>> {
-  using IndexND = typename PackSameType<PackList<Index>, PackList<AllArgs...>>::value;
+  using LaunchBounds = typename PackSameType<PackList<Index>, PackList<AllArgs...>>::value;
   using Function =
-      typename PopList<PackLength(IndexND()) + 1, PackList<Index, AllArgs...>>::type;
+      typename PopList<PackLength(LaunchBounds()) + 1, PackList<Index, AllArgs...>>::type;
   using Args =
-      typename PopList<PackLength(IndexND()) + 1, PackList<Index, AllArgs...>>::value;
+      typename PopList<PackLength(LaunchBounds()) + 1, PackList<Index, AllArgs...>>::value;
+
 };
 
 } // namespace meta
@@ -378,7 +430,7 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 };
 
 template <typename F, typename... Args>
-auto MakeFlatFunctor(F &function, Args... args) {
+auto MakeFlatFunctor(F &function, Args &&...args) {
   using signature = meta::FunctionSignature<decltype(&F::operator())>;
   using IndexND = typename signature::IndexND;
   return FlatFunctor<F, std::make_index_sequence<meta::PackLength(IndexND())>,
@@ -386,37 +438,112 @@ auto MakeFlatFunctor(F &function, Args... args) {
                                                        std::forward<Args>(args)...);
 }
 
+template <typename, typename>
+class MDRange {};
+
+template <size_t... Is, size_t... ones>
+class MDRange<std::integer_sequence<size_t, Is...>, std::integer_sequence<size_t, ones...>> {
+   Kokkos::Array<int, sizeof...(Is)> lower, upper;
+
+   public:
+  template <typename... Args>
+  MDRange(IndexRange idr, Args... args) {
+    std::array<IndexRange, sizeof...(Is)> ranges{{idr, args...}};
+    for (int i = 0; i < sizeof...(Is); i++) {
+       lower[i] = ranges[i].s;
+       upper[i] = ranges[i].e;
+    }
+      }
+
+  template <typename... Args>
+  MDRange(Args... args) {
+    std::array<int, 2 * sizeof...(Is)> indices{{args...}};
+    for (int i = 0; i < sizeof...(Is); i++) {
+       lower[i] = indices[2*i];
+       upper[i] = indices[2*i+1];
+    }
+  }
+
+  auto policy(DevExecSpace exec_space) {
+     constexpr int ND = sizeof...(Is);
+      return Kokkos::MDRangePolicy<Kokkos::Rank<ND>>(exec_space, 
+            {lower[Is]...}, {1+upper[Is]...}, {ones..., upper[ND-1] + 1 - lower[ND-1]});
+  }
+};
+
+template<typename F, typename... Args>
+auto MakeMDRangePolicy(DevExecSpace exec_space, Args &&...args) {
+  using signature = meta::FunctionSignature<decltype(&F::operator())>;
+  using IndexND = typename signature::IndexND;
+  static_assert(sizeof...(Args) % meta::PackLength(IndexND()) == 0, "Index doesn't match functor signature");
+  return MDRange<std::make_index_sequence<meta::PackLength(IndexND())>,
+                 typename meta::SequenceOfOnes<meta::PackLength(IndexND())-1,void>::value >(std::forward<Args>(args)...).policy(exec_space);
+}
+
+
+
+
 template <typename, typename, typename, typename>
 struct par_dispatch_impl {};
 
-template <typename Tag, typename Function, typename... Index, typename... Args>
-struct par_dispatch_impl<Tag, Function, meta::PackList<Index...>,
+template <typename Tag, typename Function, typename... Bounds, typename... Args>
+struct par_dispatch_impl<Tag, Function, meta::PackList<Bounds...>,
                          meta::PackList<Args...>> {
+
+  using BoundType = typename meta::PopList<1, meta::PackList<Bounds...>>::type;
+
+  // Index ...ids probably shouldn't be that
   template <typename Pattern>
-  inline void dispatch(Pattern, std::string name, DevExecSpace exec_space, Index... ids,
-                       Function function, Args... args) {
-    using index_type = typename meta::PopList<1, meta::PackList<Index...>>::type;
-    constexpr bool is_FlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
+  inline void dispatch(Pattern, std::string name, DevExecSpace exec_space, Bounds &&...ids,
+                       Function function, Args &&...args) {
+
     Tag tag;
 
-    if constexpr (is_FlatRange) {
-      int rangeNx = 1;
-      if constexpr (std::is_same<index_type &, IndexRange &>::value) {
-        for (auto &irange : {ids...}) {
-          rangeNx *= irange.e - irange.s + 1;
-        }
-      } else {
-        int indices[sizeof...(Index)] = {ids...};
-        for (int i = 0; i < sizeof...(Index); i += 2) {
-          rangeNx *= indices[i + 1] - indices[i] + 1;
-        }
-      }
-
-      kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, rangeNx),
-                      MakeFlatFunctor(function, std::forward<Index>(ids)...),
+      kokkos_dispatch(tag, name,
+                      policy(Pattern(), exec_space, std::forward<Bounds>(ids)...),
+                      functor(Pattern(), function, std::forward<Bounds>(ids)...),
                       std::forward<Args>(args)...);
-    }
   };
+
+  template <typename Pattern>
+  KOKKOS_INLINE_FUNCTION
+  auto policy(Pattern, DevExecSpace exec_space, Bounds &&...ids) const {
+     constexpr bool is_FlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
+     constexpr bool is_MDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
+
+     if constexpr (is_FlatRange) {
+      int rangeNx = 1;
+      if constexpr (std::is_same<BoundType &, IndexRange &>::value) {
+         for (auto &irange : {ids...}) {
+            rangeNx *= irange.e - irange.s + 1;
+         }
+      } else {
+         int indices[sizeof...(Bounds)] = {ids...};
+         for (int i = 0; i < sizeof...(Bounds); i += 2) {
+            rangeNx *= indices[i + 1] - indices[i] + 1;
+         }
+      }
+      return Kokkos::RangePolicy<>(exec_space, 0, rangeNx);
+
+     } else if constexpr (is_MDRange) {
+        return MakeMDRangePolicy<Function>(exec_space, std::forward<Bounds>(ids)...);
+     } else {
+     }
+  };
+
+  template<typename Pattern>
+  KOKKOS_INLINE_FUNCTION
+  auto functor(Pattern, Function function, Bounds &&...ids) const {
+     constexpr bool is_FlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
+     constexpr bool is_MDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
+     if constexpr (is_FlatRange) {
+        return MakeFlatFunctor(function, std::forward<Bounds>(ids)...);
+     } else if constexpr(is_MDRange) {
+        return function;
+     } else {
+     }
+
+  }
 };
 
 template <typename Tag, typename Pattern, typename... AllArgs>
@@ -425,9 +552,9 @@ inline typename std::enable_if<std::is_same<Pattern, LoopPatternFlatRange>::valu
 par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...args) {
   using dispatchsig = meta::DispatchSignature<meta::PackList<AllArgs...>>;
   using Function = typename dispatchsig::Function; // functor type
-  using IndexND = typename dispatchsig::IndexND;   // list of index types
+  using LaunchBounds = typename dispatchsig::LaunchBounds;   // list of index types
   using Args = typename dispatchsig::Args;         //
-  par_dispatch_impl<Tag, Function, IndexND, Args>().dispatch(
+  par_dispatch_impl<Tag, Function, LaunchBounds, Args>().dispatch(
       Pattern(), name, exec_space, std::forward<AllArgs>(args)...);
 }
 
@@ -467,12 +594,17 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
              const int jl, const int ju, const int il, const int iu,
              const Function &function, Args &&...args) {
   Tag tag;
-  kokkos_dispatch(tag, name,
-                  Kokkos::Experimental::require(
-                      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                          exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
-                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                  function, std::forward<Args>(args)...);
+  using Bounds = meta::PackList<const int&, const int&, const int&, const int&>;
+  using dispArgs = meta::PackList<Args...>;
+   par_dispatch_impl<Tag, Function, Bounds, 
+      dispArgs>().dispatch(LoopPatternMDRange(), name, exec_space,
+            jl, ju, il, iu, function, std::forward<Args>(args)...);
+  /* kokkos_dispatch(tag, name, */
+  /*                 Kokkos::Experimental::require( */
+  /*                     Kokkos::MDRangePolicy<Kokkos::Rank<2>>( */
+  /*                         exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}), */
+  /*                     Kokkos::Experimental::WorkItemProperty::HintLightWeight), */
+  /*                 function, std::forward<Args>(args)...); */
 }
 
 // 3D loop using MDRange loops
