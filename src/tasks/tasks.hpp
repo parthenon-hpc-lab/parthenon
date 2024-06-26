@@ -412,10 +412,10 @@ class TaskList {
     tl.AppendTasks(tasks);
     return WriteTaskGraph(stream, tasks);
   }
-  
-  std::vector<TaskList*> GetAllTaskLists() {
-    std::vector<TaskList*> list;
-    GetAllTaskListsInternal(list); 
+
+  std::vector<TaskList *> GetAllTaskLists() {
+    std::vector<TaskList *> list;
+    GetAllTaskListsInternal(list);
     return list;
   }
 
@@ -440,11 +440,11 @@ class TaskList {
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
   bool graph_built;
-  
-  void GetAllTaskListsInternal(std::vector<TaskList*> &list) { 
-    list.emplace_back(this); 
+
+  void GetAllTaskListsInternal(std::vector<TaskList *> &list) {
+    list.emplace_back(this);
     for (auto &ptl : sublists)
-      ptl->GetAllTaskListsInternal(list); 
+      ptl->GetAllTaskListsInternal(list);
   }
 
   void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) const {
@@ -579,8 +579,8 @@ class TaskRegion {
       tl.AppendTasks(tasks_inout);
     }
   }
-  
-  void AddRegionalDependencies(const std::vector<TaskList*> &tls) {
+
+  void AddRegionalDependencies(const std::vector<TaskList *> &tls) {
     const auto num_lists = tls.size();
     const auto num_regional = tls.front()->NumRegional();
     std::vector<Task *> tasks(num_lists);
@@ -608,10 +608,21 @@ class TaskRegion {
   }
 
   void BuildGraph() {
-    // first handle regional dependencies
-    std::vector<TaskList*> tls;
-    for (auto &tl : task_lists) tls.emplace_back(&tl);
-    AddRegionalDependencies(tls); 
+    // first handle regional dependencies by getting a vector of pointers
+    // to every sub-TaskList of each of the main TaskLists in the region
+    // (and also including a pointer to the main TaskLists). Match these
+    // TaskLists up across the region and insert their regional dependencies
+    std::vector<std::vector<TaskList *>> tls;
+    for (auto &tl : task_lists)
+      tls.emplace_back(tl.GetAllTaskLists());
+
+    int num_sublists = tls.front().size();
+    std::vector<TaskList *> matching_lists(task_lists.size());
+    for (int sl = 0; sl < num_sublists; ++sl) {
+      for (int i = 0; i < task_lists.size(); ++i)
+        matching_lists[i] = tls[i][sl];
+      AddRegionalDependencies(matching_lists);
+    }
 
     // now hook up iterations
     for (auto &tl : task_lists) {
