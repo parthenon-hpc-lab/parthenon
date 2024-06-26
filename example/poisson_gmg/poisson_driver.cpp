@@ -77,11 +77,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
           "MGBiCGSTABsolver");
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   TaskRegion &region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
-    auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
