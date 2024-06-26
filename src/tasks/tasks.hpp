@@ -412,6 +412,12 @@ class TaskList {
     tl.AppendTasks(tasks);
     return WriteTaskGraph(stream, tasks);
   }
+  
+  std::vector<TaskList*> GetAllTaskLists() {
+    std::vector<TaskList*> list;
+    GetAllTaskListsInternal(list); 
+    return list;
+  }
 
  private:
   TaskID dependency;
@@ -434,6 +440,12 @@ class TaskList {
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
   bool graph_built;
+  
+  void GetAllTaskListsInternal(std::vector<TaskList*> &list) { 
+    list.emplace_back(this); 
+    for (auto &ptl : sublists)
+      ptl->GetAllTaskListsInternal(list); 
+  }
 
   void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) const {
     tasks_inout.insert(tasks_inout.end(), tasks.begin(), tasks.end());
@@ -567,15 +579,14 @@ class TaskRegion {
       tl.AppendTasks(tasks_inout);
     }
   }
-
-  void BuildGraph() {
-    // first handle regional dependencies
-    const auto num_lists = task_lists.size();
-    const auto num_regional = task_lists.front().NumRegional();
+  
+  void AddRegionalDependencies(const std::vector<TaskList*> &tls) {
+    const auto num_lists = tls.size();
+    const auto num_regional = tls.front()->NumRegional();
     std::vector<Task *> tasks(num_lists);
     for (int i = 0; i < num_regional; i++) {
       for (int j = 0; j < num_lists; j++) {
-        tasks[j] = task_lists[j].Regional(i);
+        tasks[j] = tls[j]->Regional(i);
       }
       std::vector<std::vector<Task *>> reg_dep;
       for (int j = 0; j < num_lists; j++) {
@@ -594,6 +605,13 @@ class TaskRegion {
         }
       }
     }
+  }
+
+  void BuildGraph() {
+    // first handle regional dependencies
+    std::vector<TaskList*> tls;
+    for (auto &tl : task_lists) tls.emplace_back(&tl);
+    AddRegionalDependencies(tls); 
 
     // now hook up iterations
     for (auto &tl : task_lists) {
