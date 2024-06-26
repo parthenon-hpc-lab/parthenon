@@ -113,10 +113,11 @@ class MGSolver {
     using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
-    iter_counter = 0;
+    iter_counter = -1;
     itl.AddTask(
-        TaskQualifier::once_per_region, none, "print",
+        TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
         [](int *iter_counter) {
+          (*iter_counter)++;
           if (*iter_counter > 0 || Globals::my_rank != 0) return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
@@ -136,13 +137,11 @@ class MGSolver {
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, itl, &residual, md);
 
     auto check = itl.AddTask(
-        TaskQualifier::once_per_region | TaskQualifier::completion |
-            TaskQualifier::global_sync,
-        get_res, "Check residual",
-        [](MGSolver *solver, Mesh *pmesh) {
-          solver->iter_counter++;
+        TaskQualifier::completion, get_res, "Check residual",
+        [partition](MGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter, rms_res);
+          if (Globals::my_rank == 0 && partition == 0)
+            printf("%i %e\n", solver->iter_counter, rms_res);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
           if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
@@ -389,7 +388,7 @@ class MGSolver {
       // Fill fields with restricted values
       auto recv_from_finer = tl.AddTask(
           dependence, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_comm);
-      set_from_finer = tl.AddTask( // TaskQualifier::local_sync, // is this required?
+      set_from_finer = tl.AddTask(
           recv_from_finer, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md_comm);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
@@ -447,9 +446,9 @@ class MGSolver {
           coarser, TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, TF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
-      auto prolongate = tl.AddTask( // TaskQualifier::local_sync, // is this required?
-          set_from_coarser, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
-          md_comm);
+      auto prolongate =
+          tl.AddTask(set_from_coarser,
+                     TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
