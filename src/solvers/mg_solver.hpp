@@ -123,7 +123,10 @@ class MGSolver {
         },
         &iter_counter);
     auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
-    auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
+
+    auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
@@ -323,7 +326,10 @@ class MGSolver {
 
     bool multilevel = (level != min_level);
 
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+    auto partitions =
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
 
     auto task_out = dependence;
     if (level < max_level) {
@@ -369,11 +375,12 @@ class MGSolver {
 
     bool multilevel = (level != min_level);
 
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
-    std::string label =
-        "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
-    auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(
-        label, md, std::vector<std::string>{u::name(), res_err::name()});
+    auto partitions =
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md_comm = pmesh->mesh_data.AddShallow(
+        "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
 
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
