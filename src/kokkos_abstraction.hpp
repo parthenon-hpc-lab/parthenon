@@ -216,15 +216,9 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 } // namespace dispatch_impl
 
 namespace meta {
-template <bool B, typename T, typename F>
-struct if_else {
-  using type = T;
-};
 
-template <typename T, typename F>
-struct if_else<false, T, F> {
-  using type = F;
-};
+template <typename T>
+using base_type = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
 template <typename... Ts>
 struct PackList {};
@@ -234,39 +228,74 @@ constexpr int PackLength(PackList<Ts...>) {
   return sizeof...(Ts);
 }
 
-} // namespace meta
+template <size_t N, typename>
+struct PopList {};
 
-namespace meta {
+template <typename T, typename... Ts>
+struct PopList<1, PackList<T, Ts...>> {
+  using type = T;
+  using value = PackList<Ts...>;
+};
+
+template <size_t N, typename T, typename... Ts>
+struct PopList<N, PackList<T, Ts...>> {
+  static_assert(N > 1, "PopList requires N>=1");
+
+ private:
+  using pop = PopList<N - 1, PackList<Ts...>>;
+
+ public:
+  using type = typename pop::type;
+  using value = typename pop::value;
+};
+
+template <typename, typename>
+struct MergeLists {};
+
+template <typename... Ts>
+struct MergeLists<PackList<Ts...>, PackList<>> {
+  using value = PackList<Ts...>;
+};
+
+template <typename... Ts, typename F, typename... Fs>
+struct MergeLists<PackList<Ts...>, PackList<F, Fs...>> {
+  using value = typename MergeLists<PackList<Ts..., F>, PackList<Fs...>>::value;
+};
 
 template <typename IndexList, typename ArgList>
-struct GetIndexND {};
+struct PackSameType {};
 
 template <typename... Is>
-struct GetIndexND<PackList<Is...>, PackList<>> {
+struct PackSameType<PackList<Is...>, PackList<>> {
   using value = PackList<Is...>;
 };
 
 template <typename Index, typename... Is, typename T, typename... Args>
-struct GetIndexND<PackList<Index, Is...>, PackList<T, Args...>> {
-  using value = typename if_else<
-      std::is_same<Index, T>::value,
-      typename GetIndexND<PackList<Index, Is..., T>, PackList<Args...>>::value,
+struct PackSameType<PackList<Index, Is...>, PackList<T, Args...>> {
+  using value = typename std::conditional<
+      std::is_convertible<Index, T>::value,
+      typename PackSameType<PackList<Index, Is..., T>, PackList<Args...>>::value,
       PackList<Index, Is...>>::type;
 };
 
-template <typename Index, typename ArgList>
-struct GetFArgs {};
+} // namespace meta
 
-template <typename Index>
-struct GetFArgs<Index, PackList<>> {
-  using value = PackList<>;
+namespace meta {
+
+template <typename, typename>
+struct PackIntegralType {};
+
+template <typename... Is>
+struct PackIntegralType<PackList<Is...>, PackList<>> {
+  using value = PackList<Is...>;
 };
 
-template <typename Index, typename T, typename... Args>
-struct GetFArgs<Index, PackList<T, Args...>> {
-  using value = typename if_else<std::is_same<Index, T>::value,
-                                 typename GetFArgs<T, PackList<Args...>>::value,
-                                 PackList<T, Args...>>::type;
+template <typename... Is, typename T, typename... Ts>
+struct PackIntegralType<PackList<Is...>, PackList<T, Ts...>> {
+  using value = std::conditional<
+      std::is_integral<T>::value,
+      typename PackIntegralType<PackList<Is..., T>, PackList<Ts...>>::value,
+      PackList<Is...>>;
 };
 
 template <typename>
@@ -274,55 +303,23 @@ struct FunctionSignature {};
 
 template <typename R, typename T, typename Index, typename... Args>
 struct FunctionSignature<R (T::*)(Index, Args...) const> {
-  using IndexND = GetIndexND<PackList<Index>, PackList<Args...>>;
-  using FArgs = GetFArgs<Index, PackList<Args...>>;
+  using IndexND = typename PackSameType<PackList<Index>, PackList<Args...>>::value;
+  using FArgs = PopList<PackLength(IndexND()), PackList<Index, Args...>>;
+};
+
+template <typename>
+struct DispatchSignature {};
+
+template <typename Index, typename... AllArgs>
+struct DispatchSignature<PackList<Index, AllArgs...>> {
+  using IndexND = typename PackSameType<PackList<Index>, PackList<AllArgs...>>::value;
+  using Function =
+      typename PopList<PackLength(IndexND()) + 1, PackList<Index, AllArgs...>>::type;
+  using Args =
+      typename PopList<PackLength(IndexND()) + 1, PackList<Index, AllArgs...>>::value;
 };
 
 } // namespace meta
-
-// 1D loop using RangePolicy loops
-template <typename Tag, typename Pattern, typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(Pattern, const std::string &name, DevExecSpace exec_space, const int &il,
-             const int &iu, const Function &function, Args &&...args) {
-  PARTHENON_INSTRUMENT_REGION(name)
-  if constexpr (std::is_same<Pattern, LoopPatternSimdFor>::value &&
-                std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value) {
-#pragma omp simd
-    for (auto i = il; i <= iu; i++) {
-      function(i);
-    }
-  } else {
-    Tag tag;
-    kokkos_dispatch(tag, name,
-                    Kokkos::Experimental::require(
-                        Kokkos::RangePolicy<>(exec_space, il, iu + 1),
-                        Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                    function, std::forward<Args>(args)...);
-  }
-}
-
-template <typename Tag, typename Pattern, typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(Pattern p, const std::string &name, DevExecSpace exec_space,
-             const IndexRange &r, const Function &function, Args &&...args) {
-  par_dispatch<Tag>(p, name, exec_space, r.s, r.e, function, std::forward<Args>(args)...);
-}
-
-// 2D loop using MDRange loops
-template <typename Tag, typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-             const int jl, const int ju, const int il, const int iu,
-             const Function &function, Args &&...args) {
-  Tag tag;
-  kokkos_dispatch(tag, name,
-                  Kokkos::Experimental::require(
-                      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                          exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
-                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                  function, std::forward<Args>(args)...);
-}
 
 template <typename, typename, typename>
 class FlatFunctor {};
@@ -383,26 +380,99 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 template <typename F, typename... Args>
 auto MakeFlatFunctor(F &function, Args... args) {
   using signature = meta::FunctionSignature<decltype(&F::operator())>;
-  using IndexND = typename signature::IndexND::value;
+  using IndexND = typename signature::IndexND;
   return FlatFunctor<F, std::make_index_sequence<meta::PackLength(IndexND())>,
                      typename signature::FArgs::value>(function,
                                                        std::forward<Args>(args)...);
 }
 
-// 3D loop using Kokkos 1D Range
+template <typename, typename, typename, typename>
+struct par_dispatch_impl {};
+
+template <typename Tag, typename Function, typename... Index, typename... Args>
+struct par_dispatch_impl<Tag, Function, meta::PackList<Index...>,
+                         meta::PackList<Args...>> {
+  template <typename Pattern>
+  inline void dispatch(Pattern, std::string name, DevExecSpace exec_space, Index... ids,
+                       Function function, Args... args) {
+    using index_type = typename meta::PopList<1, meta::PackList<Index...>>::type;
+    constexpr bool is_FlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
+    Tag tag;
+
+    if constexpr (is_FlatRange) {
+      int rangeNx = 1;
+      if constexpr (std::is_same<index_type &, IndexRange &>::value) {
+        for (auto &irange : {ids...}) {
+          rangeNx *= irange.e - irange.s + 1;
+        }
+      } else {
+        int indices[sizeof...(Index)] = {ids...};
+        for (int i = 0; i < sizeof...(Index); i += 2) {
+          rangeNx *= indices[i + 1] - indices[i] + 1;
+        }
+      }
+
+      kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, rangeNx),
+                      MakeFlatFunctor(function, std::forward<Index>(ids)...),
+                      std::forward<Args>(args)...);
+    }
+  };
+};
+
+template <typename Tag, typename Pattern, typename... AllArgs>
+inline typename std::enable_if<std::is_same<Pattern, LoopPatternFlatRange>::value,
+                               void>::type
+par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...args) {
+  using dispatchsig = meta::DispatchSignature<meta::PackList<AllArgs...>>;
+  using Function = typename dispatchsig::Function; // functor type
+  using IndexND = typename dispatchsig::IndexND;   // list of index types
+  using Args = typename dispatchsig::Args;         //
+  par_dispatch_impl<Tag, Function, IndexND, Args>().dispatch(
+      Pattern(), name, exec_space, std::forward<AllArgs>(args)...);
+}
+
+// 1D loop using RangePolicy loops
+template <typename Tag, typename Pattern, typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(Pattern, const std::string &name, DevExecSpace exec_space, const int &il,
+             const int &iu, const Function &function, Args &&...args) {
+  PARTHENON_INSTRUMENT_REGION(name)
+  if constexpr (std::is_same<Pattern, LoopPatternSimdFor>::value &&
+                std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value) {
+#pragma omp simd
+    for (auto i = il; i <= iu; i++) {
+      function(i);
+    }
+  } else {
+    Tag tag;
+    kokkos_dispatch(tag, name,
+                    Kokkos::Experimental::require(
+                        Kokkos::RangePolicy<>(exec_space, il, iu + 1),
+                        Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                    function, std::forward<Args>(args)...);
+  }
+}
+
+template <typename Tag, typename Pattern, typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_dispatch(Pattern p, const std::string &name, DevExecSpace exec_space,
+             const IndexRange &r, const Function &function, Args &&...args) {
+  par_dispatch<Tag>(p, name, exec_space, r.s, r.e, function, std::forward<Args>(args)...);
+}
+
+// 2D loop using MDRange loops
 template <typename Tag, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-             const int kl, const int ku, const int jl, const int ju, const int il,
-             const int iu, const Function &function, Args &&...args) {
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int jl, const int ju, const int il, const int iu,
+             const Function &function, Args &&...args) {
   Tag tag;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NkNjNi = Nk * Nj * Ni;
-  kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-                  MakeFlatFunctor(function, kl, ku, jl, ju, il, iu),
-                  std::forward<Args>(args)...);
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                          exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 3D loop using MDRange loops
@@ -491,24 +561,6 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 #pragma omp simd
       for (auto i = il; i <= iu; i++)
         function(k, j, i);
-}
-
-// 4D loop using Kokkos 1D Range
-template <typename Tag, typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-             const int nl, const int nu, const int kl, const int ku, const int jl,
-             const int ju, const int il, const int iu, const Function &function,
-             Args &&...args) {
-  Tag tag;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NnNkNjNi = Nn * Nk * Nj * Ni;
-  kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                  MakeFlatFunctor(function, nl, nu, kl, ku, jl, ju, il, iu),
-                  std::forward<Args>(args)...);
 }
 
 // 4D loop using MDRange loops
@@ -632,39 +684,6 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
       function, std::forward<Args>(args)...);
 }
 
-// 5D loop using Kokkos 1D Range
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
-                         DevExecSpace exec_space, const int bl, const int bu,
-                         const int nl, const int nu, const int kl, const int ku,
-                         const int jl, const int ju, const int il, const int iu,
-                         const Function &function) {
-  const int Nb = bu - bl + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NbNnNkNjNi = Nb * Nn * Nk * Nj * Ni;
-  const int NnNkNjNi = Nn * Nk * Nj * Ni;
-  const int NkNjNi = Nk * Nj * Ni;
-  const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NbNnNkNjNi),
-      KOKKOS_LAMBDA(const int &idx) {
-        int b = idx / NnNkNjNi;
-        int n = (idx - b * NnNkNjNi) / NkNjNi;
-        int k = (idx - b * NnNkNjNi - n * NkNjNi) / NjNi;
-        int j = (idx - b * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-        int i = idx - b * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-        b += bl;
-        n += nl;
-        k += kl;
-        j += jl;
-        i += il;
-        function(b, n, k, j, i);
-      });
-}
-
 // 5D loop using SIMD FOR loops
 template <typename Tag, typename Function>
 inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
@@ -698,43 +717,6 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
                           {1, 1, 1, 1, 1, iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
-}
-
-// 6D loop using Kokkos 1D Range
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
-                         DevExecSpace exec_space, const int ll, const int lu,
-                         const int ml, const int mu, const int nl, const int nu,
-                         const int kl, const int ku, const int jl, const int ju,
-                         const int il, const int iu, const Function &function) {
-  const int Nl = lu - ll + 1;
-  const int Nm = mu - ml + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  const int NmNnNkNjNi = Nm * NnNkNjNi;
-  const int NlNmNnNkNjNi = Nl * NmNnNkNjNi;
-  Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NlNmNnNkNjNi),
-      KOKKOS_LAMBDA(const int &idx) {
-        int l = idx / NmNnNkNjNi;
-        int m = (idx - l * NmNnNkNjNi) / NnNkNjNi;
-        int n = (idx - l * NmNnNkNjNi - m * NnNkNjNi) / NkNjNi;
-        int k = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi) / NjNi;
-        int j = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-        int i = idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-        l += ll;
-        m += ml;
-        n += nl;
-        k += kl;
-        j += jl;
-        i += il;
-        function(l, m, n, k, j, i);
-      });
 }
 
 // 6D loop using SIMD FOR loops
