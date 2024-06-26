@@ -90,7 +90,7 @@ class EvolutionDriver : public Driver {
   void PostExecute(DriverStatus status) override;
 
  private:
-  void InitializeBlockTimeStepsAndBoundaries();
+  void InitializeBlockTimeSteps();
 };
 
 namespace DriverUtils {

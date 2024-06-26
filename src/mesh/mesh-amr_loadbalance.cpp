@@ -834,6 +834,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     block_list[n - nbs]->gid = n;
     block_list[n - nbs]->lid = n - nbs;
   }
+  BuildBlockPartitions(GridIdentifier::leaf());
 
   // Receive the data and load into MeshBlocks
   { // AMR Recv and unpack data
@@ -968,8 +969,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
-      for (int i = 0; i < DefaultNumPartitions(); ++i) {
-        auto &md = mesh_data.GetOrAdd("base", i);
+      for (auto &partition : GetDefaultBlockPartitions()) {
+        auto &md = mesh_data.Add("base", partition);
         auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
       }
 
@@ -996,6 +997,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
+    // TODO(LFR): Is this necessary? Do we ever pull out the entire mesh MeshData?
     mesh_data.Get()->Initialize(block_list, this);
   } // AMR Recv and unpack data
 
