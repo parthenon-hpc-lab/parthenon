@@ -288,7 +288,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   const int num_task_lists_executed_independently = blocks.size();
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
@@ -304,7 +305,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskRegion &tr = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = tr[i];
-    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &base = pmesh->mesh_data.Add("base", partitions[i]);
     auto transport = tl.AddTask(none, TransportParticles, base.get(), &integrator);
   }
 
