@@ -392,12 +392,13 @@ class FlatFunctor {};
 template <typename Function, size_t... Is, typename... FArgs>
 class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
                   meta::PackList<FArgs...>> {
-  Kokkos::Array<IndexRange, sizeof...(Is)> ranges;
-  Kokkos::Array<int, sizeof...(Is) - 1> strides;
+
+  static constexpr size_t Rank = sizeof...(Is);
+  Kokkos::Array<IndexRange, Rank> ranges;
+  Kokkos::Array<int, Rank - 1> strides;
   Function function;
 
  public:
-  static constexpr int LoopDims = sizeof...(Is);
   template <typename... Args>
   FlatFunctor(const Function _function, IndexRange idr, Args... args)
       : function(_function), ranges({{idr, args...}}) {
@@ -406,15 +407,15 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 
   template <typename... Args>
   FlatFunctor(const Function _function, Args... args) : function(_function) {
-    std::array<int, 2 * sizeof...(Is)> indices{{static_cast<int>(args)...}};
-    for (int i = 0; i < sizeof...(Is); i++) {
+    std::array<int, 2 * Rank> indices{{static_cast<int>(args)...}};
+    for (int i = 0; i < Rank; i++) {
       ranges[i] = {indices[2 * i], indices[2 * i + 1]};
     }
     Initialize();
   }
 
   inline void Initialize() {
-    for (int ri = 1; ri < sizeof...(Is); ri++) {
+    for (int ri = 1; ri < Rank; ri++) {
       const int N = ranges[ri].e - ranges[ri].s + 1;
       strides[ri - 1] = N;
       for (int rj = 0; rj < ri - 1; rj++) {
@@ -425,16 +426,16 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &idx, FArgs... fargs) const {
-    int inds[LoopDims];
+    int inds[Rank];
     inds[0] = idx;
-    for (int i = 1; i < LoopDims; i++) {
+    for (int i = 1; i < Rank; i++) {
       inds[i] = idx;
       inds[i - 1] /= strides[i - 1];
       for (int j = 0; j < i; j++) {
         inds[i] -= inds[j] * strides[j];
       }
     }
-    for (int i = 0; i < LoopDims; i++) {
+    for (int i = 0; i < Rank; i++) {
       inds[i] += ranges[i].s;
     }
 
@@ -451,13 +452,9 @@ inline auto MakeFlatFunctor(F &function, Args &&...args) {
                                                        std::forward<Args>(args)...);
 }
 
-template <typename>
-class MDRange {};
-
-template <size_t... Is>
-class MDRange<std::integer_sequence<size_t, Is...>> {
+template <size_t Rank>
+class MDRange {
  public:
-  static constexpr size_t Rank = sizeof...(Is);
   Kokkos::Array<size_t, Rank> lower, upper;
 
   template <typename... Args>
@@ -478,8 +475,9 @@ class MDRange<std::integer_sequence<size_t, Is...>> {
     }
   }
 
-  template <size_t... ones>
-  auto policy(std::integer_sequence<size_t, ones...>, DevExecSpace exec_space) {
+  template <size_t... Is, size_t... ones>
+  auto policy(std::integer_sequence<size_t, Is...>,
+              std::integer_sequence<size_t, ones...>, DevExecSpace exec_space) {
     return Kokkos::MDRangePolicy<Kokkos::Rank<Rank>>(
         exec_space, {lower[Is]...}, {1 + upper[Is]...},
         {ones..., upper[Rank - 1] + 1 - lower[Rank - 1]});
@@ -488,13 +486,15 @@ class MDRange<std::integer_sequence<size_t, Is...>> {
 
 template <size_t Rank, typename... Args>
 inline auto MakeMDRange(Args &&...args) {
-  return MDRange<std::make_index_sequence<Rank>>(std::forward<Args>(args)...);
+  return MDRange<Rank>(std::forward<Args>(args)...);
 }
 
 template <size_t Rank, typename... Args>
 inline auto MakeMDRangePolicy(DevExecSpace exec_space, Args &&...args) {
+  using Indices = typename std::make_index_sequence<Rank>;
   using Ones = typename meta::SequenceOfOnes<Rank - 1, void>::value;
-  return MakeMDRange<Rank>(std::forward<Args>(args)...).policy(Ones(), exec_space);
+  return MakeMDRange<Rank>(std::forward<Args>(args)...)
+      .policy(Indices(), Ones(), exec_space);
 }
 
 template <size_t Rank>
@@ -503,7 +503,7 @@ struct SimdFor {
   using Sequence = std::make_index_sequence<N>;
 
   std::array<int, Rank - 1> indices;
-  MDRange<Sequence<Rank>> mdrange;
+  MDRange<Rank> mdrange;
 
   template <typename... Args>
   SimdFor(Args &&...args) : mdrange(std::forward<Args>(args)...) {}
@@ -557,6 +557,10 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
   using IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>;
   using IsMDRange = std::is_same<Pattern, LoopPatternMDRange>;
   using IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>;
+  using IsTPTTR = std::is_same<Pattern, LoopPatternTPTTR>;
+  using IsTPTVR = std::is_same<Pattern, LoopPatternTPTVR>;
+  using IsTPTTRTVR = std::is_same<Pattern, LoopPatternTPTTRTVR>;
+//TODO: TPTTR, TPTVR, TPTTRTVR
 
   // fallback simd par_reduce to flat range
   static constexpr bool is_FlatRange =
@@ -578,8 +582,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
     }
   };
 
-  inline
-  auto policy(DevExecSpace exec_space, Bounds &&...ids) const {
+  inline auto policy(DevExecSpace exec_space, Bounds &&...ids) const {
 
     if constexpr (is_FlatRange) {
       int rangeNx = 1;
@@ -602,8 +605,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
     }
   };
 
-  inline
-  auto functor(Function function, Bounds &&...ids) const {
+  inline auto functor(Function function, Bounds &&...ids) const {
     if constexpr (is_FlatRange) {
       return MakeFlatFunctor(function, std::forward<Bounds>(ids)...);
     } else if constexpr (is_MDRange || is_SimdFor) {
