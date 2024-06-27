@@ -406,7 +406,7 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 
   template <typename... Args>
   FlatFunctor(const Function _function, Args... args) : function(_function) {
-    std::array<int, 2 * sizeof...(Is)> indices{{args...}};
+    std::array<int, 2 * sizeof...(Is)> indices{{static_cast<int>(args)...}};
     for (int i = 0; i < sizeof...(Is); i++) {
       ranges[i] = {indices[2 * i], indices[2 * i + 1]};
     }
@@ -443,7 +443,7 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
 };
 
 template <typename F, typename... Args>
-auto MakeFlatFunctor(F &function, Args &&...args) {
+inline auto MakeFlatFunctor(F &function, Args &&...args) {
   using signature = meta::FunctionSignature<decltype(&F::operator())>;
   using IndexND = typename signature::IndexND;
   return FlatFunctor<F, std::make_index_sequence<meta::PackLength(IndexND())>,
@@ -492,7 +492,7 @@ inline auto MakeMDRange(Args &&...args) {
 }
 
 template <size_t Rank, typename... Args>
-auto MakeMDRangePolicy(DevExecSpace exec_space, Args &&...args) {
+inline auto MakeMDRangePolicy(DevExecSpace exec_space, Args &&...args) {
   using Ones = typename meta::SequenceOfOnes<Rank - 1, void>::value;
   return MakeMDRange<Rank>(std::forward<Args>(args)...).policy(Ones(), exec_space);
 }
@@ -578,18 +578,17 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
     }
   };
 
-  KOKKOS_INLINE_FUNCTION
+  inline
   auto policy(DevExecSpace exec_space, Bounds &&...ids) const {
 
     if constexpr (is_FlatRange) {
       int rangeNx = 1;
-      /* if constexpr (std::is_same<BoundType &, IndexRange &>::value) { */
       if constexpr (is_IndexRangeBounds) {
         for (auto &irange : {ids...}) {
           rangeNx *= irange.e - irange.s + 1;
         }
       } else {
-        int indices[sizeof...(Bounds)] = {ids...};
+        int indices[sizeof...(Bounds)] = {static_cast<int>(ids)...};
         for (int i = 0; i < sizeof...(Bounds); i += 2) {
           rangeNx *= indices[i + 1] - indices[i] + 1;
         }
@@ -603,7 +602,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
     }
   };
 
-  KOKKOS_INLINE_FUNCTION
+  inline
   auto functor(Function function, Bounds &&...ids) const {
     if constexpr (is_FlatRange) {
       return MakeFlatFunctor(function, std::forward<Bounds>(ids)...);
