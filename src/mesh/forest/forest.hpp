@@ -39,7 +39,7 @@ template <class ELEMENT>
 struct ForestBC {
   ELEMENT element;
   BoundaryFlag bflag;
-  ELEMENT periodicElement;
+  std::optional<ELEMENT> periodicElement;
 };
 
 class Forest;
@@ -65,7 +65,7 @@ class ForestDefinition {
     if (bf == BoundaryFlag::periodic)
       PARTHENON_REQUIRE(periodic_connection,
                         "Must specify another edge for periodic boundary conditions.");
-    bc_edges.emplace_back(ForestBC<Edge>{edge, bf, *periodic_connection});
+    bc_edges.emplace_back(ForestBC<Edge>{edge, bf, periodic_connection});
   }
 
   void AddInitialRefinement(const LogicalLocation &loc) {
