@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -212,7 +212,7 @@ TEST_CASE("Metadata FlagCollection", "[Metadata]") {
 TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
   GIVEN("A metadata struct with relevant flags set") {
     Metadata m({Metadata::Cell, Metadata::FillGhost});
-    THEN("It knows it's registered for refinement") { REQUIRE(m.IsRefined()); }
+    THEN("It knows it's registered for refinement") { REQUIRE(m.HasRefinementOps()); }
     THEN("It has the default Prolongation/Restriction ops") {
       const auto cell_funcs = parthenon::refinement::RefinementFunctions_t::RegisterOps<
           parthenon::refinement_ops::ProlongateSharedMinMod,

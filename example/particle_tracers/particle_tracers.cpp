@@ -429,16 +429,17 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto advect_flux = tl.AddTask(none, tracers_example::CalculateFluxes, sc0.get());
   }
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
     const auto any = parthenon::BoundaryType::any;
 

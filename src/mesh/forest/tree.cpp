@@ -287,10 +287,10 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!domain.symmetry(dir)) {
       if (loc.level() >= 0) {
-        out.xmin(dir) =
-            domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Left), dir);
-        out.xmax(dir) =
-            domain.LogicalToActualPosition(loc.LLCoord(dir, BlockLocation::Right), dir);
+        out.xmin(dir) = domain.SymmetrizedLogicalToActualPosition(
+            loc.LLCoord(dir, BlockLocation::Left), dir);
+        out.xmax(dir) = domain.SymmetrizedLogicalToActualPosition(
+            loc.LLCoord(dir, BlockLocation::Right), dir);
       } else {
         // Negative logical levels correspond to reduced block sizes covering the entire
         // domain.
@@ -323,7 +323,7 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
                            RelativeOrientation orient, const bool periodic) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, orient});
+  neighbors[location_idx].insert({neighbor_tree.get(), orient});
   BoundaryFace fidx = offset.Face();
 
   if (fidx >= 0)

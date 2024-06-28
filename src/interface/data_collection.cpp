@@ -17,64 +17,48 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
 template <typename T>
-std::shared_ptr<T> &DataCollection<T>::Add(const std::string &label) {
-  // error check for duplicate names
-  auto it = containers_.find(label);
-  if (it != containers_.end()) {
-    return it->second;
-  }
-  containers_[label] = std::make_shared<T>();
-  return containers_[label];
+std::string DataCollection<T>::GetKey(const std::string &stage_label,
+                                      const std::shared_ptr<BlockListPartition> &in) {
+  auto key = stage_label;
+  if (in->grid.type == GridType::two_level_composite)
+    key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+  for (const auto &pmb : in->block_list)
+    key += "_" + std::to_string(pmb->gid);
+  return key;
 }
 
-std::shared_ptr<MeshData<Real>> &
-GetOrAdd_impl(Mesh *pmy_mesh_,
-              std::map<std::string, std::shared_ptr<MeshData<Real>>> &containers_,
-              BlockList_t &block_list, const std::string &mbd_label,
-              const int &partition_id, const std::optional<int> gmg_level) {
-  std::string label = mbd_label + "_part-" + std::to_string(partition_id);
-  if (gmg_level) label = label + "_gmg-" + std::to_string(*gmg_level);
-  auto it = containers_.find(label);
-  if (it == containers_.end()) {
-    // TODO(someone) add caching of partitions to Mesh at some point
-    const int pack_size = pmy_mesh_->DefaultPackSize();
-    auto partitions = partition::ToSizeN(block_list, pack_size);
-    // Account for possibly empty block_list
-    if (partitions.size() == 0) partitions = std::vector<BlockList_t>(1);
-    for (auto i = 0; i < partitions.size(); i++) {
-      std::string md_label = mbd_label + "_part-" + std::to_string(i);
-      if (gmg_level) md_label = md_label + "_gmg-" + std::to_string(*gmg_level);
-      containers_[md_label] = std::make_shared<MeshData<Real>>(mbd_label);
-      containers_[md_label]->Set(partitions[i], pmy_mesh_);
-      if (gmg_level) {
-        containers_[md_label]->grid = GridIdentifier::two_level_composite(*gmg_level);
-      } else {
-        containers_[md_label]->grid = GridIdentifier::leaf();
-      }
-    }
-  }
-  return containers_[label];
+template <typename T>
+std::string DataCollection<T>::GetKey(const std::string &stage_label,
+                                      const std::shared_ptr<MeshData<Real>> &in) {
+  auto key = stage_label;
+  if (in->grid.type == GridType::two_level_composite)
+    key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+  for (const auto &pmbd : in->GetAllBlockData())
+    key += "_" + std::to_string(pmbd->GetBlockPointer()->gid);
+  return key;
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
-  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->block_list, mbd_label,
-                       partition_id, {});
+  return Add(mbd_label,
+             pmy_mesh_->GetDefaultBlockPartitions(GridIdentifier::leaf())[partition_id]);
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
-  return GetOrAdd_impl(pmy_mesh_, containers_, pmy_mesh_->gmg_block_lists[gmg_level],
-                       mbd_label, partition_id, gmg_level);
+  return Add(mbd_label,
+             pmy_mesh_->GetDefaultBlockPartitions(
+                 GridIdentifier::two_level_composite(gmg_level))[partition_id]);
 }
 
 template class DataCollection<MeshData<Real>>;

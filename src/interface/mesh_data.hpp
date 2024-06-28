@@ -190,10 +190,12 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 template <typename T>
 class MeshData {
  public:
+  using parent_t = Mesh;
   MeshData() = default;
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
+  int partition;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -241,37 +243,40 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, Mesh *pmesh, int ndim);
-  void Set(BlockList_t blocks, Mesh *pmesh);
+  template <typename ID_t>
+  void Initialize(const std::shared_ptr<BlockListPartition> &part,
+                  const std::vector<ID_t> &vars, const bool shallow) {
+    PARTHENON_REQUIRE(
+        shallow == false,
+        "Can't shallow copy when the source is not another MeshData object.");
+    SetMeshProperties(part->pmesh);
+    auto &bl = part->block_list;
+    block_data_.resize(bl.size());
+    for (int i = 0; i < bl.size(); ++i)
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+    grid = part->grid;
+    partition = part->partition;
+  }
 
   template <typename ID_t>
-  void Initialize(const MeshData<T> *src, const std::vector<ID_t> &vars,
+  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
                   const bool shallow) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
-    pmy_mesh_ = src->GetParentPointer();
+    SetMeshProperties(src->GetParentPointer());
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
-
-    // TODO(JMM/LFR): There is an edge case where if you call
-    // Initialize() on a set of meshblocks where some blocks contain
-    // the desired MeshBlockData object and some don't, this call will
-    // fail. (It will raise a runtime error due to a dictionary not
-    // being found.) This was present in the previous iteration of
-    // this code, as well as this iteration. Fixing this requires
-    // modifying DataCollection::GetOrAdd. In the future we should
-    // make that "just work (tm)."
-    grid = src->grid;
-    PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
-                          src->BlockDataIsWholeRank_(),
-                      "Add may only be called on all blocks on a rank");
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
           stage_name_, pmbd, vars, shallow);
     }
+    grid = src->grid;
+    partition = src->partition;
   }
+
+  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
@@ -282,6 +287,8 @@ class MeshData {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }
+
+  const auto &GetAllBlockData() const { return block_data_; }
 
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
@@ -485,7 +492,7 @@ class MeshData {
   }
 
  private:
-  bool BlockDataIsWholeRank_() const;
+  void SetMeshProperties(Mesh *pmesh);
 
   int ndim_;
   Mesh *pmy_mesh_;

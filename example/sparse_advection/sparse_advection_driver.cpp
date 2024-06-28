@@ -74,50 +74,43 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
-    // first make other useful containers
-    if (stage == 1) {
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int i = 1; i < integrator->nstages; i++)
-        pmb->meshblock_data.Add(stage_name[i], base);
-    }
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
-    auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
-    // pull out the container that will hold the updated state
-    // effectively, sc1 = sc0 + dudt*dt
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
+    auto &base = pmb->meshblock_data.Add("base", pmb);
+    auto &sc0 = pmb->meshblock_data.Add(stage_name[stage - 1], base);
 
-    auto advect_flux = tl.AddTask(none, sparse_advection_package::CalculateFluxes, sc0);
+    auto advect_flux =
+        tl.AddTask(none, TF(sparse_advection_package::CalculateFluxes), sc0);
   }
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
     const auto any = parthenon::BoundaryType::any;
-    auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-    auto start_bound = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    auto start_flxcor = tl.AddTask(none, TF(parthenon::StartReceiveFluxCorrections), mc0);
+    auto start_bound = tl.AddTask(none, TF(parthenon::StartReceiveBoundBufs<any>), mc1);
 
     auto set_flxcor =
         parthenon::AddFluxCorrectionTasks(start_flxcor, tl, mc0, pmesh->multilevel);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div =
-        tl.AddTask(set_flxcor, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
+    auto flux_div = tl.AddTask(set_flxcor, TF(FluxDivergence<MeshData<Real>>), mc0.get(),
+                               mdudt.get());
 
-    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+    auto avg_data = tl.AddTask(flux_div, TF(AverageIndependentData<MeshData<Real>>),
                                mc0.get(), mbase.get(), beta);
     // apply du/dt to all independent fields in the container
-    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
-                             mdudt.get(), beta * dt, mc1.get());
+    auto update = tl.AddTask(avg_data, TF(UpdateIndependentData<MeshData<Real>>),
+                             mc0.get(), mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
     auto boundary =
@@ -125,7 +118,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
     // if this is the last stage, check if we can deallocate any sparse variables
     if (stage == integrator->nstages) {
-      tl.AddTask(boundary, SparseDealloc, mc1.get());
+      tl.AddTask(boundary, TF(SparseDealloc), mc1.get());
     }
   }
 
@@ -138,20 +131,20 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
     // set physical boundaries
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, TF(parthenon::ApplyBoundaryConditions), sc1);
 
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(set_bc, EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+      auto new_dt =
+          tl.AddTask(set_bc, TF(EstimateTimestep<MeshBlockData<Real>>), sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {
         auto tag_refine = tl.AddTask(
-            set_bc, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
+            set_bc, TF(parthenon::Refinement::Tag<MeshBlockData<Real>>), sc1.get());
       }
     }
   }
-
   return tc;
 }
 

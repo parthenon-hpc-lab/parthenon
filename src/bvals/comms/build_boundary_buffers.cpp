@@ -107,8 +107,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 }
 } // namespace
 
-// pmesh->boundary_comm_map.clear() after every remesh
-// in InitializeBlockTimeStepsAndBoundaries()
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();

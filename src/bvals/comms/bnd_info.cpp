@@ -54,7 +54,7 @@ void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
 void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v,
                                        StateDescriptor *pkg) {
   prores_info_h(region) = pri;
-  if (v->IsRefined()) {
+  if (v->HasRefinementOps()) {
     // var must be registered for refinement
     // note this condition means that each subset contains
     // both prolongation and restriction conditions. The
@@ -109,20 +109,23 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   const bool flux = v->IsSet(Metadata::Flux);
 
   const auto &loc = pmb->loc;
-  auto shape = pmb->cellbounds;
+  bool is_fine_field = v->IsSet(Metadata::Fine);
+  auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
+  if (prores || nb.loc.level() < loc.level())
+    shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
-  int coarse_fac = 1;
-  if (nb.loc.level() > loc.level()) coarse_fac = 2;
-  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac,
-                                   nb.block_size.nx(X2DIR) / coarse_fac,
-                                   nb.block_size.nx(X1DIR) / coarse_fac, Globals::nghost);
+  int fine_field_fac = is_fine_field ? 2 : 1;
+  int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
+  auto neighbor_shape =
+      IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
 
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
@@ -234,7 +237,7 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
   // will always be enough storage
-  auto &cb = pmb->cellbounds;
+  auto &cb = v->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::entire;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal

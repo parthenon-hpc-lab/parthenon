@@ -13,6 +13,7 @@
 
 add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
+add_subdirectory(fine_advection)
 add_subdirectory(calculate_pi)
 add_subdirectory(kokkos_pi)
 add_subdirectory(particles)

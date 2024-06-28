@@ -126,7 +126,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   }
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     refinement_funcs_ = ref_funcs_;
   }
 
@@ -253,7 +253,7 @@ bool Metadata::IsValid(bool throw_on_fail) const {
   }
 
   // Prolongation/restriction
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     if (refinement_funcs_.label().size() == 0) {
       valid = false;
       if (throw_on_fail) {
@@ -295,7 +295,8 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
     auto pmb = wpmb.lock();
-    const auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds;
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
     arrDims[1] = bnds.ncellsj(IndexDomain::entire);
     arrDims[2] = bnds.ncellsk(IndexDomain::entire);

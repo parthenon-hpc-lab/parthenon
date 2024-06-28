@@ -83,13 +83,13 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto &md_base = pm->mesh_data.Get();
   // Populated with all blocks
   if (md_base->NumBlocks() == 0) {
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   } else if (md_base->NumBlocks() != pm->block_list.size()) {
     PARTHENON_WARN(
         "Resetting \"base\" MeshData to contain all blocks. This indicates that "
         "the \"base\" MeshData container has been modified elsewhere. Double check "
         "that the modification was intentional and is compatible with this reset.")
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   }
 
   // Loop over all packages of the application
@@ -174,11 +174,13 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     if (output_params.file_number == 0) {
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
-      std::fprintf(pfile, "# [%d]=time     ", iout++);
-      std::fprintf(pfile, "[%d]=dt       ", iout++);
+      std::fprintf(pfile, "# [%d]=time    ", iout++);
+      std::fprintf(pfile, " [%d]=dt      ", iout++);
+      std::fprintf(pfile, " [%d]=cycle   ", iout++);
+      std::fprintf(pfile, " [%d]=nbtotal ", iout++);
       for (auto &op : ops) {
         for (auto &label : labels[op]) {
-          std::fprintf(pfile, "[%d]=%-8s ", iout++, label.c_str());
+          std::fprintf(pfile, " [%d]=%-8s", iout++, label.c_str());
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
@@ -187,6 +189,8 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // write history variables
     std::fprintf(pfile, output_params.data_format.c_str(), tm->time);
     std::fprintf(pfile, output_params.data_format.c_str(), tm->dt);
+    std::fprintf(pfile, " %12d", tm->ncycle);
+    std::fprintf(pfile, " %12d", pm->nbtotal);
     for (auto &op : ops) {
       for (auto &result : results[op]) {
         std::fprintf(pfile, output_params.data_format.c_str(), result);
