@@ -501,6 +501,31 @@ auto MakeFlatFunctor(F &function, Bounds &&...bounds) {
                                                        std::forward<Bounds>(bounds)...);
 }
 
+
+template <typename, typename, typename>
+struct InnerFunctor {};
+
+template <typename Function, typename... Index, size_t... Iteam>
+struct InnerFunctor<Function, meta::PackList<Index...>, std::integer_sequence<size_t, Iteam...>> {
+   static constexpr size_t Nteam = sizeof...(Iteam);
+   Function function;
+   Kokkos::Array<int, Nteam> inds_team;
+
+   InnerFunctor(Kokkos::Array<int, Nteam> _inds_team, Function _function)
+      : inds_team(_inds_team), function(_function){}
+
+   KOKKOS_INLINE_FUNCTION
+   void operator()(Index... inds) const {
+      function(inds_team[Iteam]..., std::forward<Index>(inds)...);
+   }
+};
+
+template<typename F, typename... Index>
+KOKKOS_INLINE_FUNCTION
+auto MakeInnerFunctor(F &function) {
+   using signature = meta::function_signature<F>;
+}
+
 template <typename, typename, typename, typename>
 class CollapseFunctor {};
 
@@ -590,8 +615,17 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
    void operator()(team_mbr_t team_member) const {
       Kokkos::Array<int, Nteam> inds_team;
       recoverID<Nteam,0>(inds_team, team_member.league_rank());
+      using signature = meta::function_signature<Function>;
+      using ThreadVectorInds = typename meta::PopList<Nteam, typename signature::IndexND>::value;
 
-      // recover the indices for the collapsed outer loops
+      collapse_inner(team_member, 
+            InnerFunctor<Function, ThreadVectorInds, std::make_index_sequence<Nteam>>
+               (inds_team, function));
+   }
+
+   template<typename InnerFunction>
+   KOKKOS_INLINE_FUNCTION
+   void collapse_inner(team_mbr_t team_member, InnerFunction inner_function) const {
       if constexpr(Nthread > 0) {
       Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, 0, FlattenLaunchBound(Nteam, Nteam+Nthread)),
@@ -604,10 +638,10 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
                      [&](const int idVector) {
                         Kokkos::Array<int, Nvector> inds_vector;
                         recoverID<Nvector,Nteam+Nthread>(inds_vector, idVector);
-                        function(inds_team[Iteam]..., inds_thread[Ithread]..., inds_vector[Ivector]...);
+                        inner_function(inds_thread[Ithread]..., inds_vector[Ivector]...);
                });
             } else {
-               function(inds_team[Iteam]..., inds_thread[Ithread]...);
+               inner_function(inds_thread[Ithread]...);
             }
       });
       } else {
@@ -616,7 +650,7 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
                [&](const int idVector) {
                Kokkos::Array<int, Nvector> inds_vector;
                recoverID<Nvector,Nteam+Nthread>(inds_vector, idVector);
-               function(inds_team[Iteam]..., inds_vector[Ivector]...);
+               inner_function(inds_vector[Ivector]...);
          });
       }
    }
@@ -779,8 +813,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
       return loop_pattern_simdfor_tag;
     } else if constexpr (is_Collapse) {
        int rangeNx = FlattenLaunchBound<TeamPattern::Nteam::value>(std::forward<Bounds>(ids)...);
-       return team_policy(exec_space, rangeNx, Kokkos::AUTO);
-      /* return Kokkos::RangePolicy<>(exec_space, 0, rangeNx); */
+       return team_policy(exec_space, rangeNx, Kokkos::AUTO)
+          .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes));
     }
   };
 
@@ -812,6 +846,9 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
       }
       return rangeNx;
   }
+
+  size_t scratch_size_in_bytes = 0;
+  int scratch_level = 1;
 };
 
 template <typename Tag, typename Pattern, typename... AllArgs>
