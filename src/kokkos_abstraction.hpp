@@ -229,6 +229,19 @@ constexpr InnerLoopPatternTTR inner_loop_pattern_ttr_tag;
 struct InnerLoopPatternSimdFor {};
 constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
+template< typename Pattern, size_t Rank>
+struct LoopPatternTeam<Pattern, Rank, typename std::enable_if<std::is_same<Pattern, InnerLoopPatternTTR>::value  ||
+                                                   std::is_same<Pattern, InnerLoopPatternTVR>::value>::type>
+: std::true_type {
+
+  static constexpr bool IsTTR    = std::is_same<Pattern, InnerLoopPatternTTR>::value;
+  static constexpr bool IsTVR    = std::is_same<Pattern, InnerLoopPatternTVR>::value;
+
+  static constexpr size_t Nvector = IsTVR ? Rank : 0;
+  static constexpr size_t Nthread = IsTTR ? Rank : 0;
+  using LoopPattern = LoopPatternCollapse<0, Nthread, Nvector>;
+};
+
 namespace dispatch_impl {
 static struct ParallelForDispatch {
 } parallel_for_dispatch_tag;
@@ -520,11 +533,6 @@ struct InnerFunctor<Function, meta::PackList<Index...>, std::integer_sequence<si
    }
 };
 
-template<typename F, typename... Index>
-KOKKOS_INLINE_FUNCTION
-auto MakeInnerFunctor(F &function) {
-   using signature = meta::function_signature<F>;
-}
 
 template <typename, typename, typename, typename>
 class CollapseFunctor {};
@@ -563,26 +571,28 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
 
   KOKKOS_INLINE_FUNCTION
   void Initialize() {
-    for (int ri = 0; ri < Nteam-1; ri++) {
-      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
-      strides[ri] = N;
-      for (int rj = 0; rj < ri; rj++) {
-        strides[rj] *= N;
-      }
-    }
-    for (int ri = Nteam; ri < Nteam+Nthread-1; ri++) {
-      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
-      strides[ri] = N;
-      for (int rj = Nteam; rj < ri; rj++) {
-        strides[rj ] *= N;
-      }
-    }
-    for (int ri = Nteam+Nthread; ri < Rank-1; ri++) {
-      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
-      strides[ri] = N;
-      for (int rj = Nteam+Nthread; rj < ri; rj++) {
-        strides[rj ] *= N;
-      }
+    if constexpr (Rank > 1) {
+       for (int ri = 0; ri < Nteam-1; ri++) {
+         const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+         strides[ri] = N;
+         for (int rj = 0; rj < ri; rj++) {
+           strides[rj] *= N;
+         }
+       }
+       for (int ri = Nteam; ri < Nteam+Nthread-1; ri++) {
+         const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+         strides[ri] = N;
+         for (int rj = Nteam; rj < ri; rj++) {
+           strides[rj ] *= N;
+         }
+       }
+       for (int ri = Nteam+Nthread; ri < Rank-1; ri++) {
+         const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+         strides[ri] = N;
+         for (int rj = Nteam+Nthread; rj < ri; rj++) {
+           strides[rj ] *= N;
+         }
+       }
     }
   }
 
@@ -671,6 +681,22 @@ auto MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &functi
         std::make_index_sequence<Nvector>, F>(function, std::forward<Bounds>(bounds)...);
 
 }
+
+template<typename, typename, typename>
+struct par_dispatch_inner {};
+
+template<typename Pattern, typename Function, typename... Bounds>
+struct par_dispatch_inner<Pattern, Function, meta::PackList<Bounds...>> {
+  using signature = meta::function_signature<Function>;
+  static constexpr size_t Rank = meta::PackLength(typename signature::IndexND());
+  using LoopPattern = typename LoopPatternTeam<Pattern, Rank>::LoopPattern; 
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  void dispatch(team_mbr_t team_member, Bounds &&... bounds, Function function) const {
+     MakeCollapseFunctor(LoopPattern(), function, std::forward<Bounds>(bounds)...)
+        .collapse_inner(team_member, function);
+  }
+};
 
 template <size_t Rank>
 class MDRange {
@@ -971,134 +997,29 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
                 std::forward<Args>(args)...);
 }
 
-// Inner parallel loop using TeamThreadRange
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ll, const int lu,
-              const int ml, const int mu, const int nl, const int nu, const int kl,
-              const int ku, const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  const int Nl = lu - ll + 1;
-  const int Nm = mu - ml + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  const int NmNnNkNjNi = Nm * NnNkNjNi;
-  const int NlNmNnNkNjNi = Nl * NmNnNkNjNi;
-  Kokkos::parallel_for(
-      Kokkos::TeamThreadRange(team_member, NlNmNnNkNjNi), [&](const int &idx) {
-        int l = idx / NmNnNkNjNi;
-        int m = (idx - l * NmNnNkNjNi) / NnNkNjNi;
-        int n = (idx - l * NmNnNkNjNi - m * NnNkNjNi) / NkNjNi;
-        int k = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi) / NjNi;
-        int j = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-        int i = idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-        l += nl;
-        m += ml;
-        n += nl;
-        k += kl;
-        j += jl;
-        i += il;
-        function(l, m, n, k, j, i);
-      });
+
+template<typename Pattern, typename... Args>
+KOKKOS_FORCEINLINE_FUNCTION
+typename std::enable_if<std::is_same_v<Pattern, InnerLoopPatternTTR> ||
+                        std::is_same_v<Pattern, InnerLoopPatternTVR>, void>::type
+par_for_inner(Pattern, team_mbr_t team_member, Args &&...args) {
+  if constexpr (std::is_same_v<Pattern, InnerLoopPatternSimdFor>) {
+
+  } else {
+     using dispatchsig = meta::DispatchSignature<meta::PackList<Args...>>;
+     using Function = typename dispatchsig::Function;
+     using LaunchBounds = typename dispatchsig::LaunchBounds;
+     par_dispatch_inner<Pattern, Function, LaunchBounds>()
+        .dispatch(team_member, std::forward<Args>(args)...);
+     /* if constexpr (std::is_same_v<Pattern, InnerLoopPatternTVR>) { */
+     /*    /1* LaunchBounds f = 1.; *1/ */
+     /*    par_dispatch_inner<Pattern, Function>(LaunchBounds(), team_member, std::forward<Args>(args)...); */
+     /* } else { */
+     /*    par_dispatch_inner<Pattern, Function>(LaunchBounds(), team_member, std::forward<Args>(args)...); */
+     /* } */
+  }
 }
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ml, const int mu,
-              const int nl, const int nu, const int kl, const int ku, const int jl,
-              const int ju, const int il, const int iu, const Function &function) {
-  const int Nm = mu - ml + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  const int NmNnNkNjNi = Nm * NnNkNjNi;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NmNnNkNjNi),
-                       [&](const int &idx) {
-                         int m = idx / NnNkNjNi;
-                         int n = (idx - m * NnNkNjNi) / NkNjNi;
-                         int k = (idx - m * NnNkNjNi - n * NkNjNi) / NjNi;
-                         int j = (idx - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-                         int i = idx - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-                         m += ml;
-                         n += nl;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(m, n, k, j, i);
-                       });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int nl, const int nu,
-              const int kl, const int ku, const int jl, const int ju, const int il,
-              const int iu, const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NnNkNjNi),
-                       [&](const int &idx) {
-                         int n = idx / NkNjNi;
-                         int k = (idx - n * NkNjNi) / NjNi;
-                         int j = (idx - n * NkNjNi - k * NjNi) / Ni;
-                         int i = idx - n * NkNjNi - k * NjNi - j * Ni;
-                         n += nl;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(n, k, j, i);
-                       });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int kl, const int ku,
-              const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NkNjNi = Nk * Nj * Ni;
-  const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NkNjNi), [&](const int &idx) {
-    int k = idx / NjNi;
-    int j = (idx - k * NjNi) / Ni;
-    int i = idx - k * NjNi - j * Ni;
-    k += kl;
-    j += jl;
-    i += il;
-    function(k, j, i);
-  });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int jl, const int ju,
-              const int il, const int iu, const Function &function) {
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NjNi), [&](const int &idx) {
-    int j = idx / Ni + jl;
-    int i = idx % Ni + il;
-    function(j, i);
-  });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, il, iu + 1), function);
-}
+
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR,
