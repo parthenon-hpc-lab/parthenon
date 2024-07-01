@@ -196,7 +196,8 @@ struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>, team + thread 
 template< typename Pattern, size_t Rank>
 struct LoopPatternTeam<Pattern, Rank, typename std::enable_if<std::is_same<Pattern, LoopPatternTPTTR>::value  ||
                                                    std::is_same<Pattern, LoopPatternTPTVR>::value  ||
-                                                   std::is_same<Pattern, LoopPatternTPTTRTVR>::value>::type> {
+                                                   std::is_same<Pattern, LoopPatternTPTTRTVR>::value>::type>
+: std::true_type {
 
   static constexpr bool IsTPTTR    = std::is_same<Pattern, LoopPatternTPTTR>::value; // inner TeamThreadRange
   static constexpr bool IsTPTVR    = std::is_same<Pattern, LoopPatternTPTVR>::value; // inner ThreadVectorRange
@@ -514,9 +515,7 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
    static constexpr size_t Rank = Nteam + Nthread + Nvector;
 
   Kokkos::Array<IndexRange, Rank> ranges;
-  Kokkos::Array<int, Nteam - 1> stridesTeam;
-  Kokkos::Array<int, Nthread - 1> stridesThread;
-  Kokkos::Array<int, Nvector - 1> stridesVector;
+  Kokkos::Array<int, Rank> strides;
    Function function;
       public:
 
@@ -539,43 +538,47 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
 
   KOKKOS_INLINE_FUNCTION
   void Initialize() {
-    for (int ri = 1; ri < Nteam; ri++) {
-      const int N = ranges[ri].e - ranges[ri].s + 1;
-      stridesTeam[ri - 1] = N;
-      for (int rj = 0; rj < ri - 1; rj++) {
-        stridesTeam[rj] *= N;
+    for (int ri = 0; ri < Nteam-1; ri++) {
+      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+      strides[ri] = N;
+      for (int rj = 0; rj < ri; rj++) {
+        strides[rj] *= N;
       }
     }
-    for (int ri = 1+Nteam; ri < Nteam+Nthread; ri++) {
-      const int N = ranges[ri].e - ranges[ri].s + 1;
-      stridesThread[ri - 1] = N;
-      for (int rj = 0; rj < ri - 1; rj++) {
-        stridesThread[rj] *= N;
+    for (int ri = Nteam; ri < Nteam+Nthread-1; ri++) {
+      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+      strides[ri] = N;
+      for (int rj = Nteam; rj < ri; rj++) {
+        strides[rj ] *= N;
       }
     }
-    for (int ri = 1+Nteam+Nthread; ri < Rank; ri++) {
-      const int N = ranges[ri].e - ranges[ri].s + 1;
-      stridesVector[ri - 1] = N;
-      for (int rj = 0; rj < ri - 1; rj++) {
-        stridesVector[rj] *= N;
+    for (int ri = Nteam+Nthread; ri < Rank-1; ri++) {
+      const int N = ranges[ri+1].e - ranges[ri+1].s + 1;
+      strides[ri] = N;
+      for (int rj = Nteam+Nthread; rj < ri; rj++) {
+        strides[rj ] *= N;
       }
     }
   }
 
+  template<size_t N, size_t start>
   KOKKOS_INLINE_FUNCTION
-  void recoverID(int *inds, int *strides, int &idx, int size) {
+  void recoverID(Kokkos::Array<int, N> &inds, int idx) const {
    inds[0] = idx;
-   for (int i = 1; i < size; i++) {
+   for (int i = 1; i < N; i++) {
       inds[i] = idx;
-      inds[i-1] /= strides[i-1];
-      for (int j = 0; j < 1; j++) {
-         inds[i] -= inds[j]*strides[j];
+      inds[i-1] /= strides[i-1 + start];
+      for (int j = 0; j < i; j++) {
+         inds[i] -= inds[j]*strides[j + start];
       }
+   }
+   for (int i=0; i< N; i++) {
+      inds[i] += ranges[i+start].s;
    }
   }
 
   KOKKOS_INLINE_FUNCTION
-  int FlattenLaunchBound(int start, int end) {
+  int FlattenLaunchBound(int start, int end) const {
      int rangeNx = 1;
      for (int i = start; i < end; i++) {
         rangeNx *= ranges[i].e - ranges[i].s + 1;
@@ -584,41 +587,35 @@ class CollapseFunctor< std::integer_sequence<size_t, Iteam...>,
   }
 
    KOKKOS_INLINE_FUNCTION
-   void operator()(team_mbr_t team_member) {
-      int inds_team[Nteam];
-      recoverID(inds_team, stridesTeam, team_member.league_rank(), Nteam);
+   void operator()(team_mbr_t team_member) const {
+      Kokkos::Array<int, Nteam> inds_team;
+      recoverID<Nteam,0>(inds_team, team_member.league_rank());
 
       // recover the indices for the collapsed outer loops
       if constexpr(Nthread > 0) {
       Kokkos::parallel_for(
             Kokkos::TeamThreadRange<>(team_member, 0, FlattenLaunchBound(Nteam, Nteam+Nthread)),
             [&](const int idThread) {
-            int inds_thread[Nthread];
-            recoverID(inds_thread, stridesThread, idThread, Nthread);
+            Kokkos::Array<int, Nthread> inds_thread;
+            recoverID<Nthread,Nteam>(inds_thread, idThread);
             if constexpr (Nvector > 0 ) {
                Kokkos::parallel_for(
                      Kokkos::TeamVectorRange(team_member, 0, FlattenLaunchBound(Nteam+Nthread, Rank)),
                      [&](const int idVector) {
-                        int inds_vector[Nvector];
-                        recoverID(inds_vector, stridesVector, idVector, Nvector);
+                        Kokkos::Array<int, Nvector> inds_vector;
+                        recoverID<Nvector,Nteam+Nthread>(inds_vector, idVector);
                         function(inds_team[Iteam]..., inds_thread[Ithread]..., inds_vector[Ivector]...);
                });
             } else {
-            Kokkos::parallel_for(
-               Kokkos::TeamThreadRange<>(team_member, 0, FlattenLaunchBound(Nteam, Nteam+Nthread)),
-               [&](const int idThread) {
-                  int inds_thread[Nthread];
-                  recoverID(inds_thread, stridesThread, idThread, Nthread);
-                  function(inds_team[Iteam]..., inds_thread[Ithread]...);
-            });
+               function(inds_team[Iteam]..., inds_thread[Ithread]...);
             }
       });
       } else {
          Kokkos::parallel_for(
                Kokkos::TeamVectorRange(team_member, 0, FlattenLaunchBound(Nteam+Nthread, Rank)),
                [&](const int idVector) {
-               int inds_vector[Nvector];
-               recoverID(inds_vector, stridesVector, idVector, Nvector);
+               Kokkos::Array<int, Nvector> inds_vector;
+               recoverID<Nvector,Nteam+Nthread>(inds_vector, idVector);
                function(inds_team[Iteam]..., inds_vector[Ivector]...);
          });
       }
@@ -753,7 +750,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
       (IsFlatRange::value || (IsSimdFor::value && !is_ParFor));
   static constexpr bool is_SimdFor = (IsSimdFor::value && is_ParFor);
   static constexpr bool is_MDRange = IsMDRange::value;
-  static constexpr bool is_Collapse = TeamPattern::type;
+  static constexpr bool is_Collapse = TeamPattern::value;
 
   inline void dispatch(std::string name, DevExecSpace exec_space, Bounds &&...ids,
                        Function function, Args &&...args) {
@@ -782,7 +779,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
       return loop_pattern_simdfor_tag;
     } else if constexpr (is_Collapse) {
        int rangeNx = FlattenLaunchBound<TeamPattern::Nteam::value>(std::forward<Bounds>(ids)...);
-      return Kokkos::RangePolicy<>(exec_space, 0, rangeNx);
+       return team_policy(exec_space, rangeNx, Kokkos::AUTO);
+      /* return Kokkos::RangePolicy<>(exec_space, 0, rangeNx); */
     }
   };
 
@@ -792,7 +790,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
     } else if constexpr (is_MDRange || is_SimdFor) {
       return function;
     } else if constexpr (is_Collapse) {
-      return MakeCollapseFunctor(TeamPattern::LoopPattern(), function, std::forward<Bounds>(ids)...);
+      return MakeCollapseFunctor(typename TeamPattern::LoopPattern(), function, std::forward<Bounds>(ids)...);
     }
   }
 
@@ -819,6 +817,9 @@ struct par_dispatch_impl<Tag, Pattern, Function, meta::PackList<Bounds...>,
 template <typename Tag, typename Pattern, typename... AllArgs>
 inline typename std::enable_if<std::is_same<Pattern, LoopPatternFlatRange>::value ||
                                    std::is_same<Pattern, LoopPatternMDRange>::value ||
+                                   std::is_same<Pattern, LoopPatternTPTTR>::value ||
+                                   std::is_same<Pattern, LoopPatternTPTVR>::value ||
+                                   std::is_same<Pattern, LoopPatternTPTTRTVR>::value ||
                                    std::is_same<Pattern, LoopPatternSimdFor>::value,
                                void>::type
 par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...args) {
@@ -835,135 +836,6 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_dispatch(Pattern p, const std::string &name, DevExecSpace exec_space,
              const IndexRange &r, const Function &function, Args &&...args) {
   par_dispatch<Tag>(p, name, exec_space, r.s, r.e, function, std::forward<Args>(args)...);
-}
-
-// 3D loop using TeamPolicy with single inner TeamThreadRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTTR, const std::string &name,
-                         DevExecSpace exec_space, const int &kl, const int &ku,
-                         const int &jl, const int &ju, const int &il, const int &iu,
-                         const Function &function) {
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nj + kl;
-        const int j = team_member.league_rank() % Nj + jl;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
-                             [&](const int i) { function(k, j, i); });
-      });
-}
-
-// 3D loop using TeamPolicy with single inner ThreadVectorRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTVR, const std::string &name,
-                         DevExecSpace exec_space, const int &kl, const int &ku,
-                         const int &jl, const int &ju, const int &il, const int &iu,
-                         const Function &function) {
-  // TODO(pgrete) if exec space is Cuda,throw error
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nj + kl;
-        const int j = team_member.league_rank() % Nj + jl;
-        Kokkos::parallel_for(Kokkos::TeamVectorRange<>(team_member, il, iu + 1),
-                             [&](const int i) { function(k, j, i); });
-      });
-}
-
-// 3D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
-                         DevExecSpace exec_space, const int &kl, const int &ku,
-                         const int &jl, const int &ju, const int &il, const int &iu,
-                         const Function &function) {
-  const int Nk = ku - kl + 1;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, Nk, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() + kl;
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, jl, ju + 1), [&](const int j) {
-              Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
-                                   [&](const int i) { function(k, j, i); });
-            });
-      });
-}
-
-// 4D loop using TeamPolicy loop with inner TeamThreadRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTTR, const std::string &name,
-                         DevExecSpace exec_space, const int nl, const int nu,
-                         const int kl, const int ku, const int jl, const int ju,
-                         const int il, const int iu, const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  const int NnNkNj = Nn * Nk * Nj;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        int n = team_member.league_rank() / NkNj;
-        int k = (team_member.league_rank() - n * NkNj) / Nj;
-        int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-        n += nl;
-        k += kl;
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
-                             [&](const int i) { function(n, k, j, i); });
-      });
-}
-
-// 4D loop using TeamPolicy loop with inner ThreadVectorRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTVR, const std::string &name,
-                         DevExecSpace exec_space, const int nl, const int nu,
-                         const int kl, const int ku, const int jl, const int ju,
-                         const int il, const int iu, const Function &function) {
-  // TODO(pgrete) if exec space is Cuda,throw error
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  const int NnNkNj = Nn * Nk * Nj;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        int n = team_member.league_rank() / NkNj;
-        int k = (team_member.league_rank() - n * NkNj) / Nj;
-        int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-        n += nl;
-        k += kl;
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
-                             [&](const int i) { function(n, k, j, i); });
-      });
-}
-
-// 4D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
-template <typename Tag, typename Function>
-inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
-                         DevExecSpace exec_space, const int nl, const int nu,
-                         const int kl, const int ku, const int jl, const int ju,
-                         const int il, const int iu, const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int NnNk = Nn * Nk;
-  Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNk, Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        int n = team_member.league_rank() / Nk + nl;
-        int k = team_member.league_rank() % Nk + kl;
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange<>(team_member, jl, ju + 1), [&](const int j) {
-              Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
-                                   [&](const int i) { function(n, k, j, i); });
-            });
-      });
 }
 
 template <typename Tag, typename... Args>
