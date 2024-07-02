@@ -998,85 +998,23 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
 }
 
 
-template<typename Pattern, typename... Args>
+template<typename Pattern, typename... AllArgs>
 KOKKOS_FORCEINLINE_FUNCTION
 typename std::enable_if<std::is_same_v<Pattern, InnerLoopPatternTTR> ||
-                        std::is_same_v<Pattern, InnerLoopPatternTVR>, void>::type
-par_for_inner(Pattern, team_mbr_t team_member, Args &&...args) {
+                        std::is_same_v<Pattern, InnerLoopPatternTVR> ||
+                        std::is_same_v<Pattern, InnerLoopPatternSimdFor>, void>::type
+par_for_inner(Pattern, team_mbr_t team_member, AllArgs &&...args) {
+  using dispatchsig = meta::DispatchSignature<meta::PackList<AllArgs...>>;
+  using Function = typename dispatchsig::Function;
+  using LaunchBounds = typename dispatchsig::LaunchBounds;
   if constexpr (std::is_same_v<Pattern, InnerLoopPatternSimdFor>) {
-
+     using Args = typename dispatchsig::Args;
+     par_dispatch_impl<dispatch_impl::ParallelForDispatch, LoopPatternSimdFor,
+                       Function, LaunchBounds, Args>()
+        .dispatch("simd", HostExecSpace(), std::forward<AllArgs>(args)...);
   } else {
-     using dispatchsig = meta::DispatchSignature<meta::PackList<Args...>>;
-     using Function = typename dispatchsig::Function;
-     using LaunchBounds = typename dispatchsig::LaunchBounds;
      par_dispatch_inner<Pattern, Function, LaunchBounds>()
-        .dispatch(team_member, std::forward<Args>(args)...);
-     /* if constexpr (std::is_same_v<Pattern, InnerLoopPatternTVR>) { */
-     /*    /1* LaunchBounds f = 1.; *1/ */
-     /*    par_dispatch_inner<Pattern, Function>(LaunchBounds(), team_member, std::forward<Args>(args)...); */
-     /* } else { */
-     /*    par_dispatch_inner<Pattern, Function>(LaunchBounds(), team_member, std::forward<Args>(args)...); */
-     /* } */
-  }
-}
-
-// Inner parallel loop using TeamVectorRange
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-  Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
-}
-
-// Inner parallel loop using FOR SIMD
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, const int nu,
-              const int kl, const int ku, const int jl, const int ju, const int il,
-              const int iu, const Function &function) {
-  for (int n = nl; n <= nu; ++n) {
-    for (int k = kl; k <= ku; ++k) {
-      for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-        for (int i = il; i <= iu; i++) {
-          function(k, j, i);
-        }
-      }
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int kl, const int ku,
-              const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  for (int k = kl; k <= ku; ++k) {
-    for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-      for (int i = il; i <= iu; i++) {
-        function(k, j, i);
-      }
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int jl, const int ju,
-              const int il, const int iu, const Function &function) {
-  for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-    for (int i = il; i <= iu; i++) {
-      function(j, i);
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-#pragma omp simd
-  for (int i = il; i <= iu; i++) {
-    function(i);
+        .dispatch(team_member, std::forward<AllArgs>(args)...);
   }
 }
 
