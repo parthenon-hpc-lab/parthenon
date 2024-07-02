@@ -89,7 +89,7 @@ class TestManager:
         try:
             parthenon_path = os.path.realpath(__file__)
             idx = parthenon_path.rindex("/parthenon/")
-            self.parameters.parthenon_path = parthenon_path[:idx + 10]
+            self.parameters.parthenon_path = parthenon_path[: idx + 10]
         except ValueError:
             baseDir = os.path.dirname(__file__)
             self.parameters.parthenon_path = os.path.abspath(baseDir + "/../../../")
