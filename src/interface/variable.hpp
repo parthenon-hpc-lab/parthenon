@@ -107,7 +107,7 @@ class Variable {
   inline Metadata metadata() { return m_; }
 
   /// Refinement functions owned in metadata
-  inline bool IsRefined() const { return m_.IsRefined(); }
+  inline bool HasRefinementOps() const { return m_.HasRefinementOps(); }
   inline const refinement::RefinementFunctions_t &GetRefinementFunctions() const {
     return m_.GetRefinementFunctions();
   }

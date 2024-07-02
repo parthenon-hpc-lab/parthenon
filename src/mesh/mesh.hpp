@@ -128,7 +128,6 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   std::map<int, BlockList_t> gmg_block_lists;
-  std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
@@ -146,6 +145,12 @@ class Mesh {
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
+
+  const std::vector<std::shared_ptr<BlockListPartition>> &
+  GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
+    return block_partitions_.at(grid);
+  }
+
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -329,6 +334,10 @@ class Mesh {
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();
   void FillDerived();
+
+  void BuildBlockPartitions(GridIdentifier grid);
+  std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
+      block_partitions_;
 };
 
 } // namespace parthenon

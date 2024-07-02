@@ -52,7 +52,7 @@ struct BndInfo {
   int topo_idx[3]{0, 0, 0};
   SpatiallyMaskedIndexer6D idxer[3];
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
   int alloc_status;
@@ -90,7 +90,7 @@ struct ProResInfo {
   }
   SpatiallyMaskedIndexer6D idxer[10];
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
