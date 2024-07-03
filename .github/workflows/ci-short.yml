@@ -157,7 +157,7 @@ jobs:
       - name: advection
         run: |
           rocm-smi
-          rocinfo
+          rocminfo
           cmake --build build -t advection-example
           cd build
           ctest -R regression_mpi_test:output_hdf5
