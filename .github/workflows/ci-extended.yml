@@ -132,7 +132,7 @@ jobs:
       image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
-      options: --user 1000 --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
+      options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
     env:
       CMAKE_GENERATOR: Ninja
       CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build

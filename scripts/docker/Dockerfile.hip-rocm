@@ -23,5 +23,3 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 
 # uid 1000 maps to the one running the container on the CI host
 RUN useradd --create-home --shell /bin/bash -u 1000 -G render ci
-USER ci
-WORKDIR /home/ci
