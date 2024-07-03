@@ -152,10 +152,8 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
     if (loc.lx3() != 0) tree_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
     if (loc.lx3() != ntree[2] - 1) tree_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
 
-    auto &bcs = tree_bcs;
     auto &tree_domain = p.first;
-
-    p.second = Tree::create(tid++, ndim, ref_level, p.first, tree_bcs);
+    p.second = Tree::create(tid++, ndim, ref_level, tree_domain, tree_bcs);
     p.second->athena_forest_loc = loc;
   }
 
