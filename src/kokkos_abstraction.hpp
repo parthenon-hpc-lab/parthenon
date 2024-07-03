@@ -268,13 +268,13 @@ auto MakeFlatFunctor(F &function, Args... args) {
 
 template <typename Function, typename R, typename T, typename Index, typename... FArgs>
 class FlatFunctor<Function, R (T::*)(Index, Index, Index, FArgs...) const> {
-  int NjNi, Nj, Ni, kl, jl, il;
+  int NjNi, Ni, kl, jl, il;
   Function function;
 
  public:
-  FlatFunctor(const Function _function, const int _NjNi, const int _Nj, const int _Ni,
-              const int _kl, const int _jl, const int _il)
-      : function(_function), NjNi(_NjNi), Nj(_Nj), Ni(_Ni), kl(_kl), jl(_jl), il(_il) {}
+  FlatFunctor(const Function _function, const int _NjNi, const int _Ni, const int _kl,
+              const int _jl, const int _il)
+      : function(_function), NjNi(_NjNi), Ni(_Ni), kl(_kl), jl(_jl), il(_il) {}
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &idx, FArgs &&...fargs) const {
     int k = idx / NjNi;
@@ -300,7 +300,7 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-                  MakeFlatFunctor(function, NjNi, Nj, Ni, kl, jl, il),
+                  MakeFlatFunctor(function, NjNi, Ni, kl, jl, il),
                   std::forward<Args>(args)...);
 }
 
@@ -394,14 +394,14 @@ inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
 
 template <typename Function, typename R, typename T, typename Index, typename... FArgs>
 class FlatFunctor<Function, R (T::*)(Index, Index, Index, Index, FArgs...) const> {
-  int NkNjNi, NjNi, Nj, Ni, nl, kl, jl, il;
+  int NkNjNi, NjNi, Ni, nl, kl, jl, il;
   Function function;
 
  public:
-  FlatFunctor(const Function _function, const int _NkNjNi, const int _NjNi, const int _Nj,
-              const int _Ni, const int _nl, const int _kl, const int _jl, const int _il)
-      : function(_function), NkNjNi(_NkNjNi), NjNi(_NjNi), Nj(_Nj), Ni(_Ni), nl(_nl),
-        kl(_kl), jl(_jl), il(_il) {}
+  FlatFunctor(const Function _function, const int _NkNjNi, const int _NjNi, const int _Ni,
+              const int _nl, const int _kl, const int _jl, const int _il)
+      : function(_function), NkNjNi(_NkNjNi), NjNi(_NjNi), Ni(_Ni), nl(_nl), kl(_kl),
+        jl(_jl), il(_il) {}
   KOKKOS_INLINE_FUNCTION
   void operator()(const int &idx, FArgs &&...fargs) const {
     int n = idx / NkNjNi;
@@ -432,7 +432,7 @@ par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_sp
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
   kokkos_dispatch(tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                  MakeFlatFunctor(function, NkNjNi, NjNi, Nj, Ni, nl, kl, jl, il),
+                  MakeFlatFunctor(function, NkNjNi, NjNi, Ni, nl, kl, jl, il),
                   std::forward<Args>(args)...);
 }
 
