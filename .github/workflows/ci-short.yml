@@ -13,6 +13,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
   OMPI_MCA_mpi_common_cuda_event_max: 1000
+  # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
+  OMPI_MCA_btl_vader_single_copy_mechanism: none
 
 jobs:
   style:
@@ -139,6 +141,7 @@ jobs:
       options: --user 1000 --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
     env:
       CMAKE_GENERATOR: Ninja
+      CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
     steps:
       - uses: actions/checkout@v3
         with:
@@ -153,6 +156,8 @@ jobs:
       # Test example with "variables" and output
       - name: advection
         run: |
+          rocm-smi
+          rocinfo
           cmake --build build -t advection-example
           cd build
           ctest -R regression_mpi_test:output_hdf5

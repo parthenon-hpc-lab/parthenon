@@ -70,6 +70,3 @@ jobs:
       - name: Build
         run: |
           cmake --build builddir --parallel 2
-          # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
-          # export OMPI_MCA_btl_vader_single_copy_mechanism=none
-          # ctest...
