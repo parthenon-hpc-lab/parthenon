@@ -64,9 +64,9 @@ struct BndInfo {
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo() = default;
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo(const BndInfo &) = default;
   BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
           CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
@@ -102,8 +102,9 @@ struct ProResInfo {
   Coordinates_t coords, coarse_coords; // coords
 
   ParArrayND<Real, VariableState> fine, coarse;
-
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo() = default;
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo(const ProResInfo &) = default;
   ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various
