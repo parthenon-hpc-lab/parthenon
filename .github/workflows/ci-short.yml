@@ -156,8 +156,6 @@ jobs:
       # Test example with "variables" and output
       - name: advection
         run: |
-          rocm-smi
-          rocminfo
           cmake --build build -t advection-example
           cd build
           ctest -R regression_mpi_test:output_hdf5
