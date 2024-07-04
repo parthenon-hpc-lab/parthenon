@@ -394,7 +394,7 @@ class MGSolver {
     if (level < max_level) {
       // Fill fields with restricted values
       auto recv_from_finer = tl.AddTask(
-          dependence, BTF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_comm);
+          dependence, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_comm);
       set_from_finer = tl.AddTask(
           recv_from_finer, BTF(SetBounds<BoundaryType::gmg_restrict_recv>), md_comm);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
@@ -428,6 +428,7 @@ class MGSolver {
         tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal<D>), &eqs_, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
         tl, set_from_finer, pre_stages, multilevel, md, md_comm);
+    pre_smooth = tl.AddTask(pre_smooth, [partition, level](){ printf("Presmooth done (p:%i, l:%i)\n", partition, level); return TaskStatus::complete;});
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
     if (level > min_level) {
@@ -446,7 +447,7 @@ class MGSolver {
           tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
 
       auto coarser = AddMultiGridTasksPartitionLevel(
-          tl, communicate_to_coarse, partition, level - 1, min_level, max_level, pmesh);
+          tl, TaskID(), partition, level - 1, min_level, max_level, pmesh);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser = tl.AddTask(
@@ -465,6 +466,8 @@ class MGSolver {
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
                                                             multilevel, md, md_comm);
+      
+      post_smooth = tl.AddTask(post_smooth, [partition, level](){ printf("Post-smooth done (p:%i, l:%i)\n", partition, level); return TaskStatus::complete;});
     } else {
       post_smooth = tl.AddTask(pre_smooth, BTF(CopyData<u, res_err, true>), md);
     }

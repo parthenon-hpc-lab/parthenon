@@ -340,8 +340,8 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
           dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
   }
   BuildBlockPartitions(GridIdentifier::leaf());
-  BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  BuildGMGBlockLists(pin, app_in);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }

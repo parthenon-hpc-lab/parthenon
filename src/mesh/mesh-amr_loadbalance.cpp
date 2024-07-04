@@ -935,8 +935,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     ranklist = std::move(newrank);
     costlist = std::move(newcost);
 
-    BuildGMGBlockLists(pin, app_in);
-
     // Make sure all old sends/receives are done before we reconfigure the mesh
 #ifdef MPI_PARALLEL
     if (send_reqs.size() != 0)
@@ -966,6 +964,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
       SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      BuildGMGBlockLists(pin, app_in);
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
@@ -986,6 +985,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
     SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+    if (noncc_names.size() == 0) BuildGMGBlockLists(pin, app_in);
     SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
