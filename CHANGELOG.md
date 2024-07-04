@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1130]](https://github.com/parthenon-hpc-lab/parthenon/pull/1130) Enable `parthenon::par_reduce` for MD loops with Kokkos 1D Range
 - [[PR 1119]](https://github.com/parthenon-hpc-lab/parthenon/pull/1119) Formalize MeshData partitioning.
 - [[PR 1128]](https://github.com/parthenon-hpc-lab/parthenon/pull/1128) Add cycle and nbtotal to hst
 - [[PR 1099]](https://github.com/parthenon-hpc-lab/parthenon/pull/1099) Functionality for outputting task graphs in GraphViz format.
