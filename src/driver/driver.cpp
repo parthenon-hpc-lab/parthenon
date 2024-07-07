@@ -152,7 +152,7 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
   }
 
-  DriverStatus status = DriverStatus::complete;
+  DriverStatus status = tm.KeepGoing() ? DriverStatus::timeout : DriverStatus::complete;
   // Do *not* write the "final" output, if this is analysis run.
   // The analysis output itself has already been written above before the main loop.
   if (signal != OutputSignal::analysis) {
