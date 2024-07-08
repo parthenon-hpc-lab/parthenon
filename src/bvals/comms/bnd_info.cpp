@@ -121,7 +121,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
   int fine_field_fac = is_fine_field ? 2 : 1;
-  int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
+  int coarse_fac = (nb.loc.level() > loc.level()) && !prores ? 2 : 1;
   auto neighbor_shape =
       IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
                  nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
@@ -326,9 +326,9 @@ ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
   coarse = v->coarse_s.Get();
 }
 
-ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                            std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
+  //NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
