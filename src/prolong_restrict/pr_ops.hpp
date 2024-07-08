@@ -247,7 +247,7 @@ struct ProlongateSharedGeneral {
       }
     }
 
-    if constexpr (piecewise_constant) { 
+    if constexpr (piecewise_constant) {
       gx1m = 0.0;
       gx1p = 0.0;
       gx2m = 0.0;

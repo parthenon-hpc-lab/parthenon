@@ -35,7 +35,8 @@ namespace boundary_exchange {
 
 TaskStatus SetBlockValues(MeshData<Real> *md) {
   auto pmesh = md->GetMeshPointer();
-  auto desc = parthenon::MakePackDescriptor<neighbor_info>(pmesh->resolved_packages.get());
+  auto desc =
+      parthenon::MakePackDescriptor<neighbor_info>(pmesh->resolved_packages.get());
   auto pack = desc.GetPack(md);
   {
     IndexRange ib = md->GetBoundsI(IndexDomain::entire);
