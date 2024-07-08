@@ -55,4 +55,4 @@ x3max = 1.0   # refinement region outer boundary, X3-dir
 <parthenon/output0>
 file_type = hdf5
 ghost_zones = true
-variables = morton_num
+variables = neighbor_info

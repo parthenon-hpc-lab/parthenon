@@ -27,11 +27,11 @@ namespace boundary_exchange {
 using namespace parthenon::package::prelude;
 using parthenon::Packages_t;
 
-struct morton_num : public parthenon::variable_names::base_t<false, 4> {
+struct neighbor_info : public parthenon::variable_names::base_t<false, 4> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION morton_num(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION neighbor_info(Ts &&...args)
       : parthenon::variable_names::base_t<false, 4>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "morton_num"; }
+  static std::string name() { return "neighbor_info"; }
 };
 
 TaskStatus SetBlockValues(MeshData<Real> *rc);
