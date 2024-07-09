@@ -451,7 +451,7 @@ class MGSolver {
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser = tl.AddTask(
-          coarser, BTF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
+          coarser | communicate_to_coarse, TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto prolongate =
