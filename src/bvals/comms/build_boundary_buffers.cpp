@@ -47,6 +47,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
+    if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
     if (pmesh->pool_map.count(buf_size) == 0) {
