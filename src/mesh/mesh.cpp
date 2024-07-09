@@ -214,9 +214,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   ndim = 2;
   // Load balancing flag and parameters
   forest = forest::Forest::Make2D(forest_def);
+  root_level = forest.root_level;
   forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
-  BuildBlockList(pin, app_in, packages, -1);
+  BuildBlockList(pin, app_in, packages, 0);
 }
 
 //----------------------------------------------------------------------------------------
