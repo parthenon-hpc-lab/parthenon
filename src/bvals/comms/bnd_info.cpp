@@ -121,7 +121,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
   int fine_field_fac = is_fine_field ? 2 : 1;
-  int coarse_fac = (nb.loc.level() > loc.level()) && !prores ? 2 : 1;
+  int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
   auto neighbor_shape =
       IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
                  nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
