@@ -103,6 +103,7 @@ Date: 2024-03-21
 - [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1135]](https://github.com/parthenon-hpc-lab/parthenon/pull/1135) Drivers now correctly return DriverStatus::timeout on timeouts.
 - [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
 - [[PR1012]](https://github.com/parthenon-hpc-lab/parthenon/pull/1012) Remove accidentally duplicated code
 - [[PR992]](https://github.com/parthenon-hpc-lab/parthenon/pull/992) Allow custom PR ops with sparse pools
