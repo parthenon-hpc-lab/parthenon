@@ -259,6 +259,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   alloc_status = v->GetAllocationStatus();
 
   buf = combuf->buffer();
+  same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   if (!allocated) return;
 
   if (nb.loc.level() < pmb->loc.level()) {
