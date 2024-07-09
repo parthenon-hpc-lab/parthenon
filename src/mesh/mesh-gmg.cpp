@@ -174,6 +174,7 @@ void Mesh::SetGMGNeighbors() {
 
       // Finer neighbor(s)
       pmb->gmg_finer_neighbors.clear();
+      pmb->gmg_leaf_neighbors.clear();
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
         for (auto &d : dlocs) {
@@ -184,6 +185,12 @@ void Mesh::SetGMGNeighbors() {
                                                   gid, std::array<int, 3>{0, 0, 0}, 0, 0,
                                                   0, 0);
           }
+        }
+        if (pmb->gmg_finer_neighbors.size() == 0) {
+          // This is a leaf block, so add itself as a finer neighbor
+          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, Globals::my_rank,
+                                               pmb->gid, std::array<int, 3>{0, 0, 0}, 0, 0,
+                                               0, 0);            
         }
       }
 
