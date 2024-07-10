@@ -49,15 +49,9 @@ class Edge {
   Edge(sptr_vec_t<Node, 2> nodes_in, const CellCentOffsets &ploc)
       : nodes{nodes_in}, loc{ploc} {
     PARTHENON_REQUIRE(loc->IsEdge(), "Trying to pass a non-edge location to an edge.");
-    auto dirs = loc->GetTangentDirections();
-    dir = dirs[0];
-    auto ndirs = loc->GetNormals();
-    normals = {ndirs[0], ndirs[1]};
   }
 
   sptr_vec_t<Node, 2> nodes;
-  CoordinateDirection dir;
-  std::array<std::pair<CoordinateDirection, Offset>, 2> normals;
   std::optional<CellCentOffsets> loc{};
 
   int RelativeOrientation(const Edge &e2) const {
@@ -116,7 +110,7 @@ class Face : public std::enable_shared_from_this<Face> {
 
   std::shared_ptr<Face> getptr() { return shared_from_this(); }
 
-  std::int64_t my_id;
+  std::int64_t my_id{-1};
 
   sptr_vec_t<Node, 4> nodes;
   std::unordered_map<std::shared_ptr<Node>, int> face_index;
