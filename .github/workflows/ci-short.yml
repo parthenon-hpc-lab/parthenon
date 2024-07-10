@@ -24,7 +24,7 @@ jobs:
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: cpplint
@@ -33,7 +33,7 @@ jobs:
         run: |
           cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
           cmake --build build-copyright-check -t check-copyright
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-style
           path: build-copyright-check/CMakeFiles/CMakeOutput.log
@@ -49,7 +49,7 @@ jobs:
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Configure
@@ -65,7 +65,7 @@ jobs:
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -LE 'performance|regression'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-unit-${{ matrix.device }}
           path: build/CMakeFiles/CMakeOutput.log
@@ -81,7 +81,7 @@ jobs:
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Configure
@@ -124,7 +124,7 @@ jobs:
           if grep HtoD profile.txt; then exit 1; fi
           if grep DtoH profile.txt; then exit 1; fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-${{ matrix.device }}
           path: |
@@ -143,7 +143,7 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Configure
@@ -166,14 +166,14 @@ jobs:
           cd build
           ctest -R regression_mpi_test:particle_leapfrog
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-amdgpu
           path: |
             build/CMakeFiles/CMakeOutput.log
           retention-days: 3
 
-    integration-nvidia-hamilton:
+  integration-nvidia-hamilton:
     runs-on: [self-hosted, navi1030]
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
@@ -183,7 +183,7 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Configure
@@ -206,7 +206,7 @@ jobs:
           cd build
           ctest -R regression_mpi_test:particle_leapfrog
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-amdgpu
           path: |
