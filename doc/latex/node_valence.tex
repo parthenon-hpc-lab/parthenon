@@ -1,0 +1,51 @@
+\begin{tikzpicture}
+\coordinate (v3) at (3, 0); 
+\draw[thick] (v3) -- ([shift={(0, 1)}]v3) -- ([shift={(1, 1)}]v3) -- ([shift={(1, 0)}]v3) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v3) -- ([shift={(1, 1)}]v3) -- ([shift={(2, 2)}]v3) -- ([shift={(0, 2)}]v3) -- cycle;
+\draw[thick] ([shift={(1, 0)}]v3) -- ([shift={(2, 0)}]v3) -- ([shift={(2, 2)}]v3) -- ([shift={(1, 1)}]v3) -- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v3) circle (0.05);
+\draw[red] ([shift={(1, 1)}]v3) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_3$};
+
+\coordinate (v4) at (6, 0); 
+\draw[thick] (v4) -- ([shift={(0, 1)}]v4) -- ([shift={(1, 1)}]v4) -- ([shift={(1, 0)}]v4) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v4) -- ([shift={(1, 1)}]v4) -- ([shift={(1, 2)}]v4) -- ([shift={(0, 2)}]v4) -- cycle;
+\draw[thick] ([shift={(1, 0)}]v4) -- ([shift={(2, 0)}]v4) -- ([shift={(2, 1)}]v4) -- ([shift={(1, 1)}]v4) -- cycle;
+\draw[thick] ([shift={(1, 1)}]v4) -- ([shift={(2, 1)}]v4) -- ([shift={(2, 2)}]v4) -- ([shift={(1, 2)}]v4) -- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v4) circle (0.05);
+\draw[black] ([shift={(1, 1)}]v4) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_4$};
+
+\coordinate (v5) at (9, 0); 
+\draw[thick] (v5) -- ([shift={(0, 1)}]v5) -- ([shift={(1, 1)}]v5) -- ([shift={(1, 0)}]v5) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v5) -- ([shift={(1, 1)}]v5) -- ([shift={(1, 2)}]v5) -- ([shift={(0, 2)}]v5) -- cycle;
+\draw[thick] ([shift={(1, 0)}]v5) -- ([shift={(2, 0)}]v5) -- ([shift={(2, 1)}]v5) -- ([shift={(1, 1)}]v5) -- cycle;
+\draw[thick] ([shift={(1, 1)}]v5) -- ([shift={(2, 1)}]v5) -- ([shift={(2.5, 1.5)}]v5) -- ([shift={(1.75, 1.75)}]v5) -- cycle;
+\draw[thick] ([shift={(1, 1)}]v5) -- ([shift={(1, 2)}]v5) -- ([shift={(1.5, 2.5)}]v5) -- ([shift={(1.75, 1.75)}]v5) -- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v5) circle (0.05);
+\draw[red] ([shift={(1, 1)}]v5) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_5$};
+
+\coordinate (v1edge) at (0, -3); 
+\draw[thick] (v1edge) -- ([shift={(0, 1)}]v1edge) [red]-- ([shift={(1, 1)}]v1edge) [red]-- ([shift={(1, 0)}]v1edge) [black]-- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v1edge) circle (0.05);
+\draw[black] ([shift={(1, 1)}]v1edge) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_{2b}$};
+
+\coordinate (v2edge) at (3, -3); 
+\draw[thick] (v2edge) -- ([shift={(0, 1)}]v2edge) [red]-- ([shift={(1, 1)}]v2edge) [black]-- ([shift={(1, 0)}]v2edge) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v2edge) -- ([shift={(1, 1)}]v2edge) [red]-- ([shift={(1, 2)}]v2edge) [black]-- ([shift={(0, 2)}]v2edge) -- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v2edge) circle (0.05);
+\draw[black] ([shift={(1, 1)}]v2edge) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_{3b}$};
+
+\coordinate (v3edge) at (6, -3); 
+\draw[thick] (v3edge) -- ([shift={(0, 1)}]v3edge) [red]-- ([shift={(1, 1)}]v3edge) [black]-- ([shift={(1, 0)}]v3edge) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v3edge) -- ([shift={(1, 1)}]v3edge) [red]-- ([shift={(1, 2)}]v3edge) [black]-- ([shift={(0, 2)}]v3edge) -- cycle;
+\draw[thick] ([shift={(1, 0)}]v3edge) -- ([shift={(2, 0)}]v3edge) -- ([shift={(2, 1)}]v3edge) [red]-- ([shift={(1, 1)}]v3edge) [black]-- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v3edge) circle (0.05);
+\draw[black] ([shift={(1, 1)}]v3edge) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_{4b}$};
+
+\coordinate (v4edge) at (9, -3); 
+\draw[thick] (v4edge) -- ([shift={(0, 1)}]v4edge) -- ([shift={(1, 1)}]v4edge) -- ([shift={(1, 0)}]v4edge) -- cycle;
+\draw[thick] ([shift={(0, 1)}]v4edge) -- ([shift={(1, 1)}]v4edge) [red]-- ([shift={(0.9, 2)}]v4edge) [black]-- ([shift={(0, 2)}]v4edge) -- cycle;
+\draw[thick] ([shift={(1, 0)}]v4edge) -- ([shift={(2, 0)}]v4edge) -- ([shift={(2, 1)}]v4edge) -- ([shift={(1, 1)}]v4edge) -- cycle;
+\draw[thick] ([shift={(1, 1)}]v4edge) -- ([shift={(2, 1)}]v4edge) -- ([shift={(2, 2)}]v4edge) -- ([shift={(1.1, 2)}]v4edge) [red]-- cycle;
+\draw[blue, fill=blue] ([shift={(1, 1)}]v4edge) circle (0.05);
+\draw[black] ([shift={(1, 1)}]v4edge) circle (0.2) node[shift={(-0.25, -0.25)}] {$n_{5b}$};
+\end{tikzpicture}

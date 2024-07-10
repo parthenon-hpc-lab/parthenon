@@ -241,7 +241,6 @@ class MGSolver {
     } else {
       const int scratch_size = 0;
       const int scratch_level = 0;
-      const int nghost = Globals::nghost;
       parthenon::par_for_outer(
           DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size,
           scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
