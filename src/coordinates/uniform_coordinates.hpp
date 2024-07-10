@@ -80,8 +80,8 @@ class UniformCoordinates {
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int dir, const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     if (dir == X1DIR) return static_cast<const System *>(this)->template Dxc<X1DIR>(k, j, i);
-    else if (dir == X2DIR) return static_cast<const System *>(this)->template Dxc<X1DIR>(k, j, i);
-    else if (dir == X3DIR) return static_cast<const System *>(this)->template Dxc<X1DIR>(k, j, i);
+    else if (dir == X2DIR) return static_cast<const System *>(this)->template Dxc<X2DIR>(k, j, i);
+    else if (dir == X3DIR) return static_cast<const System *>(this)->template Dxc<X3DIR>(k, j, i);
     PARTHENON_FAIL("Unknown dir.");
     return 0.0;
   }

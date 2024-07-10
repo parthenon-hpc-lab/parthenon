@@ -20,6 +20,9 @@ namespace parthenon {
 class UniformSpherical : public UniformCoordinates<UniformSpherical> {
  using base_t = UniformCoordinates<UniformSpherical>;
  public:
+  using base_t::Dxc;
+  using base_t::Xc;
+  using base_t::Volume;
   UniformSpherical() = default;
   UniformSpherical(const RegionSize &rs, ParameterInput *pin) 
     : UniformCoordinates<UniformSpherical>(rs, pin) {}
