@@ -28,11 +28,12 @@ using namespace loops::shorthands;
 TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
                                             const NeighborBlock &nb) {
   const int location_idx_me = nb.offsets.GetIdx();
-  const int location_idx_nb = nb.offsets.GetReverseIdx();
+  const int location_idx_nb = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
   BlockGeometricElementId bgei_me{pmb->gid, location_idx_me};
   BlockGeometricElementId bgei_nb{nb.gid, location_idx_nb};
   return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
+
 template <BoundaryType BOUND>
 void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
   for (int block = 0; block < md->NumBlocks(); ++block) {

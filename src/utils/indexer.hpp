@@ -19,11 +19,53 @@
 #include <type_traits>
 #include <utility>
 
-#include "mesh/forest/block_ownership.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+struct block_ownership_t {
+ public:
+  KOKKOS_FORCEINLINE_FUNCTION
+  const bool &operator()(int ox1, int ox2, int ox3) const {
+    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool &operator()(int ox1, int ox2, int ox3) {
+    return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  block_ownership_t() : block_ownership_t(false) {}
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  explicit block_ownership_t(bool value) : initialized(false) {
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          ownership[i][j][k] = value;
+        }
+      }
+    }
+  }
+
+  bool initialized;
+
+  bool operator==(const block_ownership_t &rhs) const {
+    bool same = initialized == rhs.initialized;
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        for (int k = 0; k < 3; ++k) {
+          same = same && (ownership[i][j][k] == rhs.ownership[i][j][k]);
+        }
+      }
+    }
+    return same;
+  }
+
+ private:
+  bool ownership[3][3][3];
+};
 
 template <class... Ts>
 struct Indexer {

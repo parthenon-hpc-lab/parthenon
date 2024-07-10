@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef MESH_FOREST_RELATIVE_ORIENTATION_HPP_
-#define MESH_FOREST_RELATIVE_ORIENTATION_HPP_
+#ifndef MESH_FOREST_FOREST_NODE_HPP_
+#define MESH_FOREST_FOREST_NODE_HPP_
 
 #include <array>
 #include <map>
@@ -25,32 +25,24 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "mesh/forest/logical_location.hpp"
-#include "utils/bit_hacks.hpp"
-#include "utils/cell_center_offsets.hpp"
-#include "utils/indexer.hpp"
 
 namespace parthenon {
 namespace forest {
 
-struct RelativeOrientation {
-  RelativeOrientation() : dir_connection{0, 1, 2}, dir_flip{false, false, false} {};
+class Face;
+class Node {
+ public:
+  Node(int id_in, std::array<Real, NDIM> pos) : id(id_in), x(pos), associated_faces{} {}
 
-  void SetDirection(Direction origin, Direction neighbor, bool reversed = false) {
-    dir_connection[static_cast<uint>(origin)] = static_cast<uint>(neighbor);
-    dir_flip[static_cast<uint>(origin)] = reversed;
+  static std::shared_ptr<Node> create(int id, std::array<Real, NDIM> pos) {
+    return std::make_shared<Node>(id, pos);
   }
 
-  LogicalLocation Transform(const LogicalLocation &loc_in,
-                            std::int64_t destination) const;
-  LogicalLocation TransformBack(const LogicalLocation &loc_in, std::int64_t origin) const;
-
-  bool use_offset = false;
-  std::array<int, 3> offset;
-  std::array<int, 3> dir_connection;
-  std::array<bool, 3> dir_flip;
+  std::uint32_t id;
+  std::array<Real, NDIM> x;
+  std::unordered_set<std::shared_ptr<Face>> associated_faces;
 };
 } // namespace forest
 } // namespace parthenon
 
-#endif // MESH_FOREST_RELATIVE_ORIENTATION_HPP_
+#endif // MESH_FOREST_FOREST_NODE_HPP_

@@ -147,7 +147,7 @@ class MeshBlockData {
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
