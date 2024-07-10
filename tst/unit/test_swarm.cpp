@@ -80,10 +80,15 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
+  auto descrip = std::make_shared<parthenon::StateDescriptor>("test");
+  descrip->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+  descrip->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  packages.Add(descrip);
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-  mesh->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
-  mesh->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+
+  // loc needs to be set to call bndry condition routines below
+  meshblock->loc = mesh->GetLocList()[0];
   mesh->mesh_bcs[0] = BoundaryFlag::user;
   meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
