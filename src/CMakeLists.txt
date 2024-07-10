@@ -115,6 +115,8 @@ add_library(parthenon
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
+  coordinates/uniform_coordinates.hpp
+  coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
   driver/driver.hpp
