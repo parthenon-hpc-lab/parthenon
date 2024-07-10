@@ -178,7 +178,7 @@ jobs:
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # Map to local user id on CI  machine to allow writing to build cache
-      options: --user 1000 --runtime=nvidia
+      options: --user 1000 --gpus all
     env:
       CMAKE_GENERATOR: Ninja
       CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
