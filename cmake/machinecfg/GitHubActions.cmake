@@ -19,7 +19,7 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
-set(Kokkos_ENABLE_ZEN3 ON CACHE BOOL "Enable Zen3")
+set(Kokkos_ARCH_ZEN3 ON CACHE BOOL "Enable Zen3")
 
 set(MACHINE_CXX_FLAGS "")
 if (${MACHINE_VARIANT} MATCHES "cuda")
