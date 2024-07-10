@@ -129,6 +129,8 @@ class MGSolver {
     auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
     if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    // Ensure that all partitions are finished before communicating, otherwise comm buffers can run over each other
+    mg_finest = itl.AddTask(TaskQualifier::local_sync, mg_finest, [](){return TaskStatus::complete;});
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
@@ -162,8 +164,10 @@ class MGSolver {
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
 
-    return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
-                                           min_level, max_level, pmesh);
+    auto mg_finest = AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
+                                                     min_level, max_level, pmesh);
+    // Ensure that all partitions are finished before returning to prevent unexpected behavior
+    return tl.AddTask(TaskQualifier::local_sync, mg_finest, [](){return TaskStatus::complete;});
   }
 
   template <class TL_t>
@@ -388,7 +392,21 @@ class MGSolver {
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto &md_comm = pmesh->mesh_data.AddShallow(
         "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
-
+    
+    printf("Meshdata level: %i partition: %i\n", level, partition);
+    for (auto &pmbd : md->GetAllBlockData()) { 
+      auto pmb = pmbd->GetBlockSharedPointer();
+      printf("  block gid: %i (l: %i)\n", pmb->gid, pmb->loc.level());
+      if (level == pmb->loc.level()) { 
+        printf("    gmg_same: ");
+        for (auto &n : pmb->gmg_same_neighbors) printf("%i, ", n.gid);
+        printf("\n");
+      } else {
+        printf("    gmg_composite_finer_neighbors: ");
+        for (auto &n : pmb->gmg_composite_finer_neighbors) printf("%i, ", n.gid);
+        printf("\n");
+      }      
+    }
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
     if (level < max_level) {
