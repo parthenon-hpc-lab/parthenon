@@ -173,3 +173,42 @@ jobs:
             build/CMakeFiles/CMakeOutput.log
           retention-days: 3
 
+    integration-nvidia-hamilton:
+    runs-on: [self-hosted, navi1030]
+    container:
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      # Map to local user id on CI  machine to allow writing to build cache
+      options: --user 1000 --runtime=nvidia
+    env:
+      CMAKE_GENERATOR: Ninja
+      CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=cuda-mpi \
+            -DCMAKE_CXX_COMPILER=${PWD}/external/Kokkos/bin/nvcc_wrapper
+      # Test example with "variables" and output
+      - name: advection
+        run: |
+          cmake --build build -t advection-example
+          cd build
+          ctest -R regression_mpi_test:output_hdf5
+      # Test example with swarms
+      - name: particle-leapfrog
+        run: |
+          cmake --build build -t particle-leapfrog
+          cd build
+          ctest -R regression_mpi_test:particle_leapfrog
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: configure-log-integration-amdgpu
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+          retention-days: 3
