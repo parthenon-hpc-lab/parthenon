@@ -22,6 +22,7 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
  public:
   using base_t::Dxc;
   using base_t::Xc;
+  using base_t::Scale;
   using base_t::CellWidth;
   using base_t::Volume;
   UniformSpherical() = default;
@@ -64,17 +65,19 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     return base_t::Xc<X3DIR>(idx);
   }
 
-  template <int dir>
+  template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real hx(const Real r, const Real th, const Real phi) const {
-    if (dir == X1DIR) {
-      return 1.0;
-    } else if constexpr (dir == X2DIR) {
-      return r;
-    } else if constexpr (dir == X3DIR) {
-      return r * std::sin(th);
-    } else {
-      PARTHENON_FAIL("Unknown dir");
+  Real Scale(const int k, const int j, const int i) const {
+    static_assert(dir > 0 && dir < 4);
+    using TE = TopologicalElement;
+    if constexpr (dir == X1DIR) return 1.0;
+    else {
+      const Real r = X<X1DIR, el>(k, j, i);
+      if constexpr (dir == X2DIR) return r;
+      else {
+        const Real th = X<X2DIR, el>(k, j, i);
+        return r * std::sin(th);
+      }
     }
     return 0.0;
   }

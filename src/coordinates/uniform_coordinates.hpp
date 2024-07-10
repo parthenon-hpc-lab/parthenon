@@ -177,11 +177,21 @@ class UniformCoordinates {
     return 0.0;
   }
 
-  template <int dir>
+  template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real hx(const Real x1, const Real x2, const Real x3) const {
+  Real Scale(const int k, const int j, const int i) const {
     if constexpr (dir > 0 && dir < 4) return 1.0;
     PARTHENON_FAIL("Unknown dir");
+    return 0.0;
+  }
+
+  template <TopologicalElement el>
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real Scale(const int dir, const int k, const int j, const int i) {
+    assert(dir > 0 && dir < 4);
+    if (dir == X1DIR) return static_cast<const System *>(this)->template scale<X1DIR, el>(k, j, i);
+    else if (dir == X2DIR) return static_cast<const System *>(this)->template scale<X2DIR, el>(k, j, i);
+    else if (dir == X3DIR) return static_cast<const System *>(this)->template scale<X3DIR, el>(k, j, i);
     return 0.0;
   }
 
