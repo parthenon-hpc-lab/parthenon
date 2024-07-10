@@ -49,7 +49,7 @@ ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
            const std::shared_ptr<Variable<Real>> &pcv) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
-  const int location_idx = nb.offsets.GetReverseIdx();
+  const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
   return {sender_id, receiver_id, pcv->label(), location_idx};
 }
 
