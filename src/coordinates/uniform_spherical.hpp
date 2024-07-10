@@ -22,6 +22,7 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
  public:
   using base_t::Dxc;
   using base_t::Xc;
+  using base_t::CellWidth;
   using base_t::Volume;
   UniformSpherical() = default;
   UniformSpherical(const RegionSize &rs, ParameterInput *pin) 
@@ -36,7 +37,6 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     static_assert(dir > 0 && dir < 4);
-    // only the index along dir is relevant in Xc, so offsetting all three is OK
     return Xc<dir>(idx) - Xc<dir>(idx-1);
   }
 
@@ -76,6 +76,19 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     } else {
       PARTHENON_FAIL("Unknown dir");
     }
+    return 0.0;
+  }
+
+  //----------------------------------------
+  // CellWidth: width of cell through the centroid
+  //----------------------------------------
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j, const int i) const {
+    using TE = TopologicalElement;
+    static_assert(dir > 0 && dir < 4);
+    if constexpr (dir == X1DIR) return Dx<dir>();
+    else if constexpr (dir == X2DIR) return Xc<X1DIR>(i) * Dx<dir>();
+    else if constexpr (dir == X3DIR) return Xc<X1DIR>(i) * std::sin(Xc<X2DIR>(j)) * Dx<dir>();
     return 0.0;
   }
 
