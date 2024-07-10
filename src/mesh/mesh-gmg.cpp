@@ -195,7 +195,7 @@ void Mesh::SetGMGNeighbors() {
         }
         if (pmb->gmg_finer_neighbors.size() == 0) {
           // This is a leaf block, so add itself as a finer neighbor
-          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, Globals::my_rank,
+          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank,
                                                pmb->gid, std::array<int, 3>{0, 0, 0}, 0, 0,
                                                0, 0);            
         }
