@@ -35,22 +35,29 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-inline std::tuple<int, int, std::string, int>
+inline auto &GetSenderGid(Mesh::channel_key_t &key){return std::get<0>(key);}
+inline auto &GetReceiverGid(Mesh::channel_key_t &key){return std::get<1>(key);}
+inline auto &GetVariable(Mesh::channel_key_t &key){return std::get<2>(key);}
+inline auto &GetLocIdx(Mesh::channel_key_t &key){return std::get<3>(key);}
+
+inline Mesh::channel_key_t
 SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
-        const std::shared_ptr<Variable<Real>> &pcv) {
+        const std::shared_ptr<Variable<Real>> &pcv, BoundaryType btype) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
-  return {sender_id, receiver_id, pcv->label(), location_idx};
+  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv || btype == BoundaryType::gmg_restrict_send)) ? 1 : 0;
+  return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
-inline std::tuple<int, int, std::string, int>
+inline Mesh::channel_key_t
 ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
-           const std::shared_ptr<Variable<Real>> &pcv) {
+           const std::shared_ptr<Variable<Real>> &pcv, BoundaryType btype) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
-  return {sender_id, receiver_id, pcv->label(), location_idx};
+  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv || btype == BoundaryType::gmg_restrict_send)) ? 1 : 0;
+  return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
 // Build a vector of pointers to all of the sending or receiving communication buffers on
@@ -74,17 +81,16 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
 
-  using key_t = std::tuple<int, int, std::string, int>;
-  std::vector<std::tuple<int, int, key_t>> key_order;
+  std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
   int boundary_idx = 0;
   ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto key = KeyFunc(pmb, nb, v);
+    auto key = KeyFunc(pmb, nb, v, bound_type);
     PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                             "Boundary communicator does not exist");
     // Create a unique index by combining receiver gid (second element of the key
     // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
+    int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
     key_order.push_back({recvr_idx, boundary_idx, key});
     ++boundary_idx;
   });
@@ -106,9 +112,9 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     if (comm_map->count(std::get<2>(t)) == 0) {
       auto key = std::get<2>(t);
       PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") +
-                     " (sender: " + std::to_string(std::get<0>(key)) + ", receiver: " +
-                     std::to_string(std::get<1>(key)) + ", var: " + std::get<2>(key) +
-                     ", location: " + std::to_string(std::get<3>(key)) + ")");
+                     " (sender: " + std::to_string(GetSenderGid(key)) + ", receiver: " +
+                     std::to_string(GetReceiverGid(key)) + ", var: " + GetVariable(key) +
+                     ", location: " + std::to_string(GetLocIdx(key)) + ")");
     }
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
