@@ -99,7 +99,7 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
     MeshData<Real> mesh_data("base");
-    mesh_data.Set(block_list, nullptr, NDIM);
+    mesh_data.Initialize(block_list, nullptr, NDIM);
 
     WHEN("We initialize an IndexSplit with all outer k and no outer j") {
       IndexSplit sp(&mesh_data, IndexDomain::interior, IndexSplit::all_outer,

@@ -17,28 +17,27 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
+                             std::optional<int> gmg_level) {
   const int nblocks = blocks.size();
-  ndim_ = ndim;
   block_data_.resize(nblocks);
-  SetMeshPointer(pmesh);
+  SetMeshProperties(pmesh);
   for (int i = 0; i < nblocks; i++) {
-    block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
+    block_data_[i] = blocks[i]->meshblock_data.Add(stage_name_, blocks[i]);
+  }
+  if (gmg_level) {
+    grid = GridIdentifier::two_level_composite(*gmg_level);
+  } else {
+    grid = GridIdentifier::leaf();
   }
 }
 
+// This method is basically here to get around the forward
+// declaration of Mesh in the mesh_data.hpp
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
-  int ndim;
-  if (pmesh != nullptr) {
-    ndim = pmesh->ndim;
-  }
-  Set(blocks, pmesh, ndim);
-}
-
-template <typename T>
-bool MeshData<T>::BlockDataIsWholeRank_() const {
-  return block_data_.size() == (pmy_mesh_->block_list).size();
+void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
+  pmy_mesh_ = pmesh;
+  ndim_ = pmesh == nullptr ? 0 : pmesh->ndim;
 }
 
 template class MeshData<Real>;

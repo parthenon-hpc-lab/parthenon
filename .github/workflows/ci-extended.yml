@@ -21,6 +21,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
   OMPI_MCA_mpi_common_cuda_event_max: 1000
+  # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
+  OMPI_MCA_btl_vader_single_copy_mechanism: none
 
 jobs:
   perf-and-regression:
@@ -44,10 +46,20 @@ jobs:
           path: tst/regression/gold_standard/
           key: gold-standard
 
+      - name: Set vars based on matrix
+        id: cmake-vars
+        run: |
+          if ${{ matrix.device == 'host' }}; then
+            echo "enable_asan=ON" >> $GITHUB_OUTPUT
+          else
+            echo "enable_asan=OFF" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_ASAN=${{ steps.cmake-vars.outputs.enable_asan }} \
             -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }}
 
       - name: Build
@@ -60,6 +72,10 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # Sanitizers options (leak detection is disabled)
+          export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
+          export UBSAN_OPTIONS=print_stacktrace=0
+          export LSAN_OPTIONS=detect_leaks=0
           ctest -L performance -LE perf-reg
 
       # run regression tests
@@ -68,6 +84,10 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # Sanitizers options (disable leak detection for MPI runs, due to OpenMPI leaks)
+          export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
+          export UBSAN_OPTIONS=print_stacktrace=0
+          export LSAN_OPTIONS=detect_leaks=0
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
@@ -103,3 +123,59 @@ jobs:
             example/advection/ascent_render_57.png
           retention-days: 3
 
+  perf-and-regression-amdgpu:
+    strategy:
+      matrix:
+        parallel: ['serial', 'mpi']
+    runs-on: [self-hosted, navi1030]
+    container:
+      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      # Map to local user id on CI  machine to allow writing to build cache and
+      # forward device handles to access AMD GPU within container
+      options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
+    env:
+      CMAKE_GENERATOR: Ninja
+      CMAKE_BUILD_PARALLEL_LEVEL: 8 # num threads for build
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: Setup cache for gold standard
+        uses: actions/cache@v3
+        with:
+          path: tst/regression/gold_standard/
+          key: gold-standard
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=hip-${{ matrix.parallel }} \
+            -DCMAKE_CXX_COMPILER=hipcc
+
+      - name: Build
+        run: cmake --build build
+
+      # run performance "unit" tests (none use MPI)
+      - name: Performance tests
+        if: ${{ matrix.parallel == 'serial' }}
+        run: |
+          cd build
+          ctest -L performance -LE perf-reg
+
+      # run regression tests
+      - name: Regression tests
+        run: |
+          cd build
+          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: log-and-convergence-${{ matrix.parallel }}
+          path: |
+            build/CMakeFiles/CMakeOutput.log
+            build/tst/regression/outputs/advection_convergence*/advection-errors.dat
+            build/tst/regression/outputs/advection_convergence*/advection-errors.png
+          retention-days: 3

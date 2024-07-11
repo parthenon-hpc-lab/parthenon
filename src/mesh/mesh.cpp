@@ -78,11 +78,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-      nslist(Globals::nranks), nblist(Globals::nranks), nref(Globals::nranks),
-      nderef(Globals::nranks), rdisp(Globals::nranks), ddisp(Globals::nranks),
-      bnref(Globals::nranks), bnderef(Globals::nranks), brdisp(Globals::nranks),
-      bddisp(Globals::nranks) {
+      lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
+      nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
+      ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
+      brdisp(Globals::nranks), bddisp(Globals::nranks) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -170,10 +169,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Load balancing flag and parameters
-  EnrollBndryFncts_(app_in);
-
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
+
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
@@ -182,10 +182,42 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   CheckMeshValidity();
+}
+
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           forest::ForestDefinition &forest_def)
+    : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
+  mesh_size =
+      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+  mesh_bcs = {
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
+           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (!base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) =
+          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+    } else {
+      base_block_size.nx(dir) = mesh_size.nx(dir);
+    }
+  }
+  forest_def.SetBlockSize(base_block_size);
+
+  ndim = 2;
+  // Load balancing flag and parameters
+  forest = forest::Forest::Make2D(forest_def);
+  root_level = forest.root_level;
+  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
+  BuildBlockList(pin, app_in, packages, 0);
 }
 
 //----------------------------------------------------------------------------------------
@@ -316,6 +348,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
+    BuildBlockPartitions(GridIdentifier::leaf());
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
     return;
   }
@@ -338,6 +371,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
       block_list[i - nbs]->pmr->DerefinementCount() =
           dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
   }
+  BuildBlockPartitions(GridIdentifier::leaf());
   BuildGMGBlockLists(pin, app_in);
   SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
@@ -355,6 +389,23 @@ Mesh::~Mesh() {
   }
   mpi_comm_map_.clear();
 #endif
+}
+
+//----------------------------------------------------------------------------------------
+//  \brief Partition a given block list for use by MeshData
+
+void Mesh::BuildBlockPartitions(GridIdentifier grid) {
+  auto partition_blocklists = partition::ToSizeN(
+      grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
+      DefaultPackSize());
+  // Account for possibly empty block_list
+  if (partition_blocklists.size() == 0)
+    partition_blocklists = std::vector<BlockList_t>(1);
+  std::vector<std::shared_ptr<BlockListPartition>> out;
+  int id = 0;
+  for (auto &part_bl : partition_blocklists)
+    out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
+  block_partitions_[grid] = out;
 }
 
 //----------------------------------------------------------------------------------------
@@ -499,73 +550,6 @@ void Mesh::OutputMeshStructure(const int ndim,
 }
 
 //----------------------------------------------------------------------------------------
-//  Enroll user-defined functions for boundary conditions
-void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
-  static const BValFunc outflow[6] = {
-      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
-      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
-      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
-  static const BValFunc reflect[6] = {
-      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
-      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
-      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
-  static const SBValFunc soutflow[6] = {
-      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
-      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
-      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
-  static const SBValFunc speriodic[6] = {
-      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
-      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
-      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
-
-  for (int f = 0; f < BOUNDARY_NFACES; f++) {
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::reflect:
-      MeshBndryFnctn[f] = reflect[f];
-      break;
-    case BoundaryFlag::outflow:
-      MeshBndryFnctn[f] = outflow[f];
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::user:
-      if (app_in->boundary_conditions[f] != nullptr) {
-        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested. but no condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      break;
-    default: // periodic/block BCs handled elsewhere.
-      break;
-    }
-
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::outflow:
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::periodic:
-      MeshSwarmBndryFnctn[f] = speriodic[f];
-      break;
-    case BoundaryFlag::reflect:
-      // Default "reflect" boundaries not available for swarms; catch later on if swarms
-      // are present
-      break;
-    case BoundaryFlag::user:
-      if (app_in->swarm_boundary_conditions[f] != nullptr) {
-        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
-        // boundaries are requested but no swarms are used.
-        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      }
-      break;
-    default: // Default BCs handled elsewhere
-      break;
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -601,18 +585,25 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Build densely populated communication tags
   tag_map.clear();
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     tag_map.AddMeshDataToMap<BoundaryType::any>(md);
-    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(mdg);
-      tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(mdg);
+  }
+
+  if (multigrid) {
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+        auto &md = mesh_data.Add("base", partition);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(md);
+      }
     }
   }
+
   tag_map.ResolveMap();
 
   // Create send/recv MPI_Requests for swarms
@@ -640,13 +631,18 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   boundary_comm_map.clear();
 
   // Build the boundary buffers for the current mesh
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     BuildBoundaryBuffers(md);
-    for (auto &[gmg_level, mdc] : gmg_mesh_data) {
-      auto &mdg = mdc.GetOrAdd(gmg_level, "base", i);
-      BuildBoundaryBuffers(mdg);
-      BuildGMGBoundaryBuffers(mdg);
+  }
+  if (multigrid) {
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+        auto &mdg = mesh_data.Add("base", partition);
+        BuildBoundaryBuffers(mdg);
+        BuildGMGBoundaryBuffers(mdg);
+      }
     }
   }
 }
@@ -659,10 +655,11 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   bool all_sent;
   std::int64_t send_iters = 0;
 
+  auto partitions = GetDefaultBlockPartitions();
   do {
     all_sent = true;
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd(md_name, i);
+    for (int i = 0; i < partitions.size(); ++i) {
+      auto &md = mesh_data.Add(md_name, partitions[i]);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -685,8 +682,8 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   std::int64_t receive_iters = 0;
   do {
     all_received = true;
-    for (int i = 0; i < num_partitions; i++) {
-      auto &md = mesh_data.GetOrAdd(md_name, i);
+    for (int i = 0; i < partitions.size(); ++i) {
+      auto &md = mesh_data.Add(md_name, partitions[i]);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -701,15 +698,15 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       receive_iters < max_it,
       "Too many iterations waiting to receive boundary communication buffers.");
 
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd(md_name, i);
+  for (auto &partition : partitions) {
+    auto &md = mesh_data.Add(md_name, partition);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd(md_name, i);
+  for (auto &partition : partitions) {
+    auto &md = mesh_data.Add(md_name, partition);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);
@@ -726,8 +723,8 @@ void Mesh::PreCommFillDerived() {
     auto &mbd = block_list[i]->meshblock_data.Get();
     Update::PreCommFillDerived(mbd.get());
   }
-  for (int i = 0; i < num_partitions; ++i) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -735,8 +732,8 @@ void Mesh::PreCommFillDerived() {
 void Mesh::FillDerived() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  for (int i = 0; i < num_partitions; i++) {
-    auto &md = mesh_data.GetOrAdd("base", i);
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
     // Call MeshData based FillDerived functions
     Update::FillDerived(md.get());
   }
@@ -781,12 +778,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        PARTHENON_REQUIRE(num_partitions == 1,
-                          "Mesh ProblemGenerator requires parthenon/mesh/pack_size=-1 "
-                          "during first initialization.");
-
-        auto &md = mesh_data.GetOrAdd("base", 0);
-        ProblemGenerator(this, pin, md.get());
+        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+          auto &md = mesh_data.Add("base", partition);
+          ProblemGenerator(this, pin, md.get());
+        }
         // Call individual MeshBlock ProblemGenerator
       } else {
         for (int i = 0; i < nmb; ++i) {
@@ -799,12 +794,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh PostInitialization
       if (PostInitialization != nullptr) {
-        PARTHENON_REQUIRE(num_partitions == 1,
-                          "Mesh PostInitialization requires parthenon/mesh/pack_size=-1 "
-                          "during first initialization.");
-
-        auto &md = mesh_data.GetOrAdd("base", 0);
-        PostInitialization(this, pin, md.get());
+        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+          auto &md = mesh_data.Add("base", partition);
+          PostInitialization(this, pin, md.get());
+        }
         // Call individual MeshBlock PostInitialization
       } else {
         for (int i = 0; i < nmb; ++i) {
@@ -855,7 +848,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Set(block_list, this);
+  mesh_data.Get()->Initialize(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.
@@ -896,16 +889,11 @@ int Mesh::GetNumberOfMeshBlockCells() const {
 }
 
 const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  // TODO(JMM): Luke this is for your Metadata::fine stuff.
-  PARTHENON_DEBUG_REQUIRE(level != CellLevel::fine,
-                          "Currently no access to finer cellbounds");
   MeshBlock *pmb = block_list[0].get();
   if (level == CellLevel::same) {
     return pmb->cellbounds;
-    // TODO(JMM):
-    // } else if (level == CellLevel::fine) {
-    //   return pmb->fine_cellbounds;
-    // }
+  } else if (level == CellLevel::fine) {
+    return pmb->f_cellbounds;
   } else { // if (level == CellLevel::coarse) {
     return pmb->c_cellbounds;
   }

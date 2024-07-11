@@ -77,7 +77,7 @@ enum class BoundaryType : int {
   gmg_prolongate_recv
 };
 
-enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
+enum class GridType : int { none, leaf, two_level_composite, single_level_with_internal };
 struct GridIdentifier {
   GridType type = GridType::none;
   int logical_level = 0;
@@ -87,6 +87,11 @@ struct GridIdentifier {
     return GridIdentifier{GridType::two_level_composite, level};
   }
 };
+// Add a comparator so we can store in std::map
+inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
+  if (lhs.type != rhs.type) return lhs.type < rhs.type;
+  return lhs.logical_level < rhs.logical_level;
+}
 
 constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
@@ -152,7 +157,7 @@ enum class TopologicalElement : std::size_t {
 enum class TopologicalType { Cell, Face, Edge, Node };
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalType GetTopologicalType(TopologicalElement el) {
+constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (el == TE::CC) {

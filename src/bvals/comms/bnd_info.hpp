@@ -27,6 +27,7 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/indexer.hpp"
 #include "utils/object_pool.hpp"
@@ -49,10 +50,12 @@ enum class IndexRangeType {
 
 struct BndInfo {
   int ntopological_elements = 1;
-  int topo_idx[3]{0, 0, 0};
+  using TE = TopologicalElement;
+  TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
+  forest::LogicalCoordinateTransformation lcoord_trans;
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
   int alloc_status;
@@ -61,7 +64,9 @@ struct BndInfo {
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
 
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo() = default;
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo(const BndInfo &) = default;
   BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
           CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
@@ -90,15 +95,16 @@ struct ProResInfo {
   }
   SpatiallyMaskedIndexer6D idxer[10];
 
-  CoordinateDirection dir;
+  CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   int alloc_status;
   RefinementOp_t refinement_op = RefinementOp_t::None;
   Coordinates_t coords, coarse_coords; // coords
 
   ParArrayND<Real, VariableState> fine, coarse;
-
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo() = default;
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo(const ProResInfo &) = default;
   ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various

@@ -26,8 +26,9 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/forest_topology.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -35,9 +36,8 @@
 namespace parthenon {
 namespace forest {
 
-Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
-           std::array<BoundaryFlag, BOUNDARY_NFACES> bcs)
-    : my_id(id), ndim(ndim), domain(domain), boundary_conditions(bcs) {
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
+    : my_id(id), ndim(ndim) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -58,6 +58,13 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level, RegionSiz
   for (int l = -20; l < 0; ++l) {
     internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
   }
+}
+
+Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
+           RegionSize domain_in, std::array<BoundaryFlag, BOUNDARY_NFACES> bcs_in)
+    : Tree(Tree::private_t(), id, ndim, root_level) {
+  domain = domain_in;
+  boundary_conditions = bcs_in;
 }
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
@@ -116,9 +123,9 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
           // and trigger refinement there
           int n_idx =
               neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
-          for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+          for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
             nadded += neighbor_tree->Refine(
-                orientation.Transform(neigh, neighbor_tree->GetId()));
+                lcoord_trans.Transform(neigh, neighbor_tree->GetId()));
           }
         }
       }
@@ -182,32 +189,36 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     }
   }
 
-  for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
-    auto tneigh = orientation.Transform(neigh, neighbor_tree->GetId());
-    auto tloc = orientation.Transform(loc, neighbor_tree->GetId());
-    PARTHENON_REQUIRE(orientation.TransformBack(tloc, GetId()) == loc,
+  for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
+    auto tneigh = lcoord_trans.Transform(neigh, neighbor_tree->GetId());
+    auto tloc = lcoord_trans.Transform(loc, neighbor_tree->GetId());
+    PARTHENON_REQUIRE(lcoord_trans.InverseTransform(tloc, GetId()) == loc,
                       "Inverse transform not working.");
     if (neighbor_tree->leaves.count(tneigh) && include_same) {
-      neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
+      neighbor_locs->push_back(NeighborLocation(
+          tneigh, lcoord_trans.InverseTransform(tneigh, GetId()), lcoord_trans));
     } else if (neighbor_tree->internal_nodes.count(tneigh)) {
       if (include_fine) {
         auto daughters = tneigh.GetDaughters(neighbor_tree->ndim);
         for (auto &n : daughters) {
           if (tloc.IsNeighbor(n))
-            neighbor_locs->push_back({n, orientation.TransformBack(n, GetId())});
+            neighbor_locs->push_back(NeighborLocation(
+                n, lcoord_trans.InverseTransform(n, GetId()), lcoord_trans));
         }
       } else if (include_internal) {
-        neighbor_locs->push_back({tneigh, orientation.TransformBack(tneigh, GetId())});
+        neighbor_locs->push_back(NeighborLocation(
+            tneigh, lcoord_trans.InverseTransform(tneigh, GetId()), lcoord_trans));
       }
     } else if (neighbor_tree->leaves.count(tneigh.GetParent()) && include_coarse) {
-      auto neighp = orientation.TransformBack(tneigh.GetParent(), GetId());
+      auto neighp = lcoord_trans.InverseTransform(tneigh.GetParent(), GetId());
       // Since coarser neighbors can cover multiple elements of the origin block and
       // because our communication algorithm packs this extra data by hand, we do not wish
       // to duplicate coarser blocks in the neighbor list. Therefore, we only include the
       // coarse block in one offset position
       auto sl_offset = loc.GetSameLevelOffsets(neighp);
       if (sl_offset[0] == ox1 && sl_offset[1] == ox2 && sl_offset[2] == ox3)
-        neighbor_locs->push_back({tneigh.GetParent(), neighp});
+        neighbor_locs->push_back(
+            NeighborLocation(tneigh.GetParent(), neighp, lcoord_trans));
     }
   }
 }
@@ -239,9 +250,9 @@ int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) 
             // Need to check that this derefinement doesn't break proper nesting with
             // a neighboring tree or this tree
             int n_idx = neigh.NeighborTreeIndex();
-            for (auto &[neighbor_tree, orientation] : neighbors[n_idx]) {
+            for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
               if (neighbor_tree->internal_nodes.count(
-                      orientation.Transform(neigh, neighbor_tree->GetId())))
+                      lcoord_trans.Transform(neigh, neighbor_tree->GetId())))
                 return 0;
             }
           }
@@ -321,9 +332,10 @@ Tree::GetBlockBCs(const LogicalLocation &loc) const {
 }
 
 void Tree::AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                           RelativeOrientation orient, const bool periodic) {
+                           LogicalCoordinateTransformation lcoord_trans,
+                           const bool periodic) {
   int location_idx = offset.GetIdx();
-  neighbors[location_idx].insert({neighbor_tree, orient});
+  neighbors[location_idx].insert({neighbor_tree.get(), lcoord_trans});
   BoundaryFace fidx = offset.Face();
 
   if (fidx >= 0)
@@ -369,6 +381,76 @@ std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
     return internal_nodes.at(loc).second;
   }
   return -1;
+}
+
+void Tree::EnrollBndryFncts(
+    ApplicationInput *app_in,
+    std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
+    std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
+  UserBoundaryFunctions = UserBoundaryFunctions_in;
+  UserSwarmBoundaryFunctions = UserSwarmBoundaryFunctions_in;
+  static const BValFunc outflow[6] = {
+      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
+      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
+      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
+  static const BValFunc reflect[6] = {
+      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
+      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
+      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
+  static const SBValFunc soutflow[6] = {
+      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
+      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
+      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
+  static const SBValFunc speriodic[6] = {
+      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
+      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
+      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
+
+  for (int f = 0; f < BOUNDARY_NFACES; f++) {
+    switch (boundary_conditions[f]) {
+    case BoundaryFlag::reflect:
+      MeshBndryFnctn[f] = reflect[f];
+      break;
+    case BoundaryFlag::outflow:
+      MeshBndryFnctn[f] = outflow[f];
+      SwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::user:
+      if (app_in->boundary_conditions[f] != nullptr) {
+        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
+      } else {
+        std::stringstream msg;
+        msg << "A user boundary condition for face " << f
+            << " was requested. but no condition was enrolled." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+      break;
+    default: // periodic/block BCs handled elsewhere.
+      break;
+    }
+
+    switch (boundary_conditions[f]) {
+    case BoundaryFlag::outflow:
+      SwarmBndryFnctn[f] = soutflow[f];
+      break;
+    case BoundaryFlag::periodic:
+      SwarmBndryFnctn[f] = speriodic[f];
+      break;
+    case BoundaryFlag::reflect:
+      // Default "reflect" boundaries not available for swarms; catch later on if swarms
+      // are present
+      break;
+    case BoundaryFlag::user:
+      if (app_in->swarm_boundary_conditions[f] != nullptr) {
+        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
+        // boundaries are requested but no swarms are used.
+        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
+      }
+      break;
+    default: // Default BCs handled elsewhere
+      break;
+    }
+  }
 }
 
 } // namespace forest
