@@ -153,10 +153,6 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   for (auto &[level, bl] : gmg_block_lists) {
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
     BuildBlockPartitions(GridIdentifier::two_level_composite(level));
-    printf("two level composite grid for level %i\n", level);
-    for (auto &pmb : bl) {
-      printf("  gid: %i loc: %s\n", pmb->gid, pmb->loc.label().c_str());
-    }
   }
 }
 

@@ -379,7 +379,7 @@ class MGSolver {
     }
     
     auto decorate_task_name = [partition, level](const std::string& in, auto b) {
-      return std::make_tuple(in + "(p:" + std::to_string(partition) + ", l:" + std::to_string(level) + ")", 1, b);
+      return std::make_tuple(in + "(p:" + std::to_string(partition) + ", l:" + std::to_string(level) + ")", 0, b);
     };
 
 #define BTF(...) decorate_task_name(TF(__VA_ARGS__))    
@@ -392,20 +392,6 @@ class MGSolver {
     auto &md_comm = pmesh->mesh_data.AddShallow(
         "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
     
-    printf("Meshdata level: %i partition: %i\n", level, partition);
-    for (auto &pmbd : md->GetAllBlockData()) { 
-      auto pmb = pmbd->GetBlockSharedPointer();
-      printf("  block gid: %i (l: %i)\n", pmb->gid, pmb->loc.level());
-      if (level == pmb->loc.level()) { 
-        printf("    gmg_same: ");
-        for (auto &n : pmb->gmg_same_neighbors) printf("%i, ", n.gid);
-        printf("\n");
-      } else {
-        printf("    gmg_composite_finer_neighbors: ");
-        for (auto &n : pmb->gmg_composite_finer_neighbors) printf("%i, ", n.gid);
-        printf("\n");
-      }      
-    }
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
     if (level < max_level) {
@@ -445,7 +431,6 @@ class MGSolver {
         tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal<D>), &eqs_, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
         tl, set_from_finer, pre_stages, multilevel, md, md_comm);
-    pre_smooth = tl.AddTask(pre_smooth, [partition, level](){ printf("Presmooth done (p:%i, l:%i)\n", partition, level); return TaskStatus::complete;});
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
     if (level > min_level) {
@@ -484,7 +469,6 @@ class MGSolver {
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
                                                             multilevel, md, md_comm);
       
-      post_smooth = tl.AddTask(post_smooth, [partition, level](){ printf("Post-smooth done (p:%i, l:%i)\n", partition, level); return TaskStatus::complete;});
     } else {
       post_smooth = tl.AddTask(pre_smooth, BTF(CopyData<u, res_err, true>), md);
     }
