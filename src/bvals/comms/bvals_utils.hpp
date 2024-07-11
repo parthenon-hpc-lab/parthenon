@@ -35,28 +35,34 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-inline auto &GetSenderGid(Mesh::channel_key_t &key){return std::get<0>(key);}
-inline auto &GetReceiverGid(Mesh::channel_key_t &key){return std::get<1>(key);}
-inline auto &GetVariable(Mesh::channel_key_t &key){return std::get<2>(key);}
-inline auto &GetLocIdx(Mesh::channel_key_t &key){return std::get<3>(key);}
+inline auto &GetSenderGid(Mesh::channel_key_t &key) { return std::get<0>(key); }
+inline auto &GetReceiverGid(Mesh::channel_key_t &key) { return std::get<1>(key); }
+inline auto &GetVariable(Mesh::channel_key_t &key) { return std::get<2>(key); }
+inline auto &GetLocIdx(Mesh::channel_key_t &key) { return std::get<3>(key); }
 
-inline Mesh::channel_key_t
-SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
-        const std::shared_ptr<Variable<Real>> &pcv, BoundaryType btype) {
+inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
+                                   const std::shared_ptr<Variable<Real>> &pcv,
+                                   BoundaryType btype) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv || btype == BoundaryType::gmg_restrict_send)) ? 1 : 0;
+  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                      btype == BoundaryType::gmg_restrict_send))
+                  ? 1
+                  : 0;
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
-inline Mesh::channel_key_t
-ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
-           const std::shared_ptr<Variable<Real>> &pcv, BoundaryType btype) {
+inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
+                                      const std::shared_ptr<Variable<Real>> &pcv,
+                                      BoundaryType btype) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv || btype == BoundaryType::gmg_restrict_send)) ? 1 : 0;
+  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                      btype == BoundaryType::gmg_restrict_send))
+                  ? 1
+                  : 0;
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 

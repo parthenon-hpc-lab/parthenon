@@ -369,7 +369,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
                                              std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
-  
+
   if (nb.loc.level() < pmb->loc.level()) {
     for (auto el : v->GetTopologicalElements())
       out.IncludeTopoEl(el) = true;

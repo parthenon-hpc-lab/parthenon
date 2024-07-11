@@ -42,10 +42,10 @@
 // are stored for outputing task graphs
 #define TF(...) std::string(#__VA_ARGS__), __VA_ARGS__
 
-template<class T>
+template <class T>
 struct is_tuple_t : std::false_type {};
 
-template<class... Ts>
+template <class... Ts>
 struct is_tuple_t<std::tuple<Ts...>> : std::true_type {};
 
 namespace parthenon {
@@ -111,10 +111,11 @@ class Task {
   Task() = default;
   template <typename TID>
   Task(TID &&dep, const std::string &label, const std::function<TaskStatus()> &func,
-       std::pair<int, int> limits = {1, 1}) : Task(std::forward<TID>(dep), label, 0, func, limits) {}
-  template <typename TID>
-  Task(TID &&dep, const std::string &label, int verbose_level, const std::function<TaskStatus()> &func,
        std::pair<int, int> limits = {1, 1})
+      : Task(std::forward<TID>(dep), label, 0, func, limits) {}
+  template <typename TID>
+  Task(TID &&dep, const std::string &label, int verbose_level,
+       const std::function<TaskStatus()> &func, std::pair<int, int> limits = {1, 1})
       : label_(label), verbose_level_(verbose_level), f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
@@ -284,17 +285,20 @@ class TaskList {
       return AddTaskImpl(tq, dep, {}, 0, std::forward<Arg1>(arg1),
                          std::forward<Args>(args)...);
     } else if constexpr (std::is_convertible<Arg1, std::string>::value) {
-      return AddTaskImpl(tq, dep, std::forward<Arg1>(arg1), 0, std::forward<Args>(args)...);
+      return AddTaskImpl(tq, dep, std::forward<Arg1>(arg1), 0,
+                         std::forward<Args>(args)...);
     } else if constexpr (is_tuple_t<Arg1>::value) {
-      return AddTaskImpl(tq, dep, std::get<0>(arg1), std::get<1>(arg1), std::get<2>(arg1), std::forward<Args>(args)...);
+      return AddTaskImpl(tq, dep, std::get<0>(arg1), std::get<1>(arg1), std::get<2>(arg1),
+                         std::forward<Args>(args)...);
     } else {
       static_assert(always_false<Arg1>, "Bad signature for AddTask.");
     }
   }
-  
+
   template <class... Args>
   TaskID AddTaskImpl(const TaskQualifier tq, TaskID dep,
-                     const std::optional<std::string> &label, int verbose, Args &&...args) {
+                     const std::optional<std::string> &label, int verbose,
+                     Args &&...args) {
     if (graph_built) {
       PARTHENON_FAIL("Trying to add a task to a TaskList that has already"
                      " been built into a completed TaskRegion graph.");
@@ -503,7 +507,7 @@ class TaskList {
   }
 
   template <class T, class U, class... Args1, class... Args2>
-  void AddUserTask(TaskID &dep, const std::optional<std::string> &label, int verbose, 
+  void AddUserTask(TaskID &dep, const std::optional<std::string> &label, int verbose,
                    TaskStatus (T::*func)(Args1...), U *obj, Args2 &&...args) {
     tasks.push_back(std::make_shared<Task>(
         dep, MakeUserTaskLabel<decltype(func)>(label), verbose,
@@ -514,8 +518,8 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  void AddUserTask(TaskID &dep, const std::optional<std::string> &label, int verbose, F &&func,
-                   Args &&...args) {
+  void AddUserTask(TaskID &dep, const std::optional<std::string> &label, int verbose,
+                   F &&func, Args &&...args) {
     tasks.push_back(std::make_shared<Task>(
         dep, MakeUserTaskLabel<F>(label), verbose,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
