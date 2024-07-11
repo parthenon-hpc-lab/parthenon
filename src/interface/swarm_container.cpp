@@ -51,7 +51,8 @@ void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) 
   // are not being used
   for (int iFace = 0; iFace < 6; iFace++) {
     if (bcs[iFace] == BoundaryFlag::user) {
-      if (pmb->pmy_mesh->MeshSwarmBndryFnctn[iFace] == nullptr) {
+      if (pmb->pmy_mesh->forest.GetTreePtr(pmb->loc.tree())->SwarmBndryFnctn[iFace] ==
+          nullptr) {
         msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
             << " user boundary requested but provided function is null!";
         PARTHENON_FAIL(msg);

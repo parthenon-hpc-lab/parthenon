@@ -173,7 +173,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   return ParthenonStatus::ok;
 }
 
-void ParthenonManager::ParthenonInitPackagesAndMesh() {
+void ParthenonManager::ParthenonInitPackagesAndMesh(
+    std::optional<forest::ForestDefinition> forest_def) {
   if (called_init_packages_and_mesh_) {
     PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
   }
@@ -188,8 +189,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-
-  if (arg.res_flag == 0) {
+  if (forest_def) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
+  } else if (arg.res_flag == 0) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {

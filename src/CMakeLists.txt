@@ -162,10 +162,13 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
+  mesh/forest/forest_node.hpp
+  mesh/forest/forest_topology.cpp
+  mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
-  mesh/forest/relative_orientation.hpp
-  mesh/forest/relative_orientation.cpp
+  mesh/forest/logical_coordinate_transformation.hpp
+  mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
   mesh/forest/logical_location.cpp

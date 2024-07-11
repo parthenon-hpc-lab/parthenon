@@ -23,10 +23,13 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
+#include "mesh/forest/forest_node.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/cell_center_offsets.hpp"
 #include "utils/indexer.hpp"
@@ -41,20 +44,37 @@ class Tree : public std::enable_shared_from_this<Tree> {
   struct private_t {};
 
  public:
-  Tree(private_t, std::int64_t id, int ndim, int root_level,
-       RegionSize domain = RegionSize(),
+  Tree(private_t, std::int64_t id, int ndim, int root_level);
+
+  Tree(private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
        std::array<BoundaryFlag, BOUNDARY_NFACES> bcs = {
            BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block,
            BoundaryFlag::block, BoundaryFlag::block, BoundaryFlag::block});
+
+  Tree(private_t, std::int64_t id, int ndim, int root_level,
+       std::vector<std::shared_ptr<Node>> nodes);
+
+  template <class STD_CONTAINER_TYPE>
+  Tree(private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
+       std::array<BoundaryFlag, BOUNDARY_NFACES> bcs, STD_CONTAINER_TYPE nodes)
+      : Tree(Tree::private_t(), id, ndim, root_level, domain, bcs) {
+    forest_nodes = std::vector<std::shared_ptr<Node>>(nodes.begin(), nodes.end());
+  }
+
+  template <class STD_CONTAINER_TYPE>
+  Tree(private_t, std::int64_t id, int ndim, int root_level, STD_CONTAINER_TYPE nodes)
+      : Tree(Tree::private_t(), id, ndim, root_level) {
+    forest_nodes = std::vector<std::shared_ptr<Node>>(nodes.begin(), nodes.end());
+  }
 
   template <class... Ts>
   static std::shared_ptr<Tree> create(Ts &&...args) {
     auto ptree = std::make_shared<Tree>(private_t(), std::forward<Ts>(args)...);
     // Make the tree its own central neighbor to reduce code duplication
-    RelativeOrientation orient;
-    orient.use_offset = true;
-    orient.offset = {0, 0, 0};
-    ptree->neighbors[13].insert({ptree.get(), orient});
+    LogicalCoordinateTransformation lcoord_trans;
+    lcoord_trans.use_offset = true;
+    lcoord_trans.offset = {0, 0, 0};
+    ptree->neighbors[13].insert({ptree.get(), lcoord_trans});
     return ptree;
   }
 
@@ -86,13 +106,25 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // Methods for building tree connectivity
   void AddNeighborTree(CellCentOffsets offset, std::shared_ptr<Tree> neighbor_tree,
-                       RelativeOrientation orient, const bool periodic);
+                       LogicalCoordinateTransformation lcoord_trans, const bool periodic);
 
   // Global id of the tree
   std::uint64_t GetId() const { return my_id; }
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;
+
+  std::vector<std::shared_ptr<Node>> forest_nodes;
+
+  // Boundary Functions
+  void EnrollBndryFncts(
+      ApplicationInput *app_in,
+      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
+      std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in);
+  BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
+  SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
+  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
+  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
  private:
   void FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int ox3,
@@ -115,9 +147,9 @@ class Tree : public std::enable_shared_from_this<Tree> {
   // This contains all of the neighbor information for this tree, for each of the
   // 3^3 possible neighbor connections. Since an edge or node connection can have
   // multiple neighbors generally, we keep a map at each neighbor location from
-  // the tree sptr to the relative logical coordinate orientation of the neighbor
+  // the tree sptr to the relative logical coordinate transformation to the neighbor
   // block.
-  std::array<std::unordered_map<Tree *, RelativeOrientation>, 27> neighbors;
+  std::array<std::unordered_map<Tree *, LogicalCoordinateTransformation>, 27> neighbors;
 
   std::array<BoundaryFlag, BOUNDARY_NFACES> boundary_conditions;
 

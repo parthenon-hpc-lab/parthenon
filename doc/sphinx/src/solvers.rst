@@ -16,7 +16,10 @@ of a multi-grid based linear solver in Parthenon is also given in
 preconditioner for BiCGStab). We plan to build wrappers that simplify the 
 use of these methods in down stream codes in the future. Note that the 
 example code does not currently rely on the Stencil and SparseMatrixAccessor 
-code described below. 
+code described below.
+
+Some implementation notes about geometric multi-grid can be found in 
+:ref:`these notes <doc/latex/main.pdf>`. 
 
 Stencil
 -------
