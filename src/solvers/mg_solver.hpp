@@ -115,22 +115,20 @@ class MGSolver {
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
     iter_counter = -1;
-    itl.AddTask(
+    auto update_iter = itl.AddTask(
         TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
         [](int *iter_counter) {
           (*iter_counter)++;
-          if (*iter_counter > 0 || Globals::my_rank != 0) return TaskStatus::complete;
+          if (*iter_counter > 1 || Globals::my_rank != 0) return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
         },
         &iter_counter);
-    auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
+    auto mg_finest = AddLinearOperatorTasks(itl, update_iter, partition, pmesh);
 
     auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
-    if (partition >= partitions.size()) return dependence;
+    if (partition >= partitions.size()) PARTHENON_FAIL("Does not work with non-default partitioning."); 
     auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
-    // Ensure that all partitions are finished before communicating, otherwise comm buffers can run over each other
-    mg_finest = itl.AddTask(TaskQualifier::local_sync, mg_finest, [](){return TaskStatus::complete;});
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
@@ -163,11 +161,11 @@ class MGSolver {
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
-
+    dependence = tl.AddTask(TaskQualifier::global_sync, dependence, [](){return TaskStatus::complete;});
     auto mg_finest = AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
                                                      min_level, max_level, pmesh);
     // Ensure that all partitions are finished before returning to prevent unexpected behavior
-    return tl.AddTask(TaskQualifier::local_sync, mg_finest, [](){return TaskStatus::complete;});
+    return tl.AddTask(TaskQualifier::global_sync, mg_finest, [](){return TaskStatus::complete;});
   }
 
   template <class TL_t>
@@ -177,9 +175,11 @@ class MGSolver {
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
-
-    return AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
+    
+    dependence = tl.AddTask(TaskQualifier::global_sync, dependence, [](){return TaskStatus::complete;});
+    auto mg_setup = AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
                                            min_level, max_level, pmesh);
+    return tl.AddTask(TaskQualifier::global_sync, mg_setup, [](){return TaskStatus::complete;});
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
@@ -446,14 +446,14 @@ class MGSolver {
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse =
-          tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
+          tl.AddTask(residual, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
 
       auto coarser = AddMultiGridTasksPartitionLevel(
-          tl, TaskID(), partition, level - 1, min_level, max_level, pmesh);
+          tl, dependence, partition, level - 1, min_level, max_level, pmesh);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser = tl.AddTask(
-          coarser | communicate_to_coarse, TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
+          communicate_to_coarse, TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto prolongate =
