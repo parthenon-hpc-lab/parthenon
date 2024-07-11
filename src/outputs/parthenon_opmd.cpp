@@ -505,10 +505,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
             }
           }
         } // loop over components
-      } // out_var->IsAllocated()
-    } // loop over blocks
+      }   // out_var->IsAllocated()
+    }     // loop over blocks
     it.seriesFlush();
-  } // loop over vars
+  }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // The iteration can be closed in order to help free up resources.
