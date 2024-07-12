@@ -23,6 +23,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Kokkos_ScatterView.hpp"
@@ -177,9 +178,15 @@ class AscentOutput : public OutputType {
 
 class OpenPMDOutput : public OutputType {
  public:
-  explicit OpenPMDOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  explicit OpenPMDOutput(const OutputParameters &oparams,
+                         std::string backend_config)
+      : OutputType(oparams), backend_config_(std::move(backend_config)) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+
+ private:
+  //  path to file containing config passed to backend
+  std::string backend_config_;
 };
 
 #ifdef ENABLE_HDF5
