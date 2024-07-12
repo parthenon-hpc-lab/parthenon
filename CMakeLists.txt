@@ -204,7 +204,8 @@ if (PARTHENON_ENABLE_OPENPMD)
   set(openPMD_USE_PYTHON OFF)
   FetchContent_Declare(openPMD
     GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
-    GIT_TAG        "0.15.2")
+    # we need newer than the latest 0.15.2 release to support writing attriutes from a subset of ranks
+    GIT_TAG        "bda3544") # develop as of 2024-07-12
   FetchContent_MakeAvailable(openPMD)
   install(TARGETS openPMD EXPORT parthenonTargets)
 endif()
