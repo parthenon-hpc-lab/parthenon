@@ -165,9 +165,14 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
   // TODO(pgrete) add final and now logic
+  if (backend_config_ != "{}") {
+    // the prepending @ indicates that the config is a file to be read and parsed
+    backend_config_.insert(0, "@");
+  }
+
   Series series =
       Series(output_params.file_basename + "." + output_params.file_id + ".%05T.bp",
-             Access::CREATE, MPI_COMM_WORLD);
+             Access::CREATE, MPI_COMM_WORLD, backend_config_);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
