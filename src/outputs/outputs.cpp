@@ -270,7 +270,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       } else if (op.file_type == "openpmd") {
 #ifdef PARTHENON_ENABLE_OPENPMD
         const auto backend_config =
-            pin->GetOrAddString(op.block_name, "backend_config", "{}");
+            pin->GetOrAddString(op.block_name, "backend_config", "default");
 
         pnew_type = new OpenPMDOutput(op, backend_config);
 #else
