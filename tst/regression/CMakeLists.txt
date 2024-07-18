@@ -75,11 +75,26 @@ if (ENABLE_HDF5)
     --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Restart fine
+  list(APPEND TEST_DIRS restart_fine)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fine_advection/fine_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_fine/parthinput.restart_fine \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+  list(APPEND EXTRA_TEST_LABELS "")
+  
+  # Boundary exchange example
+  list(APPEND TEST_DIRS boundary_exchange)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/boundary_exchange/boundary-exchange-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange/parthinput.boundary_exchange")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Advection test

@@ -1,0 +1,58 @@
+# ========================================================================================
+#  (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = boundary_exchange
+
+<parthenon/mesh>
+refinement = static
+numlevel = 1
+
+nx1 = 8
+x1min = 0.0
+x1max = 1.0
+ix1_bc = outflow
+ox1_bc = outflow
+
+nx2 = 8
+x2min = 0.0
+x2max = 1.0
+ix2_bc = outflow
+ox2_bc = outflow
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+
+# How many meshblocks to use in a premade default kernel.
+# A value of <1 means use the whole mesh.
+pack_size = 4
+
+<parthenon/meshblock>
+nx1 = 4
+nx2 = 4
+nx3 = 1
+
+<parthenon/static_refinement0>
+level = 1     # refinement level
+x1min = 0.0   # refinement region inner boundary, X1-dir
+x1max = 0.5   # refinement region outer boundary, X1-dir
+x2min = 0.0   # refinement region inner boundary, X2-dir
+x2max = 0.5   # refinement region outer boundary, X2-dir
+x3min = -1.0  # refinement region inner boundary, X3-dir
+x3max = 1.0   # refinement region outer boundary, X3-dir
+
+<parthenon/output0>
+file_type = hdf5
+ghost_zones = true
+variables = neighbor_info

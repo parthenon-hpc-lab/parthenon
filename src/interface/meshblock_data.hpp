@@ -31,11 +31,11 @@
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
 
 namespace parthenon {
-
 /// Interface to underlying infrastructure for data declaration and access.
 ///
 /// The MeshBlockData class is a container for the variables that make up
@@ -66,13 +66,6 @@ class MeshBlockData {
   MeshBlockData<T>() = default;
   explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
 
-  // Constructors for getting sub-containers
-  // the variables returned are all shallow copies of the src container.
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
-                   const std::vector<int> &sparse_ids = {});
-  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags,
-                   const std::vector<int> &sparse_ids = {});
-
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
@@ -97,6 +90,19 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(std::forward<Ts>(args)...);
   }
 
+  template <class... Ts>
+  IndexRange GetBoundsI(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsI(std::forward<Ts>(args)...);
+  }
+  template <class... Ts>
+  IndexRange GetBoundsJ(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsJ(std::forward<Ts>(args)...);
+  }
+  template <class... Ts>
+  IndexRange GetBoundsK(CellLevel cl, Ts &&...args) const {
+    return GetBlockPointer()->GetCellBounds(cl).GetBoundsK(std::forward<Ts>(args)...);
+  }
+
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb.lock(); }
   void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
@@ -109,18 +115,27 @@ class MeshBlockData {
     pmy_block = other->GetBlockSharedPointer();
   }
 
-  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
-                  const std::shared_ptr<MeshBlock> pmb);
-
   /// Create copy of MeshBlockData, possibly with a subset of named fields,
   /// and possibly shallow.  Note when shallow=false, new storage is allocated
   /// for non-OneCopy vars, but the data from src is not actually deep copied
-  template <typename ID_t>
-  void Initialize(const MeshBlockData<T> *src, const std::vector<ID_t> &vars,
-                  const bool shallow_copy) {
+  template <class SRC_t, typename ID_t = std::string>
+  void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
+                  const bool shallow_copy = false) {
+    Initialize(src->resolved_packages, src, vars, shallow_copy);
+  }
+
+  template <class SRC_t, typename ID_t = std::string>
+  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
+                  const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
+                  const bool shallow_copy = false) {
+    if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
+                    std::is_same_v<SRC_t, MeshBlock>)) {
+      // We don't allow other types
+      static_assert(always_false<SRC_t>, "Bad source type for initialization.");
+    }
     PARTHENON_DEBUG_REQUIRE(src != nullptr, "Source data must be non-null.");
     SetBlockPointer(src);
-    resolved_packages_ = src->resolved_packages_;
+    resolved_packages = resolved_packages_in;
     is_shallow_ = shallow_copy;
 
     // clear all variables, maps, and pack caches
@@ -132,7 +147,7 @@ class MeshBlockData {
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
@@ -142,23 +157,51 @@ class MeshBlockData {
 
     // special case when the list of vars is empty, copy everything
     if (vars.empty()) {
-      for (auto v : src->GetVariableVector()) {
-        add_var(v);
+      if constexpr (std::is_same_v<SRC_t, MeshBlockData<Real>>) {
+        for (auto v : src->GetVariableVector()) {
+          add_var(v);
+        }
+      } else if constexpr (std::is_same_v<SRC_t, MeshBlock>) {
+        for (auto const &q : resolved_packages->AllFields()) {
+          AddField(q.first.base_name, q.second, q.first.sparse_id);
+        }
       }
     } else {
-      for (const auto &v : vars) {
-        auto var = src->GetVarPtr(v);
-        add_var(var);
-        // Add the associated flux as well if not explicitly
-        // asked for
-        if (var->IsSet(Metadata::WithFluxes)) {
-          auto flx_name = var->metadata().GetFluxName();
-          bool found = false;
-          for (const auto &v2 : vars) {
-            if (src->GetVarPtr(v2)->label() == flx_name) found = true;
+      if constexpr (std::is_same_v<SRC_t, MeshBlockData<Real>>) {
+        for (const auto &v : vars) {
+          auto var = src->GetVarPtr(v);
+          add_var(var);
+          // Add the associated flux as well if not explicitly
+          // asked for
+          if (var->IsSet(Metadata::WithFluxes)) {
+            auto flx_name = var->metadata().GetFluxName();
+            bool found = false;
+            for (const auto &v2 : vars) {
+              if (src->GetVarPtr(v2)->label() == flx_name) found = true;
+            }
+            if (!found) add_var(src->GetVarPtr(flx_name));
           }
-          if (!found) add_var(src->GetVarPtr(flx_name));
         }
+      } else {
+        PARTHENON_FAIL(
+            "Variable subset selection not yet implemented for MeshBlock input.");
+      }
+    }
+
+    // TODO(LFR): Not sure why we only do this in the MeshBlock case, but this carries
+    // over from the previous iteration.
+    if constexpr (std::is_same_v<SRC_t, MeshBlock>) {
+      if (stage_name_ == "base") {
+        const auto &swarm_container = GetSwarmData();
+        swarm_container->Initialize(resolved_packages, GetBlockSharedPointer());
+      }
+
+      // This seems to work fine outside the constexpr if, but having it inside is
+      // consistent with the old code.
+      Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
+      auto alloc_vars = GetVariablesByFlag(flags);
+      for (auto &v : alloc_vars.vars()) {
+        AllocateSparse(v->label());
       }
     }
   }
@@ -560,7 +603,7 @@ class MeshBlockData {
   }
 
   std::weak_ptr<MeshBlock> pmy_block;
-  std::shared_ptr<StateDescriptor> resolved_packages_;
+  std::shared_ptr<StateDescriptor> resolved_packages;
   bool is_shallow_ = false;
   const std::string stage_name_;
 

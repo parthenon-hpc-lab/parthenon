@@ -170,7 +170,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   return ParthenonStatus::ok;
 }
 
-void ParthenonManager::ParthenonInitPackagesAndMesh() {
+void ParthenonManager::ParthenonInitPackagesAndMesh(
+    std::optional<forest::ForestDefinition> forest_def) {
   if (called_init_packages_and_mesh_) {
     PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
   }
@@ -185,8 +186,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-
-  if (arg.res_flag == 0) {
+  if (forest_def) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
+  } else if (arg.res_flag == 0) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
@@ -250,7 +252,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
-      (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
+      (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -271,25 +273,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     PARTHENON_THROW(msg)
   }
 
-  // Get an iterator on block 0 for variable listing
-  IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
-  IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
-  IndexRange out_kb = mb.cellbounds.GetBoundsK(theDomain);
-
-  std::vector<size_t> bsize;
-  bsize.push_back(out_ib.e - out_ib.s + 1);
-  bsize.push_back(out_jb.e - out_jb.s + 1);
-  bsize.push_back(out_kb.e - out_kb.s + 1);
-
-  size_t nCells = bsize[0] * bsize[1] * bsize[2];
-
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
   const auto all_vars_info =
-      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds);
+      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds, mb.f_cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -301,6 +291,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Allocate space based on largest vector
   int max_vlen = 1;
   int num_sparse = 0;
+  size_t nCells = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -316,6 +307,16 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                    " is marked as sparse in restart file");
     }
     max_vlen = std::max(max_vlen, v_info.num_components);
+    IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
+    IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
+    IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
+
+    std::vector<size_t> bsize;
+    bsize.push_back(out_ib.e - out_ib.s + 1);
+    bsize.push_back(out_jb.e - out_jb.s + 1);
+    bsize.push_back(out_kb.e - out_kb.s + 1);
+
+    nCells = std::max(nCells, bsize[0] * bsize[1] * bsize[2]);
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -365,7 +366,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // we update the HDF5 infrastructure!
       if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, resfile.hasGhost, index,
+            v_info, resfile.HasGhost() != 0, index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });

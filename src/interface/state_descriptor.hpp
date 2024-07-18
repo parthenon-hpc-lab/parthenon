@@ -62,7 +62,7 @@ using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 /// IDs but they maybe could be? We should consider unifying that.
 struct RefinementFunctionMaps {
   void Register(const Metadata &m, std::string varname) {
-    if (m.IsRefined()) {
+    if (m.HasRefinementOps()) {
       const auto &funcs = m.GetRefinementFunctions();
       // Guard against uninitialized refinement functions by checking
       // if the label is the empty string.

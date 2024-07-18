@@ -116,6 +116,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
+  /** the variable will have twice as many active zones in each direction **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
   /************************************************/                                     \
@@ -446,9 +448,10 @@ class Metadata {
 
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
-  bool IsRefined() const {
+  bool HasRefinementOps() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
-            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
+            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux) ||
+            IsSet(WithFluxes));
   }
 
   // Returns true if this variable is a coords var
@@ -528,7 +531,7 @@ class Metadata {
             class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
-        IsRefined(),
+        HasRefinementOps(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,

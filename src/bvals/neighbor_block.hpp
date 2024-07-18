@@ -30,6 +30,7 @@
 
 #include "defs.hpp"
 #include "mesh/forest/block_ownership.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/cell_center_offsets.hpp"
@@ -50,8 +51,10 @@ struct NeighborBlock {
   int rank, gid;
   // Swarm communication buffer identifier
   int bufid, targetid;
-  // LogicalLocation of neighbor block
+  // LogicalLocation of neighbor block in neighbor blocks tree
   LogicalLocation loc;
+  // LogicalLocation of neighbor block in origin tree
+  LogicalLocation origin_loc;
   // offsets of neighbor block if it is on a finer level
   // TODO(LFR): Remove these
   int fi1, fi2;
@@ -61,10 +64,13 @@ struct NeighborBlock {
   CellCentOffsets offsets;
   // Ownership of neighbor block of different topological elements
   block_ownership_t ownership;
+  // Logical coordinate transformation from the main block to this neighbor
+  forest::LogicalCoordinateTransformation lcoord_trans;
 
   NeighborBlock();
-  NeighborBlock(Mesh *mesh, LogicalLocation loc, int rank, int gid,
-                std::array<int, 3> offsets, int bid, int target_id, int ifi1, int ifi2);
+  NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,
+                int gid, std::array<int, 3> offsets, int bid, int target_id, int ifi1,
+                int ifi2);
 };
 
 //----------------------------------------------------------------------------------------

@@ -13,12 +13,19 @@
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
+#if __has_include(<cxxabi.h>)
+#include <cxxabi.h> //NOLINT
+#define HAS_CXX_ABI
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <functional>
 #include <list>
 #include <memory>
+#include <regex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -28,7 +35,12 @@
 #include <parthenon_mpi.hpp>
 
 #include "thread_pool.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
+
+// Macro for decorating functions passed to AddTask so that their names
+// are stored for outputing task graphs
+#define TF(...) std::string(#__VA_ARGS__), __VA_ARGS__
 
 namespace parthenon {
 
@@ -92,9 +104,9 @@ class Task {
  public:
   Task() = default;
   template <typename TID>
-  Task(TID &&dep, const std::function<TaskStatus()> &func,
+  Task(TID &&dep, const std::string &label, const std::function<TaskStatus()> &func,
        std::pair<int, int> limits = {1, 1})
-      : f(func), exec_limits(limits) {
+      : label_(label), f(func), exec_limits(limits) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
     } else {
@@ -122,6 +134,7 @@ class Task {
     return status;
   }
   TaskID GetID() { return this; }
+  std::string GetLabel() const { return label_; }
   bool ready() {
     // check that no dependency is incomplete
     bool go = true;
@@ -161,7 +174,54 @@ class Task {
   int num_calls = 0;
   TaskStatus task_status = TaskStatus::incomplete;
   std::mutex mutex;
+  std::string label_;
 };
+
+inline std::ostream &WriteTaskGraph(std::ostream &stream,
+                                    const std::vector<std::shared_ptr<Task>> &tasks) {
+#ifndef HAS_CXX_ABI
+  std::cout << "Warning: task graph output will not include function"
+               "signatures since libcxxabi is unavailable.\n";
+#endif
+  std::vector<std::pair<std::regex, std::string>> replacements;
+  replacements.emplace_back("parthenon::", "");
+  replacements.emplace_back("std::", "");
+  replacements.emplace_back("MeshData<[^>]*>", "MD");
+  replacements.emplace_back("MeshBlockData<[^>]*>", "MBD");
+  replacements.emplace_back("shared_ptr", "sptr");
+  replacements.emplace_back("TaskStatus ", "");
+  replacements.emplace_back("BoundaryType::", "");
+
+  stream << "digraph {\n";
+  stream << "node [fontname=\"Helvetica,Arial,sans-serif\"]\n";
+  stream << "edge [fontname=\"Helvetica,Arial,sans-serif\"]\n";
+  constexpr int kBufSize = 1024;
+  char buf[kBufSize];
+  for (auto &ptask : tasks) {
+    std::string cleaned_label = ptask->GetLabel();
+    for (auto &[re, str] : replacements)
+      cleaned_label = std::regex_replace(cleaned_label, re, str);
+    snprintf(buf, kBufSize, " n%p [label=\"%s\"];\n", ptask->GetID().GetTask(),
+             cleaned_label.c_str());
+    stream << std::string(buf);
+  }
+  for (auto &ptask : tasks) {
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::complete)) {
+      snprintf(buf, kBufSize, " n%p -> n%p [style=\"solid\"];\n",
+               ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+      stream << std::string(buf);
+    }
+  }
+  for (auto &ptask : tasks) {
+    for (auto &pdtask : ptask->GetDependent(TaskStatus::iterate)) {
+      snprintf(buf, kBufSize, " n%p -> n%p [style=\"dashed\"];\n",
+               ptask->GetID().GetTask(), pdtask->GetID().GetTask());
+      stream << std::string(buf);
+    }
+  }
+  stream << "}\n";
+  return stream;
+}
 
 class TaskRegion;
 class TaskList {
@@ -170,11 +230,11 @@ class TaskList {
  public:
   TaskList() : TaskList(TaskID(), {1, 1}) {}
   explicit TaskList(const TaskID &dep, std::pair<int, int> limits)
-      : dependency(dep), exec_limits(limits) {
+      : dependency(dep), exec_limits(limits), graph_built{false} {
     // make a trivial first_task after which others will get launched
     // simplifies logic for iteration and startup
     tasks.push_back(std::make_shared<Task>(
-        dependency,
+        dependency, "first_task",
         [&tasks = tasks]() {
           for (auto &t : tasks) {
             t->SetStatus(TaskStatus::incomplete);
@@ -191,7 +251,7 @@ class TaskList {
     // make a trivial last_task that tasks dependent on this list's execution
     // can depend on.  Also simplifies exiting completed iterations
     tasks.push_back(std::make_shared<Task>(
-        TaskID(),
+        TaskID(), "last_task",
         [&completion_tasks = completion_tasks]() {
           for (auto t : completion_tasks) {
             t->reset_iteration();
@@ -207,17 +267,34 @@ class TaskList {
     return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
   }
 
+  template <class Arg1, class... Args>
+  TaskID AddTask(const TaskQualifier tq, TaskID dep, Arg1 &&arg1, Args &&...args) {
+    if constexpr (std::is_invocable<Arg1, Args...>::value) {
+      return AddTaskImpl(tq, dep, {}, std::forward<Arg1>(arg1),
+                         std::forward<Args>(args)...);
+    } else if constexpr (std::is_convertible<Arg1, std::string>::value) {
+      return AddTaskImpl(tq, dep, std::forward<Arg1>(arg1), std::forward<Args>(args)...);
+    } else {
+      static_assert(always_false<Arg1>, "Bad signature for AddTask.");
+    }
+  }
+
   template <class... Args>
-  TaskID AddTask(const TaskQualifier tq, TaskID dep, Args &&...args) {
+  TaskID AddTaskImpl(const TaskQualifier tq, TaskID dep,
+                     const std::optional<std::string> &label, Args &&...args) {
+    if (graph_built) {
+      PARTHENON_FAIL("Trying to add a task to a TaskList that has already"
+                     " been built into a completed TaskRegion graph.");
+    }
     // user-space tasks always depend on something. if no dependencies are given,
     // make the task dependent on the list's first_task
     if (dep.empty()) dep = TaskID(first_task);
 
     if (!tq.Once() || (tq.Once() && unique_id == 0)) {
-      AddUserTask(dep, std::forward<Args>(args)...);
+      AddUserTask(dep, label, std::forward<Args>(args)...);
     } else {
       tasks.push_back(std::make_shared<Task>(
-          dep, [=]() { return TaskStatus::complete; }, exec_limits));
+          dep, "once task", [=]() { return TaskStatus::complete; }, exec_limits));
     }
 
     Task *my_task = tasks.back().get();
@@ -251,7 +328,7 @@ class TaskList {
 #ifdef MPI_PARALLEL
         // add a task that starts the Iallreduce on the task statuses
         tasks.push_back(std::make_shared<Task>(
-            id,
+            id, "GlobalSync start",
             [my_task, &stat = *global_status.back(), &req = *global_request.back(),
              &comm = *global_comm.back()]() {
               // jump through a couple hoops to figure out statuses of all instances of
@@ -271,7 +348,7 @@ class TaskList {
         start = TaskID(tasks.back().get());
         // add a task that tests for completion of the Iallreduces of statuses
         tasks.push_back(std::make_shared<Task>(
-            start,
+            start, "GlobalSync check completion",
             [&stat = *global_status.back(), &req = *global_request.back()]() {
               int check;
               PARTHENON_MPI_CHECK(MPI_Test(&req, &check, MPI_STATUS_IGNORE));
@@ -285,10 +362,12 @@ class TaskList {
       } else { // unique_id != 0
         // just add empty tasks
         tasks.push_back(std::make_shared<Task>(
-            id, [&]() { return TaskStatus::complete; }, exec_limits));
+            id, "empty GlobalSync task", [&]() { return TaskStatus::complete; },
+            exec_limits));
         start = TaskID(tasks.back().get());
         tasks.push_back(std::make_shared<Task>(
-            start, [my_task]() { return my_task->GetStatus(); }, exec_limits));
+            start, "empty GlobalSync task", [my_task]() { return my_task->GetStatus(); },
+            exec_limits));
       }
       // reset id so it now points at the task that finishes the Iallreduce
       id = TaskID(tasks.back().get());
@@ -328,6 +407,12 @@ class TaskList {
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));
   }
 
+  inline friend std::ostream &operator<<(std::ostream &stream, const TaskList &tl) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    tl.AppendTasks(tasks);
+    return WriteTaskGraph(stream, tasks);
+  }
+
  private:
   TaskID dependency;
   std::pair<int, int> exec_limits;
@@ -348,6 +433,20 @@ class TaskList {
   Task *last_task;
   // a unique id to support tasks that should only get executed once per region
   int unique_id;
+  bool graph_built;
+
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) const {
+    tasks_inout.insert(tasks_inout.end(), tasks.begin(), tasks.end());
+    for (const auto &stl : sublists) {
+      tasks_inout.insert(tasks_inout.end(), stl->tasks.begin(), stl->tasks.end());
+    }
+  }
+
+  void SetGraphBuilt() {
+    graph_built = true;
+    for (auto &tl : sublists)
+      tl->SetGraphBuilt();
+  }
 
   Task *GetStartupTask() { return first_task; }
   size_t NumRegional() const { return regional_tasks.size(); }
@@ -363,11 +462,26 @@ class TaskList {
       tl->ConnectIteration();
   }
 
+  template <class F>
+  std::string MakeUserTaskLabel(std::optional<std::string> label) {
+    if (!label.has_value()) label = "anon";
+#ifdef HAS_CXX_ABI
+    int status;
+    auto signature =
+        std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
+#else
+    std::string signature = " (...)";
+#endif
+    auto n = signature.find('(');
+    signature.insert(n--, *label);
+    return signature;
+  }
+
   template <class T, class U, class... Args1, class... Args2>
-  void AddUserTask(TaskID &dep, TaskStatus (T::*func)(Args1...), U *obj,
-                   Args2 &&...args) {
+  void AddUserTask(TaskID &dep, const std::optional<std::string> &label,
+                   TaskStatus (T::*func)(Args1...), U *obj, Args2 &&...args) {
     tasks.push_back(std::make_shared<Task>(
-        dep,
+        dep, MakeUserTaskLabel<decltype(func)>(label),
         [=]() mutable -> TaskStatus {
           return (obj->*func)(std::forward<Args2>(args)...);
         },
@@ -375,9 +489,10 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  void AddUserTask(TaskID &dep, F &&func, Args &&...args) {
+  void AddUserTask(TaskID &dep, const std::optional<std::string> &label, F &&func,
+                   Args &&...args) {
     tasks.push_back(std::make_shared<Task>(
-        dep,
+        dep, MakeUserTaskLabel<F>(label),
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
         },
@@ -385,7 +500,10 @@ class TaskList {
   }
 };
 
+class TaskCollection;
 class TaskRegion {
+  friend TaskCollection;
+
  public:
   TaskRegion() = delete;
   explicit TaskRegion(const int num_lists) : task_lists(num_lists) {
@@ -433,9 +551,22 @@ class TaskRegion {
 
   size_t size() const { return task_lists.size(); }
 
+  inline friend std::ostream &operator<<(std::ostream &stream, TaskRegion &region) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    region.AppendTasks(tasks);
+    return WriteTaskGraph(stream, tasks);
+  }
+
  private:
   std::vector<TaskList> task_lists;
   bool graph_built = false;
+
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
+    BuildGraph();
+    for (const auto &tl : task_lists) {
+      tl.AppendTasks(tasks_inout);
+    }
+  }
 
   void BuildGraph() {
     // first handle regional dependencies
@@ -470,6 +601,9 @@ class TaskRegion {
     }
 
     graph_built = true;
+    for (auto &tl : task_lists) {
+      tl.SetGraphBuilt();
+    }
   }
 };
 
@@ -494,8 +628,20 @@ class TaskCollection {
     return TaskListStatus::complete;
   }
 
+  inline friend std::ostream &operator<<(std::ostream &stream, TaskCollection &tc) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    tc.AppendTasks(tasks);
+    return WriteTaskGraph(stream, tasks);
+  }
+
  private:
   std::list<TaskRegion> regions;
+
+  void AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
+    for (auto &region : regions) {
+      region.AppendTasks(tasks_inout);
+    }
+  }
 };
 
 } // namespace parthenon
