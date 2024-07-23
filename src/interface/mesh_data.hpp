@@ -289,8 +289,8 @@ class MeshData {
   }
 
   const auto &GetAllBlockData() const { return block_data_; }
-  
-  bool ContainsGid(int gid) const { 
+
+  bool ContainsGid(int gid) const {
     bool contains = false;
     for (auto &b : block_data_) {
       if (b->GetBlockPointer()->gid == gid) contains = true;

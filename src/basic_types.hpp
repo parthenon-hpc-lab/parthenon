@@ -87,12 +87,12 @@ struct GridIdentifier {
     return GridIdentifier{GridType::two_level_composite, level};
   }
 
-  std::string label() const { 
+  std::string label() const {
     if (type == GridType::leaf) {
       return "GridType::leaf";
     } else if (type == GridType::two_level_composite) {
       return "GridType::two_level_composite[" + std::to_string(logical_level) + "]";
-    } 
+    }
     return "GridType::none";
   }
 };

@@ -162,19 +162,19 @@ class MGSolver {
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
     // We require a local pre- and post-MG sync since multigrid iterations require
-    // communication across blocks and partitions on the multigrid levels do not 
-    // necessarily contain the same blocks as partitions on the leaf grid. This 
+    // communication across blocks and partitions on the multigrid levels do not
+    // necessarily contain the same blocks as partitions on the leaf grid. This
     // means that without the syncs, leaf partitions can receive messages erroneously
     // receive messages and/or update block data during a MG step.
     auto pre_sync = tl.AddTask(TaskQualifier::local_sync, dependence,
-                           []() {return TaskStatus::complete; });
+                               []() { return TaskStatus::complete; });
     auto mg = pre_sync;
     for (int level = max_level; level >= min_level; --level) {
       mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level,
-                                           min_level, max_level, pmesh);
+                                                min_level, max_level, pmesh);
     }
-    auto post_sync = tl.AddTask(TaskQualifier::local_sync, mg,
-                                []() {return TaskStatus::complete; });
+    auto post_sync =
+        tl.AddTask(TaskQualifier::local_sync, mg, []() { return TaskStatus::complete; });
     return post_sync;
   }
 
@@ -188,8 +188,9 @@ class MGSolver {
 
     auto mg_setup = dependence;
     for (int level = max_level; level >= min_level; --level) {
-      mg_setup = mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level,
-                                                      min_level, max_level, pmesh);
+      mg_setup =
+          mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level,
+                                                     min_level, max_level, pmesh);
     }
     return mg_setup;
   }
