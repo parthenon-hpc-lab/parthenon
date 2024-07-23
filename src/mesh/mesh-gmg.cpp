@@ -126,11 +126,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 
     // Add the leaf block to the next finer level if required
     if (level < current_level) {
-      int max_neighbor_level = level;
-      for (auto &nb : pmb->neighbors) {
-        max_neighbor_level = std::max(max_neighbor_level, nb.loc.level());
-      }
-      if (max_neighbor_level > level) gmg_block_lists[level + 1].push_back(pmb);
+      gmg_block_lists[level + 1].push_back(pmb);
     }
 
     // Create internal blocks that share a Morton number with this block
