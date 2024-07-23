@@ -86,6 +86,15 @@ struct GridIdentifier {
   static GridIdentifier two_level_composite(int level) {
     return GridIdentifier{GridType::two_level_composite, level};
   }
+
+  std::string label() const { 
+    if (type == GridType::leaf) {
+      return "GridType::leaf";
+    } else if (type == GridType::two_level_composite) {
+      return "GridType::two_level_composite[" + std::to_string(logical_level) + "]";
+    } 
+    return "GridType::none";
+  }
 };
 // Add a comparator so we can store in std::map
 inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
