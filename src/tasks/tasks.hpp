@@ -130,8 +130,8 @@ class Task {
   }
 
   TaskStatus operator()() {
-    if (verbose_level_ > 0) std::cout << label_ << std::endl;
     auto status = f();
+    if (verbose_level_ > 0) std::cout << label_ << " [status = " << static_cast<int>(status) << "]" << std::endl;
     if (task_type == TaskType::completion) {
       // keep track of how many times it's been called
       num_calls += (status == TaskStatus::iterate || status == TaskStatus::complete);
