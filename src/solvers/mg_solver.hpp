@@ -161,14 +161,21 @@ class MGSolver {
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
-    dependence = tl.AddTask(TaskQualifier::global_sync, dependence,
-                            []() { return TaskStatus::complete; });
-    auto mg_finest = AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
-                                                     min_level, max_level, pmesh);
-    // Ensure that all partitions are finished before returning to prevent unexpected
-    // behavior
-    return tl.AddTask(TaskQualifier::global_sync, mg_finest,
-                      []() { return TaskStatus::complete; });
+    // We require a local pre- and post-MG sync since multigrid iterations require
+    // communication across blocks and partitions on the multigrid levels do not 
+    // necessarily contain the same blocks as partitions on the leaf grid. This 
+    // means that without the syncs, leaf partitions can receive messages erroneously
+    // receive messages and/or update block data during a MG step.
+    auto pre_sync = tl.AddTask(TaskQualifier::local_sync, dependence,
+                           []() {return TaskStatus::complete; });
+    auto mg = pre_sync;
+    for (int level = max_level; level >= min_level; --level) {
+      mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level,
+                                           min_level, max_level, pmesh);
+    }
+    auto post_sync = tl.AddTask(TaskQualifier::local_sync, mg,
+                                []() {return TaskStatus::complete; });
+    return post_sync;
   }
 
   template <class TL_t>
@@ -179,12 +186,12 @@ class MGSolver {
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
 
-    dependence = tl.AddTask(TaskQualifier::global_sync, dependence,
-                            []() { return TaskStatus::complete; });
-    auto mg_setup = AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
-                                                    min_level, max_level, pmesh);
-    return tl.AddTask(TaskQualifier::global_sync, mg_setup,
-                      []() { return TaskStatus::complete; });
+    auto mg_setup = dependence;
+    for (int level = max_level; level >= min_level; --level) {
+      mg_setup = mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level,
+                                                      min_level, max_level, pmesh);
+    }
+    return mg_setup;
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
@@ -333,8 +340,6 @@ class MGSolver {
                                          Mesh *pmesh) {
     using namespace utils;
 
-    bool multilevel = (level != min_level);
-
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
@@ -351,8 +356,6 @@ class MGSolver {
     if (level > min_level) {
       task_out =
           tl.AddTask(task_out, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md);
-      task_out = AddMultiGridSetupPartitionLevel(tl, task_out, partition, level - 1,
-                                                 min_level, max_level, pmesh);
     }
 
     // The boundaries are not up to date on return
@@ -385,10 +388,11 @@ class MGSolver {
     auto decorate_task_name = [partition, level](const std::string &in, auto b) {
       return std::make_tuple(in + "(p:" + std::to_string(partition) +
                                  ", l:" + std::to_string(level) + ")",
-                             0, b);
+                             1, b);
     };
 
-#define BTF(...) decorate_task_name(TF(__VA_ARGS__))
+//#define BTF(...) decorate_task_name(TF(__VA_ARGS__))
+#define BTF(...) TF(__VA_ARGS__)
     bool multilevel = (level != min_level);
 
     auto partitions =
@@ -453,10 +457,7 @@ class MGSolver {
 
       // 5. Restrict communication field and send to next level
       auto communicate_to_coarse = tl.AddTask(
-          residual, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
-
-      auto coarser = AddMultiGridTasksPartitionLevel(tl, dependence, partition, level - 1,
-                                                     min_level, max_level, pmesh);
+          residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser =
