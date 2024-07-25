@@ -35,6 +35,7 @@
 #include <basic_types.hpp>
 #include <parthenon_mpi.hpp>
 
+#include "globals.hpp"
 #include "thread_pool.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -132,8 +133,8 @@ class Task {
   TaskStatus operator()() {
     auto status = f();
     if (verbose_level_ > 0)
-      std::cout << label_ << " [status = " << static_cast<int>(status) << "]"
-                << std::endl;
+      printf("%s [status = %i, rank = %i]\n", label_.c_str(), static_cast<int>(status),
+             Globals::my_rank);
     if (task_type == TaskType::completion) {
       // keep track of how many times it's been called
       num_calls += (status == TaskStatus::iterate || status == TaskStatus::complete);
