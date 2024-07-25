@@ -515,6 +515,67 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
+  // -------------------------------------------------------------------------------- //
+  //   WRITING PARTICLE DATA                                                          //
+  // -------------------------------------------------------------------------------- //
+
+  Kokkos::Profiling::pushRegion("write particle data");
+  // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
+  AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms, true);
+  for (auto &[swname, swinfo] : all_swarm_info.all_info) {
+    openPMD::ParticleSpecies swm = it.particles[swname];
+    // These indicate particles/meshblock and location in global index
+    // space where each meshblock starts
+    swm.setAttribute("counts", swinfo.counts);
+    swm.setAttribute("offsets", swinfo.offsets);
+
+    if (swinfo.global_count == 0) {
+      continue;
+    }
+
+    // TODO(pgrete) dedup code (figure out why FillHostBuffer cannot be called from within
+    // auto lambda)
+    auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
+    for (auto &[vname, swmvarvec] : int_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
+                               "Only scalar particles supported at the moment.");
+      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+      openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
+
+      auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
+                                            {swinfo.global_count});
+      rc.resetDataset(dataset);
+      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+      // Flush because the host buffer is temporary
+      it.seriesFlush();
+    }
+    auto &real_vars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
+    for (auto &[vname, swmvarvec] : real_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
+                               "Only scalar particles supported at the moment.");
+      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+      openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
+
+      auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
+                                            {swinfo.global_count});
+      rc.resetDataset(dataset);
+      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+      // Flush because the host buffer is temporary
+      it.seriesFlush();
+    }
+
+    // From the HDF5 output:
+    // If swarm does not contain an "id" object, generate a sequential
+    // one for vis.
+    // BUT PG: this may break things in unpredicable ways
+    // I'm in favor of enforcing a global id somehow. We shold discuss.
+    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count("id") != 0,
+                             "Particles should always carry a unique, persistent id!");
+  }
+  Kokkos::Profiling::popRegion(); // write particle data
+
   // The iteration can be closed in order to help free up resources.
   // The iteration's content will be flushed automatically.
   // An iteration once closed cannot (yet) be reopened.
