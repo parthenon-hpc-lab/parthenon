@@ -331,8 +331,8 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   } else if (buf_state == BufferState::received_null) {
     out.buf_allocated = false;
   } else {
-    printf("%i -> %i (Set %s) is in state %i.\n", nb.gid, pmb->gid, v->label().c_str(),
-           buf_state);
+    printf("%i [rank: %i] -> %i [rank: %i] (Set %s) is in state %i.\n", nb.gid, nb.rank,
+           pmb->gid, Globals::my_rank, v->label().c_str(), buf_state);
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
   return out;
