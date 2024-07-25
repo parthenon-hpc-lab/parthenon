@@ -233,7 +233,7 @@ struct SwarmInfo {
   // Copies swarmvar to host in prep for output
   template <typename T>
   std::vector<T> FillHostBuffer(const std::string vname,
-                                ParticleVariableVector<T> &swmvarvec) {
+                                const ParticleVariableVector<T> &swmvarvec) const {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;

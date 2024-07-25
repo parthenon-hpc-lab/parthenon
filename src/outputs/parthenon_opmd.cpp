@@ -48,6 +48,7 @@
 #include "openPMD/IO/Access.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Mesh.hpp"
+#include "openPMD/ParticleSpecies.hpp"
 #include "openPMD/Series.hpp"
 #include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/output_utils.hpp"
@@ -94,6 +95,28 @@ void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it
 
 namespace OpenPMDUtils {
 
+template <typename T>
+void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
+                   openPMD::Iteration it) {
+  auto &vars_of_type_T = std::get<SwarmInfo::MapToVarVec<T>>(swinfo.vars);
+  for (const auto &[vname, swmvarvec] : vars_of_type_T) {
+    const auto &vinfo = swinfo.var_info.at(vname);
+    if (vinfo.tensor_rank != 0) {
+      continue;
+    }
+    PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
+                             "Only scalar particles supported at the moment.");
+    auto host_data = swinfo.FillHostBuffer<T>(vname, swmvarvec);
+    openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
+
+    auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
+                                          {swinfo.global_count});
+    rc.resetDataset(dataset);
+    rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+    // Flush because the host buffer is temporary
+    it.seriesFlush();
+  }
+}
 std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(const VarInfo &vinfo,
                                                                     const int comp_idx,
                                                                     const int level) {
@@ -533,38 +556,8 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       continue;
     }
 
-    // TODO(pgrete) dedup code (figure out why FillHostBuffer cannot be called from within
-    // auto lambda)
-    auto &int_vars = std::get<SwarmInfo::MapToVarVec<int>>(swinfo.vars);
-    for (auto &[vname, swmvarvec] : int_vars) {
-      const auto &vinfo = swinfo.var_info.at(vname);
-      PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
-                               "Only scalar particles supported at the moment.");
-      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
-      openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
-
-      auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
-                                            {swinfo.global_count});
-      rc.resetDataset(dataset);
-      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
-      // Flush because the host buffer is temporary
-      it.seriesFlush();
-    }
-    auto &real_vars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
-    for (auto &[vname, swmvarvec] : real_vars) {
-      const auto &vinfo = swinfo.var_info.at(vname);
-      PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
-                               "Only scalar particles supported at the moment.");
-      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
-      openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
-
-      auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
-                                            {swinfo.global_count});
-      rc.resetDataset(dataset);
-      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
-      // Flush because the host buffer is temporary
-      it.seriesFlush();
-    }
+    OpenPMDUtils::WriteSwarmVar<int>(swinfo, swm, it);
+    OpenPMDUtils::WriteSwarmVar<Real>(swinfo, swm, it);
 
     // From the HDF5 output:
     // If swarm does not contain an "id" object, generate a sequential
