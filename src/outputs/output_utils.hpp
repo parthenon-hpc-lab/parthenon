@@ -242,6 +242,7 @@ struct SwarmInfo {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              // TODO(pgrete) understand what's doing on with the blocks here...
               std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?

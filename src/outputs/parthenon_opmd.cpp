@@ -101,18 +101,26 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
   auto &vars_of_type_T = std::get<SwarmInfo::MapToVarVec<T>>(swinfo.vars);
   for (const auto &[vname, swmvarvec] : vars_of_type_T) {
     const auto &vinfo = swinfo.var_info.at(vname);
-    if (vinfo.tensor_rank != 0) {
-      continue;
-    }
-    PARTHENON_REQUIRE_THROWS(vinfo.tensor_rank == 0,
-                             "Only scalar particles supported at the moment.");
     auto host_data = swinfo.FillHostBuffer<T>(vname, swmvarvec);
-    openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
 
     auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
                                           {swinfo.global_count});
-    rc.resetDataset(dataset);
-    rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+    // TODO(pgrete) ask OpenPMD group if this is the right approach of if our non-scalar
+    // partices should be a multi-D `dataset` if is scalar
+    if (vinfo.tensor_rank == 0) {
+      openPMD::RecordComponent rc = swm[vname][openPMD::MeshRecordComponent::SCALAR];
+      rc.resetDataset(dataset);
+      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+
+      // else flatten components
+    } else {
+      for (auto n = 0; n < vinfo.nvar; n++) {
+        openPMD::RecordComponent rc = swm[vname][std::to_string(n)];
+        rc.resetDataset(dataset);
+        rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank],
+                         {swinfo.offsets[Globals::my_rank]}, {swinfo.count_on_rank});
+      }
+    }
     // Flush because the host buffer is temporary
     it.seriesFlush();
   }
