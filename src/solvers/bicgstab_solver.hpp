@@ -34,18 +34,20 @@ namespace solvers {
 struct BiCGSTABParams {
   MGParams mg_params;
   int max_iters = 1000;
-  Real residual_tolerance = 1.e-12;
+  std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
   bool precondition = true;
   bool print_per_step = false;
-
+  bool relative_residual = false;
   BiCGSTABParams() = default;
   BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
-    residual_tolerance =
-        pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
+    *residual_tolerance =
+        pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
     precondition = pin->GetOrAddBoolean(input_block, "precondition", precondition);
     print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
     mg_params = MGParams(pin, input_block);
+    relative_residual =
+        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
   }
 };
 
@@ -81,7 +83,7 @@ class BiCGSTABSolver {
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
                  equations eq_in = equations(), std::vector<int> shape = {})
       : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
-        iter_counter(0), eqs_(eq_in), presidual_tolerance(nullptr) {
+        iter_counter(0), eqs_(eq_in) {
     using namespace refinement_ops;
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
@@ -118,20 +120,33 @@ class BiCGSTABSolver {
     auto copy_p = tl.AddTask(dependence, TF(CopyData<rhs, p>), md);
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<rhs, rhat0>), md);
     auto get_rhat0r_init = DotProduct<rhat0, r>(dependence, tl, &rhat0r, md);
+    auto get_rhs2 = get_rhat0r_init;
+    if (params_.relative_residual)
+      get_rhs2 = DotProduct<rhs, rhs>(dependence, tl, &rhs2, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init,
+        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init | get_rhs2,
         "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
           return TaskStatus::complete;
         },
         this);
-    tl.AddTask(TaskQualifier::once_per_region, dependence, "print to screen", [&]() {
-      if (Globals::my_rank == 0 && params_.print_per_step)
-        printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-      return TaskStatus::complete;
-    });
+    tl.AddTask(
+        TaskQualifier::once_per_region, initialize, "print to screen",
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol,
+            bool relative_residual) {
+          if (Globals::my_rank == 0 && params_.print_per_step) {
+            Real tol =
+                relative_residual
+                    ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                    : *res_tol;
+            printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
+                   tol);
+          }
+          return TaskStatus::complete;
+        },
+        this, params_.residual_tolerance, params_.relative_residual);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
@@ -266,22 +281,25 @@ class BiCGSTABSolver {
         this, md);
 
     // 14. rhat0r_old <- rhat0r, zero all reductions
-    Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance)
-                                                : presidual_tolerance;
     auto check = itl.AddTask(
         TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
-        [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter, Real *res_tol) {
+        [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
+                    std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
-          if (rms_res < *res_tol || solver->iter_counter >= max_iter) {
+          Real tol = relative_residual
+                         ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                         : *res_tol;
+          if (rms_res < tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
             solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
           }
           return TaskStatus::iterate;
         },
-        this, pmesh, params_.max_iters, ptol);
+        this, pmesh, params_.max_iters, params_.residual_tolerance,
+        params_.relative_residual);
 
     return tl.AddTask(solver_id, TF(CopyData<x, u>), md);
   }
@@ -292,18 +310,17 @@ class BiCGSTABSolver {
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
 
-  void UpdateResidualTolerance(Real *ptol) { presidual_tolerance = ptol; }
+  BiCGSTABParams &GetParams() { return params_; }
 
  protected:
   MGSolver<u, rhs, equations> preconditioner;
   BiCGSTABParams params_;
   int iter_counter;
-  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
+  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
   Real rhat0r_old;
   equations eqs_;
   Real final_residual;
   int final_iteration;
-  Real *presidual_tolerance;
 };
 
 } // namespace solvers

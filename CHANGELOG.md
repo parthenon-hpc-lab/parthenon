@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1140]](https://github.com/parthenon-hpc-lab/parthenon/pull/1140) Allow for relative convergence tolerance in BiCGSTAB solver.
 - [[PR 1047]](https://github.com/parthenon-hpc-lab/parthenon/pull/1047) General three- and four-valent 2D forests w/ arbitrary orientations.
 - [[PR 1130]](https://github.com/parthenon-hpc-lab/parthenon/pull/1130) Enable `parthenon::par_reduce` for MD loops with Kokkos 1D Range
 - [[PR 1119]](https://github.com/parthenon-hpc-lab/parthenon/pull/1119) Formalize MeshData partitioning.
