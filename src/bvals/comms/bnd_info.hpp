@@ -59,6 +59,7 @@ struct BndInfo {
   bool allocated = true;
   bool buf_allocated = true;
   int alloc_status;
+  bool same_to_same = false;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms

@@ -123,13 +123,7 @@ class BiCGSTABSolver {
         zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init,
         "zero factors",
         [](BiCGSTABSolver *solver) {
-          solver->rhat0r_old = solver->rhat0r.val;
-          solver->rhat0r.val = 0.0;
-          solver->rhat0v.val = 0.0;
-          solver->ts.val = 0.0;
-          solver->tt.val = 0.0;
-          solver->residual.val = 0.0;
-          solver->iter_counter = 0;
+          solver->iter_counter = -1;
           return TaskStatus::complete;
         },
         this);
@@ -142,8 +136,19 @@ class BiCGSTABSolver {
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
 
+    auto sync = itl.AddTask(TaskQualifier::local_sync, none,
+                            []() { return TaskStatus::complete; });
+    auto reset = itl.AddTask(
+        TaskQualifier::once_per_region, sync, "update values",
+        [](BiCGSTABSolver *solver) {
+          solver->rhat0r_old = solver->rhat0r.val;
+          solver->iter_counter++;
+          return TaskStatus::complete;
+        },
+        this);
+
     // 1. u <- M p
-    auto precon1 = none;
+    auto precon1 = reset;
     if (params_.precondition) {
       auto set_rhs = itl.AddTask(precon1, TF(CopyData<p, rhs>), md);
       auto zero_u = itl.AddTask(precon1, TF(SetToZero<u>), md);
@@ -214,7 +219,7 @@ class BiCGSTABSolver {
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
-        TaskQualifier::local_sync, get_tt | get_ts, "x <- h + omega u",
+        get_tt | get_ts, "x <- h + omega u",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<h, u, x>(md, 1.0, omega);
@@ -249,8 +254,7 @@ class BiCGSTABSolver {
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
-        TaskQualifier::local_sync, get_rhat0r | get_res2,
-        "p <- r + beta * (p - omega * v)",
+        get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;
@@ -265,11 +269,8 @@ class BiCGSTABSolver {
     Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance)
                                                 : presidual_tolerance;
     auto check = itl.AddTask(
-        TaskQualifier::completion | TaskQualifier::once_per_region |
-            TaskQualifier::global_sync,
-        update_p | correct_x, "rhat0r_old <- rhat0r",
-        [](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter, Real *res_tol) {
-          solver->iter_counter++;
+        TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
+        [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter, Real *res_tol) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
@@ -278,12 +279,6 @@ class BiCGSTABSolver {
             solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
           }
-          solver->rhat0r_old = solver->rhat0r.val;
-          solver->rhat0r.val = 0.0;
-          solver->rhat0v.val = 0.0;
-          solver->ts.val = 0.0;
-          solver->tt.val = 0.0;
-          solver->residual.val = 0.0;
           return TaskStatus::iterate;
         },
         this, pmesh, params_.max_iters, ptol);
