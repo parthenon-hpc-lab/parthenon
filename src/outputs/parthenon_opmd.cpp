@@ -110,28 +110,28 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
     // partices should be a multi-D `dataset` if is scalar
     if (vinfo.tensor_rank == 0) {
       // special sauce to align "positions" with standard
-      std::string mesh_record;
-      std::string mesh_record_component;
+      std::string particle_record;
+      std::string particle_record_component;
       if (vname == swarm_position::x::name()) {
-        mesh_record = "position";
-        mesh_record_component = "x";
+        particle_record = "position";
+        particle_record_component = "x";
       } else if (vname == swarm_position::y::name()) {
-        mesh_record = "position";
-        mesh_record_component = "y";
+        particle_record = "position";
+        particle_record_component = "y";
       } else if (vname == swarm_position::z::name()) {
-        mesh_record = "position";
-        mesh_record_component = "z";
+        particle_record = "position";
+        particle_record_component = "z";
       } else {
-        mesh_record = vname;
-        mesh_record_component = openPMD::MeshRecordComponent::SCALAR;
+        particle_record = vname;
+        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
       }
-      openPMD::RecordComponent rc = swm[mesh_record][mesh_record_component];
+      openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.resetDataset(dataset);
       rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
 
       // if positional, add offsets
-      if (mesh_record_component != openPMD::MeshRecordComponent::SCALAR) {
-        auto rc_offset = swm["positionOffset"][mesh_record_component];
+      if (particle_record_component != openPMD::MeshRecordComponent::SCALAR) {
+        auto rc_offset = swm["positionOffset"][particle_record_component];
         rc_offset.resetDataset(dataset);
         rc_offset.makeConstant(0.0);
       }
