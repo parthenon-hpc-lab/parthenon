@@ -177,7 +177,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                 (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
         s[dir] += nb.origin_loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
         e[dir] -= nb.origin_loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorSend) {
+        if (ir_type == IndexRangeType::InteriorSend && !prores) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
@@ -189,7 +189,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         // interior_offset in the above if block)
         s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
         e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorRecv) {
+        if (ir_type == IndexRangeType::InteriorRecv && !prores) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
@@ -277,6 +277,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   alloc_status = v->GetAllocationStatus();
 
   buf = combuf->buffer();
+  same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
   if (!allocated) return;
 
@@ -330,6 +331,8 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   } else if (buf_state == BufferState::received_null) {
     out.buf_allocated = false;
   } else {
+    printf("%i [rank: %i] -> %i [rank: %i] (Set %s) is in state %i.\n", nb.gid, nb.rank,
+           pmb->gid, Globals::my_rank, v->label().c_str(), buf_state);
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
   return out;
@@ -348,35 +351,35 @@ ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
   coarse = v->coarse_s.Get();
 }
 
-ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                            std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0,
-                   0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  for (auto el : v->GetTopologicalElements()) {
-    out.IncludeTopoEl(el) = true;
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
+  if (nb.loc.level() < pmb->loc.level()) {
+    for (auto el : v->GetTopologicalElements()) {
+      out.IncludeTopoEl(el) = true;
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
+    }
+    out.refinement_op = RefinementOp_t::Restriction;
   }
-  out.refinement_op = RefinementOp_t::Restriction;
   return out;
 }
 
-ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                              std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0,
-                   0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  for (auto el : v->GetTopologicalElements())
-    out.IncludeTopoEl(el) = true;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
-  out.refinement_op = RefinementOp_t::Prolongation;
+  if (nb.loc.level() < pmb->loc.level()) {
+    for (auto el : v->GetTopologicalElements())
+      out.IncludeTopoEl(el) = true;
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
+    out.refinement_op = RefinementOp_t::Prolongation;
+  }
   return out;
 }
 

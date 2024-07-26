@@ -336,7 +336,7 @@ endif()
 # Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
 # the flag is not added when compiling with Clang for Cuda.
 if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
+   target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
