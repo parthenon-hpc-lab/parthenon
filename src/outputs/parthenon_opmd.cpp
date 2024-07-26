@@ -127,7 +127,10 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
       }
       openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.resetDataset(dataset);
-      rc.storeChunk(host_data, {swinfo.offsets[Globals::my_rank]}, {host_data.size()});
+      // only write if there's sth to write (otherwise the host_data nullptr is caught)
+      if (swinfo.count_on_rank != 0) {
+        rc.storeChunk(host_data, {swinfo.global_offset}, {host_data.size()});
+      }
 
       // if positional, add offsets
       if (particle_record_component != openPMD::MeshRecordComponent::SCALAR) {
@@ -141,8 +144,11 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
       for (auto n = 0; n < vinfo.nvar; n++) {
         openPMD::RecordComponent rc = swm[vname][std::to_string(n)];
         rc.resetDataset(dataset);
-        rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank],
-                         {swinfo.offsets[Globals::my_rank]}, {swinfo.count_on_rank});
+        // only write if there's sth to write (otherwise the host_data nullptr is caught)
+        if (swinfo.count_on_rank != 0) {
+          rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank], {swinfo.global_offset},
+                           {swinfo.count_on_rank});
+        }
       }
     }
     // Flush because the host buffer is temporary
@@ -581,8 +587,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     openPMD::ParticleSpecies swm = it.particles[swname];
     // These indicate particles/meshblock and location in global index
     // space where each meshblock starts
-    swm.setAttribute("counts", swinfo.counts);
-    swm.setAttribute("offsets", swinfo.offsets);
+    auto counts_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.counts);
+    swm.setAttribute("counts", counts_global);
+    auto offsets_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
+    swm.setAttribute("offsets", offsets_global);
 
     if (swinfo.global_count == 0) {
       continue;
