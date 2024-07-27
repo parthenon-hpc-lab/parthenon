@@ -162,10 +162,13 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
+  mesh/forest/forest_node.hpp
+  mesh/forest/forest_topology.cpp
+  mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
-  mesh/forest/relative_orientation.hpp
-  mesh/forest/relative_orientation.cpp
+  mesh/forest/logical_coordinate_transformation.hpp
+  mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
   mesh/forest/logical_location.cpp
@@ -325,7 +328,7 @@ endif()
 # Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
 # the flag is not added when compiling with Clang for Cuda.
 if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
+   target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)

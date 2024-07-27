@@ -163,7 +163,7 @@ struct RestrictAverage {
   }
 };
 
-template <bool use_minmod_slope>
+template <bool use_minmod_slope, bool piecewise_constant = false>
 struct ProlongateSharedGeneral {
   static constexpr bool OperationRequired(TopologicalElement fel,
                                           TopologicalElement cel) {
@@ -247,6 +247,15 @@ struct ProlongateSharedGeneral {
       }
     }
 
+    if constexpr (piecewise_constant) {
+      gx1m = 0.0;
+      gx1p = 0.0;
+      gx2m = 0.0;
+      gx2p = 0.0;
+      gx3m = 0.0;
+      gx3p = 0.0;
+    }
+
     // KGF: add the off-centered quantities first to preserve FP symmetry
     // JMM: Extraneous quantities are zero
     fine(element_idx, l, m, n, fk, fj, fi) =
@@ -275,8 +284,9 @@ struct ProlongateSharedGeneral {
   }
 };
 
-using ProlongateSharedMinMod = ProlongateSharedGeneral<true>;
-using ProlongateSharedLinear = ProlongateSharedGeneral<false>;
+using ProlongateSharedMinMod = ProlongateSharedGeneral<true, false>;
+using ProlongateSharedLinear = ProlongateSharedGeneral<false, false>;
+using ProlongatePiecewiseConstant = ProlongateSharedGeneral<false, true>;
 
 struct ProlongateInternalAverage {
   static constexpr bool OperationRequired(TopologicalElement fel,

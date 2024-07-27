@@ -46,6 +46,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -89,6 +90,8 @@ class Mesh {
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
        Packages_t &packages, int test_flag = 0);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       forest::ForestDefinition &forest_def);
   ~Mesh();
 
   // accessors
@@ -128,7 +131,6 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   std::map<int, BlockList_t> gmg_block_lists;
-  std::map<int, DataCollection<MeshData<Real>>> gmg_mesh_data;
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
@@ -146,6 +148,12 @@ class Mesh {
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
+
+  const std::vector<std::shared_ptr<BlockListPartition>> &
+  GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
+    return block_partitions_.at(grid);
+  }
+
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -161,12 +169,6 @@ class Mesh {
 
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                         SimTime const &time, OutputParameters *pparams);
-
-  // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
-  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
@@ -214,7 +216,7 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
-  using channel_key_t = std::tuple<int, int, std::string, int>;
+  using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t =
@@ -249,6 +251,8 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  forest::Forest forest;
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -272,7 +276,6 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;
-  forest::Forest forest;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -319,8 +322,6 @@ class Mesh {
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
-  void EnrollBndryFncts_(ApplicationInput *app_in);
-
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
 
@@ -329,6 +330,10 @@ class Mesh {
   void CommunicateBoundaries(std::string md_name = "base");
   void PreCommFillDerived();
   void FillDerived();
+
+  void BuildBlockPartitions(GridIdentifier grid);
+  std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
+      block_partitions_;
 };
 
 } // namespace parthenon

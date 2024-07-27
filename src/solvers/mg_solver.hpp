@@ -113,17 +113,22 @@ class MGSolver {
     using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
-    iter_counter = 0;
-    itl.AddTask(
-        TaskQualifier::once_per_region, none, "print",
+    iter_counter = -1;
+    auto update_iter = itl.AddTask(
+        TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
         [](int *iter_counter) {
-          if (*iter_counter > 0 || Globals::my_rank != 0) return TaskStatus::complete;
+          (*iter_counter)++;
+          if (*iter_counter > 1 || Globals::my_rank != 0) return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
         },
         &iter_counter);
-    auto mg_finest = AddLinearOperatorTasks(itl, none, partition, pmesh);
-    auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
+    auto mg_finest = AddLinearOperatorTasks(itl, update_iter, partition, pmesh);
+
+    auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
+    if (partition >= partitions.size())
+      PARTHENON_FAIL("Does not work with non-default partitioning.");
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
@@ -133,13 +138,11 @@ class MGSolver {
     auto get_res = DotProduct<res_err, res_err>(calc_pointwise_res, itl, &residual, md);
 
     auto check = itl.AddTask(
-        TaskQualifier::once_per_region | TaskQualifier::completion |
-            TaskQualifier::global_sync,
-        get_res, "Check residual",
-        [](MGSolver *solver, Mesh *pmesh) {
-          solver->iter_counter++;
+        TaskQualifier::completion, get_res, "Check residual",
+        [partition](MGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0) printf("%i %e\n", solver->iter_counter, rms_res);
+          if (Globals::my_rank == 0 && partition == 0)
+            printf("%i %e\n", solver->iter_counter, rms_res);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
           if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
@@ -158,9 +161,21 @@ class MGSolver {
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
-
-    return AddMultiGridTasksPartitionLevel(tl, dependence, partition, max_level,
-                                           min_level, max_level, pmesh);
+    // We require a local pre- and post-MG sync since multigrid iterations require
+    // communication across blocks and partitions on the multigrid levels do not
+    // necessarily contain the same blocks as partitions on the leaf grid. This
+    // means that without the syncs, leaf partitions can receive messages erroneously
+    // receive messages and/or update block data during a MG step.
+    auto pre_sync = tl.AddTask(TaskQualifier::local_sync, dependence,
+                               []() { return TaskStatus::complete; });
+    auto mg = pre_sync;
+    for (int level = max_level; level >= min_level; --level) {
+      mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level,
+                                                min_level, max_level, pmesh);
+    }
+    auto post_sync =
+        tl.AddTask(TaskQualifier::local_sync, mg, []() { return TaskStatus::complete; });
+    return post_sync;
   }
 
   template <class TL_t>
@@ -171,8 +186,13 @@ class MGSolver {
                              pmesh->GetGMGMinLevel());
     int max_level = pmesh->GetGMGMaxLevel();
 
-    return AddMultiGridSetupPartitionLevel(tl, dependence, partition, max_level,
-                                           min_level, max_level, pmesh);
+    auto mg_setup = dependence;
+    for (int level = max_level; level >= min_level; --level) {
+      mg_setup =
+          mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level,
+                                                     min_level, max_level, pmesh);
+    }
+    return mg_setup;
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
@@ -239,7 +259,6 @@ class MGSolver {
     } else {
       const int scratch_size = 0;
       const int scratch_level = 0;
-      const int nghost = Globals::nghost;
       parthenon::par_for_outer(
           DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size,
           scratch_level, 0, pack.GetNBlocks() - 1, kb.s, kb.e,
@@ -322,9 +341,10 @@ class MGSolver {
                                          Mesh *pmesh) {
     using namespace utils;
 
-    bool multilevel = (level != min_level);
-
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
+    auto partitions =
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
 
     auto task_out = dependence;
     if (level < max_level) {
@@ -337,8 +357,6 @@ class MGSolver {
     if (level > min_level) {
       task_out =
           tl.AddTask(task_out, TF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md);
-      task_out = AddMultiGridSetupPartitionLevel(tl, task_out, partition, level - 1,
-                                                 min_level, max_level, pmesh);
     }
 
     // The boundaries are not up to date on return
@@ -368,13 +386,22 @@ class MGSolver {
       PARTHENON_FAIL("Unknown solver type.");
     }
 
+    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
+      return std::make_tuple(in + "(p:" + std::to_string(partition) +
+                                 ", l:" + std::to_string(level) + ")",
+                             1, b);
+    };
+
+//#define BTF(...) decorate_task_name(TF(__VA_ARGS__))
+#define BTF(...) TF(__VA_ARGS__)
     bool multilevel = (level != min_level);
 
-    auto &md = pmesh->gmg_mesh_data[level].GetOrAdd(level, "base", partition);
-    std::string label =
-        "mg_comm_" + std::to_string(level) + "_" + std::to_string(partition);
-    auto &md_comm = pmesh->gmg_mesh_data[level].AddShallow(
-        label, md, std::vector<std::string>{u::name(), res_err::name()});
+    auto partitions =
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md_comm = pmesh->mesh_data.AddShallow(
+        "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
 
     // 0. Receive residual from coarser level if there is one
     auto set_from_finer = dependence;
@@ -382,13 +409,13 @@ class MGSolver {
       // Fill fields with restricted values
       auto recv_from_finer = tl.AddTask(
           dependence, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_comm);
-      set_from_finer = tl.AddTask( // TaskQualifier::local_sync, // is this required?
-          recv_from_finer, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md_comm);
+      set_from_finer = tl.AddTask(
+          recv_from_finer, BTF(SetBounds<BoundaryType::gmg_restrict_recv>), md_comm);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
       if (!do_FAS) {
-        auto zero_u = tl.AddTask(set_from_finer, TF(SetToZero<u, true>), md);
-        auto copy_rhs = tl.AddTask(set_from_finer, TF(CopyData<res_err, rhs, true>), md);
+        auto zero_u = tl.AddTask(set_from_finer, BTF(SetToZero<u, true>), md);
+        auto copy_rhs = tl.AddTask(set_from_finer, BTF(CopyData<res_err, rhs, true>), md);
         set_from_finer = zero_u | copy_rhs;
       } else {
         // TODO(LFR): Determine if this boundary exchange task is required, I think it is
@@ -397,22 +424,23 @@ class MGSolver {
         // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
             set_from_finer, tl, md_comm, multilevel);
-        set_from_finer = tl.AddTask(set_from_finer, TF(CopyData<u, u0, true>), md);
+        set_from_finer = tl.AddTask(set_from_finer, BTF(CopyData<u, u0, true>), md);
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
         set_from_finer = eqs_.template Ax<u, temp>(tl, set_from_finer, md);
-        set_from_finer = tl.AddTask(
-            set_from_finer, TF(AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>),
-            md, 1.0, 1.0, true);
+        set_from_finer =
+            tl.AddTask(set_from_finer,
+                       BTF(AddFieldsAndStoreInteriorSelect<temp, res_err, rhs, true>), md,
+                       1.0, 1.0, true);
       }
     } else {
-      set_from_finer = tl.AddTask(set_from_finer, TF(CopyData<u, u0, true>), md);
+      set_from_finer = tl.AddTask(set_from_finer, BTF(CopyData<u, u0, true>), md);
     }
 
     // 2. Do pre-smooth and fill solution on this level
     set_from_finer =
-        tl.AddTask(set_from_finer, TF(&equations::template SetDiagonal<D>), &eqs_, md);
+        tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal<D>), &eqs_, md);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
         tl, set_from_finer, pre_stages, multilevel, md, md_comm);
     // If we are finer than the coarsest level:
@@ -424,36 +452,35 @@ class MGSolver {
 
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.template Ax<u, temp>(tl, comm_u, md);
-      residual = tl.AddTask(residual,
-                            TF(AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>),
-                            md, 1.0, -1.0, false);
+      residual = tl.AddTask(
+          residual, BTF(AddFieldsAndStoreInteriorSelect<rhs, temp, res_err, true>), md,
+          1.0, -1.0, false);
 
       // 5. Restrict communication field and send to next level
-      auto communicate_to_coarse =
-          tl.AddTask(residual, SendBoundBufs<BoundaryType::gmg_restrict_send>, md_comm);
-
-      auto coarser = AddMultiGridTasksPartitionLevel(
-          tl, communicate_to_coarse, partition, level - 1, min_level, max_level, pmesh);
+      auto communicate_to_coarse = tl.AddTask(
+          residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_comm);
 
       // 6. Receive error field into communication field and prolongate
-      auto recv_from_coarser = tl.AddTask(
-          coarser, TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
+      auto recv_from_coarser =
+          tl.AddTask(communicate_to_coarse,
+                     TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
-          recv_from_coarser, TF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
-      auto prolongate = tl.AddTask( // TaskQualifier::local_sync, // is this required?
-          set_from_coarser, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
-          md_comm);
+          recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+      auto prolongate =
+          tl.AddTask(set_from_coarser,
+                     BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
-      auto update_sol = tl.AddTask(prolongate, TF(AddFieldsAndStore<u, res_err, u, true>),
-                                   md, 1.0, 1.0);
+      auto update_sol = tl.AddTask(
+          prolongate, BTF(AddFieldsAndStore<u, res_err, u, true>), md, 1.0, 1.0);
 
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
                                                             multilevel, md, md_comm);
+
     } else {
-      post_smooth = tl.AddTask(pre_smooth, TF(CopyData<u, res_err, true>), md);
+      post_smooth = tl.AddTask(pre_smooth, BTF(CopyData<u, res_err, true>), md);
     }
 
     // 9. Send communication field to next finer level (should be error field for that
@@ -462,22 +489,22 @@ class MGSolver {
     if (level < max_level) {
       auto copy_over = post_smooth;
       if (!do_FAS) {
-        copy_over = tl.AddTask(post_smooth, TF(CopyData<u, res_err, true>), md);
+        copy_over = tl.AddTask(post_smooth, BTF(CopyData<u, res_err, true>), md);
       } else {
         auto calc_err = tl.AddTask(
-            post_smooth, TF(AddFieldsAndStore<u, u0, res_err, true>), md, 1.0, -1.0);
+            post_smooth, BTF(AddFieldsAndStore<u, u0, res_err, true>), md, 1.0, -1.0);
         copy_over = calc_err;
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      copy_over = tl.AddTask(copy_over, TF(CopyData<u, temp, false>), md);
-      copy_over = tl.AddTask(copy_over, TF(CopyData<res_err, u, false>), md);
+      copy_over = tl.AddTask(copy_over, BTF(CopyData<u, temp, false>), md);
+      copy_over = tl.AddTask(copy_over, BTF(CopyData<res_err, u, false>), md);
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
           copy_over, tl, md_comm, multilevel);
-      auto copy_back = tl.AddTask(boundary, TF(CopyData<u, res_err, true>), md);
-      copy_back = tl.AddTask(copy_back, TF(CopyData<temp, u, false>), md);
-      last_task =
-          tl.AddTask(copy_back, TF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md);
+      auto copy_back = tl.AddTask(boundary, BTF(CopyData<u, res_err, true>), md);
+      copy_back = tl.AddTask(copy_back, BTF(CopyData<temp, u, false>), md);
+      last_task = tl.AddTask(copy_back,
+                             BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md);
     }
     // The boundaries are not up to date on return
     return last_task;

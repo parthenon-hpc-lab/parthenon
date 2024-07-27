@@ -179,6 +179,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
+  std::vector<NeighborBlock> gmg_leaf_neighbors;
 
   BoundaryFlag boundary_flag[6];
 
@@ -459,6 +460,15 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
+
+struct BlockListPartition {
+  BlockListPartition(int p, GridIdentifier g, const BlockList_t &bl, Mesh *pm)
+      : partition{p}, grid{g}, block_list{bl}, pmesh{pm} {}
+  const int partition;
+  const GridIdentifier grid;
+  const BlockList_t block_list;
+  Mesh *pmesh;
+};
 
 } // namespace parthenon
 
