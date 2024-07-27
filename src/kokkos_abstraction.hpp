@@ -188,9 +188,9 @@ struct LoopPatternTeam : std::false_type {};
 template <size_t team, size_t thread, size_t vector>
 struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>, team + thread + vector,
                        void> : std::true_type {
-  using Nvector = std::integral_constant<size_t, vector>;
-  using Nthread = std::integral_constant<size_t, thread>;
-  using Nteam = std::integral_constant<size_t, team>;
+  static constexpr size_t Nvector = vector;
+  static constexpr size_t Nthread = thread;
+  static constexpr size_t Nteam = team;
   using LoopPattern = LoopPatternCollapse<team, thread, vector>;
 };
 
@@ -208,10 +208,10 @@ struct LoopPatternTeam<
       std::is_same<Pattern, LoopPatternTPTVR>::value; // inner ThreadVectorRange
   static constexpr bool IsTPTTRTVR = std::is_same<Pattern, LoopPatternTPTTRTVR>::value;
 
-  using Nvector = std::integral_constant<size_t, IsTPTVR || IsTPTTRTVR>;
-  using Nthread = std::integral_constant<size_t, IsTPTTR || IsTPTTRTVR>;
-  using Nteam = std::integral_constant<size_t, Rank - Nthread::value - Nvector::value>;
-  using LoopPattern = LoopPatternCollapse<Nteam::value, Nthread::value, Nvector::value>;
+  static constexpr size_t Nvector = IsTPTVR || IsTPTTRTVR;
+  static constexpr size_t Nthread = IsTPTTR || IsTPTTRTVR;
+  static constexpr size_t Nteam = Rank - Nthread - Nvector;
+  using LoopPattern = LoopPatternCollapse<Nteam, Nthread, Nvector>;
   using OuterPattern = Pattern;
 };
 
@@ -224,9 +224,9 @@ static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
 template <size_t Rank>
 struct LoopPatternTeam<OuterLoopPatternTeams, Rank, void> : std::true_type {
-  using Nvector = std::integral_constant<size_t, 0>;
-  using Nthread = std::integral_constant<size_t, 0>;
-  using Nteam = std::integral_constant<size_t, Rank>;
+  static constexpr size_t Nvector = 0;
+  static constexpr size_t Nthread = 0;
+  static constexpr size_t Nteam = Rank;
   using LoopPattern = LoopPatternCollapse<Rank, 0, 0>;
   using OuterPattern = OuterLoopPatternTeams;
 };
@@ -331,23 +331,6 @@ struct PrependList<T, TypeList<Ts...>> {
   using value = TypeList<T, Ts...>;
 };
 
-template <size_t N, typename>
-struct PopListBack {};
-
-template <typename T, typename... Ts>
-struct PopListBack<0, TypeList<T, Ts...>> {
-  using value = TypeList<T, Ts...>;
-};
-
-template <size_t N, typename T, typename... Ts>
-struct PopListBack<N, TypeList<T, Ts...>> {
-  static constexpr bool NotFinished = N > 0;
-  using value = typename std::conditional<
-      NotFinished,
-      typename PrependList<T, typename PopListBack<N - 1, TypeList<Ts...>>::value>::value,
-      TypeList<T>>;
-};
-
 template <typename, typename>
 struct MergeLists {};
 
@@ -382,22 +365,6 @@ struct SplitList<N, TypeList<T, Ts...>> {
   using Right = typename split::Right;
 };
 
-template <typename IndexList, typename ArgList>
-struct PackSameType {};
-
-template <typename... Is>
-struct PackSameType<TypeList<Is...>, TypeList<>> {
-  using value = TypeList<Is...>;
-};
-
-template <typename Index, typename... Is, typename T, typename... Args>
-struct PackSameType<TypeList<Index, Is...>, TypeList<T, Args...>> {
-  using value = typename std::conditional<
-      std::is_convertible<Index, T>::value,
-      typename PackSameType<TypeList<Index, Is..., T>, TypeList<Args...>>::value,
-      TypeList<Index, Is...>>::type;
-};
-
 template <size_t, typename>
 struct SequenceOfOnes {};
 
@@ -417,22 +384,6 @@ using sequence_of_ones = SequenceOfOnes<N - 1, std::integer_sequence<size_t, 1>>
 } // namespace meta
 
 namespace meta {
-
-template <typename, typename>
-struct PackIntegerType {};
-
-template <typename... Is>
-struct PackIntegerType<TypeList<Is...>, TypeList<>> {
-  using value = TypeList<Is...>;
-};
-
-template <typename... Is, typename T, typename... Ts>
-struct PackIntegerType<TypeList<Is...>, TypeList<T, Ts...>> {
-  using value = std::conditional<
-      std::numeric_limits<T>::is_integer,
-      typename PackIntegerType<TypeList<Is..., T>, TypeList<Ts...>>::value,
-      TypeList<Is...>>;
-};
 
 template <size_t, typename>
 struct FunctionSignature {};
@@ -918,8 +869,8 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, meta::TypeList<Bounds...>
       return loop_pattern_simdfor_tag;
 
     } else if constexpr (DType::is_Collapse) {
-      int rangeNx = FlattenLaunchBound<DType::TeamPattern::Nteam::value>(
-          std::forward<Bounds>(ids)...);
+      int rangeNx =
+          FlattenLaunchBound<DType::TeamPattern::Nteam>(std::forward<Bounds>(ids)...);
       return team_policy(exec_space, rangeNx, Kokkos::AUTO)
           .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes));
     }
