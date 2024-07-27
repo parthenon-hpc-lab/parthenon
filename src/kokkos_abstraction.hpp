@@ -212,6 +212,7 @@ struct LoopPatternTeam<
   using Nthread = std::integral_constant<size_t, IsTPTTR || IsTPTTRTVR>;
   using Nteam = std::integral_constant<size_t, Rank - Nthread::value - Nvector::value>;
   using LoopPattern = LoopPatternCollapse<Nteam::value, Nthread::value, Nvector::value>;
+  using OuterPattern = Pattern;
 };
 
 // Tags for Nested parallelism where the outermost layer supports 1, 2, or 3
@@ -227,6 +228,7 @@ struct LoopPatternTeam<OuterLoopPatternTeams, Rank, void> : std::true_type {
   using Nthread = std::integral_constant<size_t, 0>;
   using Nteam = std::integral_constant<size_t, Rank>;
   using LoopPattern = LoopPatternCollapse<Rank, 0, 0>;
+  using OuterPattern = OuterLoopPatternTeams;
 };
 // Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
@@ -438,7 +440,8 @@ struct FunctionSignature {};
 template <size_t Rank, typename R, typename T, typename Index, typename... Args>
 struct FunctionSignature<Rank, R (T::*)(Index, Args...) const> {
  private:
-  using split = SplitList<Rank, TypeList<Index, Args...>>;
+  static constexpr bool team_mbr = std::is_same_v<team_mbr_t, base_type<Index>>;
+  using split = SplitList<Rank + team_mbr, TypeList<Index, Args...>>;
 
  public:
   using IndexND = typename split::Left;
@@ -616,13 +619,14 @@ struct InnerFunctor<Function, meta::TypeList<Index...>,
   }
 };
 
-template <typename, typename, typename, typename>
+template <typename, typename, typename, typename, bool Outer = false>
 class CollapseFunctor {};
 
-template <typename Function, size_t... Iteam, size_t... Ithread, size_t... Ivector>
+template <typename Function, size_t... Iteam, size_t... Ithread, size_t... Ivector,
+          bool ParForOuter>
 class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
                       std::integer_sequence<size_t, Ithread...>,
-                      std::integer_sequence<size_t, Ivector...>, Function> {
+                      std::integer_sequence<size_t, Ivector...>, Function, ParForOuter> {
 
   static constexpr size_t Nteam = sizeof...(Iteam);
   static constexpr size_t Nthread = sizeof...(Ithread);
@@ -710,10 +714,14 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
     using ThreadVectorInds =
         typename meta::PopList<Nteam, typename signature::IndexND>::value;
 
-    collapse_inner(
-        team_member,
-        InnerFunctor<Function, ThreadVectorInds, std::make_index_sequence<Nteam>>(
-            inds_team, function));
+    if constexpr (ParForOuter) {
+      function(team_member, inds_team[Iteam]...);
+    } else {
+      collapse_inner(
+          team_member,
+          InnerFunctor<Function, ThreadVectorInds, std::make_index_sequence<Nteam>>(
+              inds_team, function));
+    }
   }
 
   template <typename InnerFunction>
@@ -752,7 +760,8 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
   }
 };
 
-template <size_t Nteam, size_t Nthread, size_t Nvector, typename F, typename... Bounds>
+template <bool ParForOuter = false, size_t Nteam, size_t Nthread, size_t Nvector,
+          typename F, typename... Bounds>
 KOKKOS_INLINE_FUNCTION auto
 MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &function,
                     Bounds &&...bounds) {
@@ -762,7 +771,7 @@ MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &function,
 
   return CollapseFunctor<std::make_index_sequence<Nteam>,
                          std::make_index_sequence<Nthread>,
-                         std::make_index_sequence<Nvector>, F>(
+                         std::make_index_sequence<Nvector>, F, ParForOuter>(
       function, std::forward<Bounds>(bounds)...);
 }
 
@@ -922,8 +931,9 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, meta::TypeList<Bounds...>
     } else if constexpr (DType::is_MDRange || DType::is_SimdFor) {
       return function;
     } else if constexpr (DType::is_Collapse) {
-      return MakeCollapseFunctor(typename DType::TeamPattern::LoopPattern(), function,
-                                 std::forward<Bounds>(ids)...);
+      constexpr bool ParForOuter = std::is_same_v<OuterLoopPatternTeams, Pattern>;
+      return MakeCollapseFunctor<ParForOuter>(typename DType::TeamPattern::LoopPattern(),
+                                              function, std::forward<Bounds>(ids)...);
     }
   }
 
@@ -994,92 +1004,21 @@ inline void par_scan(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
 }
 
-/* template <typename Pattern, typename... AllArgs> */
-/* inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void> */
-/* par_for_outer(OuterLoopPatternTeams, const std::string &name, DevExecSpace exec_space,
- */
-/*               size_t scratch_size_in_bytes, const int scratch_level, AllArgs &&...args)
- * { */
-/*   using dispatchsig = meta::DispatchSignature<meta::TypeList<AllArgs...>>; */
-/*   static constexpr size_t Rank = dispatchsig::Rank::value; */
-/*   using Function = typename dispatchsig::Function;         // functor type */
-/*   using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types */
-/*   using Args = typename dispatchsig::Args;                 // */
-/*   using LoopPattern = LoopPatternTeam<Pattern, Rank>; */
-/*   using Tag = dispatch_impl::ParallelForDispatch; */
+template <typename Pattern, typename... AllArgs>
+inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void>
+par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
+              size_t scratch_size_in_bytes, const int scratch_level, AllArgs &&...args) {
+  using dispatchsig = meta::DispatchSignature<meta::TypeList<AllArgs...>>;
+  static constexpr size_t Rank = dispatchsig::Rank::value;
+  using Function = typename dispatchsig::Function;         // functor type
+  using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
+  using Args = typename dispatchsig::Args;                 //
+  using LoopPattern = LoopPatternTeam<Pattern, Rank>;
+  using Tag = dispatch_impl::ParallelForDispatch;
 
-/*   par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch( */
-/*       name, exec_space, std::forward<AllArgs>(args)..., scratch_level, */
-/*       scratch_size_in_bytes); */
-/* } */
-
-// 1D  outer parallel loop using Kokkos Teams
-template <typename Function>
-inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
-                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int kl, const int ku,
-                          const Function &function) {
-  const int Nk = ku + 1 - kl;
-
-  team_policy policy(exec_space, Nk, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() + kl;
-        function(team_member, k);
-      });
-}
-
-// 2D  outer parallel loop using Kokkos Teams
-template <typename Function>
-inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
-                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int kl, const int ku,
-                          const int jl, const int ju, const Function &function) {
-  const int Nk = ku + 1 - kl;
-  const int Nj = ju + 1 - jl;
-  const int NkNj = Nk * Nj;
-
-  team_policy policy(exec_space, NkNj, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nj + kl;
-        const int j = team_member.league_rank() % Nj + jl;
-        function(team_member, k, j);
-      });
-}
-
-// 3D  outer parallel loop using Kokkos Teams
-template <typename Function>
-inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
-                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int nl, const int nu,
-                          const int kl, const int ku, const int jl, const int ju,
-                          const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  const int NnNkNj = Nn * Nk * Nj;
-
-  team_policy policy(exec_space, NnNkNj, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        int n = team_member.league_rank() / NkNj;
-        int k = (team_member.league_rank() - n * NkNj) / Nj;
-        const int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-        n += nl;
-        k += kl;
-        function(team_member, n, k, j);
-      });
+  par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch(
+      name, exec_space, std::forward<AllArgs>(args)..., scratch_level,
+      scratch_size_in_bytes);
 }
 
 template <typename... Args>
