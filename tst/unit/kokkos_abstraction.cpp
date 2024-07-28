@@ -37,131 +37,6 @@ using parthenon::ParArray3D;
 using parthenon::ParArray4D;
 using Real = double;
 
-template <class T>
-bool test_wrapper_1d(T loop_pattern, DevExecSpace exec_space) {
-  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device rd;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
-
-  const int N = 32;
-  ParArray1D<Real> arr_dev("device", N);
-  auto arr_host_orig = Kokkos::create_mirror(arr_dev);
-  auto arr_host_mod = Kokkos::create_mirror(arr_dev);
-
-  // initialize random data on the host not using any wrapper
-  for (int i = 0; i < N; i++)
-    arr_host_orig(i) = dis(gen);
-
-  // Copy host array content to device
-  Kokkos::deep_copy(arr_dev, arr_host_orig);
-
-  // increment data on the device using prescribed wrapper
-  parthenon::par_for(
-      loop_pattern, "unit test 1D", exec_space, 0, N - 1,
-      KOKKOS_LAMBDA(const int i) { arr_dev(i) += static_cast<Real>(i); });
-
-  // Copy array back from device to host
-  Kokkos::deep_copy(arr_host_mod, arr_dev);
-
-  bool all_same = true;
-
-  // compare data on the host
-  for (int i = 0; i < N; i++)
-    if (arr_host_orig(i) + static_cast<Real>(i) != arr_host_mod(i)) {
-      all_same = false;
-    }
-
-  return all_same;
-}
-
-template <class T>
-bool test_wrapper_2d(T loop_pattern, DevExecSpace exec_space) {
-  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device rd;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
-
-  const int N = 32;
-  ParArray2D<Real> arr_dev("device", N, N);
-  auto arr_host_orig = Kokkos::create_mirror(arr_dev);
-  auto arr_host_mod = Kokkos::create_mirror(arr_dev);
-
-  // initialize random data on the host not using any wrapper
-  for (int j = 0; j < N; j++)
-    for (int i = 0; i < N; i++)
-      arr_host_orig(j, i) = dis(gen);
-
-  // Copy host array content to device
-  Kokkos::deep_copy(arr_dev, arr_host_orig);
-
-  // increment data on the device using prescribed wrapper
-  parthenon::par_for(
-      loop_pattern, "unit test 2D", exec_space, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int j, const int i) {
-        arr_dev(j, i) += static_cast<Real>(i + N * j);
-      });
-
-  // Copy array back from device to host
-  Kokkos::deep_copy(arr_host_mod, arr_dev);
-
-  bool all_same = true;
-
-  // compare data on the host
-  for (int j = 0; j < N; j++)
-    for (int i = 0; i < N; i++)
-      if (arr_host_orig(j, i) + static_cast<Real>(i + N * j) != arr_host_mod(j, i)) {
-        all_same = false;
-      }
-
-  return all_same;
-}
-
-template <class T>
-bool test_wrapper_3d(T loop_pattern, DevExecSpace exec_space) {
-  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device rd;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
-
-  const int N = 32;
-  ParArray3D<Real> arr_dev("device", N, N, N);
-  auto arr_host_orig = Kokkos::create_mirror(arr_dev);
-  auto arr_host_mod = Kokkos::create_mirror(arr_dev);
-
-  // initialize random data on the host not using any wrapper
-  for (int k = 0; k < N; k++)
-    for (int j = 0; j < N; j++)
-      for (int i = 0; i < N; i++)
-        arr_host_orig(k, j, i) = dis(gen);
-
-  // Copy host array content to device
-  Kokkos::deep_copy(arr_dev, arr_host_orig);
-
-  // increment data on the device using prescribed wrapper
-  parthenon::par_for(
-      loop_pattern, "unit test 3D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        arr_dev(k, j, i) += static_cast<Real>(i + N * (j + N * k));
-      });
-
-  // Copy array back from device to host
-  Kokkos::deep_copy(arr_host_mod, arr_dev);
-
-  bool all_same = true;
-
-  // compare data on the host
-  for (int k = 0; k < N; k++)
-    for (int j = 0; j < N; j++)
-      for (int i = 0; i < N; i++)
-        if (arr_host_orig(k, j, i) + static_cast<Real>(i + N * (j + N * k)) !=
-            arr_host_mod(k, j, i)) {
-          all_same = false;
-        }
-
-  return all_same;
-}
-
 template <size_t ND, typename T, typename... Args>
 auto ParArrayND(Args &&...args) {
   static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
@@ -244,7 +119,7 @@ struct test_wrapper_nd_impl {
     int_bounds[2 * id + 1] = N - 1;
     if constexpr (LoopsLeft == 1) {
       for (int i = 0; i < N; i++) {
-        arr_host_orig(indices[Is]..., i) = 0.; // dis(gen);
+        arr_host_orig(indices[Is]..., i) = dis(gen);
       }
     } else {
       for (int j = 0; j < N; j++) {
@@ -308,13 +183,20 @@ struct test_wrapper_nd_impl {
   }
   template <typename T>
   void test(T loop_pattern, DevExecSpace exec_space) {
-    /* REQUIRE(dispatch<lbounds::integer>( */
-    /*             typename parthenon::meta::ListOfType<Rank, const int>::value(), */
-    /*             Sequence<2 * Rank>(), loop_pattern, exec_space) == true); */
-    REQUIRE(dispatch<lbounds::indexrange>(
-                typename parthenon::meta::ListOfType<Rank, const int>::value(),
-                Sequence<Rank>(), loop_pattern, exec_space) == true);
+    SECTION("integer launch bounds") {
+      REQUIRE(dispatch<lbounds::integer>(
+                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
+                  Sequence<2 * Rank>(), loop_pattern, exec_space) == true);
+    }
+    SECTION("IndexRange launch bounds") {
+      REQUIRE(dispatch<lbounds::indexrange>(
+                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
+                  Sequence<Rank>(), loop_pattern, exec_space) == true);
+    }
   }
+
+  template <typename OuterPattern, typename InnerPattern>
+  void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
 
   template <typename T>
   bool par_for_dev(T loop_pattern, DevExecSpace exec_space, lbounds bound_type) {
@@ -323,117 +205,47 @@ struct test_wrapper_nd_impl {
 };
 
 template <size_t Rank>
-void test_wrapper_nd(DevExecSpace exec_space) {
-  auto wrappernd = test_wrapper_nd_impl<Rank>(2);
-  wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
-}
-
-template <class T>
-bool test_wrapper_4d(T loop_pattern, DevExecSpace exec_space) {
-  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device rd;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
-
-  const int N = 32;
-  ParArray4D<Real> arr_dev("device", N, N, N, N);
-  auto arr_host_orig = Kokkos::create_mirror(arr_dev);
-  auto arr_host_mod = Kokkos::create_mirror(arr_dev);
-
-  // initialize random data on the host not using any wrapper
-  for (int n = 0; n < N; n++)
-    for (int k = 0; k < N; k++)
-      for (int j = 0; j < N; j++)
-        for (int i = 0; i < N; i++)
-          arr_host_orig(n, k, j, i) = dis(gen);
-
-  // Copy host array content to device
-  Kokkos::deep_copy(arr_dev, arr_host_orig);
-
-  // increment data on the device using prescribed wrapper
-  parthenon::par_for(
-      loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        arr_dev(n, k, j, i) += static_cast<Real>(i + N * (j + N * (k + n)));
-      });
-
-  // Copy array back from device to host
-  Kokkos::deep_copy(arr_host_mod, arr_dev);
-
-  bool all_same = true;
-
-  // compare data on the host
-  for (int n = 0; n < N; n++)
-    for (int k = 0; k < N; k++)
-      for (int j = 0; j < N; j++)
-        for (int i = 0; i < N; i++)
-          if (arr_host_orig(n, k, j, i) + static_cast<Real>(i + N * (j + N * (k + n))) !=
-              arr_host_mod(n, k, j, i)) {
-            all_same = false;
-          }
-
-  return all_same;
+void test_wrapper_nd(DevExecSpace exec_space, int N = 32) {
+  auto wrappernd = test_wrapper_nd_impl<Rank>(N);
+  SECTION("LoopPatternFlatRange") {
+    wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
+  }
+  if constexpr (Rank > 1 && Rank < 7) {
+    SECTION("LoopPatternMDRange") {
+      wrappernd.test(parthenon::loop_pattern_mdrange_tag, exec_space);
+    }
+  }
+  if constexpr (Rank > 2) {
+    SECTION("LoopPatternTPTTRTVR") {
+      wrappernd.test(parthenon::loop_pattern_tpttrtvr_tag, exec_space);
+    }
+    SECTION("LoopPatternTPTTR") {
+      wrappernd.test(parthenon::loop_pattern_tpttr_tag, exec_space);
+    }
+  }
+  if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                             Kokkos::DefaultHostExecutionSpace>::value) {
+    if constexpr (Rank > 2) {
+      SECTION("LoopPatternTPTVR") {
+        wrappernd.test(parthenon::loop_pattern_tptvr_tag, exec_space);
+      }
+    }
+    SECTION("LoopPatternSimdFor") {
+      wrappernd.test(parthenon::loop_pattern_simdfor_tag, exec_space);
+    }
+  }
 }
 
 TEST_CASE("par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
-  SECTION("1D loops") {
-    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
-            true);
-  }
-
-  SECTION("2D loops") {
-    REQUIRE(test_wrapper_2d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
-            true);
-  }
-
-  SECTION("3D loops") {
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
-            true);
-
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
-              true);
-
-      REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
-              true);
-    }
-  }
-
-  SECTION("4D loops") {
-    test_wrapper_nd<4>(default_exec_space);
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag, default_exec_space) ==
-            true);
-
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
-            true);
-
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
-              true);
-
-      REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
-              true);
-    }
-  }
+  SECTION("1D loops") { test_wrapper_nd<1>(default_exec_space, 32); }
+  SECTION("2D loops") { test_wrapper_nd<2>(default_exec_space, 32); }
+  SECTION("3D loops") { test_wrapper_nd<3>(default_exec_space, 32); }
+  SECTION("4D loops") { test_wrapper_nd<4>(default_exec_space, 32); }
+  SECTION("5D loops") { test_wrapper_nd<5>(default_exec_space, 10); }
+  SECTION("6D loops") { test_wrapper_nd<6>(default_exec_space, 10); }
+  SECTION("7D loops") { test_wrapper_nd<7>(default_exec_space, 10); }
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
@@ -652,105 +464,112 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   }
 }
 
-template <class T>
-bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
-  constexpr int N = 10;
-  parthenon::IndexRange r{0, N - 1};
-  parthenon::ParArray1D<int> buffer("Testing buffer", N);
-  // Initialize data
-  parthenon::par_for(
-      loop_pattern, "Initialize parallel reduce array", exec_space, r,
-      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
-  int total = 0;
-  for (int i = 0; i < N; ++i) {
-    total += i;
-  }
-  int test_tot = 0;
-  parthenon::par_reduce(
-      loop_pattern, "Sum via par reduce", exec_space, r,
-      KOKKOS_LAMBDA(const int i, int &t) { t += i; }, Kokkos::Sum<int>(test_tot));
-  return total == test_tot;
-}
+template <size_t Rank>
+struct test_wrapper_reduce_nd_impl {
+  template <size_t N>
+  using Sequence = std::make_index_sequence<N>;
+  int N, indices[Rank - 1], int_bounds[2 * Rank];
+  parthenon::IndexRange bounds[Rank];
+  int h_sum;
 
-template <class T>
-bool test_wrapper_reduce_3d(T loop_pattern, DevExecSpace exec_space) {
-  constexpr int N = 10;
-  parthenon::ParArray3D<int> buffer("Testing buffer", N, N, N);
-  // Initialize data
-  parthenon::par_for(
-      loop_pattern, "Initialize parallel reduce array", exec_space, 0, N - 1, 0, N - 1, 0,
-      N - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        buffer(k, j, i) = i + j + k;
-      });
-  int tot = 0;
-  for (int k = 0; k < N; ++k) {
-    for (int j = 0; j < N; ++j) {
-      for (int i = 0; i < N; ++i) {
-        tot += i + j + k;
+  test_wrapper_reduce_nd_impl(const int _N = 10) : N(_N) {
+    h_sum = 0;
+    par_red_init<Rank>(std::make_index_sequence<Rank - 1>(), h_sum);
+  }
+
+  template <size_t... Is>
+  auto GetArray(std::index_sequence<Is...>) {
+    static_assert(sizeof...(Is) == Rank);
+    return ParArrayND<Rank, Real>("device", N * Is...);
+  }
+
+  template <size_t LoopsLeft, size_t... Is>
+  void par_red_init(std::index_sequence<Is...>, int &sum) {
+    constexpr size_t id = Rank - LoopsLeft;
+    bounds[id].s = 0;
+    bounds[id].e = N - 1;
+    int_bounds[2 * id] = 0;
+    int_bounds[2 * id + 1] = N - 1;
+    if constexpr (LoopsLeft == 1) {
+      for (int i = 0; i < N; i++) {
+        sum += (i + ... + indices[Is]);
+      }
+    } else {
+      for (int j = 0; j < N; j++) {
+        indices[Rank - LoopsLeft] = j;
+        par_red_init<LoopsLeft - 1>(Sequence<Rank - 1>(), sum);
       }
     }
   }
-  int test_tot = 0;
-  parthenon::par_reduce(
-      loop_pattern, "Sum via par reduce", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int k, const int j, const int i, int &t) { t += i + j + k; },
-      Kokkos::Sum<int>(test_tot));
-  return tot == test_tot;
-}
 
-template <class T>
-bool test_wrapper_reduce_4d(T loop_pattern, DevExecSpace exec_space) {
-  constexpr int N = 10;
-  parthenon::ParArray4D<int> buffer("Testing buffer", N, N, N, N);
-  // Initialize data
-  parthenon::par_for(
-      loop_pattern, "Initialize parallel reduce array", exec_space, 0, N - 1, 0, N - 1, 0,
-      N - 1, 0, N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        buffer(n, k, j, i) = i + j + k + n;
-      });
-  int tot = 0;
-  for (int n = 0; n < N; ++n) {
-    for (int k = 0; k < N; ++k) {
-      for (int j = 0; j < N; ++j) {
-        for (int i = 0; i < N; ++i) {
-          tot += i + j + k + n;
-        }
-      }
+  template <lbounds bound_type, typename T, size_t... Ids, typename... Ts>
+  bool dispatch(parthenon::meta::TypeList<Ts...>, std::index_sequence<Ids...>,
+                T loop_pattern, DevExecSpace exec_space) {
+    int test_sum = 0;
+    if constexpr (bound_type == lbounds::integer) {
+      parthenon::par_reduce(
+          loop_pattern, "sum via par_reduce integer bounds", exec_space,
+          int_bounds[Ids]...,
+          KOKKOS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
+          Kokkos::Sum<int>(test_sum));
+    } else {
+      parthenon::par_reduce(
+          loop_pattern, "sum via par_reduce IndexRange bounds", exec_space,
+          bounds[Ids]..., KOKKOS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
+          Kokkos::Sum<int>(test_sum));
+    }
+    return test_sum == h_sum;
+  }
+  template <typename T>
+  void test(T loop_pattern, DevExecSpace exec_space) {
+    SECTION("integer launch bounds") {
+      REQUIRE(dispatch<lbounds::integer>(
+                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
+                  Sequence<2 * Rank>(), loop_pattern, exec_space) == true);
+    }
+    SECTION("IndexRange launch bounds") {
+      REQUIRE(dispatch<lbounds::indexrange>(
+                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
+                  Sequence<Rank>(), loop_pattern, exec_space) == true);
     }
   }
-  int test_tot = 0;
-  parthenon::par_reduce(
-      loop_pattern, "Sum via par reduce", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
-      N - 1,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i, int &t) {
-        t += i + j + k + n;
-      },
-      Kokkos::Sum<int>(test_tot));
-  return tot == test_tot;
+
+  template <typename OuterPattern, typename InnerPattern>
+  void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
+
+  template <typename T>
+  bool par_for_dev(T loop_pattern, DevExecSpace exec_space, lbounds bound_type) {
+    return dispatch(Sequence(), loop_pattern, exec_space, bound_type);
+  }
+};
+
+template <size_t Rank>
+void test_wrapper_reduce_nd(DevExecSpace exec_space, int N = 10) {
+  auto wrappernd = test_wrapper_reduce_nd_impl<Rank>(N);
+  SECTION("LoopPatternFlatRange") {
+    wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
+  }
+  if constexpr (Rank > 1 && Rank < 7) {
+    SECTION("LoopPatternMDRange") {
+      wrappernd.test(parthenon::loop_pattern_mdrange_tag, exec_space);
+    }
+  }
+  if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                             Kokkos::DefaultHostExecutionSpace>::value) {
+    // this should fall-back to LoopPatternFlatRange
+    SECTION("LoopPatternSimdFor") {
+      wrappernd.test(parthenon::loop_pattern_simdfor_tag, exec_space);
+    }
+  }
 }
 
 TEST_CASE("Parallel reduce", "[par_reduce]") {
   auto default_exec_space = DevExecSpace();
-  SECTION("1D loops") {
-    REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
-                                   default_exec_space) == true);
-    if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) {
-      REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
-                                     default_exec_space) == true);
-    }
-  }
-
-  SECTION("3D loops") {
-    REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_flatrange_tag,
-                                   default_exec_space) == true);
-    REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_mdrange_tag,
-                                   default_exec_space) == true);
-  }
-
-  SECTION("4D loops") {
-    REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_flatrange_tag,
-                                   default_exec_space) == true);
-    REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_mdrange_tag,
-                                   default_exec_space) == true);
-  }
+  SECTION("1D loops") { test_wrapper_reduce_nd<1>(default_exec_space, 10); }
+  SECTION("2D loops") { test_wrapper_reduce_nd<2>(default_exec_space, 10); }
+  SECTION("3D loops") { test_wrapper_reduce_nd<3>(default_exec_space, 10); }
+  SECTION("4D loops") { test_wrapper_reduce_nd<4>(default_exec_space, 10); }
+  SECTION("5D loops") { test_wrapper_reduce_nd<5>(default_exec_space, 10); }
+  SECTION("6D loops") { test_wrapper_reduce_nd<6>(default_exec_space, 10); }
+  SECTION("7D loops") { test_wrapper_reduce_nd<7>(default_exec_space, 10); }
 }
