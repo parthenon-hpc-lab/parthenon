@@ -19,12 +19,16 @@
 
 #include <iostream>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
 
+#include "Kokkos_Core.hpp"
+#include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "parthenon_array_generic.hpp"
 
 using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
@@ -158,6 +162,172 @@ bool test_wrapper_3d(T loop_pattern, DevExecSpace exec_space) {
   return all_same;
 }
 
+template <size_t ND, typename T, typename... Args>
+auto ParArrayND(Args &&...args) {
+  static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
+  if constexpr (ND == 0) {
+    return parthenon::ParArray0D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 1) {
+    return parthenon::ParArray1D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 2) {
+    return parthenon::ParArray2D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 3) {
+    return parthenon::ParArray3D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 4) {
+    return parthenon::ParArray4D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 5) {
+    return parthenon::ParArray5D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 6) {
+    return parthenon::ParArray6D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 7) {
+    return parthenon::ParArray7D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 8) {
+    return parthenon::ParArray8D<T>(std::forward<Args>(args)...);
+  }
+}
+template <size_t ND, typename T, typename... Args>
+auto HostArrayND(Args &&...args) {
+  static_assert(ND <= 7, "HostArrayND supoorted up to ND=7");
+  if constexpr (ND == 0) {
+    return parthenon::HostArray0D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 1) {
+    return parthenon::HostArray1D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 2) {
+    return parthenon::HostArray2D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 3) {
+    return parthenon::HostArray3D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 4) {
+    return parthenon::HostArray4D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 5) {
+    return parthenon::HostArray5D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 6) {
+    return parthenon::HostArray6D<T>(std::forward<Args>(args)...);
+  } else if constexpr (ND == 7) {
+    return parthenon::HostArray7D<T>(std::forward<Args>(args)...);
+  }
+}
+
+enum class lbounds { integer, indexrange };
+
+template <size_t Rank>
+struct test_wrapper_nd_impl {
+  template <size_t N>
+  using Sequence = std::make_index_sequence<N>;
+  int N, indices[Rank - 1], int_bounds[2 * Rank];
+  parthenon::IndexRange bounds[Rank];
+  decltype(ParArrayND<Rank, Real>()) arr_dev;
+  decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
+
+  test_wrapper_nd_impl(const int _N = 32) : N(_N) {
+    arr_dev = GetArray(typename parthenon::meta::sequence_of_ones<Rank>::value());
+    arr_host_orig = Kokkos::create_mirror(arr_dev);
+    arr_host_mod = Kokkos::create_mirror(arr_dev);
+    std::random_device rd;  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<Real> dis(-1.0, 1.0);
+    par_for_init<Rank>(std::make_index_sequence<Rank - 1>(), gen, dis);
+  }
+
+  template <size_t... Is>
+  auto GetArray(std::index_sequence<Is...>) {
+    static_assert(sizeof...(Is) == Rank);
+    return ParArrayND<Rank, Real>("device", N * Is...);
+  }
+
+  template <size_t LoopsLeft, size_t... Is>
+  void par_for_init(std::index_sequence<Is...>, std::mt19937 &gen,
+                    std::uniform_real_distribution<Real> &dis) {
+    constexpr size_t id = Rank - LoopsLeft;
+    bounds[id].s = 0;
+    bounds[id].e = N - 1;
+    int_bounds[2 * id] = 0;
+    int_bounds[2 * id + 1] = N - 1;
+    if constexpr (LoopsLeft == 1) {
+      for (int i = 0; i < N; i++) {
+        arr_host_orig(indices[Is]..., i) = 0.; // dis(gen);
+      }
+    } else {
+      for (int j = 0; j < N; j++) {
+        indices[Rank - LoopsLeft] = j;
+        par_for_init<LoopsLeft - 1>(Sequence<Rank - 1>(), gen, dis);
+      }
+    }
+  }
+
+  template <typename... KJI>
+  KOKKOS_INLINE_FUNCTION Real increment_data(KJI... kji) {
+    static_assert(Rank == sizeof...(KJI), "number of indices matches Rank");
+    int inc = 0;
+    int inds[sizeof...(KJI)]{kji...};
+    for (int i = 0; i < Rank; i++) {
+      inc += N * inds[i];
+    }
+    return static_cast<Real>(inc);
+  }
+
+  template <size_t LoopsLeft, size_t... Is>
+  bool par_for_comp(std::index_sequence<Is...>) {
+    bool all_same = true;
+    if constexpr (LoopsLeft == 1) {
+      for (int i = 0; i < N; i++) {
+        if (arr_host_orig(indices[Is]..., i) + increment_data(indices[Is]..., i) !=
+            arr_host_mod(indices[Is]..., i)) {
+          all_same = false;
+        }
+      }
+    } else {
+      for (int j = 0; j < N; j++) {
+        indices[Rank - LoopsLeft] = j;
+        all_same = par_for_comp<LoopsLeft - 1>(Sequence<Rank - 1>());
+      }
+    }
+    return all_same;
+  }
+
+  template <lbounds bound_type, typename T, size_t... Ids, typename... Ts>
+  bool dispatch(parthenon::meta::TypeList<Ts...>, std::index_sequence<Ids...>,
+                T loop_pattern, DevExecSpace exec_space) {
+    Kokkos::deep_copy(arr_dev, arr_host_orig);
+    if constexpr (bound_type == lbounds::integer) {
+      parthenon::par_for(
+          loop_pattern, "unit test ND integer bounds", exec_space, int_bounds[Ids]...,
+          KOKKOS_LAMBDA(Ts... args) {
+            arr_dev(std::forward<decltype(args)>(args)...) +=
+                increment_data(std::forward<decltype(args)>(args)...);
+          });
+    } else {
+      parthenon::par_for(
+          loop_pattern, "unit test ND IndexRange bounds", exec_space, bounds[Ids]...,
+          KOKKOS_LAMBDA(Ts... args) {
+            arr_dev(std::forward<decltype(args)>(args)...) +=
+                increment_data(std::forward<decltype(args)>(args)...);
+          });
+    }
+    Kokkos::deep_copy(arr_host_mod, arr_dev);
+    return par_for_comp<Rank>(Sequence<Rank - 1>());
+  }
+  template <typename T>
+  void test(T loop_pattern, DevExecSpace exec_space) {
+    /* REQUIRE(dispatch<lbounds::integer>( */
+    /*             typename parthenon::meta::ListOfType<Rank, const int>::value(), */
+    /*             Sequence<2 * Rank>(), loop_pattern, exec_space) == true); */
+    REQUIRE(dispatch<lbounds::indexrange>(
+                typename parthenon::meta::ListOfType<Rank, const int>::value(),
+                Sequence<Rank>(), loop_pattern, exec_space) == true);
+  }
+
+  template <typename T>
+  bool par_for_dev(T loop_pattern, DevExecSpace exec_space, lbounds bound_type) {
+    return dispatch(Sequence(), loop_pattern, exec_space, bound_type);
+  }
+};
+
+template <size_t Rank>
+void test_wrapper_nd(DevExecSpace exec_space) {
+  auto wrappernd = test_wrapper_nd_impl<Rank>(2);
+  wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
+}
+
 template <class T>
 bool test_wrapper_4d(T loop_pattern, DevExecSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
@@ -242,6 +412,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
   }
 
   SECTION("4D loops") {
+    test_wrapper_nd<4>(default_exec_space);
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
             true);
 
@@ -358,6 +529,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
   // Compute the scratch memory needs
   const int scratch_level = 0;
   size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
+  parthenon::IndexRange rng{0, N - 1};
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_for_outer(
@@ -369,7 +541,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
         // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
         parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),
                                                 N);
-        parthenon::par_for_inner(inner_loop_pattern, team_member, 0, N - 1,
+        parthenon::par_for_inner(inner_loop_pattern, team_member, rng,
                                  [&](const int i) { scratch_u(i) = dev_u(n, k, j, i); });
         // Sync all threads in the team so that scratch memory is consistent
         team_member.team_barrier();

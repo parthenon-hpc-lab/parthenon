@@ -365,6 +365,16 @@ struct SplitList<N, TypeList<T, Ts...>> {
   using Right = typename split::Right;
 };
 
+template <size_t N, typename T>
+struct ListOfType {
+  using value = typename PrependList<T, typename ListOfType<N - 1, T>::value>::value;
+};
+
+template <typename T>
+struct ListOfType<1, T> {
+  using value = TypeList<T>;
+};
+
 template <size_t, typename>
 struct SequenceOfOnes {};
 
