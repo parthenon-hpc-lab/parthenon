@@ -479,6 +479,8 @@ struct DispatchType {
       std::is_same<IndexRange, meta::base_type<BoundType>>::value;
   static constexpr bool is_ParFor =
       std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
+  static constexpr bool is_ParScan =
+      std::is_same<Tag, dispatch_impl::ParallelScanDispatch()>::value;
 
   static constexpr bool IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
   static constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
@@ -486,10 +488,11 @@ struct DispatchType {
   using TeamPattern =
       LoopPatternTeam<Pattern, Rank>; // false_type unless we use an outer team policy
 
-  // fallback simd par_reduce to flat range
-  static constexpr bool is_FlatRange = (IsFlatRange || (IsSimdFor && !is_ParFor));
+  // fallback simd par_reduce to flat range and force par_scan to flat range
+  static constexpr bool is_FlatRange =
+      (IsFlatRange || (IsSimdFor && !is_ParFor)) || is_ParScan;
   static constexpr bool is_SimdFor = (IsSimdFor && is_ParFor);
-  static constexpr bool is_MDRange = IsMDRange;
+  static constexpr bool is_MDRange = (IsMDRange && !is_ParScan);
   static constexpr bool is_Collapse = TeamPattern::value;
 };
 
@@ -935,6 +938,9 @@ par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...ar
   using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
   using Args = typename dispatchsig::Args;                 //
 
+  if constexpr (Rank > 1 && std::is_same_v<dispatch_impl::ParallelScanDispatch, Tag>) {
+    static_assert(always_false<Tag>, "par_scan only for 1D loops");
+  }
   par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch(
       name, exec_space, std::forward<AllArgs>(args)...);
 }
