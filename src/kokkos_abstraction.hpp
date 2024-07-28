@@ -375,21 +375,23 @@ struct ListOfType<1, T> {
   using value = TypeList<T>;
 };
 
-template <size_t, typename>
+template <size_t, size_t, typename>
 struct SequenceOfOnes {};
 
-template <size_t... ones>
-struct SequenceOfOnes<0, std::integer_sequence<size_t, ones...>> {
+template <size_t VAL, size_t... ones>
+struct SequenceOfOnes<0, VAL, std::integer_sequence<size_t, ones...>> {
   using value = typename std::integer_sequence<size_t, ones...>;
 };
 
-template <size_t N, size_t... ones>
-struct SequenceOfOnes<N, std::integer_sequence<size_t, ones...>> {
-  using value = typename SequenceOfOnes<N - 1, std::integer_sequence<size_t, 1>>::value;
+template <size_t N, size_t VAL, size_t... ones>
+struct SequenceOfOnes<N, VAL, std::integer_sequence<size_t, ones...>> {
+  using value =
+      typename SequenceOfOnes<N - 1, VAL,
+                              std::integer_sequence<size_t, VAL, ones...>>::value;
 };
 
-template <size_t N>
-using sequence_of_ones = SequenceOfOnes<N - 1, std::integer_sequence<size_t, 1>>;
+template <size_t N, size_t VAL = 1>
+using sequence_of_ones = SequenceOfOnes<N - 1, VAL, std::integer_sequence<size_t, VAL>>;
 
 } // namespace meta
 
