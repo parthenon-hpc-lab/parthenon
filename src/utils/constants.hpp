@@ -117,6 +117,10 @@ class PhysicalConstants {
   static constexpr double stefan_boltzmann = 2.0 * M_PI * M_PI * M_PI * M_PI * M_PI * kb *
                                              kb * kb * kb / (15.0 * h * h * h * c * c);
   static constexpr double sb = stefan_boltzmann;
+  
+  // Radiation constant 
+  static constexpr double radiation_constant = 4.0 * stefan_boltzmann / speed_of_light;
+  static constexpr double ar = radiation_constant;
 
   // Faraday constant
   static constexpr double faraday_constant = 96485.33645957 * capacitance;
