@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1140]](https://github.com/parthenon-hpc-lab/parthenon/pull/1140) Allow for relative convergence tolerance in BiCGSTAB solver.
 - [[PR 1047]](https://github.com/parthenon-hpc-lab/parthenon/pull/1047) General three- and four-valent 2D forests w/ arbitrary orientations.
 - [[PR 1130]](https://github.com/parthenon-hpc-lab/parthenon/pull/1130) Enable `parthenon::par_reduce` for MD loops with Kokkos 1D Range
 - [[PR 1119]](https://github.com/parthenon-hpc-lab/parthenon/pull/1119) Formalize MeshData partitioning.
@@ -33,6 +34,8 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1132]](https://github.com/parthenon-hpc-lab/parthenon/pull/1132) Fix regional dependencies for iterative task lists and make solvers work for arbirtrary MeshData partitioning
+- [[PR 1139]](https://github.com/parthenon-hpc-lab/parthenon/pull/1139) only add --expt-relaxed-constexpr for COMPILE_LANGUAGE:CXX
 - [[PR 1131]](https://github.com/parthenon-hpc-lab/parthenon/pull/1131) Make deallocation of fine and sparse fields work
 - [[PR 1127]](https://github.com/parthenon-hpc-lab/parthenon/pull/1127) Add WithFluxes to IsRefined check
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
