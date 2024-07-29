@@ -84,16 +84,16 @@ auto HostArrayND(Args &&...args) {
 
 enum class lbounds { integer, indexrange };
 
-template <size_t Rank>
+template <size_t Rank, size_t N>
 struct test_wrapper_nd_impl {
-  template <size_t N>
-  using Sequence = std::make_index_sequence<N>;
-  int N, indices[Rank - 1], int_bounds[2 * Rank];
+  template <size_t Ni>
+  using Sequence = std::make_index_sequence<Ni>;
+  int indices[Rank - 1], int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
   decltype(ParArrayND<Rank, Real>()) arr_dev;
   decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
 
-  test_wrapper_nd_impl(const int _N = 32) : N(_N) {
+  test_wrapper_nd_impl() {
     arr_dev = GetArray(typename parthenon::meta::sequence_of_ones<Rank>::value());
     arr_host_orig = Kokkos::create_mirror(arr_dev);
     arr_host_mod = Kokkos::create_mirror(arr_dev);
@@ -130,7 +130,7 @@ struct test_wrapper_nd_impl {
   }
 
   template <typename... KJI>
-  KOKKOS_INLINE_FUNCTION Real increment_data(KJI... kji) {
+  KOKKOS_INLINE_FUNCTION static Real increment_data(KJI... kji) {
     static_assert(Rank == sizeof...(KJI), "number of indices matches Rank");
     int inc = 0;
     int inds[sizeof...(KJI)]{kji...};
@@ -159,54 +159,62 @@ struct test_wrapper_nd_impl {
     return all_same;
   }
 
-  template <lbounds bound_type, typename T, size_t... Ids, typename... Ts>
-  bool dispatch(parthenon::meta::TypeList<Ts...>, std::index_sequence<Ids...>,
-                T loop_pattern, DevExecSpace exec_space) {
-    Kokkos::deep_copy(arr_dev, arr_host_orig);
-    if constexpr (bound_type == lbounds::integer) {
-      parthenon::par_for(
-          loop_pattern, "unit test ND integer bounds", exec_space, int_bounds[Ids]...,
-          KOKKOS_LAMBDA(Ts... args) {
-            arr_dev(std::forward<decltype(args)>(args)...) +=
-                increment_data(std::forward<decltype(args)>(args)...);
-          });
-    } else {
-      parthenon::par_for(
-          loop_pattern, "unit test ND IndexRange bounds", exec_space, bounds[Ids]...,
-          KOKKOS_LAMBDA(Ts... args) {
-            arr_dev(std::forward<decltype(args)>(args)...) +=
-                increment_data(std::forward<decltype(args)>(args)...);
-          });
+  template <typename, lbounds, typename, typename>
+  struct dispatch {};
+
+  template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
+  struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
+                  parthenon::meta::TypeList<Ts...>> {
+
+    template <typename view_t>
+    void execute(DevExecSpace exec_space, view_t &dev, int *int_bounds,
+                 parthenon::IndexRange *bounds) {
+      if constexpr (bound_type == lbounds::integer) {
+        parthenon::par_for(
+            Pattern(), "unit test ND integer bounds", exec_space, int_bounds[Ids]...,
+
+            KOKKOS_CLASS_LAMBDA(Ts... args) {
+              dev(std::forward<decltype(args)>(args)...) +=
+                  increment_data(std::forward<decltype(args)>(args)...);
+            });
+      } else {
+        parthenon::par_for(
+            Pattern(), "unit test ND IndexRange bounds", exec_space, bounds[Ids]...,
+
+            KOKKOS_CLASS_LAMBDA(Ts... args) {
+              dev(std::forward<decltype(args)>(args)...) +=
+                  increment_data(std::forward<decltype(args)>(args)...);
+            });
+      }
     }
-    Kokkos::deep_copy(arr_host_mod, arr_dev);
-    return par_for_comp<Rank>(Sequence<Rank - 1>());
-  }
+  };
+
   template <typename T>
   void test(T loop_pattern, DevExecSpace exec_space) {
+    Kokkos::deep_copy(arr_dev, arr_host_orig);
     SECTION("integer launch bounds") {
-      REQUIRE(dispatch<lbounds::integer>(
-                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
-                  Sequence<2 * Rank>(), loop_pattern, exec_space) == true);
+      dispatch<T, lbounds::integer, Sequence<2 * Rank>,
+               typename parthenon::meta::ListOfType<Rank, const int>::value>()
+          .execute(exec_space, arr_dev, int_bounds, bounds);
+      Kokkos::deep_copy(arr_host_mod, arr_dev);
+      REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
     }
     SECTION("IndexRange launch bounds") {
-      REQUIRE(dispatch<lbounds::indexrange>(
-                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
-                  Sequence<Rank>(), loop_pattern, exec_space) == true);
+      dispatch<T, lbounds::indexrange, Sequence<Rank>,
+               typename parthenon::meta::ListOfType<Rank, const int>::value>()
+          .execute(exec_space, arr_dev, int_bounds, bounds);
+      Kokkos::deep_copy(arr_host_mod, arr_dev);
+      REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
     }
   }
 
   template <typename OuterPattern, typename InnerPattern>
   void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
-
-  template <typename T>
-  bool par_for_dev(T loop_pattern, DevExecSpace exec_space, lbounds bound_type) {
-    return dispatch(Sequence(), loop_pattern, exec_space, bound_type);
-  }
 };
 
-template <size_t Rank>
-void test_wrapper_nd(DevExecSpace exec_space, int N = 32) {
-  auto wrappernd = test_wrapper_nd_impl<Rank>(N);
+template <size_t Rank, size_t N>
+void test_wrapper_nd(DevExecSpace exec_space) {
+  auto wrappernd = test_wrapper_nd_impl<Rank, N>();
   SECTION("LoopPatternFlatRange") {
     wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
   }
@@ -239,13 +247,13 @@ void test_wrapper_nd(DevExecSpace exec_space, int N = 32) {
 TEST_CASE("par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
-  SECTION("1D loops") { test_wrapper_nd<1>(default_exec_space, 32); }
-  SECTION("2D loops") { test_wrapper_nd<2>(default_exec_space, 32); }
-  SECTION("3D loops") { test_wrapper_nd<3>(default_exec_space, 32); }
-  SECTION("4D loops") { test_wrapper_nd<4>(default_exec_space, 32); }
-  SECTION("5D loops") { test_wrapper_nd<5>(default_exec_space, 10); }
-  SECTION("6D loops") { test_wrapper_nd<6>(default_exec_space, 10); }
-  SECTION("7D loops") { test_wrapper_nd<7>(default_exec_space, 10); }
+  SECTION("1D loops") { test_wrapper_nd<1, 32>(default_exec_space); }
+  SECTION("2D loops") { test_wrapper_nd<2, 32>(default_exec_space); }
+  SECTION("3D loops") { test_wrapper_nd<3, 32>(default_exec_space); }
+  SECTION("4D loops") { test_wrapper_nd<4, 32>(default_exec_space); }
+  SECTION("5D loops") { test_wrapper_nd<5, 10>(default_exec_space); }
+  SECTION("6D loops") { test_wrapper_nd<6, 10>(default_exec_space); }
+  SECTION("7D loops") { test_wrapper_nd<7, 10>(default_exec_space); }
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
@@ -464,15 +472,15 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   }
 }
 
-template <size_t Rank>
+template <size_t Rank, size_t N>
 struct test_wrapper_reduce_nd_impl {
-  template <size_t N>
-  using Sequence = std::make_index_sequence<N>;
-  int N, indices[Rank - 1], int_bounds[2 * Rank];
+  template <size_t Ni>
+  using Sequence = std::make_index_sequence<Ni>;
+  int indices[Rank - 1], int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
   int h_sum;
 
-  test_wrapper_reduce_nd_impl(const int _N = 10) : N(_N) {
+  test_wrapper_reduce_nd_impl() {
     h_sum = 0;
     par_red_init<Rank>(std::make_index_sequence<Rank - 1>(), h_sum);
   }
@@ -502,50 +510,55 @@ struct test_wrapper_reduce_nd_impl {
     }
   }
 
-  template <lbounds bound_type, typename T, size_t... Ids, typename... Ts>
-  bool dispatch(parthenon::meta::TypeList<Ts...>, std::index_sequence<Ids...>,
-                T loop_pattern, DevExecSpace exec_space) {
-    int test_sum = 0;
-    if constexpr (bound_type == lbounds::integer) {
-      parthenon::par_reduce(
-          loop_pattern, "sum via par_reduce integer bounds", exec_space,
-          int_bounds[Ids]...,
-          KOKKOS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
-          Kokkos::Sum<int>(test_sum));
-    } else {
-      parthenon::par_reduce(
-          loop_pattern, "sum via par_reduce IndexRange bounds", exec_space,
-          bounds[Ids]..., KOKKOS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
-          Kokkos::Sum<int>(test_sum));
+  template <typename, lbounds, typename, typename>
+  struct dispatch {};
+
+  template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
+  struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
+                  parthenon::meta::TypeList<Ts...>> {
+
+    bool execute(DevExecSpace exec_space, const int h_sum, int *int_bounds,
+                 parthenon::IndexRange *bounds) {
+      int test_sum = 0;
+      if constexpr (bound_type == lbounds::integer) {
+        parthenon::par_reduce(
+            Pattern(), "sum via par_reduce integer bounds", exec_space,
+            int_bounds[Ids]...,
+
+            KOKKOS_CLASS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
+            Kokkos::Sum<int>(test_sum));
+      } else {
+        parthenon::par_reduce(
+            Pattern(), "sum via par_reduce IndexRange bounds", exec_space, bounds[Ids]...,
+
+            KOKKOS_CLASS_LAMBDA(Ts... args, int &sum) { sum += (args + ...); },
+            Kokkos::Sum<int>(test_sum));
+      }
+      return h_sum == test_sum;
     }
-    return test_sum == h_sum;
-  }
+  };
+
   template <typename T>
   void test(T loop_pattern, DevExecSpace exec_space) {
     SECTION("integer launch bounds") {
-      REQUIRE(dispatch<lbounds::integer>(
-                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
-                  Sequence<2 * Rank>(), loop_pattern, exec_space) == true);
+      REQUIRE(dispatch<T, lbounds::integer, Sequence<2 * Rank>,
+                       typename parthenon::meta::ListOfType<Rank, const int>::value>()
+                  .execute(exec_space, h_sum, int_bounds, bounds) == true);
     }
     SECTION("IndexRange launch bounds") {
-      REQUIRE(dispatch<lbounds::indexrange>(
-                  typename parthenon::meta::ListOfType<Rank, const int>::value(),
-                  Sequence<Rank>(), loop_pattern, exec_space) == true);
+      REQUIRE(dispatch<T, lbounds::integer, Sequence<2 * Rank>,
+                       typename parthenon::meta::ListOfType<Rank, const int>::value>()
+                  .execute(exec_space, h_sum, int_bounds, bounds) == true);
     }
   }
 
   template <typename OuterPattern, typename InnerPattern>
   void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
-
-  template <typename T>
-  bool par_for_dev(T loop_pattern, DevExecSpace exec_space, lbounds bound_type) {
-    return dispatch(Sequence(), loop_pattern, exec_space, bound_type);
-  }
 };
 
-template <size_t Rank>
-void test_wrapper_reduce_nd(DevExecSpace exec_space, int N = 10) {
-  auto wrappernd = test_wrapper_reduce_nd_impl<Rank>(N);
+template <size_t Rank, size_t N>
+void test_wrapper_reduce_nd(DevExecSpace exec_space) {
+  auto wrappernd = test_wrapper_reduce_nd_impl<Rank, N>();
   SECTION("LoopPatternFlatRange") {
     wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
   }
@@ -565,11 +578,11 @@ void test_wrapper_reduce_nd(DevExecSpace exec_space, int N = 10) {
 
 TEST_CASE("Parallel reduce", "[par_reduce]") {
   auto default_exec_space = DevExecSpace();
-  SECTION("1D loops") { test_wrapper_reduce_nd<1>(default_exec_space, 10); }
-  SECTION("2D loops") { test_wrapper_reduce_nd<2>(default_exec_space, 10); }
-  SECTION("3D loops") { test_wrapper_reduce_nd<3>(default_exec_space, 10); }
-  SECTION("4D loops") { test_wrapper_reduce_nd<4>(default_exec_space, 10); }
-  SECTION("5D loops") { test_wrapper_reduce_nd<5>(default_exec_space, 10); }
-  SECTION("6D loops") { test_wrapper_reduce_nd<6>(default_exec_space, 10); }
-  SECTION("7D loops") { test_wrapper_reduce_nd<7>(default_exec_space, 10); }
+  SECTION("1D loops") { test_wrapper_reduce_nd<1, 10>(default_exec_space); }
+  SECTION("2D loops") { test_wrapper_reduce_nd<2, 10>(default_exec_space); }
+  SECTION("3D loops") { test_wrapper_reduce_nd<3, 10>(default_exec_space); }
+  SECTION("4D loops") { test_wrapper_reduce_nd<4, 10>(default_exec_space); }
+  SECTION("5D loops") { test_wrapper_reduce_nd<5, 10>(default_exec_space); }
+  SECTION("6D loops") { test_wrapper_reduce_nd<6, 10>(default_exec_space); }
+  SECTION("7D loops") { test_wrapper_reduce_nd<7, 10>(default_exec_space); }
 }

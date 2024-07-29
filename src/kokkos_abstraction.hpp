@@ -576,10 +576,11 @@ struct InnerFunctor<Function, meta::TypeList<Index...>,
   Function function;
   Kokkos::Array<int, Nteam> inds_team;
 
+  KOKKOS_INLINE_FUNCTION
   InnerFunctor(Kokkos::Array<int, Nteam> _inds_team, Function _function)
       : inds_team(_inds_team), function(_function) {}
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   void operator()(Index... inds) const {
     function(inds_team[Iteam]..., std::forward<Index>(inds)...);
   }
