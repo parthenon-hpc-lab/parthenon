@@ -59,9 +59,9 @@ int main(int argc, char *argv[]) {
 
   if (driver_status == DriverStatus::complete) {
     return 0;
-  } else if (driver_status == DriverStatus::timeout) {
-    return 1;
   } else if (driver_status == DriverStatus::failed) {
+    return 1;
+  } else if (driver_status == DriverStatus::timeout) {
     return 2;
   } else {
     return 3;
