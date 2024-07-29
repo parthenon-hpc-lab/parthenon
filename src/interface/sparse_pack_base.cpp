@@ -249,6 +249,13 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
                   PARTHENON_REQUIRE(
                       pack.pack_h_(0, b, idx).size() > 0,
                       "Seems like this variable might not actually be allocated.");
+                  
+                  // Save the tensor indices for easy access 
+                  for (int l = 0; l < leading_dim; ++l) { 
+                    pack.pack_h_(l, b, idx).t = t;
+                    pack.pack_h_(l, b, idx).u = u;
+                    pack.pack_h_(l, b, idx).v = v;
+                  }
 
                   if (desc.flat) {
                     coords_h(idx) = pmbd->GetBlockPointer()->coords_device;

@@ -61,7 +61,10 @@ struct VariableState : public empty_state_t {
   int sparse_id;
   int vector_component = NODIR;
   bool initialized = true;
-
+  
+  int t{0};
+  int u{0};
+  int v{0};
   TopologicalType topological_type = TopologicalType::Cell;
   TopologicalElement topological_element = TopologicalElement::CC;
   std::size_t tensor_components;
