@@ -290,6 +290,14 @@ class MeshData {
 
   const auto &GetAllBlockData() const { return block_data_; }
 
+  bool ContainsGid(int gid) const {
+    bool contains = false;
+    for (auto &b : block_data_) {
+      if (b->GetBlockPointer()->gid == gid) contains = true;
+    }
+    return contains;
+  }
+
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
                   [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });

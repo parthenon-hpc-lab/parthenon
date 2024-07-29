@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
 #include "outputs/restart.hpp"
@@ -52,12 +53,64 @@ class RestartReaderOPMD : public RestartReader {
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
                   int file_output_format_version, Mesh *pmesh) const override;
 
+  // Gets the data from a swarm var on current rank. Assumes all
+  // blocks are contiguous. Fills dataVec based on shape from swarmvar
+  // metadata.
+  template <typename T>
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
-                    std::vector<Real> &dataVec) override{};
+                    std::vector<T> &data_vec) {
+    openPMD::ParticleSpecies swm = it->particles[swarmname];
+
+    const auto &shape = m.Shape();
+    const int rank = shape.size();
+    std::size_t nvar = 1;
+    for (int i = 0; i < rank; ++i) {
+      nvar *= shape[rank - 1 - i];
+    }
+    std::size_t total_count = nvar * count;
+    if (data_vec.size() < total_count) { // greedy re-alloc
+      data_vec.resize(total_count);
+    }
+
+    std::string particle_record;
+    std::string particle_record_component;
+    for (auto n = 0; n < nvar; n++) {
+      if (varname == swarm_position::x::name()) {
+        particle_record = "position";
+        particle_record_component = "x";
+      } else if (varname == swarm_position::y::name()) {
+        particle_record = "position";
+        particle_record_component = "y";
+      } else if (varname == swarm_position::z::name()) {
+        particle_record = "position";
+        particle_record_component = "z";
+      } else {
+        particle_record = varname;
+        particle_record_component =
+            rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(n);
+      }
+
+      openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
+      rc.loadChunkRaw(&data_vec[n * count], {offset}, {count});
+    }
+
+    // Now actually read the registered chunks form disk
+    it->seriesFlush();
+  }
+
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
-                    std::vector<int> &dataVec) override{};
+                    std::vector<Real> &dataVec) override {
+
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<int> &dataVec) override {
+
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
 
   // Gets the counts and offsets for MPI ranks for the meshblocks set
   // by the indexrange. Returns the total count on this rank.

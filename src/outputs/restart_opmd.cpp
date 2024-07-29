@@ -6,6 +6,7 @@
 //! \file restart_opmd.cpp
 //  \brief Restarts a simulation from an OpenPMD output with ADIOS2 backend
 
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -93,8 +94,24 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
                                               const IndexRange &range,
                                               std::vector<std::size_t> &counts,
                                               std::vector<std::size_t> &offsets) {
-  // TODO(pgrete) needs impl
-  return 0;
+  // datasets
+  auto counts_dset =
+      it->particles[swarm].getAttribute("counts").get<std::vector<size_t>>();
+  auto offsets_dset =
+      it->particles[swarm].getAttribute("offsets").get<std::vector<size_t>>();
+
+  // Read data for requested blocks in range
+  counts.resize(range.e - range.s + 1);
+  offsets.resize(range.e - range.s + 1);
+
+  std::copy(counts_dset.begin() + range.s, counts_dset.begin() + range.e + 1,
+            counts.begin());
+  std::copy(offsets_dset.begin() + range.s, offsets_dset.begin() + range.e + 1,
+            offsets.begin());
+
+  // Compute total count rank
+  std::size_t total_count_on_rank = std::accumulate(counts.begin(), counts.end(), 0);
+  return total_count_on_rank;
 }
 
 template <typename T>

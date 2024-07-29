@@ -40,6 +40,7 @@
 #include "driver/driver.hpp"
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/swarm_default_names.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -48,6 +49,7 @@
 #include "openPMD/IO/Access.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Mesh.hpp"
+#include "openPMD/ParticleSpecies.hpp"
 #include "openPMD/Series.hpp"
 #include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/output_utils.hpp"
@@ -94,6 +96,65 @@ void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it
 
 namespace OpenPMDUtils {
 
+template <typename T>
+void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
+                   openPMD::Iteration it) {
+  auto &vars_of_type_T = std::get<SwarmInfo::MapToVarVec<T>>(swinfo.vars);
+  for (const auto &[vname, swmvarvec] : vars_of_type_T) {
+    const auto &vinfo = swinfo.var_info.at(vname);
+    auto host_data = swinfo.FillHostBuffer<T>(vname, swmvarvec);
+
+    auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
+                                          {swinfo.global_count});
+    // TODO(pgrete) ask OpenPMD group if this is the right approach of if our non-scalar
+    // partices should be a multi-D `dataset` if is scalar
+    if (vinfo.tensor_rank == 0) {
+      // special sauce to align "positions" with standard
+      std::string particle_record;
+      std::string particle_record_component;
+      if (vname == swarm_position::x::name()) {
+        particle_record = "position";
+        particle_record_component = "x";
+      } else if (vname == swarm_position::y::name()) {
+        particle_record = "position";
+        particle_record_component = "y";
+      } else if (vname == swarm_position::z::name()) {
+        particle_record = "position";
+        particle_record_component = "z";
+      } else {
+        particle_record = vname;
+        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
+      }
+      openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
+      rc.resetDataset(dataset);
+      // only write if there's sth to write (otherwise the host_data nullptr is caught)
+      if (swinfo.count_on_rank != 0) {
+        rc.storeChunk(host_data, {swinfo.global_offset}, {host_data.size()});
+      }
+
+      // if positional, add offsets
+      if (particle_record_component != openPMD::MeshRecordComponent::SCALAR) {
+        auto rc_offset = swm["positionOffset"][particle_record_component];
+        rc_offset.resetDataset(dataset);
+        rc_offset.makeConstant(0.0);
+      }
+
+      // else flatten components
+    } else {
+      for (auto n = 0; n < vinfo.nvar; n++) {
+        openPMD::RecordComponent rc = swm[vname][std::to_string(n)];
+        rc.resetDataset(dataset);
+        // only write if there's sth to write (otherwise the host_data nullptr is caught)
+        if (swinfo.count_on_rank != 0) {
+          rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank], {swinfo.global_offset},
+                           {swinfo.count_on_rank});
+        }
+      }
+    }
+    // Flush because the host buffer is temporary
+    it.seriesFlush();
+  }
+}
 std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(const VarInfo &vinfo,
                                                                     const int comp_idx,
                                                                     const int level) {
@@ -514,6 +575,39 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.seriesFlush();
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
+
+  // -------------------------------------------------------------------------------- //
+  //   WRITING PARTICLE DATA                                                          //
+  // -------------------------------------------------------------------------------- //
+
+  Kokkos::Profiling::pushRegion("write particle data");
+  // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
+  AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms, true);
+  for (auto &[swname, swinfo] : all_swarm_info.all_info) {
+    openPMD::ParticleSpecies swm = it.particles[swname];
+    // These indicate particles/meshblock and location in global index
+    // space where each meshblock starts
+    auto counts_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.counts);
+    swm.setAttribute("counts", counts_global);
+    auto offsets_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
+    swm.setAttribute("offsets", offsets_global);
+
+    if (swinfo.global_count == 0) {
+      continue;
+    }
+
+    OpenPMDUtils::WriteSwarmVar<int>(swinfo, swm, it);
+    OpenPMDUtils::WriteSwarmVar<Real>(swinfo, swm, it);
+
+    // From the HDF5 output:
+    // If swarm does not contain an "id" object, generate a sequential
+    // one for vis.
+    // BUT PG: this may break things in unpredicable ways
+    // I'm in favor of enforcing a global id somehow. We shold discuss.
+    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count("id") != 0,
+                             "Particles should always carry a unique, persistent id!");
+  }
+  Kokkos::Profiling::popRegion(); // write particle data
 
   // The iteration can be closed in order to help free up resources.
   // The iteration's content will be flushed automatically.

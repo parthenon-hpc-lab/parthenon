@@ -53,6 +53,12 @@ inline MPI_Datatype MPITypeMap<bool>::type() {
   return MPI_CXX_BOOL;
 }
 
+template <>
+inline MPI_Datatype MPITypeMap<std::size_t>::type() {
+  // TODO(pgrete) do we need special checks here wrt to conflicts on MacOS?
+  return MPI_UINT64_T;
+}
+
 } // namespace parthenon
 #endif
 

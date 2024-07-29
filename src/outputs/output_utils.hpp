@@ -210,8 +210,8 @@ struct SwarmInfo {
   std::size_t count_on_rank = 0;                        // per-meshblock
   std::size_t global_offset;                            // global
   std::size_t global_count;                             // global
-  std::vector<std::size_t> counts;                      // per-meshblock
-  std::vector<std::size_t> offsets;                     // global
+  std::vector<std::size_t> counts;                      // on local meshblocks
+  std::vector<std::size_t> offsets;                     // global offset for local meshblocks
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -233,7 +233,7 @@ struct SwarmInfo {
   // Copies swarmvar to host in prep for output
   template <typename T>
   std::vector<T> FillHostBuffer(const std::string vname,
-                                ParticleVariableVector<T> &swmvarvec) {
+                                const ParticleVariableVector<T> &swmvarvec) const {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
@@ -242,6 +242,7 @@ struct SwarmInfo {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              // TODO(pgrete) understand what's doing on with the blocks here...
               std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?
