@@ -182,19 +182,20 @@ static struct LoopPatternUndefined {
 template <size_t Nteam, size_t Nthread, size_t Nvector>
 struct LoopPatternCollapse {};
 
-template <typename, size_t Rank, typename T = void>
+template <typename, typename, typename T = void>
 struct LoopPatternTeam : std::false_type {};
 
 template <size_t team, size_t thread, size_t vector>
-struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>, team + thread + vector,
-                       void> : std::true_type {
+struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>,
+                       std::integral_constant<size_t, team + thread + vector>, void>
+    : std::true_type {
   static constexpr size_t Nvector = vector;
   static constexpr size_t Nthread = thread;
   static constexpr size_t Nteam = team;
   using LoopPattern = LoopPatternCollapse<team, thread, vector>;
 };
 
-template <typename Pattern, size_t Rank>
+template <typename Pattern, typename Rank>
 struct LoopPatternTeam<
     Pattern, Rank,
     typename std::enable_if<std::is_same<Pattern, LoopPatternTPTTR>::value ||
@@ -210,7 +211,7 @@ struct LoopPatternTeam<
 
   static constexpr size_t Nvector = IsTPTVR || IsTPTTRTVR;
   static constexpr size_t Nthread = IsTPTTR || IsTPTTRTVR;
-  static constexpr size_t Nteam = Rank - Nthread - Nvector;
+  static constexpr size_t Nteam = Rank::value - Nthread - Nvector;
   using LoopPattern = LoopPatternCollapse<Nteam, Nthread, Nvector>;
   using OuterPattern = Pattern;
 };
@@ -223,7 +224,8 @@ struct LoopPatternTeam<
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
 template <size_t Rank>
-struct LoopPatternTeam<OuterLoopPatternTeams, Rank, void> : std::true_type {
+struct LoopPatternTeam<OuterLoopPatternTeams, std::integral_constant<size_t, Rank>, void>
+    : std::true_type {
   static constexpr size_t Nvector = 0;
   static constexpr size_t Nthread = 0;
   static constexpr size_t Nteam = Rank;
@@ -245,7 +247,7 @@ constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
 template <typename Pattern, size_t Rank>
 struct LoopPatternTeam<
-    Pattern, Rank,
+    Pattern, std::integral_constant<size_t, Rank>,
     typename std::enable_if<std::is_same<Pattern, InnerLoopPatternTTR>::value ||
                             std::is_same<Pattern, InnerLoopPatternTVR>::value>::type>
     : std::true_type {
@@ -486,7 +488,9 @@ struct DispatchType {
   static constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
   static constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
   using TeamPattern =
-      LoopPatternTeam<Pattern, Rank>; // false_type unless we use an outer team policy
+      LoopPatternTeam<Pattern,
+                      std::integral_constant<size_t, Rank>>; // false_type unless we use
+                                                             // an outer team policy
 
   // fallback simd par_reduce to flat range and force par_scan to flat range
   static constexpr bool is_FlatRange =
@@ -748,7 +752,9 @@ struct par_dispatch_inner {};
 template <typename Pattern, size_t Rank, typename Function, typename... Bounds>
 struct par_dispatch_inner<Pattern, Rank, Function, meta::TypeList<Bounds...>> {
   using signature = meta::function_signature<Rank, Function>;
-  using LoopPattern = typename LoopPatternTeam<Pattern, Rank>::LoopPattern;
+  using LoopPattern =
+      typename LoopPatternTeam<Pattern,
+                               std::integral_constant<size_t, Rank>>::LoopPattern;
 
   KOKKOS_FORCEINLINE_FUNCTION
   void dispatch(team_mbr_t team_member, Bounds &&...bounds, Function function) const {
@@ -983,7 +989,7 @@ par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
   using Function = typename dispatchsig::Function;         // functor type
   using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
   using Args = typename dispatchsig::Args;                 //
-  using LoopPattern = LoopPatternTeam<Pattern, Rank>;
+  using LoopPattern = LoopPatternTeam<Pattern, std::integral_constant<size_t, Rank>>;
   using Tag = dispatch_impl::ParallelForDispatch;
 
   par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch(
