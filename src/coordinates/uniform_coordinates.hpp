@@ -94,7 +94,7 @@ class UniformCoordinates {
   // Dxf: Distance between cell faces
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(const int idx) {
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxf(const int idx) const {
     static_assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
