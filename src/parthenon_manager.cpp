@@ -289,9 +289,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // Allocate space based on largest vector
-  int max_vlen = 1;
   int num_sparse = 0;
-  size_t nCells = 1;
+  size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -306,17 +305,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info.num_components);
-    IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
-    IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
-    IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
 
-    std::vector<size_t> bsize;
-    bsize.push_back(out_ib.e - out_ib.s + 1);
-    bsize.push_back(out_jb.e - out_jb.s + 1);
-    bsize.push_back(out_kb.e - out_kb.s + 1);
-
-    nCells = std::max(nCells, bsize[0] * bsize[1] * bsize[2]);
+    max_fillsize = std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -324,9 +314,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       num_sparse == sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
+  std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
-    const auto vlen = v_info.num_components;
+    const auto vlen = v_info.num_components * v_info.ntop_elems;
+    const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
@@ -354,7 +345,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = dealloc_count;
         } else {
           // nothing to read for this block, advance reading index
-          index += nCells * vlen;
+          index += fill_size;
           continue;
         }
       }
