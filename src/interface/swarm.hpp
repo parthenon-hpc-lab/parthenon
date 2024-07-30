@@ -182,6 +182,9 @@ class Swarm {
   /// indicates gaps in the list.
   Real GetPackingEfficiency() const { return num_active_ / (max_active_index_ + 1); }
 
+  // Update sorted array of empty indices in the current memory pool
+  void UpdateEmptyIndices();
+
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
@@ -276,6 +279,7 @@ class Swarm {
   std::list<int> free_indices_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
+  ParArray1D<int> empty_indices_; // Indices of empty slots in particle pool
   ParArrayND<int> block_index_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighbor_indices_; // Indexing of vbvar's neighbor array. -1 for same.
                                      // k,j indices unused in 3D&2D, 2D, respectively

@@ -65,7 +65,9 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
-      marked_for_removal_("mfr", nmax_pool_), block_index_("block_index_", nmax_pool_),
+      marked_for_removal_("mfr", nmax_pool_),
+      empty_indices_("empty_indices_", nmax_pool_),
+      block_index_("block_index_", nmax_pool_),
       neighbor_indices_("neighbor_indices_", 4, 4, 4),
       new_indices_("new_indices_", nmax_pool_),
       from_to_indices_("from_to_indices_", nmax_pool_ + 1),
@@ -211,10 +213,15 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
+  Kokkos::resize(empty_indices_, nmax_pool);
   Kokkos::resize(new_indices_, nmax_pool);
   Kokkos::resize(from_to_indices_, nmax_pool + 1);
   Kokkos::resize(recv_neighbor_index_, nmax_pool);
   Kokkos::resize(recv_buffer_index_, nmax_pool);
+
+  // Populate new empty indices
+  UpdateEmptyIndices();
+
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cell_sorted_, nmax_pool);
@@ -250,6 +257,21 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
+  if (num_to_add > 0) {
+    while (free_indices_.size() < num_to_add) {
+      increasePoolMax();
+    }
+
+    // Update mask
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, num_to_add - 1, KOKKOS_LAMBDA(const int n) {
+          new_indices_(n) = empty_indices_(n);
+          mask_(n) = true;
+        });
+
+    // Create and return NewParticlesContext
+    return NewParticlesContext(new_indices_max_idx_, new_indices_);
+  }
 
   if (num_to_add > 0) {
     while (free_indices_.size() < num_to_add) {
@@ -289,10 +311,66 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
+void Swarm::UpdateEmptyIndices() {
+  auto pmb = GetBlockPointer();
+
+  int &max_active_index = max_active_index;
+
+  // Update list of empty indices
+  Kokkos::parallel_scan(
+      "Set empty indices", max_active_index + 1,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const bool is_free = !mask_(n);
+        if (final) {
+          if (n > 0) {
+            empty_indices_(n) = update;
+          }
+          if (n == max_active_index) {
+            empty_indices_(n) = update + is_free;
+          }
+          update += is_free;
+        }
+      });
+}
+
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
+  auto pmb = GetBlockPointer();
+
+  int &max_active_index = max_active_index;
+
+  // Update mask
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        if (mask_(n)) {
+          if (marked_for_removal_(n)) {
+            mask_(n) = false;
+          }
+        }
+      });
+
+  UpdateEmptyIndices();
+
+  //  // Update list of empty indices
+  //  Kokkos::parallel_scan(
+  //      "Set empty indices", max_active_index + 1,
+  //      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+  //        const bool is_free = !mask_(n);
+  //        if (final) {
+  //          if (n > 0) {
+  //            empty_indices_(n) = update;
+  //          }
+  //          if (n == max_active_index) {
+  //            empty_indices_(n) = update + is_free;
+  //          }
+  //          update += is_free;
+  //        }
+  //      });
+
+  // number of empty indices = nmax_pool_ - num_active_
+
   // TODO(BRR) Use par_scan to do this on device rather than host
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto marked_for_removal_h =
