@@ -65,6 +65,16 @@ class IndexSplit {
   IndexRange GetInnerBounds(const IndexRange &jb, const IndexRange &ib) const {
     return {ib.s, (ibe_entire_ + 1) * (jb.e - jb.s + 1) - (ibe_entire_ - ib.e) - 1};
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int get_i(const int idx) const {
+    return idx % (ibe_entire_ + 1);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int get_deltaj(const int idx) const {
+    return idx / (ibe_entire_ + 1);
+  }
+
   KOKKOS_INLINE_FUNCTION
   bool is_i_ghost(const int idx) const {
     const int ni = ibe_entire_ + 1;
