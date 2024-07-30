@@ -91,7 +91,6 @@ class BiCGSTABSolver {
     using namespace refinement_ops;
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
-    pkg->AddField(x::name(), m_no_ghost);
     pkg->AddField(rhat0::name(), m_no_ghost);
     pkg->AddField(v::name(), m_no_ghost);
     pkg->AddField(h::name(), m_no_ghost);
@@ -99,6 +98,7 @@ class BiCGSTABSolver {
     pkg->AddField(t::name(), m_no_ghost);
     pkg->AddField(r::name(), m_no_ghost);
     pkg->AddField(p::name(), m_no_ghost);
+    pkg->AddField(x::name(), m_no_ghost);
   }
 
   template <class TL_t>
