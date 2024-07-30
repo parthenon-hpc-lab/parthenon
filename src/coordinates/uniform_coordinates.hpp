@@ -187,7 +187,7 @@ class UniformCoordinates {
 
   template <TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION
-  Real Scale(const int dir, const int k, const int j, const int i) {
+  Real Scale(const int dir, const int k, const int j, const int i) const {
     assert(dir > 0 && dir < 4);
     if (dir == X1DIR) return static_cast<const System *>(this)->template scale<X1DIR, el>(k, j, i);
     else if (dir == X2DIR) return static_cast<const System *>(this)->template scale<X2DIR, el>(k, j, i);
