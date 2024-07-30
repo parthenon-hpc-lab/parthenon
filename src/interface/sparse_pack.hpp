@@ -34,6 +34,7 @@
 #include "interface/variable.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 

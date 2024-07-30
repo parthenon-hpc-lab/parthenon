@@ -27,6 +27,7 @@
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -76,13 +77,17 @@ class MGSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, temp); // Temporary storage
   PARTHENON_INTERNALSOLVERVARIABLE(u, u0);   // Storage for initial solution during FAS
   PARTHENON_INTERNALSOLVERVARIABLE(u, D);    // Storage for (approximate) diagonal
+  
+  using internal_types_tl = TypeList<res_err, temp, u0, D>; 
   std::vector<std::string> GetInternalVariableNames() const {
-    return {res_err::name(), temp::name(), u0::name(), D::name()};
+    std::vector<std::string> names; 
+    internal_types_tl::IterateTypes([&names](auto t){names.push_back(decltype(t)::name());});
+    return names;
   }
 
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
-           std::vector<int> shape = {})
-      : params_(params_in), iter_counter(0), eqs_(eq_in) {
+           std::vector<int> shape = {}, const std::string& container = "base")
+      : params_(params_in), iter_counter(0), eqs_(eq_in), container_(container) {
     using namespace parthenon::refinement_ops;
     // The ghost cells of res_err need to be filled, but this is accomplished by
     // copying res_err into u, communicating, then copying u back into res_err
@@ -128,7 +133,7 @@ class MGSolver {
     auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
     if (partition >= partitions.size())
       PARTHENON_FAIL("Does not work with non-default partitioning.");
-    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md = pmesh->mesh_data.Add(container_, partitions[partition]);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax<u, res_err>(itl, comm, md);
@@ -207,6 +212,8 @@ class MGSolver {
   equations eqs_;
   Real final_residual;
   int final_iteration;
+  std::string container_;
+
   // These functions apparently have to be public to compile with cuda since
   // they contain device side lambdas
  public:
@@ -344,7 +351,7 @@ class MGSolver {
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
-    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md = pmesh->mesh_data.Add(container_, partitions[partition]);
 
     auto task_out = dependence;
     if (level < max_level) {
@@ -399,7 +406,7 @@ class MGSolver {
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
-    auto &md = pmesh->mesh_data.Add("base", partitions[partition]);
+    auto &md = pmesh->mesh_data.Add(container_, partitions[partition]);
     auto &md_comm = pmesh->mesh_data.AddShallow(
         "mg_comm", md, std::vector<std::string>{u::name(), res_err::name()});
 
