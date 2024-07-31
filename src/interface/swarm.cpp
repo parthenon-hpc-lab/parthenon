@@ -87,12 +87,16 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
 
+  auto &mask = mask_;
+  auto &marked_for_removal = marked_for_removal_;
+  auto &empty_indices = empty_indices_;
+
   // Initialize pool metadata arrays
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
-        mask_(n) = false;
-        marked_for_removal_(n) = false;
-        empty_indices_(n) = n;
+        mask(n) = false;
+        marked_for_removal(n) = false;
+        empty_indices(n) = n;
       });
 }
 
@@ -195,7 +199,6 @@ void Swarm::Remove(const std::string &label) {
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
-  std::int64_t n_new_begin = nmax_pool_;
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
@@ -365,7 +368,6 @@ void Swarm::Defrag() {
 
   auto &mask = mask_;
 
-  const int &nmax_pool = nmax_pool_;
   const int &num_active = num_active_;
   Kokkos::parallel_scan(
       "Set empty indices prefix sum", nmax_pool_ - num_active_,
@@ -380,7 +382,7 @@ void Swarm::Defrag() {
 
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
-        if (n >= num_active_) {
+        if (n >= num_active) {
           if (mask(n)) {
             map(scan_scratch_toread(n) - 1) = n;
           }
