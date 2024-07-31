@@ -257,76 +257,91 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
+
+  auto pmb = GetBlockPointer();
+
   if (num_to_add > 0) {
-    while (free_indices_.size() < num_to_add) {
+    while (nmax_pool_ - num_active_ < num_to_add) {
       increasePoolMax();
     }
 
-    // Update mask
+    auto &new_indices = new_indices_;
+    auto &empty_indices = empty_indices_;
+    auto &mask = mask_;
+
+    // Update mask and new particle indices
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, num_to_add - 1, KOKKOS_LAMBDA(const int n) {
-          new_indices_(n) = empty_indices_(n);
-          mask_(n) = true;
+          new_indices(n) = empty_indices(n);
+          mask(n) = true;
         });
 
+    UpdateEmptyIndices();
+
     // Create and return NewParticlesContext
-    return NewParticlesContext(new_indices_max_idx_, new_indices_);
-  }
-
-  if (num_to_add > 0) {
-    while (free_indices_.size() < num_to_add) {
-      increasePoolMax();
-    }
-
-    // TODO(BRR) Use par_scan on device rather than do this on host
-    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-
-    auto block_index_h = block_index_.GetHostMirrorAndCopy();
-
-    auto free_index = free_indices_.begin();
-
-    auto new_indices_h = new_indices_.GetHostMirror();
-
-    // Don't bother sanitizing the memory
-    for (int n = 0; n < num_to_add; n++) {
-      mask_h(*free_index) = true;
-      block_index_h(*free_index) = this_block_;
-      max_active_index_ = std::max<int>(max_active_index_, *free_index);
-      new_indices_h(n) = *free_index;
-
-      free_index = free_indices_.erase(free_index);
-    }
-
-    new_indices_.DeepCopy(new_indices_h);
-
-    num_active_ += num_to_add;
-
-    Kokkos::deep_copy(mask_, mask_h);
-    block_index_.DeepCopy(block_index_h);
     new_indices_max_idx_ = num_to_add - 1;
   } else {
     new_indices_max_idx_ = -1;
   }
-
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
+
+  // if (num_to_add > 0) {
+  //  while (free_indices_.size() < num_to_add) {
+  //    increasePoolMax();
+  //  }
+
+  //  // TODO(BRR) Use par_scan on device rather than do this on host
+  //  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+
+  //  auto block_index_h = block_index_.GetHostMirrorAndCopy();
+
+  //  auto free_index = free_indices_.begin();
+
+  //  auto new_indices_h = new_indices_.GetHostMirror();
+
+  //  // Don't bother sanitizing the memory
+  //  for (int n = 0; n < num_to_add; n++) {
+  //    mask_h(*free_index) = true;
+  //    block_index_h(*free_index) = this_block_;
+  //    max_active_index_ = std::max<int>(max_active_index_, *free_index);
+  //    new_indices_h(n) = *free_index;
+
+  //    free_index = free_indices_.erase(free_index);
+  //  }
+
+  //  new_indices_.DeepCopy(new_indices_h);
+
+  //  num_active_ += num_to_add;
+
+  //  Kokkos::deep_copy(mask_, mask_h);
+  //  block_index_.DeepCopy(block_index_h);
+  //  new_indices_max_idx_ = num_to_add - 1;
+  //} else {
+  //  new_indices_max_idx_ = -1;
+  //}
+
+  // return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
 void Swarm::UpdateEmptyIndices() {
   auto pmb = GetBlockPointer();
 
-  int &max_active_index = max_active_index;
+  int &max_active_index = max_active_index_;
+
+  auto &mask = mask_;
+  auto &empty_indices = empty_indices_;
 
   // Update list of empty indices
   Kokkos::parallel_scan(
       "Set empty indices", max_active_index + 1,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
-        const bool is_free = !mask_(n);
+        const bool is_free = !mask(n);
         if (final) {
           if (n > 0) {
-            empty_indices_(n) = update;
+            empty_indices(n) = update;
           }
           if (n == max_active_index) {
-            empty_indices_(n) = update + is_free;
+            empty_indices(n) = update + is_free;
           }
           update += is_free;
         }
@@ -339,14 +354,18 @@ void Swarm::UpdateEmptyIndices() {
 void Swarm::RemoveMarkedParticles() {
   auto pmb = GetBlockPointer();
 
-  int &max_active_index = max_active_index;
+  int &max_active_index = max_active_index_;
+
+  auto &mask = mask_;
+  auto &marked_for_removal = marked_for_removal_;
 
   // Update mask
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (mask_(n)) {
-          if (marked_for_removal_(n)) {
-            mask_(n) = false;
+        if (mask(n)) {
+          if (marked_for_removal(n)) {
+            mask(n) = false;
+            marked_for_removal(n) = false;
           }
         }
       });
@@ -372,30 +391,33 @@ void Swarm::RemoveMarkedParticles() {
   // number of empty indices = nmax_pool_ - num_active_
 
   // TODO(BRR) Use par_scan to do this on device rather than host
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-  auto marked_for_removal_h =
-      Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
+  // auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+  // auto marked_for_removal_h =
+  //    Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
 
-  // loop backwards to keep free_indices_ updated correctly
-  for (int n = max_active_index_; n >= 0; n--) {
-    if (mask_h(n)) {
-      if (marked_for_removal_h(n)) {
-        mask_h(n) = false;
-        free_indices_.push_front(n);
-        num_active_ -= 1;
-        if (n == max_active_index_) {
-          max_active_index_ -= 1;
-        }
-        marked_for_removal_h(n) = false;
-      }
-    }
-  }
+  //// loop backwards to keep free_indices_ updated correctly
+  // for (int n = max_active_index_; n >= 0; n--) {
+  //  if (mask_h(n)) {
+  //    if (marked_for_removal_h(n)) {
+  //      mask_h(n) = false;
+  //      free_indices_.push_front(n);
+  //      num_active_ -= 1;
+  //      if (n == max_active_index_) {
+  //        max_active_index_ -= 1;
+  //      }
+  //      marked_for_removal_h(n) = false;
+  //    }
+  //  }
+  //}
 
-  Kokkos::deep_copy(mask_, mask_h);
-  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
+  // Kokkos::deep_copy(mask_, mask_h);
+  // Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
 }
 
 void Swarm::Defrag() {
+  printf("Not implemented right now\n");
+  return;
+
   if (GetNumActive() == 0) {
     return;
   }
