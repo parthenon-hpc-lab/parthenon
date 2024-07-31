@@ -45,25 +45,19 @@ void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) 
     return;
   }
 
-  std::stringstream msg;
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
-  // Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
-  // are not being used
-  for (int iFace = 0; iFace < 6; iFace++) {
-    if (bcs[iFace] == BoundaryFlag::user) {
-      if (pmb->pmy_mesh->forest.GetTreePtr(pmb->loc.tree())->SwarmBndryFnctn[iFace] ==
-          nullptr) {
-        msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
-            << " user boundary requested but provided function is null!";
-        PARTHENON_FAIL(msg);
-      }
-    } else if (bcs[iFace] != BoundaryFlag::outflow &&
-               bcs[iFace] != BoundaryFlag::periodic) {
-      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
-          << static_cast<int>(bcs[iFace]) << " not supported!";
-      PARTHENON_FAIL(msg);
-    }
-  }
+  //std::stringstream msg;
+  //auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  //// Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
+  //// are not being used
+  //for (int iFace = 0; iFace < 6; iFace++) {
+  //  if (bcs[iFace] != BoundaryFlag::user &&
+  //  bcs[iFace] != BoundaryFlag::outflow &&
+  //             bcs[iFace] != BoundaryFlag::periodic) {
+  //    msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
+  //        << static_cast<int>(bcs[iFace]) << " not supported!";
+  //    PARTHENON_FAIL(msg);
+  //  }
+  //}
 }
 
 void SwarmContainer::Add(const std::vector<std::string> &labelArray,
