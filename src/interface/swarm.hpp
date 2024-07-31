@@ -276,7 +276,6 @@ class Swarm {
 
   std::tuple<MapToParticle<int>, MapToParticle<Real>> maps_;
 
-  std::list<int> free_indices_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
   ParArray1D<int> empty_indices_; // Indices of empty slots in particle pool

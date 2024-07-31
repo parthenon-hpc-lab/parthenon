@@ -86,22 +86,13 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
 
-  // TODO(BRR) Do this in a device kernel?
-  auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
-  auto marked_for_removal_h =
-      Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
-  auto empty_indices_h = Kokkos::create_mirror_view(HostMemSpace(), empty_indices_);
-
-  for (int n = 0; n < nmax_pool_; n++) {
-    mask_h(n) = false;
-    marked_for_removal_h(n) = false;
-    free_indices_.push_back(n);
-    empty_indices_h(n) = n;
-  }
-
-  Kokkos::deep_copy(mask_, mask_h);
-  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
-  Kokkos::deep_copy(empty_indices_, empty_indices_h);
+  // Initialize pool metadata arrays
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+        mask_(n) = false;
+        marked_for_removal_(n) = false;
+        empty_indices_(n) = n;
+      });
 }
 
 void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
@@ -210,10 +201,6 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   auto pmb = GetBlockPointer();
   auto pm = pmb->pmy_mesh;
 
-  for (std::int64_t n = 0; n < n_new; n++) {
-    free_indices_.push_back(n + n_new_begin);
-  }
-
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
@@ -285,7 +272,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
     //    });
 
     int max_new_active_index = 0;
-    pmb->par_reduce(
+    parthenon::par_reduce(
         PARTHENON_AUTO_LABEL, 0, num_to_add - 1,
         KOKKOS_LAMBDA(const int n, int &max_ind) {
           new_indices(n) = empty_indices(n);
@@ -366,7 +353,7 @@ void Swarm::UpdateEmptyIndices() {
 
   // Update list of empty indices
   Kokkos::parallel_scan(
-      "Set empty indices", nmax_pool_,
+      "Set empty indices prefix sum", nmax_pool_,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
         printf("[%i] update: %i final: %i mask: %i\n", n, update, final, mask(n));
 
@@ -413,7 +400,7 @@ void Swarm::UpdateEmptyIndices() {
     printf("  scan[%i] = %i\n", n, scan_scratch(n));
   }
 
-  pmb->par_for(
+  parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
         if (!mask(n)) {
           empty_indices(scan_scratch(n) - 1) = n;
@@ -433,25 +420,33 @@ void Swarm::UpdateEmptyIndices() {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  auto pmb = GetBlockPointer();
+  printf(" === RemoveMarkedParticles\n");
 
   int &max_active_index = max_active_index_;
 
   auto &mask = mask_;
   auto &marked_for_removal = marked_for_removal_;
 
-  // Update mask
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+  // Update mask, count number of removed particles
+  int num_removed = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, max_active_index,
+      KOKKOS_LAMBDA(const int n, int &removed) {
         if (mask(n)) {
           if (marked_for_removal(n)) {
             mask(n) = false;
             marked_for_removal(n) = false;
+            removed += 1;
           }
         }
-      });
+      },
+      Kokkos::Sum<int>(num_removed));
+
+  num_active_ -= num_removed;
+  printf("num_removed: %i num_active: %i\n", num_removed, num_active_);
 
   UpdateEmptyIndices();
+  printf(" === (RemoveMarkedParticles)\n");
 
   //  // Update list of empty indices
   //  Kokkos::parallel_scan(
@@ -496,64 +491,65 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
-  printf("Not implemented right now\n");
-  return;
+  printf(" === Defrag\n");
 
   if (GetNumActive() == 0) {
     return;
   }
-  // TODO(BRR) Could this algorithm be more efficient? Does it matter?
-  // Add 1 to convert max index to max number
-  std::int64_t num_free = (max_active_index_ + 1) - num_active_;
-  auto pmb = GetBlockPointer();
 
-  auto from_to_indices_h = from_to_indices_.GetHostMirror();
-
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-
-  for (int n = 0; n <= max_active_index_; n++) {
-    from_to_indices_h(n) = unset_index_;
-  }
-
-  std::list<int> new_free_indices;
-
-  free_indices_.sort();
-
-  int index = max_active_index_;
-  int num_to_move = std::min<int>(num_free, num_active_);
-  for (int n = 0; n < num_to_move; n++) {
-    while (mask_h(index) == false) {
-      index--;
-    }
-    int index_to_move_from = index;
-    index--;
-
-    // Below this number "moved" particles should actually stay in place
-    if (index_to_move_from < num_active_) {
-      break;
-    }
-    int index_to_move_to = free_indices_.front();
-    free_indices_.pop_front();
-    new_free_indices.push_back(index_to_move_from);
-    from_to_indices_h(index_to_move_from) = index_to_move_to;
-  }
-
-  // TODO(BRR) Not all these sorts may be necessary
-  new_free_indices.sort();
-  free_indices_.merge(new_free_indices);
-
-  from_to_indices_.DeepCopy(from_to_indices_h);
-
-  auto from_to_indices = from_to_indices_;
+  // TODO(BRR) store scan_scratch with swarm
+  ParArray1D<int> scan_scratch_towrite("Scan scratch write", nmax_pool_);
+  ParArray1D<int> scan_scratch_toread("Scan scratch read", nmax_pool_);
+  ParArray1D<int> map("Scan scratch map", nmax_pool_);
 
   auto &mask = mask_;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
-          mask(from_to_indices(n)) = mask(n);
+
+  for (int n = 0; n < nmax_pool_; n++) {
+    printf("  mask(%i) = %i\n", n, static_cast<int>(mask(n)));
+  }
+
+  // Update list of empty indices
+  Kokkos::parallel_scan(
+      "Set empty indices prefix sum", nmax_pool_,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const int val = !mask(n);
+        if (val) {
+          update += 1;
+        }
+        if (final) scan_scratch_towrite(n) = update;
+      });
+
+  const int &nmax_pool = nmax_pool_;
+  const int &num_active = num_active_;
+  Kokkos::parallel_scan(
+      //"Set empty indices prefix sum", num_active_, nmax_pool_ - 1,
+      "Set empty indices prefix sum", nmax_pool_ - num_active_,
+      KOKKOS_LAMBDA(const int nn, int &update, const bool &final) {
+        const int n = nn + num_active;
+        const int val = mask(n);
+        if (val) {
+          update += 1;
+        }
+        if (final) scan_scratch_toread(n) = update;
+      });
+
+  parthenon::par_for(
+      // PARTHENON_AUTO_LABEL, num_active_, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (n >= num_active_) {
+          if (mask(n)) {
+            map(scan_scratch_toread(n) - 1) = n;
+          }
           mask(n) = false;
+          //} else {
+          //  mask(n) = true;
         }
       });
+
+  for (int n = 0; n < nmax_pool_; n++) {
+    printf("[%i] towrite: %i toread: %i map: %i\n", n, scan_scratch_towrite(n),
+           scan_scratch_toread(n), map(n));
+  }
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
@@ -568,20 +564,133 @@ void Swarm::Defrag() {
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
 
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
+  // Loop over only the active number of particles, and if mask is empty, copy in particle
+  // using address from prefix sum
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, num_active_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (!mask(n)) {
+          const int nread = map(scan_scratch_towrite(n) - 1);
+          // const int nn =
+          //    scan_scratch_toread(scan_scratch_towrite(n) + num_active) + num_active;
+          printf("    n: %i nread: %i = map(%i)\n", n, nread, scan_scratch_towrite(n));
           for (int vidx = 0; vidx < realPackDim; vidx++) {
-            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+            vreal(vidx, n) = vreal(vidx, nread);
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
-            vint(vidx, from_to_indices(n)) = vint(vidx, n);
+            vint(vidx, n) = vint(vidx, nread);
           }
+          mask(n) = true;
         }
       });
 
+  printf(" === (Defrag)\n");
+
+  // Loop over only the active number of particles, and if mask is empty, copy in particle
+  // using address from prefix sum
+  //  pmb->par_for(
+  //      PARTHENON_AUTO_LABEL, 0, num_active_ - 1, KOKKOS_LAMBDA(const int n) {
+  //        if (!mask(n)) {
+  //          for (int vidx = 0; vidx < realPackDim; vidx++) {
+  //            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+  //          }
+  //          for (int vidx = 0; vidx < intPackDim; vidx++) {
+  //            vint(vidx, from_to_indices(n)) = vint(vidx, n);
+  //          }
+  //        }
+  //
+  //        if (from_to_indices(n) >= 0) {
+  //          for (int vidx = 0; vidx < realPackDim; vidx++) {
+  //            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+  //          }
+  //          for (int vidx = 0; vidx < intPackDim; vidx++) {
+  //            vint(vidx, from_to_indices(n)) = vint(vidx, n);
+  //          }
+  //        }
+  //      });
+
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+
+  //// TODO(BRR) Could this algorithm be more efficient? Does it matter?
+  //// Add 1 to convert max index to max number
+  // std::int64_t num_free = (max_active_index_ + 1) - num_active_;
+  // auto pmb = GetBlockPointer();
+
+  // auto from_to_indices_h = from_to_indices_.GetHostMirror();
+
+  // auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+
+  // for (int n = 0; n <= max_active_index_; n++) {
+  //  from_to_indices_h(n) = unset_index_;
+  //}
+
+  //// std::list<int> new_free_indices;
+
+  //// free_indices_.sort();
+
+  // int index = max_active_index_;
+  // int num_to_move = std::min<int>(num_free, num_active_);
+  // for (int n = 0; n < num_to_move; n++) {
+  //  while (mask_h(index) == false) {
+  //    index--;
+  //  }
+  //  int index_to_move_from = index;
+  //  index--;
+
+  //  // Below this number "moved" particles should actually stay in place
+  //  if (index_to_move_from < num_active_) {
+  //    break;
+  //  }
+  //  int index_to_move_to = free_indices_.front();
+  //  free_indices_.pop_front();
+  //  new_free_indices.push_back(index_to_move_from);
+  //  from_to_indices_h(index_to_move_from) = index_to_move_to;
+  //}
+
+  //// TODO(BRR) Not all these sorts may be necessary
+  // new_free_indices.sort();
+  // free_indices_.merge(new_free_indices);
+
+  // from_to_indices_.DeepCopy(from_to_indices_h);
+
+  // auto from_to_indices = from_to_indices_;
+
+  // auto &mask = mask_;
+  // pmb->par_for(
+  //    PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+  //      if (from_to_indices(n) >= 0) {
+  //        mask(from_to_indices(n)) = mask(n);
+  //        mask(n) = false;
+  //      }
+  //    });
+
+  // auto &int_vector = std::get<getType<int>()>(vectors_);
+  // auto &real_vector = std::get<getType<Real>()>(vectors_);
+  // PackIndexMap real_imap;
+  // PackIndexMap int_imap;
+  // auto vreal = PackAllVariables_<Real>(real_imap);
+  // auto vint = PackAllVariables_<int>(int_imap);
+  // int real_vars_size = real_vector.size();
+  // int int_vars_size = int_vector.size();
+  // auto real_map = real_imap.Map();
+  // auto int_map = int_imap.Map();
+  // const int realPackDim = vreal.GetDim(2);
+  // const int intPackDim = vint.GetDim(2);
+
+  // pmb->par_for(
+  //    PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+  //      if (from_to_indices(n) >= 0) {
+  //        for (int vidx = 0; vidx < realPackDim; vidx++) {
+  //          vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+  //        }
+  //        for (int vidx = 0; vidx < intPackDim; vidx++) {
+  //          vint(vidx, from_to_indices(n)) = vint(vidx, n);
+  //        }
+  //      }
+  //    });
+
+  //// Update max_active_index_
+  // max_active_index_ = num_active_ - 1;
 }
 
 ///
