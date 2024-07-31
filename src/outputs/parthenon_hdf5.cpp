@@ -77,7 +77,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // Also writes companion xdmf file
 
   const size_t max_blocks_global = pm->nbtotal;
-  const size_t num_blocks_local = static_cast<int>(pm->block_list.size());
+  const size_t num_blocks_local = pm->block_list.size();
 
   const IndexDomain theDomain =
       (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
