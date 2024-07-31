@@ -90,15 +90,18 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
   auto marked_for_removal_h =
       Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
+  auto empty_indices_h = Kokkos::create_mirror_view(HostMemSpace(), empty_indices_);
 
   for (int n = 0; n < nmax_pool_; n++) {
     mask_h(n) = false;
     marked_for_removal_h(n) = false;
     free_indices_.push_back(n);
+    empty_indices_h(n) = n;
   }
 
   Kokkos::deep_copy(mask_, mask_h);
   Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
+  Kokkos::deep_copy(empty_indices_, empty_indices_h);
 }
 
 void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
@@ -199,6 +202,7 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::setPoolMax(const std::int64_t nmax_pool) {
+  printf(" === setPoolMax\n");
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   std::int64_t n_new_begin = nmax_pool_;
   std::int64_t n_new = nmax_pool - nmax_pool_;
@@ -218,9 +222,6 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   Kokkos::resize(from_to_indices_, nmax_pool + 1);
   Kokkos::resize(recv_neighbor_index_, nmax_pool);
   Kokkos::resize(recv_buffer_index_, nmax_pool);
-
-  // Populate new empty indices
-  UpdateEmptyIndices();
 
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
@@ -247,12 +248,16 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
 
   nmax_pool_ = nmax_pool;
 
+  // Populate new empty indices
+  UpdateEmptyIndices();
+
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
   pmb->meshblock_data.Get()->ClearSwarmCaches();
   pm->mesh_data.Get("base")->ClearSwarmCaches();
   for (auto &partition : pm->GetDefaultBlockPartitions()) {
     pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }
+  printf(" ===\n");
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
@@ -284,7 +289,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
         PARTHENON_AUTO_LABEL, 0, num_to_add - 1,
         KOKKOS_LAMBDA(const int n, int &max_ind) {
           new_indices(n) = empty_indices(n);
-          mask(n) = true;
+          mask(new_indices(n)) = true;
 
           // Record vote for max active index
           max_ind = new_indices(n);
@@ -297,13 +302,15 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
     // Update max active index if necessary
     max_active_index_ = std::max(max_active_index_, max_new_active_index);
 
-    UpdateEmptyIndices();
-
-    // Create and return NewParticlesContext
     new_indices_max_idx_ = num_to_add - 1;
+    num_active_ += num_to_add;
+
+    UpdateEmptyIndices();
   } else {
     new_indices_max_idx_ = -1;
   }
+
+  // Create and return NewParticlesContext
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
 
   // if (num_to_add > 0) {
@@ -355,24 +362,71 @@ void Swarm::UpdateEmptyIndices() {
   printf(" === UpdateEmptyIndices\n");
   printf("max_active_index = %i\n", max_active_index);
 
+  ParArray1D<int> scan_scratch("Scan scratch", nmax_pool_);
+
   // Update list of empty indices
   Kokkos::parallel_scan(
       "Set empty indices", nmax_pool_,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
         printf("[%i] update: %i final: %i mask: %i\n", n, update, final, mask(n));
-        const bool is_free = !mask(n);
-        if (final) {
-          if (n > 0) {
-            printf("final, n: %i update: %i\n", n, update);
-            empty_indices(n) = update;
-          }
-          if (n == max_active_index) {
-            printf("LAST final, n: %i update: %i\n", n, update);
-            empty_indices(n) = update + is_free;
-          }
-          update += is_free;
+
+        const int val = !mask(n);
+        if (val) {
+          update += 1;
+        }
+        // if (final) empty_indices(n) = update;
+        if (final) scan_scratch(n) = update;
+        // update += val;
+
+        // if (final && !mask(n)) {
+        //  empty_indices(n) = update;
+        //}
+        // if (!mask(n)) {
+        //  update += 1;
+        //}
+
+        // const bool is_free = !mask(n);
+        // if (final) {
+        //  if (n > 0) {
+        //    empty_indices(n) = update;
+        //    printf("final, empty_indices(%i) = %i\n", n, empty_indices(n));
+        //  }
+        //  // if (n == max_active_index) {
+        //  if (n == nmax_pool_ - 1) {
+        //    // printf("LAST final, n: %i update: %i\n", n, update);
+        //    empty_indices(n) = update + is_free;
+        //    printf("LAST final, empty_indices(%i) = %i\n", n, empty_indices(n));
+        //  }
+        //  update += is_free;
+        //}
+      });
+
+  const int n_empty = nmax_pool_ - num_active_;
+
+  printf("n empty: %i\n", n_empty);
+
+  for (int n = 0; n < nmax_pool_; n++) {
+    printf("  mask[%i] = %i\n", n, mask(n));
+  }
+
+  for (int n = 0; n < nmax_pool_ - num_active_; n++) {
+    printf("  scan[%i] = %i\n", n, scan_scratch(n));
+  }
+
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (!mask(n)) {
+          empty_indices(scan_scratch(n) - 1) = n;
         }
       });
+
+  for (int n = 0; n < nmax_pool_ - num_active_; n++) {
+    printf("  empty_indices[%i] = %i\n", n, empty_indices(n));
+  }
+
+  printf("empty indices: %i (nmax pool: %i num active: %i)\n", nmax_pool_ - num_active_,
+         nmax_pool_, num_active_);
+  printf(" === (UpdateEmptyIndices)\n");
 }
 
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
