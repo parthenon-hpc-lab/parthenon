@@ -77,16 +77,17 @@ class MGSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, temp); // Temporary storage
   PARTHENON_INTERNALSOLVERVARIABLE(u, u0);   // Storage for initial solution during FAS
   PARTHENON_INTERNALSOLVERVARIABLE(u, D);    // Storage for (approximate) diagonal
-  
-  using internal_types_tl = TypeList<res_err, temp, u0, D>; 
+
+  using internal_types_tl = TypeList<res_err, temp, u0, D>;
   std::vector<std::string> GetInternalVariableNames() const {
-    std::vector<std::string> names; 
-    internal_types_tl::IterateTypes([&names](auto t){names.push_back(decltype(t)::name());});
+    std::vector<std::string> names;
+    internal_types_tl::IterateTypes(
+        [&names](auto t) { names.push_back(decltype(t)::name()); });
     return names;
   }
 
   MGSolver(StateDescriptor *pkg, MGParams params_in, equations eq_in = equations(),
-           std::vector<int> shape = {}, const std::string& container = "base")
+           std::vector<int> shape = {}, const std::string &container = "base")
       : params_(params_in), iter_counter(0), eqs_(eq_in), container_(container) {
     using namespace parthenon::refinement_ops;
     // The ghost cells of res_err need to be filled, but this is accomplished by

@@ -69,25 +69,30 @@ class BiCGSTABSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, r);
   PARTHENON_INTERNALSOLVERVARIABLE(u, p);
   PARTHENON_INTERNALSOLVERVARIABLE(u, x);
-  
+
   using internal_types_tl = TypeList<rhat0, v, h, s, t, r, p, x>;
-  using preconditioner_t = MGSolver<u, rhs, equations>; 
-  using all_internal_types_tl = concatenate_type_lists_t<internal_types_tl, typename preconditioner_t::internal_types_tl>;
+  using preconditioner_t = MGSolver<u, rhs, equations>;
+  using all_internal_types_tl =
+      concatenate_type_lists_t<internal_types_tl,
+                               typename preconditioner_t::internal_types_tl>;
 
   std::vector<std::string> GetInternalVariableNames() const {
     std::vector<std::string> names;
     if (params_.precondition) {
-      all_internal_types_tl::IterateTypes([&names](auto t){names.push_back(decltype(t)::name());});
+      all_internal_types_tl::IterateTypes(
+          [&names](auto t) { names.push_back(decltype(t)::name()); });
     } else {
-      internal_types_tl::IterateTypes([&names](auto t){names.push_back(decltype(t)::name());});
+      internal_types_tl::IterateTypes(
+          [&names](auto t) { names.push_back(decltype(t)::name()); });
     }
     return names;
   }
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
-                 equations eq_in = equations(), std::vector<int> shape = {}, const std::string &container = "base")
-      : preconditioner(pkg, params_in.mg_params, eq_in, shape, container), params_(params_in),
-        iter_counter(0), eqs_(eq_in), container_(container) {
+                 equations eq_in = equations(), std::vector<int> shape = {},
+                 const std::string &container = "base")
+      : preconditioner(pkg, params_in.mg_params, eq_in, shape, container),
+        params_(params_in), iter_counter(0), eqs_(eq_in), container_(container) {
     using namespace refinement_ops;
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
