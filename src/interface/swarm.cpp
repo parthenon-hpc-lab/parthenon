@@ -73,6 +73,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       from_to_indices_("from_to_indices_", nmax_pool_ + 1),
       recv_neighbor_index_("recv_neighbor_index_", nmax_pool_),
       recv_buffer_index_("recv_buffer_index_", nmax_pool_),
+      scratch_a_("scratch_a_", nmax_pool_), scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
@@ -209,6 +210,8 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
   Kokkos::resize(from_to_indices_, nmax_pool + 1);
   Kokkos::resize(recv_neighbor_index_, nmax_pool);
   Kokkos::resize(recv_buffer_index_, nmax_pool);
+  Kokkos::resize(scratch_a_, nmax_pool);
+  Kokkos::resize(scratch_b_, nmax_pool);
 
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
@@ -349,7 +352,8 @@ void Swarm::UpdateEmptyIndices() {
   printf(" === UpdateEmptyIndices\n");
   printf("max_active_index = %i\n", max_active_index);
 
-  ParArray1D<int> scan_scratch("Scan scratch", nmax_pool_);
+  // ParArray1D<int> scan_scratch("Scan scratch", nmax_pool_);
+  auto &scan_scratch = scratch_a_;
 
   // Update list of empty indices
   Kokkos::parallel_scan(
@@ -497,27 +501,17 @@ void Swarm::Defrag() {
     return;
   }
 
-  // TODO(BRR) store scan_scratch with swarm
-  ParArray1D<int> scan_scratch_towrite("Scan scratch write", nmax_pool_);
-  ParArray1D<int> scan_scratch_toread("Scan scratch read", nmax_pool_);
-  ParArray1D<int> map("Scan scratch map", nmax_pool_);
+  // ParArray1D<int> scan_scratch_towrite("Scan scratch write", nmax_pool_);
+  auto &scan_scratch_toread = scratch_a_;
+  auto &map = scratch_b_;
+  // ParArray1D<int> scan_scratch_toread("Scan scratch read", nmax_pool_);
+  // ParArray1D<int> map("Scan scratch map", nmax_pool_);
 
   auto &mask = mask_;
 
   for (int n = 0; n < nmax_pool_; n++) {
     printf("  mask(%i) = %i\n", n, static_cast<int>(mask(n)));
   }
-
-  // Update list of empty indices
-  Kokkos::parallel_scan(
-      "Set empty indices prefix sum", nmax_pool_,
-      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
-        const int val = !mask(n);
-        if (val) {
-          update += 1;
-        }
-        if (final) scan_scratch_towrite(n) = update;
-      });
 
   const int &nmax_pool = nmax_pool_;
   const int &num_active = num_active_;
@@ -546,10 +540,24 @@ void Swarm::Defrag() {
         }
       });
 
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("[%i] towrite: %i toread: %i map: %i\n", n, scan_scratch_towrite(n),
-           scan_scratch_toread(n), map(n));
-  }
+  // Reuse scratch memory
+  auto &scan_scratch_towrite = scan_scratch_toread;
+
+  // Update list of empty indices
+  Kokkos::parallel_scan(
+      "Set empty indices prefix sum", num_active_,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const int val = !mask(n);
+        if (val) {
+          update += 1;
+        }
+        if (final) scan_scratch_towrite(n) = update;
+      });
+
+  // for (int n = 0; n < nmax_pool_; n++) {
+  //  printf("[%i] towrite: %i toread: %i map: %i\n", n, scan_scratch_towrite(n),
+  //         scan_scratch_toread(n), map(n));
+  //}
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);

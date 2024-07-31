@@ -289,6 +289,8 @@ class Swarm {
                                     // step (size nmax_pool + 1).
   ParArray1D<int> recv_neighbor_index_; // Neighbor indices for received particles
   ParArray1D<int> recv_buffer_index_;   // Buffer indices for received particles
+  ParArray1D<int> scratch_a_;           // Scratch memory for index sorting
+  ParArray1D<int> scratch_b_;           // Scratch memory for index sorting
 
   constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;
