@@ -260,6 +260,9 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 
   auto pmb = GetBlockPointer();
 
+  printf(" === AddEmptyParticles\n");
+  printf("num_to_add = %i\n", num_to_add);
+
   if (num_to_add > 0) {
     while (nmax_pool_ - num_active_ < num_to_add) {
       increasePoolMax();
@@ -270,11 +273,29 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
     auto &mask = mask_;
 
     // Update mask and new particle indices
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, num_to_add - 1, KOKKOS_LAMBDA(const int n) {
+    // pmb->par_for(
+    //    PARTHENON_AUTO_LABEL, 0, num_to_add - 1, KOKKOS_LAMBDA(const int n) {
+    //      new_indices(n) = empty_indices(n);
+    //      mask(n) = true;
+    //    });
+
+    int max_new_active_index = 0;
+    pmb->par_reduce(
+        PARTHENON_AUTO_LABEL, 0, num_to_add - 1,
+        KOKKOS_LAMBDA(const int n, int &max_ind) {
           new_indices(n) = empty_indices(n);
           mask(n) = true;
-        });
+
+          // Record vote for max active index
+          max_ind = new_indices(n);
+          printf("  [%i] new_indices(n) = %i max_ind = %i\n", n, new_indices(n), max_ind);
+        },
+        Kokkos::Max<int>(max_new_active_index));
+
+    printf("max_new_active_index = %i\n", max_new_active_index);
+
+    // Update max active index if necessary
+    max_active_index_ = std::max(max_active_index_, max_new_active_index);
 
     UpdateEmptyIndices();
 
@@ -331,16 +352,22 @@ void Swarm::UpdateEmptyIndices() {
   auto &mask = mask_;
   auto &empty_indices = empty_indices_;
 
+  printf(" === UpdateEmptyIndices\n");
+  printf("max_active_index = %i\n", max_active_index);
+
   // Update list of empty indices
   Kokkos::parallel_scan(
-      "Set empty indices", max_active_index + 1,
+      "Set empty indices", nmax_pool_,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        printf("[%i] update: %i final: %i mask: %i\n", n, update, final, mask(n));
         const bool is_free = !mask(n);
         if (final) {
           if (n > 0) {
+            printf("final, n: %i update: %i\n", n, update);
             empty_indices(n) = update;
           }
           if (n == max_active_index) {
+            printf("LAST final, n: %i update: %i\n", n, update);
             empty_indices(n) = update + is_free;
           }
           update += is_free;
