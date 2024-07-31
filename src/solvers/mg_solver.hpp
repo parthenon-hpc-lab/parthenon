@@ -394,13 +394,13 @@ class MGSolver {
       PARTHENON_FAIL("Unknown solver type.");
     }
 
-    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
-      return std::make_tuple(in + "(p:" + std::to_string(partition) +
-                                 ", l:" + std::to_string(level) + ")",
-                             1, b);
-    };
+//    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
+//      return std::make_tuple(in + "(p:" + std::to_string(partition) +
+//                                 ", l:" + std::to_string(level) + ")",
+//                             1, b);
+//    };
 
-//#define BTF(...) decorate_task_name(TF(__VA_ARGS__))
+// #define BTF(...) decorate_task_name(TF(__VA_ARGS__))
 #define BTF(...) TF(__VA_ARGS__)
     bool multilevel = (level != min_level);
 
