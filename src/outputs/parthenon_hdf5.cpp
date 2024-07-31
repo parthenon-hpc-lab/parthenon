@@ -76,8 +76,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // HDF5 structures
   // Also writes companion xdmf file
 
-  const int max_blocks_global = pm->nbtotal;
-  const int num_blocks_local = static_cast<int>(pm->block_list.size());
+  const size_t max_blocks_global = pm->nbtotal;
+  const size_t num_blocks_local = static_cast<int>(pm->block_list.size());
 
   const IndexDomain theDomain =
       (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
@@ -301,9 +301,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::vector<int> sparse_dealloc_count(num_blocks_local * num_sparse);
 
   // allocate space for largest size variable
-  int varSize_max = 0;
+  size_t varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize = vinfo.Size();
+    const size_t varSize = vinfo.Size();
     varSize_max = std::max(varSize_max, varSize);
   }
 
