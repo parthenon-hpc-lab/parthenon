@@ -218,23 +218,39 @@ int Swarm::CountParticlesToSend_() {
         }
       });
 
+  auto &block_index = block_index_;
   int max_indices_size = 0;
-  int total_noblock_particles = 0;
-  auto block_index_h = block_index_.GetHostMirrorAndCopy();
-  for (int n = 0; n <= max_active_index_; n++) {
-    if (mask_h(n)) {
-      // This particle should be sent
-      if (block_index_h(n) >= 0) {
-        num_particles_to_send_h(block_index_h(n))++;
-        if (max_indices_size < num_particles_to_send_h(block_index_h(n))) {
-          max_indices_size = num_particles_to_send_h(block_index_h(n));
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, max_active_index,
+      KOKKOS_LAMBDA(const int n, const int &red) {
+        if (swarm_d.IsActive(n)) {
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+
+          if (block_index(n) >= 0) {
+            red = Kokkos::atomic_add_fetch(&num_particles_to_send(block_index(n)), 1);
+          }
         }
-      }
-      if (block_index_h(n) == no_block_) {
-        total_noblock_particles++;
-      }
-    }
-  }
+      },
+      Kokkos::Max<int>(max_indices_size));
+
+  // int max_indices_size = 0;
+  // int total_noblock_particles = 0;
+  auto block_index_h = block_index_.GetHostMirrorAndCopy();
+  // for (int n = 0; n <= max_active_index_; n++) {
+  //  if (mask_h(n)) {
+  //    // This particle should be sent
+  //    if (block_index_h(n) >= 0) {
+  //      num_particles_to_send_h(block_index_h(n))++;
+  //      if (max_indices_size < num_particles_to_send_h(block_index_h(n))) {
+  //        max_indices_size = num_particles_to_send_h(block_index_h(n));
+  //      }
+  //    }
+  //    if (block_index_h(n) == no_block_) {
+  //      total_noblock_particles++;
+  //    }
+  //  }
+  //}
   // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic
   // that indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
