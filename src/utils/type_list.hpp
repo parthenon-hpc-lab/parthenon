@@ -68,9 +68,17 @@ namespace impl {
   template<class... Args1, class... Args2, class... Args> 
   auto ConcatenateTypeLists(TypeList<Args1...>, TypeList<Args2...>, Args...){ return ConcatenateTypeLists(TypeList<Args1..., Args2...>(), Args()...);} 
 }
+
 template <class... TLs>
 using concatenate_type_lists_t = decltype(impl::ConcatenateTypeLists(std::declval<TLs>()...));
 
+// Relevant only for lists of variable types 
+template <class TL> 
+auto GetNames(){
+  std::vector<std::string> names; 
+  TL::IterateTypes([&names](auto t){ names.push_back(decltype(t)::name()); });
+  return names;
+}
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
