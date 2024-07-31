@@ -146,7 +146,6 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   i_h = i_d.GetHostMirrorAndCopy();
   meshblock->par_for(
       "Check mask", 0, 2 * NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
-        printf("n: %i active? %i\n", n, static_cast<int>(swarm_d.IsActive(n)));
         if (n < 12) {
           if (swarm_d.IsActive(n) == false) {
             Kokkos::atomic_add(&failures_d(0), 1);

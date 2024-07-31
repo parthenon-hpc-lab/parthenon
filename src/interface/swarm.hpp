@@ -161,10 +161,10 @@ class Swarm {
   std::string info() const { return info_; }
 
   /// Expand pool size geometrically as necessary
-  void increasePoolMax() { setPoolMax(2 * nmax_pool_); }
+  void IncreasePoolMax() { SetPoolMax(2 * nmax_pool_); }
 
   /// Set max pool size
-  void setPoolMax(const std::int64_t nmax_pool);
+  void SetPoolMax(const std::int64_t nmax_pool);
 
   /// Check whether metadata bit is set
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
