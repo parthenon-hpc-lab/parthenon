@@ -237,28 +237,29 @@ int Swarm::CountParticlesToSend_() {
       },
       Kokkos::Max<int>(max_indices_size));
 
-  auto block_index_h = block_index_.GetHostMirrorAndCopy();
+  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
 
   // Size-0 arrays not permitted but we don't want to short-circuit subsequent logic
   // that indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
 
-  // TODO(BRR) don't allocate dynamically
-  particle_indices_to_send_ =
-      ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
-  auto particle_indices_to_send_h = particle_indices_to_send_.GetHostMirror();
-  std::vector<int> counter(nbmax, 0);
-  for (int n = 0; n <= max_active_index_; n++) {
-    if (mask_h(n)) {
-      if (block_index_h(n) >= 0) {
-        particle_indices_to_send_h(block_index_h(n), counter[block_index_h(n)]) = n;
-        counter[block_index_h(n)]++;
-      }
-    }
-  }
-  num_particles_to_send_.DeepCopy(num_particles_to_send_h);
-  particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
+  //// TODO(BRR) don't allocate dynamically
+  // particle_indices_to_send_ =
+  //    ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
+  // auto particle_indices_to_send_h = particle_indices_to_send_.GetHostMirror();
+  // std::vector<int> counter(nbmax, 0);
+  // for (int n = 0; n <= max_active_index_; n++) {
+  //  if (mask_h(n)) {
+  //    if (block_index_h(n) >= 0) {
+  //      particle_indices_to_send_h(block_index_h(n), counter[block_index_h(n)]) = n;
+  //      counter[block_index_h(n)]++;
+  //    }
+  //  }
+  //}
+  // num_particles_to_send_.DeepCopy(num_particles_to_send_h);
+  // particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
 
+  // Count total particles sent and resize buffers if too small
   num_particles_sent_ = 0;
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     // Resize buffer if too small
