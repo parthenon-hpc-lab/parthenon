@@ -81,23 +81,15 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
 
   uid_ = get_uid_(label_);
 
+  // Add default swarm fields
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
+
+  // Initialize index metadata
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
-
-  auto &mask = mask_;
-  auto &marked_for_removal = marked_for_removal_;
-  auto &empty_indices = empty_indices_;
-
-  // Initialize pool metadata arrays
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
-        mask(n) = false;
-        marked_for_removal(n) = false;
-        empty_indices(n) = n;
-      });
+  UpdateEmptyIndices();
 }
 
 void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
@@ -295,10 +287,6 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 // Updates the empty_indices_ array so the first N elements contain an ascending list of
 // indices into empty elements of the swarm pool, where N is the number of empty indices
 void Swarm::UpdateEmptyIndices() {
-  auto pmb = GetBlockPointer();
-
-  int &max_active_index = max_active_index_;
-
   auto &mask = mask_;
   auto &empty_indices = empty_indices_;
 
