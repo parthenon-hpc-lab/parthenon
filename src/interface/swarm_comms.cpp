@@ -277,6 +277,7 @@ int Swarm::CountParticlesToSend_() {
 }
 
 void Swarm::LoadBuffers_(const int max_indices_size) {
+  // TODO(BRR) rewrite without particle_indices_to_send
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
@@ -328,6 +329,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
   auto swarm_d = GetDeviceContext();
 
   if (nneighbor == 0) {
+    PARTHENON_FAIL("Shouldn't be here... just remove this logic?");
     // TODO(BRR) Do we ever reach this branch?
     // Process physical boundary conditions on "sent" particles
     auto block_index_h = block_index_.GetHostMirrorAndCopy();
