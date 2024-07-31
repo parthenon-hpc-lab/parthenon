@@ -443,7 +443,7 @@ void Tree::EnrollBndryFncts(
     case BoundaryFlag::user:
       if (app_in->swarm_boundary_conditions[f] != nullptr) {
         SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      } 
+      }
       break;
     default: // Default BCs handled elsewhere
       break;
