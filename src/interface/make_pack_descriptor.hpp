@@ -137,13 +137,13 @@ inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<Uid_t> &v
   return typename SparsePack<>::Descriptor(base_desc);
 }
 
-template <class... Types, class... Args> 
-inline auto MakePackDescriptorFromTypeList(TypeList<Types...>, Args&&... args) { 
+template <class... Types, class... Args>
+inline auto MakePackDescriptorFromTypeList(TypeList<Types...>, Args &&...args) {
   return MakePackDescriptor<Types...>(std::forward<Args>(args)...);
 }
 
-template <class TL, class... Args> 
-inline auto MakePackDescriptorFromTypeList(Args&&... args) { 
+template <class TL, class... Args>
+inline auto MakePackDescriptorFromTypeList(Args &&...args) {
   return MakePackDescriptorFromTypeList(TL(), std::forward<Args>(args)...);
 }
 
