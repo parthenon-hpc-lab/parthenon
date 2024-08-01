@@ -34,6 +34,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1144]](https://github.com/parthenon-hpc-lab/parthenon/pull/1144) Fix some restarts w/non-CC fields
 - [[PR 1132]](https://github.com/parthenon-hpc-lab/parthenon/pull/1132) Fix regional dependencies for iterative task lists and make solvers work for arbirtrary MeshData partitioning
 - [[PR 1139]](https://github.com/parthenon-hpc-lab/parthenon/pull/1139) only add --expt-relaxed-constexpr for COMPILE_LANGUAGE:CXX
