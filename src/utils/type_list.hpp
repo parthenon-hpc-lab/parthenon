@@ -21,6 +21,12 @@
 #include <vector>
 
 namespace parthenon {
+
+// Convenience struct for holding a variadic pack of types
+// and providing compile time indexing into that pack as
+// well as the ability to get the index of a given type within
+// the pack. Functions are available below for compile time
+// concatenation of TypeLists
 template <class... Args>
 struct TypeList {
   using types = std::tuple<Args...>;
