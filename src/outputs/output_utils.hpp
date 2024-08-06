@@ -211,7 +211,7 @@ struct SwarmInfo {
   std::size_t global_offset;                            // global
   std::size_t global_count;                             // global
   std::vector<std::size_t> counts;                      // on local meshblocks
-  std::vector<std::size_t> offsets;                     // global offset for local meshblocks
+  std::vector<std::size_t> offsets; // global offset for local meshblocks
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata

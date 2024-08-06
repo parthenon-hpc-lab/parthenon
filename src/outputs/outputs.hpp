@@ -178,8 +178,7 @@ class AscentOutput : public OutputType {
 
 class OpenPMDOutput : public OutputType {
  public:
-  explicit OpenPMDOutput(const OutputParameters &oparams,
-                         std::string backend_config)
+  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config)
       : OutputType(oparams), backend_config_(std::move(backend_config)) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
