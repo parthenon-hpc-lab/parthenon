@@ -17,23 +17,17 @@
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
 #include <memory>
 #include <sstream>
-#include <stdexcept>
 #include <string>
-#include <sys/types.h>
 #include <tuple>
 #include <vector>
 
 // Parthenon headers
-#include "Kokkos_Core_fwd.hpp"
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -51,10 +45,9 @@
 #include "openPMD/Mesh.hpp"
 #include "openPMD/ParticleSpecies.hpp"
 #include "openPMD/Series.hpp"
-#include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
-#include "outputs/parthenon_hdf5.hpp" // needd for VALId_VEC_TYPES -> move
+#include "outputs/parthenon_opmd.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
@@ -230,9 +223,12 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   std::string backend_config =
       backend_config_ == "default" ? "{}" : "@" + backend_config_;
 
-  Series series =
-      Series(output_params.file_basename + "." + output_params.file_id + ".%05T.bp",
-             Access::CREATE, MPI_COMM_WORLD, backend_config);
+  auto filename = output_params.file_basename + "." + output_params.file_id;
+  if (signal == SignalHandler::OutputSignal::now) {
+    filename.append(".now");
+  }
+  filename.append(".%05T.bp");
+  Series series = Series(filename, Access::CREATE, MPI_COMM_WORLD, backend_config);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
@@ -278,7 +274,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setDt(-1.0);
   }
   { // FIXME move this to dump params
-
     // TODO(pgrete) Make this test piece work on devices
     if constexpr (false) {
       PARTHENON_INSTRUMENT_REGION("Dump Params");

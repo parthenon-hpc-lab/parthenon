@@ -102,13 +102,11 @@ class RestartReaderOPMD : public RestartReader {
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<Real> &dataVec) override {
-
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<int> &dataVec) override {
-
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };
 

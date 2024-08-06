@@ -9,6 +9,8 @@
 //  \brief Provides support for restarting from OpenPMD output
 
 #include <memory>
+#include <string>
+#include <tuple>
 
 #include "mesh/meshblock.hpp"
 #include "openPMD/Dataset.hpp"

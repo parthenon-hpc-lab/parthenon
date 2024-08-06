@@ -6,8 +6,8 @@
 //! \file restart_opmd.cpp
 //  \brief Restarts a simulation from an OpenPMD output with ADIOS2 backend
 
+#include <algorithm>
 #include <cstddef>
-#include <iostream>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -32,7 +32,7 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename)
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
       "Parthenon restarts should only contain one iteration/timestep.");
-  unsigned long idx;
+  std::uint64_t idx;
   for (const auto &i : series.iterations) {
     idx = i.first;
   }
