@@ -17,6 +17,7 @@
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -25,6 +26,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 // Parthenon headers
@@ -524,7 +526,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       if (out_var->IsAllocated()) {
         // TODO(pgrete) check if we can work with a direct copy from a subview to not
         // duplicate the memory footprint here
-#if 0        
+#if 0
         // Pick a subview of the active cells of this component
         auto const data = Kokkos::subview(
             var->data, 0, 0, icomp, std::make_pair(kb.s, kb.e + 1),
