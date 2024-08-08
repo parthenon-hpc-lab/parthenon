@@ -577,8 +577,14 @@ int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
     int var_len = 0;
     if (meta.Shape().size() < 1) {
       var_len = 1;
-    } else {
+    } else if (meta.Shape().size() == 1) {
       var_len = meta.Shape()[0];
+    } else if (meta.Shape().size() == 2) {
+      var_len = meta.Shape()[0] * meta.Shape()[1];
+    } else if (meta.Shape().size() == 3) {
+      var_len = meta.Shape()[0] * meta.Shape()[1] * meta.Shape()[2];
+    } else {
+      PARTHENON_THROW("Computing total lengths of tensors of rank >3 is not supported!");
     }
     nvar += var_len;
   }
