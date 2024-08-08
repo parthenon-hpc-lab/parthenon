@@ -296,7 +296,10 @@ class TaskList {
                          std::forward<Args>(args)...);
     } else {
       static_assert(always_false<Arg1>, "Bad signature for AddTask.");
+      return TaskID();
     }
+    // Stops some compilers from complaining
+    return TaskID();
   }
 
   template <class... Args>
