@@ -16,10 +16,12 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstddef>
 #include <iostream> // debug
 #include <memory>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "bvals_in_one.hpp"
@@ -44,25 +46,46 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
+  std::unordered_map<int, int> nbufs;
+
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
+    // Calculate the required size of the buffer for this boundary
+    int buf_size = GetBufferSize(pmb, nb, v);
+    if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
+
+    nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
+  });
+
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
+    using buf_t = buf_pool_t<Real>::base_t;
     if (pmesh->pool_map.count(buf_size) == 0) {
-      pmesh->pool_map.emplace(std::make_pair(
-          buf_size, buf_pool_t<Real>([buf_size](buf_pool_t<Real> *pool) {
-            using buf_t = buf_pool_t<Real>::base_t;
-            // TODO(LFR): Make nbuf a user settable parameter
-            const int nbuf = 200;
-            buf_t chunk("pool buffer", buf_size * nbuf);
-            for (int i = 1; i < nbuf; ++i) {
+      pmesh->pool_map.emplace(
+          buf_size, buf_pool_t<Real>([buf_size, &nbufs](buf_pool_t<Real> *pool) {
+            const auto pool_size = static_cast<int64_t>(nbufs[buf_size]) * buf_size;
+            buf_t chunk("pool buffer", pool_size);
+            for (int i = 1; i < nbufs[buf_size]; ++i) {
               pool->AddFreeObjectToPool(
                   buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
             }
             return buf_t(chunk, std::make_pair(0, buf_size));
-          })));
+          }));
+      // or add to existing pool (if required)
+    } else {
+      auto pool = pmesh->pool_map[buf_size];
+      const auto new_buffers_req = nbufs[buf_size] - pool.NumAvailable();
+      if (new_buffers_req > 1) {
+        const auto pool_size = static_cast<int64_t>(new_buffers_req) * buf_size;
+        buf_t chunk("pool buffer", pool_size);
+        for (int i = 1; i < new_buffers_req; ++i) {
+          pool.AddFreeObjectToPool(
+              buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
+        }
+      }
     }
 
     const int receiver_rank = nb.rank;
