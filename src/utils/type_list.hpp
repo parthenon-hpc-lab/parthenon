@@ -65,7 +65,7 @@ struct TypeList {
   }
 
  public:
-  template <std::size_t Start, std::size_t End>
+  template <std::size_t Start, std::size_t End = n_types - 1>
   using continuous_sublist = decltype(ContinuousSublist<Start, End>());
 };
 
@@ -79,11 +79,28 @@ template <class... Args1, class... Args2, class... Args>
 auto ConcatenateTypeLists(TypeList<Args1...>, TypeList<Args2...>, Args...) {
   return ConcatenateTypeLists(TypeList<Args1..., Args2...>(), Args()...);
 }
+
+template <class T, std::size_t I, class... Ts>
+static auto InsertTypeImpl(TypeList<Ts...>) {
+  if constexpr (I == 0) {
+    return TypeList<T, Ts...>();
+  } else if constexpr (I == sizeof...(Ts)) {
+    return TypeList<Ts..., T>();
+  } else {
+    using TL = TypeList<Ts...>;
+    return ConcatenateTypeLists(typename TL::template continuous_sublist<0, I>(),
+                                TypeList<T>(),
+                                typename TL::template continuous_sublist<I + 1>());
+  }
+}
 } // namespace impl
 
 template <class... TLs>
 using concatenate_type_lists_t =
     decltype(impl::ConcatenateTypeLists(std::declval<TLs>()...));
+
+template <class T, class TL, std::size_t I = TL::n_types>
+using insert_type_list_t = decltype(impl::InsertTypeImpl<T, I>(TL()));
 
 // Relevant only for lists of variable types
 template <class TL>
@@ -92,6 +109,42 @@ auto GetNames() {
   TL::IterateTypes([&names](auto t) { names.push_back(decltype(t)::name()); });
   return names;
 }
+
+namespace impl {
+
+template <size_t N, class T>
+auto ListOfType() {
+  if constexpr (N == 1) {
+    return TypeList<T>();
+  } else {
+    return concatenate_type_lists_t<TypeList<T>, decltype(ListOfType<N - 1, T>())>();
+  }
+}
+
+template <size_t, size_t, typename>
+struct SequenceOfInt {};
+
+template <size_t VAL, size_t... ones>
+struct SequenceOfInt<0, VAL, std::integer_sequence<size_t, ones...>> {
+  using value = typename std::integer_sequence<size_t, ones...>;
+};
+
+template <size_t N, size_t VAL, size_t... ones>
+struct SequenceOfInt<N, VAL, std::integer_sequence<size_t, ones...>> {
+  using value =
+      typename SequenceOfInt<N - 1, VAL,
+                             std::integer_sequence<size_t, VAL, ones...>>::value;
+};
+
+} // namespace impl
+
+template <size_t N, class T>
+using list_of_type_t = decltype(impl::ListOfType<N, T>());
+
+template <size_t N, size_t VAL = 1>
+using sequence_of_int_v =
+    typename impl::SequenceOfInt<N - 1, VAL, std::integer_sequence<size_t, VAL>>::value;
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_

@@ -39,6 +39,7 @@
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -283,121 +284,9 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 } // namespace dispatch_impl
 
 namespace meta {
-
 // c++-20 has std:remove_cvref_t that does this same thing
 template <typename T>
 using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
-
-template <typename... Ts>
-struct TypeList {};
-
-template <typename... Ts>
-constexpr int SizeOfList(TypeList<Ts...>) {
-  return sizeof...(Ts);
-}
-
-template <size_t N, typename>
-struct PopList {};
-
-template <typename T, typename... Ts>
-struct PopList<1, TypeList<T, Ts...>> {
-  using type = T;
-  using value = TypeList<Ts...>;
-};
-
-template <size_t N, typename T, typename... Ts>
-struct PopList<N, TypeList<T, Ts...>> {
-  static_assert(N >= 1, "PopList requires N>=1");
-
- private:
-  using pop = PopList<N - 1, TypeList<Ts...>>;
-
- public:
-  using type = typename pop::type;
-  using value = typename pop::value;
-};
-
-template <typename, typename>
-struct AppendList {};
-
-template <typename T, typename... Ts>
-struct AppendList<T, TypeList<Ts...>> {
-  using value = TypeList<Ts..., T>;
-};
-
-template <typename, typename>
-struct PrependList {};
-
-template <typename T, typename... Ts>
-struct PrependList<T, TypeList<Ts...>> {
-  using value = TypeList<T, Ts...>;
-};
-
-template <typename, typename>
-struct MergeLists {};
-
-template <typename... Ts>
-struct MergeLists<TypeList<Ts...>, TypeList<>> {
-  using value = TypeList<Ts...>;
-};
-
-template <typename... Ts, typename F, typename... Fs>
-struct MergeLists<TypeList<Ts...>, TypeList<F, Fs...>> {
-  using value = typename MergeLists<TypeList<Ts..., F>, TypeList<Fs...>>::value;
-};
-
-template <size_t, typename>
-struct SplitList {};
-
-template <typename T, typename... Ts>
-struct SplitList<1, TypeList<T, Ts...>> {
-  using Left = TypeList<T>;
-  using Right = TypeList<Ts...>;
-};
-
-template <size_t N, typename T, typename... Ts>
-struct SplitList<N, TypeList<T, Ts...>> {
-  static_assert(sizeof...(Ts) + 1 >= N, "size of list must be > N");
-
- private:
-  using split = SplitList<N - 1, TypeList<Ts...>>;
-
- public:
-  using Left = typename PrependList<T, typename split::Left>::value;
-  using Right = typename split::Right;
-};
-
-template <size_t N, typename T>
-struct ListOfType {
-  using value = typename PrependList<T, typename ListOfType<N - 1, T>::value>::value;
-};
-
-template <typename T>
-struct ListOfType<1, T> {
-  using value = TypeList<T>;
-};
-
-template <size_t, size_t, typename>
-struct SequenceOfOnes {};
-
-template <size_t VAL, size_t... ones>
-struct SequenceOfOnes<0, VAL, std::integer_sequence<size_t, ones...>> {
-  using value = typename std::integer_sequence<size_t, ones...>;
-};
-
-template <size_t N, size_t VAL, size_t... ones>
-struct SequenceOfOnes<N, VAL, std::integer_sequence<size_t, ones...>> {
-  using value =
-      typename SequenceOfOnes<N - 1, VAL,
-                              std::integer_sequence<size_t, VAL, ones...>>::value;
-};
-
-template <size_t N, size_t VAL = 1>
-using sequence_of_ones = SequenceOfOnes<N - 1, VAL, std::integer_sequence<size_t, VAL>>;
-
-} // namespace meta
-
-namespace meta {
 
 template <size_t, typename>
 struct FunctionSignature {};
@@ -406,11 +295,11 @@ template <size_t Rank, typename R, typename T, typename Index, typename... Args>
 struct FunctionSignature<Rank, R (T::*)(Index, Args...) const> {
  private:
   static constexpr bool team_mbr = std::is_same_v<team_mbr_t, base_type<Index>>;
-  using split = SplitList<Rank + team_mbr, TypeList<Index, Args...>>;
+  using TL = TypeList<Index, Args...>;
 
  public:
-  using IndexND = typename split::Left;
-  using FArgs = typename split::Right;
+  using IndexND = typename TL::template continuous_sublist<0, Rank + team_mbr - 1>;
+  using FArgs = typename TL::template continuous_sublist<Rank + team_mbr>;
 };
 
 template <size_t Rank, typename F>
@@ -449,9 +338,10 @@ struct GetLaunchBounds<TypeList<T, Args...>> {
   using LaunchBounds = GetLaunchBounds<TypeList<Args...>>;
 
  public:
-  using value = typename std::conditional<
-      is_BoundType<bound>(), typename PrependList<T, typename LaunchBounds::value>::value,
-      TypeList<>>::type;
+  using value =
+      typename std::conditional<is_BoundType<bound>(),
+                                insert_type_list_t<T, typename LaunchBounds::value, 0>,
+                                TypeList<>>::type;
   using NumInds =
       std::conditional_t<is_BoundType<bound>(),
                          Rank_t<NumBnds<bound>() + LaunchBounds::NumInds::value>,
@@ -465,18 +355,19 @@ template <typename Index, typename... AllArgs>
 struct DispatchSignature<TypeList<Index, AllArgs...>> {
  private:
   using LB = GetLaunchBounds<TypeList<Index, AllArgs...>>;
-  using pop = PopList<SizeOfList(typename LB::value()) + 1, TypeList<Index, AllArgs...>>;
+  using TL = TypeList<Index, AllArgs...>;
 
  public:
   using LaunchBounds = typename LB::value;
   using Rank = std::integral_constant<size_t, LB::NumInds::value / 2>;
-  using Function = typename pop::type;
-  using Args = typename pop::value;
+  using Function = typename TL::template type<LaunchBounds::n_types>;
+  using Args = typename TL::template continuous_sublist<LaunchBounds::n_types + 1,
+                                                        TL::n_types - 1>;
 };
 
 template <typename Tag, typename Pattern, size_t Rank, typename... Bounds>
 struct DispatchType {
-  using BoundType = typename PopList<1, TypeList<Bounds...>>::type;
+  using BoundType = typename TypeList<Bounds...>::template type<0>;
   static constexpr bool is_IndexRangeBounds =
       std::is_same<IndexRange, meta::base_type<BoundType>>::value;
   static constexpr bool is_ParFor =
@@ -506,8 +397,7 @@ template <typename, typename, typename>
 class FlatFunctor {};
 
 template <typename Function, size_t... Is, typename... FArgs>
-class FlatFunctor<Function, std::integer_sequence<size_t, Is...>,
-                  meta::TypeList<FArgs...>> {
+class FlatFunctor<Function, std::integer_sequence<size_t, Is...>, TypeList<FArgs...>> {
 
   static constexpr size_t Rank = sizeof...(Is);
   Kokkos::Array<IndexRange, Rank> ranges;
@@ -574,7 +464,7 @@ template <typename, typename, typename>
 struct InnerFunctor {};
 
 template <typename Function, typename... Index, size_t... Iteam>
-struct InnerFunctor<Function, meta::TypeList<Index...>,
+struct InnerFunctor<Function, TypeList<Index...>,
                     std::integer_sequence<size_t, Iteam...>> {
   static constexpr size_t Nteam = sizeof...(Iteam);
   Function function;
@@ -683,7 +573,7 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
     recoverIndex<Nteam, 0>(inds_team, team_member.league_rank());
     using signature = meta::function_signature<Rank, Function>;
     using ThreadVectorInds =
-        typename meta::PopList<Nteam, typename signature::IndexND>::value;
+        typename signature::IndexND::template continuous_sublist<Nteam>;
 
     if constexpr (ParForOuter) {
       function(team_member, inds_team[Iteam]...);
@@ -750,7 +640,7 @@ template <typename, size_t, typename, typename>
 struct par_dispatch_inner {};
 
 template <typename Pattern, size_t Rank, typename Function, typename... Bounds>
-struct par_dispatch_inner<Pattern, Rank, Function, meta::TypeList<Bounds...>> {
+struct par_dispatch_inner<Pattern, Rank, Function, TypeList<Bounds...>> {
   using signature = meta::function_signature<Rank, Function>;
   using LoopPattern =
       typename LoopPatternTeam<Pattern,
@@ -803,7 +693,7 @@ inline auto MakeMDRange(Args &&...args) {
 template <size_t Rank, typename... Args>
 inline auto MakeMDRangePolicy(DevExecSpace exec_space, Args &&...args) {
   using Indices = typename std::make_index_sequence<Rank>;
-  using Ones = typename meta::sequence_of_ones<Rank - 1>::value;
+  using Ones = sequence_of_int_v<Rank - 1, 1>;
   return MakeMDRange<Rank>(std::forward<Args>(args)...)
       .policy(Indices(), Ones(), exec_space);
 }
@@ -851,8 +741,8 @@ struct par_dispatch_impl {};
 
 template <typename Tag, typename Pattern, size_t Rank, typename Function,
           typename... Bounds, typename... Args>
-struct par_dispatch_impl<Tag, Pattern, Rank, Function, meta::TypeList<Bounds...>,
-                         meta::TypeList<Args...>> {
+struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
+                         TypeList<Args...>> {
 
   using DType = meta::DispatchType<Tag, Pattern, Rank, Bounds...>;
 
@@ -939,7 +829,7 @@ inline typename std::enable_if<std::is_same<Pattern, LoopPatternFlatRange>::valu
                                    std::is_same<Pattern, LoopPatternSimdFor>::value,
                                void>::type
 par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...args) {
-  using dispatchsig = meta::DispatchSignature<meta::TypeList<AllArgs...>>;
+  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
   static constexpr size_t Rank = dispatchsig::Rank::value;
   using Function = typename dispatchsig::Function;         // functor type
   using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
@@ -984,7 +874,7 @@ template <typename Pattern, typename... AllArgs>
 inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void>
 par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
               size_t scratch_size_in_bytes, const int scratch_level, AllArgs &&...args) {
-  using dispatchsig = meta::DispatchSignature<meta::TypeList<AllArgs...>>;
+  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
   static constexpr size_t Rank = dispatchsig::Rank::value;
   using Function = typename dispatchsig::Function;         // functor type
   using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
@@ -1011,7 +901,7 @@ KOKKOS_FORCEINLINE_FUNCTION
                      void>
     par_for_inner(Pattern, team_mbr_t team_member, AllArgs &&...args) {
 
-  using dispatchsig = meta::DispatchSignature<meta::TypeList<AllArgs...>>;
+  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
   constexpr size_t Rank = dispatchsig::Rank::value;
   using Function = typename dispatchsig::Function;
   using LaunchBounds = typename dispatchsig::LaunchBounds;

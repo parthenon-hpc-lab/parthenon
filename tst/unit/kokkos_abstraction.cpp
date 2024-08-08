@@ -29,6 +29,7 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "utils/type_list.hpp"
 
 using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
@@ -94,7 +95,7 @@ struct test_wrapper_nd_impl {
   decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
 
   test_wrapper_nd_impl() {
-    arr_dev = GetArray(typename parthenon::meta::sequence_of_ones<Rank>::value());
+    arr_dev = GetArray(parthenon::sequence_of_int_v<Rank, 1>());
     arr_host_orig = Kokkos::create_mirror(arr_dev);
     arr_host_mod = Kokkos::create_mirror(arr_dev);
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
@@ -164,7 +165,7 @@ struct test_wrapper_nd_impl {
 
   template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
-                  parthenon::meta::TypeList<Ts...>> {
+                  parthenon::TypeList<Ts...>> {
 
     template <typename view_t>
     void execute(DevExecSpace exec_space, view_t &dev, int *int_bounds,
@@ -194,14 +195,14 @@ struct test_wrapper_nd_impl {
     Kokkos::deep_copy(arr_dev, arr_host_orig);
     SECTION("integer launch bounds") {
       dispatch<T, lbounds::integer, Sequence<2 * Rank>,
-               typename parthenon::meta::ListOfType<Rank, const int>::value>()
+               parthenon::list_of_type_t<Rank, const int>>()
           .execute(exec_space, arr_dev, int_bounds, bounds);
       Kokkos::deep_copy(arr_host_mod, arr_dev);
       REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
     }
     SECTION("IndexRange launch bounds") {
       dispatch<T, lbounds::indexrange, Sequence<Rank>,
-               typename parthenon::meta::ListOfType<Rank, const int>::value>()
+               parthenon::list_of_type_t<Rank, const int>>()
           .execute(exec_space, arr_dev, int_bounds, bounds);
       Kokkos::deep_copy(arr_host_mod, arr_dev);
       REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
@@ -515,7 +516,7 @@ struct test_wrapper_reduce_nd_impl {
 
   template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
-                  parthenon::meta::TypeList<Ts...>> {
+                  parthenon::TypeList<Ts...>> {
 
     bool execute(DevExecSpace exec_space, const int h_sum, int *int_bounds,
                  parthenon::IndexRange *bounds) {
@@ -542,12 +543,12 @@ struct test_wrapper_reduce_nd_impl {
   void test(T loop_pattern, DevExecSpace exec_space) {
     SECTION("integer launch bounds") {
       REQUIRE(dispatch<T, lbounds::integer, Sequence<2 * Rank>,
-                       typename parthenon::meta::ListOfType<Rank, const int>::value>()
+                       parthenon::list_of_type_t<Rank, const int>>()
                   .execute(exec_space, h_sum, int_bounds, bounds) == true);
     }
     SECTION("IndexRange launch bounds") {
       REQUIRE(dispatch<T, lbounds::integer, Sequence<2 * Rank>,
-                       typename parthenon::meta::ListOfType<Rank, const int>::value>()
+                       parthenon::list_of_type_t<Rank, const int>>()
                   .execute(exec_space, h_sum, int_bounds, bounds) == true);
     }
   }
