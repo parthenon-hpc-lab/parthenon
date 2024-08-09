@@ -53,10 +53,11 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     int buf_size = GetBufferSize(pmb, nb, v);
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
-    if (v->IsAllocated()) {
-      nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
-    }
+    nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
+    std::cerr << "\nnbufs[" << buf_size << "] += 1, which is now " << nbufs[buf_size];
   });
+
+  std::cerr << "\nbefore nbufs.size = " << nbufs.size();
 
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
@@ -66,6 +67,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
     if (pmesh->pool_map.count(buf_size) == 0) {
+      std::cerr << "\ninside nbufs.size = " << nbufs.size();
+      std::cerr << "\nGoing to request " << nbufs[buf_size] << " buffers of size "
+                << buf_size;
       pmesh->pool_map.emplace(std::make_pair(
           buf_size, buf_pool_t<Real>([buf_size, &nbufs](buf_pool_t<Real> *pool) {
             const auto pool_size = static_cast<int64_t>(nbufs[buf_size]) * buf_size;
