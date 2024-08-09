@@ -55,6 +55,7 @@ class LowStorageIntegrator : public StagedIntegrator {
   std::vector<Real> beta;
   std::vector<Real> gam0;
   std::vector<Real> gam1;
+  std::vector<Real> c; // time offset of each stage
 };
 
 // TODO(JMM): Should this be named ButcherTableauIntegrator?

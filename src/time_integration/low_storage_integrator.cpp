@@ -57,11 +57,13 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     beta.resize(nstages);
     gam0.resize(nstages);
     gam1.resize(nstages);
+    c.resize(nstages);
 
     delta[0] = 1.0;
     beta[0] = 1.0;
     gam0[0] = 0.0;
     gam1[0] = 1.0;
+    c[0] = 0.0;
   } else if (name_ == "rk2") {
     nstages = 2;
     nbuffers = 2;
@@ -69,16 +71,19 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     beta.resize(nstages);
     gam0.resize(nstages);
     gam1.resize(nstages);
+    c.resize(nstages);
 
     delta[0] = 1.0;
     beta[0] = 1.0;
     gam0[0] = 0.0;
     gam1[0] = 1.0;
+    c[0] = 0.0;
 
     delta[1] = 0.0;
     beta[1] = 0.5;
     gam0[1] = 0.5;
     gam1[1] = 0.5;
+    c[1] = 1.0;
   } else if (name_ == "vl2") {
     nstages = 2;
     nbuffers = 2;
@@ -86,16 +91,19 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     beta.resize(nstages);
     gam0.resize(nstages);
     gam1.resize(nstages);
+    c.resize(nstages);
 
     delta[0] = 1.0;
     beta[0] = 0.5;
     gam0[0] = 0.0;
     gam1[0] = 1.0;
+    c[0] = 0.0;
 
     delta[1] = 0.0;
     beta[1] = 1.0;
     gam0[1] = 0.0;
     gam1[1] = 1.0;
+    c[1] = 0.5;
   } else if (name_ == "rk3") {
     nstages = 3;
     nbuffers = 2;
@@ -103,21 +111,25 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     beta.resize(nstages);
     gam0.resize(nstages);
     gam1.resize(nstages);
+    c.resize(nstages);
 
     delta[0] = 1.0;
     beta[0] = 1.0;
     gam0[0] = 0.0;
     gam1[0] = 1.0;
+    c[0] = 0.0;
 
     delta[1] = 0.0;
     beta[1] = 0.25;
     gam0[1] = 0.25;
     gam1[1] = 0.75;
+    c[1] = 1.0;
 
     delta[2] = 0.0;
     beta[2] = 2.0 / 3.0;
     gam0[2] = 2.0 / 3.0;
     gam1[2] = 1.0 / 3.0;
+    c[2] = 0.5;
   } else if (name_ == "rk4") {
     // Classic 5-stage SSPRK(5)4 in low-storage form
     // ceff = 0.377
@@ -128,31 +140,38 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     beta.resize(nstages);
     gam0.resize(nstages);
     gam1.resize(nstages);
+    c.resize(nstages);
 
     delta[0] = 1.0;
     beta[0] = 0.357534921136978;
     gam0[0] = 0.0;
     gam1[0] = 1.0;
+    c[0] = 0.0;
 
     delta[1] = 0.0;
     beta[1] = 2.364680399061355;
     gam0[1] = -3.666545952121251;
     gam1[1] = 4.666545952121251;
+    c[1] = 0.357534921136978;
 
     delta[2] = 0.0;
     beta[2] = 0.016239790859612;
     gam0[2] = 0.035802535958088;
     gam1[2] = 0.964197464041912;
+    c[2] = 1.0537621812245777;
 
     delta[3] = 0.0;
     beta[3] = 0.498173799587251;
     gam0[3] = 4.398279365655791;
     gam1[3] = -3.398279365655790;
+    c[3] = 0.05396714924417825;
 
     delta[4] = 0.0;
     beta[4] = 0.433334235669763;
     gam0[4] = 0.770411587328417;
     gam1[4] = 0.229588412671583;
+    c[4] = 0.7355363985311864;
+
   } else {
     throw std::invalid_argument("Invalid selection for the time integrator: " + name_);
   }
