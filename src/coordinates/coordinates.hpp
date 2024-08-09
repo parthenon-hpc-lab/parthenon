@@ -16,6 +16,7 @@
 #include "config.hpp"
 
 #include "uniform_cartesian.hpp"
+#include "uniform_spherical.hpp"
 
 namespace parthenon {
 

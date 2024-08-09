@@ -453,9 +453,9 @@ struct ProlongateInternalTothAndRoe {
       const int dir1 = element_idx + 1;
       const int dir2 = (element_idx + 1) % 3 + 1;
       const int dir3 = (element_idx + 2) % 3 + 1;
-      const auto dx2 = std::pow(coarse_coords.DxcFA(dir1, k, j, i), 2);
-      const auto dy2 = std::pow(coarse_coords.DxcFA(dir2, k, j, i), 2);
-      const auto dz2 = std::pow(coarse_coords.DxcFA(dir3, k, j, i), 2);
+      const auto dx2 = std::pow(coarse_coords.Dxc(dir1, k, j, i), 2);
+      const auto dy2 = std::pow(coarse_coords.Dxc(dir2, k, j, i), 2);
+      const auto dz2 = std::pow(coarse_coords.Dxc(dir3, k, j, i), 2);
       Vxyz *= 0.125 * dz2 / (dx2 + dz2);
       Wxyz *= 0.125 * dy2 / (dx2 + dy2);
 

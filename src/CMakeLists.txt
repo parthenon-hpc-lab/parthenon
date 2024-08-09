@@ -90,7 +90,10 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+if (NOT COORDINATE_TYPE)
+  set(COORDINATE_TYPE UniformCartesian)
+endif()
+message(STATUS "COORDINATE_TYPE = " ${COORDINATE_TYPE})
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
@@ -115,6 +118,8 @@ add_library(parthenon
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
+  coordinates/uniform_coordinates.hpp
+  coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
   driver/driver.hpp

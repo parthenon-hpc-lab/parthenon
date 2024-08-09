@@ -160,9 +160,9 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 
   const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dxc<X1DIR>();
+  const Real dx = coords.Dxc<X1DIR>(0, 0, 0);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.DxcFA(i);
+    const Real dy = coords.Dxc(i, 0, 0, 0);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "SumMass requires that DX be equal in all directions.");
   }
@@ -231,9 +231,9 @@ TaskStatus UpdatePhi(T *u, T *du) {
 
   const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dxc<X1DIR>();
+  const Real dx = coords.Dxc<X1DIR>(0, 0, 0);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.DxcFA(i);
+    const Real dy = coords.Dxc(i, 0, 0, 0);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "UpdatePhi requires that DX be equal in all directions.");
   }
