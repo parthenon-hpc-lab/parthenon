@@ -46,7 +46,8 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  std::unordered_map<int, int> nbufs;
+  std::unordered_map<int, int>
+      nbufs; // total (existing and new) number of buffers for given size
 
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
@@ -54,10 +55,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
-    std::cerr << "\nnbufs[" << buf_size << "] += 1, which is now " << nbufs[buf_size];
   });
-
-  std::cerr << "\nbefore nbufs.size = " << nbufs.size();
 
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
@@ -67,30 +65,41 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
     if (pmesh->pool_map.count(buf_size) == 0) {
-      std::cerr << "\ninside nbufs.size = " << nbufs.size();
-      std::cerr << "\nGoing to request " << nbufs[buf_size] << " buffers of size "
-                << buf_size;
-      pmesh->pool_map.emplace(std::make_pair(
-          buf_size, buf_pool_t<Real>([buf_size, &nbufs](buf_pool_t<Real> *pool) {
-            const auto pool_size = static_cast<int64_t>(nbufs[buf_size]) * buf_size;
+      std::cerr << "Setting up a new pool for buffers of size " << buf_size << "\n";
+      // Might be worth discussing what a good default is.
+      // Using the number of packs, assumes that all blocks in a pack have fairly similar
+      // buffer configurations, which may or may not be a good approximation.
+      // An alternative would be "1", which would reduce the memory footprint, but
+      // increase the number of individual memory allocations.
+      const int64_t nbuf = pmesh->DefaultNumPartitions();
+      pmesh->pool_map.emplace(
+          buf_size, buf_pool_t<Real>([buf_size, nbuf](buf_pool_t<Real> *pool) {
+            std::cerr << "Dynamically adding " << nbuf << " buffers of size " << buf_size
+                      << " to a pool with current size " << pool->NumBuffersInPool()
+                      << " and future size " << pool->NumBuffersInPool() + nbuf << "\n";
+
+            const auto pool_size = nbuf * buf_size;
             buf_t chunk("pool buffer", pool_size);
-            for (int i = 1; i < nbufs[buf_size]; ++i) {
+            for (int i = 1; i < nbuf; ++i) {
               pool->AddFreeObjectToPool(
                   buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
             }
             return buf_t(chunk, std::make_pair(0, buf_size));
-          })));
-      // or add to existing pool (if required)
-    } else {
-      auto &pool = pmesh->pool_map.at(buf_size);
-      const auto new_buffers_req = nbufs[buf_size] - pool.NumAvailable();
-      if (new_buffers_req > 1) {
-        const auto pool_size = static_cast<int64_t>(new_buffers_req) * buf_size;
-        buf_t chunk("pool buffer", pool_size);
-        for (int i = 1; i < new_buffers_req; ++i) {
-          pool.AddFreeObjectToPool(
-              buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-        }
+          }));
+    }
+    // Now that the pool is guaranteed to exist we can add free objects of the required
+    // amount.
+    auto &pool = pmesh->pool_map.at(buf_size);
+    const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool.NumBuffersInPool();
+    if (new_buffers_req > 0) {
+      std::cerr << "Reserving " << new_buffers_req << " new buffers of size " << buf_size
+                << " to pool with " << pool.NumBuffersInPool() << " buffers because "
+                << nbufs.at(buf_size) << " are required in total.\n";
+      const auto pool_size = new_buffers_req * buf_size;
+      buf_t chunk("pool buffer", pool_size);
+      for (int i = 0; i < new_buffers_req; ++i) {
+        pool.AddFreeObjectToPool(
+            buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
       }
     }
 
