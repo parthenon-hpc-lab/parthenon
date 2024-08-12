@@ -13,6 +13,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -571,24 +572,16 @@ int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
                                       const Metadata::FlagCollection &flags,
                                       const std::vector<int> &sparse_ids) {
   std::vector<std::string> names = GetVariableNames(req_names, flags, sparse_ids);
-  int nvar = 0;
+  int dimension = 0;
   for (auto name : names) {
     const auto &meta = metadataMap_[VarID(name)];
-    int var_len = 0;
-    if (meta.Shape().size() < 1) {
-      var_len = 1;
-    } else if (meta.Shape().size() == 1) {
-      var_len = meta.Shape()[0];
-    } else if (meta.Shape().size() == 2) {
-      var_len = meta.Shape()[0] * meta.Shape()[1];
-    } else if (meta.Shape().size() == 3) {
-      var_len = meta.Shape()[0] * meta.Shape()[1] * meta.Shape()[2];
-    } else {
-      PARTHENON_THROW("Computing total lengths of tensors of rank >3 is not supported!");
-    }
-    nvar += var_len;
+    // if meta.Shape().size() < 1, then 'accumulate' will return the initialization value,
+    // which is 1. Otherwise, this multiplies all elements present in 'Shape' to obtain
+    // total length
+    dimension += std::accumulate(meta.Shape().begin(), meta.Shape().end(), 1,
+                                 [](auto a, auto b) { return a * b; });
   }
-  return nvar;
+  return dimension;
 }
 int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
                                       const std::vector<int> &sparse_ids) {
