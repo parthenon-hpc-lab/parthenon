@@ -49,6 +49,10 @@ class TestCaseAbs:
     def Analyse(parameters):
         raise NotImplementedError("Every TestCase must initialse an Analyse method")
 
+    def ErrorOnNonZeroReturnCode(self, parameters, returncode):
+        # Do not raise an error when returncode /= 1
+        return returncode == 1
+
 
 class TestManager:
     def __init__(self, run_test_path, **kwargs):
@@ -244,18 +248,29 @@ class TestManager:
             print(proc.stdout.decode())
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
-            print("\n*****************************************************************")
-            print("Subprocess error message")
-            print("*****************************************************************\n")
-            print(str(repr(err.output)).replace("\\n", os.linesep))
-            print("\n*****************************************************************")
-            print("Error detected while running subprocess command")
-            print("*****************************************************************\n")
-            raise TestManagerError(
-                "\nReturn code {0} from command '{1}'".format(
-                    err.returncode, " ".join(err.cmd)
+            if self.test_case.ErrorOnNonZeroReturnCode(self.parameters, err.returncode):
+                print(
+                    "\n*****************************************************************"
                 )
-            )
+                print("Subprocess error message")
+                print(
+                    "*****************************************************************\n"
+                )
+                print(str(repr(err.output)).replace("\\n", os.linesep))
+                print(
+                    "\n*****************************************************************"
+                )
+                print("Error detected while running subprocess command")
+                print(
+                    "*****************************************************************\n"
+                )
+                raise TestManagerError(
+                    "\nReturn code {0} from command '{1}'".format(
+                        err.returncode, " ".join(err.cmd)
+                    )
+                )
+            else:
+                self.parameters.stdouts.append(err.stdout)
         # Reset parameters
         self.parameters.coverage_status = "only-regression"
 
