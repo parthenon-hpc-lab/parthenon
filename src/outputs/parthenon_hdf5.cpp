@@ -82,10 +82,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   const IndexDomain theDomain =
       (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
 
-  auto const &first_block = *(pm->block_list.front());
-
-  const auto &cellbounds = first_block.cellbounds;
-  const auto &f_cellbounds = first_block.f_cellbounds;
+  const auto &cellbounds = pm->GetLeafBlockCellBounds(CellLevel::same);
+  const auto &f_cellbounds = pm->GetLeafBlockCellBounds(CellLevel::coarse);
 
   auto const nx1 = cellbounds.ncellsi(theDomain);
   auto const nx2 = cellbounds.ncellsj(theDomain);
@@ -153,7 +151,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
     // write number of ghost cells in simulation
     HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
-    HDF5WriteAttribute("Coordinates", std::string(first_block.coords.Name()).c_str(),
+    HDF5WriteAttribute("Coordinates", std::string(Coordinates_t::StaticName()).c_str(),
                        info_group);
 
     // restart info, write always
@@ -267,8 +265,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // get list of all vars, just use the first block since the list is
   // the same for all blocks
-  auto all_vars_info =
-      VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds, f_cellbounds);
+  auto all_vars_info = 
+      VarInfo::GetAll(pm->block_list.size() > 0 ? get_vars(pm->block_list.front()) : VariableVector<Real>(), cellbounds, f_cellbounds);
+
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse

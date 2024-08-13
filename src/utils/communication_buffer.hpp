@@ -275,6 +275,7 @@ bool CommBuffer<T>::IsAvailableForWrite() {
   } else if (*comm_type_ == BuffCommType::both) {
     return (*state_ == BufferState::stale);
   } else {
+    printf("send_rank: %i recv_rank: %i\n", send_rank_, recv_rank_);
     PARTHENON_FAIL("Receiving buffer is never available for write.");
   }
 }

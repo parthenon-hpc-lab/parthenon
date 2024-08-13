@@ -106,7 +106,7 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const {
     return forest.GetBlockDomain(loc);
   }
-  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+  const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   const forest::Forest &Forest() const { return forest; }
 

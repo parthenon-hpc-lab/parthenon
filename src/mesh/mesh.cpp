@@ -330,7 +330,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
+      PARTHENON_WARN(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
@@ -356,6 +356,9 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
+
+  printf("rank: %i nbs: %i nbe: %i\n", Globals::my_rank, nbs, nbe);
+
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -399,8 +402,8 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
       grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
       DefaultPackSize());
   // Account for possibly empty block_list
-  if (partition_blocklists.size() == 0)
-    partition_blocklists = std::vector<BlockList_t>(1);
+  //if (partition_blocklists.size() == 0)
+  //  partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
@@ -725,6 +728,9 @@ void Mesh::PreCommFillDerived() {
   }
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
+    printf("partition size = %i\n", partition->block_list.size());
+    PARTHENON_REQUIRE(partition->pmesh == this, "Bad partition mesh pointer");
+    PARTHENON_REQUIRE(md->GetParentPointer() == this, "Bad mesh pointer");
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -853,6 +859,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
+  PARTHENON_REQUIRE(block_list.size() > 0, "Trying to call FindMeshBlock with empty block list");
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;
@@ -878,24 +885,20 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 
-// TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) * base_block_size.nx(X3DIR);
 }
 
-const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  MeshBlock *pmb = block_list[0].get();
+const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   if (level == CellLevel::same) {
-    return pmb->cellbounds;
+    return std::get<0>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
   } else if (level == CellLevel::fine) {
-    return pmb->f_cellbounds;
+    return std::get<1>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
   } else { // if (level == CellLevel::coarse) {
-    return pmb->c_cellbounds;
+    return std::get<2>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
   }
 }
 
