@@ -197,10 +197,10 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
-  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    num_particles_to_send_h(n) = 0;
-  }
+  // auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
+  // for (int n = 0; n < pmb->neighbors.size(); n++) {
+  //  num_particles_to_send_h(n) = 0;
+  //}
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
 
@@ -221,6 +221,11 @@ int Swarm::CountParticlesToSend_() {
   // Facilitate lambda captures
   auto &block_index = block_index_;
   auto &num_particles_to_send = num_particles_to_send_;
+
+  // Zero out number of particles to send before accumulating
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1,
+      KOKKOS_LAMBDA(const int n) { num_particles_to_send[n] = 0; });
 
   int max_indices_size = 0;
   parthenon::par_reduce(
@@ -266,6 +271,8 @@ int Swarm::CountParticlesToSend_() {
     const int bufid = pmb->neighbors[n].bufid;
     auto sendbuf = vbswarm->bd_var_.send[bufid];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
+      printf("resize buf (n: %i) bufid: %i size: %i\n", n, bufid,
+             num_particles_to_send_h(n));
       sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
       vbswarm->bd_var_.send[bufid] = sendbuf;
     }
@@ -292,33 +299,83 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
 
-  // Pack index:
-  // [variable start] [swarm idx]
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
+
+  // TODO(BRR) make this a Swarm member and initialize in constructor
+  ParArray1D<int> buffer_counters("Buffer counters", NMAX_NEIGHBORS);
+  // Kokkos::fence();
+  // printf("%s:%i\n", __FILE__, __LINE__);
+
+  // Zero buffer index counters
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1,
+      KOKKOS_LAMBDA(const int n) { buffer_counters[n] = 0; });
+  // Kokkos::fence();
+  // printf("%s:%i\n", __FILE__, __LINE__);
 
   auto &bdvar = vbswarm->bd_var_;
-  auto num_particles_to_send = num_particles_to_send_;
-  auto particle_indices_to_send = particle_indices_to_send_;
   auto neighbor_buffer_index = neighbor_buffer_index_;
+  // Loop over active particles and use atomic operations to find indices into buffers if
+  // this particle will be sent.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_indices_size - 1,
-      KOKKOS_LAMBDA(const int n) {            // Max index
-        for (int m = 0; m < nneighbor; m++) { // Number of neighbors
+      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+          bool on_current_mesh_block = true;
+          const int m =
+              swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+          // TODO(BRR) need this map?
           const int bufid = neighbor_buffer_index(m);
-          if (n < num_particles_to_send(m)) {
-            const int sidx = particle_indices_to_send(m, n);
-            int buffer_index = n * particle_size;
-            swarm_d.MarkParticleForRemoval(sidx);
+
+          if (m >= 0) {
+            printf("n: %i m %i\n", n, m);
+            const int bid = Kokkos::atomic_fetch_add(&buffer_counters(m), 1);
+            int buffer_index = bid * particle_size;
+            printf("n: %i m: %i bid: %i bufid: %i xyz: %e %e %e\n", n, m, bid, bufid,
+                   x(n), y(n), z(n));
+            swarm_d.MarkParticleForRemoval(n);
             for (int i = 0; i < realPackDim; i++) {
-              bdvar.send[bufid](buffer_index) = vreal(i, sidx);
+              bdvar.send[bufid](buffer_index) = vreal(i, n);
               buffer_index++;
             }
             for (int i = 0; i < intPackDim; i++) {
-              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
+              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, n));
               buffer_index++;
             }
           }
         }
       });
+  // Kokkos::fence();
+  // printf("%s:%i\n", __FILE__, __LINE__);
+
+  // Pack index:
+  // [variable start] [swarm idx]
+
+  // auto &bdvar = vbswarm->bd_var_;
+  // auto num_particles_to_send = num_particles_to_send_;
+  // auto particle_indices_to_send = particle_indices_to_send_;
+  // auto neighbor_buffer_index = neighbor_buffer_index_;
+  // pmb->par_for(
+  //    PARTHENON_AUTO_LABEL, 0, max_indices_size - 1,
+  //    KOKKOS_LAMBDA(const int n) {            // Max index
+  //      for (int m = 0; m < nneighbor; m++) { // Number of neighbors
+  //        const int bufid = neighbor_buffer_index(m);
+  //        if (n < num_particles_to_send(m)) {
+  //          const int sidx = particle_indices_to_send(m, n);
+  //          int buffer_index = n * particle_size;
+  //          swarm_d.MarkParticleForRemoval(sidx);
+  //          for (int i = 0; i < realPackDim; i++) {
+  //            bdvar.send[bufid](buffer_index) = vreal(i, sidx);
+  //            buffer_index++;
+  //          }
+  //          for (int i = 0; i < intPackDim; i++) {
+  //            bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, sidx));
+  //            buffer_index++;
+  //          }
+  //        }
+  //      }
+  //    });
 
   RemoveMarkedParticles();
 }
@@ -328,49 +385,14 @@ void Swarm::Send(BoundaryCommSubset phase) {
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
 
-  if (nneighbor == 0) {
-    PARTHENON_FAIL("Shouldn't be here... just remove this logic?");
-    // TODO(BRR) Do we ever reach this branch?
-    // Process physical boundary conditions on "sent" particles
-    auto block_index_h = block_index_.GetHostMirrorAndCopy();
-    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+  // Query particles for those to be sent
+  int max_indices_size = CountParticlesToSend_();
 
-    int total_sent_particles = 0;
-    pmb->par_reduce(
-        PARTHENON_AUTO_LABEL, 0, max_active_index_,
-        KOKKOS_LAMBDA(int n, int &total_sent_particles) {
-          if (swarm_d.IsActive(n)) {
-            if (!swarm_d.IsOnCurrentMeshBlock(n)) {
-              total_sent_particles++;
-            }
-          }
-        },
-        Kokkos::Sum<int>(total_sent_particles));
+  // Prepare buffers for send operations
+  LoadBuffers_(max_indices_size);
 
-    if (total_sent_particles > 0) {
-      ParArray1D<int> new_indices("new indices", total_sent_particles);
-      auto new_indices_h = new_indices.GetHostMirrorAndCopy();
-      int sent_particle_index = 0;
-      for (int n = 0; n <= max_active_index_; n++) {
-        if (mask_h(n)) {
-          if (block_index_h(n) >= 0 || block_index_h(n) == no_block_) {
-            new_indices_h(sent_particle_index) = n;
-            sent_particle_index++;
-          }
-        }
-      }
-      new_indices.DeepCopy(new_indices_h);
-    }
-  } else {
-    // Query particles for those to be sent
-    int max_indices_size = CountParticlesToSend_();
-
-    // Prepare buffers for send operations
-    LoadBuffers_(max_indices_size);
-
-    // Send buffer data
-    vbswarm->Send(phase);
-  }
+  // Send buffer data
+  vbswarm->Send(phase);
 }
 
 void Swarm::CountReceivedParticles_() {
@@ -416,6 +438,11 @@ void Swarm::UnloadBuffers_() {
 
   auto &bdvar = vbswarm->bd_var_;
 
+  // Debug
+  auto &x = Get<Real>(swarm_position::x::name()).Get();
+  auto &y = Get<Real>(swarm_position::y::name()).Get();
+  auto &z = Get<Real>(swarm_position::z::name()).Get();
+
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
@@ -454,6 +481,7 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+          printf("Received! [%i] xyz = %e %e %e\n", sid, x(sid), y(sid), z(sid));
         });
   }
 }
