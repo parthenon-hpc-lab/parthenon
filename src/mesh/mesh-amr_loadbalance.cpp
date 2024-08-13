@@ -422,10 +422,6 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
   // on each rank.
   UpdateBlockList(ranklist, nslist, nblist);
 
-  for (int i=0; i<ranklist.size(); ++i) { 
-    printf("%i %i\n", i, ranklist[i]);
-  }
-
 #ifdef MPI_PARALLEL
   if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
       maxcost == mincost && Globals::my_rank == 0) {
@@ -737,30 +733,31 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
-  ProResCache_t restriction_cache;
-  int nrestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    auto pmb = FindMeshBlock(on);
-    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
-  }
-  restriction_cache.Initialize(nrestrict, resolved_packages.get());
-  int irestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    if (newloc[nn].level() < loclist[on].level()) {
+  if (block_list.size() > 0) {
+    ProResCache_t restriction_cache;
+    int nrestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
       auto pmb = FindMeshBlock(on);
-      for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(
-            irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
-            var.get(), resolved_packages.get());
+      if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
+    }
+    restriction_cache.Initialize(nrestrict, resolved_packages.get());
+    int irestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
+      if (newloc[nn].level() < loclist[on].level()) {
+        auto pmb = FindMeshBlock(on);
+        for (auto &var : pmb->vars_cc_) {
+          restriction_cache.RegisterRegionHost(
+              irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
+              var.get(), resolved_packages.get());
+        }
       }
     }
+    restriction_cache.CopyToDevice();
+    refinement::Restrict(resolved_packages.get(), restriction_cache,
+                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
   }
-  restriction_cache.CopyToDevice();
-  refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL

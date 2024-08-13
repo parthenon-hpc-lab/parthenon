@@ -326,12 +326,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_WARN(msg);
-    } else { // test
+    if (mesh_test != 0) {
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
@@ -356,8 +351,6 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
-
-  printf("rank: %i nbs: %i nbe: %i\n", Globals::my_rank, nbs, nbe);
 
   // create MeshBlock list for this process
   block_list.clear();
@@ -401,9 +394,6 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
       grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
       DefaultPackSize());
-  // Account for possibly empty block_list
-  //if (partition_blocklists.size() == 0)
-  //  partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
@@ -728,7 +718,6 @@ void Mesh::PreCommFillDerived() {
   }
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
-    printf("partition size = %i\n", partition->block_list.size());
     PARTHENON_REQUIRE(partition->pmesh == this, "Bad partition mesh pointer");
     PARTHENON_REQUIRE(md->GetParentPointer() == this, "Bad mesh pointer");
     Update::PreCommFillDerived(md.get());
@@ -852,6 +841,17 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
   } while (!init_done);
+
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in Mesh Initialize" << std::endl
+        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal << ") < nranks ("
+        << Globals::nranks << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+#endif
 
   // Initialize the "base" MeshData object
   mesh_data.Get()->Initialize(block_list, this);
