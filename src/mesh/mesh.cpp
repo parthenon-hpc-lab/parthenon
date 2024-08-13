@@ -895,18 +895,15 @@ int Mesh::GetNumberOfMeshBlockCells() const {
 }
 
 const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  auto shapes = GetIndexShapes(
+      ndim > 0 ? base_block_size.nx(X1DIR) : 0, ndim > 1 ? base_block_size.nx(X2DIR) : 0,
+      ndim > 2 ? base_block_size.nx(X3DIR) : 0, multilevel, this);
   if (level == CellLevel::same) {
-    return std::get<0>(GetIndexShapes(
-        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
-        multilevel, this));
+    return shapes[0];
   } else if (level == CellLevel::fine) {
-    return std::get<1>(GetIndexShapes(
-        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
-        multilevel, this));
+    return shapes[1];
   } else { // if (level == CellLevel::coarse) {
-    return std::get<2>(GetIndexShapes(
-        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
-        multilevel, this));
+    return shapes[2];
   }
 }
 

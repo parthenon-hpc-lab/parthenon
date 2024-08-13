@@ -981,7 +981,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                     // ghosts of non-cell centered vars may get some junk
       // Now there is the correct data for prolongating on un-shared topological elements
       // on the new fine blocks
-      if (block_list.size() > 0) {
+      if (nprolong > 0) {
         refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
                                        block_list[0]->cellbounds,
                                        block_list[0]->c_cellbounds);
