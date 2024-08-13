@@ -24,8 +24,8 @@
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver.hpp"
 #include "solvers/solver_utils.hpp"
-
 #include "tasks/tasks.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -70,24 +70,32 @@ class BiCGSTABSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, p);
   PARTHENON_INTERNALSOLVERVARIABLE(u, x);
 
+  using internal_types_tl = TypeList<rhat0, v, h, s, t, r, p, x>;
+  using preconditioner_t = MGSolver<u, rhs, equations>;
+  using all_internal_types_tl =
+      concatenate_type_lists_t<internal_types_tl,
+                               typename preconditioner_t::internal_types_tl>;
+
   std::vector<std::string> GetInternalVariableNames() const {
-    std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
-                                   t::name(),     r::name(), p::name(), x::name()};
+    std::vector<std::string> names;
     if (params_.precondition) {
-      auto pre_names = preconditioner.GetInternalVariableNames();
-      names.insert(names.end(), pre_names.begin(), pre_names.end());
+      all_internal_types_tl::IterateTypes(
+          [&names](auto t) { names.push_back(decltype(t)::name()); });
+    } else {
+      internal_types_tl::IterateTypes(
+          [&names](auto t) { names.push_back(decltype(t)::name()); });
     }
     return names;
   }
 
   BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
-                 equations eq_in = equations(), std::vector<int> shape = {})
-      : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
-        iter_counter(0), eqs_(eq_in) {
+                 equations eq_in = equations(), std::vector<int> shape = {},
+                 const std::string &container = "base")
+      : preconditioner(pkg, params_in.mg_params, eq_in, shape, container),
+        params_(params_in), iter_counter(0), eqs_(eq_in), container_(container) {
     using namespace refinement_ops;
     auto m_no_ghost =
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
-    pkg->AddField(x::name(), m_no_ghost);
     pkg->AddField(rhat0::name(), m_no_ghost);
     pkg->AddField(v::name(), m_no_ghost);
     pkg->AddField(h::name(), m_no_ghost);
@@ -95,6 +103,7 @@ class BiCGSTABSolver {
     pkg->AddField(t::name(), m_no_ghost);
     pkg->AddField(r::name(), m_no_ghost);
     pkg->AddField(p::name(), m_no_ghost);
+    pkg->AddField(x::name(), m_no_ghost);
   }
 
   template <class TL_t>
@@ -105,8 +114,8 @@ class BiCGSTABSolver {
   TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
     using namespace utils;
     TaskID none;
-    auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    std::string label = "bicg_comm_" + std::to_string(partition);
+    auto &md = pmesh->mesh_data.GetOrAdd(container_, partition);
+    std::string label = container_ + "bicg_comm_" + std::to_string(partition);
     auto &md_comm =
         pmesh->mesh_data.AddShallow(label, md, std::vector<std::string>{u::name()});
     iter_counter = 0;
@@ -313,7 +322,7 @@ class BiCGSTABSolver {
   BiCGSTABParams &GetParams() { return params_; }
 
  protected:
-  MGSolver<u, rhs, equations> preconditioner;
+  preconditioner_t preconditioner;
   BiCGSTABParams params_;
   int iter_counter;
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
@@ -321,6 +330,7 @@ class BiCGSTABSolver {
   equations eqs_;
   Real final_residual;
   int final_iteration;
+  std::string container_;
 };
 
 } // namespace solvers
