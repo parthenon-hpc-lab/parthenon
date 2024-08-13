@@ -325,6 +325,7 @@ void Swarm::LoadBuffers_() {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("Swarm::Send gid: %i\n", GetBlockPointer()->gid);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
@@ -425,6 +426,7 @@ void Swarm::UnloadBuffers_() {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  // printf("Swarm::Receive gid: %i\n", GetBlockPointer()->gid);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 
@@ -450,6 +452,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
+      // printf("block %i Waiting on %i\n", pmb->gid, nb.bufid);
       all_boundaries_received = false;
     }
   }
