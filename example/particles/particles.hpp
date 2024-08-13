@@ -33,7 +33,8 @@ class ParticleDriver : public EvolutionDriver {
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm), integrator(pin) {}
   TaskCollection MakeParticlesCreationTaskCollection() const;
-  TaskCollection MakeParticlesUpdateTaskCollection() const;
+  TaskCollection MakeParticlesUpdateTaskCollection() const; // TODO(BRR) remove
+  TaskCollection MakeParticlesTransportTaskCollection() const;
   TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
 
