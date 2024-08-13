@@ -231,13 +231,13 @@ class Swarm {
                                      PackIndexMap &vmap);
 
   // Temporarily public
-  int num_particles_sent_;
+  // TODO(BRR) Remove this and require downstream codes make their own boolean?
   bool finished_transport;
 
-  void LoadBuffers_(const int max_indices_size);
+  void LoadBuffers_();
   void UnloadBuffers_();
 
-  int CountParticlesToSend_(); // Must be public for launching kernel
+  void CountParticlesToSend_(); // Must be public for launching kernel
 
   template <typename T>
   const auto &GetVariableVector() const {
@@ -297,7 +297,7 @@ class Swarm {
   constexpr static int unset_index_ = -1;
 
   ParArray1D<int> num_particles_to_send_;
-  // ParArrayND<int> particle_indices_to_send_;
+  ParArray1D<int> buffer_counters_;
 
   std::vector<int> neighbor_received_particles_;
   int total_received_particles_;

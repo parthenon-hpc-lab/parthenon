@@ -75,6 +75,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       recv_buffer_index_("recv_buffer_index_", nmax_pool_),
       scratch_a_("scratch_a_", nmax_pool_), scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
+      buffer_counters_("buffer_counters_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
