@@ -526,10 +526,11 @@ TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
     auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
     auto &tl = reg[i];
 
-    auto pushtmp = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
+    // If this task is enrolled then the iterative loop will cycle
+    //    auto pushtmp = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
 
-    // auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
-    auto [itl, push] = tl.AddSublist(pushtmp, {i, max_transport_iterations});
+    auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
+    // auto [itl, push] = tl.AddSublist(pushtmp, {i, max_transport_iterations});
     auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
     auto reset_comms =
         itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
@@ -537,11 +538,8 @@ TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
                             BoundaryCommSubset::all);
     auto receive =
         itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-    // auto complete = itl.AddTask(TQ::once_per_region | TQ::global_sync | TQ::completion,
     auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
                                 CheckCompletion, pmb.get(), t0 + dt);
-
-    auto pushtmp2 = tl.AddTask(push, TransportParticles, pmb.get(), t0, 0.);
   }
 
   return tc;
