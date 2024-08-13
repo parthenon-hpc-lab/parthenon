@@ -847,8 +847,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   if (nbtotal < Globals::nranks) {
     std::stringstream msg;
     msg << "### FATAL ERROR in Mesh Initialize" << std::endl
-        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal << ") < nranks ("
-        << Globals::nranks << ")" << std::endl;
+        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal
+        << ") < nranks (" << Globals::nranks << ")" << std::endl;
     PARTHENON_FAIL(msg);
   }
 #endif
@@ -859,7 +859,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
-  PARTHENON_REQUIRE(block_list.size() > 0, "Trying to call FindMeshBlock with empty block list");
+  PARTHENON_REQUIRE(block_list.size() > 0,
+                    "Trying to call FindMeshBlock with empty block list");
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;
@@ -889,16 +890,23 @@ std::int64_t Mesh::GetTotalCells() {
 }
 
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) * base_block_size.nx(X3DIR);
+  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) *
+         base_block_size.nx(X3DIR);
 }
 
 const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   if (level == CellLevel::same) {
-    return std::get<0>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
+    return std::get<0>(GetIndexShapes(
+        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
+        multilevel, this));
   } else if (level == CellLevel::fine) {
-    return std::get<1>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
+    return std::get<1>(GetIndexShapes(
+        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
+        multilevel, this));
   } else { // if (level == CellLevel::coarse) {
-    return std::get<2>(GetIndexShapes({base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)}, multilevel, this));
+    return std::get<2>(GetIndexShapes(
+        {base_block_size.nx(X1DIR), base_block_size.nx(X2DIR), base_block_size.nx(X3DIR)},
+        multilevel, this));
   }
 }
 

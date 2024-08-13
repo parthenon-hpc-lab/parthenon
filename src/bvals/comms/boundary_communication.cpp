@@ -379,7 +379,7 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  if (nbound > 0 && pmesh->multilevel  && md->NumBlocks() > 0) {
+  if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
 

@@ -201,30 +201,31 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
 MeshBlock::~MeshBlock() = default;
 
-std::array<IndexShape, 3> GetIndexShapes(std::array<int, 3> nx, bool multilevel, const Mesh *pmesh) {
+std::array<IndexShape, 3> GetIndexShapes(std::array<int, 3> nx, bool multilevel,
+                                         const Mesh *pmesh) {
   IndexShape cellbounds(nx[2], nx[1], nx[0], Globals::nghost);
   IndexShape f_cellbounds(2 * nx[2], 2 * nx[1], 2 * nx[0], Globals::nghost);
   IndexShape c_cellbounds(nx[2] / 2, nx[1] / 2, nx[0] / 2, 0);
   if (multilevel) {
     // Prevent the coarse bounds from going to zero
-      int cnx1 = nx[0] / 2;
-      int cnx2 = nx[1] / 2;
-      int cnx3 = nx[2] / 2;
-      if (pmesh != nullptr) {
-        cnx1 = pmesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx[0] / 2);
-        cnx2 = pmesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx[1] / 2);
-        cnx3 = pmesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx[2] / 2);
-      }
-      c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost); 
+    int cnx1 = nx[0] / 2;
+    int cnx2 = nx[1] / 2;
+    int cnx3 = nx[2] / 2;
+    if (pmesh != nullptr) {
+      cnx1 = pmesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx[0] / 2);
+      cnx2 = pmesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx[1] / 2);
+      cnx3 = pmesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx[2] / 2);
+    }
+    c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
   }
   return {cellbounds, f_cellbounds, c_cellbounds};
 }
 
 void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                           bool init_coarse, bool multilevel) {
-  auto [cb, fcb, ccb] = GetIndexShapes({nx1, nx2, nx3}, multilevel, pmy_mesh); 
-  cellbounds = cb; 
-  f_cellbounds = fcb; 
+  auto [cb, fcb, ccb] = GetIndexShapes({nx1, nx2, nx3}, multilevel, pmy_mesh);
+  cellbounds = cb;
+  f_cellbounds = fcb;
   if (init_coarse) {
     cnghost = (Globals::nghost + 1) / 2 + 1;
     c_cellbounds = ccb;

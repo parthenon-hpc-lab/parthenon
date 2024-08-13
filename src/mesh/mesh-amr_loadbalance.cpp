@@ -391,13 +391,13 @@ void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
   // First count the number of blocks on each rank
   nblist = std::vector<int>(Globals::nranks, 0);
   for (int b = ranklist.size() - 1; b >= 0; --b)
-    nblist[ranklist[b]]++; 
-  
-  // Then find the starting gid of the blocks, assuming they 
+    nblist[ranklist[b]]++;
+
+  // Then find the starting gid of the blocks, assuming they
   // are apportioned in increasing order
   nslist = std::vector<int>(Globals::nranks, 0);
   for (int b = 1; b < nslist.size(); ++b)
-    nslist[b] = nslist[b - 1] + nblist[b - 1]; 
+    nslist[b] = nslist[b - 1] + nblist[b - 1];
 }
 } // namespace
 
@@ -749,8 +749,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         auto pmb = FindMeshBlock(on);
         for (auto &var : pmb->vars_cc_) {
           restriction_cache.RegisterRegionHost(
-              irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
-              var.get(), resolved_packages.get());
+              irestrict++,
+              ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var), var.get(),
+              resolved_packages.get());
         }
       }
     }
@@ -928,7 +929,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         prolongation_cache.CopyToDevice();
       }
       refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                   block_list[0]->cellbounds, block_list[0]->c_cellbounds);
+                                   block_list[0]->cellbounds,
+                                   block_list[0]->c_cellbounds);
     }
 
     // update the lists
