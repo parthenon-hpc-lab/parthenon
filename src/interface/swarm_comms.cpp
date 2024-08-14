@@ -174,8 +174,6 @@ void Swarm::SetupPersistentMPI() {
   // Build up convenience array of neighbor indices
   SetNeighborIndices_();
 
-  neighbor_received_particles_.resize(nbmax);
-
   // Build device array mapping neighbor index to neighbor bufid
   if (pmb->neighbors.size() > 0) {
     ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->neighbors.size());
@@ -197,10 +195,6 @@ void Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
-  // auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
-  // for (int n = 0; n < pmb->neighbors.size(); n++) {
-  //  num_particles_to_send_h(n) = 0;
-  //}
   const int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
 
@@ -334,33 +328,17 @@ void Swarm::CountReceivedParticles_() {
     if (vbswarm->bd_var_.flag[bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[bufid] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
-      neighbor_received_particles_[n] =
+      neighbor_received_particles_h(n) =
           vbswarm->recv_size[bufid] / vbswarm->particle_size;
-      printf("nid: %i bufid: %i nrecvd: %i\n", n, bufid, neighbor_received_particles_[n]);
-      total_received_particles_ += neighbor_received_particles_[n];
+      total_received_particles_ += neighbor_received_particles_h(n);
+      printf("n = %i recvd %i!\n", n, neighbor_received_particles_h(n));
     } else {
-      neighbor_received_particles_[n] = 0;
+      neighbor_received_particles_h(n) = 0;
     }
   }
-}
-
-void Swarm::UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
-                                                ParArray1D<int> &buffer_index) {
-  // auto pmb = GetBlockPointer();
-  // auto neighbor_index_h = neighbor_index.GetHostMirror();
-  // auto buffer_index_h =
-  //    buffer_index.GetHostMirror(); // Index of each particle in its received buffer
-
-  // int id = 0;
-  // for (int n = 0; n < pmb->neighbors.size(); n++) {
-  //  for (int m = 0; m < neighbor_received_particles_[n]; m++) {
-  //    neighbor_index_h(id) = n;
-  //    buffer_index_h(id) = m;
-  //    id++;
-  //  }
-  //}
-  // neighbor_index.DeepCopy(neighbor_index_h);
-  // buffer_index.DeepCopy(buffer_index_h);
+  for (int n = 0; n < NMAX_NEIGHBORS; n++) {
+    printf("early nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
+  }
 }
 
 void Swarm::UnloadBuffers_() {
@@ -373,9 +351,6 @@ void Swarm::UnloadBuffers_() {
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
-    // auto &recv_neighbor_index = recv_neighbor_index_;
-    // auto &recv_buffer_index = recv_buffer_index_;
-    // UpdateNeighborBufferReceiveIndices_(recv_neighbor_index, recv_buffer_index);
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
     auto &int_vector = std::get<getType<int>()>(vectors_);
@@ -394,13 +369,35 @@ void Swarm::UnloadBuffers_() {
 
     // TODO(BRR) put neighbor_received_particles_ on device?
     // Cumulative array of number of particles received by all previous neighbors
-    ParArray1D<int> nrp("nrp_d", NMAX_NEIGHBORS);
-    auto nrp_h = nrp.GetHostMirror();
-    nrp_h(0) = 0;
-    for (int n = 1; n < NMAX_NEIGHBORS; n++) {
-      nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
+    // ParArray1D<int> nrp("nrp_d", NMAX_NEIGHBORS);
+    // Change meaning of neighbor_received_particles from particles per neighbor to
+    // cumulative particles per neighbor
+    // auto nrp_h = nrp.GetHostMirror();
+    int val_prev = 0;
+    for (int n = 0; n < NMAX_NEIGHBORS; n++) {
+      printf("nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
+      double val_curr = neighbor_received_particles_h(n);
+      printf("val curr: %i\n", val_curr);
+      neighbor_received_particles_h(n) += val_prev;
+      printf("new nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
+      val_prev += val_curr;
+      // printf("nrp[%i]: %i\n", n, neighbor_received_particles_h(n));
+
+      // double val2 = neighbor_received_particles_h(n);
+      // neighbor_received_particles_h
+
+      // val = neighbor_received_particles_h(n);
+      // const Real val = neighbor_received_partices_h(n);
+      // if (n == 0) {
+      //  neighbor_received_particles_h
+      //}
     }
-    nrp.DeepCopy(nrp_h);
+    neighbor_received_particles_.DeepCopy(neighbor_received_particles_h);
+    // nrp_h(0) = 0;
+    // for (int n = 1; n < NMAX_NEIGHBORS; n++) {
+    //  nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
+    // }
+    // nrp.DeepCopy(nrp_h);
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
@@ -409,10 +406,12 @@ void Swarm::UnloadBuffers_() {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
           // Get neighbor id
           int nid = 0;
-          while (n > nrp(nid) - 1) {
+          // while (n > nrp(nid) - 1) {
+          while (n > neighbor_received_particles_(nid) - 1) {
             nid++;
           }
-          int bid = (n - nrp(nid)) * particle_size;
+          // int bid = (n - nrp(nid)) * particle_size;
+          int bid = (n - neighbor_received_particles_(nid)) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);
@@ -423,24 +422,6 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
         });
-
-    //    pmb->par_for(
-    //        PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
-    //        // n is both new particle index and index over buffer values
-    //        KOKKOS_LAMBDA(const int n) {
-    //          const int sid = newParticlesContext.GetNewParticleIndex(n);
-    //          const int nid = recv_neighbor_index(n);
-    //          int bid = recv_buffer_index(n) * particle_size;
-    //          const int nbid = neighbor_buffer_index(nid);
-    //          for (int i = 0; i < realPackDim; i++) {
-    //            vreal(i, sid) = bdvar.recv[nbid](bid);
-    //            bid++;
-    //          }
-    //          for (int i = 0; i < intPackDim; i++) {
-    //            vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
-    //            bid++;
-    //          }
-    //        });
   }
 }
 

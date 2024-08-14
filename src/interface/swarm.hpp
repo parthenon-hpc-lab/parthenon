@@ -255,8 +255,6 @@ class Swarm {
   void SetNeighborIndices_();
 
   void CountReceivedParticles_();
-  void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
-                                           ParArray1D<int> &buffer_index);
 
   template <class T>
   SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap);
@@ -282,15 +280,11 @@ class Swarm {
   ParArrayND<int> block_index_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighbor_indices_; // Indexing of vbvar's neighbor array. -1 for same.
                                      // k,j indices unused in 3D&2D, 2D, respectively
-  ParArray1D<int> new_indices_;     // Persistent array that provides the new indices when
-                                    // AddEmptyParticles is called. Always defragmented.
-  int new_indices_max_idx_;         // Maximum valid index of new_indices_ array.
-  ParArray1D<int> from_to_indices_; // Array used for sorting particles during defragment
-                                    // step (size nmax_pool + 1).
-  ParArray1D<int> recv_neighbor_index_; // Neighbor indices for received particles
-  ParArray1D<int> recv_buffer_index_;   // Buffer indices for received particles
-  ParArray1D<int> scratch_a_;           // Scratch memory for index sorting
-  ParArray1D<int> scratch_b_;           // Scratch memory for index sorting
+  ParArray1D<int> new_indices_; // Persistent array that provides the new indices when
+                                // AddEmptyParticles is called. Always defragmented.
+  int new_indices_max_idx_;     // Maximum valid index of new_indices_ array.
+  ParArray1D<int> scratch_a_;   // Scratch memory for index sorting
+  ParArray1D<int> scratch_b_;   // Scratch memory for index sorting
 
   constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;
@@ -298,8 +292,8 @@ class Swarm {
 
   ParArray1D<int> num_particles_to_send_;
   ParArray1D<int> buffer_counters_;
-
-  std::vector<int> neighbor_received_particles_;
+  ParArray1D<int> neighbor_received_particles_;
+  ParArray1D<int> neighbor_received_particles_h;
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
