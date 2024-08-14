@@ -506,7 +506,6 @@ TaskStatus CheckCompletion(MeshBlock *pmb, const Real tf) {
 }
 
 TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
-  printf("Well I'm here...\n");
   using TQ = TaskQualifier;
 
   TaskCollection tc;
@@ -527,10 +526,10 @@ TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
     auto &tl = reg[i];
 
     // If this task is enrolled then the iterative loop will cycle
-    //    auto pushtmp = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
+    auto pushtmp = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
 
-    auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
-    // auto [itl, push] = tl.AddSublist(pushtmp, {i, max_transport_iterations});
+    // auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
+    auto [itl, push] = tl.AddSublist(pushtmp, {i, max_transport_iterations});
     auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
     auto reset_comms =
         itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
@@ -555,12 +554,15 @@ TaskListStatus ParticleDriver::Step() {
 
   // Create all the particles that will be created during the step
   status = MakeParticlesCreationTaskCollection().Execute();
+  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
 
   // Transport particles iteratively until all particles reach final time
   status = MakeParticlesTransportTaskCollection().Execute();
+  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
 
   // Use a more traditional task list for predictable post-MPI evaluations.
   status = MakeFinalizationTaskCollection().Execute();
+  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
 
   return status;
 }

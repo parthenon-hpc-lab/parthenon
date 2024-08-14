@@ -227,20 +227,6 @@ void Swarm::CountParticlesToSend_() {
       PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1,
       KOKKOS_LAMBDA(const int n) { num_particles_to_send[n] = 0; });
 
-  // int max_indices_size = 0;
-  // parthenon::par_reduce(
-  //    PARTHENON_AUTO_LABEL, 0, max_active_index,
-  //    KOKKOS_LAMBDA(const int n, int &red) {
-  //      if (swarm_d.IsActive(n)) {
-  //        bool on_current_mesh_block = true;
-  //        swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-
-  //        if (block_index(n) >= 0) {
-  //          red = Kokkos::atomic_add_fetch(&num_particles_to_send(block_index(n)), 1);
-  //        }
-  //      }
-  //    },
-  //    Kokkos::Max<int>(max_indices_size));
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
@@ -350,6 +336,7 @@ void Swarm::CountReceivedParticles_() {
                               "Receive buffer is not divisible by particle size!");
       neighbor_received_particles_[n] =
           vbswarm->recv_size[bufid] / vbswarm->particle_size;
+      printf("nid: %i bufid: %i nrecvd: %i\n", n, bufid, neighbor_received_particles_[n]);
       total_received_particles_ += neighbor_received_particles_[n];
     } else {
       neighbor_received_particles_[n] = 0;
@@ -405,23 +392,63 @@ void Swarm::UnloadBuffers_() {
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
+    // TODO(BRR) put neighbor_received_particles_ on device?
+    // Cumulative array of number of particles received by all previous neighbors
+    printf("total_received_particles_: %i\n", total_received_particles_);
+    ParArray1D<int> nrp("nrp_d", NMAX_NEIGHBORS);
+    auto nrp_h = nrp.GetHostMirror();
+    nrp_h(0) = 0;
+    for (int n = 1; n < NMAX_NEIGHBORS; n++) {
+      nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
+      if (n < 10) printf("nrp_h(%i) = %i\n", n, nrp_h(n));
+    }
+    nrp.DeepCopy(nrp_h);
+
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
         // n is both new particle index and index over buffer values
         KOKKOS_LAMBDA(const int n) {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
-          const int nid = recv_neighbor_index(n);
-          int bid = recv_buffer_index(n) * particle_size;
+          // Get neighbor id
+          int nid = 0;
+          while (n > nrp(nid) - 1) {
+            nid++;
+          }
+          int bid = (n - nrp(nid)) * particle_size;
+          printf("n: %i nid: %i bid: %i\n", n, nid, bid);
           const int nbid = neighbor_buffer_index(nid);
+          printf("nbid: %i sid: %i\n", nbid, sid);
           for (int i = 0; i < realPackDim; i++) {
+            printf("A i: %i\n", i);
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
           }
+          printf("bid: %i\n", bid);
           for (int i = 0; i < intPackDim; i++) {
+            printf("B i: %i\n", i);
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+          printf("n: %i nid: %i\n", n, nid);
         });
+
+    //    pmb->par_for(
+    //        PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
+    //        // n is both new particle index and index over buffer values
+    //        KOKKOS_LAMBDA(const int n) {
+    //          const int sid = newParticlesContext.GetNewParticleIndex(n);
+    //          const int nid = recv_neighbor_index(n);
+    //          int bid = recv_buffer_index(n) * particle_size;
+    //          const int nbid = neighbor_buffer_index(nid);
+    //          for (int i = 0; i < realPackDim; i++) {
+    //            vreal(i, sid) = bdvar.recv[nbid](bid);
+    //            bid++;
+    //          }
+    //          for (int i = 0; i < intPackDim; i++) {
+    //            vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+    //            bid++;
+    //          }
+    //        });
   }
 }
 
