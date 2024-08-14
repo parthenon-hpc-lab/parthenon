@@ -365,32 +365,15 @@ void Swarm::UnloadBuffers_() {
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
-    // TODO(BRR) DEBUG
-    // ParArray1D<int> nrp("nrp_d", NMAX_NEIGHBORS);
-    // auto nrp_h = nrp.GetHostMirror();
-    // nrp_h(0) = 0;
-    // for (int n = 1; n < NMAX_NEIGHBORS; n++) {
-    //  // nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
-    //  nrp_h(n) = neighbor_received_particles_h(n) + nrp_h(n - 1);
-    //}
-    // nrp.DeepCopy(nrp_h);
-
     // Change meaning of neighbor_received_particles from particles per neighbor to
     // cumulative particles per neighbor
     int val_prev = 0;
     for (int n = 0; n < nbmax; n++) {
-      printf("[%i] recvd: %i\n", n, neighbor_received_particles_h(n));
       double val_curr = neighbor_received_particles_h(n);
       neighbor_received_particles_h(n) += val_prev;
       val_prev += val_curr;
-      printf("[%i] nrp: %i\n", n, neighbor_received_particles_h(n));
-      // neighbor recv: %i\n", n, nrp_h(n),
-      //       neighbor_received_particles_h(n));
     }
     neighbor_received_particles_.DeepCopy(neighbor_received_particles_h);
-
-    // TODO(BRR) DEBUG
-    // neighbor_received_particles_.DeepCopy(nrp_h);
 
     auto &x = Get<Real>(swarm_position::x::name()).Get();
     auto &y = Get<Real>(swarm_position::y::name()).Get();
@@ -401,9 +384,8 @@ void Swarm::UnloadBuffers_() {
         // n is both new particle index and index over buffer values
         KOKKOS_LAMBDA(const int n) {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
-          // Get neighbor id
+          // Search for neighbor id over cumulative indices
           int nid = 0;
-
           if (n >= neighbor_received_particles_(nbmax - 1)) {
             nid = nbmax - 1;
           } else {
@@ -412,19 +394,11 @@ void Swarm::UnloadBuffers_() {
             }
           }
 
-          // while (n > neighbor_received_particles_(nid) - 1) {
-          //  nid++;
-          //}
+          // Convert neighbor id to buffer id
           int bid = nid == 0
                         ? n * particle_size
                         : (n - neighbor_received_particles_(nid - 1)) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
-          printf("[n: %i] nid: %i bid: %i (%i - %i) nbid: %i sid: %i\n", n, nid, bid, n,
-                 neighbor_received_particles_(nid), nbid, sid);
-          if (bid < 0) {
-            printf("bid %i!\n", bid);
-            exit(-1);
-          }
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
@@ -433,7 +407,6 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
-          printf("RECEIVING xyz: %e %e %e\n", x(sid), y(sid), z(sid));
         });
   }
 }
@@ -465,7 +438,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
-      // printf("block %i Waiting on %i\n", pmb->gid, nb.bufid);
       all_boundaries_received = false;
     }
   }
