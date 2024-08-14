@@ -230,10 +230,6 @@ class Swarm {
   SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
                                      PackIndexMap &vmap);
 
-  // Temporarily public
-  // TODO(BRR) Remove this and require downstream codes make their own boolean?
-  bool finished_transport;
-
   void LoadBuffers_();
   void UnloadBuffers_();
 
