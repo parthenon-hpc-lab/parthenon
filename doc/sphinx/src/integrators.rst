@@ -58,7 +58,7 @@ The full update then takes the form:
 
 where here :math:`u^{(0)}` and :math:`u^{(1)}` are the two storage
 buffers required to compute the update for a given Runge-Kutta stage
-:math:`s`.  While the :math:`delta`, :math:`beta`, :math:`gamma_0` and :math:`gamma_1`
+:math:`s`.  While the :math:`\delta`, :math:`\beta`, :math:`\gamma_0` and :math:`\gamma_1`
 associated with a particular scheme are published in the literature, :math:`c` is not.
 Instead, :math:`c` is computed following the procedure outlined in 
 `Ketchson (2010)`_ for obtaining the Butcher coefficients from their low-storage
