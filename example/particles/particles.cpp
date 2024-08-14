@@ -469,6 +469,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
           }
         });
   }
+  printf("Done transporting\n");
 
   return TaskStatus::complete;
 }

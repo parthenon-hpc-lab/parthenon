@@ -296,6 +296,7 @@ void Swarm::LoadBuffers_() {
               bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, n));
               buffer_index++;
             }
+            printf("SENDING xyz: %e %e %e\n", x(n), y(n), z(n));
           }
         }
       });
@@ -331,13 +332,9 @@ void Swarm::CountReceivedParticles_() {
       neighbor_received_particles_h(n) =
           vbswarm->recv_size[bufid] / vbswarm->particle_size;
       total_received_particles_ += neighbor_received_particles_h(n);
-      printf("n = %i recvd %i!\n", n, neighbor_received_particles_h(n));
     } else {
       neighbor_received_particles_h(n) = 0;
     }
-  }
-  for (int n = 0; n < NMAX_NEIGHBORS; n++) {
-    printf("early nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
   }
 }
 
@@ -347,6 +344,7 @@ void Swarm::UnloadBuffers_() {
   CountReceivedParticles_();
 
   auto &bdvar = vbswarm->bd_var_;
+  const int nbmax = vbswarm->bd_var_.nbmax;
 
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
@@ -367,37 +365,36 @@ void Swarm::UnloadBuffers_() {
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
-    // TODO(BRR) put neighbor_received_particles_ on device?
-    // Cumulative array of number of particles received by all previous neighbors
+    // TODO(BRR) DEBUG
     // ParArray1D<int> nrp("nrp_d", NMAX_NEIGHBORS);
-    // Change meaning of neighbor_received_particles from particles per neighbor to
-    // cumulative particles per neighbor
     // auto nrp_h = nrp.GetHostMirror();
-    int val_prev = 0;
-    for (int n = 0; n < NMAX_NEIGHBORS; n++) {
-      printf("nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
-      double val_curr = neighbor_received_particles_h(n);
-      printf("val curr: %i\n", val_curr);
-      neighbor_received_particles_h(n) += val_prev;
-      printf("new nrph(%i) = %i\n", n, neighbor_received_particles_h(n));
-      val_prev += val_curr;
-      // printf("nrp[%i]: %i\n", n, neighbor_received_particles_h(n));
-
-      // double val2 = neighbor_received_particles_h(n);
-      // neighbor_received_particles_h
-
-      // val = neighbor_received_particles_h(n);
-      // const Real val = neighbor_received_partices_h(n);
-      // if (n == 0) {
-      //  neighbor_received_particles_h
-      //}
-    }
-    neighbor_received_particles_.DeepCopy(neighbor_received_particles_h);
     // nrp_h(0) = 0;
     // for (int n = 1; n < NMAX_NEIGHBORS; n++) {
-    //  nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
-    // }
+    //  // nrp_h(n) = neighbor_received_particles_[n] + nrp_h(n - 1);
+    //  nrp_h(n) = neighbor_received_particles_h(n) + nrp_h(n - 1);
+    //}
     // nrp.DeepCopy(nrp_h);
+
+    // Change meaning of neighbor_received_particles from particles per neighbor to
+    // cumulative particles per neighbor
+    int val_prev = 0;
+    for (int n = 0; n < nbmax; n++) {
+      printf("[%i] recvd: %i\n", n, neighbor_received_particles_h(n));
+      double val_curr = neighbor_received_particles_h(n);
+      neighbor_received_particles_h(n) += val_prev;
+      val_prev += val_curr;
+      printf("[%i] nrp: %i\n", n, neighbor_received_particles_h(n));
+      // neighbor recv: %i\n", n, nrp_h(n),
+      //       neighbor_received_particles_h(n));
+    }
+    neighbor_received_particles_.DeepCopy(neighbor_received_particles_h);
+
+    // TODO(BRR) DEBUG
+    // neighbor_received_particles_.DeepCopy(nrp_h);
+
+    auto &x = Get<Real>(swarm_position::x::name()).Get();
+    auto &y = Get<Real>(swarm_position::y::name()).Get();
+    auto &z = Get<Real>(swarm_position::z::name()).Get();
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
@@ -406,13 +403,28 @@ void Swarm::UnloadBuffers_() {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
           // Get neighbor id
           int nid = 0;
-          // while (n > nrp(nid) - 1) {
-          while (n > neighbor_received_particles_(nid) - 1) {
-            nid++;
+
+          if (n >= neighbor_received_particles_(nbmax - 1)) {
+            nid = nbmax - 1;
+          } else {
+            while (n >= neighbor_received_particles_(nid)) {
+              nid++;
+            }
           }
-          // int bid = (n - nrp(nid)) * particle_size;
-          int bid = (n - neighbor_received_particles_(nid)) * particle_size;
+
+          // while (n > neighbor_received_particles_(nid) - 1) {
+          //  nid++;
+          //}
+          int bid = nid == 0
+                        ? n * particle_size
+                        : (n - neighbor_received_particles_(nid - 1)) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
+          printf("[n: %i] nid: %i bid: %i (%i - %i) nbid: %i sid: %i\n", n, nid, bid, n,
+                 neighbor_received_particles_(nid), nbid, sid);
+          if (bid < 0) {
+            printf("bid %i!\n", bid);
+            exit(-1);
+          }
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
@@ -421,6 +433,7 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+          printf("RECEIVING xyz: %e %e %e\n", x(sid), y(sid), z(sid));
         });
   }
 }
