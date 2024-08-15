@@ -718,8 +718,8 @@ struct SimdFor {
  private:
   template <typename Function, std::size_t... Is>
   inline void dispatch_simd(std::integer_sequence<size_t, Is...>, Function &function) {
-    for (int i = mdrange.lower[Rank - 1]; i <= mdrange.upper[Rank - 1]; i++) {
 #pragma omp simd
+    for (int i = mdrange.lower[Rank - 1]; i <= mdrange.upper[Rank - 1]; i++) {
       function(indices[Is]..., i);
     }
   }
