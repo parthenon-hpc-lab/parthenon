@@ -26,6 +26,7 @@
 
 #include "Kokkos_Core.hpp"
 #include "Kokkos_Macros.hpp"
+
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
@@ -166,7 +167,6 @@ struct test_wrapper_nd_impl {
   template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
                   parthenon::TypeList<Ts...>> {
-
     template <typename view_t>
     void execute(DevExecSpace exec_space, view_t &dev, int *int_bounds,
                  parthenon::IndexRange *bounds) {
@@ -517,7 +517,6 @@ struct test_wrapper_reduce_nd_impl {
   template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
                   parthenon::TypeList<Ts...>> {
-
     bool execute(DevExecSpace exec_space, const int h_sum, int *int_bounds,
                  parthenon::IndexRange *bounds) {
       int test_sum = 0;

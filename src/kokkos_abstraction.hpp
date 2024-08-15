@@ -401,7 +401,6 @@ class FlatFunctor {};
 
 template <typename Function, std::size_t... Is, typename... FArgs>
 class FlatFunctor<Function, std::integer_sequence<size_t, Is...>, TypeList<FArgs...>> {
-
   static constexpr std::size_t Rank = sizeof...(Is);
   Kokkos::Array<IndexRange, Rank> ranges;
   Kokkos::Array<int, Rank - 1> strides;
@@ -491,7 +490,6 @@ template <typename Function, std::size_t... Iteam, std::size_t... Ithread,
 class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
                       std::integer_sequence<size_t, Ithread...>,
                       std::integer_sequence<size_t, Ivector...>, Function, ParForOuter> {
-
   static constexpr std::size_t Nteam = sizeof...(Iteam);
   static constexpr std::size_t Nthread = sizeof...(Ithread);
   static constexpr std::size_t Nvector = sizeof...(Ivector);
@@ -671,7 +669,7 @@ class MDRange {
   }
 
   template <typename... Args>
-  MDRange(Args... args) {
+  explicit MDRange(Args... args) {
     std::array<size_t, 2 * Rank> indices{{static_cast<size_t>(args)...}};
     for (int i = 0; i < Rank; i++) {
       lower[i] = indices[2 * i];
@@ -710,7 +708,7 @@ struct SimdFor {
   MDRange<Rank> mdrange;
 
   template <typename... Args>
-  SimdFor(Args &&...args) : mdrange(std::forward<Args>(args)...) {}
+  explicit SimdFor(Args &&...args) : mdrange(std::forward<Args>(args)...) {}
 
   template <typename Function>
   inline void dispatch(Function &function) {
@@ -746,7 +744,6 @@ template <typename Tag, typename Pattern, std::size_t Rank, typename Function,
           typename... Bounds, typename... Args>
 struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
                          TypeList<Args...>> {
-
   using DType = impl::DispatchType<Tag, Pattern, Rank, Bounds...>;
 
   template <typename ExecSpace>
@@ -754,7 +751,6 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
                               Function function, Args &&...args,
                               const int scratch_level = 0,
                               const std::size_t scratch_size_in_bytes = 0) {
-
     static_assert(!(DType::is_MDRange && Rank < 2),
                   "Can not launch MDRange with Rank < 2");
     Tag tag;
@@ -768,13 +764,12 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
                       functor(function, std::forward<Bounds>(ids)...),
                       std::forward<Args>(args)...);
     }
-  };
+  }
 
   template <typename ExecSpace>
   static inline auto policy(ExecSpace exec_space, Bounds &&...ids,
                             const int scratch_level = 0,
                             const std::size_t scratch_size_in_bytes = 0) {
-
     if constexpr (DType::is_FlatRange) {
       int rangeNx = FlattenLaunchBound<Rank>(std::forward<Bounds>(ids)...);
       return Kokkos::RangePolicy<>(exec_space, 0, rangeNx);
@@ -793,7 +788,7 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
     } else {
       static_assert(always_false<Pattern>, "can't make policy for pattern");
     }
-  };
+  }
 
   static inline auto functor(Function function, Bounds &&...ids) {
     if constexpr (DType::is_FlatRange) {
@@ -871,7 +866,6 @@ inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, voi
 par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
               std::size_t scratch_size_in_bytes, const int scratch_level,
               AllArgs &&...args) {
-
   using dispatchsig = impl::DispatchSignature<TypeList<AllArgs...>>;
   static constexpr std::size_t Rank = dispatchsig::Rank::value;
   using Function = typename dispatchsig::Function;
@@ -893,7 +887,6 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
 template <typename Pattern, typename... AllArgs>
 KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(Pattern, team_mbr_t team_member,
                                                AllArgs &&...args) {
-
   using DispatchSig = impl::DispatchSignature<TypeList<AllArgs...>>;
   constexpr std::size_t Rank = DispatchSig::Rank::value;
   using Function = typename DispatchSig::Function;
