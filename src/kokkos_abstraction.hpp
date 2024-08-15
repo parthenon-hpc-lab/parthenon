@@ -597,8 +597,8 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
             recoverIndex<Nthread, Nteam>(inds_thread, idThread);
             if constexpr (Nvector > 0) {
               Kokkos::parallel_for(
-                  Kokkos::TeamVectorRange(team_member, 0,
-                                          FlattenLaunchBound(Nteam + Nthread, Rank)),
+                  Kokkos::ThreadVectorRange(team_member, 0,
+                                            FlattenLaunchBound(Nteam + Nthread, Rank)),
                   [&](const int idVector) {
                     Kokkos::Array<int, Nvector> inds_vector;
                     recoverIndex<Nvector, Nteam + Nthread>(inds_vector, idVector);
