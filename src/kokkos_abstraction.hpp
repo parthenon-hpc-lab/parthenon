@@ -749,7 +749,8 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
 
   using DType = impl::DispatchType<Tag, Pattern, Rank, Bounds...>;
 
-  static inline void dispatch(std::string name, DevExecSpace exec_space, Bounds &&...ids,
+  template <typename ExecSpace>
+  static inline void dispatch(std::string name, ExecSpace exec_space, Bounds &&...ids,
                               Function function, Args &&...args,
                               const int scratch_level = 0,
                               const std::size_t scratch_size_in_bytes = 0) {
@@ -769,7 +770,8 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
     }
   };
 
-  static inline auto policy(DevExecSpace exec_space, Bounds &&...ids,
+  template <typename ExecSpace>
+  static inline auto policy(ExecSpace exec_space, Bounds &&...ids,
                             const int scratch_level = 0,
                             const std::size_t scratch_size_in_bytes = 0) {
 
