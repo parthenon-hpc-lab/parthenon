@@ -54,9 +54,8 @@ struct TypeList {
     (func(Args()), ...);
   }
 
- private:
   template <std::size_t Start, std::size_t End>
-  static auto ContinuousSublist() {
+  static auto ContinuousSublistImpl() {
     return ContinuousSublistImpl<Start>(std::make_index_sequence<End - Start + 1>());
   }
   template <std::size_t Start, std::size_t... Is>
@@ -64,9 +63,8 @@ struct TypeList {
     return sublist<(Start + Is)...>();
   }
 
- public:
   template <std::size_t Start, std::size_t End = n_types - 1>
-  using continuous_sublist = decltype(ContinuousSublist<Start, End>());
+  using continuous_sublist = decltype(ContinuousSublistImpl<Start, End>());
 };
 
 namespace impl {
