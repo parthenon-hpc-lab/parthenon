@@ -26,15 +26,13 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-
-#include <Kokkos_Core.hpp>
 #include <variant>
 
-#include "Kokkos_Macros.hpp"
+#include <Kokkos_Core.hpp>
+
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "parthenon_array_generic.hpp"
-#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
@@ -162,7 +160,6 @@ static struct LoopPatternFlatRange {
 // a 1:1 indices matching
 static struct LoopPatternMDRange {
 } loop_pattern_mdrange_tag;
-
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::TeamThreadRange
 static struct LoopPatternTPTTR {
@@ -180,22 +177,28 @@ static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 // Translates to a Kokkos::TeamPolicy that collapse Nteams outer loops
 // with Nthread & Nvector inner loop collapses
-template <size_t Nteam, size_t Nthread, size_t Nvector>
+template <size_t Nteam, std::size_t Nthread, std::size_t Nvector>
 struct LoopPatternCollapse {};
 
-template <typename, typename, typename T = void>
+// trait to track if pattern requests any type of hierarchial parallelism
+template <typename Pattern, typename, typename T = void>
 struct LoopPatternTeam : std::false_type {};
 
-template <size_t team, size_t thread, size_t vector>
+// This pattern needs to determine the team and thread/vector count at compile time
+// By contrast the others specify the thread/vector count at compile time and the
+// outer team policy collapses all remaining loops
+template <size_t team, std::size_t thread, std::size_t vector>
 struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>,
                        std::integral_constant<size_t, team + thread + vector>, void>
     : std::true_type {
-  static constexpr size_t Nvector = vector;
-  static constexpr size_t Nthread = thread;
-  static constexpr size_t Nteam = team;
+  static constexpr std::size_t Nvector = vector;
+  static constexpr std::size_t Nthread = thread;
+  static constexpr std::size_t Nteam = team;
   using LoopPattern = LoopPatternCollapse<team, thread, vector>;
 };
 
+// Patterns with an outer team pattern that collapses all
+// remaining loops
 template <typename Pattern, typename Rank>
 struct LoopPatternTeam<
     Pattern, Rank,
@@ -210,29 +213,28 @@ struct LoopPatternTeam<
       std::is_same<Pattern, LoopPatternTPTVR>::value; // inner ThreadVectorRange
   static constexpr bool IsTPTTRTVR = std::is_same<Pattern, LoopPatternTPTTRTVR>::value;
 
-  static constexpr size_t Nvector = IsTPTVR || IsTPTTRTVR;
-  static constexpr size_t Nthread = IsTPTTR || IsTPTTRTVR;
-  static constexpr size_t Nteam = Rank::value - Nthread - Nvector;
+  static constexpr std::size_t Nvector = IsTPTVR || IsTPTTRTVR;
+  static constexpr std::size_t Nthread = IsTPTTR || IsTPTTRTVR;
+  static constexpr std::size_t Nteam = Rank::value - Nthread - Nvector;
   using LoopPattern = LoopPatternCollapse<Nteam, Nthread, Nvector>;
   using OuterPattern = Pattern;
 };
 
-// Tags for Nested parallelism where the outermost layer supports 1, 2, or 3
-// indices
+// Tags for Nested parallelism
 
-// Translates to outermost loop being a Kokkos::TeamPolicy
-// Currently the only available option.
+// Translates to outermost loop being a Kokkos::TeamPolicy for par_for_outer like loops
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
 template <size_t Rank>
 struct LoopPatternTeam<OuterLoopPatternTeams, std::integral_constant<size_t, Rank>, void>
     : std::true_type {
-  static constexpr size_t Nvector = 0;
-  static constexpr size_t Nthread = 0;
-  static constexpr size_t Nteam = Rank;
+  static constexpr std::size_t Nvector = 0;
+  static constexpr std::size_t Nthread = 0;
+  static constexpr std::size_t Nteam = Rank;
   using LoopPattern = LoopPatternCollapse<Rank, 0, 0>;
   using OuterPattern = OuterLoopPatternTeams;
 };
+
 // Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
 struct InnerLoopPatternTVR {};
@@ -246,7 +248,8 @@ constexpr InnerLoopPatternTTR inner_loop_pattern_ttr_tag;
 struct InnerLoopPatternSimdFor {};
 constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
-template <typename Pattern, size_t Rank>
+// Patterns for par_for_inner
+template <typename Pattern, std::size_t Rank>
 struct LoopPatternTeam<
     Pattern, std::integral_constant<size_t, Rank>,
     typename std::enable_if<std::is_same<Pattern, InnerLoopPatternTTR>::value ||
@@ -256,8 +259,8 @@ struct LoopPatternTeam<
   static constexpr bool IsTTR = std::is_same<Pattern, InnerLoopPatternTTR>::value;
   static constexpr bool IsTVR = std::is_same<Pattern, InnerLoopPatternTVR>::value;
 
-  static constexpr size_t Nvector = IsTVR ? Rank : 0;
-  static constexpr size_t Nthread = IsTTR ? Rank : 0;
+  static constexpr std::size_t Nvector = IsTVR ? Rank : 0;
+  static constexpr std::size_t Nthread = IsTTR ? Rank : 0;
   using LoopPattern = LoopPatternCollapse<0, Nthread, Nvector>;
 };
 
@@ -283,7 +286,7 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 }
 } // namespace dispatch_impl
 
-namespace meta {
+namespace impl {
 // c++-20 has std:remove_cvref_t that does this same thing
 template <typename T>
 using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
@@ -323,7 +326,7 @@ struct GetLaunchBounds<TypeList<T, Args...>> {
   }
 
   template <typename V>
-  static constexpr size_t NumBnds() {
+  static constexpr std::size_t NumBnds() {
     if constexpr (!is_BoundType<V>()) {
       return 0;
     }
@@ -365,11 +368,11 @@ struct DispatchSignature<TypeList<Index, AllArgs...>> {
                                                         TL::n_types - 1>;
 };
 
-template <typename Tag, typename Pattern, size_t Rank, typename... Bounds>
+template <typename Tag, typename Pattern, std::size_t Rank, typename... Bounds>
 struct DispatchType {
   using BoundType = typename TypeList<Bounds...>::template type<0>;
   static constexpr bool is_IndexRangeBounds =
-      std::is_same<IndexRange, meta::base_type<BoundType>>::value;
+      std::is_same<IndexRange, impl::base_type<BoundType>>::value;
   static constexpr bool is_ParFor =
       std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
   static constexpr bool is_ParScan =
@@ -391,15 +394,15 @@ struct DispatchType {
   static constexpr bool is_Collapse = TeamPattern::value;
 };
 
-} // namespace meta
+} // namespace impl
 
 template <typename, typename, typename>
 class FlatFunctor {};
 
-template <typename Function, size_t... Is, typename... FArgs>
+template <typename Function, std::size_t... Is, typename... FArgs>
 class FlatFunctor<Function, std::integer_sequence<size_t, Is...>, TypeList<FArgs...>> {
 
-  static constexpr size_t Rank = sizeof...(Is);
+  static constexpr std::size_t Rank = sizeof...(Is);
   Kokkos::Array<IndexRange, Rank> ranges;
   Kokkos::Array<int, Rank - 1> strides;
   Function function;
@@ -454,7 +457,7 @@ class FlatFunctor<Function, std::integer_sequence<size_t, Is...>, TypeList<FArgs
 
 template <size_t Rank, typename F, typename... Bounds>
 KOKKOS_INLINE_FUNCTION auto MakeFlatFunctor(F &function, Bounds &&...bounds) {
-  using signature = meta::function_signature<Rank, F>;
+  using signature = impl::function_signature<Rank, F>;
   using IndexND = typename signature::IndexND;
   return FlatFunctor<F, std::make_index_sequence<Rank>, typename signature::FArgs>(
       function, std::forward<Bounds>(bounds)...);
@@ -463,10 +466,10 @@ KOKKOS_INLINE_FUNCTION auto MakeFlatFunctor(F &function, Bounds &&...bounds) {
 template <typename, typename, typename>
 struct InnerFunctor {};
 
-template <typename Function, typename... Index, size_t... Iteam>
+template <typename Function, typename... Index, std::size_t... Iteam>
 struct InnerFunctor<Function, TypeList<Index...>,
                     std::integer_sequence<size_t, Iteam...>> {
-  static constexpr size_t Nteam = sizeof...(Iteam);
+  static constexpr std::size_t Nteam = sizeof...(Iteam);
   Function function;
   Kokkos::Array<int, Nteam> inds_team;
 
@@ -483,16 +486,16 @@ struct InnerFunctor<Function, TypeList<Index...>,
 template <typename, typename, typename, typename, bool Outer = false>
 class CollapseFunctor {};
 
-template <typename Function, size_t... Iteam, size_t... Ithread, size_t... Ivector,
-          bool ParForOuter>
+template <typename Function, std::size_t... Iteam, std::size_t... Ithread,
+          std::size_t... Ivector, bool ParForOuter>
 class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
                       std::integer_sequence<size_t, Ithread...>,
                       std::integer_sequence<size_t, Ivector...>, Function, ParForOuter> {
 
-  static constexpr size_t Nteam = sizeof...(Iteam);
-  static constexpr size_t Nthread = sizeof...(Ithread);
-  static constexpr size_t Nvector = sizeof...(Ivector);
-  static constexpr size_t Rank = Nteam + Nthread + Nvector;
+  static constexpr std::size_t Nteam = sizeof...(Iteam);
+  static constexpr std::size_t Nthread = sizeof...(Ithread);
+  static constexpr std::size_t Nvector = sizeof...(Ivector);
+  static constexpr std::size_t Rank = Nteam + Nthread + Nvector;
 
   Kokkos::Array<IndexRange, Rank> ranges;
   Kokkos::Array<int, Rank> strides;
@@ -543,7 +546,7 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
     }
   }
 
-  template <size_t N, size_t start>
+  template <size_t N, std::size_t start>
   KOKKOS_INLINE_FUNCTION void recoverIndex(Kokkos::Array<int, N> &inds, int idx) const {
     inds[0] = idx;
     for (int i = 1; i < N; i++) {
@@ -571,7 +574,7 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
   void operator()(team_mbr_t team_member) const {
     Kokkos::Array<int, Nteam> inds_team;
     recoverIndex<Nteam, 0>(inds_team, team_member.league_rank());
-    using signature = meta::function_signature<Rank, Function>;
+    using signature = impl::function_signature<Rank, Function>;
     using ThreadVectorInds =
         typename signature::IndexND::template continuous_sublist<Nteam>;
 
@@ -621,13 +624,13 @@ class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
   }
 };
 
-template <bool ParForOuter = false, size_t Nteam, size_t Nthread, size_t Nvector,
-          typename F, typename... Bounds>
+template <bool ParForOuter = false, std::size_t Nteam, std::size_t Nthread,
+          std::size_t Nvector, typename F, typename... Bounds>
 KOKKOS_INLINE_FUNCTION auto
 MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &function,
                     Bounds &&...bounds) {
-  constexpr size_t Rank = Nteam + Nthread + Nvector;
-  using signature = meta::function_signature<Rank, F>;
+  constexpr std::size_t Rank = Nteam + Nthread + Nvector;
+  using signature = impl::function_signature<Rank, F>;
   using IndexND = typename signature::IndexND;
 
   return CollapseFunctor<std::make_index_sequence<Nteam>,
@@ -636,19 +639,19 @@ MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &function,
       function, std::forward<Bounds>(bounds)...);
 }
 
-template <typename, size_t, typename, typename>
+template <typename, std::size_t, typename, typename>
 struct par_dispatch_inner {};
 
-template <typename Pattern, size_t Rank, typename Function, typename... Bounds>
+template <typename Pattern, std::size_t Rank, typename Function, typename... Bounds>
 struct par_dispatch_inner<Pattern, Rank, Function, TypeList<Bounds...>> {
-  using signature = meta::function_signature<Rank, Function>;
-  using LoopPattern =
-      typename LoopPatternTeam<Pattern,
-                               std::integral_constant<size_t, Rank>>::LoopPattern;
+  using signature = impl::function_signature<Rank, Function>;
+  using LPT = LoopPatternTeam<Pattern, std::integral_constant<size_t, Rank>>;
 
+  static_assert(LPT::value, "unsupported inner loop pattern");
   KOKKOS_FORCEINLINE_FUNCTION
   void dispatch(team_mbr_t team_member, Bounds &&...bounds, Function function) const {
-    MakeCollapseFunctor(LoopPattern(), function, std::forward<Bounds>(bounds)...)
+    MakeCollapseFunctor(typename LPT::LoopPattern(), function,
+                        std::forward<Bounds>(bounds)...)
         .collapse_inner(team_member, function);
   }
 };
@@ -676,7 +679,7 @@ class MDRange {
     }
   }
 
-  template <size_t... Is, size_t... ones>
+  template <size_t... Is, std::size_t... ones>
   auto policy(std::integer_sequence<size_t, Is...>,
               std::integer_sequence<size_t, ones...>, DevExecSpace exec_space) {
     return Kokkos::MDRangePolicy<Kokkos::Rank<Rank>>(
@@ -711,11 +714,11 @@ struct SimdFor {
 
   template <typename Function>
   inline void dispatch(Function &function) {
-    dispatch_impl<1>(function);
+    dispatch_simd<1>(function);
   }
 
  private:
-  template <typename Function, size_t... Is>
+  template <typename Function, std::size_t... Is>
   inline void dispatch_simd(std::integer_sequence<size_t, Is...>, Function &function) {
     for (int i = mdrange.lower[Rank - 1]; i <= mdrange.upper[Rank - 1]; i++) {
 #pragma omp simd
@@ -724,11 +727,11 @@ struct SimdFor {
   }
 
   template <size_t LoopCount, typename Function>
-  inline void dispatch_impl(Function &function) {
+  inline void dispatch_simd(Function &function) {
     if constexpr (LoopCount < Rank) {
       for (int i = mdrange.lower[LoopCount - 1]; i <= mdrange.upper[LoopCount - 1]; i++) {
         indices[LoopCount - 1] = i;
-        dispatch_impl<LoopCount + 1>(function);
+        dispatch_simd<LoopCount + 1>(function);
       }
     } else {
       dispatch_simd(Sequence<Rank - 1>(), function);
@@ -736,20 +739,20 @@ struct SimdFor {
   }
 };
 
-template <typename, typename, size_t, typename, typename, typename>
+template <typename, typename, std::size_t, typename, typename, typename>
 struct par_dispatch_impl {};
 
-template <typename Tag, typename Pattern, size_t Rank, typename Function,
+template <typename Tag, typename Pattern, std::size_t Rank, typename Function,
           typename... Bounds, typename... Args>
 struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
                          TypeList<Args...>> {
 
-  using DType = meta::DispatchType<Tag, Pattern, Rank, Bounds...>;
+  using DType = impl::DispatchType<Tag, Pattern, Rank, Bounds...>;
 
   static inline void dispatch(std::string name, DevExecSpace exec_space, Bounds &&...ids,
                               Function function, Args &&...args,
                               const int scratch_level = 0,
-                              const size_t scratch_size_in_bytes = 0) {
+                              const std::size_t scratch_size_in_bytes = 0) {
 
     static_assert(!(DType::is_MDRange && Rank < 2),
                   "Can not launch MDRange with Rank < 2");
@@ -768,7 +771,7 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
 
   static inline auto policy(DevExecSpace exec_space, Bounds &&...ids,
                             const int scratch_level = 0,
-                            const size_t scratch_size_in_bytes = 0) {
+                            const std::size_t scratch_size_in_bytes = 0) {
 
     if constexpr (DType::is_FlatRange) {
       int rangeNx = FlattenLaunchBound<Rank>(std::forward<Bounds>(ids)...);
@@ -785,6 +788,8 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
           FlattenLaunchBound<DType::TeamPattern::Nteam>(std::forward<Bounds>(ids)...);
       return team_policy(exec_space, rangeNx, Kokkos::AUTO)
           .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes));
+    } else {
+      static_assert(always_false<Pattern>, "can't make policy for pattern");
     }
   };
 
@@ -797,6 +802,8 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
       constexpr bool ParForOuter = std::is_same_v<OuterLoopPatternTeams, Pattern>;
       return MakeCollapseFunctor<ParForOuter>(typename DType::TeamPattern::LoopPattern(),
                                               function, std::forward<Bounds>(ids)...);
+    } else {
+      static_assert(always_false<Pattern>, "can't make functor for pattern");
     }
   }
 
@@ -821,32 +828,19 @@ struct par_dispatch_impl<Tag, Pattern, Rank, Function, TypeList<Bounds...>,
 };
 
 template <typename Tag, typename Pattern, typename... AllArgs>
-inline typename std::enable_if<std::is_same<Pattern, LoopPatternFlatRange>::value ||
-                                   std::is_same<Pattern, LoopPatternMDRange>::value ||
-                                   std::is_same<Pattern, LoopPatternTPTTR>::value ||
-                                   std::is_same<Pattern, LoopPatternTPTVR>::value ||
-                                   std::is_same<Pattern, LoopPatternTPTTRTVR>::value ||
-                                   std::is_same<Pattern, LoopPatternSimdFor>::value,
-                               void>::type
-par_dispatch(Pattern, std::string name, DevExecSpace exec_space, AllArgs &&...args) {
-  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
-  static constexpr size_t Rank = dispatchsig::Rank::value;
-  using Function = typename dispatchsig::Function;         // functor type
-  using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
-  using Args = typename dispatchsig::Args;                 //
+inline void par_dispatch(Pattern, std::string name, DevExecSpace exec_space,
+                         AllArgs &&...args) {
+  using dispatchsig = impl::DispatchSignature<TypeList<AllArgs...>>;
+  static constexpr std::size_t Rank = dispatchsig::Rank::value;
+  using Function = typename dispatchsig::Function;
+  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using Args = typename dispatchsig::Args;
 
   if constexpr (Rank > 1 && std::is_same_v<dispatch_impl::ParallelScanDispatch, Tag>) {
     static_assert(always_false<Tag>, "par_scan only for 1D loops");
   }
   par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch(
       name, exec_space, std::forward<AllArgs>(args)...);
-}
-
-template <typename Tag, typename Pattern, typename Function, class... Args>
-inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_dispatch(Pattern p, const std::string &name, DevExecSpace exec_space,
-             const IndexRange &r, const Function &function, Args &&...args) {
-  par_dispatch<Tag>(p, name, exec_space, r.s, r.e, function, std::forward<Args>(args)...);
 }
 
 template <typename Tag, typename... Args>
@@ -873,13 +867,14 @@ inline void par_scan(Args &&...args) {
 template <typename Pattern, typename... AllArgs>
 inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void>
 par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
-              size_t scratch_size_in_bytes, const int scratch_level, AllArgs &&...args) {
-  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
-  static constexpr size_t Rank = dispatchsig::Rank::value;
-  using Function = typename dispatchsig::Function;         // functor type
-  using LaunchBounds = typename dispatchsig::LaunchBounds; // list of index types
-  using Args = typename dispatchsig::Args;                 //
-  using LoopPattern = LoopPatternTeam<Pattern, std::integral_constant<size_t, Rank>>;
+              std::size_t scratch_size_in_bytes, const int scratch_level,
+              AllArgs &&...args) {
+
+  using dispatchsig = impl::DispatchSignature<TypeList<AllArgs...>>;
+  static constexpr std::size_t Rank = dispatchsig::Rank::value;
+  using Function = typename dispatchsig::Function;
+  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using Args = typename dispatchsig::Args;
   using Tag = dispatch_impl::ParallelForDispatch;
 
   par_dispatch_impl<Tag, Pattern, Rank, Function, LaunchBounds, Args>::dispatch(
@@ -894,19 +889,16 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
 }
 
 template <typename Pattern, typename... AllArgs>
-KOKKOS_FORCEINLINE_FUNCTION
-    std::enable_if_t<std::is_same_v<Pattern, InnerLoopPatternTTR> ||
-                         std::is_same_v<Pattern, InnerLoopPatternTVR> ||
-                         std::is_same_v<Pattern, InnerLoopPatternSimdFor>,
-                     void>
-    par_for_inner(Pattern, team_mbr_t team_member, AllArgs &&...args) {
+KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(Pattern, team_mbr_t team_member,
+                                               AllArgs &&...args) {
 
-  using dispatchsig = meta::DispatchSignature<TypeList<AllArgs...>>;
-  constexpr size_t Rank = dispatchsig::Rank::value;
-  using Function = typename dispatchsig::Function;
-  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using DispatchSig = impl::DispatchSignature<TypeList<AllArgs...>>;
+  constexpr std::size_t Rank = DispatchSig::Rank::value;
+  using Function = typename DispatchSig::Function;
+  using LaunchBounds = typename DispatchSig::LaunchBounds;
+
   if constexpr (std::is_same_v<Pattern, InnerLoopPatternSimdFor>) {
-    using Args = typename dispatchsig::Args;
+    using Args = typename DispatchSig::Args;
     par_dispatch_impl<dispatch_impl::ParallelForDispatch, LoopPatternSimdFor, Rank,
                       Function, LaunchBounds, Args>()
         .dispatch("simd", HostExecSpace(), std::forward<AllArgs>(args)...);
