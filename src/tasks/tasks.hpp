@@ -425,7 +425,9 @@ class TaskList {
 
   template <typename TID>
   std::pair<TaskList &, TaskID> AddSublist(TID &&dep, std::pair<int, int> minmax_iters) {
+    printf("AddSublist!\n");
     sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters));
+    printf("  sublists size: %i\n", sublists.size());
     auto &tl = *sublists.back();
     tl.SetID(unique_id);
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));

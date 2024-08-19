@@ -34,6 +34,8 @@ class ParticleDriver : public EvolutionDriver {
       : EvolutionDriver(pin, app_in, pm), integrator(pin) {}
   TaskCollection MakeParticlesCreationTaskCollection() const;
   TaskCollection MakeParticlesTransportTaskCollection() const;
+  TaskListStatus IterativeTransport() const;
+  TaskCollection IterativeTransportTaskCollection() const;
   TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
 

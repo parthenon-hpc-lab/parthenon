@@ -506,44 +506,19 @@ TaskStatus CheckCompletion(MeshBlock *pmb, const Real tf) {
   }
 }
 
-TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
-  using TQ = TaskQualifier;
-
-  TaskCollection tc;
-  TaskID none(0);
-  BlockList_t &blocks = pmesh->block_list;
-
-  const int max_transport_iterations = 1000;
-
-  const Real t0 = tm.time;
-  const Real dt = tm.dt;
-
-  auto &reg = tc.AddRegion(blocks.size());
-
-  for (int i = 0; i < blocks.size(); i++) {
-    printf("i: %i\n", i);
-    auto &pmb = blocks[i];
-    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-    auto &tl = reg[i];
-
-    // If this task is enrolled then the iterative loop will cycle
-    auto pushtmp = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
-
-    // auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
-    auto [itl, push] = tl.AddSublist(pushtmp, {i, max_transport_iterations});
-    auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
-    auto reset_comms =
-        itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
-    auto send = itl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(),
-                            BoundaryCommSubset::all);
-    auto receive =
-        itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-    auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
-                                CheckCompletion, pmb.get(), t0 + dt);
-  }
-
-  return tc;
-}
+// TaskID GetNIncomplete(TaskID dependency_in, TaskList &tl, AllReduce<int> n_incomplete,
+//                      MeshBlock *pmb, const Real tf) {
+//  using TQ = TaskQualifier;
+//
+//  auto zero_inc = tl.AddTask(
+//      TQ::once_per_region | TQ::local_sync, dependency_in,
+//      [](AllReduce<int> *n_inc) {
+//        n_inc->val = 0;
+//        return TaskStatus::complete;
+//      },
+//      n_incomplete);
+//  auto get_n_inc_loc = tl.AddTask(TQ::local_sync, zero_inc, n_incomplete, pmb, tf)
+//}
 
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
@@ -558,7 +533,8 @@ TaskListStatus ParticleDriver::Step() {
   PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
 
   // Transport particles iteratively until all particles reach final time
-  status = MakeParticlesTransportTaskCollection().Execute();
+  status = IterativeTransport();
+  // status = MakeParticlesTransportTaskCollection().Execute();
   PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
 
   // Use a more traditional task list for predictable post-MPI evaluations.
@@ -583,6 +559,128 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   }
 
   return tc;
+}
+
+TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
+  using TQ = TaskQualifier;
+
+  TaskCollection tc;
+
+  // std::cout << tc;
+  TaskID none(0);
+  BlockList_t &blocks = pmesh->block_list;
+
+  const int max_transport_iterations = 1000;
+
+  const Real t0 = tm.time;
+  const Real dt = tm.dt;
+
+  auto &reg = tc.AddRegion(blocks.size());
+
+  // std::cout << tc;
+
+  AllReduce<int> n_incomplete;
+
+  for (int i = 0; i < blocks.size(); i++) {
+    printf("i: %i\n", i);
+    auto &pmb = blocks[i];
+    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
+    auto &tl = reg[i];
+    printf("tl: %p\n", &tl);
+
+    // If this task is enrolled then the iterative loop will cycle
+    // Add regular task
+    auto dummy = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
+
+    // Add task sublist
+    // auto dummy = tl.AddTask(none, []() {});
+    // auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
+    auto [itl, push] = tl.AddSublist(dummy, {i, max_transport_iterations});
+    auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
+    auto reset_comms =
+        itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
+    auto send = itl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(),
+                            BoundaryCommSubset::all);
+    auto receive =
+        itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+
+    auto get_n_incomplete =
+        GetNIncomplete(receive, itl, &n_incomplete, pmb.get(), t0 + dt);
+    itl.AddTask(receive, itl, GetNIncomplete, pmb.get(), t0 + dt, &n_incomplete);
+    auto check_incomplete =
+        itl.AddTask(TC::completion, get_n_incomplete, CheckNIncomplete, n_incomplete);
+
+    // auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
+    //                            CheckCompletion, pmb.get(), t0 + dt);
+  }
+
+  std::cout << tc;
+
+  return tc;
+}
+
+TaskStatus CheckCompletion(const BlockList_t &blocks, const Real tf) {
+  int num_sent_local = 0;
+  for (auto &block : blocks) {
+    auto sc = block->meshblock_data.Get()->GetSwarmData();
+    auto swarm = sc->Get("my_particles");
+    swarm->finished_transport = false;
+    num_sent_local += swarm->num_particles_sent_;
+  }
+  exit(-1);
+}
+
+TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool &done) {
+  TaskCollection tc;
+  TaskID none(0);
+  const BlockList_t &blocks = pmesh->block_list;
+  const int nblocks = blocks.size();
+  const Real t0 = tm.time;
+  const Real dt = tm.dt;
+
+  TaskRegion async_region = tc.AddRegion(nblocks);
+  for (int i = 0; i < nblocks; i++) {
+    auto &pmb = blocks[i];
+    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
+    auto &tl = async_region[i];
+
+    auto transport = tl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
+    auto reset_comms =
+        tl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
+    auto send =
+        tl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
+    auto receive =
+        tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+  }
+
+  TaskRegion sync_region = tc.AddRegion(nblocks);
+  {
+    auto &tl = sync_region[0];
+    auto check_completion = tl.AddTask(none, CheckCompletion, blocks, t0 + dt);
+  }
+
+  return tc;
+}
+
+// TODO(BRR) to be replaced by iterative tasklist machinery
+TaskListStatus ParticleDriver::IterativeTransport() const {
+  TaskListStatus status;
+  // const Real t0 = tm.time;
+  // const Real dt = tm.dt;
+
+  // const BlockList_t &blocks = pmesh->block_list;
+  // const int nblocks = blocks.size();
+
+  bool transport_done = false;
+  int n_transport_iter = 0;
+  int n_transport_iter_max = 1000;
+  while (!transport_done) {
+    status = IterativeTransportTaskCollection(transport_done).Execute();
+
+    n_transport_iter++;
+    PARTHENON_REQUIRE(n_transport_iter < n_transport_iter_max,
+                      "Too many transport iterations!");
+  }
 }
 
 TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
