@@ -31,9 +31,11 @@
 #include "config.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/indexer.hpp"
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -143,30 +145,35 @@ template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
+template <int nm, int ni> 
+struct PatternBase {
+  static constexpr int nmiddle = nm;
+  static constexpr int ninner = ni;
+};
 
 // Translates a non-Kokkos standard C++ nested `for` loop where the innermost
 // `for` is decorated with a #pragma omp simd IMPORTANT: This only works on CPUs
-static struct LoopPatternSimdFor {
+static struct LoopPatternSimdFor : public PatternBase<0, 1> {
 } loop_pattern_simdfor_tag;
 // Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes
 // care of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
-static struct LoopPatternFlatRange {
+static struct LoopPatternFlatRange : public PatternBase<0, 0>  {
 } loop_pattern_flatrange_tag;
 // Translates to a Kokkos multi dimensional  range (Kokkos::MDRangePolicy) with
 // a 1:1 indices matching
-static struct LoopPatternMDRange {
+static struct LoopPatternMDRange : public PatternBase<0, 0> {
 } loop_pattern_mdrange_tag;
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::TeamThreadRange
-static struct LoopPatternTPTTR {
+static struct LoopPatternTPTTR : public PatternBase<0, 1> {
 } loop_pattern_tpttr_tag;
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::ThreadVectorRange
-static struct LoopPatternTPTVR {
+static struct LoopPatternTPTVR : public PatternBase<0, 1> {
 } loop_pattern_tptvr_tag;
 // Translates to a Kokkos::TeamPolicy with a middle Kokkos::TeamThreadRange and
 // inner Kokkos::ThreadVectorRange
-static struct LoopPatternTPTTRTVR {
+static struct LoopPatternTPTTRTVR : public PatternBase<1, 1>  {
 } loop_pattern_tpttrtvr_tag;
 // Used to catch undefined behavior as it results in throwing an error
 static struct LoopPatternUndefined {
@@ -215,35 +222,155 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 } // namespace dispatch_impl
 
 template <int Rank, int RankStart, int RankStop>
-auto GetKokkosFlatRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &idx_ranges) {
+auto GetKokkosFlatRangePolicy(DevExecSpace exec_space, const std::array<int64_t, 2 * Rank> &range_arr) {
   constexpr int ndim = RankStop - RankStart + 1;
   static_assert(ndim > 0, "Need a valid range of ranks");
   int64_t npoints = 1;
-  for (int d = 0; d < ndim; ++d)
-    npoints *= (idx_ranges[d].e + 1 - idx_ranges[d].s);
+  for (int d = RankStart; d <= RankStop; ++d)
+    npoints *= (range_arr[2 * d + 1] + 1 - range_arr[2 * d]);
   return Kokkos::Experimental::require(
                       Kokkos::RangePolicy<>(exec_space, 0, npoints),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight);
 }
 
 template <int Rank, int RankStart, int RankStop>
-auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &idx_ranges) {
+auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<int64_t, 2 * Rank> &range_arr) {
   constexpr int ndim = RankStop - RankStart + 1;
-  static_assert(ndim > 0, "Need a valid range of ranks");
-  if constexpr (ndim == 1) {
-    return GetKokkosFlatRangePolicy<Rank, RankStart, RankStop>(exec_space, idx_ranges);
-  } else {
-    Kokkos::Array<int64_t, ndim> start, end, tile; 
-    for (int d = 0; d < ndim; ++d) { 
-      start[d] = idx_ranges[d + RankStart].s;
-      end[d] = idx_ranges[d + RankStart].e + 1;
-      tile[d] = 1; 
-    } 
-    tile[ndim - 1] = end[ndim] - start[ndim];
-    return Kokkos::Experimental::require(
-               Kokkos::MDRangePolicy<Kokkos::Rank<ndim>>(exec_space, start, end, tile),
-               Kokkos::Experimental::WorkItemProperty::HintLightWeight); 
+  static_assert(ndim > 1, "Need a valid range of ranks");
+  Kokkos::Array<int64_t, ndim> start, end, tile; 
+  for (int d = 0; d < ndim; ++d) { 
+    start[d] = range_arr[2 * (d + RankStart)];
+    end[d] = range_arr[2 * (d + RankStart) + 1] + 1;
+    tile[d] = 1; 
+  } 
+  tile[ndim - 1] = end[ndim - 1] - start[ndim - 1];
+  return Kokkos::Experimental::require(
+             Kokkos::MDRangePolicy<Kokkos::Rank<ndim>>(exec_space, start, end, tile),
+             Kokkos::Experimental::WorkItemProperty::HintLightWeight); 
+}
+
+template<class Tag, class Pattern, class Range_tl, class Function, class ExtArgs_tl, class FuncExtArgs_tl>
+struct par_dispatch_funct {};
+
+template<class Tag, class Pattern, class... Range_ts, class Function, class... ExtraArgs_ts, class... FuncExtArgs_ts>
+struct par_dispatch_funct<Tag, Pattern, 
+                          TypeList<Range_ts...>,
+                          Function,
+                          TypeList<ExtraArgs_ts...>, 
+                          TypeList<FuncExtArgs_ts...>> {
+  template <class... Args>
+  void operator()(Pattern pattern, Args&&...args) { 
+    constexpr int total_rank = sizeof...(Range_ts) / 2;
+    DoLoop(std::make_index_sequence<total_rank>(),
+           std::make_index_sequence<total_rank - Pattern::nmiddle - Pattern::ninner>(),
+           std::make_index_sequence<Pattern::nmiddle>(),
+           std::make_index_sequence<Pattern::ninner>(),
+           std::forward<Args>(args)...);
+  }   
+
+  template<std::size_t... Is, std::size_t... OuterIs, std::size_t... MidIs, std::size_t... InnerIs>
+  void DoLoop(std::index_sequence<Is...>, 
+              std::index_sequence<OuterIs...>, 
+              std::index_sequence<MidIs...>,
+              std::index_sequence<InnerIs...>,
+              const std::string &name,
+              DevExecSpace exec_space,
+              Range_ts... ranges,
+              const Function &function, 
+              ExtraArgs_ts&&...args) {
+    constexpr int total_rank = sizeof...(ranges) / 2;
+    std::array<int64_t, sizeof...(ranges)> range_arr{static_cast<int64_t>(ranges)...};
+    
+    if constexpr (std::is_same_v<Pattern, LoopPatternSimdFor> && sizeof...(args) == 0) {
+      static_assert(sizeof...(args) == 0, "Only par_for is supported for simd_for pattern");
+      if constexpr (sizeof...(OuterIs) > 0) {
+        auto idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
+        // Loop over all outer indices using a flat indexer
+        for (int idx = 0; idx < idxer.size(); ++idx) { 
+          auto indices = std::tuple_cat(idxer(idx), std::tuple<int>({0}));
+          int& i = std::get<decltype(idxer)::rank>(indices);
+          const int istart = range_arr[2 * (total_rank - 1)];
+          const int iend = range_arr[2 * (total_rank - 1) + 1];
+#pragma omp simd
+          for (i = istart; i <= iend; ++i) {
+            std::apply(function, indices);
+          }
+        }
+      } else { // Easier to just explicitly specialize for 1D Simd loop
+#pragma omp simd 
+        for (int i = range_arr[0]; i <= range_arr[1]; ++i) function(i);
+      }
+    } else if constexpr (std::is_same_v<Pattern, LoopPatternMDRange>) {
+      static_assert(total_rank > 1, "MDRange pattern only works for multi-dimensional loops.");
+      kokkos_dispatch(Tag(), name,
+                      GetKokkosMDRangePolicy<total_rank, 0, total_rank-1>(exec_space, range_arr),
+                      function, std::forward<ExtraArgs_ts>(args)...); 
+    } else if constexpr (std::is_same_v<Pattern, LoopPatternFlatRange> || std::is_same_v<Pattern, LoopPatternSimdFor>) {
+      const auto idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * Is], range_arr[2 * Is + 1])...);
+      kokkos_dispatch(Tag(), name,
+                      GetKokkosFlatRangePolicy<total_rank, 0, total_rank-1>(exec_space, range_arr),
+                      KOKKOS_LAMBDA(const int &idx, FuncExtArgs_ts&&...fargs) {
+                        auto idx_tuple = idxer(idx);
+                        function(std::get<Is>(idx_tuple)..., std::forward<FuncExtArgs_ts>(fargs)...);
+                      },
+                      std::forward<ExtraArgs_ts>(args)...); 
+    } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTR> || std::is_same_v<Pattern, LoopPatternTPTVR>) {
+      const auto outer_idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
+      const int istart = range_arr[2 * (total_rank - 1)];
+      const int iend = range_arr[2 * (total_rank - 1) + 1];
+      Kokkos::parallel_for(
+          name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(team_mbr_t team_member) {
+            const auto idx_tuple = outer_idxer(team_member.league_rank());
+            if constexpr (std::is_same_v<Pattern, LoopPatternTPTTR>) {
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
+                                   [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
+            } else { 
+              Kokkos::parallel_for(Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
+                                   [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
+            }
+          });
+    } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTRTVR>) {
+      const auto outer_idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
+      const int jstart = range_arr[2 * (total_rank - 2)];
+      const int jend = range_arr[2 * (total_rank - 2) + 1];
+      const int istart = range_arr[2 * (total_rank - 1)];
+      const int iend = range_arr[2 * (total_rank - 1) + 1];
+      Kokkos::parallel_for(
+      name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const auto idx_tuple = outer_idxer(team_member.league_rank());
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, jstart, jend + 1), [&](const int j) {
+              Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, istart, iend + 1),
+                                   [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., j, i); });
+            });
+      });
+    } else { 
+      printf("Loop pattern unsupported.");
+    }
   }
+  
+};
+
+template <typename Tag, typename Pattern, class... Args>
+void par_dispatch_new(Pattern pattern, const std::string &name, DevExecSpace exec_space, Args &&...args) {
+  using arg_tl = TypeList<Args...>;
+  constexpr std::size_t func_idx = FirstNonIntegralIdx<arg_tl>();
+  using func_t = typename arg_tl:: template type<func_idx>; 
+  
+  using func_sig_tl = typename FuncSignature<func_t>::arg_types_tl;
+  constexpr std::size_t first_extra_idx = FirstNonIntegralIdx<func_sig_tl>();
+  // The first func_idx arguments of args are lower and upper index ranges, so the extra parameters
+  // passed to the function will go in places func_idx / 2
+  using func_sig_extra_tl = typename func_sig_tl::template continuous_sublist<func_idx / 2>;
+  
+  par_dispatch_funct<Tag, Pattern,
+                    typename arg_tl::template continuous_sublist<0, func_idx - 1>,
+                    func_t, 
+                    typename arg_tl::template continuous_sublist<func_idx + 1>,
+                    func_sig_extra_tl> loop_funct;
+  loop_funct(pattern, name, exec_space, std::forward<Args>(args)...);
 }
 
 // 1D loop using RangePolicy loops
@@ -718,19 +845,25 @@ inline void par_dispatch(const std::string &name, Args &&...args) {
                     std::forward<Args>(args)...);
 }
 
+template <typename Tag, typename... Args>
+inline void par_dispatch_new(const std::string &name, Args &&...args) {
+  par_dispatch_new<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
+                        std::forward<Args>(args)...);
+}
+
 template <class... Args>
 inline void par_for(Args &&...args) {
-  par_dispatch<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
+  par_dispatch_new<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
 }
 
 template <class... Args>
 inline void par_reduce(Args &&...args) {
-  par_dispatch<dispatch_impl::ParallelReduceDispatch>(std::forward<Args>(args)...);
+  par_dispatch_new<dispatch_impl::ParallelReduceDispatch>(std::forward<Args>(args)...);
 }
 
 template <class... Args>
 inline void par_scan(Args &&...args) {
-  par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
+  par_dispatch_new<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
 }
 
 // 1D  outer parallel loop using Kokkos Teams

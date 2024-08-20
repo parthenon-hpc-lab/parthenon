@@ -65,7 +65,7 @@ struct TypeList {
   }
 
  public:
-  template <std::size_t Start, std::size_t End>
+  template <std::size_t Start, std::size_t End = sizeof...(Args) - 1>
   using continuous_sublist = decltype(ContinuousSublist<Start, End>());
 };
 
@@ -99,7 +99,7 @@ static constexpr int FirstNonIntegralImpl() {
   if constexpr (cidx == TL::n_types) {
     return TL::n_types;
   } else {
-    if constexpr (std::is_integral_v<typename TL:: template type<cidx>>)
+    if constexpr (std::is_integral_v<typename std::remove_reference<typename TL:: template type<cidx>>::type>)
         return FirstNonIntegralImpl<TL, cidx + 1>();
     return cidx;
   }

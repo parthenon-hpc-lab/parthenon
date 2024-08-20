@@ -487,7 +487,7 @@ bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
   parthenon::ParArray1D<int> buffer("Testing buffer", N);
   // Initialize data
   parthenon::par_for(
-      loop_pattern, "Initialize parallel reduce array", exec_space, r,
+      loop_pattern, "Initialize parallel reduce array", exec_space, r.s, r.e,
       KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
   int total = 0;
   for (int i = 0; i < N; ++i) {
@@ -495,7 +495,7 @@ bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
   }
   int test_tot = 0;
   parthenon::par_reduce(
-      loop_pattern, "Sum via par reduce", exec_space, r,
+      loop_pattern, "Sum via par reduce", exec_space, r.s, r.e,
       KOKKOS_LAMBDA(const int i, int &t) { t += i; }, Kokkos::Sum<int>(test_tot));
   return total == test_tot;
 }
