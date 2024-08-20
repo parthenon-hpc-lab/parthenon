@@ -364,7 +364,8 @@ void Swarm::UnloadBuffers_() {
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
-    auto neighbor_received_particles_h = neighbor_received_particles_.GetHostMirror();
+    auto &neighbor_received_particles = neighbor_received_particles_;
+    auto neighbor_received_particles_h = neighbor_received_particles.GetHostMirror();
 
     // Change meaning of neighbor_received_particles from particles per neighbor to
     // cumulative particles per neighbor
@@ -374,7 +375,7 @@ void Swarm::UnloadBuffers_() {
       neighbor_received_particles_h(n) += val_prev;
       val_prev += val_curr;
     }
-    neighbor_received_particles_.DeepCopy(neighbor_received_particles_h);
+    neighbor_received_particles.DeepCopy(neighbor_received_particles_h);
 
     auto &x = Get<Real>(swarm_position::x::name()).Get();
     auto &y = Get<Real>(swarm_position::y::name()).Get();
@@ -387,18 +388,17 @@ void Swarm::UnloadBuffers_() {
           const int sid = newParticlesContext.GetNewParticleIndex(n);
           // Search for neighbor id over cumulative indices
           int nid = 0;
-          if (n >= neighbor_received_particles_(nbmax - 1)) {
+          if (n >= neighbor_received_particles(nbmax - 1)) {
             nid = nbmax - 1;
           } else {
-            while (n >= neighbor_received_particles_(nid)) {
+            while (n >= neighbor_received_particles(nid)) {
               nid++;
             }
           }
 
           // Convert neighbor id to buffer id
-          int bid = nid == 0
-                        ? n * particle_size
-                        : (n - neighbor_received_particles_(nid - 1)) * particle_size;
+          int bid = nid == 0 ? n * particle_size
+                             : (n - neighbor_received_particles(nid - 1)) * particle_size;
           const int nbid = neighbor_buffer_index(nid);
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);
