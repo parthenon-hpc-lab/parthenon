@@ -13,6 +13,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -564,6 +565,37 @@ StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_name
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {
   return GetVariableNames({}, flags, {});
+}
+
+// Get the total length of this StateDescriptor's variables when packed
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  std::vector<std::string> names = GetVariableNames(req_names, flags, sparse_ids);
+  int dimension = 0;
+  for (auto name : names) {
+    const auto &meta = metadataMap_[VarID(name)];
+    // if meta.Shape().size() < 1, then 'accumulate' will return the initialization value,
+    // which is 1. Otherwise, this multiplies all elements present in 'Shape' to obtain
+    // total length
+    dimension += std::accumulate(meta.Shape().begin(), meta.Shape().end(), 1,
+                                 [](auto a, auto b) { return a * b; });
+  }
+  return dimension;
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension({}, flags, sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), {});
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags) {
+  return GetPackDimension({}, flags, {});
 }
 
 } // namespace parthenon
