@@ -90,8 +90,6 @@ class SwarmContainer {
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
 
-  void InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb);
-
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
