@@ -92,6 +92,45 @@ auto GetNames() {
   TL::IterateTypes([&names](auto t) { names.push_back(decltype(t)::name()); });
   return names;
 }
+
+namespace impl {
+template<class TL, int cidx>
+static constexpr int FirstNonIntegralImpl() {
+  if constexpr (cidx == TL::n_types) {
+    return TL::n_types;
+  } else {
+    if constexpr (std::is_integral_v<typename TL:: template type<cidx>>)
+        return FirstNonIntegralImpl<TL, cidx + 1>();
+    return cidx;
+  }
+}
+}
+
+template <class TL>
+static constexpr int FirstNonIntegralIdx() {
+  return impl::FirstNonIntegralImpl<TL, 0>();
+}
+
+template <class Function>
+struct FuncSignature;
+
+template<class Functor>
+struct FuncSignature : public FuncSignature<decltype(&Functor::operator())>{};
+
+template <class R, class... Args> 
+struct FuncSignature<R(Args...)> {
+  using type = R (Args...);
+  using arg_types_tl = TypeList<Args...>;
+  using ret_type = R;
+};
+
+template <class R, class T, class... Args> 
+struct FuncSignature<R (T::*)(Args...) const> {
+  using type = R (T::*) (Args...);
+  using arg_types_tl = TypeList<Args...>;
+  using ret_type = R;
+};
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_

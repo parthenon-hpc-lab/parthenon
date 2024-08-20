@@ -214,6 +214,38 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 }
 } // namespace dispatch_impl
 
+template <int Rank, int RankStart, int RankStop>
+auto GetKokkosFlatRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &idx_ranges) {
+  constexpr int ndim = RankStop - RankStart + 1;
+  static_assert(ndim > 0, "Need a valid range of ranks");
+  int64_t npoints = 1;
+  for (int d = 0; d < ndim; ++d)
+    npoints *= (idx_ranges[d].e + 1 - idx_ranges[d].s);
+  return Kokkos::Experimental::require(
+                      Kokkos::RangePolicy<>(exec_space, 0, npoints),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+}
+
+template <int Rank, int RankStart, int RankStop>
+auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &idx_ranges) {
+  constexpr int ndim = RankStop - RankStart + 1;
+  static_assert(ndim > 0, "Need a valid range of ranks");
+  if constexpr (ndim == 1) {
+    return GetKokkosFlatRangePolicy<Rank, RankStart, RankStop>(exec_space, idx_ranges);
+  } else {
+    Kokkos::Array<int64_t, ndim> start, end, tile; 
+    for (int d = 0; d < ndim; ++d) { 
+      start[d] = idx_ranges[d + RankStart].s;
+      end[d] = idx_ranges[d + RankStart].e + 1;
+      tile[d] = 1; 
+    } 
+    tile[ndim - 1] = end[ndim] - start[ndim];
+    return Kokkos::Experimental::require(
+               Kokkos::MDRangePolicy<Kokkos::Rank<ndim>>(exec_space, start, end, tile),
+               Kokkos::Experimental::WorkItemProperty::HintLightWeight); 
+  }
+}
+
 // 1D loop using RangePolicy loops
 template <typename Tag, typename Pattern, typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
