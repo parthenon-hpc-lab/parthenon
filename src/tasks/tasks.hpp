@@ -546,6 +546,8 @@ class TaskRegion {
 
  public:
   TaskRegion() = delete;
+  TaskRegion(const TaskRegion&) = delete; // Prevent copying TaskRegions during AddRegion 
+                                          // calls which is a segfault
   explicit TaskRegion(const int num_lists) : task_lists(num_lists) {
     for (int i = 0; i < num_lists; i++)
       task_lists[i].SetID(i);

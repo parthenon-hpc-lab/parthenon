@@ -230,6 +230,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
@@ -336,11 +337,13 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
           rng_pool.free_state(rng_gen);
         });
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   return TaskStatus::complete;
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
   if (dt < 1.e-10) {
     printf("dt: %e\n", dt);
@@ -619,7 +622,7 @@ TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
   return tc;
 }
 
-TaskStatus CheckCompletion(const BlockList_t &blocks, const Real tf) {
+TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
   int num_unfinished_local = 0;
   for (auto &block : blocks) {
     auto sc = block->meshblock_data.Get()->GetSwarmData();
@@ -647,11 +650,27 @@ TaskStatus CheckCompletion(const BlockList_t &blocks, const Real tf) {
     num_unfinished_local += num_unfinished_block;
     printf("nul: %i\n", num_unfinished_local);
   }
-  exit(-1);
+
+  int num_unfinished_global = num_unfinished_local;
+  printf("num_unfinished_global = %i\n", num_unfinished_global);
+#ifdef MPI_PARALLEL
+  MPI_Allreduce(&num_unfinished_local, &num_unfinished_global, 1, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+#endif // MPI_PARALLEL
+
+  if (num_unfinished_global > 0) {
+    printf("not done\n");
+    *done = false;
+  } else {
+    printf("done\n");
+    *done = true;
+  }
+
   return TaskStatus::complete;
 }
 
-TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool &done) const {
+TaskCollection ParticleDriver::IterativeTransportTaskCollection(
+    bool *done) const { // bool &done) const {
   TaskCollection tc;
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
@@ -659,7 +678,7 @@ TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool &done) cons
   const Real t0 = tm.time;
   const Real dt = tm.dt;
 
-  TaskRegion async_region = tc.AddRegion(nblocks);
+  TaskRegion &async_region = tc.AddRegion(nblocks);
   for (int i = 0; i < nblocks; i++) {
     auto &pmb = blocks[i];
     auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
@@ -673,12 +692,14 @@ TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool &done) cons
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
-  TaskRegion sync_region = tc.AddRegion(nblocks);
+  TaskRegion &sync_region = tc.AddRegion(1);
   {
     auto &tl = sync_region[0];
-    auto check_completion = tl.AddTask(none, CheckCompletion, blocks, t0 + dt);
+    auto check_completion = tl.AddTask(none, CountNumSent, blocks, t0 + dt, done);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   return tc;
 }
@@ -694,14 +715,21 @@ TaskListStatus ParticleDriver::IterativeTransport() const {
 
   bool transport_done = false;
   int n_transport_iter = 0;
-  int n_transport_iter_max = 1000;
+  int n_transport_iter_max = 10;
+  printf("%s:%i\n", __FILE__, __LINE__);
   while (!transport_done) {
-    status = IterativeTransportTaskCollection(transport_done).Execute();
+    printf("%s:%i\n", __FILE__, __LINE__);
+    status = IterativeTransportTaskCollection(&transport_done)
+                 .Execute(); // transport_done).Execute();
+    printf("done? %i\n", static_cast<int>(transport_done));
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     n_transport_iter++;
     PARTHENON_REQUIRE(n_transport_iter < n_transport_iter_max,
                       "Too many transport iterations!");
   }
+
+  return status;
 }
 
 TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
