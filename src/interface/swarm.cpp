@@ -69,12 +69,11 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       empty_indices_("empty_indices_", nmax_pool_),
       block_index_("block_index_", nmax_pool_),
       neighbor_indices_("neighbor_indices_", 4, 4, 4),
-      new_indices_("new_indices_", nmax_pool_),
-      from_to_indices_("from_to_indices_", nmax_pool_ + 1),
-      recv_neighbor_index_("recv_neighbor_index_", nmax_pool_),
-      recv_buffer_index_("recv_buffer_index_", nmax_pool_),
-      scratch_a_("scratch_a_", nmax_pool_), scratch_b_("scratch_b_", nmax_pool_),
+      new_indices_("new_indices_", nmax_pool_), scratch_a_("scratch_a_", nmax_pool_),
+      scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
+      buffer_counters_("buffer_counters_", NMAX_NEIGHBORS),
+      neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
@@ -85,6 +84,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
+
+  // Create associated host arrays
+  neighbor_received_particles_h = neighbor_received_particles_.GetHostMirror();
 
   // Initialize index metadata
   num_active_ = 0;
@@ -201,9 +203,6 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   Kokkos::resize(marked_for_removal_, nmax_pool);
   Kokkos::resize(empty_indices_, nmax_pool);
   Kokkos::resize(new_indices_, nmax_pool);
-  Kokkos::resize(from_to_indices_, nmax_pool + 1);
-  Kokkos::resize(recv_neighbor_index_, nmax_pool);
-  Kokkos::resize(recv_buffer_index_, nmax_pool);
   Kokkos::resize(scratch_a_, nmax_pool);
   Kokkos::resize(scratch_b_, nmax_pool);
 
