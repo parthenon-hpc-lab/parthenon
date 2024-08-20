@@ -85,9 +85,6 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
 
-  // Create associated host arrays
-  neighbor_received_particles_h = neighbor_received_particles_.GetHostMirror();
-
   // Initialize index metadata
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;

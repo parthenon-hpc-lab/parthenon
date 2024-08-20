@@ -289,7 +289,6 @@ class Swarm {
   ParArray1D<int> num_particles_to_send_;
   ParArray1D<int> buffer_counters_;
   ParArray1D<int> neighbor_received_particles_;
-  ParArray1D<int> neighbor_received_particles_h;
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid

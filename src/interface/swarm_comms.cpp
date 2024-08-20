@@ -322,6 +322,7 @@ void Swarm::Send(BoundaryCommSubset phase) {
 void Swarm::CountReceivedParticles_() {
   auto pmb = GetBlockPointer();
   total_received_particles_ = 0;
+  auto neighbor_received_particles_h = neighbor_received_particles_.GetHostMirror();
   for (int n = 0; n < pmb->neighbors.size(); n++) {
     const int bufid = pmb->neighbors[n].bufid;
     if (vbswarm->bd_var_.flag[bufid] == BoundaryStatus::arrived) {
@@ -362,6 +363,8 @@ void Swarm::UnloadBuffers_() {
     // indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
+
+    auto neighbor_received_particles_h = neighbor_received_particles_.GetHostMirror();
 
     // Change meaning of neighbor_received_particles from particles per neighbor to
     // cumulative particles per neighbor
