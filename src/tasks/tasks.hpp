@@ -296,7 +296,10 @@ class TaskList {
                          std::forward<Args>(args)...);
     } else {
       static_assert(always_false<Arg1>, "Bad signature for AddTask.");
+      return TaskID();
     }
+    // Stops some compilers from complaining
+    return TaskID();
   }
 
   template <class... Args>
@@ -500,8 +503,10 @@ class TaskList {
     if (!label.has_value()) label = "anon";
 #ifdef HAS_CXX_ABI
     int status;
-    auto signature =
-        std::string(abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status));
+    // _cxa_demangle calls malloc so we must call free
+    char *signature_name = abi::__cxa_demangle(typeid(F).name(), NULL, NULL, &status);
+    auto signature = std::string(signature_name);
+    std::free(signature_name);
 #else
     std::string signature = " (...)";
 #endif

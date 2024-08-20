@@ -98,21 +98,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
       deref_count_ = 0;
     } else {
       deref_count_++;
-      int ec = 0, js, je, ks, ke;
-      if (!pmb->block_size.symmetry(X2DIR)) {
-        js = -1;
-        je = 1;
-      } else {
-        js = 0;
-        je = 0;
-      }
-      if (!pmb->block_size.symmetry(X3DIR)) {
-        ks = -1;
-        ke = 1;
-      } else {
-        ks = 0;
-        ke = 0;
-      }
+      int ec = 0;
       for (const auto &nb : pmb->neighbors) {
         if (nb.loc.level() > pmb->loc.level()) ec++;
       }
