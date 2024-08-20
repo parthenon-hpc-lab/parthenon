@@ -444,9 +444,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
               y(n) += v(1, n) * dt_push;
               z(n) += v(2, n) * dt_push;
               t(n) += dt_push;
-              // if (n < 3) {
-              //  printf("[%i] t: %e xyz: %e %e %e\n", n, t(n), x(n), y(n), z(n));
-              //}
 
               bool on_current_mesh_block = true;
               // This call is required to trigger internal boundary condition machinery
@@ -469,7 +466,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
-  // integrator.dt = tm.dt; // TODO(BRR) remove? require first order time integrator?
+
+  PARTHENON_REQUIRE(integrator.nstages == 1,
+                    "Only first order time integration supported!");
 
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
