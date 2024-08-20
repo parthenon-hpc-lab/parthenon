@@ -330,6 +330,8 @@ void Swarm::CountReceivedParticles_() {
                               "Receive buffer is not divisible by particle size!");
       neighbor_received_particles_h(n) =
           vbswarm->recv_size[bufid] / vbswarm->particle_size;
+      printf("[%i][%i] nrp(%i) = %i\n", Globals::my_rank, pmb->gid, n,
+             neighbor_received_particles_h(n));
       total_received_particles_ += neighbor_received_particles_h(n);
     } else {
       neighbor_received_particles_h(n) = 0;
@@ -339,13 +341,19 @@ void Swarm::CountReceivedParticles_() {
 
 void Swarm::UnloadBuffers_() {
   auto pmb = GetBlockPointer();
+  printf("Swarm::UnloadBuffers_\n");
+  printf("[%i][%i]\n", Globals::my_rank, pmb->gid);
 
   CountReceivedParticles_();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   auto &bdvar = vbswarm->bd_var_;
   const int nbmax = vbswarm->bd_var_.nbmax;
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   if (total_received_particles_ > 0) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    printf("total_received_particles_: %i\n", total_received_particles_);
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
     auto neighbor_buffer_index = neighbor_buffer_index_;
@@ -358,6 +366,7 @@ void Swarm::UnloadBuffers_() {
     auto vint = PackAllVariables_<int>(int_imap);
     int realPackDim = vreal.GetDim(2);
     int intPackDim = vint.GetDim(2);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // construct map from buffer index to swarm index (or just return vector of
     // indices!)
@@ -366,6 +375,7 @@ void Swarm::UnloadBuffers_() {
 
     auto &neighbor_received_particles = neighbor_received_particles_;
     auto neighbor_received_particles_h = neighbor_received_particles.GetHostMirror();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Change meaning of neighbor_received_particles from particles per neighbor to
     // cumulative particles per neighbor
@@ -374,42 +384,55 @@ void Swarm::UnloadBuffers_() {
       double val_curr = neighbor_received_particles_h(n);
       neighbor_received_particles_h(n) += val_prev;
       val_prev += val_curr;
+      printf("nrp cumulative(%i) = %i\n", n, neighbor_received_particles_h(n));
     }
     neighbor_received_particles.DeepCopy(neighbor_received_particles_h);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     auto &x = Get<Real>(swarm_position::x::name()).Get();
     auto &y = Get<Real>(swarm_position::y::name()).Get();
     auto &z = Get<Real>(swarm_position::z::name()).Get();
+    printf("newpartmaxidx: %i\n", newParticlesContext.GetNewParticlesMaxIndex());
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
         // n is both new particle index and index over buffer values
         KOKKOS_LAMBDA(const int n) {
+          printf("n: %i\n", n);
           const int sid = newParticlesContext.GetNewParticleIndex(n);
+          printf("  sid: %i\n", sid);
           // Search for neighbor id over cumulative indices
           int nid = 0;
-          if (n >= neighbor_received_particles(nbmax - 1)) {
-            nid = nbmax - 1;
-          } else {
-            while (n >= neighbor_received_particles(nid)) {
-              nid++;
-            }
+          // if (n >= neighbor_received_particles(nbmax - 1)) {
+          //  nid = nbmax - 1;
+          //} else {
+          while (n >= neighbor_received_particles(nid) && n < nbmax - 1) {
+            printf("    n > %i!\n", n, neighbor_received_particles(nid));
+            nid++;
           }
+          //}
+          printf("  nid: %i\n", nid);
 
           // Convert neighbor id to buffer id
           int bid = nid == 0 ? n * particle_size
                              : (n - neighbor_received_particles(nid - 1)) * particle_size;
+          printf("  bid: %i\n", bid);
           const int nbid = neighbor_buffer_index(nid);
+          printf("  nbid: %i\n", nbid);
           for (int i = 0; i < realPackDim; i++) {
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
           }
+          printf("  now bid: %i\n", bid);
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
         });
+    Kokkos::fence();
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
