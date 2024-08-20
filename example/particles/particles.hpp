@@ -35,7 +35,7 @@ class ParticleDriver : public EvolutionDriver {
   TaskCollection MakeParticlesCreationTaskCollection() const;
   TaskCollection MakeParticlesTransportTaskCollection() const;
   TaskListStatus IterativeTransport() const;
-  TaskCollection IterativeTransportTaskCollection(bool *done) const; // bool &) const;
+  TaskCollection IterativeTransportTaskCollection(bool *done) const;
   TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
 

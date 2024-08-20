@@ -296,7 +296,6 @@ void Swarm::LoadBuffers_() {
               bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, n));
               buffer_index++;
             }
-            printf("SENDING xyz: %e %e %e\n", x(n), y(n), z(n));
           }
         }
       });
@@ -306,7 +305,6 @@ void Swarm::LoadBuffers_() {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
-  printf("Swarm::Send gid: %i\n", GetBlockPointer()->gid);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
@@ -412,7 +410,6 @@ void Swarm::UnloadBuffers_() {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  // printf("Swarm::Receive gid: %i\n", GetBlockPointer()->gid);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 

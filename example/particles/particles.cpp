@@ -230,7 +230,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
@@ -337,19 +336,12 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
           rng_pool.free_state(rng_gen);
         });
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   return TaskStatus::complete;
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_INSTRUMENT
-  if (dt < 1.e-10) {
-    printf("dt: %e\n", dt);
-  }
-
-  printf("TransportParticles gid: %i\n", pmb->gid);
 
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
   auto pkg = pmb->packages.Get("particles_package");
@@ -380,8 +372,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
   auto swarm_d = swarm->GetDeviceContext();
-
-  printf("HERE! orbit? %i\n", orbiting_particles);
 
   // Simple particle push: push particles half the smallest zone width until they have
   // traveled one integrator timestep's worth of time. Particles orbit the origin.
@@ -472,56 +462,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
           }
         });
   }
-  printf("Done transporting\n");
 
   return TaskStatus::complete;
 }
-
-TaskStatus CheckCompletion(MeshBlock *pmb, const Real tf) {
-  printf("CheckCompletion gid: %i\n", pmb->gid);
-  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
-
-  int max_active_index = swarm->GetMaxActiveIndex();
-
-  auto &t = swarm->Get<Real>("t").Get();
-
-  auto swarm_d = swarm->GetDeviceContext();
-
-  int num_unfinished = 0;
-  parthenon::par_reduce(
-      PARTHENON_AUTO_LABEL, 0, max_active_index,
-      KOKKOS_LAMBDA(const int n, int &num_unfinished) {
-        if (swarm_d.IsActive(n)) {
-          if (t(n) < tf) {
-            num_unfinished++;
-          }
-        }
-      },
-      Kokkos::Sum<int>(num_unfinished));
-  printf("num_unfinished: %i\n", num_unfinished);
-
-  if (num_unfinished > 0) {
-    printf("ITERATE! %i\n", pmb->gid);
-    return TaskStatus::iterate;
-  } else {
-    printf("COMPLETE! %i\n", pmb->gid);
-    return TaskStatus::complete;
-  }
-}
-
-// TaskID GetNIncomplete(TaskID dependency_in, TaskList &tl, AllReduce<int> n_incomplete,
-//                      MeshBlock *pmb, const Real tf) {
-//  using TQ = TaskQualifier;
-//
-//  auto zero_inc = tl.AddTask(
-//      TQ::once_per_region | TQ::local_sync, dependency_in,
-//      [](AllReduce<int> *n_inc) {
-//        n_inc->val = 0;
-//        return TaskStatus::complete;
-//      },
-//      n_incomplete);
-//  auto get_n_inc_loc = tl.AddTask(TQ::local_sync, zero_inc, n_incomplete, pmb, tf)
-//}
 
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
@@ -564,78 +507,83 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
-  using TQ = TaskQualifier;
-
-  TaskCollection tc;
-
-  //// std::cout << tc;
-  // TaskID none(0);
-  // BlockList_t &blocks = pmesh->block_list;
-
-  // const int max_transport_iterations = 1000;
-
-  // const Real t0 = tm.time;
-  // const Real dt = tm.dt;
-
-  // auto &reg = tc.AddRegion(blocks.size());
-
-  //// std::cout << tc;
-
-  // AllReduce<int> n_incomplete;
-
-  // for (int i = 0; i < blocks.size(); i++) {
-  //  printf("i: %i\n", i);
-  //  auto &pmb = blocks[i];
-  //  auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-  //  auto &tl = reg[i];
-  //  printf("tl: %p\n", &tl);
-
-  //  // If this task is enrolled then the iterative loop will cycle
-  //  // Add regular task
-  //  auto dummy = tl.AddTask(none, TransportParticles, pmb.get(), t0, 0.);
-
-  //  // Add task sublist
-  //  // auto dummy = tl.AddTask(none, []() {});
-  //  // auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
-  //  auto [itl, push] = tl.AddSublist(dummy, {i, max_transport_iterations});
-  //  auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
-  //  auto reset_comms =
-  //      itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
-  //  auto send = itl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(),
-  //                          BoundaryCommSubset::all);
-  //  auto receive =
-  //      itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-
-  //  auto get_n_incomplete =
-  //      GetNIncomplete(receive, itl, &n_incomplete, pmb.get(), t0 + dt);
-  //  itl.AddTask(receive, itl, GetNIncomplete, pmb.get(), t0 + dt, &n_incomplete);
-  //  auto check_incomplete =
-  //      itl.AddTask(TC::completion, get_n_incomplete, CheckNIncomplete, n_incomplete);
-
-  //  // auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
-  //  //                            CheckCompletion, pmb.get(), t0 + dt);
-  //}
-
-  // std::cout << tc;
-
-  return tc;
-}
+// TODO(BRR) To be used in the future, currently there appears to be a bug in iterative
+// tasking
+// TaskStatus CheckCompletion(MeshBlock *pmb, const Real tf) {
+//  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
+//
+//  int max_active_index = swarm->GetMaxActiveIndex();
+//
+//  auto &t = swarm->Get<Real>("t").Get();
+//
+//  auto swarm_d = swarm->GetDeviceContext();
+//
+//  int num_unfinished = 0;
+//  parthenon::par_reduce(
+//      PARTHENON_AUTO_LABEL, 0, max_active_index,
+//      KOKKOS_LAMBDA(const int n, int &num_unfinished) {
+//        if (swarm_d.IsActive(n)) {
+//          if (t(n) < tf) {
+//            num_unfinished++;
+//          }
+//        }
+//      },
+//      Kokkos::Sum<int>(num_unfinished));
+//
+//  if (num_unfinished > 0) {
+//    return TaskStatus::iterate;
+//  } else {
+//    return TaskStatus::complete;
+//  }
+//}
+// TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
+//  using TQ = TaskQualifier;
+//
+//  TaskCollection tc;
+//
+//  TaskID none(0);
+//  BlockList_t &blocks = pmesh->block_list;
+//
+//  const int max_transport_iterations = 1000;
+//
+//  const Real t0 = tm.time;
+//  const Real dt = tm.dt;
+//
+//  auto &reg = tc.AddRegion(blocks.size());
+//
+//  for (int i = 0; i < blocks.size(); i++) {
+//    auto &pmb = blocks[i];
+//    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
+//    auto &tl = reg[i];
+//
+//    // Add task sublist
+//    auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
+//    auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
+//    auto reset_comms =
+//        itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
+//    auto send = itl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(),
+//                            BoundaryCommSubset::all);
+//    auto receive =
+//        itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+//
+//    auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
+//                                CheckCompletion, pmb.get(), t0 + dt);
+//  }
+//
+//  return tc;
+//}
 
 TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
   int num_unfinished_local = 0;
   for (auto &block : blocks) {
     auto sc = block->meshblock_data.Get()->GetSwarmData();
     auto swarm = sc->Get("my_particles");
-    // swarm->finished_transport = false;
-    // num_sent_local += swarm->num_particles_sent_;
     int max_active_index = swarm->GetMaxActiveIndex();
 
     auto &t = swarm->Get<Real>("t").Get();
 
     auto swarm_d = swarm->GetDeviceContext();
 
-    printf("nsl: %i\n", num_unfinished_local);
     int num_unfinished_block = 0;
     parthenon::par_reduce(
         PARTHENON_AUTO_LABEL, 0, max_active_index,
@@ -648,29 +596,24 @@ TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
         },
         Kokkos::Sum<int>(num_unfinished_block));
     num_unfinished_local += num_unfinished_block;
-    printf("nul: %i\n", num_unfinished_local);
   }
 
   int num_unfinished_global = num_unfinished_local;
-  printf("num_unfinished_global = %i\n", num_unfinished_global);
 #ifdef MPI_PARALLEL
   MPI_Allreduce(&num_unfinished_local, &num_unfinished_global, 1, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 #endif // MPI_PARALLEL
 
   if (num_unfinished_global > 0) {
-    printf("not done\n");
     *done = false;
   } else {
-    printf("done\n");
     *done = true;
   }
 
   return TaskStatus::complete;
 }
 
-TaskCollection ParticleDriver::IterativeTransportTaskCollection(
-    bool *done) const { // bool &done) const {
+TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool *done) const {
   TaskCollection tc;
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
@@ -692,14 +635,12 @@ TaskCollection ParticleDriver::IterativeTransportTaskCollection(
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   TaskRegion &sync_region = tc.AddRegion(1);
   {
     auto &tl = sync_region[0];
     auto check_completion = tl.AddTask(none, CountNumSent, blocks, t0 + dt, done);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   return tc;
 }
@@ -707,22 +648,11 @@ TaskCollection ParticleDriver::IterativeTransportTaskCollection(
 // TODO(BRR) to be replaced by iterative tasklist machinery
 TaskListStatus ParticleDriver::IterativeTransport() const {
   TaskListStatus status;
-  // const Real t0 = tm.time;
-  // const Real dt = tm.dt;
-
-  // const BlockList_t &blocks = pmesh->block_list;
-  // const int nblocks = blocks.size();
-
   bool transport_done = false;
   int n_transport_iter = 0;
-  int n_transport_iter_max = 10;
-  printf("%s:%i\n", __FILE__, __LINE__);
+  int n_transport_iter_max = 1000;
   while (!transport_done) {
-    printf("%s:%i\n", __FILE__, __LINE__);
-    status = IterativeTransportTaskCollection(&transport_done)
-                 .Execute(); // transport_done).Execute();
-    printf("done? %i\n", static_cast<int>(transport_done));
-    printf("%s:%i\n", __FILE__, __LINE__);
+    status = IterativeTransportTaskCollection(&transport_done).Execute();
 
     n_transport_iter++;
     PARTHENON_REQUIRE(n_transport_iter < n_transport_iter_max,
