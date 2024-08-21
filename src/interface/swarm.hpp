@@ -250,8 +250,6 @@ class Swarm {
 
   void SetNeighborIndices_();
 
-  void CountReceivedParticles_();
-
   template <class T>
   SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap);
 
