@@ -364,7 +364,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
             function(std::get<Is>(idx_tuple)..., std::forward<FuncExtArgs_ts>(fargs)...);
           },
           std::forward<ExtraArgs_ts>(args)...);
-    } else if constexpr (doTPTTR || doTPTVR) {
+    } else if constexpr (doTPTTR) {
       const auto outer_idxer =
           MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
       const int istart = bound_arr[total_rank - 1].s;
@@ -373,15 +373,22 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            if constexpr (doTPTTR) {
-              Kokkos::parallel_for(
-                  Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
-                  [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
-            } else {
-              Kokkos::parallel_for(
-                  Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
-                  [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
-            }
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
+                [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
+          });
+    } else if constexpr (doTPTVR) {
+      const auto outer_idxer =
+          MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
+      const int istart = bound_arr[total_rank - 1].s;
+      const int iend = bound_arr[total_rank - 1].e;
+      Kokkos::parallel_for(
+          name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(team_mbr_t team_member) {
+            const auto idx_tuple = outer_idxer(team_member.league_rank());
+            Kokkos::parallel_for(
+                Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
+                [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
           });
     } else if constexpr (doTPTTRTV) {
       const auto outer_idxer =
