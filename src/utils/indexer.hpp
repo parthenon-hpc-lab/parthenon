@@ -149,6 +149,12 @@ struct Indexer {
   std::size_t _size;
 };
 
+template <>
+struct Indexer<> {
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::tuple<> operator()(int idx) const { return std::tuple<>(); }
+};
+
 template <class... Ts>
 class SpatiallyMaskedIndexer : public Indexer<Ts...> {
  public:

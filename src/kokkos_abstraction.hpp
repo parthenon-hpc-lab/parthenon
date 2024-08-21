@@ -298,10 +298,10 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 template <typename>
 struct DispatchSignature {};
 
-template <typename Index, typename... AllArgs>
-struct DispatchSignature<TypeList<Index, AllArgs...>> {
+template <typename... AllArgs>
+struct DispatchSignature<TypeList<AllArgs...>> {
  private:
-  using TL = TypeList<Index, AllArgs...>;
+  using TL = TypeList<AllArgs...>;
   static constexpr std::size_t func_idx = FirstFuncIdx<TL>();
 
  public:
@@ -400,178 +400,6 @@ struct InnerFunctor<Function, TypeList<Index...>,
   }
 };
 
-template <typename, typename, typename, typename, bool Outer = false>
-class CollapseFunctor {};
-
-template <typename Function, std::size_t... Iteam, std::size_t... Ithread,
-          std::size_t... Ivector, bool ParForOuter>
-class CollapseFunctor<std::integer_sequence<size_t, Iteam...>,
-                      std::integer_sequence<size_t, Ithread...>,
-                      std::integer_sequence<size_t, Ivector...>, Function, ParForOuter> {
-  static constexpr std::size_t Nteam = sizeof...(Iteam);
-  static constexpr std::size_t Nthread = sizeof...(Ithread);
-  static constexpr std::size_t Nvector = sizeof...(Ivector);
-  static constexpr std::size_t Rank = Nteam + Nthread + Nvector;
-
-  Kokkos::Array<IndexRange, Rank> ranges;
-  Kokkos::Array<int, Rank> strides;
-  Function function;
-
- public:
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION CollapseFunctor(const Function _function, IndexRange idr,
-                                         Args... args)
-      : function(_function), ranges({{idr, args...}}) {
-    Initialize();
-  }
-
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION CollapseFunctor(const Function _function, Args... args)
-      : function(_function) {
-    std::array<int, 2 * Rank> indices{{static_cast<int>(args)...}};
-    for (int i = 0; i < Rank; i++) {
-      ranges[i] = {indices[2 * i], indices[2 * i + 1]};
-    }
-    Initialize();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void Initialize() {
-    if constexpr (Rank > 1) {
-      for (int ri = 0; ri < Nteam - 1; ri++) {
-        const int N = ranges[ri + 1].e - ranges[ri + 1].s + 1;
-        strides[ri] = N;
-        for (int rj = 0; rj < ri; rj++) {
-          strides[rj] *= N;
-        }
-      }
-      for (int ri = Nteam; ri < Nteam + Nthread - 1; ri++) {
-        const int N = ranges[ri + 1].e - ranges[ri + 1].s + 1;
-        strides[ri] = N;
-        for (int rj = Nteam; rj < ri; rj++) {
-          strides[rj] *= N;
-        }
-      }
-      for (int ri = Nteam + Nthread; ri < Rank - 1; ri++) {
-        const int N = ranges[ri + 1].e - ranges[ri + 1].s + 1;
-        strides[ri] = N;
-        for (int rj = Nteam + Nthread; rj < ri; rj++) {
-          strides[rj] *= N;
-        }
-      }
-    }
-  }
-
-  template <size_t N, std::size_t start>
-  KOKKOS_INLINE_FUNCTION void recoverIndex(Kokkos::Array<int, N> &inds, int idx) const {
-    inds[0] = idx;
-    for (int i = 1; i < N; i++) {
-      inds[i] = idx;
-      inds[i - 1] /= strides[i - 1 + start];
-      for (int j = 0; j < i; j++) {
-        inds[i] -= inds[j] * strides[j + start];
-      }
-    }
-    for (int i = 0; i < N; i++) {
-      inds[i] += ranges[i + start].s;
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  int FlattenLaunchBound(int start, int end) const {
-    int rangeNx = 1;
-    for (int i = start; i < end; i++) {
-      rangeNx *= ranges[i].e - ranges[i].s + 1;
-    }
-    return rangeNx;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(team_mbr_t team_member) const {
-    Kokkos::Array<int, Nteam> inds_team;
-    recoverIndex<Nteam, 0>(inds_team, team_member.league_rank());
-    using signature = function_signature<Rank, Function>;
-    using ThreadVectorInds =
-        typename signature::IndexND::template continuous_sublist<Nteam>;
-
-    if constexpr (ParForOuter) {
-      function(team_member, inds_team[Iteam]...);
-    } else {
-      collapse_inner(
-          team_member,
-          InnerFunctor<Function, ThreadVectorInds, std::make_index_sequence<Nteam>>(
-              inds_team, function));
-    }
-  }
-
-  template <typename InnerFunction>
-  KOKKOS_INLINE_FUNCTION void collapse_inner(team_mbr_t team_member,
-                                             InnerFunction inner_function) const {
-    if constexpr (Nthread > 0) {
-      Kokkos::parallel_for(
-          Kokkos::TeamThreadRange<>(team_member, 0,
-                                    FlattenLaunchBound(Nteam, Nteam + Nthread)),
-          [&](const int idThread) {
-            Kokkos::Array<int, Nthread> inds_thread;
-            recoverIndex<Nthread, Nteam>(inds_thread, idThread);
-            if constexpr (Nvector > 0) {
-              Kokkos::parallel_for(
-                  Kokkos::ThreadVectorRange(team_member, 0,
-                                            FlattenLaunchBound(Nteam + Nthread, Rank)),
-                  [&](const int idVector) {
-                    Kokkos::Array<int, Nvector> inds_vector;
-                    recoverIndex<Nvector, Nteam + Nthread>(inds_vector, idVector);
-                    inner_function(inds_thread[Ithread]..., inds_vector[Ivector]...);
-                  });
-            } else {
-              inner_function(inds_thread[Ithread]...);
-            }
-          });
-    } else {
-      Kokkos::parallel_for(Kokkos::TeamVectorRange(
-                               team_member, 0, FlattenLaunchBound(Nteam + Nthread, Rank)),
-                           [&](const int idVector) {
-                             Kokkos::Array<int, Nvector> inds_vector;
-                             recoverIndex<Nvector, Nteam + Nthread>(inds_vector,
-                                                                    idVector);
-                             inner_function(inds_vector[Ivector]...);
-                           });
-    }
-  }
-};
-
-template <bool ParForOuter = false, std::size_t Nteam, std::size_t Nthread,
-          std::size_t Nvector, typename F, typename... Bounds>
-KOKKOS_INLINE_FUNCTION auto
-MakeCollapseFunctor(LoopPatternCollapse<Nteam, Nthread, Nvector>, F &function,
-                    Bounds &&...bounds) {
-  constexpr std::size_t Rank = Nteam + Nthread + Nvector;
-  using signature = function_signature<Rank, F>;
-  using IndexND = typename signature::IndexND;
-
-  return CollapseFunctor<std::make_index_sequence<Nteam>,
-                         std::make_index_sequence<Nthread>,
-                         std::make_index_sequence<Nvector>, F, ParForOuter>(
-      function, std::forward<Bounds>(bounds)...);
-}
-
-template <typename, std::size_t, typename, typename>
-struct par_dispatch_inner {};
-
-template <typename Pattern, std::size_t Rank, typename Function, typename... Bounds>
-struct par_dispatch_inner<Pattern, Rank, Function, TypeList<Bounds...>> {
-  using signature = function_signature<Rank, Function>;
-  using LPT = LoopPatternTeam<Pattern, std::integral_constant<size_t, Rank>>;
-
-  static_assert(LPT::value, "unsupported inner loop pattern");
-  KOKKOS_FORCEINLINE_FUNCTION
-  void dispatch(team_mbr_t team_member, Bounds &&...bounds, Function function) const {
-    MakeCollapseFunctor(typename LPT::LoopPattern(), function,
-                        std::forward<Bounds>(bounds)...)
-        .collapse_inner(team_member, function);
-  }
-};
-
 template <std::size_t Rank, typename IdxTeam, std::size_t... ThreadIs,
           std::size_t... VectorIs, typename Function>
 KOKKOS_FORCEINLINE_FUNCTION void
@@ -639,22 +467,46 @@ void SimdFor(std::index_sequence<OuterIs...>, Function function,
   }
 }
 
-template <typename Tag, typename Pattern, typename TL_bounds, typename Function,
-          typename TL_args, typename TL_functorArgs>
-struct par_dispatch_functor {};
+template <typename, typename, typename, typename, typename>
+struct par_disp_inner_impl {};
 
-template <typename Tag, typename Pattern, typename... Bounds, typename Function,
-          typename... Args, typename... FunctorArgs>
-struct par_dispatch_functor<Tag, Pattern, TypeList<Bounds...>, Function,
-                            TypeList<Args...>, TypeList<FunctorArgs...>> {
-  using dispatch_type = DispatchType<Tag, Pattern, Bounds...>;
-  void operator()(Pattern pattern, Bounds &&...bounds, Function function,
-                  Args &&...args) {
-    constexpr std::size_t Rank = dispatch_type::Rank;
-    static_assert(!(dispatch_type::is_MDRange && Rank < 2),
-                  "Can not launch MDRange with Rank < 2");
+template <typename Pattern, typename Function, typename... Bounds, typename... Args,
+          typename... ExtraFuncArgs>
+struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args...>,
+                           TypeList<ExtraFuncArgs...>> {
+  using bound_translator = BoundTranslator<Bounds...>;
+  static constexpr std::size_t Rank = bound_translator::rank;
+  using TeamPattern = LoopPatternTeam<Pattern, std::integral_constant<std::size_t, Rank>>;
+
+  KOKKOS_FORCEINLINE_FUNCTION void dispatch(team_mbr_t team_member, Bounds &&...bounds,
+                                            Function function, Args &&...args) {
+    // TODO(acreyes): I don't think this static method will wokr on device...
+    auto bound_arr = bound_translator::GetIndexRanges(std::forward<Bounds>(bounds)...);
+    if constexpr (std::is_same_v<InnerLoopPatternSimdFor, Pattern>) {
+      SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
+    } else {
+      auto idxer = Indexer<>();
+      constexpr std::size_t Nthread = TeamPattern::Nthread;
+      constexpr std::size_t Nvector = TeamPattern::Nvector;
+      dispatch_collapse<Rank>(std::make_index_sequence<Nthread>(),
+                              std::make_index_sequence<Nvector>(), team_member, idxer,
+                              bound_arr, function);
+    }
   }
 };
+
+template <typename Pattern, typename... AllArgs>
+KOKKOS_FORCEINLINE_FUNCTION void par_disp_inner(Pattern, team_mbr_t team_member,
+                                                AllArgs &&...args) {
+  using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
+  constexpr std::size_t Rank = dispatchsig::Rank::value;
+  using Function = typename dispatchsig::Function;
+  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using Args = typename dispatchsig::Args;
+  using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
+  par_disp_inner_impl<Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().dispatch(
+      team_member, std::forward<AllArgs>(args)...);
+}
 
 template <typename, typename, typename, typename, typename, typename>
 struct par_dispatch_impl {};
@@ -816,21 +668,7 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
 template <typename Pattern, typename... AllArgs>
 KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(Pattern, team_mbr_t team_member,
                                                AllArgs &&...args) {
-  using DispatchSig = DispatchSignature<TypeList<AllArgs...>>;
-  constexpr std::size_t Rank = DispatchSig::Rank::value;
-  using Function = typename DispatchSig::Function;
-  using LaunchBounds = typename DispatchSig::LaunchBounds;
-
-  if constexpr (std::is_same_v<Pattern, InnerLoopPatternSimdFor>) {
-    using Args = typename DispatchSig::Args;
-    using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
-    par_dispatch_impl<dispatch_impl::ParallelForDispatch, LoopPatternSimdFor, Function,
-                      LaunchBounds, Args, ExtraFuncArgs>()
-        .dispatch("simd", HostExecSpace(), std::forward<AllArgs>(args)...);
-  } else {
-    par_dispatch_inner<Pattern, Rank, Function, LaunchBounds>().dispatch(
-        team_member, std::forward<AllArgs>(args)...);
-  }
+  par_disp_inner(Pattern(), team_member, std::forward<AllArgs>(args)...);
 }
 
 template <typename... Args>
