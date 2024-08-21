@@ -222,36 +222,6 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 }
 } // namespace dispatch_impl
 
-template <int Rank, int RankStart, int RankStop>
-auto GetKokkosFlatRangePolicy(DevExecSpace exec_space,
-                              const std::array<IndexRange, Rank> &bound_arr) {
-  constexpr int ndim = RankStop - RankStart + 1;
-  static_assert(ndim > 0, "Need a valid range of ranks");
-  int64_t npoints = 1;
-  for (int d = RankStart; d <= RankStop; ++d)
-    npoints *= (bound_arr[d].e + 1 - bound_arr[d].s);
-  return Kokkos::Experimental::require(
-      Kokkos::RangePolicy<>(exec_space, 0, npoints),
-      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-}
-
-template <int Rank, int RankStart, int RankStop>
-auto GetKokkosMDRangePolicy(DevExecSpace exec_space,
-                            const std::array<IndexRange, Rank> &bound_arr) {
-  constexpr int ndim = RankStop - RankStart + 1;
-  static_assert(ndim > 1, "Need a valid range of ranks");
-  Kokkos::Array<int64_t, ndim> start, end, tile;
-  for (int d = 0; d < ndim; ++d) {
-    start[d] = bound_arr[d + RankStart].s;
-    end[d] = bound_arr[d + RankStart].e + 1;
-    tile[d] = 1;
-  }
-  tile[ndim - 1] = end[ndim - 1] - start[ndim - 1];
-  return Kokkos::Experimental::require(
-      Kokkos::MDRangePolicy<Kokkos::Rank<ndim>>(exec_space, start, end, tile),
-      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-}
-
 // Struct for translating between loop bounds given in terms of IndexRanges and loop
 // bounds given in terms of raw integers
 template <class... Bound_ts>
@@ -260,18 +230,70 @@ struct BoundTranslator {
   static constexpr bool are_integers = std::is_integral_v<
       typename std::remove_reference<typename Bound_tl::template type<0>>::type>;
   static constexpr uint rank = sizeof...(Bound_ts) / (1 + are_integers);
-  static std::array<IndexRange, rank> GetIndexRanges(Bound_ts... bounds) {
+
+  std::array<IndexRange, rank> bounds;
+
+  IndexRange &operator[](int i) { return bounds[i]; }
+  const IndexRange &operator[](int i) const { return bounds[i]; }
+
+  explicit BoundTranslator(Bound_ts... bounds_in) {
     if constexpr (are_integers) {
-      std::array<int64_t, 2 * rank> bounds_arr{static_cast<int64_t>(bounds)...};
+      std::array<int64_t, 2 * rank> bounds_arr{static_cast<int64_t>(bounds_in)...};
       std::array<IndexRange, rank> out;
       for (int r = 0; r < rank; ++r) {
-        out[r].s = static_cast<int64_t>(bounds_arr[2 * r]);
-        out[r].e = static_cast<int64_t>(bounds_arr[2 * r + 1]);
+        bounds[r].s = static_cast<int64_t>(bounds_arr[2 * r]);
+        bounds[r].e = static_cast<int64_t>(bounds_arr[2 * r + 1]);
       }
-      return out;
     } else {
-      return std::array<IndexRange, rank>{bounds...};
+      bounds = std::array<IndexRange, rank>{bounds_in...};
     }
+  }
+
+  template <int RankStart, int RankStop>
+  auto GetKokkosFlatRangePolicy(DevExecSpace exec_space) {
+    constexpr int ndim = RankStop - RankStart;
+    static_assert(ndim > 0, "Need a valid range of ranks");
+    static_assert(RankStart >= 0, "Need a valid range of ranks");
+    static_assert(RankStop <= rank, "Need a valid range of ranks");
+    int64_t npoints = 1;
+    for (int d = RankStart; d < RankStop; ++d)
+      npoints *= (bounds[d].e + 1 - bounds[d].s);
+    return Kokkos::Experimental::require(
+        Kokkos::RangePolicy<>(exec_space, 0, npoints),
+        Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+  }
+
+  template <int RankStart, int RankStop>
+  auto GetKokkosMDRangePolicy(DevExecSpace exec_space) {
+    constexpr int ndim = RankStop - RankStart;
+    static_assert(ndim > 1, "Need a valid range of ranks");
+    static_assert(RankStart >= 0, "Need a valid range of ranks");
+    static_assert(RankStop <= rank, "Need a valid range of ranks");
+    Kokkos::Array<int64_t, ndim> start, end, tile;
+    for (int d = 0; d < ndim; ++d) {
+      start[d] = bounds[d + RankStart].s;
+      end[d] = bounds[d + RankStart].e + 1;
+      tile[d] = 1;
+    }
+    tile[ndim - 1] = end[ndim - 1] - start[ndim - 1];
+    return Kokkos::Experimental::require(
+        Kokkos::MDRangePolicy<Kokkos::Rank<ndim>>(exec_space, start, end, tile),
+        Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+  }
+
+  template <int RankStart, std::size_t... Is>
+  auto GetIndexer(std::index_sequence<Is...>) {
+    return MakeIndexer(
+        std::pair<int, int>(bounds[Is + RankStart].s, bounds[Is + RankStart].e)...);
+  }
+
+  template <int RankStart, int RankStop>
+  auto GetIndexer() {
+    constexpr int ndim = RankStop - RankStart;
+    static_assert(ndim > 0, "Need a valid range of ranks");
+    static_assert(RankStart >= 0, "Need a valid range of ranks");
+    static_assert(RankStop <= rank, "Need a valid range of ranks");
+    return GetIndexer<RankStart>(std::make_index_sequence<ndim>());
   }
 };
 
@@ -300,11 +322,14 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
             std::size_t... InnerIs>
   void DoLoop(std::index_sequence<Is...>, std::index_sequence<OuterIs...>,
               std::index_sequence<MidIs...>, std::index_sequence<InnerIs...>,
-              const std::string &name, DevExecSpace exec_space, Bound_ts... bounds,
+              const std::string &name, DevExecSpace exec_space, Bound_ts&&... bounds,
               const Function &function, ExtraArgs_ts &&...args) {
     using rt_t = BoundTranslator<Bound_ts...>;
+    auto bound_trans = rt_t(std::forward<Bound_ts>(bounds)...);
+
     constexpr int total_rank = rt_t::rank;
-    auto bound_arr = rt_t::GetIndexRanges(bounds...);
+    constexpr int inner_start_rank = total_rank - Pattern::ninner;
+    constexpr int middle_start_rank = total_rank - Pattern::ninner - Pattern::nmiddle;
 
     constexpr bool SimdRequested = std::is_same_v<Pattern, LoopPatternSimdFor>;
     constexpr bool MDRangeRequested = std::is_same_v<Pattern, LoopPatternMDRange>;
@@ -327,23 +352,21 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
     if constexpr (doSimdFor) {
       static_assert(sizeof...(args) == 0,
                     "Only par_for is supported for simd_for pattern");
-      if constexpr (sizeof...(OuterIs) > 0) {
-        auto idxer = MakeIndexer(
-            std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
-        const int istart = bound_arr[total_rank - 1].s;
-        const int iend = bound_arr[total_rank - 1].e;
+      if constexpr (total_rank > 1) {
+        auto idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
+        const int istart = bound_trans[inner_start_rank].s;
+        const int iend = bound_trans[inner_start_rank].e;
         // Loop over all outer indices using a flat indexer
         for (int idx = 0; idx < idxer.size(); ++idx) {
-          auto indices = std::tuple_cat(idxer(idx), std::tuple<int>({0}));
-          int &i = std::get<decltype(idxer)::rank>(indices);
+          auto idx_tuple = idxer(idx);
 #pragma omp simd
-          for (i = istart; i <= iend; ++i) {
-            std::apply(function, indices);
+          for (int i = istart; i <= iend; ++i) {
+            function(std::get<OuterIs>(idx_tuple)..., std::get<MidIs>(idx_tuple)..., i);
           }
         }
       } else { // Easier to just explicitly specialize for 1D Simd loop
 #pragma omp simd
-        for (int i = bound_arr[0].s; i <= bound_arr[0].e; ++i)
+        for (int i = bound_trans[0].s; i <= bound_trans[0].e; ++i)
           function(i);
       }
     } else if constexpr (doMDRange) {
@@ -351,63 +374,66 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
                     "MDRange pattern only works for multi-dimensional loops.");
       kokkos_dispatch(
           Tag(), name,
-          GetKokkosMDRangePolicy<total_rank, 0, total_rank - 1>(exec_space, bound_arr),
+          bound_trans.template GetKokkosMDRangePolicy<0, total_rank>(exec_space),
           function, std::forward<ExtraArgs_ts>(args)...);
     } else if constexpr (doFlatRange) {
-      const auto idxer =
-          MakeIndexer(std::pair<int, int>(bound_arr[Is].s, bound_arr[Is].e)...);
+      auto idxer = bound_trans.template GetIndexer<0, total_rank>();
       kokkos_dispatch(
           Tag(), name,
-          GetKokkosFlatRangePolicy<total_rank, 0, total_rank - 1>(exec_space, bound_arr),
+          bound_trans.template GetKokkosFlatRangePolicy<0, total_rank>(exec_space),
           KOKKOS_LAMBDA(const int &idx, FuncExtArgs_ts &&...fargs) {
             auto idx_tuple = idxer(idx);
             function(std::get<Is>(idx_tuple)..., std::forward<FuncExtArgs_ts>(fargs)...);
           },
           std::forward<ExtraArgs_ts>(args)...);
     } else if constexpr (doTPTTR) {
-      const auto outer_idxer =
-          MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
-      const int istart = bound_arr[total_rank - 1].s;
-      const int iend = bound_arr[total_rank - 1].e;
+      auto outer_idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
+      const int istart = bound_trans[inner_start_rank].s;
+      const int iend = bound_trans[inner_start_rank].e;
       Kokkos::parallel_for(
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
-                [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
+            Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
+                                 [&](const int i) {
+                                   function(std::get<OuterIs>(idx_tuple)...,
+                                            std::get<MidIs>(idx_tuple)..., i);
+                                 });
           });
     } else if constexpr (doTPTVR) {
-      const auto outer_idxer =
-          MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
-      const int istart = bound_arr[total_rank - 1].s;
-      const int iend = bound_arr[total_rank - 1].e;
+      auto outer_idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
+      const int istart = bound_trans[inner_start_rank].s;
+      const int iend = bound_trans[inner_start_rank].e;
       Kokkos::parallel_for(
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            Kokkos::parallel_for(
-                Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
-                [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
+            Kokkos::parallel_for(Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
+                                 [&](const int i) {
+                                   function(std::get<OuterIs>(idx_tuple)...,
+                                            std::get<MidIs>(idx_tuple)..., i);
+                                 });
           });
     } else if constexpr (doTPTTRTV) {
-      const auto outer_idxer =
-          MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
-      const int jstart = bound_arr[total_rank - 2].s;
-      const int jend = bound_arr[total_rank - 2].e;
-      const int istart = bound_arr[total_rank - 1].s;
-      const int iend = bound_arr[total_rank - 1].e;
+      auto outer_idxer = bound_trans.template GetIndexer<0, middle_start_rank>();
+      auto middle_idxer =
+          bound_trans.template GetIndexer<middle_start_rank, inner_start_rank>();
+      auto inner_idxer = bound_trans.template GetIndexer<inner_start_rank, total_rank>();
       Kokkos::parallel_for(
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
-            const auto idx_tuple = outer_idxer(team_member.league_rank());
+            const auto idx_out = outer_idxer(team_member.league_rank());
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange<>(team_member, jstart, jend + 1),
-                [&](const int j) {
+                Kokkos::TeamThreadRange<>(team_member, 0, middle_idxer.size()),
+                [&](const int midx) {
+                  const auto idx_mid = middle_idxer(midx);
                   Kokkos::parallel_for(
-                      Kokkos::ThreadVectorRange<>(team_member, istart, iend + 1),
-                      [&](const int i) {
-                        function(std::get<OuterIs>(idx_tuple)..., j, i);
+                      Kokkos::ThreadVectorRange<>(team_member, 0, inner_idxer.size()),
+                      [&](const int iidx) {
+                        const auto idx_in = inner_idxer(iidx);
+                        function(std::get<OuterIs>(idx_out)...,
+                                 std::get<MidIs>(idx_mid)...,
+                                 std::get<InnerIs>(idx_in)...);
                       });
                 });
           });
