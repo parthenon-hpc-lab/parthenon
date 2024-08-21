@@ -381,7 +381,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
         (TPTTRRequested && !doTPTTR) || (TPTVRRequested && !doTPTVR);
 
     if constexpr (doSimdFor) {
-      static_assert(std::is_same_v<ParallelForDispatch, Tag>,
+      static_assert(std::is_same_v<dispatch_impl::ParallelForDispatch, Tag>,
                     "Only par_for is supported for simd_for pattern");
       dispatch_impl::SimdFor(bound_trans, function);
     } else if constexpr (doMDRange) {
