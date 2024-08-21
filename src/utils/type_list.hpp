@@ -18,9 +18,17 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "concepts_lite.hpp"
+
 namespace parthenon {
+
+// c++-20 has std:remove_cvref_t that does this same thing
+template <typename T>
+using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
 
 // Convenience struct for holding a variadic pack of types
 // and providing compile time indexing into that pack as
@@ -46,6 +54,19 @@ struct TypeList {
       return I;
     } else {
       return GetIdx<T, I + 1>();
+    }
+  }
+
+  template <class T, std::size_t I = 0>
+  static constexpr bool IsIn() {
+    if constexpr (I == n_types) {
+      return false;
+    } else {
+      if constexpr (std::is_same_v<T, type<I>>) {
+        return true;
+      } else {
+        return IsIn<T, I + 1>();
+      }
     }
   }
 
@@ -184,6 +205,15 @@ struct is_functor : std::false_type {};
 template <class F>
 struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
 
+// non-integral BoundTypes to consider
+using BoundTypes = TypeList<IndexRange>;
+
+template <typename Bound>
+constexpr bool isBoundType() {
+  using btype = base_type<Bound>;
+  return BoundTypes::template IsIn<btype>() || std::is_integral_v<btype>;
+}
+
 template <class TL, int idx = 0>
 constexpr int FirstFuncIdx() {
   if constexpr (idx == TL::n_types) {
@@ -196,25 +226,63 @@ constexpr int FirstFuncIdx() {
   }
 }
 
-template <class Function>
-struct FuncSignature;
+template <typename... Bnds>
+constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
+  using TL = TypeList<Bnds...>;
+  if constexpr (sizeof...(Bnds) == 0) {
+    return 0;
+  } else {
+    using Bnd0 = typename TL::template type<0>;
+    if constexpr (std::is_same_v<base_type<Bnd0>, IndexRange>) {
+      return 2 + GetNumBounds(typename TL::template continuous_sublist<1>());
+    } else if constexpr (std::is_integral_v<base_type<Bnd0>>) {
+      using Bnd1 = typename TL::template type<1>;
+      static_assert(std::is_integral_v<base_type<Bnd1>>,
+                    "integer launch bounds need to come in (start, end) pairs");
+      return 2 + GetNumBounds(typename TL::template continuous_sublist<2>());
+    } else {
+      static_assert(always_false<Bnd0>, "launch bound type not supported");
+    }
+  }
+}
 
-template <class Functor>
-struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {};
+template <size_t, typename>
+struct FunctionSignature {};
 
-template <class R, class... Args>
-struct FuncSignature<R(Args...)> {
-  using type = R(Args...);
-  using arg_types_tl = TypeList<Args...>;
-  using ret_type = R;
+template <size_t Rank, typename R, typename T, typename Arg0, typename... Args>
+struct FunctionSignature<Rank, R (T::*)(Arg0, Args...) const> {
+ private:
+  using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
+  static constexpr bool team_mbr = std::is_same_v<team_mbr_t, base_type<Arg0>>;
+  using TL = TypeList<Arg0, Args...>;
+
+ public:
+  using IndexND = typename TL::template continuous_sublist<0, Rank + team_mbr - 1>;
+  using FArgs = typename TL::template continuous_sublist<Rank + team_mbr>;
 };
 
-template <class R, class T, class... Args>
-struct FuncSignature<R (T::*)(Args...) const> {
-  using type = R (T::*)(Args...);
-  using arg_types_tl = TypeList<Args...>;
-  using ret_type = R;
-};
+template <size_t Rank, typename F>
+using function_signature = FunctionSignature<Rank, decltype(&base_type<F>::operator())>;
+
+/* template <class Function> */
+/* struct FuncSignature; */
+
+/* template <class Functor> */
+/* struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {}; */
+
+/* template <class R, class... Args> */
+/* struct FuncSignature<R(Args...)> { */
+/*   using type = R(Args...); */
+/*   using arg_types_tl = TypeList<Args...>; */
+/*   using ret_type = R; */
+/* }; */
+
+/* template <class R, class T, class... Args> */
+/* struct FuncSignature<R (T::*)(Args...) const> { */
+/*   using type = R (T::*)(Args...); */
+/*   using arg_types_tl = TypeList<Args...>; */
+/*   using ret_type = R; */
+/* }; */
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
