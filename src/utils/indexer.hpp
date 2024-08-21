@@ -194,6 +194,17 @@ auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
   return Indexer<Ts...>(ranges...);
 }
 
+template <std::size_t NIdx, std::size_t... Is>
+auto MakeIndexer(std::array<IndexRange, NIdx> bounds_arr,
+                 std::integer_sequence<std::size_t, Is...>) {
+  return MakeIndexer(std::pair<int, int>(bounds_arr[Is].s, bounds_arr[Is].e)...);
+}
+
+template <std::size_t NIdx>
+auto MakeIndexer(std::array<IndexRange, NIdx> bounds_arr) {
+  return MakeIndexer(bounds_arr, std::make_index_sequence<NIdx>());
+}
+
 namespace impl {
 template <std::size_t NIdx, std::size_t... Is>
 auto MakeIndexerIntImpl(std::array<int, NIdx> args, std::index_sequence<Is...>) {
