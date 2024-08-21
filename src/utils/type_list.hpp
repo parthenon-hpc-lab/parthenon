@@ -94,25 +94,26 @@ auto GetNames() {
 }
 
 namespace impl {
-template<class TL, int cidx>
+template <class TL, int cidx>
 static constexpr int FirstNonIntegralImpl() {
   if constexpr (cidx == TL::n_types) {
     return TL::n_types;
   } else {
-    if constexpr (std::is_integral_v<typename std::remove_reference<typename TL:: template type<cidx>>::type>)
-        return FirstNonIntegralImpl<TL, cidx + 1>();
+    if constexpr (std::is_integral_v<typename std::remove_reference<
+                      typename TL::template type<cidx>>::type>)
+      return FirstNonIntegralImpl<TL, cidx + 1>();
     return cidx;
   }
 }
-}
+} // namespace impl
 
 template <class TL>
 static constexpr int FirstNonIntegralIdx() {
   return impl::FirstNonIntegralImpl<TL, 0>();
 }
 
-template <class F, class = void> 
-struct is_functor : std::false_type {}; 
+template <class F, class = void>
+struct is_functor : std::false_type {};
 
 template <class F>
 struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
@@ -122,11 +123,9 @@ constexpr int FirstFuncIdx() {
   if constexpr (idx == TL::n_types) {
     return TL::n_types;
   } else {
-    using cur_type = typename TL:: template type<idx>;
-    if constexpr (is_functor<cur_type>::value)
-      return idx;
-    if constexpr (std::is_function<std::remove_pointer<cur_type>>::value)
-      return idx;
+    using cur_type = typename TL::template type<idx>;
+    if constexpr (is_functor<cur_type>::value) return idx;
+    if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
     return FirstFuncIdx<TL, idx + 1>();
   }
 }
@@ -134,19 +133,19 @@ constexpr int FirstFuncIdx() {
 template <class Function>
 struct FuncSignature;
 
-template<class Functor>
-struct FuncSignature : public FuncSignature<decltype(&Functor::operator())>{};
+template <class Functor>
+struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {};
 
-template <class R, class... Args> 
+template <class R, class... Args>
 struct FuncSignature<R(Args...)> {
-  using type = R (Args...);
+  using type = R(Args...);
   using arg_types_tl = TypeList<Args...>;
   using ret_type = R;
 };
 
-template <class R, class T, class... Args> 
+template <class R, class T, class... Args>
 struct FuncSignature<R (T::*)(Args...) const> {
-  using type = R (T::*) (Args...);
+  using type = R (T::*)(Args...);
   using arg_types_tl = TypeList<Args...>;
   using ret_type = R;
 };
