@@ -101,6 +101,11 @@ struct Indexer {
         GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
   }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  void GetIdxCArray(int idx, int *indices) const {
+    GetIndicesCArrayImpl(idx, indices, std::make_index_sequence<sizeof...(Ts)>());
+  }
+
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto StartIdx() const {
     return std::get<I>(start);
@@ -126,6 +131,18 @@ struct Indexer {
         }(),
         ...);
     return idxs;
+  }
+
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION void
+  GetIndicesCArrayImpl(int idx, int *indices, std::index_sequence<Is...>) const {
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
   }
 
   template <std::size_t... Is>
@@ -190,8 +207,7 @@ using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
 
 template <class... Ts>
-KOKKOS_INLINE_FUNCTION
-auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
+KOKKOS_INLINE_FUNCTION auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
   return Indexer<Ts...>(ranges...);
 }
 

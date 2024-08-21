@@ -27,7 +27,7 @@
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
-#include "kokkos_abstraction.hpp"
+//#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -117,7 +117,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // after all MeshData call BuildBoundaryBuffers
   all_caches.clear();
 
-  BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map)
+  BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md, pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md, pmesh->boundary_comm_map);
 
