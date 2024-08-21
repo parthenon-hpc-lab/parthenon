@@ -237,17 +237,22 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   template <class... Args>
   inline void par_for(Args &&...args) {
-    par_dispatch<dispatch_impl::ParallelForDispatch>(std::forward<Args>(args)...);
+    parthenon::par_for(std::forward<Args>(args)...);
   }
 
   template <class... Args>
   inline void par_reduce(Args &&...args) {
-    par_dispatch<dispatch_impl::ParallelReduceDispatch>(std::forward<Args>(args)...);
+    parthenon::par_reduce(std::forward<Args>(args)...);
   }
 
   template <class... Args>
   inline void par_scan(Args &&...args) {
-    par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
+    parthenon::par_scan(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  inline void par_for_outer(Args &&...args) {
+    parthenon::par_for_outer(std::forward<Args>(args)...);
   }
 
   template <typename Function>
@@ -260,35 +265,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     auto jb = bounds.GetBoundsJ(domain, el);
     auto kb = bounds.GetBoundsK(domain, el);
     parthenon::par_for(name, nb, kb, jb, ib, std::forward<Function>(function));
-  }
-
-  // 1D Outer default loop pattern
-  template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
-                            const int &scratch_level, const int &kl, const int &ku,
-                            const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, function);
-  }
-  // 2D Outer default loop pattern
-  template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
-                            const int &scratch_level, const int &kl, const int &ku,
-                            const int &jl, const int &ju, const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, jl, ju,
-                             function);
-  }
-
-  // 3D Outer default loop pattern
-  template <typename Function>
-  inline void par_for(const std::string &name, size_t &scratch_size_in_bytes,
-                      const int &scratch_level, const int &nl, const int &nu,
-                      const int &kl, const int &ku, const int &jl, const int &ju,
-                      const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, nl, nu, kl, ku, jl, ju,
-                             function);
   }
 
   int GetNumberOfMeshBlockCells() const {
