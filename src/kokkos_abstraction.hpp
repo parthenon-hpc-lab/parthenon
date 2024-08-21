@@ -322,7 +322,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
             std::size_t... InnerIs>
   void DoLoop(std::index_sequence<Is...>, std::index_sequence<OuterIs...>,
               std::index_sequence<MidIs...>, std::index_sequence<InnerIs...>,
-              const std::string &name, DevExecSpace exec_space, Bound_ts&&... bounds,
+              const std::string &name, DevExecSpace exec_space, Bound_ts &&...bounds,
               const Function &function, ExtraArgs_ts &&...args) {
     using rt_t = BoundTranslator<Bound_ts...>;
     auto bound_trans = rt_t(std::forward<Bound_ts>(bounds)...);
@@ -361,7 +361,8 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
           auto idx_tuple = idxer(idx);
 #pragma omp simd
           for (int i = istart; i <= iend; ++i) {
-            function(std::get<OuterIs>(idx_tuple)..., std::get<MidIs>(idx_tuple)..., i);
+            function(std::get<OuterIs>(idx_tuple)...,
+                     std::get<middle_start_rank + MidIs>(idx_tuple)..., i);
           }
         }
       } else { // Easier to just explicitly specialize for 1D Simd loop
@@ -394,11 +395,12 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
-                                 [&](const int i) {
-                                   function(std::get<OuterIs>(idx_tuple)...,
-                                            std::get<MidIs>(idx_tuple)..., i);
-                                 });
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
+                [&](const int i) {
+                  function(std::get<OuterIs>(idx_tuple)...,
+                           std::get<middle_start_rank + MidIs>(idx_tuple)..., i);
+                });
           });
     } else if constexpr (doTPTVR) {
       auto outer_idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
@@ -408,11 +410,12 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            Kokkos::parallel_for(Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
-                                 [&](const int i) {
-                                   function(std::get<OuterIs>(idx_tuple)...,
-                                            std::get<MidIs>(idx_tuple)..., i);
-                                 });
+            Kokkos::parallel_for(
+                Kokkos::TeamVectorRange<>(team_member, istart, iend + 1),
+                [&](const int i) {
+                  function(std::get<OuterIs>(idx_tuple)...,
+                           std::get<middle_start_rank + MidIs>(idx_tuple)..., i);
+                });
           });
     } else if constexpr (doTPTTRTV) {
       auto outer_idxer = bound_trans.template GetIndexer<0, middle_start_rank>();
