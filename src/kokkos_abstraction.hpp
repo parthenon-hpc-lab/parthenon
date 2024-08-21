@@ -220,6 +220,37 @@ template <class... Args>
 inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
   Kokkos::parallel_scan(std::forward<Args>(args)...);
 }
+
+template <class BoundTranslator_t, class Function>
+inline void RawFor(const BoundTranslator_t &bound_trans, const Function &function) {
+  auto idxer = bound_trans.template GetIndexer<0, BoundTranslator_t::rank>();
+  for (int idx = 0; idx < idxer.size(); ++idx) {
+    std::apply(function, idxer(idx));
+  }
+}
+
+template <class BoundTranslator_t, class Function>
+inline void SimdFor(const BoundTranslator_t &bound_trans, const Function &function) {
+  if constexpr (BoundTranslator_t::rank > 1) {
+    constexpr int inner_start_rank = BoundTranslator_t::rank - 1;
+    auto idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
+    const int istart = bound_trans[inner_start_rank].s;
+    const int iend = bound_trans[inner_start_rank].e;
+    // Loop over all outer indices using a flat indexer
+    for (int idx = 0; idx < idxer.size(); ++idx) {
+      auto idx_tuple = std::tuple_cat(idxer(idx), std::make_tuple(int{0}));
+      int &i = std::get<inner_start_rank>(idx_tuple);
+#pragma omp simd
+      for (i = istart; i <= iend; ++i) {
+        std::apply(function, idx_tuple);
+      }
+    }
+  } else { // Easier to just explicitly specialize for 1D Simd loop
+#pragma omp simd
+    for (int i = bound_trans[0].s; i <= bound_trans[0].e; ++i)
+      function(i);
+  }
+}
 } // namespace dispatch_impl
 
 // Struct for translating between loop bounds given in terms of IndexRanges and loop
@@ -250,7 +281,7 @@ struct BoundTranslator {
   }
 
   template <int RankStart, int RankStop>
-  auto GetKokkosFlatRangePolicy(DevExecSpace exec_space) {
+  auto GetKokkosFlatRangePolicy(DevExecSpace exec_space) const {
     constexpr int ndim = RankStop - RankStart;
     static_assert(ndim > 0, "Need a valid range of ranks");
     static_assert(RankStart >= 0, "Need a valid range of ranks");
@@ -264,7 +295,7 @@ struct BoundTranslator {
   }
 
   template <int RankStart, int RankStop>
-  auto GetKokkosMDRangePolicy(DevExecSpace exec_space) {
+  auto GetKokkosMDRangePolicy(DevExecSpace exec_space) const {
     constexpr int ndim = RankStop - RankStart;
     static_assert(ndim > 1, "Need a valid range of ranks");
     static_assert(RankStart >= 0, "Need a valid range of ranks");
@@ -282,13 +313,13 @@ struct BoundTranslator {
   }
 
   template <int RankStart, std::size_t... Is>
-  auto GetIndexer(std::index_sequence<Is...>) {
+  auto GetIndexer(std::index_sequence<Is...>) const {
     return MakeIndexer(
         std::pair<int, int>(bounds[Is + RankStart].s, bounds[Is + RankStart].e)...);
   }
 
   template <int RankStart, int RankStop>
-  auto GetIndexer() {
+  auto GetIndexer() const {
     constexpr int ndim = RankStop - RankStart;
     static_assert(ndim > 0, "Need a valid range of ranks");
     static_assert(RankStart >= 0, "Need a valid range of ranks");
@@ -350,26 +381,9 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
         (TPTTRRequested && !doTPTTR) || (TPTVRRequested && !doTPTVR);
 
     if constexpr (doSimdFor) {
-      static_assert(sizeof...(args) == 0,
+      static_assert(std::is_same_v<ParallelForDispatch, Tag>,
                     "Only par_for is supported for simd_for pattern");
-      if constexpr (total_rank > 1) {
-        auto idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
-        const int istart = bound_trans[inner_start_rank].s;
-        const int iend = bound_trans[inner_start_rank].e;
-        // Loop over all outer indices using a flat indexer
-        for (int idx = 0; idx < idxer.size(); ++idx) {
-          auto idx_tuple = idxer(idx);
-#pragma omp simd
-          for (int i = istart; i <= iend; ++i) {
-            function(std::get<OuterIs>(idx_tuple)...,
-                     std::get<middle_start_rank + MidIs>(idx_tuple)..., i);
-          }
-        }
-      } else { // Easier to just explicitly specialize for 1D Simd loop
-#pragma omp simd
-        for (int i = bound_trans[0].s; i <= bound_trans[0].e; ++i)
-          function(i);
-      }
+      dispatch_impl::SimdFor(bound_trans, function);
     } else if constexpr (doMDRange) {
       static_assert(total_rank > 1,
                     "MDRange pattern only works for multi-dimensional loops.");
@@ -460,11 +474,10 @@ void par_dispatch(Pattern pattern, const std::string &name, DevExecSpace exec_sp
   using func_sig_tl = typename FuncSignature<func_t>::arg_types_tl;
   // The first loop_rank arguments of the function are just indices, the rest are extra
   // arguments for reductions, etc.
+  using bounds_tl = typename arg_tl::template continuous_sublist<0, func_idx - 1>;
+  using extra_arg_tl = typename arg_tl::template continuous_sublist<func_idx + 1>;
   using func_sig_extra_tl = typename func_sig_tl::template continuous_sublist<loop_rank>;
-
-  par_dispatch_funct<
-      Tag, Pattern, typename arg_tl::template continuous_sublist<0, func_idx - 1>, func_t,
-      typename arg_tl::template continuous_sublist<func_idx + 1>, func_sig_extra_tl>
+  par_dispatch_funct<Tag, Pattern, bounds_tl, func_t, extra_arg_tl, func_sig_extra_tl>
       loop_funct;
   loop_funct(pattern, name, exec_space, std::forward<Args>(args)...);
 }
@@ -490,73 +503,47 @@ inline void par_scan(Args &&...args) {
   par_dispatch<dispatch_impl::ParallelScanDispatch>(std::forward<Args>(args)...);
 }
 
-// 1D  outer parallel loop using Kokkos Teams
-template <typename Function>
+template <class TL, class TLFunction>
+struct par_for_outer_funct_t;
+
+template <class... Bound_ts, class Function>
+struct par_for_outer_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
+  template <class Pattern>
+  void operator()(Pattern, const std::string &name, DevExecSpace exec_space,
+                  size_t scratch_size_in_bytes, const int scratch_level,
+                  Bound_ts &&...bounds, const Function &function) {
+    using rt_t = BoundTranslator<Bound_ts...>;
+    auto bound_trans = rt_t(std::forward<Bound_ts>(bounds)...);
+    auto idxer = bound_trans.template GetIndexer<0, rt_t::rank>();
+
+    if constexpr (std::is_same_v<OuterLoopPatternTeams, Pattern>) {
+      team_policy policy(exec_space, idxer.size(), Kokkos::AUTO);
+
+      Kokkos::parallel_for(
+          name,
+          policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+          KOKKOS_LAMBDA(team_mbr_t team_member) {
+            std::apply(function, std::tuple_cat(std::make_tuple(team_member),
+                                                idxer(team_member.league_rank())));
+          });
+    } else {
+      PARTHENON_FAIL("Unsupported par_for_outer loop pattern.");
+    }
+  }
+};
+
+template <class... Args>
 inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
                           DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int kl, const int ku,
-                          const Function &function) {
-  const int Nk = ku + 1 - kl;
-
-  team_policy policy(exec_space, Nk, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() + kl;
-        function(team_member, k);
-      });
-}
-
-// 2D  outer parallel loop using Kokkos Teams
-template <typename Function>
-inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
-                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int kl, const int ku,
-                          const int jl, const int ju, const Function &function) {
-  const int Nk = ku + 1 - kl;
-  const int Nj = ju + 1 - jl;
-  const int NkNj = Nk * Nj;
-
-  team_policy policy(exec_space, NkNj, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nj + kl;
-        const int j = team_member.league_rank() % Nj + jl;
-        function(team_member, k, j);
-      });
-}
-
-// 3D  outer parallel loop using Kokkos Teams
-template <typename Function>
-inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
-                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
-                          const int scratch_level, const int nl, const int nu,
-                          const int kl, const int ku, const int jl, const int ju,
-                          const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int NkNj = Nk * Nj;
-  const int NnNkNj = Nn * Nk * Nj;
-
-  team_policy policy(exec_space, NnNkNj, Kokkos::AUTO);
-
-  Kokkos::parallel_for(
-      name,
-      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        int n = team_member.league_rank() / NkNj;
-        int k = (team_member.league_rank() - n * NkNj) / Nj;
-        const int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-        n += nl;
-        k += kl;
-        function(team_member, n, k, j);
-      });
+                          const int scratch_level, Args &&...args) {
+  using arg_tl = TypeList<Args...>;
+  constexpr int nm2 = arg_tl::n_types - 2;
+  constexpr int nm1 = arg_tl::n_types - 1;
+  using bound_tl = typename arg_tl::template continuous_sublist<0, nm2>;
+  using function_tl = typename arg_tl::template continuous_sublist<nm1, nm1>;
+  par_for_outer_funct_t<bound_tl, function_tl> par_for_outer_funct;
+  par_for_outer_funct(OuterLoopPatternTeams(), name, exec_space, scratch_size_in_bytes,
+                      scratch_level, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
@@ -565,199 +552,43 @@ inline void par_for_outer(const std::string &name, Args &&...args) {
                 std::forward<Args>(args)...);
 }
 
-// Inner parallel loop using TeamThreadRange
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ll, const int lu,
-              const int ml, const int mu, const int nl, const int nu, const int kl,
-              const int ku, const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  const int Nl = lu - ll + 1;
-  const int Nm = mu - ml + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  const int NmNnNkNjNi = Nm * NnNkNjNi;
-  const int NlNmNnNkNjNi = Nl * NmNnNkNjNi;
-  Kokkos::parallel_for(
-      Kokkos::TeamThreadRange(team_member, NlNmNnNkNjNi), [&](const int &idx) {
-        int l = idx / NmNnNkNjNi;
-        int m = (idx - l * NmNnNkNjNi) / NnNkNjNi;
-        int n = (idx - l * NmNnNkNjNi - m * NnNkNjNi) / NkNjNi;
-        int k = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi) / NjNi;
-        int j = (idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-        int i = idx - l * NmNnNkNjNi - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-        l += nl;
-        m += ml;
-        n += nl;
-        k += kl;
-        j += jl;
-        i += il;
-        function(l, m, n, k, j, i);
-      });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int ml, const int mu,
-              const int nl, const int nu, const int kl, const int ku, const int jl,
-              const int ju, const int il, const int iu, const Function &function) {
-  const int Nm = mu - ml + 1;
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  const int NmNnNkNjNi = Nm * NnNkNjNi;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NmNnNkNjNi),
-                       [&](const int &idx) {
-                         int m = idx / NnNkNjNi;
-                         int n = (idx - m * NnNkNjNi) / NkNjNi;
-                         int k = (idx - m * NnNkNjNi - n * NkNjNi) / NjNi;
-                         int j = (idx - m * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
-                         int i = idx - m * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
-                         m += ml;
-                         n += nl;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(m, n, k, j, i);
-                       });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int nl, const int nu,
-              const int kl, const int ku, const int jl, const int ju, const int il,
-              const int iu, const Function &function) {
-  const int Nn = nu - nl + 1;
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
-  const int NnNkNjNi = Nn * NkNjNi;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NnNkNjNi),
-                       [&](const int &idx) {
-                         int n = idx / NkNjNi;
-                         int k = (idx - n * NkNjNi) / NjNi;
-                         int j = (idx - n * NkNjNi - k * NjNi) / Ni;
-                         int i = idx - n * NkNjNi - k * NjNi - j * Ni;
-                         n += nl;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(n, k, j, i);
-                       });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int kl, const int ku,
-              const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  const int Nk = ku - kl + 1;
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NkNjNi = Nk * Nj * Ni;
-  const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NkNjNi), [&](const int &idx) {
-    int k = idx / NjNi;
-    int j = (idx - k * NjNi) / Ni;
-    int i = idx - k * NjNi - j * Ni;
-    k += kl;
-    j += jl;
-    i += il;
-    function(k, j, i);
-  });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int jl, const int ju,
-              const int il, const int iu, const Function &function) {
-  const int Nj = ju - jl + 1;
-  const int Ni = iu - il + 1;
-  const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, NjNi), [&](const int &idx) {
-    int j = idx / Ni + jl;
-    int i = idx % Ni + il;
-    function(j, i);
-  });
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTTR,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, il, iu + 1), function);
-}
-// Inner parallel loop using TeamVectorRange
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-  Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
-}
+template <class TL, class TLFunction>
+struct par_for_inner_funct_t;
 
-// Inner parallel loop using FOR SIMD
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int nl, const int nu,
-              const int kl, const int ku, const int jl, const int ju, const int il,
-              const int iu, const Function &function) {
-  for (int n = nl; n <= nu; ++n) {
-    for (int k = kl; k <= ku; ++k) {
-      for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-        for (int i = il; i <= iu; i++) {
-          function(k, j, i);
-        }
-      }
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int kl, const int ku,
-              const int jl, const int ju, const int il, const int iu,
-              const Function &function) {
-  for (int k = kl; k <= ku; ++k) {
-    for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-      for (int i = il; i <= iu; i++) {
-        function(k, j, i);
-      }
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void
-par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int jl, const int ju,
-              const int il, const int iu, const Function &function) {
-  for (int j = jl; j <= ju; ++j) {
-#pragma omp simd
-    for (int i = il; i <= iu; i++) {
-      function(j, i);
-    }
-  }
-}
-template <typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor,
-                                               team_mbr_t team_member, const int il,
-                                               const int iu, const Function &function) {
-#pragma omp simd
-  for (int i = il; i <= iu; i++) {
-    function(i);
-  }
-}
+template <class... Bound_ts, class Function>
+struct par_for_inner_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
+  template <class Pattern>
+  void operator()(Pattern, team_mbr_t team_member, Bound_ts &&...bounds,
+                  const Function &function) {
+    using rt_t = BoundTranslator<Bound_ts...>;
+    auto bound_trans = rt_t(std::forward<Bound_ts>(bounds)...);
 
-template <typename Tag, typename Function>
-KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const Tag &t, team_mbr_t member,
-                                               const IndexRange r,
-                                               const Function &function) {
-  par_for_inner(t, member, r.s, r.e, function);
+    if constexpr (std::is_same_v<InnerLoopPatternSimdFor, Pattern>) {
+      dispatch_impl::SimdFor(bound_trans, function);
+    } else if constexpr (std::is_same_v<InnerLoopPatternTTR, Pattern>) {
+      auto idxer = bound_trans.template GetIndexer<0, rt_t::rank>();
+      Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, idxer.size()),
+                           [&](const int &idx) { std::apply(function, idxer(idx)); });
+    } else if constexpr (std::is_same_v<InnerLoopPatternTVR, Pattern>) {
+      auto idxer = bound_trans.template GetIndexer<0, rt_t::rank>();
+      Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, idxer.size()),
+                           [&](const int &idx) { std::apply(function, idxer(idx)); });
+    } else {
+      PARTHENON_FAIL("Unsupported par_for_outer loop pattern.");
+    }
+  }
+};
+
+template <class Pattern, class... Args>
+inline void par_for_inner(Pattern pattern, Args &&...args) {
+  using arg_tl = TypeList<Args...>;
+  constexpr int nm2 = arg_tl::n_types - 2;
+  constexpr int nm1 = arg_tl::n_types - 1;
+  // First Arg of Args is team_member
+  using bound_tl = typename arg_tl::template continuous_sublist<1, nm2>;
+  using function_tl = typename arg_tl::template continuous_sublist<nm1, nm1>;
+  par_for_inner_funct_t<bound_tl, function_tl> par_for_inner_funct;
+  par_for_inner_funct(pattern, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
