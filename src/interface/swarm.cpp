@@ -290,8 +290,8 @@ void Swarm::UpdateEmptyIndices() {
   auto &empty_indices_scan = scratch_a_;
 
   // Calculate prefix sum of empty indices
-  Kokkos::parallel_scan(
-      "Set empty indices prefix sum", nmax_pool_,
+  parthenon::par_scan(
+      "Set empty indices prefix sum", 0, nmax_pool_ - 1,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
         const int val = !mask(n);
         if (val) {
@@ -353,8 +353,8 @@ void Swarm::Defrag() {
   auto &mask = mask_;
 
   const int &num_active = num_active_;
-  Kokkos::parallel_scan(
-      "Set empty indices prefix sum", nmax_pool_ - num_active_,
+  parthenon::par_scan(
+      "Set empty indices prefix sum", 0, nmax_pool_ - num_active_ - 1,
       KOKKOS_LAMBDA(const int nn, int &update, const bool &final) {
         const int n = nn + num_active;
         const int val = mask(n);
@@ -378,8 +378,8 @@ void Swarm::Defrag() {
   auto &scan_scratch_towrite = scan_scratch_toread;
 
   // Update list of empty indices
-  Kokkos::parallel_scan(
-      "Set empty indices prefix sum", num_active_,
+  parthenon::par_scan(
+      "Set empty indices prefix sum", 0, num_active_ - 1,
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
         const int val = !mask(n);
         if (val) {
