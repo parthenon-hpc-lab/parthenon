@@ -205,15 +205,6 @@ struct is_functor : std::false_type {};
 template <class F>
 struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
 
-// non-integral BoundTypes to consider
-using BoundTypes = TypeList<IndexRange>;
-
-template <typename Bound>
-constexpr bool isBoundType() {
-  using btype = base_type<Bound>;
-  return BoundTypes::template IsIn<btype>() || std::is_integral_v<btype>;
-}
-
 template <class TL, int idx = 0>
 constexpr int FirstFuncIdx() {
   if constexpr (idx == TL::n_types) {
@@ -224,6 +215,15 @@ constexpr int FirstFuncIdx() {
     if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
     return FirstFuncIdx<TL, idx + 1>();
   }
+}
+
+// Recognized bound types
+// additional types should be translated in BoundTranslator (kokkos_abstraction.hpp)
+template <typename Bound>
+constexpr bool isBoundType() {
+  using BoundTypes = TypeList<IndexRange>;
+  using btype = base_type<Bound>;
+  return BoundTypes::template IsIn<btype>() || std::is_integral_v<btype>;
 }
 
 template <typename... Bnds>
