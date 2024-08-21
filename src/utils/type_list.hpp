@@ -111,6 +111,26 @@ static constexpr int FirstNonIntegralIdx() {
   return impl::FirstNonIntegralImpl<TL, 0>();
 }
 
+template <class F, class = void> 
+struct is_functor : std::false_type {}; 
+
+template <class F>
+struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
+
+template <class TL, int idx = 0>
+constexpr int FirstFuncIdx() {
+  if constexpr (idx == TL::n_types) {
+    return TL::n_types;
+  } else {
+    using cur_type = typename TL:: template type<idx>;
+    if constexpr (is_functor<cur_type>::value)
+      return idx;
+    if constexpr (std::is_function<std::remove_pointer<cur_type>>::value)
+      return idx;
+    return FirstFuncIdx<TL, idx + 1>();
+  }
+}
+
 template <class Function>
 struct FuncSignature;
 
