@@ -33,6 +33,7 @@
 #include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
+#include "impl/Kokkos_Tools_Generic.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -350,8 +351,9 @@ struct BoundTranslator {
   // overloads for different launch bound types.
   // should also be counted by isBoundType & GetNumBounds in type_list.hpp
   template <std::size_t Nx, typename... Bounds>
-  static void GetIndexRanges_impl(const int idx, std::array<IndexRange, Nx> &out,
-                                  const int s, const int e, Bounds &&...bounds) {
+  KOKKOS_INLINE_FUNCTION void
+  GetIndexRanges_impl(const int idx, std::array<IndexRange, Nx> &out, const int s,
+                      const int e, Bounds &&...bounds) {
     out[idx].s = s;
     out[idx].e = e;
     if constexpr (sizeof...(Bounds) > 0) {
@@ -359,8 +361,9 @@ struct BoundTranslator {
     }
   }
   template <std::size_t Nx, typename... Bounds>
-  static void GetIndexRanges_impl(const int idx, std::array<IndexRange, Nx> &out,
-                                  const IndexRange ir, Bounds &&...bounds) {
+  KOKKOS_INLINE_FUNCTION void
+  GetIndexRanges_impl(const int idx, std::array<IndexRange, Nx> &out, const IndexRange ir,
+                      Bounds &&...bounds) {
     out[idx] = ir;
     if constexpr (sizeof...(Bounds) > 0) {
       GetIndexRanges_impl(idx + 1, out, std::forward<Bounds>(bounds)...);
@@ -370,7 +373,9 @@ struct BoundTranslator {
  public:
   using Bound_tl = TypeList<Bound_ts...>;
   static constexpr std::size_t rank = GetNumBounds(Bound_tl()) / 2;
-  static std::array<IndexRange, rank> GetIndexRanges(Bound_ts &&...bounds) {
+
+  KOKKOS_INLINE_FUNCTION
+  std::array<IndexRange, rank> GetIndexRanges(Bound_ts &&...bounds) {
     std::array<IndexRange, rank> out;
     GetIndexRanges_impl(0, out, std::forward<Bound_ts>(bounds)...);
     return out;
@@ -481,7 +486,7 @@ struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args
   KOKKOS_FORCEINLINE_FUNCTION void dispatch(team_mbr_t team_member, Bounds &&...bounds,
                                             Function function, Args &&...args) {
     // TODO(acreyes): I don't think this static method will wokr on device...
-    auto bound_arr = bound_translator::GetIndexRanges(std::forward<Bounds>(bounds)...);
+    auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     if constexpr (std::is_same_v<InnerLoopPatternSimdFor, Pattern>) {
       SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
     } else {
@@ -527,7 +532,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     PARTHENON_INSTRUMENT_REGION(name)
     constexpr std::size_t Ninner =
         dispatch_type::TeamPattern::Nvector + dispatch_type::TeamPattern::Nthread;
-    auto bound_arr = bound_translator::GetIndexRanges(std::forward<Bounds>(bounds)...);
+    auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     constexpr auto tag = dispatch_type::GetTag();
     if constexpr (std::is_same_v<LoopPatternSimdFor, base_type<decltype(tag)>>) {
       SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
@@ -547,6 +552,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   dispatch(LoopPatternFlatRange, sequence<OuterIs...>, sequence<InnerIs...>,
            std::string name, ExecSpace exec_space, std::array<IndexRange, Rank> bound_arr,
            Function function, Args &&...args) {
+    static_assert(sizeof...(InnerIs) == 0);
     auto idxer = MakeIndexer(bound_arr);
     kokkos_dispatch(
         Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
@@ -563,15 +569,12 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   dispatch(LoopPatternMDRange, sequence<OuterIs...>, sequence<InnerIs...>,
            std::string name, ExecSpace exec_space, std::array<IndexRange, Rank> bound_arr,
            Function function, Args &&...args) {
-    auto idxer = MakeIndexer(bound_arr);
+    static_assert(sizeof...(InnerIs) == 0);
     kokkos_dispatch(
-        Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
-        KOKKOS_LAMBDA(const int idx, ExtraFuncArgs... fargs) {
-          auto idx_tuple = idxer(idx);
-          function(std::get<OuterIs>(idx_tuple)...,
-                   std::forward<ExtraFuncArgs>(fargs)...);
-        },
-        std::forward<Args>(args)...);
+        Tag(), name,
+        Kokkos::MDRangePolicy<Kokkos::Rank<Rank>>(exec_space, {bound_arr[OuterIs].s...},
+                                                  {(1 + bound_arr[OuterIs].e)...}),
+        function, std::forward<Args>(args)...);
   }
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
