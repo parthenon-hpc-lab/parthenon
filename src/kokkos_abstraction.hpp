@@ -396,6 +396,31 @@ struct DispatchType {
 
 } // namespace impl
 
+// Struct for translating between loop bounds given in terms of IndexRanges and loop
+// bounds given in terms of raw integers
+template <class... Bound_ts>
+struct BoundTranslator {
+  using Bound_tl = TypeList<Bound_ts...>;
+  static constexpr bool are_integers = std::is_integral_v<
+      typename std::remove_reference<typename Bound_tl::template type<0>>::type>;
+  static constexpr uint rank = sizeof...(Bound_ts) / (1 + are_integers);
+  static std::array<IndexRange, rank> GetIndexRanges(Bound_ts... bounds) {
+    if constexpr (are_integers) {
+      std::array<int64_t, 2 * rank> bounds_arr{static_cast<int64_t>(bounds)...};
+      std::array<IndexRange, rank> out;
+      for (int r = 0; r < rank; ++r) {
+        out[r].s = static_cast<int64_t>(bounds_arr[2 * r]);
+        out[r].e = static_cast<int64_t>(bounds_arr[2 * r + 1]);
+      }
+      return out;
+    } else {
+      return std::array<IndexRange, rank>{bounds...};
+    }
+  }
+};
+
+template <class... Bound_ts>
+struct BoundTranslator<TypeList<Bound_ts...>> : public BoundTranslator<Bound_ts...> {};
 template <typename, typename, typename>
 class FlatFunctor {};
 

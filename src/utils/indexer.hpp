@@ -189,5 +189,25 @@ using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
 
+template <class... Ts>
+auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
+  return Indexer<Ts...>(ranges...);
+}
+
+namespace impl {
+template <std::size_t NIdx, std::size_t... Is>
+auto MakeIndexerIntImpl(std::array<int, NIdx> args, std::index_sequence<Is...>) {
+  return MakeIndexer(std::pair<int, int>(args[2 * Is], args[2 * Is + 1])...);
+}
+} // namespace impl
+
+template <class... Ts>
+auto MakeIndexerInt(Ts &&...args) {
+  static_assert(sizeof...(Ts) % 2 == 0,
+                "Must have an upper and lower end to each index range.");
+  return impl::MakeIndexerIntImpl(std::array<int, sizeof...(Ts)>{args...},
+                                  std::make_index_sequence<sizeof...(Ts) / 2>());
+}
+
 } // namespace parthenon
 #endif // UTILS_INDEXER_HPP_
