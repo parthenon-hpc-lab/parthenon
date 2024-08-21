@@ -264,13 +264,16 @@ struct BoundTranslator {
 
   std::array<IndexRange, rank> bounds;
 
+  KOKKOS_INLINE_FUNCTION
   IndexRange &operator[](int i) { return bounds[i]; }
+  
+  KOKKOS_INLINE_FUNCTION
   const IndexRange &operator[](int i) const { return bounds[i]; }
-
+  
+  KOKKOS_INLINE_FUNCTION
   explicit BoundTranslator(Bound_ts... bounds_in) {
     if constexpr (are_integers) {
       std::array<int64_t, 2 * rank> bounds_arr{static_cast<int64_t>(bounds_in)...};
-      std::array<IndexRange, rank> out;
       for (int r = 0; r < rank; ++r) {
         bounds[r].s = static_cast<int64_t>(bounds_arr[2 * r]);
         bounds[r].e = static_cast<int64_t>(bounds_arr[2 * r + 1]);
@@ -313,12 +316,14 @@ struct BoundTranslator {
   }
 
   template <int RankStart, std::size_t... Is>
+  KOKKOS_INLINE_FUNCTION
   auto GetIndexer(std::index_sequence<Is...>) const {
     return MakeIndexer(
         std::pair<int, int>(bounds[Is + RankStart].s, bounds[Is + RankStart].e)...);
   }
 
   template <int RankStart, int RankStop>
+  KOKKOS_INLINE_FUNCTION
   auto GetIndexer() const {
     constexpr int ndim = RankStop - RankStart;
     static_assert(ndim > 0, "Need a valid range of ranks");
@@ -359,8 +364,8 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
     auto bound_trans = rt_t(std::forward<Bound_ts>(bounds)...);
 
     constexpr int total_rank = rt_t::rank;
-    constexpr int inner_start_rank = total_rank - Pattern::ninner;
-    constexpr int middle_start_rank = total_rank - Pattern::ninner - Pattern::nmiddle;
+    [[maybe_unused]] constexpr int inner_start_rank = total_rank - Pattern::ninner;
+    [[maybe_unused]] constexpr int middle_start_rank = total_rank - Pattern::ninner - Pattern::nmiddle;
 
     constexpr bool SimdRequested = std::is_same_v<Pattern, LoopPatternSimdFor>;
     constexpr bool MDRangeRequested = std::is_same_v<Pattern, LoopPatternMDRange>;
@@ -557,7 +562,11 @@ struct par_for_inner_funct_t;
 
 template <class... Bound_ts, class Function>
 struct par_for_inner_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
+  KOKKOS_DEFAULTED_FUNCTION
+  par_for_inner_funct_t() = default;
+
   template <class Pattern>
+  KOKKOS_FORCEINLINE_FUNCTION
   void operator()(Pattern, team_mbr_t team_member, Bound_ts &&...bounds,
                   const Function &function) {
     using rt_t = BoundTranslator<Bound_ts...>;
@@ -580,7 +589,8 @@ struct par_for_inner_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
 };
 
 template <class Pattern, class... Args>
-inline void par_for_inner(Pattern pattern, Args &&...args) {
+KOKKOS_FORCEINLINE_FUNCTION
+void par_for_inner(Pattern pattern, Args &&...args) {
   using arg_tl = TypeList<Args...>;
   constexpr int nm2 = arg_tl::n_types - 2;
   constexpr int nm1 = arg_tl::n_types - 1;

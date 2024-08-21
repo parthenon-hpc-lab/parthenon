@@ -126,6 +126,7 @@ constexpr int FirstFuncIdx() {
     if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
     return FirstFuncIdx<TL, idx + 1>();
   }
+  return -1;
 }
 
 template <class Function>
