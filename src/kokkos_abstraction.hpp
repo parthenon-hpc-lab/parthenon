@@ -222,25 +222,25 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 } // namespace dispatch_impl
 
 template <int Rank, int RankStart, int RankStop>
-auto GetKokkosFlatRangePolicy(DevExecSpace exec_space, const std::array<int64_t, 2 * Rank> &range_arr) {
+auto GetKokkosFlatRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &bound_arr) {
   constexpr int ndim = RankStop - RankStart + 1;
   static_assert(ndim > 0, "Need a valid range of ranks");
   int64_t npoints = 1;
   for (int d = RankStart; d <= RankStop; ++d)
-    npoints *= (range_arr[2 * d + 1] + 1 - range_arr[2 * d]);
+    npoints *= (bound_arr[d].e + 1 - bound_arr[d].s);
   return Kokkos::Experimental::require(
                       Kokkos::RangePolicy<>(exec_space, 0, npoints),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight);
 }
 
 template <int Rank, int RankStart, int RankStop>
-auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<int64_t, 2 * Rank> &range_arr) {
+auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<IndexRange, Rank> &bound_arr) {
   constexpr int ndim = RankStop - RankStart + 1;
   static_assert(ndim > 1, "Need a valid range of ranks");
   Kokkos::Array<int64_t, ndim> start, end, tile; 
   for (int d = 0; d < ndim; ++d) { 
-    start[d] = range_arr[2 * (d + RankStart)];
-    end[d] = range_arr[2 * (d + RankStart) + 1] + 1;
+    start[d] = bound_arr[d + RankStart].s;
+    end[d] = bound_arr[d + RankStart].e + 1;
     tile[d] = 1; 
   } 
   tile[ndim - 1] = end[ndim - 1] - start[ndim - 1];
@@ -249,18 +249,44 @@ auto GetKokkosMDRangePolicy(DevExecSpace exec_space, const std::array<int64_t, 2
              Kokkos::Experimental::WorkItemProperty::HintLightWeight); 
 }
 
-template<class Tag, class Pattern, class Range_tl, class Function, class ExtArgs_tl, class FuncExtArgs_tl>
+// Struct for translating between loop bounds given in terms of IndexRanges and loop bounds 
+// given in terms of raw integers
+template <class... Bound_ts>
+struct BoundTranslator {
+  using Bound_tl = TypeList<Bound_ts...>; 
+  static constexpr bool are_integers = std::is_integral_v<typename std::remove_reference<typename Bound_tl:: template type<0>>::type>;
+  static constexpr uint rank = sizeof...(Bound_ts) / (1 + are_integers);
+  static std::array<IndexRange, rank> GetIndexRanges(Bound_ts... bounds) {
+    if constexpr (are_integers) {
+      std::array<int64_t, 2 * rank> bounds_arr{static_cast<int64_t>(bounds)...};
+      std::array<IndexRange, rank> out;
+      for (int r = 0; r < rank; ++r) {
+        out[r].s = static_cast<int64_t>(bounds_arr[2 * r]);
+        out[r].e = static_cast<int64_t>(bounds_arr[2 * r + 1]);
+      }
+      return out;
+    } else {
+      return std::array<IndexRange, rank>{bounds...};
+    }
+  }
+};
+
+template <class... Bound_ts>
+struct BoundTranslator<TypeList<Bound_ts...>> : public BoundTranslator<Bound_ts...> {};
+
+template<class Tag, class Pattern, class Bound_tl, class Function, class ExtArgs_tl, class FuncExtArgs_tl>
 struct par_dispatch_funct {};
 
-template<class Tag, class Pattern, class... Range_ts, class Function, class... ExtraArgs_ts, class... FuncExtArgs_ts>
+template<class Tag, class Pattern, class... Bound_ts, class Function, class... ExtraArgs_ts, class... FuncExtArgs_ts>
 struct par_dispatch_funct<Tag, Pattern, 
-                          TypeList<Range_ts...>,
+                          TypeList<Bound_ts...>,
                           Function,
                           TypeList<ExtraArgs_ts...>, 
                           TypeList<FuncExtArgs_ts...>> {
   template <class... Args>
   void operator()(Pattern pattern, Args&&...args) { 
-    constexpr int total_rank = sizeof...(Range_ts) / 2;
+    using rt_t = BoundTranslator<Bound_ts...>;
+    constexpr int total_rank = rt_t::rank;
     DoLoop(std::make_index_sequence<total_rank>(),
            std::make_index_sequence<total_rank - Pattern::nmiddle - Pattern::ninner>(),
            std::make_index_sequence<Pattern::nmiddle>(),
@@ -275,22 +301,23 @@ struct par_dispatch_funct<Tag, Pattern,
               std::index_sequence<InnerIs...>,
               const std::string &name,
               DevExecSpace exec_space,
-              Range_ts... ranges,
+              Bound_ts... bounds,
               const Function &function, 
               ExtraArgs_ts&&...args) {
-    constexpr int total_rank = sizeof...(ranges) / 2;
-    std::array<int64_t, sizeof...(ranges)> range_arr{static_cast<int64_t>(ranges)...};
+    using rt_t = BoundTranslator<Bound_ts...>;
+    constexpr int total_rank = rt_t::rank;
+    auto bound_arr = rt_t::GetIndexRanges(bounds...);
     
     if constexpr (std::is_same_v<Pattern, LoopPatternSimdFor> && sizeof...(args) == 0) {
       static_assert(sizeof...(args) == 0, "Only par_for is supported for simd_for pattern");
       if constexpr (sizeof...(OuterIs) > 0) {
-        auto idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
+        auto idxer = MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
+        const int istart = bound_arr[total_rank - 1].s;
+        const int iend = bound_arr[total_rank - 1].e;
         // Loop over all outer indices using a flat indexer
         for (int idx = 0; idx < idxer.size(); ++idx) { 
           auto indices = std::tuple_cat(idxer(idx), std::tuple<int>({0}));
           int& i = std::get<decltype(idxer)::rank>(indices);
-          const int istart = range_arr[2 * (total_rank - 1)];
-          const int iend = range_arr[2 * (total_rank - 1) + 1];
 #pragma omp simd
           for (i = istart; i <= iend; ++i) {
             std::apply(function, indices);
@@ -298,26 +325,26 @@ struct par_dispatch_funct<Tag, Pattern,
         }
       } else { // Easier to just explicitly specialize for 1D Simd loop
 #pragma omp simd 
-        for (int i = range_arr[0]; i <= range_arr[1]; ++i) function(i);
+        for (int i = bound_arr[0].s; i <= bound_arr[0].e; ++i) function(i);
       }
     } else if constexpr (std::is_same_v<Pattern, LoopPatternMDRange>) {
       static_assert(total_rank > 1, "MDRange pattern only works for multi-dimensional loops.");
       kokkos_dispatch(Tag(), name,
-                      GetKokkosMDRangePolicy<total_rank, 0, total_rank-1>(exec_space, range_arr),
+                      GetKokkosMDRangePolicy<total_rank, 0, total_rank-1>(exec_space, bound_arr),
                       function, std::forward<ExtraArgs_ts>(args)...); 
     } else if constexpr (std::is_same_v<Pattern, LoopPatternFlatRange> || std::is_same_v<Pattern, LoopPatternSimdFor>) {
-      const auto idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * Is], range_arr[2 * Is + 1])...);
+      const auto idxer = MakeIndexer(std::pair<int, int>(bound_arr[Is].s, bound_arr[Is].e)...);
       kokkos_dispatch(Tag(), name,
-                      GetKokkosFlatRangePolicy<total_rank, 0, total_rank-1>(exec_space, range_arr),
+                      GetKokkosFlatRangePolicy<total_rank, 0, total_rank-1>(exec_space, bound_arr),
                       KOKKOS_LAMBDA(const int &idx, FuncExtArgs_ts&&...fargs) {
                         auto idx_tuple = idxer(idx);
                         function(std::get<Is>(idx_tuple)..., std::forward<FuncExtArgs_ts>(fargs)...);
                       },
                       std::forward<ExtraArgs_ts>(args)...); 
     } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTR> || std::is_same_v<Pattern, LoopPatternTPTVR>) {
-      const auto outer_idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
-      const int istart = range_arr[2 * (total_rank - 1)];
-      const int iend = range_arr[2 * (total_rank - 1) + 1];
+      const auto outer_idxer = MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
+      const int istart = bound_arr[total_rank - 1].s;
+      const int iend = bound_arr[total_rank - 1].e;
       Kokkos::parallel_for(
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
@@ -331,11 +358,11 @@ struct par_dispatch_funct<Tag, Pattern,
             }
           });
     } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTRTVR>) {
-      const auto outer_idxer = MakeIndexer(std::pair<int, int>(range_arr[2 * OuterIs], range_arr[2 * OuterIs + 1])...);
-      const int jstart = range_arr[2 * (total_rank - 2)];
-      const int jend = range_arr[2 * (total_rank - 2) + 1];
-      const int istart = range_arr[2 * (total_rank - 1)];
-      const int iend = range_arr[2 * (total_rank - 1) + 1];
+      const auto outer_idxer = MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
+      const int jstart = bound_arr[total_rank - 2].s;
+      const int jend = bound_arr[total_rank - 2].e;
+      const int istart = bound_arr[total_rank - 1].s;
+      const int iend = bound_arr[total_rank - 1].e;
       Kokkos::parallel_for(
       name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
@@ -356,14 +383,14 @@ struct par_dispatch_funct<Tag, Pattern,
 template <typename Tag, typename Pattern, class... Args>
 void par_dispatch_new(Pattern pattern, const std::string &name, DevExecSpace exec_space, Args &&...args) {
   using arg_tl = TypeList<Args...>;
-  constexpr std::size_t func_idx = FirstNonIntegralIdx<arg_tl>();
+  constexpr std::size_t func_idx = FirstFuncIdx<arg_tl>();
   using func_t = typename arg_tl:: template type<func_idx>; 
-  
+  constexpr int loop_rank = BoundTranslator<typename arg_tl::template continuous_sublist<0, func_idx - 1>>::rank;
+
   using func_sig_tl = typename FuncSignature<func_t>::arg_types_tl;
-  constexpr std::size_t first_extra_idx = FirstNonIntegralIdx<func_sig_tl>();
-  // The first func_idx arguments of args are lower and upper index ranges, so the extra parameters
-  // passed to the function will go in places func_idx / 2
-  using func_sig_extra_tl = typename func_sig_tl::template continuous_sublist<func_idx / 2>;
+  // The first loop_rank arguments of the function are just indices, the rest are extra 
+  // arguments for reductions, etc. 
+  using func_sig_extra_tl = typename func_sig_tl::template continuous_sublist<loop_rank>;
   
   par_dispatch_funct<Tag, Pattern,
                     typename arg_tl::template continuous_sublist<0, func_idx - 1>,
