@@ -306,7 +306,25 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
     constexpr int total_rank = rt_t::rank;
     auto bound_arr = rt_t::GetIndexRanges(bounds...);
 
-    if constexpr (std::is_same_v<Pattern, LoopPatternSimdFor> && sizeof...(args) == 0) {
+    constexpr bool SimdRequested = std::is_same_v<Pattern, LoopPatternSimdFor>;
+    constexpr bool MDRangeRequested = std::is_same_v<Pattern, LoopPatternMDRange>;
+    constexpr bool FlatRangeRequested = std::is_same_v<Pattern, LoopPatternFlatRange>;
+    constexpr bool TPTTRRequested = std::is_same_v<Pattern, LoopPatternTPTTR>;
+    constexpr bool TPTVRRequested = std::is_same_v<Pattern, LoopPatternTPTVR>;
+    constexpr bool TPTTRTVRRequested = std::is_same_v<Pattern, LoopPatternTPTTRTVR>;
+
+    constexpr bool doSimdFor = SimdRequested && sizeof...(args) == 0;
+    constexpr bool doMDRange = MDRangeRequested && total_rank > 1;
+    constexpr bool doTPTTRTV = TPTTRTVRRequested && total_rank > 2;
+    constexpr bool doTPTTR = TPTTRRequested && total_rank > 1;
+    constexpr bool doTPTVR = TPTVRRequested && total_rank > 1;
+
+    constexpr bool doFlatRange =
+        FlatRangeRequested || (SimdRequested && !doSimdFor) ||
+        (MDRangeRequested && !doMDRange) || (TPTTRTVRRequested && !doTPTTRTV) ||
+        (TPTTRRequested && !doTPTTR) || (TPTVRRequested && !doTPTVR);
+
+    if constexpr (doSimdFor) {
       static_assert(sizeof...(args) == 0,
                     "Only par_for is supported for simd_for pattern");
       if constexpr (sizeof...(OuterIs) > 0) {
@@ -328,15 +346,14 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
         for (int i = bound_arr[0].s; i <= bound_arr[0].e; ++i)
           function(i);
       }
-    } else if constexpr (std::is_same_v<Pattern, LoopPatternMDRange>) {
+    } else if constexpr (doMDRange) {
       static_assert(total_rank > 1,
                     "MDRange pattern only works for multi-dimensional loops.");
       kokkos_dispatch(
           Tag(), name,
           GetKokkosMDRangePolicy<total_rank, 0, total_rank - 1>(exec_space, bound_arr),
           function, std::forward<ExtraArgs_ts>(args)...);
-    } else if constexpr (std::is_same_v<Pattern, LoopPatternFlatRange> ||
-                         std::is_same_v<Pattern, LoopPatternSimdFor>) {
+    } else if constexpr (doFlatRange) {
       const auto idxer =
           MakeIndexer(std::pair<int, int>(bound_arr[Is].s, bound_arr[Is].e)...);
       kokkos_dispatch(
@@ -347,8 +364,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
             function(std::get<Is>(idx_tuple)..., std::forward<FuncExtArgs_ts>(fargs)...);
           },
           std::forward<ExtraArgs_ts>(args)...);
-    } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTR> ||
-                         std::is_same_v<Pattern, LoopPatternTPTVR>) {
+    } else if constexpr (doTPTTR || doTPTVR) {
       const auto outer_idxer =
           MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
       const int istart = bound_arr[total_rank - 1].s;
@@ -357,7 +373,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
           name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
             const auto idx_tuple = outer_idxer(team_member.league_rank());
-            if constexpr (std::is_same_v<Pattern, LoopPatternTPTTR>) {
+            if constexpr (doTPTTR) {
               Kokkos::parallel_for(
                   Kokkos::TeamThreadRange<>(team_member, istart, iend + 1),
                   [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
@@ -367,7 +383,7 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
                   [&](const int i) { function(std::get<OuterIs>(idx_tuple)..., i); });
             }
           });
-    } else if constexpr (std::is_same_v<Pattern, LoopPatternTPTTRTVR>) {
+    } else if constexpr (doTPTTRTV) {
       const auto outer_idxer =
           MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
       const int jstart = bound_arr[total_rank - 2].s;
