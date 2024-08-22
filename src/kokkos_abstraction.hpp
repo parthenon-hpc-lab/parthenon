@@ -388,7 +388,7 @@ struct par_for_outer_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
           name,
           policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
-            const auto indices = idxer.GetIdxCArray(team_member.league_rank());
+            const auto indices = idxer.GetIdxArray(team_member.league_rank());
             function(team_member, indices[Is]...);
           });
     } else {
