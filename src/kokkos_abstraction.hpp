@@ -304,6 +304,8 @@ struct DispatchSignature<TypeList<AllArgs...>> {
  private:
   using TL = TypeList<AllArgs...>;
   static constexpr std::size_t func_idx = FirstFuncIdx<TL>();
+  static_assert(sizeof...(AllArgs) > func_idx,
+                "Couldn't determine functor index in dispatc args");
 
  public:
   using LaunchBounds = typename TL::template continuous_sublist<0, func_idx - 1>;
@@ -537,7 +539,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     } else {
       dispatch(tag, std::make_index_sequence<Rank - Ninner>(),
                std::make_index_sequence<Ninner>(), name, exec_space, bound_arr, function,
-               std::forward<Args>(args)...);
+               std::forward<Args>(args)..., scratch_level, scratch_size_in_bytes);
     }
   }
 
@@ -549,7 +551,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   static inline void
   dispatch(LoopPatternFlatRange, sequence<OuterIs...>, sequence<InnerIs...>,
            std::string name, ExecSpace exec_space, std::array<IndexRange, Rank> bound_arr,
-           Function function, Args &&...args) {
+           Function function, Args &&...args, const int scratch_level,
+           const std::size_t scratch_size_in_bytes) {
     static_assert(sizeof...(InnerIs) == 0);
     auto idxer = MakeIndexer(bound_arr);
     kokkos_dispatch(
@@ -565,7 +568,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   static inline void
   dispatch(LoopPatternMDRange, sequence<OuterIs...>, sequence<InnerIs...>,
            std::string name, ExecSpace exec_space, std::array<IndexRange, Rank> bound_arr,
-           Function function, Args &&...args) {
+           Function function, Args &&...args, const int scratch_level,
+           const std::size_t scratch_size_in_bytes) {
     static_assert(sizeof...(InnerIs) == 0);
     kokkos_dispatch(
         Tag(), name,
@@ -578,13 +582,16 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   static inline void
   dispatch(LoopPatternTeamGeneric, sequence<OuterIs...>, sequence<InnerIs...>,
            std::string name, ExecSpace exec_space, std::array<IndexRange, Rank> bound_arr,
-           Function function, Args &&...args) {
+           Function function, Args &&...args, const int scratch_level,
+           const std::size_t scratch_size_in_bytes) {
     auto idxer =
         MakeIndexer(std::array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
     constexpr bool ParForOuter = std::is_same_v<OuterLoopPatternTeams, Pattern>;
     if constexpr (ParForOuter) {
       kokkos_dispatch(
-          Tag(), name, team_policy(exec_space, idxer.size(), Kokkos::AUTO),
+          Tag(), name,
+          team_policy(exec_space, idxer.size(), Kokkos::AUTO)
+              .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
           KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
             const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
             function(team_member, idx_arr[OuterIs]...,
