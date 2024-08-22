@@ -210,7 +210,7 @@ constexpr int FirstFuncIdx() {
   if constexpr (idx == TL::n_types) {
     return TL::n_types;
   } else {
-    using cur_type = typename TL::template type<idx>;
+    using cur_type = base_type<typename TL::template type<idx>>;
     if constexpr (is_functor<cur_type>::value) return idx;
     if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
     return FirstFuncIdx<TL, idx + 1>();
@@ -223,7 +223,7 @@ template <typename Bound>
 constexpr bool isBoundType() {
   using BoundTypes = TypeList<IndexRange>;
   using btype = base_type<Bound>;
-  return BoundTypes::template IsIn<btype>() || std::is_integral_v<btype>;
+  return std::is_same_v<IndexRange, btype> || std::is_integral_v<btype>;
 }
 
 template <typename... Bnds>
@@ -233,6 +233,7 @@ constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
     return 0;
   } else {
     using Bnd0 = typename TL::template type<0>;
+    static_assert(isBoundType<Bnd0>(), "unrecognized launch bound in par_dispatch");
     if constexpr (std::is_same_v<base_type<Bnd0>, IndexRange>) {
       return 2 + GetNumBounds(typename TL::template continuous_sublist<1>());
     } else if constexpr (std::is_integral_v<base_type<Bnd0>>) {
@@ -240,8 +241,6 @@ constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
       static_assert(std::is_integral_v<base_type<Bnd1>>,
                     "integer launch bounds need to come in (start, end) pairs");
       return 2 + GetNumBounds(typename TL::template continuous_sublist<2>());
-    } else {
-      static_assert(always_false<Bnd0>, "launch bound type not supported");
     }
   }
 }
