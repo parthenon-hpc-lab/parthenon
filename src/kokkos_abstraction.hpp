@@ -168,7 +168,7 @@ static struct LoopPatternMDRange : public PatternBase<0, 0> {
 // Kokkos::TeamThreadRange
 static struct LoopPatternTPTTR : public PatternBase<0, 1> {
   KOKKOS_FORCEINLINE_FUNCTION
-  static auto InnerRange(team_mbr_t& team_member, std::size_t size) {
+  static auto InnerRange(team_mbr_t &team_member, std::size_t size) {
     return Kokkos::TeamThreadRange<>(team_member, 0, size);
   }
 } loop_pattern_tpttr_tag;
@@ -176,7 +176,7 @@ static struct LoopPatternTPTTR : public PatternBase<0, 1> {
 // Kokkos::ThreadVectorRange
 static struct LoopPatternTPTVR : public PatternBase<0, 1> {
   KOKKOS_FORCEINLINE_FUNCTION
-  static auto InnerRange(team_mbr_t& team_member, std::size_t size) {
+  static auto InnerRange(team_mbr_t &team_member, std::size_t size) {
     return Kokkos::TeamVectorRange<>(team_member, 0, size);
   }
 } loop_pattern_tptvr_tag;
@@ -184,11 +184,11 @@ static struct LoopPatternTPTVR : public PatternBase<0, 1> {
 // inner Kokkos::ThreadVectorRange
 static struct LoopPatternTPTTRTVR : public PatternBase<1, 1> {
   KOKKOS_FORCEINLINE_FUNCTION
-  static auto MiddleRange(team_mbr_t& team_member, std::size_t size) {
+  static auto MiddleRange(team_mbr_t &team_member, std::size_t size) {
     return Kokkos::TeamThreadRange<>(team_member, 0, size);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  static auto InnerRange(team_mbr_t& team_member, std::size_t size) {
+  static auto InnerRange(team_mbr_t &team_member, std::size_t size) {
     return Kokkos::ThreadVectorRange<>(team_member, 0, size);
   }
 } loop_pattern_tpttrtvr_tag;
@@ -239,54 +239,54 @@ inline void kokkos_dispatch(ParallelScanDispatch, Args &&...args) {
 
 template <class Pattern, class BT_t, class Func, std::size_t... Is>
 void KokkosTwoLevelFor(DevExecSpace exec_space, const std::string &name,
-                  const BT_t &bound_trans, const Func &function,
-                  std::index_sequence<Is...>) {
+                       const BT_t &bound_trans, const Func &function,
+                       std::index_sequence<Is...>) {
   constexpr int nouter = sizeof...(Is) - Pattern::ninner;
   const auto outer_idxer = bound_trans.template GetIndexer<0, nouter>();
-  const auto inner_idxer = bound_trans.template GetIndexer<nouter, Pattern::ninner + nouter>();
+  const auto inner_idxer =
+      bound_trans.template GetIndexer<nouter, Pattern::ninner + nouter>();
   Kokkos::parallel_for(
       name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         // WARNING/QUESTION(LFR): Is this array defined per thread and is it safe
-        // update it at different levels of the parallel hierarchy? Could call 
-        // all of the indexers at the innermost level, but that results in more 
+        // update it at different levels of the parallel hierarchy? Could call
+        // all of the indexers at the innermost level, but that results in more
         // index calculations (which are unlikely to matter though).
         int indices[sizeof...(Is)];
         outer_idxer.GetIdxCArray(team_member.league_rank(), indices);
-        Kokkos::parallel_for(
-            Pattern::InnerRange(team_member, inner_idxer.size()),
-            [&](const int idx) {
-              inner_idxer.GetIdxCArray(idx, &indices[nouter]);
-              function(indices[Is]...);
-            });
+        Kokkos::parallel_for(Pattern::InnerRange(team_member, inner_idxer.size()),
+                             [&](const int idx) {
+                               inner_idxer.GetIdxCArray(idx, &indices[nouter]);
+                               function(indices[Is]...);
+                             });
       });
 }
 
 template <class Pattern, class BT_t, class Func, std::size_t... Is>
 void KokkosThreeLevelFor(DevExecSpace exec_space, const std::string &name,
-                    const BT_t &bound_trans, const Func &function,
-                    std::index_sequence<Is...>) {
+                         const BT_t &bound_trans, const Func &function,
+                         std::index_sequence<Is...>) {
   constexpr int nouter = sizeof...(Is) - Pattern::ninner - Pattern::nmiddle;
   const auto outer_idxer = bound_trans.template GetIndexer<0, nouter>();
-  const auto middle_idxer = bound_trans.template GetIndexer<nouter, Pattern::nmiddle + nouter>();
+  const auto middle_idxer =
+      bound_trans.template GetIndexer<nouter, Pattern::nmiddle + nouter>();
   const auto inner_idxer =
-      bound_trans.template GetIndexer<Pattern::nmiddle + nouter, Pattern::ninner + Pattern::nmiddle + nouter>();
+      bound_trans.template GetIndexer<Pattern::nmiddle + nouter,
+                                      Pattern::ninner + Pattern::nmiddle + nouter>();
   Kokkos::parallel_for(
       name, team_policy(exec_space, outer_idxer.size(), Kokkos::AUTO),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         // WARNING/QUESTION(LFR): Is this array defined per thread and is it safe
-        // update it at different levels of the parallel hierarchy? Could call 
-        // all of the indexers at the innermost level, but that results in more 
+        // update it at different levels of the parallel hierarchy? Could call
+        // all of the indexers at the innermost level, but that results in more
         // index calculations (which are unlikely to matter though).
         int indices[sizeof...(Is)];
         outer_idxer.GetIdxCArray(team_member.league_rank(), indices);
         Kokkos::parallel_for(
-            Pattern::MiddleRange(team_member, inner_idxer.size()),
-            [&](const int idx) {
+            Pattern::MiddleRange(team_member, inner_idxer.size()), [&](const int idx) {
               middle_idxer.GetIdxCArray(idx, &indices[nouter]);
               Kokkos::parallel_for(
-                  Pattern::InnerRange(team_member, inner_idxer.size()),
-                  [&](const int i) {
+                  Pattern::InnerRange(team_member, inner_idxer.size()), [&](const int i) {
                     inner_idxer.GetIdxCArray(i, &indices[nouter + Pattern::nmiddle]);
                     function(indices[Is]...);
                   });
@@ -460,23 +460,27 @@ struct par_dispatch_funct<Tag, Pattern, TypeList<Bound_ts...>, Function,
     } else if constexpr (doMDRange) {
       static_assert(total_rank > 1,
                     "MDRange pattern only works for multi-dimensional loops.");
-      auto policy = bound_trans.template GetKokkosMDRangePolicy<0, total_rank>(exec_space);
-      dispatch_impl::kokkos_dispatch(Tag(), name, policy, function, std::forward<ExtraArgs_ts>(args)...);
+      auto policy =
+          bound_trans.template GetKokkosMDRangePolicy<0, total_rank>(exec_space);
+      dispatch_impl::kokkos_dispatch(Tag(), name, policy, function,
+                                     std::forward<ExtraArgs_ts>(args)...);
     } else if constexpr (doFlatRange) {
       auto idxer = bound_trans.template GetIndexer<0, total_rank>();
-      auto policy = bound_trans.template GetKokkosFlatRangePolicy<0, total_rank>(exec_space); 
+      auto policy =
+          bound_trans.template GetKokkosFlatRangePolicy<0, total_rank>(exec_space);
       auto lam = KOKKOS_LAMBDA(const int &idx, FuncExtArgs_ts... fargs) {
-            const auto indices = idxer.GetIdxArray(idx);
-            function(indices[Is]..., fargs...);
-          };
-      dispatch_impl::kokkos_dispatch(Tag(), name, policy, lam, std::forward<ExtraArgs_ts>(args)...);
+        const auto indices = idxer.GetIdxArray(idx);
+        function(indices[Is]..., fargs...);
+      };
+      dispatch_impl::kokkos_dispatch(Tag(), name, policy, lam,
+                                     std::forward<ExtraArgs_ts>(args)...);
     } else if constexpr (doTPTTR || doTPTVR) {
       static_assert(Pattern::nmiddle == 0, "Two-level paralellism chosen.");
       dispatch_impl::KokkosTwoLevelFor<Pattern>(exec_space, name, bound_trans, function,
-          std::make_index_sequence<total_rank>());
+                                                std::make_index_sequence<total_rank>());
     } else if constexpr (doTPTTRTV) {
       dispatch_impl::KokkosThreeLevelFor<Pattern>(exec_space, name, bound_trans, function,
-          std::make_index_sequence<total_rank>());
+                                                  std::make_index_sequence<total_rank>());
     } else {
       printf("Loop pattern unsupported.");
     }
