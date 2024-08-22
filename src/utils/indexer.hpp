@@ -13,11 +13,12 @@
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
-#include <array>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+
+#include <Kokkos_Core.hpp>
 
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
@@ -97,8 +98,7 @@ struct Indexer {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetIdxArray(int idx) const {
-    return get_array_from_tuple(
-        GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
+    return GetIndicesArrayImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -125,9 +125,9 @@ struct Indexer {
     std::tuple<Ts...> idxs;
     (
         [&] {
-          std::get<Is>(idxs) = idx / std::get<Is>(N);
-          idx -= std::get<Is>(idxs) * std::get<Is>(N);
-          std::get<Is>(idxs) += std::get<Is>(start);
+          std::get<Is>(idxs) = idx / N[Is];
+          idx -= std::get<Is>(idxs) * N[Is];
+          std::get<Is>(idxs) += start[Is];
         }(),
         ...);
     return idxs;
@@ -144,25 +144,40 @@ struct Indexer {
         }(),
         ...);
   }
+  
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION
+  Kokkos::Array<int, sizeof...(Ts)>
+  GetIndicesArrayImpl(int idx, std::index_sequence<Is...>) const {
+    Kokkos::Array<int, sizeof...(Ts)> indices; 
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
+    return indices;
+  }
 
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION static std::array<int, sizeof...(Ts)>
+  KOKKOS_FORCEINLINE_FUNCTION static Kokkos::Array<int, sizeof...(Ts)>
   GetFactors(std::tuple<Ts...> Nt, std::index_sequence<Is...>) {
-    std::array<int, sizeof...(Ts)> N;
+    Kokkos::Array<int, sizeof...(Ts)> N;
     int cur = 1;
     (
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
-          std::get<idx>(N) = cur;
+          N[idx] = cur;
           cur *= std::get<idx>(Nt);
         }(),
         ...);
     return N;
   }
 
-  std::array<int, sizeof...(Ts)> N;
-  std::array<int, sizeof...(Ts)> start;
-  std::array<int, sizeof...(Ts)> end;
+  Kokkos::Array<int, sizeof...(Ts)> N;
+  Kokkos::Array<int, sizeof...(Ts)> start;
+  Kokkos::Array<int, sizeof...(Ts)> end;
   std::size_t _size;
 };
 
