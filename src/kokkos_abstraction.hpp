@@ -979,9 +979,9 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(team_mbr_t team_member, Args &&..
 // Inner reduction loops
 template <typename Function, typename T>
 KOKKOS_FORCEINLINE_FUNCTION void
-par_reduce_inner(team_mbr_t team_member, const int kl, const int ku, const int jl,
-                 const int ju, const int il, const int iu, const Function &function,
-                 T reduction) {
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int kl, const int ku,
+                 const int jl, const int ju, const int il, const int iu,
+                 const Function &function, T reduction) {
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
@@ -1003,8 +1003,8 @@ par_reduce_inner(team_mbr_t team_member, const int kl, const int ku, const int j
 
 template <typename Function, typename T>
 KOKKOS_FORCEINLINE_FUNCTION void
-par_reduce_inner(team_mbr_t team_member, const int jl, const int ju, const int il,
-                 const int iu, const Function &function, T reduction) {
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int jl, const int ju,
+                 const int il, const int iu, const Function &function, T reduction) {
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NjNi = Nj * Ni;
@@ -1021,9 +1021,9 @@ par_reduce_inner(team_mbr_t team_member, const int jl, const int ju, const int i
 }
 
 template <typename Function, typename T>
-KOKKOS_FORCEINLINE_FUNCTION void par_reduce_inner(team_mbr_t team_member, const int il,
-                                                  const int iu, const Function &function,
-                                                  T reduction) {
+KOKKOS_FORCEINLINE_FUNCTION void
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, const int iu,
+                 const Function &function, T reduction) {
   const int Ni = iu - il + 1;
   Kokkos::parallel_reduce(
       Kokkos::TeamThreadRange(team_member, Ni),
