@@ -384,13 +384,11 @@ struct par_for_outer_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
 
     if constexpr (std::is_same_v<OuterLoopPatternTeams, Pattern>) {
       team_policy policy(exec_space, idxer.size(), Kokkos::AUTO);
-
       Kokkos::parallel_for(
           name,
           policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
           KOKKOS_LAMBDA(team_mbr_t team_member) {
-            int indices[kTotalRank];
-            idxer.GetIdxCArray(team_member.league_rank(), indices);
+            const auto indices = idxer.GetIdxCArray(team_member.league_rank());
             function(team_member, indices[Is]...);
           });
     } else {
@@ -443,11 +441,10 @@ struct par_for_inner_funct_t<TypeList<Bound_ts...>, TypeList<Function>> {
     if constexpr (doSimd) {
       dispatch_impl::SimdFor(bound_trans, function);
     } else if constexpr (doTTR || doTVR || doThreadVR) {
-      auto idxer = bound_trans.template GetIndexer<0, bt_t::rank>();
+      const auto idxer = bound_trans.template GetIndexer<0, bt_t::rank>();
       Kokkos::parallel_for(Pattern::Range(team_member, idxer.size()),
                            [&](const int &idx) {
-                             int indices[kTotalRank];
-                             idxer.GetIdxCArray(idx, indices);
+                             const auto indices = idxer.GetIdxArray(idx);
                              function(indices[Is]...);
                            });
     } else {
