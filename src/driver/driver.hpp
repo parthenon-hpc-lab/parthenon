@@ -79,8 +79,8 @@ class EvolutionDriver : public Driver {
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;
-  void SetGlobalTimeStep();
-  void OutputCycleDiagnostics();
+  virtual void SetGlobalTimeStep();
+  virtual void OutputCycleDiagnostics();
   void DumpInputParameters();
 
   virtual TaskListStatus Step() = 0;
