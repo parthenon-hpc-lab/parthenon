@@ -405,36 +405,37 @@ struct InnerFunctor<Function, TypeList<Index...>,
   }
 };
 
-template <std::size_t Rank, typename IdxTeam, std::size_t... ThreadIs,
-          std::size_t... VectorIs, typename Function>
+template <std::size_t Rank, typename IdxTeam, std::size_t... TeamIs,
+          std::size_t... ThreadIs, std::size_t... VectorIs, typename Function>
 KOKKOS_FORCEINLINE_FUNCTION void
-dispatch_collapse(std::integer_sequence<std::size_t, ThreadIs...>,
+dispatch_collapse(std::integer_sequence<std::size_t, TeamIs...>,
+                  std::integer_sequence<std::size_t, ThreadIs...>,
                   std::integer_sequence<std::size_t, VectorIs...>, team_mbr_t team_member,
                   IdxTeam idxer_team, std::array<IndexRange, Rank> bound_arr,
                   Function function) {
+  constexpr std::size_t Nteam = sizeof...(TeamIs);
   constexpr std::size_t Nthread = sizeof...(ThreadIs);
   constexpr std::size_t Nvector = sizeof...(VectorIs);
-  auto inds_team = idxer_team(team_member.league_rank());
+  auto inds_team = idxer_team.GetIdxArray(team_member.league_rank());
   if constexpr (Nthread > 0) {
     auto idxer_thread =
         MakeIndexer(std::pair<int, int>(bound_arr[ThreadIs].s, bound_arr[ThreadIs].e)...);
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange<>(team_member, 0, idxer_thread.size()),
         [&](const int idThread) {
-          auto inds_thread = idxer_thread(idThread);
+          const auto inds_thread = idxer_thread.GetIdxArray(idThread);
           if constexpr (Nvector > 0) {
             auto idxer_vector = MakeIndexer(std::pair<int, int>(
                 bound_arr[Nthread + VectorIs].s, bound_arr[Nthread + VectorIs].e)...);
             Kokkos::parallel_for(
                 Kokkos::ThreadVectorRange(team_member, 0, idxer_vector.size()),
                 [&](const int idVector) {
-                  auto inds_all =
-                      std::tuple_cat(inds_team, inds_thread, idxer_vector(idVector));
-                  std::apply(function, inds_all);
+                  const auto inds_vector = idxer_vector.GetIdxArray(idVector);
+                  function(inds_team[TeamIs]..., inds_thread[ThreadIs]...,
+                           inds_vector[VectorIs]...);
                 });
           } else {
-            auto inds_all = std::tuple_cat(inds_team, inds_thread);
-            std::apply(function, inds_all);
+            function(inds_team[TeamIs]..., inds_thread[ThreadIs]...);
           }
         });
   } else {
@@ -442,9 +443,8 @@ dispatch_collapse(std::integer_sequence<std::size_t, ThreadIs...>,
         bound_arr[Nthread + VectorIs].s, bound_arr[Nthread + VectorIs].e)...);
     Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, 0, idxer_vector.size()),
                          [&](const int idVector) {
-                           auto inds_all =
-                               std::tuple_cat(inds_team, idxer_vector(idVector));
-                           std::apply(function, inds_all);
+                           const auto inds_vector = idxer_vector.GetIdxArray(idVector);
+                           function(inds_team[TeamIs]..., inds_vector[VectorIs]...);
                          });
   }
 }
@@ -461,12 +461,10 @@ void SimdFor(std::index_sequence<OuterIs...>, Function function,
     auto idxer =
         MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
     for (int idx = 0; idx < idxer.size(); idx++) {
-      auto indices = std::tuple_cat(idxer(idx), std::tuple<int>({0}));
+      const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
       for (int i = bounds[0].s; i <= bounds[0].e; i++) {
-        int &j = std::get<decltype(idxer)::rank>(indices);
-        j = i;
-        std::apply(function, indices);
+        function(indices[OuterIs]..., i);
       }
     }
   }
@@ -493,9 +491,9 @@ struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args
       auto idxer = Indexer<>();
       constexpr std::size_t Nthread = TeamPattern::Nthread;
       constexpr std::size_t Nvector = TeamPattern::Nvector;
-      dispatch_collapse<Rank>(std::make_index_sequence<Nthread>(),
-                              std::make_index_sequence<Nvector>(), team_member, idxer,
-                              bound_arr, function);
+      dispatch_collapse<Rank>(
+          std::make_index_sequence<0>(), std::make_index_sequence<Nthread>(),
+          std::make_index_sequence<Nvector>(), team_member, idxer, bound_arr, function);
     }
   }
 };
@@ -557,9 +555,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     kokkos_dispatch(
         Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
         KOKKOS_LAMBDA(const int idx, ExtraFuncArgs... fargs) {
-          auto idx_tuple = idxer(idx);
-          function(std::get<OuterIs>(idx_tuple)...,
-                   std::forward<ExtraFuncArgs>(fargs)...);
+          const auto idx_arr = idxer.GetIdxArray(idx);
+          function(idx_arr[OuterIs]..., std::forward<ExtraFuncArgs>(fargs)...);
         },
         std::forward<Args>(args)...);
   }
@@ -585,24 +582,30 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     auto idxer =
         MakeIndexer(std::array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
     constexpr bool ParForOuter = std::is_same_v<OuterLoopPatternTeams, Pattern>;
-    kokkos_dispatch(
-        Tag(), name, team_policy(exec_space, idxer.size(), Kokkos::AUTO),
-        KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-          if constexpr (ParForOuter) {
-            auto idx_tuple = idxer(team_member.league_rank());
-            function(team_member, std::get<OuterIs>(idx_tuple)...,
+    if constexpr (ParForOuter) {
+      kokkos_dispatch(
+          Tag(), name, team_policy(exec_space, idxer.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
+            const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
+            function(team_member, idx_arr[OuterIs]...,
                      std::forward<ExtraFuncArgs>(fargs)...);
-          } else {
+          },
+          std::forward<Args>(args)...);
+    } else {
+      kokkos_dispatch(
+          Tag(), name, team_policy(exec_space, idxer.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
             using TeamPattern = typename dispatch_type::TeamPattern;
             constexpr std::size_t Nvector = TeamPattern::Nvector;
             constexpr std::size_t Nthread = TeamPattern::Nthread;
             constexpr std::size_t Nouter = Rank - Nvector - Nthread;
             dispatch_collapse<sizeof...(InnerIs)>(
-                std::make_index_sequence<Nthread>(), std::make_index_sequence<Nvector>(),
-                team_member, idxer, {bound_arr[Nouter + InnerIs]...}, function);
-          }
-        },
-        std::forward<Args>(args)...);
+                std::make_index_sequence<Nouter>(), std::make_index_sequence<Nthread>(),
+                std::make_index_sequence<Nvector>(), team_member, idxer,
+                {bound_arr[Nouter + InnerIs]...}, function);
+          },
+          std::forward<Args>(args)...);
+    }
   }
 };
 
