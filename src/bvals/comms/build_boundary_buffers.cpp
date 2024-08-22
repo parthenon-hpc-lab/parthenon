@@ -52,6 +52,10 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
+    //  LR: Multigrid logic requires blocks sending messages to themselves (since the same
+    //  block can show up on two multigrid levels). This doesn't require any data
+    //  transfer, so the message size can be zero. It is essentially just a flag to show
+    //  that the block is done being used on one level and can be used on the next level.
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
@@ -60,12 +64,12 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
+    // See comment above on the same logic.
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
     if (pmesh->pool_map.count(buf_size) == 0) {
-      std::cerr << "Setting up a new pool for buffers of size " << buf_size << "\n";
       // Might be worth discussing what a good default is.
       // Using the number of packs, assumes that all blocks in a pack have fairly similar
       // buffer configurations, which may or may not be a good approximation.
@@ -74,10 +78,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       const int64_t nbuf = pmesh->DefaultNumPartitions();
       pmesh->pool_map.emplace(
           buf_size, buf_pool_t<Real>([buf_size, nbuf](buf_pool_t<Real> *pool) {
-            std::cerr << "Dynamically adding " << nbuf << " buffers of size " << buf_size
-                      << " to a pool with current size " << pool->NumBuffersInPool()
-                      << " and future size " << pool->NumBuffersInPool() + nbuf << "\n";
-
             const auto pool_size = nbuf * buf_size;
             buf_t chunk("pool buffer", pool_size);
             for (int i = 1; i < nbuf; ++i) {
@@ -92,9 +92,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     auto &pool = pmesh->pool_map.at(buf_size);
     const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool.NumBuffersInPool();
     if (new_buffers_req > 0) {
-      std::cerr << "Reserving " << new_buffers_req << " new buffers of size " << buf_size
-                << " to pool with " << pool.NumBuffersInPool() << " buffers because "
-                << nbufs.at(buf_size) << " are required in total.\n";
       const auto pool_size = new_buffers_req * buf_size;
       buf_t chunk("pool buffer", pool_size);
       for (int i = 0; i < new_buffers_req; ++i) {
