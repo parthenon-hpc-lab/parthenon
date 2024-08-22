@@ -144,12 +144,11 @@ struct Indexer {
         }(),
         ...);
   }
-  
+
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION
-  std::array<int, sizeof...(Ts)>
+  KOKKOS_FORCEINLINE_FUNCTION std::array<int, sizeof...(Ts)>
   GetIndicesArrayImpl(int idx, std::index_sequence<Is...>) const {
-    std::array<int, sizeof...(Ts)> indices; 
+    std::array<int, sizeof...(Ts)> indices;
     (
         [&] {
           indices[Is] = idx / N[Is];
