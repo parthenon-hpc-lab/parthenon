@@ -310,14 +310,12 @@ KOKKOS_INLINE_FUNCTION void SimdFor(const BoundTranslator_t &bound_trans,
     auto idxer = bound_trans.template GetIndexer<0, inner_start_rank>();
     const int istart = bound_trans[inner_start_rank].s;
     const int iend = bound_trans[inner_start_rank].e;
-    int indices[BoundTranslator_t::rank];
     // Loop over all outer indices using a flat indexer
     for (int idx = 0; idx < idxer.size(); ++idx) {
-      idxer.GetIdxCArray(idx, indices);
+      const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
-      for (indices[inner_start_rank] = istart; indices[inner_start_rank] <= iend;
-           ++indices[inner_start_rank]) {
-        function(indices[Is]...);
+      for (int i = istart; i <= iend; ++i) {
+        function(indices[Is]..., i);
       }
     }
   } else { // Easier to just explicitly specialize for 1D Simd loop
@@ -329,7 +327,7 @@ KOKKOS_INLINE_FUNCTION void SimdFor(const BoundTranslator_t &bound_trans,
 template <class BoundTranslator_t, class Function, std::size_t... Is>
 KOKKOS_FORCEINLINE_FUNCTION void SimdFor(const BoundTranslator_t &bound_trans,
                                          const Function &function) {
-  SimdFor(bound_trans, function, std::make_index_sequence<BoundTranslator_t::rank>());
+  SimdFor(bound_trans, function, std::make_index_sequence<BoundTranslator_t::rank - 1>());
 }
 
 } // namespace dispatch_impl
