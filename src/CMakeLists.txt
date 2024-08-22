@@ -281,6 +281,8 @@ add_library(parthenon
   globals.cpp
   globals.hpp
   kokkos_abstraction.hpp
+  kokkos_types.hpp
+  loop_bound_translator.hpp
   parameter_input.cpp
   parameter_input.hpp
   parthenon_array_generic.hpp
