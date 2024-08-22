@@ -37,6 +37,8 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1150]](https://github.com/parthenon-hpc-lab/parthenon/pull/1150) Reduce memory consumption for buffer pool
+- [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1152]](https://github.com/parthenon-hpc-lab/parthenon/pull/1152) Fix memory leak in task graph outputs related to `abi::__cxa_demangle`
 - [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1144]](https://github.com/parthenon-hpc-lab/parthenon/pull/1144) Fix some restarts w/non-CC fields
