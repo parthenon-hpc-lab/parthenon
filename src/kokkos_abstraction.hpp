@@ -465,7 +465,7 @@ void SimdFor(std::index_sequence<OuterIs...>, Function function,
     for (int idx = 0; idx < idxer.size(); idx++) {
       const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
-      for (int i = bounds[0].s; i <= bounds[0].e; i++) {
+      for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
         function(indices[OuterIs]..., i);
       }
     }
