@@ -226,7 +226,7 @@ void EvolutionDriver::SetGlobalTimeStep() {
       tm.dt = std::min(tm.dt, pmb->NewDt());
       pmb->SetAllowedDt(std::numeric_limits<Real>::max());
     }
-    // Allow the user to vote
+    // Allow the user to enforce maximum timestep
     tm.dt = std::min(tm.dt, dt_user);
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
