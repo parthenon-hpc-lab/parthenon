@@ -69,6 +69,21 @@ class EvolutionDriver : public Driver {
                                       std::numeric_limits<Real>::infinity());
     Real dt =
         pinput->GetOrAddReal("parthenon/time", "dt", std::numeric_limits<Real>::max());
+    dt_min = pinput->GetOrAddReal("parthenon/time", "dt_min",
+                                  std::numeric_limits<Real>::min());
+    dt_max = pinput->GetOrAddReal("parthenon/time", "dt_max",
+                                  std::numeric_limits<Real>::max());
+    dt_init = pinput->GetOrAddReal("parthenon/time", "dt_init",
+                                   std::numeric_limits<Real>::max());
+    dt_user = pinput->GetOrAddReal("parthenon/time", "dt_user",
+                                   std::numeric_limits<Real>::max());
+    dt_force = pinput->GetOrAddReal("parthenon/time", "dt_force",
+                                    std::numeric_limits<Real>::lowest());
+    dt_min_count_max =
+        pinput->GetOrAddInteger("parthenon/time", "dt_min_cycle_limit", 10);
+    dt_max_count_max = pinput->GetOrAddInteger("parthenon/time", "dt_max_cycle_limit", 1);
+    dt_min_count = 0;
+    dt_max_count = 0;
     const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
     const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
     const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
@@ -88,6 +103,9 @@ class EvolutionDriver : public Driver {
 
  protected:
   void PostExecute(DriverStatus status) override;
+  Real dt_user, dt_force, dt_init, dt_min, dt_max;
+  int dt_min_count, dt_max_count;
+  int dt_min_count_max, dt_max_count_max;
 
  private:
   void InitializeBlockTimeSteps();
