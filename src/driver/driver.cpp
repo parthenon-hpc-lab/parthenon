@@ -205,33 +205,36 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  // Check if user wants to force the value
   if (dt_force > 0.0) {
+    // Check if user wants to force the value
     tm.dt = dt_force;
+  } else if ((tm.ncycle == 0) && (dt_init_force) && (dt_init > 0.0)) {
+    // Check if user wants to force the first cycle value
+    tm.dt = dt_init;
   } else {
+    if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
+      // don't allow dt to grow by more than 2x
+      // consider making this configurable in the input
+      tm.dt *= dt_factor;
+    }
     // Check for special first cycle value
     if (tm.ncycle == 0) {
       tm.dt = std::min(tm.dt, dt_init);
     }
-    // don't allow dt to grow by more than 2x
-    // consider making this configurable in the input
-    if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
-      tm.dt *= 2.0;
-    }
     // Allow the meshblocks to vote
-    Real big = std::numeric_limits<Real>::max();
     for (auto const &pmb : pmesh->block_list) {
       tm.dt = std::min(tm.dt, pmb->NewDt());
-      pmb->SetAllowedDt(big);
+      pmb->SetAllowedDt(std::numeric_limits<Real>::max());
     }
     // Allow the user to vote
     tm.dt = std::min(tm.dt, dt_user);
-  }
-
+    // Force timestep to be in the allowable range
+    tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
-                                    MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL,
+                                      MPI_MIN, MPI_COMM_WORLD));
 #endif
+  }
 
   // Check that we have not gone off the rails
   if (tm.dt <= dt_min) {
@@ -256,6 +259,8 @@ void EvolutionDriver::SetGlobalTimeStep() {
   }
 
   // Limit timestep if it would take us past desired endpoint
+  // This comes after the bounds checking so that we don't fail when epsilon
+  // away from tlim
   if (tm.time < tm.tlim && (tm.tlim - tm.time) < tm.dt) {
     tm.dt = tm.tlim - tm.time;
   }
