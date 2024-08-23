@@ -240,9 +240,9 @@ void EvolutionDriver::SetGlobalTimeStep() {
       msg << "Timesetep has fallen bellow minimum (parthenon/time/dt_min=" << dt_min
           << ") for more than " << dt_min_count_max << " steps";
       PARTHENON_FAIL(msg);
-    } else {
-      dt_min_count = 0;
     }
+  } else {
+    dt_min_count = 0;
   }
   if (tm.dt >= dt_max) {
     if (++dt_max_count >= dt_max_count_max) {
@@ -250,9 +250,9 @@ void EvolutionDriver::SetGlobalTimeStep() {
       msg << "Timesetep has risen above maximum (parthenon/time/dt_max=" << dt_max
           << ") for more than " << dt_max_count_max << " steps";
       PARTHENON_FAIL(msg);
-    } else {
-      dt_max_count = 0;
     }
+  } else {
+    dt_max_count = 0;
   }
 
   // Limit timestep if it would take us past desired endpoint
