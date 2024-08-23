@@ -62,6 +62,8 @@ class ObjectPool {
     std::cout << inuse_.size() << " used objects." << std::endl;
   }
 
+  auto NumBuffersInPool() const { return inuse_.size() + available_.size(); }
+
   std::uint64_t SizeInBytes() const {
     constexpr std::uint64_t datum_size = sizeof(typename base_t::value_type);
     std::uint64_t object_size = 0;
