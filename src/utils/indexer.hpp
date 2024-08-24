@@ -200,7 +200,7 @@ template <>
 struct Indexer<> {
   // this is a dummy and shouldn't ever actually get used to index an array
   KOKKOS_FORCEINLINE_FUNCTION
-  Kokkos::Array<int, 1> GetIdxArray(int idx) { return {-1}; }
+  Kokkos::Array<int, 1> GetIdxArray(int idx) const { return {-1}; }
 };
 
 template <class... Ts>
