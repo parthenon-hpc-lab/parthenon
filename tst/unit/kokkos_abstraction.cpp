@@ -84,6 +84,25 @@ auto HostArrayND(Args &&...args) {
   }
 }
 
+template <size_t, size_t, typename>
+struct SequenceOfInt {};
+
+template <size_t VAL, size_t... ones>
+struct SequenceOfInt<0, VAL, std::integer_sequence<size_t, ones...>> {
+  using value = typename std::integer_sequence<size_t, ones...>;
+};
+
+template <size_t N, size_t VAL, size_t... ones>
+struct SequenceOfInt<N, VAL, std::integer_sequence<size_t, ones...>> {
+  using value =
+      typename SequenceOfInt<N - 1, VAL,
+                             std::integer_sequence<size_t, VAL, ones...>>::value;
+};
+
+template <size_t N, size_t VAL = 1>
+using sequence_of_int_v =
+    typename SequenceOfInt<N - 1, VAL, std::integer_sequence<size_t, VAL>>::value;
+
 enum class lbounds { integer, indexrange };
 
 template <size_t Rank, size_t N>
@@ -96,7 +115,7 @@ struct test_wrapper_nd_impl {
   decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
 
   test_wrapper_nd_impl() {
-    arr_dev = GetArray(parthenon::sequence_of_int_v<Rank, 1>());
+    arr_dev = GetArray(sequence_of_int_v<Rank, 1>());
     arr_host_orig = Kokkos::create_mirror(arr_dev);
     arr_host_mod = Kokkos::create_mirror(arr_dev);
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
