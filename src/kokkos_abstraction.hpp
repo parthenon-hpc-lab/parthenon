@@ -394,26 +394,6 @@ struct BoundTranslator {
 template <class... Bound_ts>
 struct BoundTranslator<TypeList<Bound_ts...>> : public BoundTranslator<Bound_ts...> {};
 
-template <typename, typename, typename>
-struct InnerFunctor {};
-
-template <typename Function, typename... Index, std::size_t... Iteam>
-struct InnerFunctor<Function, TypeList<Index...>,
-                    std::integer_sequence<size_t, Iteam...>> {
-  static constexpr std::size_t Nteam = sizeof...(Iteam);
-  Function function;
-  Kokkos::Array<int, Nteam> inds_team;
-
-  KOKKOS_INLINE_FUNCTION
-  InnerFunctor(Kokkos::Array<int, Nteam> _inds_team, Function _function)
-      : inds_team(_inds_team), function(_function) {}
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  void operator()(Index... inds) const {
-    function(inds_team[Iteam]..., std::forward<Index>(inds)...);
-  }
-};
-
 template <std::size_t Rank, typename IdxTeam, std::size_t Nteam, std::size_t Nthread,
           std::size_t Nvector, typename Function, typename... ExtraFuncArgs>
 struct dispatch_collapse {
@@ -568,7 +548,6 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   inline void dispatch(std::string name, ExecSpace exec_space, Bounds &&...bounds,
                        Function function, Args &&...args, const int scratch_level = 0,
                        const std::size_t scratch_size_in_bytes = 0) {
-    PARTHENON_INSTRUMENT_REGION(name)
     constexpr std::size_t Ninner =
         dispatch_type::TeamPattern::Nvector + dispatch_type::TeamPattern::Nthread;
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
