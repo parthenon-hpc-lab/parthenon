@@ -106,18 +106,23 @@ struct Indexer {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
+  auto GetIdxKArray(int idx) const {
+    return GetIndicesKArrayImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
   void GetIdxCArray(int idx, int *indices) const {
     GetIndicesCArrayImpl(idx, indices, std::make_index_sequence<sizeof...(Ts)>());
   }
 
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto StartIdx() const {
-    return std::get<I>(start);
+    return start[I];
   }
 
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto EndIdx() const {
-    return std::get<I>(end);
+    return end[I];
   }
 
   static const constexpr std::size_t rank = sizeof...(Ts);
@@ -151,8 +156,22 @@ struct Indexer {
 
   template <std::size_t... Is>
   KOKKOS_FORCEINLINE_FUNCTION Kokkos::Array<int, sizeof...(Ts)>
-  GetIndicesArrayImpl(int idx, std::index_sequence<Is...>) const {
+  GetIndicesKArrayImpl(int idx, std::index_sequence<Is...>) const {
     Kokkos::Array<int, sizeof...(Ts)> indices;
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
+    return indices;
+  }
+
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION std::array<int, sizeof...(Ts)>
+  GetIndicesArrayImpl(int idx, std::index_sequence<Is...>) const {
+    std::array<int, sizeof...(Ts)> indices;
     (
         [&] {
           indices[Is] = idx / N[Is];
@@ -200,7 +219,7 @@ template <>
 struct Indexer<> {
   // this is a dummy and shouldn't ever actually get used to index an array
   KOKKOS_FORCEINLINE_FUNCTION
-  Kokkos::Array<int, 1> GetIdxArray(int idx) const { return {-1}; }
+  Kokkos::Array<int, 1> GetIdxKArray(int idx) const { return {-1}; }
 };
 
 template <class... Ts>
