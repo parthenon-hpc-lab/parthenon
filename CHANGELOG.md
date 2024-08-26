@@ -30,6 +30,7 @@
 - [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1153]](https://github.com/parthenon-hpc-lab/parthenon/pull/1153) Allow base grid with fewer blocks than ranks before initial AMR
 - [[PR 1105]](https://github.com/parthenon-hpc-lab/parthenon/pull/1105) Refactor parameter input for linear solvers
 - [[PR 1078]](https://github.com/parthenon-hpc-lab/parthenon/pull/1078) Add reduction fallback in 1D. Add IndexRange overload for 1D par loops
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
@@ -37,6 +38,8 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1145]](https://github.com/parthenon-hpc-lab/parthenon/pull/1145) Fix remaining swarm D->H->D copies
+- [[PR 1150]](https://github.com/parthenon-hpc-lab/parthenon/pull/1150) Reduce memory consumption for buffer pool
+- [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1152]](https://github.com/parthenon-hpc-lab/parthenon/pull/1152) Fix memory leak in task graph outputs related to `abi::__cxa_demangle`
 - [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1144]](https://github.com/parthenon-hpc-lab/parthenon/pull/1144) Fix some restarts w/non-CC fields
