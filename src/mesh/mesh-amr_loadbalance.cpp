@@ -388,18 +388,16 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
 
 void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
                      std::vector<int> &nblist) {
-  nslist.resize(Globals::nranks);
-  nblist.resize(Globals::nranks);
+  // First count the number of blocks on each rank
+  nblist = std::vector<int>(Globals::nranks, 0);
+  for (int b = ranklist.size() - 1; b >= 0; --b)
+    nblist[ranklist[b]]++;
 
-  nslist[0] = 0;
-  int rank = 0;
-  for (int block_id = 1; block_id < ranklist.size(); block_id++) {
-    if (ranklist[block_id] != ranklist[block_id - 1]) {
-      nblist[rank] = block_id - nslist[rank];
-      nslist[++rank] = block_id;
-    }
-  }
-  nblist[rank] = ranklist.size() - nslist[rank];
+  // Then find the starting gid of the blocks, assuming they
+  // are apportioned in increasing order
+  nslist = std::vector<int>(Globals::nranks, 0);
+  for (int b = 1; b < nslist.size(); ++b)
+    nslist[b] = nslist[b - 1] + nblist[b - 1];
 }
 } // namespace
 
@@ -735,30 +733,32 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
-  ProResCache_t restriction_cache;
-  int nrestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    auto pmb = FindMeshBlock(on);
-    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
-  }
-  restriction_cache.Initialize(nrestrict, resolved_packages.get());
-  int irestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    if (newloc[nn].level() < loclist[on].level()) {
+  if (block_list.size() > 0) {
+    ProResCache_t restriction_cache;
+    int nrestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
       auto pmb = FindMeshBlock(on);
-      for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(
-            irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
-            var.get(), resolved_packages.get());
+      if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
+    }
+    restriction_cache.Initialize(nrestrict, resolved_packages.get());
+    int irestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
+      if (newloc[nn].level() < loclist[on].level()) {
+        auto pmb = FindMeshBlock(on);
+        for (auto &var : pmb->vars_cc_) {
+          restriction_cache.RegisterRegionHost(
+              irestrict++,
+              ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var), var.get(),
+              resolved_packages.get());
+        }
       }
     }
+    restriction_cache.CopyToDevice();
+    refinement::Restrict(resolved_packages.get(), restriction_cache,
+                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
   }
-  restriction_cache.CopyToDevice();
-  refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
@@ -912,23 +912,26 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto pmb = FindMeshBlock(nn);
       if (newloc[nn].level() > loclist[on].level()) nprolong += pmb->vars_cc_.size();
     }
-    prolongation_cache.Initialize(nprolong, resolved_packages.get());
-    int iprolong = 0;
-    for (int nn = nbs; nn <= nbe; nn++) {
-      int on = newtoold[nn];
-      if (newloc[nn].level() > loclist[on].level()) {
-        auto pmb = FindMeshBlock(nn);
-        for (auto &var : pmb->vars_cc_) {
-          prolongation_cache.RegisterRegionHost(
-              iprolong++,
-              ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var),
-              var.get(), resolved_packages.get());
+    if (nprolong > 0) {
+      prolongation_cache.Initialize(nprolong, resolved_packages.get());
+      int iprolong = 0;
+      for (int nn = nbs; nn <= nbe; nn++) {
+        int on = newtoold[nn];
+        if (newloc[nn].level() > loclist[on].level()) {
+          auto pmb = FindMeshBlock(nn);
+          for (auto &var : pmb->vars_cc_) {
+            prolongation_cache.RegisterRegionHost(
+                iprolong++,
+                ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var),
+                var.get(), resolved_packages.get());
+          }
         }
+        prolongation_cache.CopyToDevice();
       }
-      prolongation_cache.CopyToDevice();
+      refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
+                                   block_list[0]->cellbounds,
+                                   block_list[0]->c_cellbounds);
     }
-    refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
     // update the lists
     loclist = std::move(newloc);
@@ -978,9 +981,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                     // ghosts of non-cell centered vars may get some junk
       // Now there is the correct data for prolongating on un-shared topological elements
       // on the new fine blocks
-      refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                     block_list[0]->cellbounds,
-                                     block_list[0]->c_cellbounds);
+      if (nprolong > 0) {
+        refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                       block_list[0]->cellbounds,
+                                       block_list[0]->c_cellbounds);
+      }
     }
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
