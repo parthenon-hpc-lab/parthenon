@@ -309,7 +309,7 @@ struct DispatchSignature<TypeList<AllArgs...>> {
   using TL = TypeList<AllArgs...>;
   static constexpr std::size_t func_idx = FirstFuncIdx<TL>();
   static_assert(sizeof...(AllArgs) > func_idx,
-                "Couldn't determine functor index in dispatc args");
+                "Couldn't determine functor index from dispatch args");
 
  public:
   using LaunchBounds = typename TL::template continuous_sublist<0, func_idx - 1>;
@@ -340,10 +340,13 @@ struct DispatchType {
     constexpr bool IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
     constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
     constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
-    // fallback simd par_reduce to flat range and force par_scan to flat range
-    if constexpr (IsFlatRange || (IsSimdFor && !is_ParFor)) return LoopPatternFlatRange();
-    if constexpr (IsSimdFor && is_ParFor) return LoopPatternSimdFor();
-    if constexpr (IsMDRange && !is_ParScan) return LoopPatternMDRange();
+
+    if constexpr (is_ParScan) return LoopPatternFlatRange();
+    if constexpr (IsFlatRange) return LoopPatternFlatRange();
+    if constexpr (IsSimdFor) {
+      return std::conditional_t<is_ParFor, LoopPatternSimdFor, LoopPatternFlatRange>();
+    }
+    if constexpr (IsMDRange) return LoopPatternMDRange();
     if constexpr (TeamPattern::value) {
       if constexpr (std::is_same_v<Pattern, OuterLoopPatternTeams>) {
         return OuterLoopPatternTeams();
@@ -394,26 +397,6 @@ struct BoundTranslator {
 template <class... Bound_ts>
 struct BoundTranslator<TypeList<Bound_ts...>> : public BoundTranslator<Bound_ts...> {};
 
-template <typename, typename, typename>
-struct InnerFunctor {};
-
-template <typename Function, typename... Index, std::size_t... Iteam>
-struct InnerFunctor<Function, TypeList<Index...>,
-                    std::integer_sequence<size_t, Iteam...>> {
-  static constexpr std::size_t Nteam = sizeof...(Iteam);
-  Function function;
-  Kokkos::Array<int, Nteam> inds_team;
-
-  KOKKOS_INLINE_FUNCTION
-  InnerFunctor(Kokkos::Array<int, Nteam> _inds_team, Function _function)
-      : inds_team(_inds_team), function(_function) {}
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  void operator()(Index... inds) const {
-    function(inds_team[Iteam]..., std::forward<Index>(inds)...);
-  }
-};
-
 template <std::size_t Rank, typename IdxTeam, std::size_t Nteam, std::size_t Nthread,
           std::size_t Nvector, typename Function, typename... ExtraFuncArgs>
 struct dispatch_collapse {
@@ -428,25 +411,27 @@ struct dispatch_collapse {
   template <std::size_t... TeamIs, std::size_t... ThreadIs, std::size_t... VectorIs,
             typename... Args>
   KOKKOS_FORCEINLINE_FUNCTION void
-  dispatch(std::integer_sequence<std::size_t, TeamIs...>,
-           std::integer_sequence<std::size_t, ThreadIs...>,
-           std::integer_sequence<std::size_t, VectorIs...>, team_mbr_t team_member,
-           Args &&...args) const {
-    auto inds_team = idxer_team.GetIdxArray(team_member.league_rank());
+  execute(std::integer_sequence<std::size_t, TeamIs...>,
+          std::integer_sequence<std::size_t, ThreadIs...>,
+          std::integer_sequence<std::size_t, VectorIs...>, team_mbr_t team_member,
+          Args &&...args) const {
+    auto inds_team = idxer_team.GetIdxKArray(team_member.league_rank());
     if constexpr (Nthread > 0) {
-      auto idxer_thread =
+      const auto idxer_thread =
           MakeIndexer(Kokkos::Array<IndexRange, Nthread>{bound_arr[ThreadIs]...});
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange<>(team_member, 0, idxer_thread.size()),
           [&](const int idThread, ExtraFuncArgs... fargs) {
-            const auto inds_thread = idxer_thread.GetIdxArray(idThread);
+            const auto inds_thread = idxer_thread.GetIdxKArray(idThread);
             if constexpr (Nvector > 0) {
-              auto idxer_vector = MakeIndexer(
+              static_assert(Nvector * Nthread == 0 || sizeof...(Args) == 0,
+                            "thread + vector range pattern only supported for par_for ");
+              const auto idxer_vector = MakeIndexer(
                   Kokkos::Array<IndexRange, Nvector>{bound_arr[Nthread + VectorIs]...});
               Kokkos::parallel_for(
                   Kokkos::ThreadVectorRange(team_member, 0, idxer_vector.size()),
                   [&](const int idVector) {
-                    const auto inds_vector = idxer_vector.GetIdxArray(idVector);
+                    const auto inds_vector = idxer_vector.GetIdxKArray(idVector);
                     function(inds_team[TeamIs]..., inds_thread[ThreadIs]...,
                              inds_vector[VectorIs]...,
                              std::forward<ExtraFuncArgs>(fargs)...);
@@ -458,12 +443,12 @@ struct dispatch_collapse {
           },
           std::forward<Args>(args)...);
     } else {
-      auto idxer_vector = MakeIndexer(
+      const auto idxer_vector = MakeIndexer(
           Kokkos::Array<IndexRange, Nvector>{bound_arr[Nthread + VectorIs]...});
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(team_member, 0, idxer_vector.size()),
           [&](const int idVector, ExtraFuncArgs... fargs) {
-            const auto inds_vector = idxer_vector.GetIdxArray(idVector);
+            const auto inds_vector = idxer_vector.GetIdxKArray(idVector);
             function(inds_team[TeamIs]..., inds_vector[VectorIs]...,
                      std::forward<ExtraFuncArgs>(fargs)...);
           },
@@ -475,7 +460,7 @@ struct dispatch_collapse {
   using sequence = std::make_index_sequence<N>;
   KOKKOS_FORCEINLINE_FUNCTION
   void operator()(team_mbr_t team_member) const {
-    dispatch(sequence<Nteam>(), sequence<Nthread>(), sequence<Nvector>(), team_member);
+    execute(sequence<Nteam>(), sequence<Nthread>(), sequence<Nvector>(), team_member);
   }
 };
 
@@ -488,18 +473,18 @@ MakeCollapse(IdxTeam idxer, Kokkos::Array<IndexRange, Rank> bounds, Function fun
 }
 
 template <std::size_t Rank, std::size_t... OuterIs, typename Function>
-void SimdFor(std::index_sequence<OuterIs...>, Function function,
-             Kokkos::Array<IndexRange, Rank> bounds) {
+KOKKOS_INLINE_FUNCTION void SimdFor(std::index_sequence<OuterIs...>, Function function,
+                                    Kokkos::Array<IndexRange, Rank> bounds) {
   if constexpr (Rank == 1) {
 #pragma omp simd
     for (int i = bounds[0].s; i <= bounds[0].e; i++) {
       function(i);
     }
   } else {
-    auto idxer =
+    const auto idxer =
         MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
     for (int idx = 0; idx < idxer.size(); idx++) {
-      const auto indices = idxer.GetIdxArray(idx);
+      const auto indices = idxer.GetIdxKArray(idx);
 #pragma omp simd
       for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
         function(indices[OuterIs]..., i);
@@ -518,19 +503,26 @@ struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args
   using bound_translator = BoundTranslator<Bounds...>;
   static constexpr std::size_t Rank = bound_translator::rank;
   using TeamPattern = LoopPatternTeam<Pattern, std::integral_constant<std::size_t, Rank>>;
+  template <std::size_t N>
+  using sequence = std::make_index_sequence<N>;
 
-  KOKKOS_FORCEINLINE_FUNCTION void dispatch(team_mbr_t team_member, Bounds &&...bounds,
-                                            Function function, Args &&...args) {
-    // TODO(acreyes): I don't think this static method will wokr on device...
+  KOKKOS_FORCEINLINE_FUNCTION void execute(team_mbr_t team_member, Bounds &&...bounds,
+                                           Function function, Args &&...args) {
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
-    if constexpr (std::is_same_v<InnerLoopPatternSimdFor, Pattern>) {
+    constexpr bool isSimdFor = std::is_same_v<InnerLoopPatternSimdFor, Pattern>;
+    if constexpr (isSimdFor) {
+      static_assert(!isSimdFor ||
+                        (isSimdFor && std::is_same_v<DevExecSpace, HostExecSpace>),
+                    "par_inner simd for pattern only supported on HostExecSpace");
       SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
     } else {
       auto idxer = Indexer<>();
       constexpr std::size_t Nthread = TeamPattern::Nthread;
       constexpr std::size_t Nvector = TeamPattern::Nvector;
       MakeCollapse<Rank, 0, Nthread, Nvector, ExtraFuncArgs...>(idxer, bound_arr,
-                                                                function)(team_member);
+                                                                function)
+          .execute(sequence<0>(), sequence<Nthread>(), sequence<Nvector>(), team_member,
+                   std::forward<Args>(args)...);
     }
   }
 };
@@ -544,7 +536,7 @@ KOKKOS_FORCEINLINE_FUNCTION void par_disp_inner(Pattern, team_mbr_t team_member,
   using LaunchBounds = typename dispatchsig::LaunchBounds;
   using Args = typename dispatchsig::Args;
   using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
-  par_disp_inner_impl<Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().dispatch(
+  par_disp_inner_impl<Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().execute(
       team_member, std::forward<AllArgs>(args)...);
 }
 
@@ -563,12 +555,15 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   inline void dispatch(std::string name, ExecSpace exec_space, Bounds &&...bounds,
                        Function function, Args &&...args, const int scratch_level = 0,
                        const std::size_t scratch_size_in_bytes = 0) {
-    PARTHENON_INSTRUMENT_REGION(name)
     constexpr std::size_t Ninner =
         dispatch_type::TeamPattern::Nvector + dispatch_type::TeamPattern::Nthread;
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     constexpr auto pattern_tag = dispatch_type::GetPatternTag();
-    if constexpr (std::is_same_v<LoopPatternSimdFor, base_type<decltype(pattern_tag)>>) {
+    constexpr bool isSimdFor =
+        std::is_same_v<LoopPatternSimdFor, base_type<decltype(pattern_tag)>>;
+    if constexpr (isSimdFor) {
+      static_assert(!isSimdFor || (isSimdFor && std::is_same_v<ExecSpace, HostExecSpace>),
+                    "SimdFor pattern only supported in HostExecSpace");
       SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
     } else {
       dispatch_impl(pattern_tag, std::make_index_sequence<Rank - Ninner>(),
@@ -588,11 +583,11 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             Args &&...args, const int scratch_level,
                             const std::size_t scratch_size_in_bytes) {
     static_assert(sizeof...(InnerIs) == 0);
-    auto idxer = MakeIndexer(bound_arr);
+    const auto idxer = MakeIndexer(bound_arr);
     kokkos_dispatch(
         Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
         KOKKOS_LAMBDA(const int idx, ExtraFuncArgs... fargs) {
-          const auto idx_arr = idxer.GetIdxArray(idx);
+          const auto idx_arr = idxer.GetIdxKArray(idx);
           function(idx_arr[OuterIs]..., std::forward<ExtraFuncArgs>(fargs)...);
         },
         std::forward<Args>(args)...);
@@ -618,14 +613,14 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
                             const std::size_t scratch_size_in_bytes) {
-    auto idxer =
+    const auto idxer =
         MakeIndexer(Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
     kokkos_dispatch(
         Tag(), name,
         team_policy(exec_space, idxer.size(), Kokkos::AUTO)
             .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
         KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-          const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
+          const auto idx_arr = idxer.GetIdxKArray(team_member.league_rank());
           function(team_member, idx_arr[OuterIs]...,
                    std::forward<ExtraFuncArgs>(fargs)...);
         },
@@ -638,7 +633,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
                             const std::size_t scratch_size_in_bytes) {
-    auto idxer =
+    const auto idxer =
         MakeIndexer(Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
     using TeamPattern = typename dispatch_type::TeamPattern;
     constexpr std::size_t Nvector = TeamPattern::Nvector;
@@ -676,6 +671,30 @@ template <typename Tag, typename... Args>
 inline void par_dispatch(const std::string &name, Args &&...args) {
   par_dispatch<Tag>(DEFAULT_LOOP_PATTERN, name, DevExecSpace(),
                     std::forward<Args>(args)...);
+}
+
+template <class, class>
+struct seq_for_impl {};
+
+template <class Function, class... Bounds>
+struct seq_for_impl<Function, TypeList<Bounds...>> {
+
+  KOKKOS_INLINE_FUNCTION void execute(Bounds &&...bounds, Function function) {
+    using bound_translator = BoundTranslator<Bounds...>;
+    constexpr std::size_t Rank = bound_translator::rank;
+    const auto bound_arr =
+        bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
+    SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
+  }
+};
+
+template <class... Args>
+KOKKOS_INLINE_FUNCTION void seq_for(Args &&...args) {
+  using dispatchsig = DispatchSignature<TypeList<Args...>>;
+  using Function = typename dispatchsig::Function;
+  using LaunchBounds = typename dispatchsig::LaunchBounds;
+
+  seq_for_impl<Function, LaunchBounds>().execute(std::forward<Args>(args)...);
 }
 
 template <class... Args>

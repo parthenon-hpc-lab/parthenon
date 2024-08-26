@@ -150,30 +150,10 @@ auto ListOfType() {
     return concatenate_type_lists_t<TypeList<T>, decltype(ListOfType<N - 1, T>())>();
   }
 }
-
-template <size_t, size_t, typename>
-struct SequenceOfInt {};
-
-template <size_t VAL, size_t... ones>
-struct SequenceOfInt<0, VAL, std::integer_sequence<size_t, ones...>> {
-  using value = typename std::integer_sequence<size_t, ones...>;
-};
-
-template <size_t N, size_t VAL, size_t... ones>
-struct SequenceOfInt<N, VAL, std::integer_sequence<size_t, ones...>> {
-  using value =
-      typename SequenceOfInt<N - 1, VAL,
-                             std::integer_sequence<size_t, VAL, ones...>>::value;
-};
-
 } // namespace impl
 
 template <size_t N, class T>
 using list_of_type_t = decltype(impl::ListOfType<N, T>());
-
-template <size_t N, size_t VAL = 1>
-using sequence_of_int_v =
-    typename impl::SequenceOfInt<N - 1, VAL, std::integer_sequence<size_t, VAL>>::value;
 
 template <class Function>
 struct FuncSignature;
@@ -262,26 +242,6 @@ struct FunctionSignature<Rank, R (T::*)(Arg0, Args...) const> {
 
 template <size_t Rank, typename F>
 using function_signature = FunctionSignature<Rank, decltype(&base_type<F>::operator())>;
-
-/* template <class Function> */
-/* struct FuncSignature; */
-
-/* template <class Functor> */
-/* struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {}; */
-
-/* template <class R, class... Args> */
-/* struct FuncSignature<R(Args...)> { */
-/*   using type = R(Args...); */
-/*   using arg_types_tl = TypeList<Args...>; */
-/*   using ret_type = R; */
-/* }; */
-
-/* template <class R, class T, class... Args> */
-/* struct FuncSignature<R (T::*)(Args...) const> { */
-/*   using type = R (T::*)(Args...); */
-/*   using arg_types_tl = TypeList<Args...>; */
-/*   using ret_type = R; */
-/* }; */
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
