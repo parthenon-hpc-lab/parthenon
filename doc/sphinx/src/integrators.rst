@@ -63,6 +63,8 @@ associated with a particular scheme are published in the literature, :math:`c` i
 Instead, :math:`c` is computed following the procedure outlined in 
 `Ketchson (2010)`_ for obtaining the Butcher coefficients from their low-storage
 counterparts.
+A Mathematica notebook to calculate :math:`c` is provided
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/scripts/mathematica/sparse_integrators.nb>`__.
 
 .. _Ketchson (2010): https://doi.org/10.1016/j.jcp.2009.11.006
 
