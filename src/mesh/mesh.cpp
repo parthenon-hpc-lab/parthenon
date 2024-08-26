@@ -326,12 +326,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
+    if (mesh_test != 0) {
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
@@ -356,6 +351,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
+
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -398,9 +394,6 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
       grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
       DefaultPackSize());
-  // Account for possibly empty block_list
-  if (partition_blocklists.size() == 0)
-    partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
@@ -725,6 +718,8 @@ void Mesh::PreCommFillDerived() {
   }
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
+    PARTHENON_REQUIRE(partition->pmesh == this, "Bad partition mesh pointer");
+    PARTHENON_REQUIRE(md->GetParentPointer() == this, "Bad mesh pointer");
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -847,12 +842,25 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in Mesh Initialize" << std::endl
+        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal
+        << ") < nranks (" << Globals::nranks << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+#endif
+
   // Initialize the "base" MeshData object
   mesh_data.Get()->Initialize(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
+  PARTHENON_REQUIRE(block_list.size() > 0,
+                    "Trying to call FindMeshBlock with empty block list");
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;
@@ -878,24 +886,24 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 
-// TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) *
+         base_block_size.nx(X3DIR);
 }
 
-const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  MeshBlock *pmb = block_list[0].get();
+const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  auto shapes = GetIndexShapes(
+      ndim > 0 ? base_block_size.nx(X1DIR) : 0, ndim > 1 ? base_block_size.nx(X2DIR) : 0,
+      ndim > 2 ? base_block_size.nx(X3DIR) : 0, multilevel, this);
   if (level == CellLevel::same) {
-    return pmb->cellbounds;
+    return shapes[0];
   } else if (level == CellLevel::fine) {
-    return pmb->f_cellbounds;
+    return shapes[1];
   } else { // if (level == CellLevel::coarse) {
-    return pmb->c_cellbounds;
+    return shapes[2];
   }
 }
 

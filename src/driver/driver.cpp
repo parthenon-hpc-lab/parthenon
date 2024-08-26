@@ -205,25 +205,65 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  // don't allow dt to grow by more than 2x
-  // consider making this configurable in the input
-  if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
-    tm.dt *= 2.0;
-  }
-  Real big = std::numeric_limits<Real>::max();
-  for (auto const &pmb : pmesh->block_list) {
-    tm.dt = std::min(tm.dt, pmb->NewDt());
-    pmb->SetAllowedDt(big);
-  }
-
+  if (dt_force > 0.0) {
+    // Check if user wants to force the value
+    tm.dt = dt_force;
+  } else if ((tm.ncycle == 0) && (dt_init_force) && (dt_init > 0.0)) {
+    // Check if user wants to force the first cycle value
+    tm.dt = dt_init;
+  } else {
+    if (tm.dt < 0.1 * std::numeric_limits<Real>::max()) {
+      // don't allow dt to grow by more than 2x
+      // consider making this configurable in the input
+      tm.dt *= dt_factor;
+    }
+    // Check for special first cycle value
+    if (tm.ncycle == 0) {
+      tm.dt = std::min(tm.dt, dt_init);
+    }
+    // Allow the meshblocks to vote
+    for (auto const &pmb : pmesh->block_list) {
+      tm.dt = std::min(tm.dt, pmb->NewDt());
+      pmb->SetAllowedDt(std::numeric_limits<Real>::max());
+    }
+    // Allow the user to enforce maximum timestep
+    tm.dt = std::min(tm.dt, dt_user);
+    // Force timestep to be in the allowable range
+    tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
-                                    MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL,
+                                      MPI_MIN, MPI_COMM_WORLD));
 #endif
+  }
 
-  if (tm.time < tm.tlim &&
-      (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
+  // Check that we have not gone off the rails
+  if (tm.dt <= dt_min) {
+    if (++dt_min_count >= dt_min_count_max) {
+      std::stringstream msg;
+      msg << "Timesetep has fallen bellow minimum (parthenon/time/dt_min=" << dt_min
+          << ") for more than " << dt_min_count_max << " steps";
+      PARTHENON_FAIL(msg);
+    }
+  } else {
+    dt_min_count = 0;
+  }
+  if (tm.dt >= dt_max) {
+    if (++dt_max_count >= dt_max_count_max) {
+      std::stringstream msg;
+      msg << "Timesetep has risen above maximum (parthenon/time/dt_max=" << dt_max
+          << ") for more than " << dt_max_count_max << " steps";
+      PARTHENON_FAIL(msg);
+    }
+  } else {
+    dt_max_count = 0;
+  }
+
+  // Limit timestep if it would take us past desired endpoint
+  // This comes after the bounds checking so that we don't fail when epsilon
+  // away from tlim
+  if (tm.time < tm.tlim && (tm.tlim - tm.time) < tm.dt) {
     tm.dt = tm.tlim - tm.time;
+  }
 }
 
 void EvolutionDriver::DumpInputParameters() {
