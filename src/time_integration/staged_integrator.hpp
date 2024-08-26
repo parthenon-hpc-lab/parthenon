@@ -55,7 +55,8 @@ class LowStorageIntegrator : public StagedIntegrator {
   std::vector<Real> beta;
   std::vector<Real> gam0;
   std::vector<Real> gam1;
-  std::vector<Real> c; // time offset of each stage
+  // Time offset of each stage. See scripts/mathematica/sparse_integrators.nb
+  std::vector<Real> c;
 };
 
 // TODO(JMM): Should this be named ButcherTableauIntegrator?
