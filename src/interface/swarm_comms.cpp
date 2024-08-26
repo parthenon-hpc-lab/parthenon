@@ -130,36 +130,6 @@ void Swarm::SetNeighborIndices_() {
     }
   }
 
-  // Draft alternative approach due to LFR utilizing mesh offset comparisons at the
-  // highest refinement level
-  // auto ll_block = pmb->loc.GetDaughter(0, 0, 0);
-  // int finest_level = pmb->loc.level() + 1;
-  // for (auto &n : pmb->neighbors) {
-  //  std::vector<LogicalLocation> dlocs;
-  //  auto &nloc =
-  //      n.loc; // Would need to use the location in the coordinates of the origin tree
-  //  if (nloc.level() == finest_level) {
-  //    dlocs.emplace_back(nloc);
-  //  } else if (nloc.level() == finest_level) {
-  //    dlocs = nloc.GetDaughters(ndim);
-  //  } else if (nloc.level() == finest_level - 2) {
-  //    auto tlocs = nloc.GetDaughters(ndim);
-  //    for (auto &t : tlocs) {
-  //      auto gdlocs = t.GetDaughters(ndim);
-  //      dlocs.insert(dlocs.end(), gdlocs.begin(), gdlocs.end());
-  //    }
-  //  } else {
-  //    PARTHENON_FAIL("Proper nesting is not being respected.");
-  //  }
-  //  for (auto &d : dlocs) {
-  //    const int k = d.lx3() - ll_block.lx3() + 1;
-  //    const int j = d.lx2() - ll_block.lx2() + 1;
-  //    const int i = d.lx1() - ll_block.lx1() + 1;
-  //    if (i >= 0 && i <= 3 && j >= 0 && j <= 3 && k >= 0 && k <= 3)
-  //      neighbor_indices_h(k, j, i) = n.gid;
-  //  }
-  //}
-
   neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
@@ -363,7 +333,7 @@ void Swarm::UnloadBuffers_() {
     // cumulative particles per neighbor
     int val_prev = 0;
     for (int n = 0; n < nbmax; n++) {
-      double val_curr = neighbor_received_particles_h(n);
+      int val_curr = neighbor_received_particles_h(n);
       neighbor_received_particles_h(n) += val_prev;
       val_prev += val_curr;
     }

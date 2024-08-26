@@ -229,7 +229,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
+TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   PARTHENON_INSTRUMENT
 
   auto pkg = pmb->packages.Get("particles_package");
@@ -340,7 +340,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const Real t0) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, const Real t0, const Real dt) {
+TaskStatus TransportParticles(MeshBlock *pmb, const double t0, const double dt) {
   PARTHENON_INSTRUMENT
 
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
@@ -475,16 +475,18 @@ TaskListStatus ParticleDriver::Step() {
 
   // Create all the particles that will be created during the step
   status = MakeParticlesCreationTaskCollection().Execute();
-  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "ParticlesCreation task list failed!");
 
   // Transport particles iteratively until all particles reach final time
   status = IterativeTransport();
   // status = MakeParticlesTransportTaskCollection().Execute();
-  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "IterativeTransport task list failed!");
 
   // Use a more traditional task list for predictable post-MPI evaluations.
   status = MakeFinalizationTaskCollection().Execute();
-  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Task list failed!");
+  PARTHENON_REQUIRE(status == TaskListStatus::complete, "Finalization task list failed!");
 
   return status;
 }
@@ -492,7 +494,7 @@ TaskListStatus ParticleDriver::Step() {
 TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
-  const Real t0 = tm.time;
+  const double t0 = tm.time;
   const BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
@@ -506,74 +508,8 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   return tc;
 }
 
-// TODO(BRR) To be used in the future, currently there appears to be a bug in iterative
-// tasking
-// TaskStatus CheckCompletion(MeshBlock *pmb, const Real tf) {
-//  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
-//
-//  int max_active_index = swarm->GetMaxActiveIndex();
-//
-//  auto &t = swarm->Get<Real>("t").Get();
-//
-//  auto swarm_d = swarm->GetDeviceContext();
-//
-//  int num_unfinished = 0;
-//  parthenon::par_reduce(
-//      PARTHENON_AUTO_LABEL, 0, max_active_index,
-//      KOKKOS_LAMBDA(const int n, int &num_unfinished) {
-//        if (swarm_d.IsActive(n)) {
-//          if (t(n) < tf) {
-//            num_unfinished++;
-//          }
-//        }
-//      },
-//      Kokkos::Sum<int>(num_unfinished));
-//
-//  if (num_unfinished > 0) {
-//    return TaskStatus::iterate;
-//  } else {
-//    return TaskStatus::complete;
-//  }
-//}
-// TaskCollection ParticleDriver::MakeParticlesTransportTaskCollection() const {
-//  using TQ = TaskQualifier;
-//
-//  TaskCollection tc;
-//
-//  TaskID none(0);
-//  BlockList_t &blocks = pmesh->block_list;
-//
-//  const int max_transport_iterations = 1000;
-//
-//  const Real t0 = tm.time;
-//  const Real dt = tm.dt;
-//
-//  auto &reg = tc.AddRegion(blocks.size());
-//
-//  for (int i = 0; i < blocks.size(); i++) {
-//    auto &pmb = blocks[i];
-//    auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-//    auto &tl = reg[i];
-//
-//    // Add task sublist
-//    auto [itl, push] = tl.AddSublist(none, {i, max_transport_iterations});
-//    auto transport = itl.AddTask(none, TransportParticles, pmb.get(), t0, dt);
-//    auto reset_comms =
-//        itl.AddTask(transport, &SwarmContainer::ResetCommunication, sc.get());
-//    auto send = itl.AddTask(reset_comms, &SwarmContainer::Send, sc.get(),
-//                            BoundaryCommSubset::all);
-//    auto receive =
-//        itl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-//
-//    auto complete = itl.AddTask(TQ::global_sync | TQ::completion, receive,
-//                                CheckCompletion, pmb.get(), t0 + dt);
-//  }
-//
-//  return tc;
-//}
-
-TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
-  int num_unfinished_local = 0;
+TaskStatus CountNumSent(const BlockList_t &blocks, const double tf_, bool *done) {
+  int num_unfinished = 0;
   for (auto &block : blocks) {
     auto sc = block->meshblock_data.Get()->GetSwarmData();
     auto swarm = sc->Get("my_particles");
@@ -583,7 +519,8 @@ TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
 
     auto swarm_d = swarm->GetDeviceContext();
 
-    int num_unfinished_block = 0;
+    const auto &tf = tf_;
+
     parthenon::par_reduce(
         PARTHENON_AUTO_LABEL, 0, max_active_index,
         KOKKOS_LAMBDA(const int n, int &num_unfinished) {
@@ -593,17 +530,14 @@ TaskStatus CountNumSent(const BlockList_t &blocks, const Real tf, bool *done) {
             }
           }
         },
-        Kokkos::Sum<int>(num_unfinished_block));
-    num_unfinished_local += num_unfinished_block;
+        Kokkos::Sum<int>(num_unfinished));
   }
 
-  int num_unfinished_global = num_unfinished_local;
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(&num_unfinished_local, &num_unfinished_global, 1, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &num_unfinished, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 #endif // MPI_PARALLEL
 
-  if (num_unfinished_global > 0) {
+  if (num_unfinished > 0) {
     *done = false;
   } else {
     *done = true;
@@ -617,8 +551,8 @@ TaskCollection ParticleDriver::IterativeTransportTaskCollection(bool *done) cons
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
   const int nblocks = blocks.size();
-  const Real t0 = tm.time;
-  const Real dt = tm.dt;
+  const double t0 = tm.time;
+  const double dt = tm.dt;
 
   TaskRegion &async_region = tc.AddRegion(nblocks);
   for (int i = 0; i < nblocks; i++) {
