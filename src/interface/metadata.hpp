@@ -120,6 +120,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
+  /** allocate a separate flux array for each stage if WithFluxes is specified**/        \
+  PARTHENON_INTERNAL_FOR_FLAG(FluxNotOneCopy)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \

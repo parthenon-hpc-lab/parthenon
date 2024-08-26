@@ -263,6 +263,13 @@ bool Metadata::IsValid(bool throw_on_fail) const {
     }
   }
 
+  // Associated fluxes
+  if (IsSet(FluxNotOneCopy)) {
+    PARTHENON_REQUIRE(
+        IsSet(WithFluxes),
+        "Asking for non-OneCopy associated fluxes without asking for associated fluxes.");
+  }
+
   return valid;
 }
 
