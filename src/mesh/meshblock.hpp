@@ -63,6 +63,9 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member,
   parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
 }
 
+std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int nx3,
+                                         bool multilevel, const Mesh *pmesh);
+
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //! \brief data/functions associated with a single block
