@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1161]]((https://github.com/parthenon-hpc-lab/parthenon/pull/1161)) Add Metadata::FluxNotOneCopy
 - [[PR 1151]]((https://github.com/parthenon-hpc-lab/parthenon/pull/1151)) Add time offset `c` to LowStorageIntegrator
 - [[PR 1147]](https://github.com/parthenon-hpc-lab/parthenon/pull/1147) Add `par_reduce_inner` functions
 - [[PR 1159]](https://github.com/parthenon-hpc-lab/parthenon/pull/1159) Add additional timestep controllers in parthenon/time.
