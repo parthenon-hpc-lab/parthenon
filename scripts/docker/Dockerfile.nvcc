@@ -13,10 +13,10 @@ RUN apt-get clean && apt-get update -y && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
-    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.5.tar.bz2 && \
-    tar xjf openmpi-5.0.5.tar.bz2 && \
-    cd openmpi-5.0.5 && \
-    ./configure --prefix=/opt/openmpi --with-cuda && \
+    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.bz2 && \
+    tar xjf openmpi-4.1.4.tar.bz2 && \
+    cd openmpi-4.1.4 && \
+    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda && \
     make -j16 && \
     make install && \
     cd / && \
