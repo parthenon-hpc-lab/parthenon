@@ -19,10 +19,11 @@
 #include <type_traits>
 #include <utility>
 
+#include <Kokkos_Core.hpp>
+
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
-#include <Kokkos_Core.hpp>
 
 namespace parthenon {
 
@@ -209,7 +210,7 @@ struct IndexRanger {
   IndexRanger() : N{}, _size{} {};
 
   KOKKOS_INLINE_FUNCTION
-  explicit IndexRanger(Ts... IdrsA){};
+  explicit IndexRanger(Ts... IdrsA) {}
 
   Kokkos::Array<IndexRange, sizeof...(Ts)> N;
   std::size_t _size;

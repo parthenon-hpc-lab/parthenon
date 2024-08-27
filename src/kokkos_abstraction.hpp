@@ -29,8 +29,8 @@
 #include <variant>
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Macros.hpp>
 
-#include "Kokkos_Macros.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "impl/Kokkos_Tools_Generic.hpp"
@@ -321,7 +321,6 @@ struct DispatchSignature<TypeList<AllArgs...>> {
 
 template <typename Tag, typename Pattern, typename... Bounds>
 struct DispatchType {
-
   static constexpr std::size_t Rank = GetNumBounds(TypeList<Bounds...>()) / 2;
 
   using TeamPattern =
@@ -678,7 +677,6 @@ struct seq_for_impl {};
 
 template <class Function, class... Bounds>
 struct seq_for_impl<Function, TypeList<Bounds...>> {
-
   KOKKOS_INLINE_FUNCTION void execute(Bounds &&...bounds, Function function) {
     using bound_translator = BoundTranslator<Bounds...>;
     constexpr std::size_t Rank = bound_translator::rank;
