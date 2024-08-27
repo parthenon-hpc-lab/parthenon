@@ -1,9 +1,11 @@
 FROM nvidia/cuda:12.6.0-devel-ubuntu24.04
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build c-blosc
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build
 
 RUN pip3 install unyt --break-system-packages
+
+RUN pip3 install blosc2 --break-system-packages
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" > /etc/apt/sources.list.d/llvm.list
@@ -47,7 +49,7 @@ RUN cd /tmp/build-adios2 && \
     mkdir adios2-build && cd adios2-build && \
     cmake ../ADIOS2 -DADIOS2_USE_Blosc2=ON -DADIOS2_USE_Fortran=OFF && \
     make -j8 && make install && \
-    cd / &&
+    cd / && \
     rm -rf /tmp/build-adios2
 
 RUN openPMD_USE_MPI=ON pip3 install openpmd-api --no-binary openpmd-api --break-system-packages
