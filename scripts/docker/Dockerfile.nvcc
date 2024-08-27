@@ -3,7 +3,7 @@ FROM nvidia/cuda:12.6.0-devel-ubuntu24.04
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build
 
-RUN pip3 install unyt
+RUN pip3 install unyt --break-system-packages
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" > /etc/apt/sources.list.d/llvm.list
@@ -13,10 +13,10 @@ RUN apt-get clean && apt-get update -y && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
-    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.bz2 && \
-    tar xjf openmpi-4.1.4.tar.bz2 && \
-    cd openmpi-4.1.4 && \
-    ./configure --prefix=/opt/openmpi --enable-mpi-cxx --with-cuda && \
+    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.5.tar.bz2 && \
+    tar xjf openmpi-5.0.5.tar.bz2 && \
+    cd openmpi-5.0.5 && \
+    ./configure --prefix=/opt/openmpi --with-cuda && \
     make -j16 && \
     make install && \
     cd / && \
@@ -44,10 +44,8 @@ ENV PATH=/opt/cmake-3.23.2-linux-x86_64/bin:$PATH
 
 COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
 
+## this fails when building on aarch64 macs :(
 RUN cd /tmp/build-ascent && \
     bash build_ascent_cuda.sh && \
     cd / && \
     rm -rf /tmp/build-ascent
-
-# manually downgrade numpy as deprecated `typeDict` is still used by h5py
-RUN pip install numpy==1.21
