@@ -340,7 +340,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto &tl = async_region1[i];
 
     // Defragment if swarm memory pool occupancy is 90%
-    auto defrag = none; // tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
+    auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
 
     auto new_dt =
         tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
