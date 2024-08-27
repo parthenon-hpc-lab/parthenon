@@ -20,13 +20,9 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
-#include <array>
-#include <limits>
-#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Macros.hpp>
@@ -34,9 +30,9 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "impl/Kokkos_Tools_Generic.hpp"
+#include "loop_bounds.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/concepts_lite.hpp"
-#include "utils/error_checking.hpp"
 #include "utils/indexer.hpp"
 #include "utils/instrument.hpp"
 #include "utils/multi_pointer.hpp"
@@ -312,16 +308,17 @@ struct DispatchSignature<TypeList<AllArgs...>> {
                 "Couldn't determine functor index from dispatch args");
 
  public:
-  using LaunchBounds = typename TL::template continuous_sublist<0, func_idx - 1>;
-  static constexpr std::size_t rank = GetNumBounds(LaunchBounds()) / 2;
-  using Rank = std::integral_constant<size_t, rank>;
+  using LoopBounds = typename TL::template continuous_sublist<0, func_idx - 1>;
+  using Translator = LoopBoundTranslator<LoopBounds>;
+  static constexpr std::size_t Rank = Translator::Rank;
   using Function = typename TL::template type<func_idx>;
   using Args = typename TL::template continuous_sublist<func_idx + 1>;
 };
 
 template <typename Tag, typename Pattern, typename... Bounds>
 struct DispatchType {
-  static constexpr std::size_t Rank = GetNumBounds(TypeList<Bounds...>()) / 2;
+  using Translator = LoopBoundTranslator<Bounds...>;
+  static constexpr std::size_t Rank = Translator::Rank;
 
   using TeamPattern =
       LoopPatternTeam<Pattern,
@@ -340,61 +337,25 @@ struct DispatchType {
     constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
     constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
 
-    if constexpr (is_ParScan) return LoopPatternFlatRange();
-    if constexpr (IsFlatRange) return LoopPatternFlatRange();
-    if constexpr (IsSimdFor) {
+    if constexpr (is_ParScan) {
+      return LoopPatternFlatRange();
+    } else if constexpr (IsFlatRange) {
+      return LoopPatternFlatRange();
+    } else if constexpr (IsSimdFor) {
       return std::conditional_t<is_ParFor, LoopPatternSimdFor, LoopPatternFlatRange>();
-    }
-    if constexpr (IsMDRange) return LoopPatternMDRange();
-    if constexpr (TeamPattern::value) {
+    } else if constexpr (IsMDRange) {
+      return LoopPatternMDRange();
+    } else if constexpr (TeamPattern::value) {
       if constexpr (std::is_same_v<Pattern, OuterLoopPatternTeams>) {
         return OuterLoopPatternTeams();
       } else {
         return LoopPatternTeamCollapse();
       }
+    } else {
+      return LoopPatternUndefined();
     }
   }
 };
-
-// Struct for translating between loop bounds given in terms of IndexRanges and loop
-// bounds given in terms of raw integers
-template <class... Bound_ts>
-struct BoundTranslator {
- private:
-  // overloads for different launch bound types.
-  // should also be counted by isBoundType & GetNumBounds in type_list.hpp
-  template <typename... Bounds>
-  KOKKOS_INLINE_FUNCTION void GetIndexRanges_impl(const int idx, const int s, const int e,
-                                                  Bounds &&...bounds) {
-    bound_arr[idx].s = s;
-    bound_arr[idx].e = e;
-    if constexpr (sizeof...(Bounds) > 0) {
-      GetIndexRanges_impl(idx + 1, std::forward<Bounds>(bounds)...);
-    }
-  }
-  template <typename... Bounds>
-  KOKKOS_INLINE_FUNCTION void GetIndexRanges_impl(const int idx, const IndexRange ir,
-                                                  Bounds &&...bounds) {
-    bound_arr[idx] = ir;
-    if constexpr (sizeof...(Bounds) > 0) {
-      GetIndexRanges_impl(idx + 1, std::forward<Bounds>(bounds)...);
-    }
-  }
-
- public:
-  using Bound_tl = TypeList<Bound_ts...>;
-  static constexpr std::size_t rank = GetNumBounds(Bound_tl()) / 2;
-  Kokkos::Array<IndexRange, rank> bound_arr;
-
-  KOKKOS_INLINE_FUNCTION
-  Kokkos::Array<IndexRange, rank> GetIndexRanges(Bound_ts &&...bounds) {
-    GetIndexRanges_impl(0, std::forward<Bound_ts>(bounds)...);
-    return bound_arr;
-  }
-};
-
-template <class... Bound_ts>
-struct BoundTranslator<TypeList<Bound_ts...>> : public BoundTranslator<Bound_ts...> {};
 
 template <std::size_t Rank, typename IdxTeam, std::size_t Nteam, std::size_t Nthread,
           std::size_t Nvector, typename Function, typename... ExtraFuncArgs>
@@ -499,8 +460,8 @@ template <typename Pattern, typename Function, typename... Bounds, typename... A
           typename... ExtraFuncArgs>
 struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args...>,
                            TypeList<ExtraFuncArgs...>> {
-  using bound_translator = BoundTranslator<Bounds...>;
-  static constexpr std::size_t Rank = bound_translator::rank;
+  using bound_translator = LoopBoundTranslator<Bounds...>;
+  static constexpr std::size_t Rank = bound_translator::Rank;
   using TeamPattern = LoopPatternTeam<Pattern, std::integral_constant<std::size_t, Rank>>;
   template <std::size_t N>
   using sequence = std::make_index_sequence<N>;
@@ -530,12 +491,12 @@ template <typename Pattern, typename... AllArgs>
 KOKKOS_FORCEINLINE_FUNCTION void par_disp_inner(Pattern, team_mbr_t team_member,
                                                 AllArgs &&...args) {
   using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
-  constexpr std::size_t Rank = dispatchsig::Rank::value;
+  constexpr std::size_t Rank = dispatchsig::Rank;
   using Function = typename dispatchsig::Function;
-  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using LoopBounds = typename dispatchsig::LoopBounds;
   using Args = typename dispatchsig::Args;
   using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
-  par_disp_inner_impl<Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().execute(
+  par_disp_inner_impl<Pattern, Function, LoopBounds, Args, ExtraFuncArgs>().execute(
       team_member, std::forward<AllArgs>(args)...);
 }
 
@@ -547,8 +508,8 @@ template <typename Tag, typename Pattern, typename Function, typename... Bounds,
 struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<Args...>,
                          TypeList<ExtraFuncArgs...>> {
   using dispatch_type = DispatchType<Tag, Pattern, Bounds...>;
-  using bound_translator = BoundTranslator<Bounds...>;
-  static constexpr std::size_t Rank = bound_translator::rank;
+  using bound_translator = LoopBoundTranslator<Bounds...>;
+  static constexpr std::size_t Rank = bound_translator::Rank;
 
   template <typename ExecSpace>
   inline void dispatch(std::string name, ExecSpace exec_space, Bounds &&...bounds,
@@ -556,10 +517,15 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                        const std::size_t scratch_size_in_bytes = 0) {
     constexpr std::size_t Ninner =
         dispatch_type::TeamPattern::Nvector + dispatch_type::TeamPattern::Nthread;
-    auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     constexpr auto pattern_tag = dispatch_type::GetPatternTag();
+    static_assert(
+        !std::is_same_v<decltype(pattern_tag), LoopPatternUndefined> &&
+            !always_false<Tag, Pattern>,
+        "Loop pattern & tag combination not recognized in DispatchType::GetPatternTag");
+
     constexpr bool isSimdFor =
         std::is_same_v<LoopPatternSimdFor, base_type<decltype(pattern_tag)>>;
+    auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     if constexpr (isSimdFor) {
       static_assert(!isSimdFor || (isSimdFor && std::is_same_v<ExecSpace, HostExecSpace>),
                     "SimdFor pattern only supported in HostExecSpace");
@@ -653,16 +619,16 @@ template <typename Tag, typename Pattern, typename... AllArgs>
 inline void par_dispatch(Pattern, std::string name, DevExecSpace exec_space,
                          AllArgs &&...args) {
   using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
-  constexpr std::size_t Rank = dispatchsig::Rank::value;
+  constexpr std::size_t Rank = dispatchsig::Rank;
   using Function = typename dispatchsig::Function;
-  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using LoopBounds = typename dispatchsig::LoopBounds;
   using Args = typename dispatchsig::Args;
   using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
 
   if constexpr (Rank > 1 && std::is_same_v<dispatch_impl::ParallelScanDispatch, Tag>) {
     static_assert(always_false<Tag>, "par_scan only for 1D loops");
   }
-  par_dispatch_impl<Tag, Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().dispatch(
+  par_dispatch_impl<Tag, Pattern, Function, LoopBounds, Args, ExtraFuncArgs>().dispatch(
       name, exec_space, std::forward<AllArgs>(args)...);
 }
 
@@ -678,8 +644,8 @@ struct seq_for_impl {};
 template <class Function, class... Bounds>
 struct seq_for_impl<Function, TypeList<Bounds...>> {
   KOKKOS_INLINE_FUNCTION void execute(Bounds &&...bounds, Function function) {
-    using bound_translator = BoundTranslator<Bounds...>;
-    constexpr std::size_t Rank = bound_translator::rank;
+    using bound_translator = LoopBoundTranslator<Bounds...>;
+    constexpr std::size_t Rank = bound_translator::Rank;
     const auto bound_arr =
         bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
@@ -690,9 +656,9 @@ template <class... Args>
 KOKKOS_INLINE_FUNCTION void seq_for(Args &&...args) {
   using dispatchsig = DispatchSignature<TypeList<Args...>>;
   using Function = typename dispatchsig::Function;
-  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using LoopBounds = typename dispatchsig::LoopBounds;
 
-  seq_for_impl<Function, LaunchBounds>().execute(std::forward<Args>(args)...);
+  seq_for_impl<Function, LoopBounds>().execute(std::forward<Args>(args)...);
 }
 
 template <class... Args>
@@ -716,14 +682,14 @@ par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
               std::size_t scratch_size_in_bytes, const int scratch_level,
               AllArgs &&...args) {
   using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
-  static constexpr std::size_t Rank = dispatchsig::Rank::value;
+  static constexpr std::size_t Rank = dispatchsig::Rank;
   using Function = typename dispatchsig::Function;
-  using LaunchBounds = typename dispatchsig::LaunchBounds;
+  using LoopBounds = typename dispatchsig::LoopBounds;
   using Args = typename dispatchsig::Args;
   using Tag = dispatch_impl::ParallelForDispatch;
   using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
 
-  par_dispatch_impl<Tag, Pattern, Function, LaunchBounds, Args, ExtraFuncArgs>().dispatch(
+  par_dispatch_impl<Tag, Pattern, Function, LoopBounds, Args, ExtraFuncArgs>().dispatch(
       name, exec_space, std::forward<AllArgs>(args)..., scratch_level,
       scratch_size_in_bytes);
 }

@@ -18,11 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
-
-#include "basic_types.hpp"
-#include "concepts_lite.hpp"
 
 namespace parthenon {
 
@@ -130,18 +126,6 @@ auto GetNames() {
 }
 
 namespace impl {
-template <class TL, int cidx>
-static constexpr int FirstNonIntegralImpl() {
-  if constexpr (cidx == TL::n_types) {
-    return TL::n_types;
-  } else {
-    if constexpr (std::is_integral_v<typename std::remove_reference<
-                      typename TL::template type<cidx>>::type>)
-      return FirstNonIntegralImpl<TL, cidx + 1>();
-    return cidx;
-  }
-}
-
 template <size_t N, class T>
 auto ListOfType() {
   if constexpr (N == 1) {
@@ -154,94 +138,6 @@ auto ListOfType() {
 
 template <size_t N, class T>
 using list_of_type_t = decltype(impl::ListOfType<N, T>());
-
-template <class Function>
-struct FuncSignature;
-
-template <class Functor>
-struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {};
-
-template <class R, class... Args>
-struct FuncSignature<R(Args...)> {
-  using type = R(Args...);
-  using arg_types_tl = TypeList<Args...>;
-  using ret_type = R;
-};
-
-template <class R, class T, class... Args>
-struct FuncSignature<R (T::*)(Args...) const> {
-  using type = R (T::*)(Args...);
-  using arg_types_tl = TypeList<Args...>;
-  using ret_type = R;
-};
-
-template <class TL>
-static constexpr int FirstNonIntegralIdx() {
-  return impl::FirstNonIntegralImpl<TL, 0>();
-}
-template <class F, class = void>
-struct is_functor : std::false_type {};
-
-template <class F>
-struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
-
-template <class TL, int idx = 0>
-constexpr int FirstFuncIdx() {
-  if constexpr (idx == TL::n_types) {
-    return TL::n_types;
-  } else {
-    using cur_type = base_type<typename TL::template type<idx>>;
-    if constexpr (is_functor<cur_type>::value) return idx;
-    if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
-    return FirstFuncIdx<TL, idx + 1>();
-  }
-}
-
-// Recognized bound types
-// additional types should be translated in BoundTranslator (kokkos_abstraction.hpp)
-template <typename Bound>
-constexpr bool isBoundType() {
-  using BoundTypes = TypeList<IndexRange>;
-  using btype = base_type<Bound>;
-  return std::is_same_v<IndexRange, btype> || std::is_integral_v<btype>;
-}
-
-template <typename... Bnds>
-constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
-  using TL = TypeList<Bnds...>;
-  if constexpr (sizeof...(Bnds) == 0) {
-    return 0;
-  } else {
-    using Bnd0 = typename TL::template type<0>;
-    static_assert(isBoundType<Bnd0>(), "unrecognized launch bound in par_dispatch");
-    if constexpr (std::is_same_v<base_type<Bnd0>, IndexRange>) {
-      return 2 + GetNumBounds(typename TL::template continuous_sublist<1>());
-    } else if constexpr (std::is_integral_v<base_type<Bnd0>>) {
-      using Bnd1 = typename TL::template type<1>;
-      static_assert(std::is_integral_v<base_type<Bnd1>>,
-                    "integer launch bounds need to come in (start, end) pairs");
-      return 2 + GetNumBounds(typename TL::template continuous_sublist<2>());
-    }
-  }
-}
-
-template <size_t, typename>
-struct FunctionSignature {};
-
-template <size_t Rank, typename R, typename T, typename Arg0, typename... Args>
-struct FunctionSignature<Rank, R (T::*)(Arg0, Args...) const> {
- private:
-  using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
-  static constexpr bool team_mbr = std::is_same_v<team_mbr_t, base_type<Arg0>>;
-  using TL = TypeList<Arg0, Args...>;
-
- public:
-  using IndexND = typename TL::template continuous_sublist<0, Rank + team_mbr - 1>;
-  using FArgs = typename TL::template continuous_sublist<Rank + team_mbr>;
-};
-
-template <size_t Rank, typename F>
-using function_signature = FunctionSignature<Rank, decltype(&base_type<F>::operator())>;
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
