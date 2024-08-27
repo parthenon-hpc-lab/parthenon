@@ -42,9 +42,18 @@ RUN curl -L https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.2
 
 ENV PATH=/opt/cmake-3.23.2-linux-x86_64/bin:$PATH
 
+RUN cd /tmp/build-adios2 && \
+    git clone https://github.com/ornladios/ADIOS2.git ADIOS2 && \
+    mkdir adios2-build && cd adios2-build && \
+    cmake ../ADIOS2 -DADIOS2_USE_Blosc2=ON -DADIOS2_USE_Fortran=OFF && \
+    make -j8 && make install && \
+    cd / &&
+    rm -rf /tmp/build-adios2
+
+RUN openPMD_USE_MPI=ON pip3 install openpmd-api --no-binary openpmd-api --break-system-packages
+
 COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
 
-## this fails when building on aarch64 macs :(
 RUN cd /tmp/build-ascent && \
     bash build_ascent_cuda.sh && \
     cd / && \
