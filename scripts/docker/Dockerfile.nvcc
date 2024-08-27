@@ -49,7 +49,7 @@ RUN openPMD_USE_MPI=ON pip3 install openpmd-api --no-binary openpmd-api --break-
 
 COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
 
-RUN cd /tmp/build-ascent && \
-    bash build_ascent_cuda.sh && \
-    cd / && \
-    rm -rf /tmp/build-ascent
+#RUN cd /tmp/build-ascent && \
+#    bash build_ascent_cuda.sh && \
+#    cd / && \
+#    rm -rf /tmp/build-ascent
