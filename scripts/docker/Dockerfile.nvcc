@@ -1,7 +1,7 @@
 FROM nvidia/cuda:12.6.0-devel-ubuntu24.04
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev cmake
 
 RUN pip3 install unyt --break-system-packages
 
@@ -36,11 +36,6 @@ RUN cd /tmp && \
     ./configure --prefix=/usr/local/hdf5/parallel --enable-hl --enable-build-mode=production --enable-parallel && make -j16 && make install && \
     cd / && \
     rm -rf /tmp/hdf5-1.12.2*
-
-RUN curl -L https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.tar.gz -o cmake-3.23.2-linux-x86_64.tar.gz && \
-    tar -xzf cmake-3.23.2-linux-x86_64.tar.gz -C /opt
-
-ENV PATH=/opt/cmake-3.23.2-linux-x86_64/bin:$PATH
 
 RUN mkdir /tmp/build-adios2 && cd /tmp/build-adios2 && \
     git clone https://github.com/ornladios/ADIOS2.git ADIOS2 && \
