@@ -126,18 +126,21 @@ auto GetNames() {
 }
 
 namespace impl {
-template <size_t N, class T>
-auto ListOfType() {
-  if constexpr (N == 1) {
-    return TypeList<T>();
-  } else {
-    return concatenate_type_lists_t<TypeList<T>, decltype(ListOfType<N - 1, T>())>();
-  }
-}
+template <class N, class T>
+struct ListOfType {
+  using Nm1 = std::integral_constant<std::size_t, N::value - 1>;
+  using type = concatenate_type_lists_t<TypeList<T>, typename ListOfType<Nm1, T>::type>;
+};
+
+template <class T>
+struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
+  using type = TypeList<T>;
+};
 } // namespace impl
 
 template <size_t N, class T>
-using list_of_type_t = decltype(impl::ListOfType<N, T>());
+using list_of_type_t =
+    typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_

@@ -76,6 +76,8 @@ struct LoopBoundTranslator {
         return 2 + GetNumBounds(typename TL::template continuous_sublist<2>());
       }
     }
+    // should never get here but makes older cuda compilers happy
+    return 0;
   }
   static constexpr std::size_t Rank = GetNumBounds(Bound_tl()) / 2;
   Kokkos::Array<IndexRange, Rank> bound_arr;
@@ -107,6 +109,8 @@ constexpr int FirstFuncIdx() {
     if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
     return FirstFuncIdx<TL, idx + 1>();
   }
+  // should never get here, but makes older cuda versions happy
+  return TL::n_types;
 }
 
 template <size_t, typename>

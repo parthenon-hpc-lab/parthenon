@@ -315,6 +315,11 @@ struct DispatchSignature<TypeList<AllArgs...>> {
   using Args = typename TL::template continuous_sublist<func_idx + 1>;
 };
 
+enum class LoopPattern { flat, md, simd, outer, collapse, undef };
+
+template <LoopPattern Pattern>
+struct LoopPatternTag {};
+
 template <typename Tag, typename Pattern, typename... Bounds>
 struct DispatchType {
   using Translator = LoopBoundTranslator<Bounds...>;
@@ -324,36 +329,35 @@ struct DispatchType {
       LoopPatternTeam<Pattern,
                       std::integral_constant<size_t, Rank>>; // false_type unless we use
                                                              // an outer team policy
+  static constexpr bool is_ParFor =
+      std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
+  static constexpr bool is_ParScan =
+      std::is_same<Tag, dispatch_impl::ParallelScanDispatch()>::value;
+
+  static constexpr bool IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
+  static constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
+  static constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
 
   // check any confilcts with the requested pattern
   // and return the actual one we use
-  static constexpr auto GetPatternTag() {
-    constexpr bool is_ParFor =
-        std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
-    constexpr bool is_ParScan =
-        std::is_same<Tag, dispatch_impl::ParallelScanDispatch()>::value;
-
-    constexpr bool IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
-    constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
-    constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
+  static constexpr LoopPattern GetPatternTag() {
+    using LP = LoopPattern;
 
     if constexpr (is_ParScan) {
-      return LoopPatternFlatRange();
+      return LP::flat;
     } else if constexpr (IsFlatRange) {
-      return LoopPatternFlatRange();
+      return LP::flat;
     } else if constexpr (IsSimdFor) {
-      return std::conditional_t<is_ParFor, LoopPatternSimdFor, LoopPatternFlatRange>();
+      return is_ParFor ? LP::simd : LP::flat;
     } else if constexpr (IsMDRange) {
-      return LoopPatternMDRange();
+      return LP::md;
+    } else if constexpr (std::is_same_v<Pattern, OuterLoopPatternTeams>) {
+      return LP::outer;
     } else if constexpr (TeamPattern::value) {
-      if constexpr (std::is_same_v<Pattern, OuterLoopPatternTeams>) {
-        return OuterLoopPatternTeams();
-      } else {
-        return LoopPatternTeamCollapse();
-      }
-    } else {
-      return LoopPatternUndefined();
+      return LP::collapse;
     }
+
+    return LP::undef;
   }
 };
 
@@ -507,6 +511,7 @@ template <typename Tag, typename Pattern, typename Function, typename... Bounds,
           typename... Args, typename... ExtraFuncArgs>
 struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<Args...>,
                          TypeList<ExtraFuncArgs...>> {
+  using LP = LoopPattern;
   using dispatch_type = DispatchType<Tag, Pattern, Bounds...>;
   using bound_translator = LoopBoundTranslator<Bounds...>;
   static constexpr std::size_t Rank = bound_translator::Rank;
@@ -517,9 +522,9 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                        const std::size_t scratch_size_in_bytes = 0) {
     constexpr std::size_t Ninner =
         dispatch_type::TeamPattern::Nvector + dispatch_type::TeamPattern::Nthread;
-    constexpr auto pattern_tag = dispatch_type::GetPatternTag();
+    constexpr auto pattern_tag = LoopPatternTag<dispatch_type::GetPatternTag()>();
     static_assert(
-        !std::is_same_v<decltype(pattern_tag), LoopPatternUndefined> &&
+        !std::is_same_v<decltype(pattern_tag), LoopPatternTag<LP::undef>> &&
             !always_false<Tag, Pattern>,
         "Loop pattern & tag combination not recognized in DispatchType::GetPatternTag");
 
@@ -542,7 +547,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   using sequence = std::integer_sequence<std::size_t, Is...>;
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
-  inline void dispatch_impl(LoopPatternFlatRange, sequence<OuterIs...>,
+  inline void dispatch_impl(LoopPatternTag<LP::flat>, sequence<OuterIs...>,
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
@@ -559,7 +564,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   }
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
-  inline void dispatch_impl(LoopPatternMDRange, sequence<OuterIs...>,
+  inline void dispatch_impl(LoopPatternTag<LP::md>, sequence<OuterIs...>,
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
@@ -573,7 +578,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   }
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
-  inline void dispatch_impl(OuterLoopPatternTeams, sequence<OuterIs...>,
+  inline void dispatch_impl(LoopPatternTag<LP::outer>, sequence<OuterIs...>,
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
@@ -593,7 +598,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   }
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
-  inline void dispatch_impl(LoopPatternTeamCollapse, sequence<OuterIs...>,
+  inline void dispatch_impl(LoopPatternTag<LP::collapse>, sequence<OuterIs...>,
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,

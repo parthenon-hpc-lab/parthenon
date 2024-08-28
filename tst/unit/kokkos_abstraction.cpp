@@ -39,49 +39,105 @@ using parthenon::ParArray3D;
 using parthenon::ParArray4D;
 using Real = double;
 
+template <std::size_t>
+struct ParArrayND_impl {};
+template <>
+struct ParArrayND_impl<0> {
+  template <typename T>
+  using type = parthenon::ParArray0D<T>;
+};
+template <>
+struct ParArrayND_impl<1> {
+  template <typename T>
+  using type = parthenon::ParArray1D<T>;
+};
+template <>
+struct ParArrayND_impl<2> {
+  template <typename T>
+  using type = parthenon::ParArray2D<T>;
+};
+template <>
+struct ParArrayND_impl<3> {
+  template <typename T>
+  using type = parthenon::ParArray3D<T>;
+};
+template <>
+struct ParArrayND_impl<4> {
+  template <typename T>
+  using type = parthenon::ParArray4D<T>;
+};
+template <>
+struct ParArrayND_impl<5> {
+  template <typename T>
+  using type = parthenon::ParArray5D<T>;
+};
+template <>
+struct ParArrayND_impl<6> {
+  template <typename T>
+  using type = parthenon::ParArray6D<T>;
+};
+template <>
+struct ParArrayND_impl<7> {
+  template <typename T>
+  using type = parthenon::ParArray7D<T>;
+};
+template <>
+struct ParArrayND_impl<8> {
+  template <typename T>
+  using type = parthenon::ParArray8D<T>;
+};
+template <std::size_t>
+struct HostArrayND_impl {};
+template <>
+struct HostArrayND_impl<0> {
+  template <typename T>
+  using type = parthenon::HostArray0D<T>;
+};
+template <>
+struct HostArrayND_impl<1> {
+  template <typename T>
+  using type = parthenon::HostArray1D<T>;
+};
+template <>
+struct HostArrayND_impl<2> {
+  template <typename T>
+  using type = parthenon::HostArray2D<T>;
+};
+template <>
+struct HostArrayND_impl<3> {
+  template <typename T>
+  using type = parthenon::HostArray3D<T>;
+};
+template <>
+struct HostArrayND_impl<4> {
+  template <typename T>
+  using type = parthenon::HostArray4D<T>;
+};
+template <>
+struct HostArrayND_impl<5> {
+  template <typename T>
+  using type = parthenon::HostArray5D<T>;
+};
+template <>
+struct HostArrayND_impl<6> {
+  template <typename T>
+  using type = parthenon::HostArray6D<T>;
+};
+template <>
+struct HostArrayND_impl<7> {
+  template <typename T>
+  using type = parthenon::HostArray7D<T>;
+};
+
 template <size_t ND, typename T, typename... Args>
 auto ParArrayND(Args &&...args) {
   static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
-  if constexpr (ND == 0) {
-    return parthenon::ParArray0D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 1) {
-    return parthenon::ParArray1D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 2) {
-    return parthenon::ParArray2D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 3) {
-    return parthenon::ParArray3D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 4) {
-    return parthenon::ParArray4D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 5) {
-    return parthenon::ParArray5D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 6) {
-    return parthenon::ParArray6D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 7) {
-    return parthenon::ParArray7D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 8) {
-    return parthenon::ParArray8D<T>(std::forward<Args>(args)...);
-  }
+  return typename ParArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
 template <size_t ND, typename T, typename... Args>
 auto HostArrayND(Args &&...args) {
   static_assert(ND <= 7, "HostArrayND supoorted up to ND=7");
-  if constexpr (ND == 0) {
-    return parthenon::HostArray0D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 1) {
-    return parthenon::HostArray1D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 2) {
-    return parthenon::HostArray2D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 3) {
-    return parthenon::HostArray3D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 4) {
-    return parthenon::HostArray4D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 5) {
-    return parthenon::HostArray5D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 6) {
-    return parthenon::HostArray6D<T>(std::forward<Args>(args)...);
-  } else if constexpr (ND == 7) {
-    return parthenon::HostArray7D<T>(std::forward<Args>(args)...);
-  }
+  return typename HostArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
 
 template <size_t, size_t, typename>
