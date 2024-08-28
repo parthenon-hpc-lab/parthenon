@@ -127,7 +127,7 @@ function abs_path()
   fi
 }
 
-root_dir=/usr/local
+root_dir=$(pwd)
 root_dir="${prefix:=${root_dir}}"
 root_dir=$(ospath ${root_dir})
 root_dir=$(abs_path ${root_dir})
@@ -146,7 +146,7 @@ cd ${root_dir}
 
 # install_dir is where we will install
 # override with `prefix` env var
-install_dir="${install_dir:=$root_dir/install}"
+install_dir=/usr/local
 
 echo "*** prefix:       ${root_dir}" 
 echo "*** build root:   ${build_dir}"
