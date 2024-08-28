@@ -47,9 +47,9 @@ RUN mkdir /tmp/build-adios2 && cd /tmp/build-adios2 && \
 
 RUN openPMD_USE_MPI=ON pip3 install openpmd-api --no-binary openpmd-api --break-system-packages
 
-COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
+COPY ascent_build /tmp/ascent_build
 
-#RUN cd /tmp/build-ascent && \
-#    bash build_ascent_cuda.sh && \
-#    cd / && \
-#    rm -rf /tmp/build-ascent
+RUN cd /tmp/ascent_build && \
+    bash build_ascent.sh && \
+    cd / && \
+    rm -rf /tmp/ascent_build
