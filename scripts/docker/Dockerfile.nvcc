@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.0-devel-ubuntu24.04
+FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 && \
@@ -7,12 +7,12 @@ RUN apt-get clean && apt-get update -y && \
 
 RUN g++ --version
 
-RUN pip3 install unyt --break-system-packages
+RUN pip3 install unyt
 
-RUN pip3 install blosc2 --break-system-packages
+RUN pip3 install blosc2
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
-    echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" > /etc/apt/sources.list.d/llvm.list
+    echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" > /etc/apt/sources.list.d/llvm.list
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-19 llvm-19 libomp-19-dev && \
@@ -58,10 +58,9 @@ RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
     cd / && \
     rm -rf /tmp/build-openpmd
 
-## Note: Ascent does not work with CUDA 12, so it's disabled
-#COPY ascent_build /tmp/ascent_build
+COPY ascent_build /tmp/ascent_build
 
-#RUN cd /tmp/ascent_build && \
-#    bash build_ascent.sh && \
-#    cd / && \
-#    rm -rf /tmp/ascent_build
+RUN cd /tmp/ascent_build && \
+    bash build_ascent.sh && \
+    cd / && \
+    rm -rf /tmp/ascent_build

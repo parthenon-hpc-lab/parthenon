@@ -37,7 +37,7 @@ enable_mpi="${enable_mpi:=ON}"
 enable_find_mpi="${enable_find_mpi:=ON}"
 enable_tests="${enable_tests:=OFF}"
 enable_verbose="${enable_verbose:=ON}"
-build_jobs="${build_jobs:=8}"
+build_jobs="${build_jobs:=1}"
 build_config="${build_config:=Release}"
 build_shared_libs="${build_shared_libs:=ON}"
 
@@ -132,8 +132,8 @@ root_dir="${prefix:=${root_dir}}"
 root_dir=$(ospath ${root_dir})
 root_dir=$(abs_path ${root_dir})
 script_dir=$(abs_path "$(dirname "${BASH_SOURCE[0]}")")
-build_dir=$(ospath ${root_dir}/build)
-source_dir=$(ospath ${root_dir}/source)
+build_dir=$(ospath build)
+source_dir=$(ospath source)
 
 
 # root_dir is where we will build and install
