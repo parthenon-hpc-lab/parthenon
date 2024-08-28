@@ -189,22 +189,16 @@ struct test_wrapper_nd_impl {
     template <typename view_t>
     void execute(DevExecSpace exec_space, view_t &dev, int *int_bounds,
                  parthenon::IndexRange *bounds) {
+      const auto functor = KOKKOS_CLASS_LAMBDA(Ts... args) {
+        dev(std::forward<decltype(args)>(args)...) +=
+            increment_data(std::forward<decltype(args)>(args)...);
+      };
       if constexpr (bound_type == lbounds::integer) {
-        parthenon::par_for(
-            Pattern(), "unit test ND integer bounds", exec_space, int_bounds[Ids]...,
-
-            KOKKOS_CLASS_LAMBDA(Ts... args) {
-              dev(std::forward<decltype(args)>(args)...) +=
-                  increment_data(std::forward<decltype(args)>(args)...);
-            });
+        parthenon::par_for(Pattern(), "unit test ND integer bounds", exec_space,
+                           int_bounds[Ids]..., functor);
       } else {
-        parthenon::par_for(
-            Pattern(), "unit test ND IndexRange bounds", exec_space, bounds[Ids]...,
-
-            KOKKOS_CLASS_LAMBDA(Ts... args) {
-              dev(std::forward<decltype(args)>(args)...) +=
-                  increment_data(std::forward<decltype(args)>(args)...);
-            });
+        parthenon::par_for(Pattern(), "unit test ND IndexRange bounds", exec_space,
+                           bounds[Ids]..., functor);
       }
     }
   };
