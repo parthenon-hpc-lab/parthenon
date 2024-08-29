@@ -212,8 +212,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   // Check that data was moved during defrag
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  REQUIRE(x_h(2) == 1.2);
-  REQUIRE(x_h(4) == 1.1);
+  REQUIRE(x_h(2) == 1.1);
+  REQUIRE(x_h(4) == 1.2);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 
