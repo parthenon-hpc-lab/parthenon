@@ -52,7 +52,7 @@ build_vtkm="${build_vtkm:=true}"
 build_camp="${build_camp:=true}"
 build_raja="${build_raja:=true}"
 build_umpire="${build_umpire:=true}"
-build_mfem="${build_mfem:=false}"
+build_mfem="${build_mfem:=true}"
 build_catalyst="${build_catalyst:=false}"
 
 # ascent options
