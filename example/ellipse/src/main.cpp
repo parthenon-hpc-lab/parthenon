@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = [](std::unique_ptr<ParameterInput> &pin) {
     Packages_t packages;
     packages.Add(Indicator::Initialize(pin.get()));
-    packages.Add(Ellipse::Initialize(pin.get()));                 
+    packages.Add(Ellipse::Initialize(pin.get()));
     return packages;
   };
   pman.app_input->ProblemGenerator = SetupEllipse;
@@ -47,15 +47,15 @@ int main(int argc, char *argv[]) {
   // scope so that the mesh object, kokkos views, etc, all get cleaned
   // up before kokkos::finalize
   pman.ParthenonInitPackagesAndMesh();
-  { 
+  {
 
-  // Initialize the driver
-  ToyDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+    // Initialize the driver
+    ToyDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute(); // unneeded here
+    // This line actually runs the simulation
+    auto driver_status = driver.Execute(); // unneeded here
 
-  // call MPI_Finalize and Kokkos::finalize if necessary
+    // call MPI_Finalize and Kokkos::finalize if necessary
   }
   pman.ParthenonFinalize();
 

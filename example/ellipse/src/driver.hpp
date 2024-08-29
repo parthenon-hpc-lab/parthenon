@@ -17,9 +17,9 @@
 #include <parthenon/driver.hpp>
 
 class ToyDriver : parthenon::Driver {
-public:
+ public:
   ToyDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-    : parthenon::Driver(pin, app_in, pm) {
+      : parthenon::Driver(pin, app_in, pm) {
     InitializeOutputs();
   }
   parthenon::DriverStatus Execute() override {

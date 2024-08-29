@@ -24,8 +24,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("ellipse");
 
   // parse input deck and add params for ellipse shape.
-  const Real major_axis = pin->GetOrAddReal("ellipse","major_axis", 1.0);
-  const Real minor_axis = pin->GetOrAddReal("ellipse","minor_axis", 1.0);
+  const Real major_axis = pin->GetOrAddReal("ellipse", "major_axis", 1.0);
+  const Real minor_axis = pin->GetOrAddReal("ellipse", "minor_axis", 1.0);
   pkg->AddParam("major_axis", major_axis);
   pkg->AddParam("minor_axis", minor_axis);
 

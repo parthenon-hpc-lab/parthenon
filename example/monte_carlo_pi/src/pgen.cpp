@@ -52,38 +52,36 @@ void GenerateCircle(parthenon::MeshBlock *pmb, parthenon::ParameterInput *pin) {
 
   // Make a SwarmPack via types to get positions
   static auto desc_swarm =
-    parthenon::MakeSwarmPackDescriptor<swarm_position::x,
-                                       swarm_position::y,
-                                       swarm_position::z,
-                                       MCCirc::weight>("samples");
+      parthenon::MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y,
+                                         swarm_position::z, MCCirc::weight>("samples");
   auto pack_swarm = desc_swarm.GetPack(data.get());
   auto swarm_d = swarm->GetDeviceContext();
 
   // loop over new particles created
-  parthenon::par_for(DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL,
-                     DevExecSpace(), 0,
-                     newParticlesContext.GetNewParticlesMaxIndex(),
-                     // new_n ranges from 0 to N_new_particles
-                     KOKKOS_LAMBDA(const int new_n) {
-       // this is the particle index inside the swarm
-      const int n = newParticlesContext.GetNewParticleIndex(new_n);
-      auto rng_gen = rng_pool.get_state();
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      newParticlesContext.GetNewParticlesMaxIndex(),
+      // new_n ranges from 0 to N_new_particles
+      KOKKOS_LAMBDA(const int new_n) {
+        // this is the particle index inside the swarm
+        const int n = newParticlesContext.GetNewParticleIndex(new_n);
+        auto rng_gen = rng_pool.get_state();
 
-      // Normally b would be free-floating and set by pack.GetBlockparticleIndices
-      // but since we're on a single meshblock for this loop, it's just 0
-      // because block index = 0
-      const int b = 0;
-      //auto [b, n] = pack_swarm.GetBlockparticleIndices(idx);
+        // Normally b would be free-floating and set by pack.GetBlockparticleIndices
+        // but since we're on a single meshblock for this loop, it's just 0
+        // because block index = 0
+        const int b = 0;
+        // auto [b, n] = pack_swarm.GetBlockparticleIndices(idx);
 
-      // randomly sample particle positions
-      pack_swarm(b, swarm_position::x(), n) = minx_i + nx_i * dx_i * rng_gen.drand();
-      pack_swarm(b, swarm_position::y(), n) = minx_j + nx_j * dx_j * rng_gen.drand();
-      pack_swarm(b, swarm_position::z(), n) = minx_k + nx_k * dx_k * rng_gen.drand();
+        // randomly sample particle positions
+        pack_swarm(b, swarm_position::x(), n) = minx_i + nx_i * dx_i * rng_gen.drand();
+        pack_swarm(b, swarm_position::y(), n) = minx_j + nx_j * dx_j * rng_gen.drand();
+        pack_swarm(b, swarm_position::z(), n) = minx_k + nx_k * dx_k * rng_gen.drand();
 
-      // set weights to 1
-      pack_swarm(b, MCCirc::weight(), n) = 1.0;
+        // set weights to 1
+        pack_swarm(b, MCCirc::weight(), n) = 1.0;
 
-      // release random number generator
-      rng_pool.free_state(rng_gen);
-    });
+        // release random number generator
+        rng_pool.free_state(rng_gen);
+      });
 }

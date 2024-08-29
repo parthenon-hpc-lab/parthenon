@@ -23,7 +23,7 @@ using namespace parthenon::package::prelude;
 struct phi : public parthenon::variable_names::base_t<false> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION phi(Ts &&...args)
-    : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "phi"; }
 };
 

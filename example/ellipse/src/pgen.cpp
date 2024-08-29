@@ -26,8 +26,8 @@ void SetupEllipse(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("ellipse");
   const auto major_axis = pkg->Param<Real>("major_axis");
   const auto minor_axis = pkg->Param<Real>("minor_axis");
-  const Real a2 = major_axis*major_axis;
-  const Real b2 = minor_axis*minor_axis;
+  const Real a2 = major_axis * major_axis;
+  const Real b2 = minor_axis * minor_axis;
 
   // loop bounds for interior of meshblock
   auto cellbounds = pmb->cellbounds;
@@ -52,7 +52,7 @@ void SetupEllipse(MeshBlock *pmb, ParameterInput *pin) {
         // are we on the ellipse?
         Real x = coords.Xc<X1DIR>(k, j, i);
         Real y = coords.Xc<X2DIR>(k, j, i);
-        Real condition = ((x*x)/(a2 + 1e-20) + (y*y)/(b2 + 1e-20)) <= 1;
+        Real condition = ((x * x) / (a2 + 1e-20) + (y * y) / (b2 + 1e-20)) <= 1;
         // set indicator function appropriately
         pack(b, Indicator::phi(), k, j, i) = condition;
       });

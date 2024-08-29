@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-   // Redefine parthenon defaults
+  // Redefine parthenon defaults
   pman.app_input->ProcessPackages = [](std::unique_ptr<ParameterInput> &pin) {
     Packages_t packages;
     packages.Add(MCCirc::Initialize(pin.get()));
@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
   // scope so that the mesh object, kokkos views, etc, all get cleaned
   // up before kokkos::finalize
   pman.ParthenonInitPackagesAndMesh();
-  { 
-    
+  {
+
     MCCirc::ComputeParticleCounts(pman.pmesh.get());
     // call MPI_Finalize and Kokkos::finalize if necessary
   }

@@ -18,5 +18,4 @@
 
 void GenerateCircle(parthenon::MeshBlock *pmb, parthenon::ParameterInput *pin);
 
-
 #endif // _PGEN_HPP_
