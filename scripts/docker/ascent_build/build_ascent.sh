@@ -27,6 +27,8 @@ set -eu -o pipefail
 # Build Options
 ##############################################################################
 
+export MAKEFLAGS="--output-sync=target"
+
 # shared options
 enable_cuda="${enable_cuda:=OFF}"
 enable_hip="${enable_hip:=OFF}"
