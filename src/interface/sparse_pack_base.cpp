@@ -67,19 +67,15 @@ SparsePackBase::GetAllocStatus(T *pmd, const PackDescriptor &desc,
                                const std::vector<bool> &include_block) {
   using mbd_t = MeshBlockData<Real>;
 
-  int nvar = desc.nvar_groups;
-
-  std::vector<int> astat;
+  const int nvar = desc.nvar_groups;
+  const int nblock = pmd->NumBlocks();
+  std::vector<int> astat(nblock * desc.nvar_tot);
+  int idx = 0;
   ForEachBlock(pmd, include_block, [&](int b, mbd_t *pmbd) {
     const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
-        if (uid_map.count(uid) > 0) {
-          const auto pv = uid_map.at(uid);
-          astat.push_back(pv->GetAllocationStatus());
-        } else {
-          astat.push_back(-1);
-        }
+        astat[idx++] = uid_map.count(uid) > 0 ? (uid_map.at(uid))->GetAllocationStatus() : -1;
       }
     }
   });

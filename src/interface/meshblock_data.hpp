@@ -76,6 +76,9 @@ class MeshBlockData {
   MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
+  
+  // This mirrors a MeshBlockData routine
+  int NumBlocks() const { return 1;}
 
   template <class... Ts>
   IndexRange GetBoundsI(Ts &&...args) const {
