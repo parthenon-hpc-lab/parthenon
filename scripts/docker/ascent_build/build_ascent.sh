@@ -28,7 +28,7 @@ set -eu -o pipefail
 ##############################################################################
 
 # shared options
-enable_cuda="${enable_cuda:=ON}"
+enable_cuda="${enable_cuda:=OFF}"
 enable_hip="${enable_hip:=OFF}"
 enable_fortran="${enable_fortran:=OFF}"
 enable_python="${enable_python:=OFF}"
@@ -37,7 +37,7 @@ enable_mpi="${enable_mpi:=ON}"
 enable_find_mpi="${enable_find_mpi:=ON}"
 enable_tests="${enable_tests:=OFF}"
 enable_verbose="${enable_verbose:=ON}"
-build_jobs="${build_jobs:=1}"
+build_jobs="${build_jobs:=8}"
 build_config="${build_config:=Release}"
 build_shared_libs="${build_shared_libs:=ON}"
 

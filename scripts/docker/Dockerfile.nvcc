@@ -60,7 +60,9 @@ RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
 
 COPY ascent_build /tmp/ascent_build
 
+## NOTE: with enable_cuda=ON, arm64 Dockerfile builds fail for some reason
+
 RUN cd /tmp/ascent_build && \
-    bash build_ascent.sh && \
+    env enable_cuda=ON bash build_ascent.sh && \
     cd / && \
     rm -rf /tmp/ascent_build
