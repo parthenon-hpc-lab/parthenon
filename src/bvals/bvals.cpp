@@ -43,8 +43,9 @@
 
 namespace parthenon {
 
-BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label)
-    : bswarm_index(), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
+BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label,
+                             const int swarm_idx)
+    : bswarm_index(swarm_idx), pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
 #ifdef MPI_PARALLEL
   swarm_comm = pmy_mesh_->GetMPIComm(label);
 #endif

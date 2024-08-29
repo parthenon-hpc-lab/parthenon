@@ -426,13 +426,13 @@ bool Swarm::FinalizeCommunicationIterative() {
   return true;
 }
 
-void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
+void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb, const int swarm_idx) {
   if (wpmb.expired()) return;
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   // Create the boundary object
-  vbswarm = std::make_shared<BoundarySwarm>(pmb, label_);
+  vbswarm = std::make_shared<BoundarySwarm>(pmb, label_, swarm_idx);
 
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();

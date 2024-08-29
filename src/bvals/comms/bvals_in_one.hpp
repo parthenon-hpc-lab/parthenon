@@ -79,6 +79,13 @@ static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::flxcor_recv>(md);
 }
 
+TaskStatus SendSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SendSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md,
+                                    std::vector<std::string> swarm_names);
+TaskStatus ReceiveSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md,
+                                       std::vector<std::string> swarm_names);
+
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
@@ -87,6 +94,13 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
 // Adds all relevant flux correction tasks to a single task list
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel);
+
+// Adds all relevant swarm boundary communication to a single task list
+TaskID AddSwarmBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                     std::shared_ptr<MashData<Real>> &md);
+TaskID AddSwarmBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                     std::shared_ptr<MashData<Real>> &md,
+                                     std::vector<std::string> swarm_names);
 
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
