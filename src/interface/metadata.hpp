@@ -122,6 +122,9 @@
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
   /** allocate a separate flux array for each stage if WithFluxes is specified**/        \
   PARTHENON_INTERNAL_FOR_FLAG(FluxNotOneCopy)                                            \
+  /** Align memory of fields to cell centered memory                                     \
+      (Field will be missing one layer of ghosts if it is not cell centered) **/         \
+  PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
