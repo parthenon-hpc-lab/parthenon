@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,17 +11,33 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(boundary_exchange)
-add_subdirectory(fine_advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(poisson)
-add_subdirectory(poisson_gmg)
-add_subdirectory(sparse_advection)
-add_subdirectory(ellipse/src ellipse)
-add_subdirectory(monte_carlo_pi/src monte_carlo_pi)
+# There is no test but we build it if we build examples
+if (NOT PARTHENON_DISABLE_EXAMPLES)
+  set (SRC_LIST
+  main.cpp
+
+  driver.hpp
+
+  ellipse/ellipse.cpp
+  ellipse/ellipse.hpp
+
+  indicator/indicator.cpp
+  indicator/indicator.hpp
+
+  pgen.cpp
+  pgen.hpp
+  )
+
+  add_executable(ellipse ${SRC_LIST})
+  target_include_directories(ellipse PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+    )
+  target_compile_features(ellipse PRIVATE cxx_std_17)
+  
+  if (Kokkos_ENABLE_CUDA)
+    target_compile_options(ellipse --expt-relaxed-constexpr)
+  endif()
+  
+  target_link_libraries(ellipse PRIVATE parthenon)
+endif()
