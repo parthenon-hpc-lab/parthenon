@@ -454,6 +454,13 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
 
+    if (!package->AllSwarms().empty() && !std::is_same<Real, double>::value) {
+      PARTHENON_WARN(
+          "Swarms always use Real precision, even for ParticleVariables containing "
+          "time data, while Parthenon time variables are fixed to double precision. This "
+          "may cause inaccurate comparisons with cycle beginning and end times.")
+    }
+
     // Add package registered boundary conditions
     for (int i = 0; i < 6; ++i)
       state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
