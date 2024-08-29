@@ -251,6 +251,13 @@ bool Metadata::IsValid(bool throw_on_fail) const {
       PARTHENON_THROW("Either the Independent or Derived flag must be set");
     }
   }
+  
+  if (IsSet(FillGhost) && IsSet(CellMemAligned) && (!IsSet(Cell))) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Cannot communicate ghosts of non-cell fields that have cell aligned memory.");
+    } 
+  }
 
   // Prolongation/restriction
   if (HasRefinementOps()) {
@@ -313,19 +320,15 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
       arrDims[i + 3] = 1;
     if (IsSet(Cell)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
-    } else if (IsSet(Face) && IsSet(Flux)) {
-      // 3 directions but keep the same ijk shape as cell var for performance
-      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
     } else if (IsSet(Face) || IsSet(Edge)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
-      arrDims[0]++;
-      if (arrDims[1] > 1) arrDims[1]++;
-      if (arrDims[2] > 1) arrDims[2]++;
     } else if (IsSet(Node)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one lower left node per cell
+    }
+    if (!IsSet(CellMemAligned) && !IsSet(Cell)) { 
       arrDims[0]++;
       if (arrDims[1] > 1) arrDims[1]++;
-      if (arrDims[2] > 1) arrDims[2]++;
+      if (arrDims[2] > 1) arrDims[2]++; 
     }
   } else if (IsSet(Particle)) {
     assert(N >= 0 && N <= MAX_VARIABLE_DIMENSION - 1);

@@ -278,13 +278,14 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
       if (!m.IsSet(Metadata::FluxNotOneCopy)) mFlags.push_back(Metadata::OneCopy);
       if (m.IsSet(Metadata::Sparse)) mFlags.push_back(Metadata::Sparse);
       if (m.IsSet(Metadata::Fine)) mFlags.push_back(Metadata::Fine);
-      if (m.IsSet(Metadata::Cell))
+      if (m.IsSet(Metadata::Cell)) {
         mFlags.push_back(Metadata::Face);
-      else if (m.IsSet(Metadata::Face))
+        mFlags.push_back(Metadata::CellMemAligned);
+      } else if (m.IsSet(Metadata::Face)) {
         mFlags.push_back(Metadata::Edge);
-      else if (m.IsSet(Metadata::Edge))
+      } else if (m.IsSet(Metadata::Edge)) {
         mFlags.push_back(Metadata::Node);
-
+      }
       Metadata mf;
       if (m.GetRefinementFunctions().label().size() > 0) {
         // Propagate custom refinement ops to flux field
