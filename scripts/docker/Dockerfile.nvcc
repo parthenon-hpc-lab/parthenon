@@ -11,6 +11,11 @@ RUN pip3 install unyt
 
 RUN pip3 install blosc2
 
+# h5py from the repo is incompatible with the default numpy 2.1.0
+# Downgrading is not the cleanest solution, but it works...
+# see https://stackoverflow.com/questions/78634235/numpy-dtype-size-changed-may-indicate-binary-incompatibility-expected-96-from
+RUN pip3 install numpy==1.26.4
+
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" > /etc/apt/sources.list.d/llvm.list
 
