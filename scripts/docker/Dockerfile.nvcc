@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 && \
@@ -83,3 +83,11 @@ RUN cd /tmp/build-ascent && \
     env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
     cd / && \
     rm -rf /tmp/ascent_build
+
+# uid 1000 maps to the one running the container on the CI host
+RUN groupadd -g 109 render
+RUN useradd --create-home --shell /bin/bash -u 1000 -G render,sudo ci
+
+USER ci
+
+WORKDIR /home/ci
