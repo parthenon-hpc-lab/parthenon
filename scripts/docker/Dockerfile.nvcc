@@ -51,7 +51,7 @@ RUN mkdir /tmp/build-adios2 && cd /tmp/build-adios2 && \
     tar xzf v2.10.1.tar.gz && \
     mkdir adios2-build && cd adios2-build && \
     cmake ../ADIOS2-2.10.1 -DADIOS2_USE_Blosc2=ON -DADIOS2_USE_Fortran=OFF && \
-    make -j8 && make install && \
+    make -j 16 && make install && \
     cd / && \
     rm -rf /tmp/build-adios2
 
@@ -61,16 +61,25 @@ RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
     tar xzf 1c7d7ff.tar.gz && \
     mkdir openPMD-api-build && cd openPMD-api-build && \
     cmake ../openPMD-api-1c7d7ffc5ef501e1d2dcbd5169b3e5eff677b399 -DopenPMD_USE_PYTHON=ON -DPython_EXECUTABLE=$(which python3) -DopenPMD_USE_ADIOS2=ON && \
-    cmake --build . && \
+    cmake --build . -j 16 && \
     cmake --build . --target install && \
     cd / && \
     rm -rf /tmp/build-openpmd
 
-COPY ascent_build /tmp/ascent_build
+RUN mkdir /tmp/build-ascent
+
+COPY ascent_build.patch /tmp/build-ascent
 
 ## NOTE: with enable_cuda=ON, you need a Docker VM with a LARGE amount of RAM (at least 15 GB RAM, 4 GB swap)
 
-RUN cd /tmp/ascent_build && \
-    env enable_cuda=ON bash build_ascent.sh && \
+# commit version is dev branch on 2024-08-30
+RUN cd /tmp/build-ascent && \
+    wget https://github.com/Alpine-DAV/ascent/archive/dc2ec9c.tar.gz && \
+    tar xzf dc2ec9c.tar.gz -C . --strip-components=1 && \
+    wget https://github.com/LLNL/blt/archive/9ff7734.tar.gz && \
+    tar xzf 9ff7734.tar.gz -C ./src/blt --strip-components=1 && \
+    cd ./scripts/build_ascent && \
+    patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
+    env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
     cd / && \
     rm -rf /tmp/ascent_build
