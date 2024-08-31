@@ -14,7 +14,7 @@
  enable_tests="${enable_tests:=OFF}"
  enable_verbose="${enable_verbose:=ON}"
 -build_jobs="${build_jobs:=6}"
-+build_jobs="${build_jobs:=16}"
++build_jobs=`nproc`
  build_config="${build_config:=Release}"
  build_shared_libs="${build_shared_libs:=ON}"
  
