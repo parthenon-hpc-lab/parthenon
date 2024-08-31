@@ -1,7 +1,7 @@
 FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 emacs nvi && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 emacs nvi sphinx-doc python3-sphinx-rtd-theme python3-sphinxcontrib.bibtex python3-sphinx-copybutton && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 10 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 10
 
@@ -10,6 +10,9 @@ RUN g++ --version
 RUN pip3 install unyt
 
 RUN pip3 install blosc2
+
+# for Codespaces/VSCode Sphinx support
+RUN pip3 install esbonio
 
 # h5py from the repo is incompatible with the default numpy 2.1.0
 # Downgrading is not the cleanest solution, but it works...
@@ -20,7 +23,7 @@ RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" > /etc/apt/sources.list.d/llvm.list
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-19 llvm-19 libomp-19-dev && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-19 llvm-19 libomp-19-dev clangd-19 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
