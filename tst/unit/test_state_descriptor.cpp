@@ -121,6 +121,22 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
   }
 }
 
+TEST_CASE("Test GetPackDimension in StateDescriptor", "[StateDescriptor]") {
+  GIVEN("Some flags and state descriptors") {
+    StateDescriptor state("state");
+    WHEN("We add some fields with various shapes and total size") {
+      state.AddField("foo", Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4}));
+      state.AddField("bar",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4}));
+      state.AddField("baz",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4, 4}));
+      THEN("The total length is identified correctly") {
+        REQUIRE(state.GetPackDimension(Metadata::GetUserFlag("state")) == 84);
+      }
+    }
+  }
+}
+
 TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") {
   GIVEN("Some empty state descriptors and metadata") {
     // metadata

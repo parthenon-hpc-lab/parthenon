@@ -318,6 +318,7 @@ class UniformCartesian {
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return name_; }
+  static const char *StaticName() { return name_; }
 
  private:
   std::array<int, 3> istart_;

@@ -274,6 +274,7 @@ add_library(parthenon
   utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
+  utils/type_list.hpp
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp

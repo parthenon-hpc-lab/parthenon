@@ -519,6 +519,7 @@ class MeshData {
 
 template <typename T, typename... Args>
 std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  if (md1->NumBlocks() == 0 || md2->NumBlocks() == 0) return std::vector<Uid_t>();
   return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
                          std::forward<Args>(args)...);
 }
