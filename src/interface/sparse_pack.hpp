@@ -33,6 +33,7 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
 #include "utils/concepts_lite.hpp"
+#include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
