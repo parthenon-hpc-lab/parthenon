@@ -167,9 +167,13 @@ classes may be allocated. The behaviours are the following:
   field can be accessed from the base ``Metadata`` with the method 
   ``Metadata::GetSPtrFluxMetadata()``. This can be used to set flags other
   than the defaults or set custom prolongation/restriction operations for
-  the fluxes. When creating packs that include fluxes, the new flux field
-  will be included in the flux portion of the pack if the parent field is
-  in the pack. 
+  the fluxes. Note that calling `Metadata::RegisterRefinementOps<...>()`
+  on the base field propagates the registered refinement operations through
+  to the flux `Metadata` for backward compatibility. If separate operations 
+  are desired for the fluxes, the ordering of calls to `RegisterRefinementOps` 
+  on the base field and the flux field matters. When creating packs that 
+  include fluxes, the new flux field will be included in the flux portion of
+  the pack if the parent field is in the pack. 
 
 - If ``Metadata::Flux`` is set, this field is exchanged on shared elements 
   across fine-coarse boundaries when the flux correction tasks are called. 

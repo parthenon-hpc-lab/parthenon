@@ -559,6 +559,12 @@ class Metadata {
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
                                                        InternalProlongationOp>();
+    // Propagate refinement operations to flux metadata for backward compatibility
+    if (IsSet(WithFluxes)) {
+      flux_metadata->refinement_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                         InternalProlongationOp>();
+    }
   }
 
   // Operators
