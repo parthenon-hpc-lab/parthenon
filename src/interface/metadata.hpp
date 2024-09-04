@@ -120,8 +120,6 @@
   PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
-  /** allocate a separate flux array for each stage if WithFluxes is specified**/        \
-  PARTHENON_INTERNAL_FOR_FLAG(FluxNotOneCopy)                                            \
   /** Align memory of fields to cell centered memory                                     \
       (Field will be missing one layer of ghosts if it is not cell centered) **/         \
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
@@ -330,28 +328,48 @@ class Metadata {
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
+      const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
+      const refinement::RefinementFunctions_t flux_ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+
+  Metadata(
       const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
       const std::vector<std::string> &component_labels = {},
       const std::string &associated = "",
       const refinement::RefinementFunctions_t ref_funcs_ =
           refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+      : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
       : Metadata(bits, shape, {}, associated) {}
 
-  // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
       : Metadata(bits, {1}, component_labels, associated) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
       : Metadata(bits, {1}, {}, associated) {}
 
+  std::shared_ptr<Metadata> GetSPtrFluxMetadata() {
+    PARTHENON_REQUIRE(IsSet(WithFluxes),
+                      "Asking for flux metadata from metadata that doesn't have it.");
+    return flux_metadata;
+  }
+
+ private:
+  std::shared_ptr<Metadata> flux_metadata;
+
+ public:
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
