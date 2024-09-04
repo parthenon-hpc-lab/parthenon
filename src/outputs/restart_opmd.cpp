@@ -116,11 +116,20 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
 
 template <typename T>
 void RestartReaderOPMD::ReadAllParamsOfType(const std::string &pkg_name, Params &params) {
+  using OpenPMDUtils::delim;
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
     auto mutability = params.GetMutability(key);
     if (type == std::type_index(typeid(T)) && mutability == Params::Mutability::Restart) {
-      auto val = it->getAttribute("Params/" + pkg_name + "/" + key).get<T>();
+      auto attrs = it->attributes();
+      for (const auto & attr : attrs) {
+        std::cout << "Contains attribute: " << attr << std::endl;
+      }
+      std::cout << "Reading '"
+                << "Params" + delim + pkg_name + delim + key << "' with type: " << typeid(T).name()
+                << std::endl;
+
+      auto val = it->getAttribute("Params" + delim + pkg_name + delim + key).get<T>();
       params.Update(key, val);
     }
   }

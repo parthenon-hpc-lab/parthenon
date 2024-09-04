@@ -65,7 +65,8 @@ using namespace OutputUtils;
 
 template <typename T>
 void WriteAllParamsOfType(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
-  const std::string prefix = "Params/" + pkg->label() + "/";
+  using OpenPMDUtils::delim;
+  const std::string prefix = "Params" + delim + pkg->label() + delim;
   const auto &params = pkg->AllParams();
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
