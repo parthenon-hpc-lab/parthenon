@@ -75,7 +75,8 @@ SparsePackBase::GetAllocStatus(T *pmd, const PackDescriptor &desc,
     const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
-        astat[idx++] = uid_map.count(uid) > 0 ? (uid_map.at(uid))->GetAllocationStatus() : -1;
+        astat[idx++] =
+            uid_map.count(uid) > 0 ? (uid_map.at(uid))->GetAllocationStatus() : -1;
       }
     }
   });

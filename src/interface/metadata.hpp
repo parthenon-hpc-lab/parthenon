@@ -693,7 +693,6 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
   return out;
 }
 } // namespace MetadataUtils
-
 } // namespace parthenon
 
 #endif // INTERFACE_METADATA_HPP_

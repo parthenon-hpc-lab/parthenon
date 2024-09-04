@@ -162,10 +162,10 @@ struct PackDescriptor {
   const std::size_t nvar_tot;
 
  private:
-  static int GetNVarsTotal(const std::vector<VariableGroup_t> &var_groups) { 
-    int nvar_tot = 0; 
-    for (const auto &group : var_groups) { 
-      for (const auto &[a, b] : group) { 
+  static int GetNVarsTotal(const std::vector<VariableGroup_t> &var_groups) {
+    int nvar_tot = 0;
+    for (const auto &group : var_groups) {
+      for (const auto &[a, b] : group) {
         nvar_tot++;
       }
     }
