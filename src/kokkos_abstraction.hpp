@@ -528,8 +528,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
             !always_false<Tag, Pattern>,
         "Loop pattern & tag combination not recognized in DispatchType::GetPatternTag");
 
-    constexpr bool isSimdFor =
-        std::is_same_v<LoopPatternSimdFor, base_type<decltype(pattern_tag)>>;
+    constexpr bool isSimdFor = std::is_same_v<LoopPatternTag<LoopPattern::simd>,
+                                              base_type<decltype(pattern_tag)>>;
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     if constexpr (isSimdFor) {
       static_assert(!isSimdFor || (isSimdFor && std::is_same_v<ExecSpace, HostExecSpace>),
