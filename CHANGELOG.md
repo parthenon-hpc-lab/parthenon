@@ -2,8 +2,26 @@
 
 ## Current develop
 
+### Changed (changing behavior/API/variables/...)
+
+
+### Fixed (not changing behavior/API/variables/...)
+
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+## Release 24.08
+Date: 2024-08-30
+
 ### Added (new features/APIs/variables/...)
-- [[PR 1151]]((https://github.com/parthenon-hpc-lab/parthenon/pull/1151)) Add time offset `c` to LowStorageIntegrator
+- [[PR 1151]](https://github.com/parthenon-hpc-lab/parthenon/pull/1151) Add time offset `c` to LowStorageIntegrator
 - [[PR 1147]](https://github.com/parthenon-hpc-lab/parthenon/pull/1147) Add `par_reduce_inner` functions
 - [[PR 1159]](https://github.com/parthenon-hpc-lab/parthenon/pull/1159) Add additional timestep controllers in parthenon/time.
 - [[PR 1148]](https://github.com/parthenon-hpc-lab/parthenon/pull/1148) Add `GetPackDimension` to `StateDescriptor` for calculating pack sizes before `Mesh` initialization
@@ -40,6 +58,7 @@
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1145]](https://github.com/parthenon-hpc-lab/parthenon/pull/1145) Fix remaining swarm D->H->D copies
 - [[PR 1150]](https://github.com/parthenon-hpc-lab/parthenon/pull/1150) Reduce memory consumption for buffer pool
 - [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
 - [[PR 1152]](https://github.com/parthenon-hpc-lab/parthenon/pull/1152) Fix memory leak in task graph outputs related to `abi::__cxa_demangle`
