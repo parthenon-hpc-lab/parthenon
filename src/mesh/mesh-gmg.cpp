@@ -166,7 +166,7 @@ void Mesh::SetGMGNeighbors() {
           int leaf_gid = forest.GetLeafGid(ploc);
           pmb->gmg_coarser_neighbors.emplace_back(
               pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
-              std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 
@@ -180,15 +180,15 @@ void Mesh::SetGMGNeighbors() {
           if (gid >= 0) {
             int leaf_gid = forest.GetLeafGid(d);
             pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
-                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
-                                                  0, 0);
+                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
+                                                  0, 0, 0);
           }
         }
         if (pmb->gmg_finer_neighbors.size() == 0) {
           // This is a leaf block, so add itself as a finer neighbor
-          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc,
-                                               Globals::my_rank, pmb->gid,
-                                               std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+          pmb->gmg_leaf_neighbors.emplace_back(
+              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 

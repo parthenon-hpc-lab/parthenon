@@ -90,7 +90,7 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  std::array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
+  Kokkos::Array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume

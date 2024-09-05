@@ -379,14 +379,14 @@ struct dispatch_collapse {
           std::integer_sequence<std::size_t, ThreadIs...>,
           std::integer_sequence<std::size_t, VectorIs...>, team_mbr_t team_member,
           Args &&...args) const {
-    auto inds_team = idxer_team.GetIdxKArray(team_member.league_rank());
+    auto inds_team = idxer_team.GetIdxArray(team_member.league_rank());
     if constexpr (Nthread > 0) {
       const auto idxer_thread =
           MakeIndexer(Kokkos::Array<IndexRange, Nthread>{bound_arr[ThreadIs]...});
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange<>(team_member, 0, idxer_thread.size()),
           [&](const int idThread, ExtraFuncArgs... fargs) {
-            const auto inds_thread = idxer_thread.GetIdxKArray(idThread);
+            const auto inds_thread = idxer_thread.GetIdxArray(idThread);
             if constexpr (Nvector > 0) {
               static_assert(Nvector * Nthread == 0 || sizeof...(Args) == 0,
                             "thread + vector range pattern only supported for par_for ");
@@ -395,7 +395,7 @@ struct dispatch_collapse {
               Kokkos::parallel_for(
                   Kokkos::ThreadVectorRange(team_member, 0, idxer_vector.size()),
                   [&](const int idVector) {
-                    const auto inds_vector = idxer_vector.GetIdxKArray(idVector);
+                    const auto inds_vector = idxer_vector.GetIdxArray(idVector);
                     function(inds_team[TeamIs]..., inds_thread[ThreadIs]...,
                              inds_vector[VectorIs]...,
                              std::forward<ExtraFuncArgs>(fargs)...);
@@ -412,7 +412,7 @@ struct dispatch_collapse {
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(team_member, 0, idxer_vector.size()),
           [&](const int idVector, ExtraFuncArgs... fargs) {
-            const auto inds_vector = idxer_vector.GetIdxKArray(idVector);
+            const auto inds_vector = idxer_vector.GetIdxArray(idVector);
             function(inds_team[TeamIs]..., inds_vector[VectorIs]...,
                      std::forward<ExtraFuncArgs>(fargs)...);
           },
@@ -448,7 +448,7 @@ KOKKOS_INLINE_FUNCTION void SimdFor(std::index_sequence<OuterIs...>, Function fu
     const auto idxer =
         MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
     for (int idx = 0; idx < idxer.size(); idx++) {
-      const auto indices = idxer.GetIdxKArray(idx);
+      const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
       for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
         function(indices[OuterIs]..., i);
@@ -557,7 +557,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     kokkos_dispatch(
         Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
         KOKKOS_LAMBDA(const int idx, ExtraFuncArgs... fargs) {
-          const auto idx_arr = idxer.GetIdxKArray(idx);
+          const auto idx_arr = idxer.GetIdxArray(idx);
           function(idx_arr[OuterIs]..., std::forward<ExtraFuncArgs>(fargs)...);
         },
         std::forward<Args>(args)...);
@@ -590,7 +590,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
         team_policy(exec_space, idxer.size(), Kokkos::AUTO)
             .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
         KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-          const auto idx_arr = idxer.GetIdxKArray(team_member.league_rank());
+          const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
           function(team_member, idx_arr[OuterIs]...,
                    std::forward<ExtraFuncArgs>(fargs)...);
         },
