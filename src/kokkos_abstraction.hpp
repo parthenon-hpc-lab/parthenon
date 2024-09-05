@@ -77,7 +77,7 @@ static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 // Translates to a Kokkos::TeamPolicy that collapse Nteams outer loops
 // with Nthread & Nvector inner loop collapses
-template <size_t Nteam, std::size_t Nthread, std::size_t Nvector>
+template <std::size_t Nthread, std::size_t Nvector>
 struct LoopPatternCollapse {};
 
 // trait to track if pattern requests any type of hierarchial parallelism
@@ -90,14 +90,13 @@ struct LoopPatternTeam : std::false_type {
 // This pattern needs to determine the team and thread/vector count at compile time
 // By contrast the others specify the thread/vector count at compile time and the
 // outer team policy collapses all remaining loops
-template <size_t team, std::size_t thread, std::size_t vector>
-struct LoopPatternTeam<LoopPatternCollapse<team, thread, vector>,
-                       std::integral_constant<size_t, team + thread + vector>, void>
+template <std::size_t thread, std::size_t vector>
+struct LoopPatternTeam<LoopPatternCollapse<thread, vector>,
+                       std::integral_constant<size_t, thread + vector>, void>
     : std::true_type {
   static constexpr std::size_t Nvector = vector;
   static constexpr std::size_t Nthread = thread;
-  static constexpr std::size_t Nteam = team;
-  using LoopPattern = LoopPatternCollapse<team, thread, vector>;
+  using LoopPattern = LoopPatternCollapse<thread, vector>;
 };
 
 // Patterns with an outer team pattern that collapses all
@@ -118,8 +117,7 @@ struct LoopPatternTeam<
 
   static constexpr std::size_t Nvector = IsTPTVR || IsTPTTRTVR;
   static constexpr std::size_t Nthread = IsTPTTR || IsTPTTRTVR;
-  static constexpr std::size_t Nteam = Rank::value - Nthread - Nvector;
-  using LoopPattern = LoopPatternCollapse<Nteam, Nthread, Nvector>;
+  using LoopPattern = LoopPatternCollapse<Nthread, Nvector>;
   using OuterPattern = Pattern;
 };
 
@@ -134,7 +132,7 @@ struct LoopPatternTeam<OuterLoopPatternTeams, std::integral_constant<size_t, Ran
   static constexpr std::size_t Nvector = 0;
   static constexpr std::size_t Nthread = 0;
   static constexpr std::size_t Nteam = Rank;
-  using LoopPattern = LoopPatternCollapse<Rank, 0, 0>;
+  using LoopPattern = LoopPatternCollapse<0, 0>;
   using OuterPattern = OuterLoopPatternTeams;
 };
 
@@ -164,7 +162,7 @@ struct LoopPatternTeam<
 
   static constexpr std::size_t Nvector = IsTVR ? Rank : 0;
   static constexpr std::size_t Nthread = IsTTR ? Rank : 0;
-  using LoopPattern = LoopPatternCollapse<0, Nthread, Nvector>;
+  using LoopPattern = LoopPatternCollapse<Nthread, Nvector>;
 };
 
 namespace dispatch_impl {
