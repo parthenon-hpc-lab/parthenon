@@ -565,21 +565,11 @@ template <std::size_t Rank, std::size_t... OuterIs, typename Function>
 KOKKOS_INLINE_FUNCTION void SequentialFor(std::index_sequence<OuterIs...>,
                                           Function function,
                                           Kokkos::Array<IndexRange, Rank> bounds) {
-  if constexpr (Rank == 1) {
-#pragma omp simd
-    for (int i = bounds[0].s; i <= bounds[0].e; i++) {
-      function(i);
-    }
-  } else {
-    const auto idxer =
-        MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
-    for (int idx = 0; idx < idxer.size(); idx++) {
-      const auto indices = idxer.GetIdxArray(idx);
-#pragma omp simd
-      for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
-        function(indices[OuterIs]..., i);
-      }
-    }
+  const auto idxer =
+      MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
+  for (int idx = 0; idx < idxer.size(); idx++) {
+    const auto indices = idxer.GetIdxArray(idx);
+    function(indices[OuterIs]...);
   }
 }
 
@@ -593,7 +583,7 @@ struct seq_for_impl<Function, TypeList<Bounds...>> {
     constexpr std::size_t Rank = bound_translator::Rank;
     const auto bound_arr =
         bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
-    SequentialFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
+    SequentialFor(std::make_index_sequence<Rank>(), function, bound_arr);
   }
 };
 
