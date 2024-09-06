@@ -30,6 +30,7 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "utils/indexer.hpp"
 #include "utils/type_list.hpp"
 
 using parthenon::DevExecSpace;
@@ -129,43 +130,43 @@ struct HostArrayND_impl<7> {
   using type = parthenon::HostArray7D<T>;
 };
 
-template <size_t ND, typename T, typename... Args>
+template <std::size_t ND, typename T, typename... Args>
 auto ParArrayND(Args &&...args) {
   static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
   return typename ParArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
-template <size_t ND, typename T, typename... Args>
+template <std::size_t ND, typename T, typename... Args>
 auto HostArrayND(Args &&...args) {
   static_assert(ND <= 7, "HostArrayND supoorted up to ND=7");
   return typename HostArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
 
-template <size_t, size_t, typename>
+template <std::size_t, std::size_t, typename>
 struct SequenceOfInt {};
 
-template <size_t VAL, size_t... ones>
-struct SequenceOfInt<0, VAL, std::integer_sequence<size_t, ones...>> {
-  using value = typename std::integer_sequence<size_t, ones...>;
+template <std::size_t VAL, std::size_t... ones>
+struct SequenceOfInt<0, VAL, std::integer_sequence<std::size_t, ones...>> {
+  using value = typename std::integer_sequence<std::size_t, ones...>;
 };
 
-template <size_t N, size_t VAL, size_t... ones>
-struct SequenceOfInt<N, VAL, std::integer_sequence<size_t, ones...>> {
+template <std::size_t N, std::size_t VAL, std::size_t... ones>
+struct SequenceOfInt<N, VAL, std::integer_sequence<std::size_t, ones...>> {
   using value =
       typename SequenceOfInt<N - 1, VAL,
-                             std::integer_sequence<size_t, VAL, ones...>>::value;
+                             std::integer_sequence<std::size_t, VAL, ones...>>::value;
 };
 
-template <size_t N, size_t VAL = 1>
+template <std::size_t N, std::size_t VAL = 1>
 using sequence_of_int_v =
-    typename SequenceOfInt<N - 1, VAL, std::integer_sequence<size_t, VAL>>::value;
+    typename SequenceOfInt<N - 1, VAL, std::integer_sequence<std::size_t, VAL>>::value;
 
 enum class lbounds { integer, indexrange };
 
-template <size_t Rank, size_t N>
+template <std::size_t Rank, std::size_t N>
 struct test_wrapper_nd_impl {
-  template <size_t Ni>
+  template <std::size_t Ni>
   using Sequence = std::make_index_sequence<Ni>;
-  int indices[Rank - 1], int_bounds[2 * Rank];
+  int int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
   decltype(ParArrayND<Rank, Real>()) arr_dev;
   decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
@@ -177,32 +178,29 @@ struct test_wrapper_nd_impl {
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
     std::uniform_real_distribution<Real> dis(-1.0, 1.0);
-    par_for_init<Rank>(std::make_index_sequence<Rank - 1>(), gen, dis);
+    par_for_init(std::make_index_sequence<Rank>(), gen, dis);
   }
 
-  template <size_t... Is>
+  template <std::size_t... Is>
   auto GetArray(std::index_sequence<Is...>) {
     static_assert(sizeof...(Is) == Rank);
     return ParArrayND<Rank, Real>("device", N * Is...);
   }
 
-  template <size_t LoopsLeft, size_t... Is>
+  template <std::size_t... Is>
   void par_for_init(std::index_sequence<Is...>, std::mt19937 &gen,
                     std::uniform_real_distribution<Real> &dis) {
-    constexpr size_t id = Rank - LoopsLeft;
-    bounds[id].s = 0;
-    bounds[id].e = N - 1;
-    int_bounds[2 * id] = 0;
-    int_bounds[2 * id + 1] = N - 1;
-    if constexpr (LoopsLeft == 1) {
-      for (int i = 0; i < N; i++) {
-        arr_host_orig(indices[Is]..., i) = dis(gen);
-      }
-    } else {
-      for (int j = 0; j < N; j++) {
-        indices[Rank - LoopsLeft] = j;
-        par_for_init<LoopsLeft - 1>(Sequence<Rank - 1>(), gen, dis);
-      }
+    for (int id = 0; id < Rank; id++) {
+      bounds[id].s = 0;
+      bounds[id].e = N - 1;
+      int_bounds[2 * id] = 0;
+      int_bounds[2 * id + 1] = N - 1;
+    }
+    const auto idxer =
+        parthenon::MakeIndexer(std::pair<int, int>(bounds[Is].s, bounds[Is].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      const auto indices = idxer.GetIdxArray(idx);
+      arr_host_orig(indices[Is]...) = dis(gen);
     }
   }
 
@@ -217,20 +215,16 @@ struct test_wrapper_nd_impl {
     return static_cast<Real>(inc);
   }
 
-  template <size_t LoopsLeft, size_t... Is>
+  template <std::size_t... Is>
   bool par_for_comp(std::index_sequence<Is...>) {
     bool all_same = true;
-    if constexpr (LoopsLeft == 1) {
-      for (int i = 0; i < N; i++) {
-        if (arr_host_orig(indices[Is]..., i) + increment_data(indices[Is]..., i) !=
-            arr_host_mod(indices[Is]..., i)) {
-          all_same = false;
-        }
-      }
-    } else {
-      for (int j = 0; j < N; j++) {
-        indices[Rank - LoopsLeft] = j;
-        all_same = par_for_comp<LoopsLeft - 1>(Sequence<Rank - 1>());
+    const auto idxer =
+        parthenon::MakeIndexer(std::pair<int, int>(bounds[Is].s, bounds[Is].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      const auto indices = idxer.GetIdxArray(idx);
+      if (arr_host_orig(indices[Is]...) + increment_data(indices[Is]...) !=
+          arr_host_mod(indices[Is]...)) {
+        all_same = false;
       }
     }
     return all_same;
@@ -239,7 +233,7 @@ struct test_wrapper_nd_impl {
   template <typename, lbounds, typename, typename>
   struct dispatch {};
 
-  template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
+  template <typename Pattern, lbounds bound_type, std::size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
                   parthenon::TypeList<Ts...>> {
     template <typename view_t>
@@ -267,14 +261,14 @@ struct test_wrapper_nd_impl {
                parthenon::list_of_type_t<Rank, const int>>()
           .execute(exec_space, arr_dev, int_bounds, bounds);
       Kokkos::deep_copy(arr_host_mod, arr_dev);
-      REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
+      REQUIRE(par_for_comp(Sequence<Rank>()) == true);
     }
     SECTION("IndexRange launch bounds") {
       dispatch<T, lbounds::indexrange, Sequence<Rank>,
                parthenon::list_of_type_t<Rank, const int>>()
           .execute(exec_space, arr_dev, int_bounds, bounds);
       Kokkos::deep_copy(arr_host_mod, arr_dev);
-      REQUIRE(par_for_comp<Rank>(Sequence<Rank - 1>()) == true);
+      REQUIRE(par_for_comp(Sequence<Rank>()) == true);
     }
   }
 
@@ -282,7 +276,7 @@ struct test_wrapper_nd_impl {
   void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
 };
 
-template <size_t Rank, size_t N>
+template <std::size_t Rank, std::size_t N>
 void test_wrapper_nd(DevExecSpace exec_space) {
   auto wrappernd = test_wrapper_nd_impl<Rank, N>();
   SECTION("LoopPatternFlatRange") {
@@ -350,7 +344,7 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
 
   // Compute the scratch memory needs
   const int scratch_level = 0;
-  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N * N);
+  std::size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N * N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_for_outer(
@@ -420,7 +414,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
 
   // Compute the scratch memory needs
   const int scratch_level = 0;
-  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
+  std::size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
   parthenon::IndexRange rng{0, N - 1};
 
   // Compute the 2nd order centered derivative in x
@@ -544,9 +538,9 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   }
 }
 
-template <size_t Rank, size_t N>
+template <std::size_t Rank, std::size_t N>
 struct test_wrapper_reduce_nd_impl {
-  template <size_t Ni>
+  template <std::size_t Ni>
   using Sequence = std::make_index_sequence<Ni>;
   int indices[Rank - 1], int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
@@ -554,38 +548,35 @@ struct test_wrapper_reduce_nd_impl {
 
   test_wrapper_reduce_nd_impl() {
     h_sum = 0;
-    par_red_init<Rank>(std::make_index_sequence<Rank - 1>(), h_sum);
+    par_red_init(std::make_index_sequence<Rank>(), h_sum);
   }
 
-  template <size_t... Is>
+  template <std::size_t... Is>
   auto GetArray(std::index_sequence<Is...>) {
     static_assert(sizeof...(Is) == Rank);
     return ParArrayND<Rank, Real>("device", N * Is...);
   }
 
-  template <size_t LoopsLeft, size_t... Is>
+  template <std::size_t... Is>
   void par_red_init(std::index_sequence<Is...>, int &sum) {
-    constexpr size_t id = Rank - LoopsLeft;
-    bounds[id].s = 0;
-    bounds[id].e = N - 1;
-    int_bounds[2 * id] = 0;
-    int_bounds[2 * id + 1] = N - 1;
-    if constexpr (LoopsLeft == 1) {
-      for (int i = 0; i < N; i++) {
-        sum += (i + ... + indices[Is]);
-      }
-    } else {
-      for (int j = 0; j < N; j++) {
-        indices[Rank - LoopsLeft] = j;
-        par_red_init<LoopsLeft - 1>(Sequence<Rank - 1>(), sum);
-      }
+    for (int id = 0; id < Rank; id++) {
+      bounds[id].s = 0;
+      bounds[id].e = N - 1;
+      int_bounds[2 * id] = 0;
+      int_bounds[2 * id + 1] = N - 1;
+    }
+    const auto idxer =
+        parthenon::MakeIndexer(std::pair<int, int>(bounds[Is].s, bounds[Is].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      const auto indices = idxer.GetIdxArray(idx);
+      sum += (0 + ... + indices[Is]);
     }
   }
 
   template <typename, lbounds, typename, typename>
   struct dispatch {};
 
-  template <typename Pattern, lbounds bound_type, size_t... Ids, typename... Ts>
+  template <typename Pattern, lbounds bound_type, std::size_t... Ids, typename... Ts>
   struct dispatch<Pattern, bound_type, std::index_sequence<Ids...>,
                   parthenon::TypeList<Ts...>> {
     bool execute(DevExecSpace exec_space, const int h_sum, int *int_bounds,
@@ -627,7 +618,7 @@ struct test_wrapper_reduce_nd_impl {
   void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
 };
 
-template <size_t Rank, size_t N>
+template <std::size_t Rank, std::size_t N>
 void test_wrapper_reduce_nd(DevExecSpace exec_space) {
   auto wrappernd = test_wrapper_reduce_nd_impl<Rank, N>();
   SECTION("LoopPatternFlatRange") {
