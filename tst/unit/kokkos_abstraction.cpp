@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <random>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,12 @@ using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
 using Real = double;
+
+template <std::size_t Ni>
+using Sequence = std::make_index_sequence<Ni>;
+
+template <class... Args>
+void capture(Args... args) {}
 
 template <std::size_t>
 struct ParArrayND_impl {};
@@ -130,6 +137,19 @@ struct HostArrayND_impl<7> {
   using type = parthenon::HostArray7D<T>;
 };
 
+template <std::size_t>
+struct ScratchPadND_impl {};
+template <>
+struct ScratchPadND_impl<1> {
+  template <typename T>
+  using type = parthenon::ScratchPad1D<T>;
+};
+template <>
+struct ScratchPadND_impl<2> {
+  template <typename T>
+  using type = parthenon::ScratchPad2D<T>;
+};
+
 template <std::size_t ND, typename T, typename... Args>
 auto ParArrayND(Args &&...args) {
   static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
@@ -139,6 +159,12 @@ template <std::size_t ND, typename T, typename... Args>
 auto HostArrayND(Args &&...args) {
   static_assert(ND <= 7, "HostArrayND supoorted up to ND=7");
   return typename HostArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
+}
+
+template <std::size_t ND, typename T, typename... Args>
+auto ScratchPadND(Args &&...args) {
+  static_assert(ND <= 2, "ScratchPadND supported up to ND=2");
+  return typename ScratchPadND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
 
 template <std::size_t, std::size_t, typename>
@@ -160,12 +186,16 @@ template <std::size_t N, std::size_t VAL = 1>
 using sequence_of_int_v =
     typename SequenceOfInt<N - 1, VAL, std::integer_sequence<std::size_t, VAL>>::value;
 
+template <std::size_t Rank, class... Args>
+auto GetArray_impl(Args... Ns) {
+  static_assert(sizeof...(Args) == Rank);
+  return ParArrayND<Rank, Real>("device", Ns...);
+}
+
 enum class lbounds { integer, indexrange };
 
 template <std::size_t Rank, std::size_t N>
 struct test_wrapper_nd_impl {
-  template <std::size_t Ni>
-  using Sequence = std::make_index_sequence<Ni>;
   int int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
   decltype(ParArrayND<Rank, Real>()) arr_dev;
@@ -184,7 +214,7 @@ struct test_wrapper_nd_impl {
   template <std::size_t... Is>
   auto GetArray(std::index_sequence<Is...>) {
     static_assert(sizeof...(Is) == Rank);
-    return ParArrayND<Rank, Real>("device", N * Is...);
+    return GetArray_impl<Rank>(N * Is...);
   }
 
   template <std::size_t... Is>
@@ -320,176 +350,181 @@ TEST_CASE("par_for loops", "[wrapper]") {
   SECTION("7D loops") { test_wrapper_nd<7, 10>(default_exec_space); }
 }
 
-template <class OuterLoopPattern, class InnerLoopPattern>
-bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
-                            InnerLoopPattern inner_loop_pattern,
-                            DevExecSpace exec_space) {
-  // Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2
+template <std::size_t Rank, std::size_t N>
+struct test_wrapper_nested_nd_impl {
+  Kokkos::Array<parthenon::IndexRange, Rank> bounds;
+  decltype(ParArrayND<Rank, Real>()) dev_u, dev_du;
+  decltype(HostArrayND<Rank, Real>()) host_u, host_du;
 
-  const int N = 32;
-  ParArray3D<Real> dev_u("device u", N, N, N);
-  ParArray3D<Real> dev_du("device du", N, N, N - 2);
-  auto host_u = Kokkos::create_mirror(dev_u);
-  auto host_du = Kokkos::create_mirror(dev_du);
+  test_wrapper_nested_nd_impl() {
+    dev_u = GetArray(sequence_of_int_v<Rank, 1>());
+    dev_du = GetArray(sequence_of_int_v<Rank - 1, 1>(), N - 2);
+    host_u = Kokkos::create_mirror(dev_u);
+    host_du = Kokkos::create_mirror(dev_du);
+    init(std::make_index_sequence<Rank>());
+  }
 
-  // initialize with i^2 * j^2 * k^2
-  for (int n = 0; n < N; n++)
-    for (int k = 0; k < N; k++)
-      for (int j = 0; j < N; j++)
-        for (int i = 0; i < N; i++)
-          host_u(k, j, i) = pow((i + 1) * (j + 2) * (k + 3), 2.0);
+  template <std::size_t... Is, class... Args>
+  auto GetArray(std::index_sequence<Is...>, Args... Ns) {
+    return GetArray_impl<Rank>(Is * N..., Ns...);
+  }
 
-  // Copy host array content to device
-  Kokkos::deep_copy(dev_u, host_u);
+  template <std::size_t... Is>
+  void init(std::index_sequence<Is...>) {
+    for (int id = 0; id < Rank; id++) {
+      bounds[id].s = 0;
+      bounds[id].e = N - 1;
+    }
+    const auto idxer =
+        parthenon::MakeIndexer(std::pair<int, int>(bounds[Is].s, bounds[Is].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      const auto indices = idxer.GetIdxArray(idx);
+      // initialize with i^2 * j^2 * k^2
+      host_u(indices[Is]...) = pow((1 * ... * (indices[Is] + 1 + Is)), 2.0);
+    }
+    // Copy host array content to device
+    Kokkos::deep_copy(dev_u, host_u);
+  }
 
-  // Compute the scratch memory needs
-  const int scratch_level = 0;
-  std::size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N * N);
+  template <typename, typename, typename, typename, typename, typename>
+  struct dispatch {};
 
-  // Compute the 2nd order centered derivative in x
-  parthenon::par_for_outer(
-      outer_loop_pattern, "unit test Nested 3D", exec_space, scratch_size_in_bytes,
-      scratch_level, 0, N - 1,
+  template <typename OuterPattern, std::size_t... OuterIs, typename... OuterArgs,
+            typename InnerPattern, std::size_t... InnerIs, typename... InnerArgs>
+  struct dispatch<OuterPattern, std::index_sequence<OuterIs...>,
+                  parthenon::TypeList<OuterArgs...>, InnerPattern,
+                  std::index_sequence<InnerIs...>, parthenon::TypeList<InnerArgs...>> {
+    using team_mbr_t = parthenon::team_mbr_t;
+    static constexpr std::size_t Nouter = sizeof...(OuterIs);
+    static constexpr std::size_t Ninner = Rank - Nouter - 1;
 
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int k) {
-        // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-        parthenon::ScratchPad2D<Real> scratch_u(team_member.team_scratch(scratch_level),
-                                                N, N);
-        parthenon::par_for_inner(
-            inner_loop_pattern, team_member, 0, N - 1, 0, N - 1,
-            [&](const int j, const int i) { scratch_u(j, i) = dev_u(k, j, i); });
-        // Sync all threads in the team so that scratch memory is consistent
-        team_member.team_barrier();
+    template <typename view_t>
+    void execute(DevExecSpace exec_space, view_t &dev_u, view_t &dev_du,
+                 Kokkos::Array<parthenon::IndexRange, Rank> bounds) {
+      // Compute the scratch memory needs
+      const int scratch_level = 0;
+      std::size_t scratch_size_in_bytes =
+          parthenon::ScratchPad1D<Real>::shmem_size(pow(N, Ninner));
 
-        // Compute the derivative from scratch memory
-        parthenon::par_for_inner(inner_loop_pattern, team_member, 0, N - 1, 1, N - 2,
-                                 [&](const int j, const int i) {
-                                   dev_du(k, j, i - 1) =
-                                       (scratch_u(j, i + 1) - scratch_u(j, i - 1)) / 2.;
-                                 });
-      });
+      parthenon::par_for(
+          OuterPattern(), "unit test ND nested", exec_space, bounds[OuterIs]...,
+          KOKKOS_CLASS_LAMBDA(team_mbr_t team_member, OuterArgs... outer_args) {
+            auto scratch_u = GetScratchPad(std::make_index_sequence<Ninner + 1>(),
+                                           team_member, scratch_level);
 
-  // Copy array back from device to host
-  Kokkos::deep_copy(host_du, dev_du);
+            parthenon::par_for_inner(
+                InnerPattern(), team_member, bounds[Nouter + InnerIs]...,
+                bounds[Rank - 1], [&](InnerArgs... inner_args, const int i) {
+                  scratch_u(inner_args..., i) = dev_u(outer_args..., inner_args..., i);
+                });
+            // Sync all threads in the team so that scratch memory is consistent
+            team_member.team_barrier();
 
-  Real max_rel_err = -1;
-  const Real rel_tol = std::numeric_limits<Real>::epsilon();
+            // Compute the derivative from scratch memory
+            parthenon::par_for_inner(InnerPattern(), team_member,
+                                     bounds[Nouter + InnerIs]..., 1, N - 2,
+                                     [&](InnerArgs... inner_args, const int i) {
+                                       dev_du(outer_args..., inner_args..., i) =
+                                           (scratch_u(inner_args..., i + 1) -
+                                            scratch_u(inner_args..., i - 1)) /
+                                           2.;
+                                     });
+          });
+    }
 
-  // compare data on the host
-  for (int k = 0; k < N; k++) {
-    for (int j = 0; j < N; j++) {
-      for (int i = 1; i < N - 1; i++) {
-        const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
-        const Real err = host_du(k, j, i - 1) - analytic;
+    template <std::size_t... Is>
+    KOKKOS_INLINE_FUNCTION auto GetScratchPad(std::index_sequence<Is...>,
+                                              team_mbr_t team_member,
+                                              const int &scratch_level) const {
+      return ScratchPadND<Ninner + 1, Real>(team_member.team_scratch(scratch_level),
+                                            N * Is...);
+    }
+  };
 
+  template <std::size_t... Is>
+  bool test_comp(std::index_sequence<Is...>) {
+    // Copy array back from device to host
+    Kokkos::deep_copy(host_du, dev_du);
+
+    Real max_rel_err = -1;
+    const Real rel_tol = std::numeric_limits<Real>::epsilon();
+
+    auto idxer =
+        parthenon::MakeIndexer(std::pair<int, int>(bounds[Is].s, bounds[Is].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      auto indices = idxer.GetIdxArray(idx);
+      for (int i = 1 + bounds[Rank - 1].s; i < bounds[Rank - 1].e - 1; i++) {
+        const Real analytic =
+            2.0 * (i + Rank) * pow((1 * ... * (indices[Is] + 1 + Is)), 2.0);
+        const Real err = host_du(indices[Is]..., i) - analytic;
         max_rel_err = fmax(fabs(err / analytic), max_rel_err);
       }
     }
+
+    return max_rel_err < rel_tol;
   }
 
-  return max_rel_err < rel_tol;
-}
+  template <std::size_t Ninner, class OuterPattern, class InnerPattern>
+  bool test(OuterPattern, InnerPattern, DevExecSpace exec_space) {
+    Kokkos::deep_copy(dev_du, -11111.0);
+    constexpr std::size_t Nouter = Rank - Ninner;
+    dispatch<OuterPattern, std::make_index_sequence<Nouter>,
+             parthenon::list_of_type_t<Nouter, const int>, InnerPattern,
+             std::make_index_sequence<Ninner - 1>,
+             parthenon::list_of_type_t<Ninner - 1, const int>>()
+        .execute(exec_space, dev_u, dev_du, bounds);
 
-template <class OuterLoopPattern, class InnerLoopPattern>
-bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
-                            InnerLoopPattern inner_loop_pattern,
-                            DevExecSpace exec_space) {
-  // Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2 * n+1^2
+    Kokkos::fence();
+    return test_comp(std::make_index_sequence<Rank - 1>());
+  }
+};
 
-  const int N = 32;
-  ParArray4D<Real> dev_u("device u", N, N, N, N);
-  ParArray4D<Real> dev_du("device du", N, N, N, N - 2);
-  auto host_u = Kokkos::create_mirror(dev_u);
-  auto host_du = Kokkos::create_mirror(dev_du);
+template <std::size_t Rank, std::size_t N>
+void test_nested_nd() {
+  auto default_exec_space = DevExecSpace();
+  auto test_nested_ND = test_wrapper_nested_nd_impl<Rank, N>();
+  SECTION("Inner collaspe 1") {
+    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
+                                            parthenon::inner_loop_pattern_tvr_tag,
+                                            default_exec_space) == true);
+    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
+                                            parthenon::inner_loop_pattern_ttr_tag,
+                                            default_exec_space) == true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
 
-  // initialize with i^2 * j^2 * k^2
-  for (int n = 0; n < N; n++)
-    for (int k = 0; k < N; k++)
-      for (int j = 0; j < N; j++)
-        for (int i = 0; i < N; i++)
-          host_u(n, k, j, i) = pow((i + 1) * (j + 2) * (k + 3) * (n + 4), 2.0);
+                                              parthenon::inner_loop_pattern_simdfor_tag,
 
-  // Copy host array content to device
-  Kokkos::deep_copy(dev_u, host_u);
-
-  // Compute the scratch memory needs
-  const int scratch_level = 0;
-  std::size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
-  parthenon::IndexRange rng{0, N - 1};
-
-  // Compute the 2nd order centered derivative in x
-  parthenon::par_for_outer(
-      outer_loop_pattern, "unit test Nested 4D", exec_space, scratch_size_in_bytes,
-      scratch_level, 0, N - 1, 0, N - 1, 0, N - 1,
-
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int n, const int k,
-                    const int j) {
-        // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-        parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),
-                                                N);
-        parthenon::par_for_inner(inner_loop_pattern, team_member, rng,
-                                 [&](const int i) { scratch_u(i) = dev_u(n, k, j, i); });
-        // Sync all threads in the team so that scratch memory is consistent
-        team_member.team_barrier();
-
-        // Compute the derivative from scratch memory
-        parthenon::par_for_inner(
-            inner_loop_pattern, team_member, 1, N - 2, [&](const int i) {
-              dev_du(n, k, j, i - 1) = (scratch_u(i + 1) - scratch_u(i - 1)) / 2.;
-            });
-      });
-
-  // Copy array back from device to host
-  Kokkos::deep_copy(host_du, dev_du);
-
-  Real max_rel_err = -1;
-  const Real rel_tol = std::numeric_limits<Real>::epsilon();
-
-  // compare data on the host
-  for (int n = 0; n < N; n++) {
-    for (int k = 0; k < N; k++) {
-      for (int j = 0; j < N; j++) {
-        for (int i = 1; i < N - 1; i++) {
-          const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
-          const Real err = host_du(n, k, j, i - 1) - analytic;
-
-          max_rel_err = fmax(fabs(err / analytic), max_rel_err);
-        }
-      }
+                                              default_exec_space) == true);
     }
   }
+  SECTION("Inner collaspe 2") {
+    REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+                                            parthenon::inner_loop_pattern_tvr_tag,
+                                            default_exec_space) == true);
+    REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+                                            parthenon::inner_loop_pattern_ttr_tag,
+                                            default_exec_space) == true);
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
 
-  return max_rel_err < rel_tol;
+                                              parthenon::inner_loop_pattern_simdfor_tag,
+
+                                              default_exec_space) == true);
+    }
+  }
 }
 
 TEST_CASE("nested par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
-  SECTION("3D nested loops") {
-    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
-                                   parthenon::inner_loop_pattern_tvr_tag,
-                                   default_exec_space) == true);
-
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
-                                     parthenon::inner_loop_pattern_simdfor_tag,
-                                     default_exec_space) == true);
-    }
-  }
-
-  SECTION("4D nested loops") {
-    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
-                                   parthenon::inner_loop_pattern_tvr_tag,
-                                   default_exec_space) == true);
-
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
-                                     parthenon::inner_loop_pattern_simdfor_tag,
-                                     default_exec_space) == true);
-    }
-  }
+  SECTION("3D nested loops") { test_nested_nd<3, 32>(); }
+  SECTION("4D nested loops") { test_nested_nd<4, 32>(); }
+  SECTION("5D nested loops") { test_nested_nd<5, 10>(); }
+  SECTION("6D nested loops") { test_nested_nd<6, 10>(); }
+  SECTION("7D nested loops") { test_nested_nd<7, 10>(); }
 }
 
 template <class T>
@@ -540,8 +575,6 @@ TEST_CASE("Parallel scan", "[par_scan]") {
 
 template <std::size_t Rank, std::size_t N>
 struct test_wrapper_reduce_nd_impl {
-  template <std::size_t Ni>
-  using Sequence = std::make_index_sequence<Ni>;
   int indices[Rank - 1], int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
   int h_sum;

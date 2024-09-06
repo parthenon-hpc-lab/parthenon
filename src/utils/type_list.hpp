@@ -133,6 +133,11 @@ struct ListOfType {
 };
 
 template <class T>
+struct ListOfType<std::integral_constant<std::size_t, 0>, T> {
+  using type = TypeList<>;
+};
+
+template <class T>
 struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
   using type = TypeList<T>;
 };
