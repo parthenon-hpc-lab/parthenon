@@ -350,27 +350,29 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
 
   // Compute the scratch memory needs
   const int scratch_level = 0;
-  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
+  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N * N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_for_outer(
       outer_loop_pattern, "unit test Nested 3D", exec_space, scratch_size_in_bytes,
-      scratch_level, 0, N - 1, 0, N - 1,
+      scratch_level, 0, N - 1,
 
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int k, const int j) {
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int k) {
         // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-        parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),
-                                                N);
-        parthenon::par_for_inner(inner_loop_pattern, team_member, 0, N - 1,
-                                 [&](const int i) { scratch_u(i) = dev_u(k, j, i); });
+        parthenon::ScratchPad2D<Real> scratch_u(team_member.team_scratch(scratch_level),
+                                                N, N);
+        parthenon::par_for_inner(
+            inner_loop_pattern, team_member, 0, N - 1, 0, N - 1,
+            [&](const int j, const int i) { scratch_u(j, i) = dev_u(k, j, i); });
         // Sync all threads in the team so that scratch memory is consistent
         team_member.team_barrier();
 
         // Compute the derivative from scratch memory
-        parthenon::par_for_inner(
-            inner_loop_pattern, team_member, 1, N - 2, [&](const int i) {
-              dev_du(k, j, i - 1) = (scratch_u(i + 1) - scratch_u(i - 1)) / 2.;
-            });
+        parthenon::par_for_inner(inner_loop_pattern, team_member, 0, N - 1, 1, N - 2,
+                                 [&](const int j, const int i) {
+                                   dev_du(k, j, i - 1) =
+                                       (scratch_u(j, i + 1) - scratch_u(j, i - 1)) / 2.;
+                                 });
       });
 
   // Copy array back from device to host

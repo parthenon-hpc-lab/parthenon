@@ -59,6 +59,7 @@ struct LoopPatternCollapse : std::true_type {
   static constexpr std::size_t Nthread = num_thread;
   static constexpr std::size_t Nvector = num_vector;
 };
+
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::TeamThreadRange
 using LoopPatternTPTTR = LoopPatternCollapse<1, 0>;
@@ -83,35 +84,46 @@ static struct LoopPatternUndefined {
 // Translates to outermost loop being a Kokkos::TeamPolicy for par_for_outer like loops
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
+
+template <std::size_t num_vector>
+struct InnerLoopCollapse {};
+
 // Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
-using InnerLoopPatternTVR = LoopPatternCollapse<0, 0>;
-constexpr auto inner_loop_pattern_tvr_tag = InnerLoopPatternTVR();
+using InnerLoopPatternTVR = InnerLoopCollapse<1>;
+constexpr InnerLoopPatternTVR inner_loop_pattern_tvr_tag;
 // Translates to a Kokkos::TeamThreadRange as innermost loop
-using InnerLoopPatternTTR = LoopPatternCollapse<0, 0>;
-constexpr auto inner_loop_pattern_ttr_tag = InnerLoopPatternTTR();
+using InnerLoopPatternTTR = InnerLoopCollapse<0>;
+constexpr InnerLoopPatternTTR inner_loop_pattern_ttr_tag;
 // Translate to a non-Kokkos plain C++ innermost loop (single index)
 // decorated with #pragma omp simd
 // IMPORTANT: currently only supported on CPUs
-using InnerLoopPatternSimdFor = LoopPatternCollapse<0, 0>;
-constexpr auto inner_loop_pattern_simdfor_tag = InnerLoopPatternSimdFor();
+struct InnerLoopPatternSimdFor {};
+constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
 // trait to track if pattern requests any type of hierarchial parallelism
-template <typename Pattern, typename T = void>
+template <typename Pattern, typename Rank, typename T = void>
 struct UsesHierarchialPar : std::false_type {
   static constexpr std::size_t Nvector = 0;
   static constexpr std::size_t Nthread = 0;
 };
 
-template <std::size_t num_thread, std::size_t num_vector>
-struct UsesHierarchialPar<LoopPatternCollapse<num_thread, num_vector>> : std::true_type {
+template <std::size_t num_thread, typename Rank, std::size_t num_vector>
+struct UsesHierarchialPar<LoopPatternCollapse<num_thread, num_vector>, Rank>
+    : std::true_type {
   static constexpr std::size_t Nthread = num_thread;
   static constexpr std::size_t Nvector = num_vector;
 };
-template <>
-struct UsesHierarchialPar<OuterLoopPatternTeams> : std::true_type {
+
+template <typename Rank>
+struct UsesHierarchialPar<OuterLoopPatternTeams, Rank> : std::true_type {
   static constexpr std::size_t Nvector = 0;
   static constexpr std::size_t Nthread = 0;
+};
+
+template <typename Rank, std::size_t num_vector>
+struct UsesHierarchialPar<InnerLoopCollapse<num_vector>, Rank> : std::true_type {
+  static constexpr std::size_t Nvector = num_vector;
 };
 
 namespace dispatch_impl {
@@ -165,8 +177,9 @@ struct DispatchType {
   using Translator = LoopBoundTranslator<Bounds...>;
   static constexpr std::size_t Rank = Translator::Rank;
 
-  using TeamPattern = UsesHierarchialPar<Pattern>; // false_type unless we use
-                                                   // an outer team policy
+  using TeamPattern = UsesHierarchialPar<
+      Pattern, std::integral_constant<std::size_t, Rank>>; // false_type unless we use
+                                                           // an outer team policy
   static constexpr bool is_ParFor =
       std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
   static constexpr bool is_ParScan =
@@ -175,6 +188,8 @@ struct DispatchType {
   static constexpr bool IsFlatRange = std::is_same<Pattern, LoopPatternFlatRange>::value;
   static constexpr bool IsMDRange = std::is_same<Pattern, LoopPatternMDRange>::value;
   static constexpr bool IsSimdFor = std::is_same<Pattern, LoopPatternSimdFor>::value;
+  static constexpr bool IsSimdForInner =
+      std::is_same<Pattern, InnerLoopPatternSimdFor>::value;
 
   // check any confilcts with the requested pattern
   // and return the actual one we use
@@ -187,6 +202,10 @@ struct DispatchType {
       return LP::flat;
     } else if constexpr (IsSimdFor) {
       return is_ParFor ? LP::simd : LP::flat;
+    } else if constexpr (IsSimdForInner) {
+      // for now this is guaranteed to be par_for_inner, when par_reduce_inner is
+      // supported need to check
+      return LP::simd;
     } else if constexpr (IsMDRange) {
       return LP::md;
     } else if constexpr (std::is_same_v<Pattern, OuterLoopPatternTeams>) {
@@ -205,6 +224,7 @@ struct dispatch_collapse {
   IdxTeam idxer_team;
   Kokkos::Array<IndexRange, Rank> bound_arr;
   Function function;
+  using LP = LoopPattern;
 
   KOKKOS_FORCEINLINE_FUNCTION
   dispatch_collapse(IdxTeam idxer, Kokkos::Array<IndexRange, Rank> bounds, Function func)
@@ -213,7 +233,7 @@ struct dispatch_collapse {
   template <std::size_t... TeamIs, std::size_t... ThreadIs, std::size_t... VectorIs,
             typename... Args>
   KOKKOS_FORCEINLINE_FUNCTION void
-  execute(std::integer_sequence<std::size_t, TeamIs...>,
+  execute(LoopPatternTag<LP::collapse>, std::integer_sequence<std::size_t, TeamIs...>,
           std::integer_sequence<std::size_t, ThreadIs...>,
           std::integer_sequence<std::size_t, VectorIs...>, team_mbr_t team_member,
           Args &&...args) const {
@@ -258,11 +278,40 @@ struct dispatch_collapse {
     }
   }
 
+  template <std::size_t... OuterIs, std::size_t... ThreadIs, std::size_t... InnerIs,
+            typename... Args>
+  KOKKOS_FORCEINLINE_FUNCTION void
+  execute(LoopPatternTag<LP::simd>, std::integer_sequence<std::size_t, OuterIs...>,
+          std::integer_sequence<std::size_t, ThreadIs...>,
+          std::integer_sequence<std::size_t, InnerIs...>, team_mbr_t team_member,
+          Args &&...args) const {
+    static_assert(sizeof...(ThreadIs) == Rank - 1);
+    static_assert(sizeof...(OuterIs) == 0 && sizeof...(InnerIs) == 0,
+                  "simd inner pattern should only provide outer indices");
+    if constexpr (Rank == 1) {
+#pragma omp simd
+      for (int i = bound_arr[0].s; i <= bound_arr[0].e; i++) {
+        function(i);
+      }
+    } else {
+      const auto idxer = MakeIndexer(
+          std::pair<int, int>(bound_arr[ThreadIs].s, bound_arr[ThreadIs].e)...);
+      for (int idx = 0; idx < idxer.size(); idx++) {
+        const auto indices = idxer.GetIdxArray(idx);
+#pragma omp simd
+        for (int i = bound_arr[Rank - 1].s; i <= bound_arr[Rank - 1].e; i++) {
+          function(indices[ThreadIs]..., i);
+        }
+      }
+    }
+  }
+
   template <std::size_t N>
   using sequence = std::make_index_sequence<N>;
   KOKKOS_FORCEINLINE_FUNCTION
   void operator()(team_mbr_t team_member) const {
-    execute(sequence<Nteam>(), sequence<Nthread>(), sequence<Nvector>(), team_member);
+    execute(LoopPatternTag<LP::collapse>(), sequence<Nteam>(), sequence<Nthread>(),
+            sequence<Nvector>(), team_member);
   }
 };
 
@@ -274,27 +323,6 @@ MakeCollapse(IdxTeam idxer, Kokkos::Array<IndexRange, Rank> bounds, Function fun
                            ExtraFuncArgs...>(idxer, bounds, func);
 }
 
-template <std::size_t Rank, std::size_t... OuterIs, typename Function>
-KOKKOS_INLINE_FUNCTION void SimdFor(std::index_sequence<OuterIs...>, Function function,
-                                    Kokkos::Array<IndexRange, Rank> bounds) {
-  if constexpr (Rank == 1) {
-#pragma omp simd
-    for (int i = bounds[0].s; i <= bounds[0].e; i++) {
-      function(i);
-    }
-  } else {
-    const auto idxer =
-        MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
-    for (int idx = 0; idx < idxer.size(); idx++) {
-      const auto indices = idxer.GetIdxArray(idx);
-#pragma omp simd
-      for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
-        function(indices[OuterIs]..., i);
-      }
-    }
-  }
-}
-
 template <typename, typename, typename, typename, typename>
 struct par_disp_inner_impl {};
 
@@ -303,9 +331,10 @@ template <typename Pattern, typename Function, typename... Bounds, typename... A
 struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args...>,
                            TypeList<ExtraFuncArgs...>> {
   using bound_translator = LoopBoundTranslator<Bounds...>;
+  using dispatch_type =
+      DispatchType<dispatch_impl::ParallelForDispatch, Pattern, Bounds...>;
   static constexpr std::size_t Rank = bound_translator::Rank;
-  using TeamPattern =
-      UsesHierarchialPar<Pattern, std::integral_constant<std::size_t, Rank>>;
+
   template <std::size_t N>
   using sequence = std::make_index_sequence<N>;
 
@@ -313,20 +342,22 @@ struct par_disp_inner_impl<Pattern, Function, TypeList<Bounds...>, TypeList<Args
                                            Function function, Args &&...args) {
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
     constexpr bool isSimdFor = std::is_same_v<InnerLoopPatternSimdFor, Pattern>;
-    if constexpr (isSimdFor) {
-      static_assert(!isSimdFor ||
-                        (isSimdFor && std::is_same_v<DevExecSpace, HostExecSpace>),
-                    "par_inner simd for pattern only supported on HostExecSpace");
-      SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
-    } else {
-      auto idxer = Indexer<>();
-      constexpr std::size_t Nthread = TeamPattern::Nthread;
-      constexpr std::size_t Nvector = TeamPattern::Nvector;
-      MakeCollapse<Rank, 0, Nthread, Nvector, ExtraFuncArgs...>(idxer, bound_arr,
-                                                                function)
-          .execute(sequence<0>(), sequence<Nthread>(), sequence<Nvector>(), team_member,
-                   std::forward<Args>(args)...);
-    }
+    constexpr std::size_t Nvector = dispatch_type::TeamPattern::Nvector;
+    constexpr std::size_t Nthread = Rank - Nvector;
+    constexpr auto pattern_tag = LoopPatternTag<dispatch_type::GetPatternTag()>();
+
+    static_assert(!isSimdFor ||
+                      (isSimdFor && std::is_same_v<DevExecSpace, HostExecSpace>),
+                  "par_inner simd for pattern only supported on HostExecSpace");
+    static_assert(
+        !std::is_same_v<decltype(pattern_tag), LoopPatternTag<LoopPattern::undef>> &&
+            !always_false<Pattern>,
+        "Inner Loop pattern not recognized in DispatchType::GetPatternTag");
+
+    auto idxer = Indexer<>();
+    MakeCollapse<Rank, 0, Nthread, Nvector, ExtraFuncArgs...>(idxer, bound_arr, function)
+        .execute(pattern_tag, sequence<0>(), sequence<Nthread - isSimdFor>(),
+                 sequence<Nvector>(), team_member, std::forward<Args>(args)...);
   }
 };
 
@@ -370,20 +401,42 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     constexpr bool isSimdFor = std::is_same_v<LoopPatternTag<LoopPattern::simd>,
                                               base_type<decltype(pattern_tag)>>;
     auto bound_arr = bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
-    if constexpr (isSimdFor) {
-      static_assert(!isSimdFor || (isSimdFor && std::is_same_v<ExecSpace, HostExecSpace>),
-                    "SimdFor pattern only supported in HostExecSpace");
-      SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
-    } else {
-      dispatch_impl(pattern_tag, std::make_index_sequence<Rank - Ninner>(),
-                    std::make_index_sequence<Ninner>(), name, exec_space, bound_arr,
-                    function, std::forward<Args>(args)..., scratch_level,
-                    scratch_size_in_bytes);
-    }
+    static_assert(!isSimdFor || (isSimdFor && std::is_same_v<ExecSpace, HostExecSpace>),
+                  "SimdFor pattern only supported in HostExecSpace");
+    dispatch_impl(pattern_tag, std::make_index_sequence<Rank - Ninner - isSimdFor>(),
+                  std::make_index_sequence<Ninner>(), name, exec_space, bound_arr,
+                  function, std::forward<Args>(args)..., scratch_level,
+                  scratch_size_in_bytes);
   }
 
   template <std::size_t... Is>
   using sequence = std::integer_sequence<std::size_t, Is...>;
+
+  template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
+  inline void dispatch_impl(LoopPatternTag<LP::simd>, sequence<OuterIs...>,
+                            sequence<InnerIs...>, std::string name, ExecSpace exec_space,
+                            Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
+                            Args &&...args, const int scratch_level,
+                            const std::size_t scratch_size_in_bytes) {
+    static_assert(sizeof...(InnerIs) == 0);
+    static_assert(sizeof...(OuterIs) == Rank - 1);
+    if constexpr (Rank == 1) {
+#pragma omp simd
+      for (int i = bound_arr[0].s; i <= bound_arr[0].e; i++) {
+        function(i);
+      }
+    } else {
+      const auto idxer =
+          MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
+      for (int idx = 0; idx < idxer.size(); idx++) {
+        const auto indices = idxer.GetIdxArray(idx);
+#pragma omp simd
+        for (int i = bound_arr[Rank - 1].s; i <= bound_arr[Rank - 1].e; i++) {
+          function(indices[OuterIs]..., i);
+        }
+      }
+    }
+  }
 
   template <typename ExecSpace, std::size_t... OuterIs, std::size_t... InnerIs>
   inline void dispatch_impl(LoopPatternTag<LP::flat>, sequence<OuterIs...>,
@@ -482,6 +535,28 @@ inline void par_dispatch(const std::string &name, Args &&...args) {
                     std::forward<Args>(args)...);
 }
 
+template <std::size_t Rank, std::size_t... OuterIs, typename Function>
+KOKKOS_INLINE_FUNCTION void SequentialFor(std::index_sequence<OuterIs...>,
+                                          Function function,
+                                          Kokkos::Array<IndexRange, Rank> bounds) {
+  if constexpr (Rank == 1) {
+#pragma omp simd
+    for (int i = bounds[0].s; i <= bounds[0].e; i++) {
+      function(i);
+    }
+  } else {
+    const auto idxer =
+        MakeIndexer(std::pair<int, int>(bounds[OuterIs].s, bounds[OuterIs].e)...);
+    for (int idx = 0; idx < idxer.size(); idx++) {
+      const auto indices = idxer.GetIdxArray(idx);
+#pragma omp simd
+      for (int i = bounds[Rank - 1].s; i <= bounds[Rank - 1].e; i++) {
+        function(indices[OuterIs]..., i);
+      }
+    }
+  }
+}
+
 template <class, class>
 struct seq_for_impl {};
 
@@ -492,7 +567,7 @@ struct seq_for_impl<Function, TypeList<Bounds...>> {
     constexpr std::size_t Rank = bound_translator::Rank;
     const auto bound_arr =
         bound_translator().GetIndexRanges(std::forward<Bounds>(bounds)...);
-    SimdFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
+    SequentialFor(std::make_index_sequence<Rank - 1>(), function, bound_arr);
   }
 };
 
