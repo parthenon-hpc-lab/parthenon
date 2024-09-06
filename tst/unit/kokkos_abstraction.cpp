@@ -29,9 +29,12 @@
 #include "Kokkos_Macros.hpp"
 
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "kokkos_abstraction.hpp"
+#include "kokkos_types.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/indexer.hpp"
+#include "utils/instrument.hpp"
 #include "utils/type_list.hpp"
 
 using parthenon::DevExecSpace;
@@ -298,14 +301,12 @@ struct test_wrapper_nd_impl {
       REQUIRE(par_for_comp(Sequence<Rank>()) == true);
     }
   }
-
-  template <typename OuterPattern, typename InnerPattern>
-  void test_nest(OuterPattern outer_patter, InnerPattern inner_pattern) {}
 };
 
 template <std::size_t Rank, std::size_t N>
 void test_wrapper_nd(DevExecSpace exec_space) {
   auto wrappernd = test_wrapper_nd_impl<Rank, N>();
+
   SECTION("LoopPatternFlatRange") {
     wrappernd.test(parthenon::loop_pattern_flatrange_tag, exec_space);
   }
@@ -477,7 +478,6 @@ struct test_wrapper_nested_nd_impl {
              parthenon::list_of_type_t<Ninner - 1, const int>>()
         .execute(exec_space, dev_u, dev_du, bounds);
 
-    Kokkos::fence();
     return test_comp(std::make_index_sequence<Rank - 1>());
   }
 };
@@ -703,4 +703,86 @@ TEST_CASE("Parallel reduce", "[par_reduce]") {
   SECTION("5D loops") { test_wrapper_reduce_nd<5, 10>(default_exec_space); }
   SECTION("6D loops") { test_wrapper_reduce_nd<6, 10>(default_exec_space); }
   SECTION("7D loops") { test_wrapper_reduce_nd<7, 10>(default_exec_space); }
+}
+
+TEST_CASE("DEFAULT loop patterns", "[default]") {
+  constexpr std::size_t N = 32;
+  SECTION("par_for") {
+    auto wrapper_par_for = test_wrapper_nd_impl<3, N>();
+    auto arr_host_orig = wrapper_par_for.arr_host_orig;
+    auto dev_view = wrapper_par_for.arr_dev;
+    Kokkos::deep_copy(dev_view, arr_host_orig);
+
+    // loop bounds with integer pairs
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, 0, N - 1, 0, N - 1, 0, N - 1,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          dev_view(k, j, i) += wrapper_par_for.increment_data(k, j, i);
+        });
+
+    auto arr_host_mod = wrapper_par_for.arr_host_mod;
+    Kokkos::deep_copy(arr_host_mod, dev_view);
+    bool all_same = true;
+    // seq_for can be used just like par_for but will translate to raw for loops
+    parthenon::seq_for(
+        0, N - 1, 0, N - 1, 0, N - 1, [&](const int k, const int j, const int i) {
+          if (arr_host_orig(k, j, i) + wrapper_par_for.increment_data(k, j, i) !=
+              dev_view(k, j, i)) {
+            all_same = false;
+          }
+        });
+    REQUIRE(all_same);
+  }
+
+  SECTION("par_reduce") {
+    auto wrapper_par_reduce = test_wrapper_reduce_nd_impl<3, N>();
+    int test_sum = 0;
+    // parthenon::IndexRange as loop bounds
+    using Idr = parthenon::IndexRange;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, Idr{0, N - 1}, Idr{0, N - 1}, Idr{0, N - 1},
+        KOKKOS_LAMBDA(const int k, const int j, const int i, int &sum) {
+          sum += k + j + i;
+        },
+        Kokkos::Sum<int>(test_sum));
+    auto h_sum = wrapper_par_reduce.h_sum;
+    REQUIRE(h_sum == test_sum);
+  }
+
+  SECTION("par_for_outer") {
+    auto wrapper_par_for_outer = test_wrapper_nested_nd_impl<3, N>();
+    const int scratch_level = 0;
+    std::size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
+
+    auto dev_du = wrapper_par_for_outer.dev_du;
+    auto dev_u = wrapper_par_for_outer.dev_u;
+
+    parthenon::IndexRange interior_bnds{1, N - 2};
+    parthenon::par_for_outer(
+        PARTHENON_AUTO_LABEL, scratch_size_in_bytes, scratch_level, 0, N - 1, 0, N - 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int k, const int j) {
+          auto scratch_u =
+              parthenon::ScratchPad1D<Real>(team_member.team_scratch(scratch_level), N);
+
+          parthenon::par_for_inner(team_member, 0, N - 1,
+                                   [&](const int i) { scratch_u(i) = dev_u(k, j, i); });
+          team_member.team_barrier();
+          parthenon::par_for_inner(team_member, interior_bnds, [&](const int i) {
+            dev_du(k, j, i - 1) = (scratch_u(i + 1) - scratch_u(i - 1)) / 2.;
+          });
+        });
+
+    Real max_rel_err = -1;
+    const Real rel_tol = std::numeric_limits<Real>::epsilon();
+    auto host_du = wrapper_par_for_outer.host_du;
+    Kokkos::deep_copy(host_du, dev_du);
+    // mixing IndexRange & integer loop bounds
+    parthenon::seq_for(0, N - 1, 0, N - 1, interior_bnds,
+                       [&](const int k, const int j, const int i) {
+                         const Real analytic = 2. * (i + 3) * pow((k + 1) * (j + 2), 2.0);
+                         const Real err = fabs(analytic - host_du(k, j, i - 1));
+                         max_rel_err = fmax(fabs(err / analytic), max_rel_err);
+                       });
+    REQUIRE(max_rel_err < rel_tol);
+  }
 }
