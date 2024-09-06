@@ -189,6 +189,21 @@ class SparsePack : public SparsePackBase {
     return bounds_h_(1, b, vidx);
   }
 
+  KOKKOS_INLINE_FUNCTION int GetLevel(const int b, const int off3, const int off2,
+                                      const int off1) const {
+    return block_props_(b, 0, off3 - 1, off2 - 1, off1 - 1);
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetGID(const int b) const {
+    return block_props_(b, 1, 1, 1, 1);
+  }
+
+  int GetLevelHost(const int b, const int off3, const int off2, const int off1) const {
+    return block_props_h_(b, 0, off3 - 1, off2 - 1, off1 - 1);
+  }
+
+  int GetGIDHost(const int b) const { return block_props_h_(b, 1, 1, 1, 1); }
+
   // Number of components of a variable on a block
   template <typename T>
   KOKKOS_INLINE_FUNCTION int GetSize(const int b, const T &t) const {
