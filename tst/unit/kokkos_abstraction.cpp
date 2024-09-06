@@ -44,9 +44,6 @@ using Real = double;
 template <std::size_t Ni>
 using Sequence = std::make_index_sequence<Ni>;
 
-template <class... Args>
-void capture(Args... args) {}
-
 template <std::size_t>
 struct ParArrayND_impl {};
 template <>
@@ -162,7 +159,7 @@ auto HostArrayND(Args &&...args) {
 }
 
 template <std::size_t ND, typename T, typename... Args>
-auto ScratchPadND(Args &&...args) {
+KOKKOS_INLINE_FUNCTION auto ScratchPadND(Args &&...args) {
   static_assert(ND <= 2, "ScratchPadND supported up to ND=2");
   return typename ScratchPadND_impl<ND>::template type<T>(std::forward<Args>(args)...);
 }
@@ -404,10 +401,12 @@ struct test_wrapper_nested_nd_impl {
       // Compute the scratch memory needs
       const int scratch_level = 0;
       std::size_t scratch_size_in_bytes =
-          parthenon::ScratchPad1D<Real>::shmem_size(pow(N, Ninner));
+          ScratchPadND_impl<Ninner + 1>::template type<Real>::shmem_size(
+              pow(N, Ninner + 1));
 
-      parthenon::par_for(
-          OuterPattern(), "unit test ND nested", exec_space, bounds[OuterIs]...,
+      parthenon::par_for_outer(
+          OuterPattern(), "unit test ND nested", exec_space, scratch_size_in_bytes,
+          scratch_level, bounds[OuterIs]...,
           KOKKOS_CLASS_LAMBDA(team_mbr_t team_member, OuterArgs... outer_args) {
             auto scratch_u = GetScratchPad(std::make_index_sequence<Ninner + 1>(),
                                            team_member, scratch_level);
@@ -483,32 +482,21 @@ template <std::size_t Rank, std::size_t N>
 void test_nested_nd() {
   auto default_exec_space = DevExecSpace();
   auto test_nested_ND = test_wrapper_nested_nd_impl<Rank, N>();
-  SECTION("Inner collaspe 1") {
+  SECTION("TVR") {
     REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
                                             parthenon::inner_loop_pattern_tvr_tag,
                                             default_exec_space) == true);
-    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
-                                            parthenon::inner_loop_pattern_ttr_tag,
-                                            default_exec_space) == true);
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
-
-                                              parthenon::inner_loop_pattern_simdfor_tag,
-
-                                              default_exec_space) == true);
-    }
   }
-  SECTION("Inner collaspe 2") {
-    REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
-                                            parthenon::inner_loop_pattern_tvr_tag,
-                                            default_exec_space) == true);
-    REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+  SECTION("TTR") {
+    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
+
                                             parthenon::inner_loop_pattern_ttr_tag,
                                             default_exec_space) == true);
-    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                               Kokkos::DefaultHostExecutionSpace>::value) {
-      REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+  }
+  if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                             Kokkos::DefaultHostExecutionSpace>::value) {
+    SECTION("SimdFor") {
+      REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
 
                                               parthenon::inner_loop_pattern_simdfor_tag,
 
