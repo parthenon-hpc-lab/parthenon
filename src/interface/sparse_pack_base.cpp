@@ -166,7 +166,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   // This array stores refinement levels of current block and all neighboring blocks.
-  pack.block_props_ = block_props_t("block_props", nblocks, 2, 3, 3, 3);
+  pack.block_props_ = block_props_t("block_props", nblocks, 27 + 1);
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
@@ -187,16 +187,21 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
     }
 
-    // This block's refinement level stored in central (0, 1,1,1) element of block
-    // properties
-    pack.block_props_h_(blidx, 0, 1, 1, 1) = pmbd->GetBlockPointer()->loc.level();
+    // Initialize block refinement levels to current block level to provide default if
+    // neighbors not present
+    for (int n = 0; n < 27; n++) {
+      pack.block_props_h_(blidx, (1 + 3 * (1 + 3 * 1))) =
+          pmbd->GetBlockPointer()->loc.level();
+    }
     // This block's gid stored in central (1, 1, 1, 1) element
-    pack.block_props_h_(blidx, 1, 1, 1, 1) = pmbd->GetBlockPointer()->gid;
+    pack.block_props_h_(blidx, 27) = pmbd->GetBlockPointer()->gid;
     for (auto &neighbor : pmbd->GetBlockPointer()->neighbors) {
-      // Multiple refined neighbors will write to the same index but they will always have
+      // Multiple refined neighbors may write to the same index but they will always have
       // the same refinement level.
-      pack.block_props_h_(blidx, 0, neighbor.offsets[2] + 1, neighbor.offsets[1] + 1,
-                          neighbor.offsets[0] + 1) = neighbor.loc.level();
+      pack.block_props_h_(
+          blidx, (neighbor.offsets[2] + 1) +
+                     3 * ((neighbor.offsets[1] + 1) + 3 * (neighbor.offsets[0] + 1))) =
+          neighbor.loc.level();
       // Currently not storing neighbor gids
     }
 
