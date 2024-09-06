@@ -399,10 +399,14 @@ struct test_wrapper_nested_nd_impl {
     void execute(DevExecSpace exec_space, view_t &dev_u, view_t &dev_du,
                  Kokkos::Array<parthenon::IndexRange, Rank> bounds) {
       // Compute the scratch memory needs
+      Kokkos::Array<std::size_t, Ninner + 1> shape;
+      for (int i = 0; i < Ninner + 1; i++) {
+        shape[i] = N;
+      }
       const int scratch_level = 0;
       std::size_t scratch_size_in_bytes =
           ScratchPadND_impl<Ninner + 1>::template type<Real>::shmem_size(
-              pow(N, Ninner + 1));
+              shape[InnerIs]..., N);
 
       parthenon::par_for_outer(
           OuterPattern(), "unit test ND nested", exec_space, scratch_size_in_bytes,
@@ -482,25 +486,56 @@ template <std::size_t Rank, std::size_t N>
 void test_nested_nd() {
   auto default_exec_space = DevExecSpace();
   auto test_nested_ND = test_wrapper_nested_nd_impl<Rank, N>();
-  SECTION("TVR") {
-    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
-                                            parthenon::inner_loop_pattern_tvr_tag,
-                                            default_exec_space) == true);
-  }
-  SECTION("TTR") {
-    REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
-
-                                            parthenon::inner_loop_pattern_ttr_tag,
-                                            default_exec_space) == true);
-  }
-  if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
-                             Kokkos::DefaultHostExecutionSpace>::value) {
-    SECTION("SimdFor") {
+  SECTION("collapse inner 1") {
+    SECTION("TVR") {
+      REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
+                                              parthenon::inner_loop_pattern_tvr_tag,
+                                              default_exec_space) == true);
+    }
+    SECTION("TTR") {
       REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
 
-                                              parthenon::inner_loop_pattern_simdfor_tag,
-
+                                              parthenon::inner_loop_pattern_ttr_tag,
                                               default_exec_space) == true);
+    }
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      SECTION("SimdFor") {
+        REQUIRE(test_nested_ND.template test<1>(parthenon::outer_loop_pattern_teams_tag,
+
+                                                parthenon::inner_loop_pattern_simdfor_tag,
+
+                                                default_exec_space) == true);
+      }
+    }
+  }
+  SECTION("collapse inner 2") {
+    SECTION("TVR") {
+      REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+                                              parthenon::inner_loop_pattern_tvr_tag,
+                                              default_exec_space) == true);
+    }
+    SECTION("TTR") {
+      REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+
+                                              parthenon::inner_loop_pattern_ttr_tag,
+                                              default_exec_space) == true);
+    }
+    SECTION("collapse<1>") {
+      REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+
+                                              parthenon::InnerLoopCollapse<1>(),
+                                              default_exec_space) == true);
+    }
+    if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
+                               Kokkos::DefaultHostExecutionSpace>::value) {
+      SECTION("SimdFor") {
+        REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
+
+                                                parthenon::inner_loop_pattern_simdfor_tag,
+
+                                                default_exec_space) == true);
+      }
     }
   }
 }
