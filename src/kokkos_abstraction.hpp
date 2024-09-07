@@ -53,27 +53,27 @@ static struct LoopPatternFlatRange {
 // a 1:1 indices matching
 static struct LoopPatternMDRange {
 } loop_pattern_mdrange_tag;
-// Translates to a Kokkos::TeamPolicy that collapse Nthread & Nvector inner loop collapses
+// Translates to a Kokkos::TeamPolicy that collapse Nthread & Nvector inner loops
 template <std::size_t num_thread, std::size_t num_vector>
-struct LoopPatternCollapse : std::true_type {
+struct LoopPatternTeamThreadVec {
   static constexpr std::size_t Nthread = num_thread;
   static constexpr std::size_t Nvector = num_vector;
 };
 
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::TeamThreadRange
-using LoopPatternTPTTR = LoopPatternCollapse<1, 0>;
+using LoopPatternTPTTR = LoopPatternTeamThreadVec<1, 0>;
 constexpr auto loop_pattern_tpttr_tag = LoopPatternTPTTR();
 // Translates to a Kokkos::TeamPolicy with a single inner
 // Kokkos::ThreadVectorRange
-using LoopPatternTPTVR = LoopPatternCollapse<0, 1>;
+using LoopPatternTPTVR = LoopPatternTeamThreadVec<0, 1>;
 constexpr auto loop_pattern_tptvr_tag = LoopPatternTPTVR();
 // Translates to a Kokkos::TeamPolicy with a middle Kokkos::TeamThreadRange and
 // inner Kokkos::ThreadVectorRange
-using LoopPatternTPTTRTVR = LoopPatternCollapse<1, 1>;
+using LoopPatternTPTTRTVR = LoopPatternTeamThreadVec<1, 1>;
 constexpr auto loop_pattern_tpttrtvr_tag = LoopPatternTPTTRTVR();
 // Translates to an outer team policy
-using LoopPatternTeamOuter = LoopPatternCollapse<0, 0>;
+using LoopPatternTeamOuter = LoopPatternTeamThreadVec<0, 0>;
 constexpr auto loop_pattern_team_outer_tag = LoopPatternTeamOuter();
 // Used to catch undefined behavior as it results in throwing an error
 static struct LoopPatternUndefined {
@@ -85,15 +85,17 @@ static struct LoopPatternUndefined {
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
 
-template <std::size_t num_vector>
-struct InnerLoopCollapse {};
+// collapses Nvector inner loops over a VectorRange policy and remaining over a
+// ThreadRange
+template <std::size_t Nvector>
+struct InnerLoopThreadVec {};
 
 // Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
-using InnerLoopPatternTVR = InnerLoopCollapse<1>;
+using InnerLoopPatternTVR = InnerLoopThreadVec<1>;
 constexpr InnerLoopPatternTVR inner_loop_pattern_tvr_tag;
 // Translates to a Kokkos::TeamThreadRange as innermost loop
-using InnerLoopPatternTTR = InnerLoopCollapse<0>;
+using InnerLoopPatternTTR = InnerLoopThreadVec<0>;
 constexpr InnerLoopPatternTTR inner_loop_pattern_ttr_tag;
 // Translate to a non-Kokkos plain C++ innermost loop (single index)
 // decorated with #pragma omp simd
@@ -102,27 +104,27 @@ struct InnerLoopPatternSimdFor {};
 constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
 // trait to track if pattern requests any type of hierarchial parallelism
-template <typename Pattern, typename Rank, typename T = void>
+template <typename Pattern, typename T = void>
 struct UsesHierarchialPar : std::false_type {
   static constexpr std::size_t Nvector = 0;
   static constexpr std::size_t Nthread = 0;
 };
 
-template <std::size_t num_thread, typename Rank, std::size_t num_vector>
-struct UsesHierarchialPar<LoopPatternCollapse<num_thread, num_vector>, Rank>
+template <std::size_t num_thread, std::size_t num_vector>
+struct UsesHierarchialPar<LoopPatternTeamThreadVec<num_thread, num_vector>>
     : std::true_type {
   static constexpr std::size_t Nthread = num_thread;
   static constexpr std::size_t Nvector = num_vector;
 };
 
-template <typename Rank>
-struct UsesHierarchialPar<OuterLoopPatternTeams, Rank> : std::true_type {
+template <>
+struct UsesHierarchialPar<OuterLoopPatternTeams> : std::true_type {
   static constexpr std::size_t Nvector = 0;
   static constexpr std::size_t Nthread = 0;
 };
 
-template <typename Rank, std::size_t num_vector>
-struct UsesHierarchialPar<InnerLoopCollapse<num_vector>, Rank> : std::true_type {
+template <std::size_t num_vector>
+struct UsesHierarchialPar<InnerLoopThreadVec<num_vector>> : std::true_type {
   static constexpr std::size_t Nvector = num_vector;
 };
 
@@ -189,8 +191,7 @@ struct DispatchType {
   using Translator = LoopBoundTranslator<Bounds...>;
   static constexpr std::size_t Rank = Translator::Rank;
 
-  using HierarchialPar =
-      UsesHierarchialPar<Pattern, std::integral_constant<std::size_t, Rank>>;
+  using HierarchialPar = UsesHierarchialPar<Pattern>;
 
   static constexpr bool is_ParFor =
       std::is_same<Tag, dispatch_impl::ParallelForDispatch>::value;
