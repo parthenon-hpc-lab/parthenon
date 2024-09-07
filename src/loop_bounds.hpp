@@ -14,6 +14,7 @@
 #ifndef LOOP_BOUNDS_HPP_
 #define LOOP_BOUNDS_HPP_
 
+#include <type_traits>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
@@ -24,67 +25,109 @@
 
 namespace parthenon {
 
-// Struct for translating between loop bounds given to par_dispatch into an array of
-// IndexRanges
-//
-template <class... Bound_ts>
-struct LoopBoundTranslator {
- private:
-  using BoundTypes = TypeList<IndexRange>;
-  // overloads for different launch bound types.
-  template <typename... Bounds>
-  KOKKOS_INLINE_FUNCTION void GetIndexRanges_impl(const int idx, const int s, const int e,
-                                                  Bounds &&...bounds) {
-    bound_arr[idx].s = s;
-    bound_arr[idx].e = e;
-    if constexpr (sizeof...(Bounds) > 0) {
-      GetIndexRanges_impl(idx + 1, std::forward<Bounds>(bounds)...);
-    }
-  }
-  template <typename... Bounds>
-  KOKKOS_INLINE_FUNCTION void GetIndexRanges_impl(const int idx, const IndexRange ir,
-                                                  Bounds &&...bounds) {
-    bound_arr[idx] = ir;
-    if constexpr (sizeof...(Bounds) > 0) {
-      GetIndexRanges_impl(idx + 1, std::forward<Bounds>(bounds)...);
-    }
-  }
-
-  using Bound_tl = TypeList<Bound_ts...>;
-
- public:
-  template <typename Bound>
-  static constexpr bool isBoundType() {
-    using btype = base_type<Bound>;
-    return std::is_same_v<IndexRange, btype> || std::is_integral_v<btype>;
-  }
-
-  template <typename... Bnds>
-  static constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
-    using TL = TypeList<Bnds...>;
-    if constexpr (sizeof...(Bnds) == 0) {
-      return 0;
-    } else {
-      using Bnd0 = typename TL::template type<0>;
-      static_assert(isBoundType<Bnd0>(), "unrecognized launch bound in par_dispatch");
-      if constexpr (std::is_same_v<base_type<Bnd0>, IndexRange>) {
-        return 2 + GetNumBounds(typename TL::template continuous_sublist<1>());
-      } else if constexpr (std::is_integral_v<base_type<Bnd0>>) {
-        using Bnd1 = typename TL::template type<1>;
-        static_assert(std::is_integral_v<base_type<Bnd1>>,
-                      "integer launch bounds need to come in (start, end) pairs");
-        return 2 + GetNumBounds(typename TL::template continuous_sublist<2>());
-      }
-    }
-    // should never get here but makes older cuda compilers happy
+// struct that can be specialized to register new types that can be processed to obtain
+// loop bounds in a par_for* loop
+template <typename Bound, typename T = void>
+struct ProcessLoopBound : std::false_type {
+  template <typename Bnd0, typename... Bnds>
+  static constexpr std::size_t GetNumBounds(TypeList<Bnd0, Bnds...>) {
+    static_assert(always_false<Bound, Bnds...>, "Invalid loop bound type");
     return 0;
   }
-  static constexpr std::size_t Rank = GetNumBounds(Bound_tl()) / 2;
-  Kokkos::Array<IndexRange, Rank> bound_arr;
 
+  template <std::size_t N, typename... Bnds>
+  KOKKOS_INLINE_FUNCTION static void
+  GetIndexRanges(const int &idx, Kokkos::Array<IndexRange, N> &bound_arr, Bound &bound,
+                 Bnds &&...bounds) {
+    static_assert(always_false<Bound, Bnds...>, "Invalid loop bound type");
+  }
+};
+
+namespace LoopBounds {
+template <typename... Bnds>
+constexpr std::size_t GetNumBounds(TypeList<Bnds...>) {
+  if constexpr (sizeof...(Bnds) > 0) {
+    using TL = TypeList<Bnds...>;
+    using NextBound = ProcessLoopBound<base_type<typename TL::template type<0>>>;
+    static_assert(NextBound::value, "unrecognized loop bound");
+    return NextBound::GetNumBounds(TL());
+  }
+  return 0;
+}
+
+template <std::size_t N, typename... Bnds>
+KOKKOS_INLINE_FUNCTION void GetIndexRanges(const int &idx,
+                                           Kokkos::Array<IndexRange, N> &bound_arr,
+                                           Bnds &&...bounds) {
+  if constexpr (sizeof...(Bnds) > 0) {
+    using TL = TypeList<Bnds...>;
+    using NextBound = typename TypeList<Bnds...>::template type<0>;
+    ProcessLoopBound<base_type<NextBound>>::GetIndexRanges(idx, bound_arr,
+                                                           std::forward<Bnds>(bounds)...);
+  }
+}
+} // namespace LoopBounds
+
+template <typename Bound>
+struct ProcessLoopBound<Bound, std::enable_if_t<std::is_integral_v<Bound>>>
+    : std::true_type {
+
+  template <typename Bnd0, typename Bnd1, typename... Bnds>
+  static constexpr std::size_t GetNumBounds(TypeList<Bnd0, Bnd1, Bnds...>) {
+    static_assert(std::is_integral_v<base_type<Bnd0>> &&
+                      std::is_integral_v<base_type<Bnd1>>,
+                  "Integer bounds must come in pairs");
+
+    return 2 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+  }
+
+  template <std::size_t N, typename... Bnds>
+  KOKKOS_INLINE_FUNCTION static void
+  GetIndexRanges(const int &idx, Kokkos::Array<IndexRange, N> &bound_arr, const int &s,
+                 const int &e, Bnds &&...bounds) {
+    bound_arr[idx].s = s;
+    bound_arr[idx].e = e;
+    LoopBounds::GetIndexRanges(idx + 1, bound_arr, std::forward<Bnds>(bounds)...);
+  }
+};
+
+template <>
+struct ProcessLoopBound<IndexRange> : std::true_type {
+  template <typename T>
+  using isIdRng = std::is_same<T, IndexRange>;
+
+  template <typename Bnd0, typename... Bnds>
+  static constexpr std::size_t GetNumBounds(TypeList<Bnd0, Bnds...>) {
+    static_assert(std::is_same_v<base_type<Bnd0>, IndexRange>,
+                  "expected IndexRange loop bound");
+
+    return 2 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+  }
+
+  template <std::size_t N, typename... Bnds>
+  KOKKOS_INLINE_FUNCTION static void
+  GetIndexRanges(const int &idx, Kokkos::Array<IndexRange, N> &bound_arr,
+                 const IndexRange &idr, Bnds &&...bounds) {
+    bound_arr[idx] = idr;
+    LoopBounds::GetIndexRanges(idx + 1, bound_arr, std::forward<Bnds>(bounds)...);
+  }
+};
+
+// Struct for translating between loop bounds given to par_dispatch into an array of
+// IndexRanges
+template <class... Bound_ts>
+struct LoopBoundTranslator {
+ public:
+  // make sure all the Bound_ts... types are valid loop bounds and count the number of
+  // bounds contained in each type
+  static constexpr std::size_t Rank =
+      LoopBounds::GetNumBounds(TypeList<Bound_ts...>()) / 2;
+
+  // process all of the loop bounds into an array of IndexRanges
   KOKKOS_INLINE_FUNCTION
   Kokkos::Array<IndexRange, Rank> GetIndexRanges(Bound_ts &&...bounds) {
-    GetIndexRanges_impl(0, std::forward<Bound_ts>(bounds)...);
+    Kokkos::Array<IndexRange, Rank> bound_arr;
+    LoopBounds::GetIndexRanges(0, bound_arr, std::forward<Bound_ts>(bounds)...);
     return bound_arr;
   }
 };

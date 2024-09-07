@@ -32,6 +32,7 @@
 #include "config.hpp"
 #include "kokkos_abstraction.hpp"
 #include "kokkos_types.hpp"
+#include "loop_bounds.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/indexer.hpp"
 #include "utils/instrument.hpp"
@@ -524,7 +525,7 @@ void test_nested_nd() {
     SECTION("collapse<1>") {
       REQUIRE(test_nested_ND.template test<2>(parthenon::outer_loop_pattern_teams_tag,
 
-                                              parthenon::InnerLoopCollapse<1>(),
+                                              parthenon::InnerLoopThreadVec<1>(),
                                               default_exec_space) == true);
     }
     if constexpr (std::is_same<Kokkos::DefaultExecutionSpace,
@@ -705,6 +706,33 @@ TEST_CASE("Parallel reduce", "[par_reduce]") {
   SECTION("7D loops") { test_wrapper_reduce_nd<7, 10>(default_exec_space); }
 }
 
+// add our own loop bound type
+struct IndexRange3D {
+  parthenon::IndexRange i1{0, 0};
+  parthenon::IndexRange i2{0, 0};
+  parthenon::IndexRange i3{0, 0};
+};
+namespace parthenon {
+template <>
+struct ProcessLoopBound<IndexRange3D> : std::true_type {
+  template <typename Bnd0, typename... Bnds>
+  static constexpr std::size_t GetNumBounds(TypeList<Bnd0, Bnds...>) {
+    static_assert(std::is_same_v<base_type<Bnd0>, IndexRange3D>);
+    return 6 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+  }
+
+  template <std::size_t N, typename... Bnds>
+  KOKKOS_INLINE_FUNCTION static void
+  GetIndexRanges(const int &idx, Kokkos::Array<IndexRange, N> &bound_arr,
+                 const IndexRange3D &idr3d, Bnds &&...bounds) {
+    bound_arr[idx] = idr3d.i3;
+    bound_arr[idx + 1] = idr3d.i2;
+    bound_arr[idx + 2] = idr3d.i1;
+    LoopBounds::GetIndexRanges(idx + 3, bound_arr, std::forward<Bnds>(bounds)...);
+  }
+};
+} // namespace parthenon
+
 TEST_CASE("DEFAULT loop patterns", "[default]") {
   constexpr std::size_t N = 32;
   SECTION("par_for") {
@@ -738,15 +766,27 @@ TEST_CASE("DEFAULT loop patterns", "[default]") {
     auto wrapper_par_reduce = test_wrapper_reduce_nd_impl<3, N>();
     int test_sum = 0;
     // parthenon::IndexRange as loop bounds
-    using Idr = parthenon::IndexRange;
+    parthenon::IndexRange Idr{0, N - 1};
     parthenon::par_reduce(
-        PARTHENON_AUTO_LABEL, Idr{0, N - 1}, Idr{0, N - 1}, Idr{0, N - 1},
+        PARTHENON_AUTO_LABEL, Idr, Idr, Idr,
         KOKKOS_LAMBDA(const int k, const int j, const int i, int &sum) {
           sum += k + j + i;
         },
         Kokkos::Sum<int>(test_sum));
     auto h_sum = wrapper_par_reduce.h_sum;
     REQUIRE(h_sum == test_sum);
+
+    // our custom IndexRange3D as loop bounds
+    IndexRange3D idr3d{Idr, Idr, Idr};
+    int test_sum2 = 0;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, idr3d,
+        KOKKOS_LAMBDA(const int k, const int j, const int i, int &sum) {
+          sum += k + j + i;
+        },
+        Kokkos::Sum<int>(test_sum2));
+
+    REQUIRE(h_sum == test_sum2);
   }
 
   SECTION("par_for_outer") {
