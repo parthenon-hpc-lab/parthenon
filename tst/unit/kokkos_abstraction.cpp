@@ -718,7 +718,7 @@ struct ProcessLoopBound<IndexRange3D> : std::true_type {
   template <typename Bnd0, typename... Bnds>
   static constexpr std::size_t GetNumBounds(TypeList<Bnd0, Bnds...>) {
     static_assert(std::is_same_v<base_type<Bnd0>, IndexRange3D>);
-    return 6 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+    return 3 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
   }
 
   template <std::size_t N, typename... Bnds>

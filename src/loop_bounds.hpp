@@ -78,7 +78,7 @@ struct ProcessLoopBound<Bound, std::enable_if_t<std::is_integral_v<Bound>>>
                       std::is_integral_v<base_type<Bnd1>>,
                   "Integer bounds must come in pairs");
 
-    return 2 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+    return 1 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
   }
 
   template <std::size_t N, typename... Bnds>
@@ -101,7 +101,7 @@ struct ProcessLoopBound<IndexRange> : std::true_type {
     static_assert(std::is_same_v<base_type<Bnd0>, IndexRange>,
                   "expected IndexRange loop bound");
 
-    return 2 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
+    return 1 + LoopBounds::GetNumBounds(TypeList<Bnds...>());
   }
 
   template <std::size_t N, typename... Bnds>
@@ -120,8 +120,7 @@ struct LoopBoundTranslator {
  public:
   // make sure all the Bound_ts... types are valid loop bounds and count the number of
   // bounds contained in each type
-  static constexpr std::size_t Rank =
-      LoopBounds::GetNumBounds(TypeList<Bound_ts...>()) / 2;
+  static constexpr std::size_t Rank = LoopBounds::GetNumBounds(TypeList<Bound_ts...>());
 
   // process all of the loop bounds into an array of IndexRanges
   KOKKOS_INLINE_FUNCTION
