@@ -20,6 +20,8 @@
 #ifndef KOKKOS_TYPES_HPP_
 #define KOKKOS_TYPES_HPP_
 
+#include <utility>
+
 #include <Kokkos_Core.hpp>
 
 #include "parthenon_array_generic.hpp"
@@ -131,6 +133,105 @@ using device_view_t =
     Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;
+
+template <typename ND, typename State = empty_state_t>
+struct ParArrayND_impl {
+  static_assert(ND::value <= 8, "ParArray only supported up to ND=8");
+};
+
+template <typename ND>
+struct ScratchPadND_impl {
+  static_assert(ND::value <= 6, "ScratchPad only supported up to ND=6");
+};
+
+template <std::size_t ND, typename T, typename State = empty_state_t>
+using ParArray = typename ParArrayND_impl<std::integral_constant<std::size_t, ND>,
+                                          State>::template type<T>;
+
+template <std::size_t ND, typename T>
+using HostArray = typename ParArrayND_impl<
+    std::integral_constant<std::size_t, ND>>::template type<T>::HostMirror;
+
+template <std::size_t ND, typename T>
+using ScratchPad =
+    typename ScratchPadND_impl<std::integral_constant<std::size_t, ND>>::template type<T>;
+
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 0>, State> {
+  template <typename T>
+  using type = parthenon::ParArray0D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 1>, State> {
+  template <typename T>
+  using type = parthenon::ParArray1D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 2>, State> {
+  template <typename T>
+  using type = parthenon::ParArray2D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 3>, State> {
+  template <typename T>
+  using type = parthenon::ParArray3D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 4>, State> {
+  template <typename T>
+  using type = parthenon::ParArray4D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 5>, State> {
+  template <typename T>
+  using type = parthenon::ParArray5D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 6>, State> {
+  template <typename T>
+  using type = parthenon::ParArray6D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 7>, State> {
+  template <typename T>
+  using type = parthenon::ParArray7D<T, State>;
+};
+template <typename State>
+struct ParArrayND_impl<std::integral_constant<std::size_t, 8>, State> {
+  template <typename T>
+  using type = parthenon::ParArray8D<T, State>;
+};
+
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 1>> {
+  template <typename T>
+  using type = parthenon::ScratchPad1D<T>;
+};
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 2>> {
+  template <typename T>
+  using type = parthenon::ScratchPad2D<T>;
+};
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 3>> {
+  template <typename T>
+  using type = parthenon::ScratchPad3D<T>;
+};
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 4>> {
+  template <typename T>
+  using type = parthenon::ScratchPad4D<T>;
+};
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 5>> {
+  template <typename T>
+  using type = parthenon::ScratchPad5D<T>;
+};
+template <>
+struct ScratchPadND_impl<std::integral_constant<std::size_t, 6>> {
+  template <typename T>
+  using type = parthenon::ScratchPad6D<T>;
+};
 } // namespace parthenon
 
 #endif // KOKKOS_TYPES_HPP_

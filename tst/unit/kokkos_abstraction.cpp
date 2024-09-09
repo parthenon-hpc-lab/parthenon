@@ -39,134 +39,10 @@
 #include "utils/type_list.hpp"
 
 using parthenon::DevExecSpace;
-using parthenon::ParArray1D;
-using parthenon::ParArray2D;
-using parthenon::ParArray3D;
-using parthenon::ParArray4D;
 using Real = double;
 
 template <std::size_t Ni>
 using Sequence = std::make_index_sequence<Ni>;
-
-template <std::size_t>
-struct ParArrayND_impl {};
-template <>
-struct ParArrayND_impl<0> {
-  template <typename T>
-  using type = parthenon::ParArray0D<T>;
-};
-template <>
-struct ParArrayND_impl<1> {
-  template <typename T>
-  using type = parthenon::ParArray1D<T>;
-};
-template <>
-struct ParArrayND_impl<2> {
-  template <typename T>
-  using type = parthenon::ParArray2D<T>;
-};
-template <>
-struct ParArrayND_impl<3> {
-  template <typename T>
-  using type = parthenon::ParArray3D<T>;
-};
-template <>
-struct ParArrayND_impl<4> {
-  template <typename T>
-  using type = parthenon::ParArray4D<T>;
-};
-template <>
-struct ParArrayND_impl<5> {
-  template <typename T>
-  using type = parthenon::ParArray5D<T>;
-};
-template <>
-struct ParArrayND_impl<6> {
-  template <typename T>
-  using type = parthenon::ParArray6D<T>;
-};
-template <>
-struct ParArrayND_impl<7> {
-  template <typename T>
-  using type = parthenon::ParArray7D<T>;
-};
-template <>
-struct ParArrayND_impl<8> {
-  template <typename T>
-  using type = parthenon::ParArray8D<T>;
-};
-template <std::size_t>
-struct HostArrayND_impl {};
-template <>
-struct HostArrayND_impl<0> {
-  template <typename T>
-  using type = parthenon::HostArray0D<T>;
-};
-template <>
-struct HostArrayND_impl<1> {
-  template <typename T>
-  using type = parthenon::HostArray1D<T>;
-};
-template <>
-struct HostArrayND_impl<2> {
-  template <typename T>
-  using type = parthenon::HostArray2D<T>;
-};
-template <>
-struct HostArrayND_impl<3> {
-  template <typename T>
-  using type = parthenon::HostArray3D<T>;
-};
-template <>
-struct HostArrayND_impl<4> {
-  template <typename T>
-  using type = parthenon::HostArray4D<T>;
-};
-template <>
-struct HostArrayND_impl<5> {
-  template <typename T>
-  using type = parthenon::HostArray5D<T>;
-};
-template <>
-struct HostArrayND_impl<6> {
-  template <typename T>
-  using type = parthenon::HostArray6D<T>;
-};
-template <>
-struct HostArrayND_impl<7> {
-  template <typename T>
-  using type = parthenon::HostArray7D<T>;
-};
-
-template <std::size_t>
-struct ScratchPadND_impl {};
-template <>
-struct ScratchPadND_impl<1> {
-  template <typename T>
-  using type = parthenon::ScratchPad1D<T>;
-};
-template <>
-struct ScratchPadND_impl<2> {
-  template <typename T>
-  using type = parthenon::ScratchPad2D<T>;
-};
-
-template <std::size_t ND, typename T, typename... Args>
-auto ParArrayND(Args &&...args) {
-  static_assert(ND <= 8, "ParArrayND supoorted up to ND=8");
-  return typename ParArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
-}
-template <std::size_t ND, typename T, typename... Args>
-auto HostArrayND(Args &&...args) {
-  static_assert(ND <= 7, "HostArrayND supoorted up to ND=7");
-  return typename HostArrayND_impl<ND>::template type<T>(std::forward<Args>(args)...);
-}
-
-template <std::size_t ND, typename T, typename... Args>
-KOKKOS_INLINE_FUNCTION auto ScratchPadND(Args &&...args) {
-  static_assert(ND <= 2, "ScratchPadND supported up to ND=2");
-  return typename ScratchPadND_impl<ND>::template type<T>(std::forward<Args>(args)...);
-}
 
 template <std::size_t, std::size_t, typename>
 struct SequenceOfInt {};
@@ -187,20 +63,14 @@ template <std::size_t N, std::size_t VAL = 1>
 using sequence_of_int_v =
     typename SequenceOfInt<N - 1, VAL, std::integer_sequence<std::size_t, VAL>>::value;
 
-template <std::size_t Rank, class... Args>
-auto GetArray_impl(Args... Ns) {
-  static_assert(sizeof...(Args) == Rank);
-  return ParArrayND<Rank, Real>("device", Ns...);
-}
-
 enum class lbounds { integer, indexrange };
 
 template <std::size_t Rank, std::size_t N>
 struct test_wrapper_nd_impl {
   int int_bounds[2 * Rank];
   parthenon::IndexRange bounds[Rank];
-  decltype(ParArrayND<Rank, Real>()) arr_dev;
-  decltype(HostArrayND<Rank, Real>()) arr_host_orig, arr_host_mod;
+  parthenon::ParArray<Rank, Real> arr_dev;
+  parthenon::HostArray<Rank, Real> arr_host_orig, arr_host_mod;
 
   test_wrapper_nd_impl() {
     arr_dev = GetArray(sequence_of_int_v<Rank, 1>());
@@ -215,7 +85,7 @@ struct test_wrapper_nd_impl {
   template <std::size_t... Is>
   auto GetArray(std::index_sequence<Is...>) {
     static_assert(sizeof...(Is) == Rank);
-    return GetArray_impl<Rank>(N * Is...);
+    return parthenon::ParArray<Rank, Real>("device", N * Is...);
   }
 
   template <std::size_t... Is>
@@ -352,8 +222,8 @@ TEST_CASE("par_for loops", "[wrapper]") {
 template <std::size_t Rank, std::size_t N>
 struct test_wrapper_nested_nd_impl {
   Kokkos::Array<parthenon::IndexRange, Rank> bounds;
-  decltype(ParArrayND<Rank, Real>()) dev_u, dev_du;
-  decltype(HostArrayND<Rank, Real>()) host_u, host_du;
+  parthenon::ParArray<Rank, Real> dev_u, dev_du;
+  parthenon::HostArray<Rank, Real> host_u, host_du;
 
   test_wrapper_nested_nd_impl() {
     dev_u = GetArray(sequence_of_int_v<Rank, 1>());
@@ -365,7 +235,7 @@ struct test_wrapper_nested_nd_impl {
 
   template <std::size_t... Is, class... Args>
   auto GetArray(std::index_sequence<Is...>, Args... Ns) {
-    return GetArray_impl<Rank>(Is * N..., Ns...);
+    return parthenon::ParArray<Rank, Real>("device", Is * N..., Ns...);
   }
 
   template <std::size_t... Is>
@@ -407,8 +277,7 @@ struct test_wrapper_nested_nd_impl {
       }
       const int scratch_level = 0;
       std::size_t scratch_size_in_bytes =
-          ScratchPadND_impl<Ninner + 1>::template type<Real>::shmem_size(
-              shape[InnerIs]..., N);
+          parthenon::ScratchPad<Ninner + 1, Real>::shmem_size(shape[InnerIs]..., N);
 
       parthenon::par_for_outer(
           OuterPattern(), "unit test ND nested", exec_space, scratch_size_in_bytes,
@@ -441,8 +310,8 @@ struct test_wrapper_nested_nd_impl {
     KOKKOS_INLINE_FUNCTION auto GetScratchPad(std::index_sequence<Is...>,
                                               team_mbr_t team_member,
                                               const int &scratch_level) const {
-      return ScratchPadND<Ninner + 1, Real>(team_member.team_scratch(scratch_level),
-                                            N * Is...);
+      return parthenon::ScratchPad<Ninner + 1, Real>(
+          team_member.team_scratch(scratch_level), N * Is...);
     }
   };
 
@@ -611,7 +480,7 @@ struct test_wrapper_reduce_nd_impl {
   template <std::size_t... Is>
   auto GetArray(std::index_sequence<Is...>) {
     static_assert(sizeof...(Is) == Rank);
-    return ParArrayND<Rank, Real>("device", N * Is...);
+    return parthenon::ParArray<Rank, Real>("device", N * Is...);
   }
 
   template <std::size_t... Is>
