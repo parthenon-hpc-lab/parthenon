@@ -135,12 +135,6 @@ template <class... Bound_ts>
 struct LoopBoundTranslator<TypeList<Bound_ts...>>
     : public LoopBoundTranslator<Bound_ts...> {};
 
-template <class F, class = void>
-struct is_functor : std::false_type {};
-
-template <class F>
-struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
-
 template <class TL, int idx = 0>
 constexpr int FirstFuncIdx() {
   if constexpr (idx == TL::n_types) {
