@@ -2,6 +2,9 @@
 
 ## Current develop
 
+### Added (new features/APIs/variables/...)
+- [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
+
 ### Changed (changing behavior/API/variables/...)
 
 
