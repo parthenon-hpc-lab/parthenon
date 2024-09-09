@@ -214,7 +214,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 #else  // HDF5 enabled
   auto hdl = OpenDataset<Real>(name);
 
-  const int VNDIM = info.VNDIM;
+  constexpr int VNDIM = info.VNDIM;
 
   /** Select hyperslab in dataset **/
   int total_dim = 0;
