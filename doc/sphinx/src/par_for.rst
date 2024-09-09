@@ -122,7 +122,7 @@ Adding New Loop Bound Types
 
 All of the loop bounds provided to any parallel wrapper gets processed by the ``LoopBoundTranslator`` 
 to determine the rank of the multidimensional loop and translate the start/end pairs into an array
-of ``IndexRange``s. Each bound type gets processed individually and allows the flexibility to mix
+of ``IndexRange`` s. Each bound type gets processed individually and allows the flexibility to mix
 loop bound types as long as they are supported.
 
 New types can be provided by specializing the ``ProcessLoopBound`` struct in the ``parthenon`` namespace. 
