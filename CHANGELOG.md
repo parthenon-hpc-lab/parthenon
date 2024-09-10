@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
 
