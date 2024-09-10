@@ -60,6 +60,17 @@ option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
 
+option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
+if (PARTHENON_USE_SYSTEM_PACKAGES)
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    ON)
+else()
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    OFF)
+endif()
+
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
@@ -204,7 +215,6 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 4)
@@ -367,7 +377,11 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
 endif()
 
 if (PARTHENON_ENABLE_ASCENT)
-  find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  if (PARTHENON_USE_SYSTEM_PACKAGES)
+    find_package(Ascent REQUIRED)
+  else()
+    find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  endif()
 endif()
 
 # Installation configuration
