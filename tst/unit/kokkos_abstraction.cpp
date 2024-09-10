@@ -227,7 +227,7 @@ struct test_wrapper_nested_nd_impl {
 
   test_wrapper_nested_nd_impl() {
     dev_u = GetArray(sequence_of_int_v<Rank, 1>());
-    dev_du = GetArray(sequence_of_int_v<Rank - 1, 1>(), N - 2);
+    dev_du = GetArray(sequence_of_int_v<Rank, 1>());
     host_u = Kokkos::create_mirror(dev_u);
     host_du = Kokkos::create_mirror(dev_du);
     init(std::make_index_sequence<Rank>());
@@ -283,8 +283,7 @@ struct test_wrapper_nested_nd_impl {
           OuterPattern(), "unit test ND nested", exec_space, scratch_size_in_bytes,
           scratch_level, bounds[OuterIs]...,
           KOKKOS_CLASS_LAMBDA(team_mbr_t team_member, OuterArgs... outer_args) {
-            auto scratch_u = GetScratchPad(std::make_index_sequence<Ninner + 1>(),
-                                           team_member, scratch_level);
+            auto scratch_u = GetScratchPad(team_member, scratch_level);
 
             parthenon::par_for_inner(
                 InnerPattern(), team_member, bounds[Nouter + InnerIs]...,
@@ -306,12 +305,17 @@ struct test_wrapper_nested_nd_impl {
           });
     }
 
-    template <std::size_t... Is>
-    KOKKOS_INLINE_FUNCTION auto GetScratchPad(std::index_sequence<Is...>,
-                                              team_mbr_t team_member,
+    KOKKOS_INLINE_FUNCTION auto GetScratchPad(team_mbr_t team_member,
                                               const int &scratch_level) const {
-      return parthenon::ScratchPad<Ninner + 1, Real>(
-          team_member.team_scratch(scratch_level), N * Is...);
+      parthenon::ScratchPad<Ninner + 1, Real> scrchPad;
+      if constexpr (Ninner == 0) {
+        scrchPad =
+            parthenon::ScratchPad<1, Real>(team_member.team_scratch(scratch_level), N);
+      } else if constexpr (Ninner == 1) {
+        scrchPad =
+            parthenon::ScratchPad<2, Real>(team_member.team_scratch(scratch_level), N, N);
+      }
+      return scrchPad;
     }
   };
 
