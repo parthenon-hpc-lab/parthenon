@@ -50,26 +50,18 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // initialize MPI
 #ifdef MPI_PARALLEL
-  if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+  int mpi_initialized;
+  PARTHENON_MPI_CHECK(MPI_Initialized(&mpi_initialized));
+  if (!mpi_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+    std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
   // Get process id (rank) in MPI_COMM_WORLD
-  if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_Comm_rank failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank)));
 
   // Get total number of MPI processes (ranks)
-  if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "MPI_Comm_size failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks));
 #else  // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
@@ -232,7 +224,9 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
-  MPI_Finalize();
+  int mpi_finalized;
+  PARTHENON_MPI_CHECK(MPI_Finalized(&mpi_finalized));
+  if (!mpi_finalized) PARTHENON_MPI_CHECK(MPI_Finalize());
 #endif
   return ParthenonStatus::complete;
 }
