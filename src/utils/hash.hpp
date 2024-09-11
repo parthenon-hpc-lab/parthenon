@@ -20,15 +20,20 @@
 
 #include <functional>
 #include <tuple>
+#include <utility>
 
 namespace parthenon {
 namespace impl {
-template <class T>
-std::size_t hash_combine(std::size_t lhs, const T &v) {
+template <class T, typename... Rest>
+std::size_t hash_combine(std::size_t lhs, const T &v, Rest &&...rest) {
   std::size_t rhs = std::hash<T>()(v);
   // The boost hash combine function
   lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
-  return lhs;
+  if constexpr (sizeof...(Rest) > 0) {
+    return hash_combine(lhs, std::forward<Rest>(rest)...);
+  } else {
+    return lhs;
+  }
 }
 
 template <class Tup, std::size_t I = std::tuple_size<Tup>::value - 1>

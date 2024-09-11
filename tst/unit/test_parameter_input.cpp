@@ -101,3 +101,52 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
     }
   }
 }
+
+TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity checks",
+          "[ParameterInput][Hash]") {
+  GIVEN("Two ParameterInput objects already populated") {
+    ParameterInput in1, in2;
+    std::hash<ParameterInput> hasher;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl
+       << "var1 = 0   # comment" << std::endl
+       << "var2 = 1,  & # another comment" << std::endl
+       << "       2" << std::endl
+       << "<block2>" << std::endl
+       << "var3 = 3" << std::endl
+       << "# comment" << std::endl
+       << "var4 = 4" << std::endl;
+
+    // JMM: streams are stateful. Need to be very careful here.
+    std::string ideck = ss.str();
+    std::istringstream s1(ideck);
+    std::istringstream s2(ideck);
+    in1.LoadFromStream(s1);
+    in2.LoadFromStream(s2);
+
+    WHEN("We hash these parameter inputs") {
+      std::size_t hash1 = hasher(in1);
+      std::size_t hash2 = hasher(in2);
+      THEN("The hashes agree") { REQUIRE(hash1 == hash2); }
+
+      AND_WHEN("We modify both parameter inputs in the same way") {
+        in1.GetOrAddReal("block3", "var5", 2.0);
+        in2.GetOrAddReal("block3", "var5", 2.0);
+        THEN("The hashes agree") {
+          std::size_t hash1 = hasher(in1);
+          std::size_t hash2 = hasher(in2);
+          REQUIRE(hash1 == hash2);
+
+          AND_WHEN("When we modify one input but not the other") {
+            in2.GetOrAddInteger("block3", "var6", 7);
+            THEN("The hashes will not agree") {
+              std::size_t hash1 = hasher(in1);
+              std::size_t hash2 = hasher(in2);
+              REQUIRE(hash1 != hash2);
+            }
+          }
+        }
+      }
+    }
+  }
+}

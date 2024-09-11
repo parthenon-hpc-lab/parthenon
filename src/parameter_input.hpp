@@ -31,6 +31,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "utils/hash.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -74,6 +75,8 @@ class InputBlock {
 //  Functions are implemented in parameter_input.cpp
 
 class ParameterInput {
+  friend class std::hash<ParameterInput>;
+
  public:
   // constructor/destructor
   ParameterInput();
@@ -213,4 +216,45 @@ class ParameterInput {
   }
 };
 } // namespace parthenon
+
+// JMM: Believe it or not, this is the recommended way to overload hash functions
+// See: https://en.cppreference.com/w/cpp/utility/hash
+namespace std {
+template <>
+struct hash<parthenon::InputLine> {
+  std::size_t operator()(const parthenon::InputLine &il) {
+    return parthenon::impl::hash_combine(0, il.param_name, il.param_value,
+                                         il.param_comment);
+  }
+};
+
+template <>
+struct hash<parthenon::InputBlock> {
+  std::size_t operator()(const parthenon::InputBlock &ib) {
+    using parthenon::impl::hash_combine;
+    std::size_t out =
+        hash_combine(0, ib.block_name, ib.max_len_parname, ib.max_len_parvalue);
+    for (parthenon::InputLine *pline = ib.pline; pline != nullptr; pline = pline->pnext) {
+      out = hash_combine(out, *pline);
+    }
+    return out;
+  }
+};
+
+template <>
+struct hash<parthenon::ParameterInput> {
+  std::size_t operator()(const parthenon::ParameterInput &in) {
+    using parthenon::InputBlock;
+    using parthenon::impl::hash_combine;
+    std::size_t out = 0;
+    out = hash_combine(out, in.last_filename_);
+    for (InputBlock *pblock = in.pfirst_block; pblock != nullptr;
+         pblock = pblock->pnext) {
+      out = hash_combine(out, *pblock);
+    }
+    return out;
+  }
+};
+} // namespace std
+
 #endif // PARAMETER_INPUT_HPP_
