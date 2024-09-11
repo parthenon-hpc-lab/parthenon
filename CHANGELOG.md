@@ -2,6 +2,10 @@
 
 ## Current develop
 
+### Added (new features/APIs/variables/...)
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+
+
 ### Changed (changing behavior/API/variables/...)
 
 
