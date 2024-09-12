@@ -113,48 +113,51 @@ class CGSolver {
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
 
-    // Initialization: u <- 0, r <- rhs, p <- 0, rz <- 1
-    auto zero_x = tl.AddTask(dependence, TF(SetToZero<x>), md);
+    // Initialization: u <- 0, r <- rhs, p <- 0, ru <- 1
     auto zero_u = tl.AddTask(dependence, TF(SetToZero<u>), md);
+    auto zero_v = tl.AddTask(dependence, TF(SetToZero<v>), md);
+    auto zero_x = tl.AddTask(dependence, TF(SetToZero<x>), md);
     auto zero_p = tl.AddTask(dependence, TF(SetToZero<p>), md);
     auto copy_r = tl.AddTask(dependence, TF(CopyData<rhs, r>), md);
+    auto get_rhs2 = none;
     if (params_.relative_residual)
       get_rhs2 = DotProduct<rhs, rhs>(dependence, tl, &rhs2, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u | zero_p | copy_r | get_rhs2,
+        zero_u | zero_v | zero_x | zero_p | copy_r | get_rhs2,
         "zero factors",
         [](CGSolver *solver) {
           solver->iter_counter = -1;
-          solver->rz.val = 1.0;
+          solver->ru.val = std::numeric_limits<Real>::max();
           return TaskStatus::complete;
         },
         this);
-    auto tol = tl.AddTask(
-        TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](CGSolver *solver, std::shared_ptr<Real> res_tol,
-            bool relative_residual) {
-          if (Globals::my_rank == 0 && params_.print_per_step) {
+
+    if (params_.print_per_step && Globals::my_rank == 0) {
+      initialize = tl.AddTask(
+          TaskQualifier::once_per_region, initialize, "print to screen",
+          [&](CGSolver *solver, std::shared_ptr<Real> res_tol,
+              bool relative_residual) {
             Real tol =
                 relative_residual
                     ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
                     : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
-          }
-          return TaskStatus::complete;
-        },
-        this, params_.residual_tolerance, params_.relative_residual);
+            return TaskStatus::complete;
+          },
+          this, params_.residual_tolerance, params_.relative_residual);
+    }
 
     // BEGIN ITERATIVE TASKS
-    auto [itl, solver_id] = tl.AddSublist(tol, {1, params_.max_iters});
+    auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
 
     auto sync = itl.AddTask(TaskQualifier::local_sync, none,
                             []() { return TaskStatus::complete; });
     auto reset = itl.AddTask(
         TaskQualifier::once_per_region, sync, "update values",
         [](CGSolver *solver) {
-          solver->rz_old = solver->rz.val;
+          solver->ru_old = solver->ru.val;
           solver->iter_counter++;
           return TaskStatus::complete;
         },
@@ -168,7 +171,7 @@ class CGSolver {
       precon =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
     } else {
-      precon = itl.AddTask(none, TF(CopyData<r, u>), md);
+      precon = itl.AddTask(precon, TF(CopyData<r, u>), md);
     }
 
     // 2. beta <- r dot u / r dot u {old}
@@ -184,11 +187,12 @@ class CGSolver {
         this, md);
     
     // 4. v <- A p
+    auto copy_u = itl.AddTask(correct_p, TF(CopyData<p, u>), md);
     auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_comm, multilevel);
-    auto get_v = eqs_.template Ax<p, v>(itl, comm, md);
+        AddBoundaryExchangeTasks<BoundaryType::any>(copy_u, itl, md_comm, multilevel);
+    auto get_v = eqs_.template Ax<u, v>(itl, comm, md);
 
-    // 5. alpha <- rz / p A p (calculate denominator) 
+    // 5. alpha <- r dot u / p dot v (calculate denominator) 
     auto get_pAp = DotProduct<p, v>(get_v, itl, &pAp, md);
 
     // 6. x <- x + alpha p 
@@ -217,14 +221,14 @@ class CGSolver {
         [&](CGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
-            printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
+            printf("%i %e\n", solver->iter_counter, rms_res);
           return TaskStatus::complete;
         },
         this, pmesh);
     
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res | correct_x, "completion",
-        [partition](CGSolver *solver, Mesh *pmesh, int max_iter,
+        [](CGSolver *solver, Mesh *pmesh, int max_iter,
                     std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
@@ -257,7 +261,7 @@ class CGSolver {
   preconditioner_t preconditioner;
   CGParams params_;
   int iter_counter;
-  AllReduce<Real> ru, pAp;
+  AllReduce<Real> ru, pAp, residual, rhs2;
   Real ru_old;
   equations eqs_;
   Real final_residual;
