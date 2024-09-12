@@ -13,7 +13,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1175]](https://github.com/parthenon-hpc-lab/parthenon/pull/1175) Add inner comm loop specializations to maximize comms performance
 
 ### Removed (removing behavior/API/varaibles/...)
 
