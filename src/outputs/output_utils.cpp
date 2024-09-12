@@ -337,21 +337,14 @@ void CheckParameterInputConsistent(ParameterInput *pin) {
   std::size_t pin_hash_root = pin_hash;
   PARTHENON_MPI_CHECK(
       MPI_Bcast(&pin_hash_root, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
-
-  int is_same_local = (pin_hash == pin_hash_root);
-  int pinput_same_accross_ranks;
-  PARTHENON_MPI_CHECK(MPI_Reduce(&is_same_local, &pinput_same_accross_ranks, 1, MPI_INT,
-                                 MPI_LAND, 0, MPI_COMM_WORLD));
-  if (Globals::my_rank == 0) {
-    PARTHENON_REQUIRE_THROWS(
-        pinput_same_accross_ranks,
-        "Parameter input object must be the same on every rank, otherwise I/O may "
-        "be\n\t\t"
-        "unable to write it safely. If you reached this error message, look to make "
-        "sure\n\t\t"
-        "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
-        "exactly the same way on every MPI rank.");
-  }
+  PARTHENON_REQUIRE_THROWS(
+      pin_hash == pin_hash_root,
+      "Parameter input object must be the same on every rank, otherwise I/O may "
+      "be\n\t\t"
+      "unable to write it safely. If you reached this error message, look to make "
+      "sure\n\t\t"
+      "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
+      "exactly the same way on every MPI rank.");
 #endif // MPI_PARALLEL
 }
 } // namespace OutputUtils
