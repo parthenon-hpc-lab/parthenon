@@ -13,7 +13,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
 
