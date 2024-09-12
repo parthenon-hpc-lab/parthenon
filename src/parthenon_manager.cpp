@@ -26,6 +26,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include FS_HEADER

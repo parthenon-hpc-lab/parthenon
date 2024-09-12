@@ -23,9 +23,9 @@
 namespace parthenon {
 
 // Forward declarations
-template< typename T>
+template <typename T>
 class MeshBlockData;
-template<typename T>
+template <typename T>
 class MeshData;
 class Swarm;
 

@@ -24,15 +24,12 @@
 #include <utility>
 #include <vector>
 
-#include "amr_criteria/amr_criteria.hpp"
 #include "basic_types.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "interface/metadata.hpp"
-#include "interface/packages.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
-#include "interface/swarm.hpp"
 #include "interface/var_id.hpp"
-#include "interface/variable.hpp"
 #include "outputs/output_parameters.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -44,9 +41,8 @@ template <typename T>
 class MeshBlockData;
 template <typename T>
 class MeshData;
-
-using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
+class AMRCriteria;
+class Packages_t;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -61,25 +57,7 @@ using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 /// TODO(JMM): The IDs here are not the same as the variable unique
 /// IDs but they maybe could be? We should consider unifying that.
 struct RefinementFunctionMaps {
-  void Register(const Metadata &m, std::string varname) {
-    if (m.HasRefinementOps()) {
-      const auto &funcs = m.GetRefinementFunctions();
-      // Guard against uninitialized refinement functions by checking
-      // if the label is the empty string.
-      if (funcs.label().size() == 0) {
-        std::stringstream ss;
-        ss << "Variable " << varname << " registed for refinement, "
-           << "but no prolongation/restriction options found!"
-           << "Please register them with Metadata::RegisterRefinementOps." << std::endl;
-        PARTHENON_THROW(ss);
-      }
-      bool in_map = (funcs_to_ids.count(funcs) > 0);
-      if (!in_map) {
-        funcs_to_ids[funcs] = next_refinement_id_++;
-      }
-    }
-  }
-
+  void Register(const Metadata &m, std::string varname);
   std::size_t size() const noexcept { return next_refinement_id_; }
   // A unique enumeration of refinement functions starting from zero.
   // This is used for caching which prolongation/restriction operator
@@ -191,27 +169,8 @@ class StateDescriptor {
   }
 
   // field addition / retrieval routines
- private:
-  // internal function to add dense/sparse fields. Private because outside classes must
-  // use the public interface below
-  bool AddFieldImpl(const VarID &vid, const Metadata &m, const VarID &control_vid);
-
-  // add a sparse pool
-  bool AddSparsePoolImpl(const SparsePool &pool);
-
- public:
   bool AddField(const std::string &field_name, const Metadata &m_in,
-                const std::string &controlling_field = "") {
-    Metadata m = m_in; // so we can modify it
-    if (m.IsSet(Metadata::Sparse)) {
-      PARTHENON_THROW(
-          "Tried to add a sparse field with AddField, use AddSparsePool instead");
-    }
-    if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
-    VarID controller = VarID(controlling_field);
-    if (controlling_field == "") controller = VarID(field_name);
-    return AddFieldImpl(VarID(field_name), m, controller);
-  }
+                const std::string &controlling_field = "");
   template <typename T>
   bool AddField(const Metadata &m, const std::string &controlling_field = "") {
     return AddField(T::name(), m, controlling_field);
@@ -222,13 +181,13 @@ class StateDescriptor {
   // SparsePool constructors
   template <typename... Args>
   bool AddSparsePool(Args &&...args) {
-    return AddSparsePoolImpl(SparsePool(std::forward<Args>(args)...));
+    return AddSparsePoolImpl_(SparsePool(std::forward<Args>(args)...));
   }
   template <typename... Args>
   bool AddSparsePool(const std::string &base_name, const Metadata &m_in, Args &&...args) {
     Metadata m = m_in; // so we can modify it
     if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
-    return AddSparsePoolImpl(SparsePool(base_name, m, std::forward<Args>(args)...));
+    return AddSparsePoolImpl_(SparsePool(base_name, m, std::forward<Args>(args)...));
   }
   template <typename T, typename... Args>
   bool AddSparsePool(const Metadata &m_in, Args &&...args) {
@@ -239,24 +198,10 @@ class StateDescriptor {
   int size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
-  std::vector<std::string> Fields() noexcept {
-    std::vector<std::string> names;
-    names.reserve(metadataMap_.size());
-    for (auto &x : metadataMap_) {
-      names.push_back(x.first.label());
-    }
-    return names;
-  }
+  std::vector<std::string> Fields() noexcept;
 
   // retrieve all swarm names
-  std::vector<std::string> Swarms() noexcept {
-    std::vector<std::string> names;
-    names.reserve(swarmMetadataMap_.size());
-    for (auto &x : swarmMetadataMap_) {
-      names.push_back(x.first);
-    }
-    return names;
-  }
+  std::vector<std::string> Swarms() noexcept;
 
   const auto &AllFields() const noexcept { return metadataMap_; }
   const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
@@ -297,6 +242,7 @@ class StateDescriptor {
   const auto &RefinementFncsToIDs() const noexcept {
     return refinementFuncMaps_.funcs_to_ids;
   }
+
   bool FieldPresent(const std::string &base_name,
                     int sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
@@ -311,57 +257,25 @@ class StateDescriptor {
     return swarmMetadataMap_.count(swarm_name) > 0;
   }
   bool SwarmValuePresent(const std::string &value_name,
-                         const std::string &swarm_name) const noexcept {
-    if (!SwarmPresent(swarm_name)) return false;
-    return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
-  }
+                         const std::string &swarm_name) const noexcept;
 
-  std::string GetFieldController(const std::string &field_name) {
-    VarID field_id(field_name);
-    auto controller = allocControllerReverseMap_.find(field_id);
-    PARTHENON_REQUIRE(controller != allocControllerReverseMap_.end(),
-                      "Asking for controlling field that is not in this package (" +
-                          field_name + ")");
-    return controller->second.label();
-  }
-
+  std::string GetFieldController(const std::string &field_name);
   bool ControlVariablesSet() { return (allocControllerMap_.size() > 0); }
-
-  const std::vector<std::string> &GetControlledVariables(const std::string &field_name) {
-    auto iter = allocControllerMap_.find(field_name);
-    if (iter == allocControllerMap_.end()) return nullControl_;
-    return iter->second;
-  }
-
-  std::vector<std::string> GetControlVariables() {
-    std::vector<std::string> vars;
-    for (auto &pair : allocControllerMap_) {
-      vars.push_back(pair.first);
-    }
-    return vars;
-  }
+  const std::vector<std::string> &GetControlledVariables(const std::string &field_name);
+  std::vector<std::string> GetControlVariables();
 
   // retrieve metadata for a specific field
   const Metadata &FieldMetadata(const std::string &base_name,
-                                int sparse_id = InvalidSparseID) const {
-    const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
-    PARTHENON_REQUIRE_THROWS(itr != metadataMap_.end(),
-                             "FieldMetadata: Non-existent field: " +
-                                 MakeVarLabel(base_name, sparse_id));
-    return itr->second;
+                                int sparse_id = InvalidSparseID) const;
+  // retrieve metadata for a specific swarm
+  Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
+    return swarmMetadataMap_[swarm_name];
   }
-
   const auto &GetSparsePool(const std::string &base_name) const noexcept {
     const auto itr = sparsePoolMap_.find(base_name);
     PARTHENON_REQUIRE_THROWS(itr != sparsePoolMap_.end(),
                              "GetSparsePool: Non-existent sparse pool: " + base_name);
     return itr->second;
-  }
-
-  // retrieve metadata for a specific swarm
-  Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
-    // TODO(JL) Do we want to add a default metadata for a non-existent swarm_name?
-    return swarmMetadataMap_[swarm_name];
   }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
@@ -470,6 +384,13 @@ class StateDescriptor {
   std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
  protected:
+  // internal function to add dense/sparse fields. Private because outside classes must
+  // use the public interface below
+  bool AddFieldImpl_(const VarID &vid, const Metadata &m, const VarID &control_vid);
+
+  // add a sparse pool
+  bool AddSparsePoolImpl_(const SparsePool &pool);
+
   void InvertControllerMap();
 
   Params params_;

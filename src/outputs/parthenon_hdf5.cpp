@@ -741,6 +741,11 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
 // Utility functions implemented
 namespace HDF5 {
+H5G MakeGroup(hid_t file, const std::string &name) {
+  return H5G::FromHIDCheck(
+      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+}
+
 hid_t GenerateFileAccessProps() {
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */

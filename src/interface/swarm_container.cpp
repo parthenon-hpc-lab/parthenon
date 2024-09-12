@@ -214,4 +214,22 @@ void SwarmContainer::Print() const {
   }
 }
 
+bool SwarmContainer::operator==(const SwarmContainer &cmp) {
+  // Test that labels of swarms are the same
+  std::vector<std::string> my_keys(swarmMap_.size());
+  auto &cmpMap = cmp.GetSwarmMap();
+  std::vector<std::string> cmp_keys(cmpMap.size());
+  size_t i = 0;
+  for (auto &s : swarmMap_) {
+    my_keys[i] = s.first;
+    i++;
+  }
+  i = 0;
+  for (auto &s : cmpMap) {
+    cmp_keys[i] = s.first;
+    i++;
+  }
+  return my_keys == cmp_keys;
+}
+
 } // namespace parthenon

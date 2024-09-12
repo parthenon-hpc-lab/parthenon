@@ -37,10 +37,12 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"

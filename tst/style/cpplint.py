@@ -49,7 +49,6 @@ import itertools
 import math  # for log
 import os
 import re
-import sre_compile
 import string
 import sys
 import sysconfig
