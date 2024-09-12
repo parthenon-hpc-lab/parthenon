@@ -28,6 +28,7 @@
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "solvers/bicgstab_solver.hpp"
+#include "solvers/cg_solver.hpp"
 #include "solvers/mg_solver.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -50,6 +51,11 @@ parthenon::DriverStatus PoissonDriver::Execute() {
         pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
             "MGBiCGSTABsolver");
     final_rms_residual = bicgstab_solver->GetFinalResidual();
+  } else if (solver == "CG") {
+    auto *cg_solver =
+        pkg->MutableParam<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(
+            "MGCGsolver");
+    final_rms_residual = cg_solver->GetFinalResidual();
   } else if (solver == "MG") {
     auto *mg_solver =
         pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
@@ -76,6 +82,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto *bicgstab_solver =
       pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
           "MGBiCGSTABsolver");
+  auto *cg_solver =
+      pkg->MutableParam<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(
+          "MGCGsolver");
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
@@ -102,6 +111,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     if (solver == "BiCGSTAB") {
       auto setup = bicgstab_solver->AddSetupTasks(tl, zero_u, i, pmesh);
       solve = bicgstab_solver->AddTasks(tl, setup, pmesh, i);
+    } else if (solver == "CG") {
+      auto setup = cg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
+      solve = cg_solver->AddTasks(tl, setup, pmesh, i);
     } else if (solver == "MG") {
       auto setup = mg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
       solve = mg_solver->AddTasks(tl, setup, pmesh, i);

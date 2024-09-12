@@ -23,6 +23,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
+#include <solvers/cg_solver.hpp>
 #include <solvers/mg_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
@@ -106,6 +107,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
       pkg.get(), bicgstab_params, eq);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
+                  parthenon::Params::Mutability::Mutable);
+  
+  parthenon::solvers::CGParams cg_params(pin, "poisson/solver_params");
+  parthenon::solvers::CGSolver<u, rhs, PoissonEquation> cg_solver(
+      pkg.get(), cg_params, eq);
+  pkg->AddParam<>("MGCGsolver", cg_solver,
                   parthenon::Params::Mutability::Mutable);
 
   using namespace parthenon::refinement_ops;
