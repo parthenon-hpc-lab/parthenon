@@ -19,14 +19,17 @@
 #include <string>
 
 #include "basic_types.hpp"
-#include "interface/meshblock_data.hpp"
-#include "interface/swarm_container.hpp"
-#include "mesh/domain.hpp"
 
 namespace parthenon {
 
-// Physical boundary conditions
+// Forward declarations
+template< typename T>
+class MeshBlockData;
+template<typename T>
+class MeshData;
+class Swarm;
 
+// Physical boundary conditions
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
 using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 
