@@ -309,6 +309,9 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
 }
 constexpr void CheckMPISizeT() {
 #ifdef MPI_PARALLEL
+  // Need to use sizeof here because unsigned long long and unsigned
+  // long are identical under the hood but registered as different
+  // types
   static_assert(std::is_integral<std::size_t>::value &&
                     !std::is_signed<std::size_t>::value,
                 "size_t is unsigned and integral");
@@ -319,9 +322,6 @@ constexpr void CheckMPISizeT() {
 }
 std::size_t MPISum(std::size_t val) {
 #ifdef MPI_PARALLEL
-  // Need to use sizeof here because unsigned long long and unsigned
-  // long are identical under the hood but registered as different
-  // types
   CheckMPISizeT();
   PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_UNSIGNED_LONG_LONG,
                                     MPI_SUM, MPI_COMM_WORLD));
