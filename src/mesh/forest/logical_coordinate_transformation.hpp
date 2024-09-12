@@ -52,6 +52,13 @@ struct LogicalCoordinateTransformation {
                                    std::int64_t origin) const;
   CellCentOffsets Transform(CellCentOffsets in) const;
 
+  // Check if this transformation includes at most a translation
+  KOKKOS_INLINE_FUNCTION
+  bool IsTrivial() const {
+    return (dir_connection[0] == 0) && (dir_connection[1] == 1) &&
+           (dir_connection[2] == 2) && !dir_flip[0] && !dir_flip[1] && !dir_flip[2];
+  }
+
   KOKKOS_INLINE_FUNCTION
   std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {
     int iel = static_cast<int>(el);

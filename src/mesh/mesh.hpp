@@ -99,6 +99,8 @@ class Mesh {
     return nblist[my_rank];
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
+  int GetCommVectorLength() const { return comm_vector_length_; }
+
   std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
@@ -258,6 +260,7 @@ class Mesh {
   // data
   int root_level, max_level, current_level;
   int num_mesh_threads_;
+  int comm_vector_length_;
   /// Maps Global Block IDs to which rank the block is mapped to.
   std::vector<int> ranklist;
   /// Maps rank to start of local block IDs.
