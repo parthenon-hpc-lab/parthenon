@@ -1181,12 +1181,12 @@ void Mesh::SetBCNames_(ParameterInput *pin) {
                    pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow"),
                    pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow")};
   mesh_swarm_bc_names = {
-      pin->GetOrAddString("parthenon/mesh", "ix1_swarm_bc", mesh_bc_names[0]),
-      pin->GetOrAddString("parthenon/mesh", "ox1_swarm_bc", mesh_bc_names[1]),
-      pin->GetOrAddString("parthenon/mesh", "ix2_swarm_bc", mesh_bc_names[2]),
-      pin->GetOrAddString("parthenon/mesh", "ox2_swarm_bc", mesh_bc_names[3]),
-      pin->GetOrAddString("parthenon/mesh", "ix3_swarm_bc", mesh_bc_names[4]),
-      pin->GetOrAddString("parthenon/mesh", "ox3_swarm_bc", mesh_bc_names[5])};
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", mesh_bc_names[0]),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", mesh_bc_names[1]),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", mesh_bc_names[2]),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", mesh_bc_names[3]),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", mesh_bc_names[4]),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", mesh_bc_names[5])};
 }
 
 std::array<BoundaryFlag, BOUNDARY_NFACES>
