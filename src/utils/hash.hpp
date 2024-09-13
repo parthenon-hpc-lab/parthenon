@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,15 +20,20 @@
 
 #include <functional>
 #include <tuple>
+#include <utility>
 
 namespace parthenon {
 namespace impl {
-template <class T>
-std::size_t hash_combine(std::size_t lhs, const T &v) {
+template <class T, typename... Rest>
+std::size_t hash_combine(std::size_t lhs, const T &v, Rest &&...rest) {
   std::size_t rhs = std::hash<T>()(v);
   // The boost hash combine function
   lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
-  return lhs;
+  if constexpr (sizeof...(Rest) > 0) {
+    return hash_combine(lhs, std::forward<Rest>(rest)...);
+  } else {
+    return lhs;
+  }
 }
 
 template <class Tup, std::size_t I = std::tuple_size<Tup>::value - 1>

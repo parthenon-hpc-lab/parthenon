@@ -72,6 +72,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
   }
 
+  // Check that the parameter input is safe to write to HDF5
+  OutputUtils::CheckParameterInputConsistent(pin);
+
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
