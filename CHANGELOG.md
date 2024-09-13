@@ -3,11 +3,11 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
-
+- [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+- [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
 
