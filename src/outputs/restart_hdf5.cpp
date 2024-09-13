@@ -21,6 +21,7 @@
 #include <numeric>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "basic_types.hpp"
 #include "globals.hpp"

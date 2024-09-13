@@ -28,9 +28,11 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
