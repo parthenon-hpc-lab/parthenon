@@ -158,9 +158,22 @@ classes may be allocated. The behaviours are the following:
   sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
   set the new variable will have ``Metadata::Face``) will be created in
   the package with the name ``bnd_flux::name_of_original_variable`` and 
-  ``Metadata::Flux`` and ``Metadata::OneCopy``. When creating packs that 
-  include fluxes, the new flux field will be included in the flux portion 
-  of the pack if the parent field is in the pack. 
+  ``Metadata::Flux`` and ``Metadata::OneCopy``. Additionally, the flags 
+  ``Metadata::Sparse``, ``Metadata::Vector``, and ``Metadata::Tensor`` 
+  will propagate to the flux ``Metadata`` if they are set in the base field
+  ``Metadata``. By default, a flux field for a cell-centered field is 
+  built with ``Metadata::CellMemAligned`` flag set for backwards 
+  compatability. A shared pointer to the ``Metadata`` object for the flux
+  field can be accessed from the base ``Metadata`` with the method 
+  ``Metadata::GetSPtrFluxMetadata()``. This can be used to set flags other
+  than the defaults or set custom prolongation/restriction operations for
+  the fluxes. Note that calling `Metadata::RegisterRefinementOps<...>()`
+  on the base field propagates the registered refinement operations through
+  to the flux `Metadata` for backward compatibility. If separate operations 
+  are desired for the fluxes, the ordering of calls to `RegisterRefinementOps` 
+  on the base field and the flux field matters. When creating packs that 
+  include fluxes, the new flux field will be included in the flux portion of
+  the pack if the parent field is in the pack. 
 
 - If ``Metadata::Flux`` is set, this field is exchanged on shared elements 
   across fine-coarse boundaries when the flux correction tasks are called. 
