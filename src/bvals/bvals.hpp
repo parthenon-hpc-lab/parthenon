@@ -50,7 +50,6 @@ struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa
 BoundaryFlag GetBoundaryFlag(const std::string &input_string);
-std::string GetBoundaryString(BoundaryFlag input_flag);
 // + confirming that the MeshBlock's boundaries are all valid selections
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
 
