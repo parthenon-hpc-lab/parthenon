@@ -81,6 +81,7 @@ class ApplicationInput {
   void RegisterBoundaryCondition(BoundaryFace face, BValFunc condition) {
     RegisterBoundaryCondition(face, "user", condition);
   }
+  void RegisterDefaultReflectingBoundaryConditions();
 
   void RegisterSwarmBoundaryCondition(BoundaryFace face, const std::string &name,
                                       SBValFunc condition);

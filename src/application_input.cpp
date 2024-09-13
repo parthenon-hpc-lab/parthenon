@@ -47,6 +47,16 @@ ApplicationInput::ApplicationInput() {
   RegisterSwarmBoundaryCondition(BoundaryFace::outer_x3, PERIODIC, &SwarmPeriodicOuterX3);
 }
 
+void ApplicationInput::RegisterDefaultReflectingBoundaryConditions() {
+  using namespace BoundaryFunction;
+  const std::string REFLECTING = "reflecting";
+  RegisterBoundaryCondition(BoundaryFace::inner_x1, REFLECTING, &ReflectInnerX1);
+  RegisterBoundaryCondition(BoundaryFace::outer_x1, REFLECTING, &ReflectOuterX1);
+  RegisterBoundaryCondition(BoundaryFace::inner_x2, REFLECTING, &ReflectInnerX2);
+  RegisterBoundaryCondition(BoundaryFace::outer_x2, REFLECTING, &ReflectOuterX2);
+  RegisterBoundaryCondition(BoundaryFace::inner_x3, REFLECTING, &ReflectInnerX3);
+  RegisterBoundaryCondition(BoundaryFace::outer_x3, REFLECTING, &ReflectOuterX3);
+}
 void ApplicationInput::RegisterBoundaryCondition(BoundaryFace face,
                                                  const std::string &name,
                                                  BValFunc condition) {

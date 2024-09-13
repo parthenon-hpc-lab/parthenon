@@ -10,7 +10,6 @@ Natively, Parthenon supports three kinds of boundary conditions:
 
 - ``periodic``
 - ``outflow``
-- ``reflecting``
 
 which are all imposed on variables with the ``Metadata::FillGhost``
 metadata flag. To set the boundaries in each direction, set the
@@ -22,8 +21,8 @@ metadata flag. To set the boundaries in each direction, set the
    ix1_bc = outflow
    ox1_bc = outflow
 
-   ix2_bc = reflecting
-   ox2_bc = reflecting
+   ix2_bc = outflow
+   ox2_bc = outflow
 
    ix3_bc = periodic
    ox3_bc = periodic
@@ -40,7 +39,9 @@ for your ``parthenon_manager``. e.g.,
 
 .. code:: c++
 
-   pman.app_input->boundary_conditions[parthenon::BoundaryFace::inner_x1] = MyBoundaryInnerX1;
+   pman.app_input->RegisterBoundaryCondition(
+	  parthenon::BoundaryFace::inner_x1,
+	  "my_bc_name", MyBoundaryInnerX1);
 
 where ``BoundaryFace`` is an enum defined in ``defs.hpp`` as
 
@@ -58,13 +59,13 @@ where ``BoundaryFace`` is an enum defined in ``defs.hpp`` as
      outer_x3 = 5
    };
 
-You can then set this boundary condition via the ``user`` flag in the
-input file:
+You can then set this boundary condition by using the name you
+registered in the input file:
 
 ::
 
    <parthenon/mesh>
-   ix1_bc = user
+   ix1_bc = my_bc_name
 
 Boundary conditions so defined should look roughly like
 
@@ -100,9 +101,19 @@ Other than these requirements, the ``Boundary`` object can do whatever
 you like. Reference implementations of the standard boundary conditions
 are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/bvals/boundary_conditions.cpp>`__.
 
+.. note::
 
-Per package user-defined boundary conditions
---------------------------------------------
+  A per-variable reflecting boundary condition is available, but you
+  must register it manually. To do so, simply call
+  ``app_in->RegisterDefaultReflectingBoundaryConditions()`` and it
+  will be available as a mesh boundary with the name ``reflecting``.
+  The reason manual registration is required is to support custom
+  reflecting boundary conditions int he case where a single variable
+  is used as the state vector.
+
+
+Per package user-defined boundary conditions.
+---------------------------------
 
 In addition to user defined *global* boundary conditions, Parthenon also supports 
 registration of boundary conditions at the *per package* level. These per package 
