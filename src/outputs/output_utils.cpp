@@ -30,6 +30,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
@@ -306,7 +307,7 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
 #endif // MPI_PARALLEL
   return out;
 }
-std::size_t MPISum(std::size_t val) {
+constexpr void CheckMPISizeT() {
 #ifdef MPI_PARALLEL
   // Need to use sizeof here because unsigned long long and unsigned
   // long are identical under the hood but registered as different
@@ -316,11 +317,35 @@ std::size_t MPISum(std::size_t val) {
                 "size_t is unsigned and integral");
   static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
                 "MPI_UNSIGNED_LONG_LONG same as size_t");
+
+#endif
+}
+std::size_t MPISum(std::size_t val) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
   PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_UNSIGNED_LONG_LONG,
                                     MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
 }
 
+void CheckParameterInputConsistent(ParameterInput *pin) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
+
+  std::size_t pin_hash = std::hash<ParameterInput>()(*pin);
+  std::size_t pin_hash_root = pin_hash;
+  PARTHENON_MPI_CHECK(
+      MPI_Bcast(&pin_hash_root, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
+  PARTHENON_REQUIRE_THROWS(
+      pin_hash == pin_hash_root,
+      "Parameter input object must be the same on every rank, otherwise I/O may "
+      "be\n\t\t"
+      "unable to write it safely. If you reached this error message, look to make "
+      "sure\n\t\t"
+      "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
+      "exactly the same way on every MPI rank.");
+#endif // MPI_PARALLEL
+}
 } // namespace OutputUtils
 } // namespace parthenon
