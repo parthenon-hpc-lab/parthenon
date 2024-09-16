@@ -11,7 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <cstdlib>
+#include <iostream>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 

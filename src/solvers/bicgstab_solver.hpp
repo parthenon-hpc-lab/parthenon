@@ -13,6 +13,7 @@
 #ifndef SOLVERS_BICGSTAB_SOLVER_HPP_
 #define SOLVERS_BICGSTAB_SOLVER_HPP_
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>

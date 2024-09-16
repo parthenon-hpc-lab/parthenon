@@ -13,8 +13,10 @@
 
 #include "interface/variable.hpp"
 
+#include <cstdio>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <utility>
 

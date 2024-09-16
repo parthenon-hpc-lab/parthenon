@@ -11,9 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <regex>
+#include <string>
 #include <vector>
 
 #if __has_include(<cxxabi.h>)

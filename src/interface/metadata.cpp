@@ -13,8 +13,11 @@
 
 #include "interface/metadata.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
+#include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
