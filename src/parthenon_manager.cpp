@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <exception>
+#include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>

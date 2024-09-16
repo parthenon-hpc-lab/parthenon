@@ -12,6 +12,8 @@
 //========================================================================================
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "interface/sparse_pool.hpp"
 
