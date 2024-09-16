@@ -30,6 +30,7 @@
 // C++
 #include <iostream>
 #include <string>
+#include <vector>
 
 // Parthenon
 #include "basic_types.hpp"
