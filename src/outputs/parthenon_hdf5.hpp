@@ -66,13 +66,8 @@
 namespace parthenon {
 namespace HDF5 {
 
-//  Implemented in CPP file as it's complex
 hid_t GenerateFileAccessProps();
-
-inline H5G MakeGroup(hid_t file, const std::string &name) {
-  return H5G::FromHIDCheck(
-      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-}
+H5G MakeGroup(hid_t file, const std::string &name);
 
 template <typename T>
 void HDF5WriteND(hid_t location, const std::string &name, const T *data, int rank,

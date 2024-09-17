@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"

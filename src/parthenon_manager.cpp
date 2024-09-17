@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <exception>
+#include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -26,6 +28,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include FS_HEADER

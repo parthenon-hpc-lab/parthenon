@@ -13,6 +13,7 @@
 
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <parthenon/package.hpp>
 

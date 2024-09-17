@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <exception>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "amr_criteria/amr_criteria.hpp"
