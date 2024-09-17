@@ -94,10 +94,10 @@ struct Indexer {
   std::tuple<Ts...> operator()(int idx) const {
     return GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
   }
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t GetFlatIdx(Ts... ts) const {
-    return GetFlatIndexImpl(ts..., std::make_index_sequence<sizeof...(Ts)>()); 
+    return GetFlatIndexImpl(ts..., std::make_index_sequence<sizeof...(Ts)>());
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -137,10 +137,10 @@ struct Indexer {
   KOKKOS_FORCEINLINE_FUNCTION std::size_t
   GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
     std::size_t out{0};
-    (  
+    (
         [&] {
           idxs -= start[Is];
-          out += idxs * N[Is]; 
+          out += idxs * N[Is];
         }(),
         ...);
     return out;
