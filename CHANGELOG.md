@@ -11,6 +11,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
 - [[PR1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
