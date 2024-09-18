@@ -18,7 +18,9 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>

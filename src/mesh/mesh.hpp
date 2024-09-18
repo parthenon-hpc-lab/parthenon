@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
@@ -59,8 +58,10 @@
 namespace parthenon {
 
 // Forward declarations
+class ApplicationInput;
 class MeshBlock;
 class MeshRefinement;
+class Packages_t;
 class ParameterInput;
 class RestartReader;
 

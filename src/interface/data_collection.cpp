@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
 #include <string>
 
 #include "interface/data_collection.hpp"
