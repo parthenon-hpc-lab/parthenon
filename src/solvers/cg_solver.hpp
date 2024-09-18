@@ -181,7 +181,7 @@ class CGSolver {
     auto correct_p = itl.AddTask(
         get_ru, "p <- u + beta p",
         [](CGSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
-          Real beta = solver->ru.val / solver->ru_old;
+          Real beta = solver->iter_counter > 0 ? solver->ru.val / solver->ru_old : 0.0;
           return AddFieldsAndStore<u, p, p>(md, 1.0, beta);
         },
         this, md);
