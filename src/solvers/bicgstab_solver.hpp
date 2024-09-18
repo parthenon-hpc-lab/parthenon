@@ -144,13 +144,12 @@ class BiCGSTABSolver {
         this);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol,
-            bool relative_residual, Mesh *pm) {
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+            Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
-            Real tol =
-                relative_residual
-                    ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
-                    : *res_tol;
+            Real tol = relative_residual
+                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
+                           : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
           }
