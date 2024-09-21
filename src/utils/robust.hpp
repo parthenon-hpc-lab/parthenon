@@ -65,7 +65,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 bool soft_equiv(const Real &val, const Real &ref,
                 const Real eps = 10. * std::numeric_limits<Real>::epsilon(),
                 const bool pass_on_small = true) {
-  if (std::fabs(val - ref) < precision * fabs(ref)) {
+  if (std::fabs(val - ref) < eps * fabs(ref)) {
     // Return true equivalence if value and reference differ by less than precision
     return true;
   } else {
