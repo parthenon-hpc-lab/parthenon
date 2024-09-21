@@ -70,6 +70,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
 
+  Globals::is_restart = IsRestart();
+
   Kokkos::initialize(argc, argv);
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
