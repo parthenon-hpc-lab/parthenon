@@ -325,9 +325,8 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
     for (int j = 0; j < N; j++) {
       for (int i = 1; i < N - 1; i++) {
         const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
-        const Real err = host_du(k, j, i - 1) - analytic;
 
-        if (!soft_equiv(err, analytic, rel_tol)) {
+        if (!soft_equiv(host_du(k, j, i - 1), analytic, rel_tol)) {
           return false;
         }
       }
@@ -396,9 +395,8 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
       for (int j = 0; j < N; j++) {
         for (int i = 1; i < N - 1; i++) {
           const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
-          const Real err = host_du(n, k, j, i - 1) - analytic;
 
-          if (!soft_equiv(err, analytic, rel_tol)) {
+          if (!soft_equiv(host_du(n, k, j, i - 1), analytic, rel_tol)) {
             return false;
           }
         }
