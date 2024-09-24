@@ -21,6 +21,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,10 +39,12 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"

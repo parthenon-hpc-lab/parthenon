@@ -568,27 +568,7 @@ class Metadata {
   }
 
   // Operators
-  bool HasSameFlags(const Metadata &b) const {
-    auto const &a = *this;
-
-    // Check extra bits are unset
-    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
-    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
-    for (auto i = min_bits; i < longer.size(); i++) {
-      if (longer[i]) {
-        // Bits are default false, so if any bit in the extraneous portion of the longer
-        // bit list is set, then it cannot be equal to a.
-        return false;
-      }
-    }
-
-    for (size_t i = 0; i < min_bits; i++) {
-      if (a.bits_[i] != b.bits_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool HasSameFlags(const Metadata &b) const;
 
   bool operator==(const Metadata &b) const {
     return HasSameFlags(b) && (shape_ == b.shape_);

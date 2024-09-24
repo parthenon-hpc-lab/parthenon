@@ -14,6 +14,7 @@
 #ifndef PARTHENON_MANAGER_HPP_
 #define PARTHENON_MANAGER_HPP_
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>

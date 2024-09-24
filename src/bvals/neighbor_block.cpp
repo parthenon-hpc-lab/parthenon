@@ -28,6 +28,7 @@
 #include <stdexcept> // runtime_error
 #include <string>    // c_str()
 #include <unordered_set>
+#include <vector>
 
 #include "globals.hpp"
 #include "mesh/forest/logical_location.hpp"

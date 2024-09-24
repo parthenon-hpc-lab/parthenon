@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <functional>
 #include <limits>
 #include <map>
