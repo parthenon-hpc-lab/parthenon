@@ -288,7 +288,7 @@ using ProlongateSharedMinMod = ProlongateSharedGeneral<true, false>;
 using ProlongateSharedLinear = ProlongateSharedGeneral<false, false>;
 using ProlongatePiecewiseConstant = ProlongateSharedGeneral<false, true>;
 
-enum class MGProlongationType {Constant, Linear, Quadratic, Kwak};
+enum class MGProlongationType { Constant, Linear, Quadratic, Kwak };
 
 template <MGProlongationType type>
 struct ProlongateSharedMG {
@@ -299,7 +299,7 @@ struct ProlongateSharedMG {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  static Real QuadraticFactor(int d) { 
+  static Real QuadraticFactor(int d) {
     if (d == 0) return 1.0; // Indicates this dimension is not included
     if (d == 1 || d == -1) return 30.0 / 32.0;
     if (d == 3 || d == -3) return 5.0 / 32.0;
@@ -307,7 +307,7 @@ struct ProlongateSharedMG {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  static Real LinearFactor(int d, bool up_bound, bool lo_bound) { 
+  static Real LinearFactor(int d, bool up_bound, bool lo_bound) {
     if (d == 0) return 1.0; // Indicates this dimension is not included
     if (d == 1) return (2.0 + !up_bound) / 4.0;
     if (d == -1) return (2.0 + !lo_bound) / 4.0;
@@ -317,12 +317,12 @@ struct ProlongateSharedMG {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  static Real ConstantFactor(int d) { 
+  static Real ConstantFactor(int d) {
     if (d == 0) return 1.0; // Indicates this dimension is not included
     if (d == 1 || d == -1) return 1.0;
     return 0.0;
   }
-  
+
   template <int DIM, TopologicalElement el = TopologicalElement::CC,
             TopologicalElement /*cel*/ = TopologicalElement::CC>
   KOKKOS_FORCEINLINE_FUNCTION static void
@@ -341,10 +341,10 @@ struct ProlongateSharedMG {
     const int fi = (DIM > 0) ? (i - cib.s) * 2 + ib.s : ib.s;
     const int fj = (DIM > 1) ? (j - cjb.s) * 2 + jb.s : jb.s;
     const int fk = (DIM > 2) ? (k - ckb.s) * 2 + kb.s : kb.s;
-    
-    for (int fok = 0; fok < 1 + (DIM > 2); ++fok) { 
-      for (int foj = 0; foj < 1 + (DIM > 1); ++foj) { 
-        for (int foi = 0; foi < 1 + (DIM > 0); ++foi) { 
+
+    for (int fok = 0; fok < 1 + (DIM > 2); ++fok) {
+      for (int foj = 0; foj < 1 + (DIM > 1); ++foj) {
+        for (int foi = 0; foi < 1 + (DIM > 0); ++foi) {
           auto &f = fine(element_idx, l, m, n, fk + fok, fj + foj, fi + foi);
           f = 0.0;
           const bool lo_bound_x = (fi == ib.s);
@@ -356,23 +356,27 @@ struct ProlongateSharedMG {
           for (int ok = -(DIM > 2); ok < 1 + (DIM > 2); ++ok) {
             for (int oj = -(DIM > 1); oj < 1 + (DIM > 1); ++oj) {
               for (int oi = -(DIM > 0); oi < 1 + (DIM > 0); ++oi) {
-                const int dx = 4 * oi - foi + 1; 
-                const int dy = (DIM > 1) ? 4 * oj - foj + 1 : 0; 
-                const int dz = (DIM > 2) ? 4 * ok - fok + 1 : 0; 
+                const int dx = 4 * oi - foi + 1;
+                const int dy = (DIM > 1) ? 4 * oj - foj + 1 : 0;
+                const int dz = (DIM > 2) ? 4 * ok - fok + 1 : 0;
                 if constexpr (MGProlongationType::Linear == type) {
-                  f += LinearFactor(dx, lo_bound_x, up_bound_x)
-                     * LinearFactor(dy, lo_bound_y, up_bound_y)
-                     * LinearFactor(dz, lo_bound_z, up_bound_z)
-                     * coarse(element_idx, l, m, n, k + ok, j + oj, i + oi); 
+                  f += LinearFactor(dx, lo_bound_x, up_bound_x) *
+                       LinearFactor(dy, lo_bound_y, up_bound_y) *
+                       LinearFactor(dz, lo_bound_z, up_bound_z) *
+                       coarse(element_idx, l, m, n, k + ok, j + oj, i + oi);
                 } else if constexpr (MGProlongationType::Kwak == type) {
-                  const Real fac = ((dx <= 1) + (dy <= 1 && DIM > 1) + (dz <=1 && DIM > 2)) / (2.0 * DIM);
-                  f += fac * coarse(element_idx, l, m, n, k + ok, j + oj, i + oi); 
-                } else if constexpr(MGProlongationType::Quadratic == type) { 
-                  f += QuadraticFactor(dx) * QuadraticFactor(dy) * QuadraticFactor(dz) * coarse(element_idx, l, m, n, k + ok, j + oj, i + oi); 
-                } else { 
-                  f += ConstantFactor(dx) * ConstantFactor(dy) * ConstantFactor(dz) * coarse(element_idx, l, m, n, k + ok, j + oj, i + oi); 
+                  const Real fac =
+                      ((dx <= 1) + (dy <= 1 && DIM > 1) + (dz <= 1 && DIM > 2)) /
+                      (2.0 * DIM);
+                  f += fac * coarse(element_idx, l, m, n, k + ok, j + oj, i + oi);
+                } else if constexpr (MGProlongationType::Quadratic == type) {
+                  f += QuadraticFactor(dx) * QuadraticFactor(dy) * QuadraticFactor(dz) *
+                       coarse(element_idx, l, m, n, k + ok, j + oj, i + oi);
+                } else {
+                  f += ConstantFactor(dx) * ConstantFactor(dy) * ConstantFactor(dz) *
+                       coarse(element_idx, l, m, n, k + ok, j + oj, i + oi);
                 }
-              } 
+              }
             }
           }
         }

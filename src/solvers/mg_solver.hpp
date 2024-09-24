@@ -100,15 +100,19 @@ class MGSolver {
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::GMGRestrict,
                   Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
-  
+
     if (params_.prolongation == "Linear") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Linear>, RestrictAverage>();
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Linear>,
+                                     RestrictAverage>();
     } else if (params_.prolongation == "Kwak") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Kwak>, RestrictAverage>();
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Kwak>,
+                                     RestrictAverage>();
     } else if (params_.prolongation == "Quadratic") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Quadratic>, RestrictAverage>();
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Quadratic>,
+                                     RestrictAverage>();
     } else if (params_.prolongation == "Constant") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>, RestrictAverage>();
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>,
+                                     RestrictAverage>();
     } else if (params_.prolongation == "OldLinear") {
       mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     } else {

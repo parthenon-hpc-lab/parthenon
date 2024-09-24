@@ -109,12 +109,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pkg.get(), bicgstab_params, eq);
   pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
                   parthenon::Params::Mutability::Mutable);
-  
+
   parthenon::solvers::CGParams cg_params(pin, "poisson/solver_params");
-  parthenon::solvers::CGSolver<u, rhs, PoissonEquation> cg_solver(
-      pkg.get(), cg_params, eq);
-  pkg->AddParam<>("MGCGsolver", cg_solver,
-                  parthenon::Params::Mutability::Mutable);
+  parthenon::solvers::CGSolver<u, rhs, PoissonEquation> cg_solver(pkg.get(), cg_params,
+                                                                  eq);
+  pkg->AddParam<>("MGCGsolver", cg_solver, parthenon::Params::Mutability::Mutable);
 
   using namespace parthenon::refinement_ops;
   auto mD = Metadata(
