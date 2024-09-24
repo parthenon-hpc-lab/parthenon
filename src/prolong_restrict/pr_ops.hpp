@@ -319,7 +319,7 @@ struct ProlongateSharedMG {
   KOKKOS_FORCEINLINE_FUNCTION
   static Real ConstantFactor(int d) { 
     if (d == 0) return 1.0; // Indicates this dimension is not included
-    if (d == 1) return 1.0;
+    if (d == 1 || d == -1) return 1.0;
     return 0.0;
   }
   

@@ -106,7 +106,7 @@ class MGSolver {
       mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Kwak>, RestrictAverage>();
     } else if (params_.prolongation == "Quadratic") {
       mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Quadratic>, RestrictAverage>();
-    } else if (params_.prolongation == "Consatnts") {
+    } else if (params_.prolongation == "Constant") {
       mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>, RestrictAverage>();
     } else if (params_.prolongation == "OldLinear") {
       mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
