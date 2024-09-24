@@ -19,7 +19,10 @@
 #include <type_traits>
 #include <utility>
 
+#include <Kokkos_Core.hpp>
+
 #include "utils/concepts_lite.hpp"
+#include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -66,7 +69,6 @@ struct block_ownership_t {
  private:
   bool ownership[3][3][3];
 };
-
 template <class... Ts>
 struct Indexer {
   KOKKOS_INLINE_FUNCTION
@@ -82,13 +84,17 @@ struct Indexer {
 
   KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
-      : N{GetFactors(std::make_tuple((Ns.second - Ns.first + 1)...),
+      : N{GetFactors({(Ns.second - Ns.first + 1)...},
                      std::make_index_sequence<sizeof...(Ts)>())},
         start{Ns.first...}, end{Ns.second...}, _size(((Ns.second - Ns.first + 1) * ...)) {
   }
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t size() const { return _size; }
+  template <class... IndRngs>
+  KOKKOS_INLINE_FUNCTION explicit Indexer(IndRngs... Ns)
+      : N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())},
+        start{Ns.s...}, end{Ns.e...}, _size(((Ns.e - Ns.s + 1) * ...)) {}
+
+  KOKKOS_FORCEINLINE_FUNCTION std::size_t size() const { return _size; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   std::tuple<Ts...> operator()(int idx) const {
@@ -97,18 +103,17 @@ struct Indexer {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetIdxArray(int idx) const {
-    return get_array_from_tuple(
-        GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
+    return GetIndicesKArrayImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
   }
 
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto StartIdx() const {
-    return std::get<I>(start);
+    return start[I];
   }
 
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto EndIdx() const {
-    return std::get<I>(end);
+    return end[I];
   }
 
   static const constexpr std::size_t rank = sizeof...(Ts);
@@ -120,33 +125,66 @@ struct Indexer {
     std::tuple<Ts...> idxs;
     (
         [&] {
-          std::get<Is>(idxs) = idx / std::get<Is>(N);
-          idx -= std::get<Is>(idxs) * std::get<Is>(N);
-          std::get<Is>(idxs) += std::get<Is>(start);
+          std::get<Is>(idxs) = idx / N[Is];
+          idx -= std::get<Is>(idxs) * N[Is];
+          std::get<Is>(idxs) += start[Is];
         }(),
         ...);
     return idxs;
   }
 
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION static std::array<int, sizeof...(Ts)>
-  GetFactors(std::tuple<Ts...> Nt, std::index_sequence<Is...>) {
-    std::array<int, sizeof...(Ts)> N;
+  KOKKOS_FORCEINLINE_FUNCTION Kokkos::Array<int, sizeof...(Ts)>
+  GetIndicesKArrayImpl(int idx, std::index_sequence<Is...>) const {
+    Kokkos::Array<int, sizeof...(Ts)> indices;
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
+    return indices;
+  }
+
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION static Kokkos::Array<int, sizeof...(Ts)>
+  GetFactors(Kokkos::Array<int, sizeof...(Ts)> Nt, std::index_sequence<Is...>) {
+    Kokkos::Array<int, sizeof...(Ts)> N;
     int cur = 1;
     (
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
-          std::get<idx>(N) = cur;
-          cur *= std::get<idx>(Nt);
+          N[idx] = cur;
+          cur *= Nt[idx];
         }(),
         ...);
     return N;
   }
 
-  std::array<int, sizeof...(Ts)> N;
-  std::array<int, sizeof...(Ts)> start;
-  std::array<int, sizeof...(Ts)> end;
+  Kokkos::Array<int, sizeof...(Ts)> N;
+  Kokkos::Array<int, sizeof...(Ts)> start;
+  Kokkos::Array<int, sizeof...(Ts)> end;
   std::size_t _size;
+};
+
+template <class... Ts>
+struct IndexRanger {
+  KOKKOS_INLINE_FUNCTION
+  IndexRanger() : N{}, _size{} {};
+
+  KOKKOS_INLINE_FUNCTION
+  explicit IndexRanger(Ts... IdrsA) {}
+
+  Kokkos::Array<IndexRange, sizeof...(Ts)> N;
+  std::size_t _size;
+};
+
+template <>
+struct Indexer<> {
+  // this is a dummy and shouldn't ever actually get used to index an array
+  KOKKOS_FORCEINLINE_FUNCTION
+  Kokkos::Array<int, 1> GetIdxArray(int idx) const { return {-1}; }
 };
 
 template <class... Ts>
@@ -188,6 +226,24 @@ using Indexer7D = Indexer<int, int, int, int, int, int, int>;
 using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
+
+template <class... Ts>
+KOKKOS_FORCEINLINE_FUNCTION auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
+  return Indexer<Ts...>(ranges...);
+}
+
+template <std::size_t NIdx, class... Ts, std::size_t... Is>
+KOKKOS_FORCEINLINE_FUNCTION auto MakeIndexer(TypeList<Ts...>,
+                                             Kokkos::Array<IndexRange, NIdx> bounds_arr,
+                                             std::integer_sequence<std::size_t, Is...>) {
+  return Indexer<Ts...>(bounds_arr[Is]...);
+}
+
+template <std::size_t NIdx>
+KOKKOS_FORCEINLINE_FUNCTION auto MakeIndexer(Kokkos::Array<IndexRange, NIdx> bounds_arr) {
+  return MakeIndexer(list_of_type_t<NIdx, IndexRange>(), bounds_arr,
+                     std::make_index_sequence<NIdx>());
+}
 
 } // namespace parthenon
 #endif // UTILS_INDEXER_HPP_

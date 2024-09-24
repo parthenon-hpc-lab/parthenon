@@ -45,11 +45,11 @@ inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
 inline Offset operator-(Offset in) { return static_cast<Offset>(-static_cast<int>(in)); }
 
 struct CellCentOffsets {
-  std::array<Offset, 3> u;
+  Kokkos::Array<Offset, 3> u;
 
   CellCentOffsets() = default;
 
-  explicit CellCentOffsets(const std::array<int, 3> &in)
+  explicit CellCentOffsets(const Kokkos::Array<int, 3> &in)
       : u{static_cast<Offset>(in[0]), static_cast<Offset>(in[1]),
           static_cast<Offset>(in[2])} {}
 

@@ -247,9 +247,8 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
         const int nvars = pack.GetUpperBound(b, var()) - pack.GetLowerBound(b, var()) + 1;
         for (int c = 0; c < nvars; ++c) {
-          parthenon::par_for_inner(
-              parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
-              ib.s, ib.e,
+          parthenon::seq_for(
+              kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
               [&](int k, int j, int i) { pack(b, te, var(c), k, j, i) = 0.0; });
         }
       });

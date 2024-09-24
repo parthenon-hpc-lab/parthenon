@@ -22,6 +22,10 @@
 
 namespace parthenon {
 
+// c++-20 has std:remove_cvref_t that does this same thing
+template <typename T>
+using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
+
 // Convenience struct for holding a variadic pack of types
 // and providing compile time indexing into that pack as
 // well as the ability to get the index of a given type within
@@ -49,14 +53,26 @@ struct TypeList {
     }
   }
 
+  template <class T, std::size_t I = 0>
+  static constexpr bool IsIn() {
+    if constexpr (I == n_types) {
+      return false;
+    } else {
+      if constexpr (std::is_same_v<T, type<I>>) {
+        return true;
+      } else {
+        return IsIn<T, I + 1>();
+      }
+    }
+  }
+
   template <class F>
   static void IterateTypes(F func) {
     (func(Args()), ...);
   }
 
- private:
   template <std::size_t Start, std::size_t End>
-  static auto ContinuousSublist() {
+  static auto ContinuousSublistImpl() {
     return ContinuousSublistImpl<Start>(std::make_index_sequence<End - Start + 1>());
   }
   template <std::size_t Start, std::size_t... Is>
@@ -64,9 +80,8 @@ struct TypeList {
     return sublist<(Start + Is)...>();
   }
 
- public:
-  template <std::size_t Start, std::size_t End>
-  using continuous_sublist = decltype(ContinuousSublist<Start, End>());
+  template <std::size_t Start, std::size_t End = n_types - 1>
+  using continuous_sublist = decltype(ContinuousSublistImpl<Start, End>());
 };
 
 namespace impl {
@@ -79,11 +94,28 @@ template <class... Args1, class... Args2, class... Args>
 auto ConcatenateTypeLists(TypeList<Args1...>, TypeList<Args2...>, Args...) {
   return ConcatenateTypeLists(TypeList<Args1..., Args2...>(), Args()...);
 }
+
+template <class T, std::size_t I, class... Ts>
+static auto InsertTypeImpl(TypeList<Ts...>) {
+  if constexpr (I == 0) {
+    return TypeList<T, Ts...>();
+  } else if constexpr (I == sizeof...(Ts)) {
+    return TypeList<Ts..., T>();
+  } else {
+    using TL = TypeList<Ts...>;
+    return ConcatenateTypeLists(typename TL::template continuous_sublist<0, I>(),
+                                TypeList<T>(),
+                                typename TL::template continuous_sublist<I + 1>());
+  }
+}
 } // namespace impl
 
 template <class... TLs>
 using concatenate_type_lists_t =
     decltype(impl::ConcatenateTypeLists(std::declval<TLs>()...));
+
+template <class T, class TL, std::size_t I = TL::n_types>
+using insert_type_list_t = decltype(impl::InsertTypeImpl<T, I>(TL()));
 
 // Relevant only for lists of variable types
 template <class TL>
@@ -92,6 +124,28 @@ auto GetNames() {
   TL::IterateTypes([&names](auto t) { names.push_back(decltype(t)::name()); });
   return names;
 }
+
+namespace impl {
+template <class N, class T>
+struct ListOfType {
+  using Nm1 = std::integral_constant<std::size_t, N::value - 1>;
+  using type = concatenate_type_lists_t<TypeList<T>, typename ListOfType<Nm1, T>::type>;
+};
+
+template <class T>
+struct ListOfType<std::integral_constant<std::size_t, 0>, T> {
+  using type = TypeList<>;
+};
+
+template <class T>
+struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
+  using type = TypeList<T>;
+};
+} // namespace impl
+
+template <size_t N, class T>
+using list_of_type_t =
+    typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
