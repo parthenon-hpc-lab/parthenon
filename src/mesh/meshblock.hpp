@@ -186,6 +186,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   BoundaryFlag boundary_flag[6];
 
+  bool IsPhysicalBoundary(BoundaryFace bf) const {
+    return boundary_flag[bf] != BoundaryFlag::block;
+  }
+
   // functions
   // Load balancing
   void SetCostForLoadBalancing(double cost);

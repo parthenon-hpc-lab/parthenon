@@ -164,7 +164,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
   // This array stores refinement levels of current block and all neighboring blocks.
-  pack.block_props_ = block_props_t("block_props", nblocks, 27 + 1);
+  const Indexer3D bp_idxer({-1, 1}, {-1, 1}, {-1, 1});
+  pack.block_props_ = block_props_t("block_props", nblocks, bp_idxer.size() + 1);
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
@@ -176,31 +177,59 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   ForEachBlock(pmd, include_block, [&](int block, mbd_t *pmbd) {
     int b = 0;
     const auto &uid_map = pmbd->GetUidMap();
+    const auto &pmb = pmbd->GetBlockPointer();
     if (!desc.flat) {
       idx = 0;
       b = blidx;
       // JMM: This line could be unified with the coords_h line below,
       // but it would imply unnecessary copies in the case of non-flat
       // packs.
-      coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+      coords_h(b) = pmb->coords_device;
     }
 
     // Initialize block refinement levels to current block level to provide default if
     // neighbors not present
-    for (int n = 0; n < 27; n++) {
-      pack.block_props_h_(blidx, (1 + 3 * (1 + 3 * 1))) =
-          pmbd->GetBlockPointer()->loc.level();
+    for (int n = 0; n < bp_idxer.size(); n++) {
+      pack.block_props_h_(blidx, n) = pmb->loc.level();
     }
-    // This block's gid stored in central (1, 1, 1, 1) element
-    pack.block_props_h_(blidx, 27) = pmbd->GetBlockPointer()->gid;
-    for (auto &neighbor : pmbd->GetBlockPointer()->neighbors) {
+    // This block's gid stored at the end of the flattened array
+    pack.block_props_h_(blidx, bp_idxer.size()) = pmb->gid;
+    auto *neighbors = &(pmb->neighbors);
+    if constexpr (!std::is_same_v<T, mbd_t>) {
+      if (pmd->grid.type == GridType::two_level_composite) {
+        if (pmb->loc.level() == pmd->grid.logical_level) {
+          neighbors = &(pmb->gmg_same_neighbors);
+        } else {
+          neighbors = &(pmb->gmg_composite_finer_neighbors);
+        }
+      }
+    }
+    for (auto &neighbor : *neighbors) {
       // Multiple refined neighbors may write to the same index but they will always have
       // the same refinement level.
-      pack.block_props_h_(
-          blidx, (neighbor.offsets[2] + 1) +
-                     3 * ((neighbor.offsets[1] + 1) + 3 * (neighbor.offsets[0] + 1))) =
-          neighbor.loc.level();
+
+      // !!Warning: This reverses the indexing from what brryan had previously, but the
+      // associated routines for getting the block properties have also had their
+      // values switched
+      pack.block_props_h_(blidx, neighbor.offsets.GetIdx()) = neighbor.loc.level();
       // Currently not storing neighbor gids
+    }
+
+    for (int oxb = -1; oxb <= 1; ++oxb) {
+      for (int oxa = -1; oxa <= 1; ++oxa) {
+        if (pmb->IsPhysicalBoundary(inner_x1))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, -1)) = bnd_flag;
+        if (pmb->IsPhysicalBoundary(outer_x1))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, 1)) = bnd_flag;
+        if (pmb->IsPhysicalBoundary(inner_x2))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, -1, oxa)) = bnd_flag;
+        if (pmb->IsPhysicalBoundary(outer_x2))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, 1, oxa)) = bnd_flag;
+        if (pmb->IsPhysicalBoundary(inner_x3))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(-1, oxb, oxa)) = bnd_flag;
+        if (pmb->IsPhysicalBoundary(outer_x3))
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(1, oxb, oxa)) = bnd_flag;
+      }
     }
 
     for (int i = 0; i < nvar; ++i) {
