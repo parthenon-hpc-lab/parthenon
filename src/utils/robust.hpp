@@ -65,10 +65,10 @@ KOKKOS_INLINE_FUNCTION auto ratio(const A &a, const B &b) {
 // Optionally return true if reference value is close to zero
 KOKKOS_FORCEINLINE_FUNCTION
 bool SoftEquiv(const Real &val, const Real &ref,
-                const Real eps = 10. * std::numeric_limits<Real>::epsilon(),
-                const bool pass_on_small = true) {
-  return ((std::fabs(val - ref) < eps * std::fabs(ref)) 
-    || ((std::fabs(ref) <std::numeric_limits<Real>::min()) && pass_on_small));
+               const Real eps = 10. * std::numeric_limits<Real>::epsilon(),
+               const bool pass_on_small = true) {
+  return ((std::fabs(val - ref) < eps * std::fabs(ref)) ||
+          ((std::fabs(ref) < std::numeric_limits<Real>::min()) && pass_on_small));
 }
 
 } // namespace robust
