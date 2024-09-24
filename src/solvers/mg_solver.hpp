@@ -251,7 +251,13 @@ class MGSolver {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
+    if (md->grid.type == GridType::two_level_composite) {
+      int current_level = md->grid.logical_level;
+      for (int b = 0; b < nblocks; ++b) {
+        include_block[b] =
+            md->GetBlockData(b)->GetBlockPointer()->loc.level() == current_level;
+      }
+    }
     static auto desc =
         parthenon::MakePackDescriptor<xold_t, xnew_t, Axold_t, rhs_t, D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
