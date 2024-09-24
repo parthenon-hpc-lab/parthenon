@@ -119,13 +119,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
   auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
-  mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  std::string prolong = pin->GetOrAddString("poisson", "prolongation", "Linear");
+  if (prolong == "Linear") {
+    mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  } else if (prolong == "Constant") {
+    mflux_comm.RegisterRefinementOps<ProlongatePiecewiseConstant, RestrictAverage>();
+  } else {
+    PARTHENON_FAIL("Unknown prolongation method for Poisson boundaries.");
+  }
   // u is the solution vector that starts with an initial guess and then gets updated
   // by the solver
   pkg->AddField(u::name(), mflux_comm);
