@@ -33,7 +33,7 @@ using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
-using parthenon::robust::soft_equiv;
+using parthenon::robust::SoftEquiv;
 using Real = double;
 
 template <class T>
@@ -326,7 +326,7 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
       for (int i = 1; i < N - 1; i++) {
         const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
 
-        if (!soft_equiv(host_du(k, j, i - 1), analytic, rel_tol)) {
+        if (!SoftEquiv(host_du(k, j, i - 1), analytic, rel_tol)) {
           return false;
         }
       }
@@ -396,7 +396,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
         for (int i = 1; i < N - 1; i++) {
           const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
 
-          if (!soft_equiv(host_du(n, k, j, i - 1), analytic, rel_tol)) {
+          if (!SoftEquiv(host_du(n, k, j, i - 1), analytic, rel_tol)) {
             return false;
           }
         }
