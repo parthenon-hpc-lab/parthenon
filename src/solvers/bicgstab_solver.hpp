@@ -32,11 +32,12 @@ namespace parthenon {
 
 namespace solvers {
 
+enum class Preconditioner { None, Diagonal, Multigrid };
 struct BiCGSTABParams {
   MGParams mg_params;
   int max_iters = 1000;
   std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
-  bool precondition = true;
+  Preconditioner precondition_type = Preconditioner::Multigrid;
   bool print_per_step = false;
   bool relative_residual = false;
   BiCGSTABParams() = default;
@@ -44,7 +45,16 @@ struct BiCGSTABParams {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
     *residual_tolerance =
         pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
-    precondition = pin->GetOrAddBoolean(input_block, "precondition", precondition);
+    bool precondition = pin->GetOrAddBoolean(input_block, "precondition", true);
+    std::string precondition_str =
+        pin->GetOrAddString(input_block, "preconditioner", "Multigrid");
+    if (precondition && precondition_str == "Multigrid") {
+      precondition_type = Preconditioner::Multigrid;
+    } else if (precondition && precondition_str == "Diagonal") {
+      precondition_type = Preconditioner::Diagonal;
+    } else {
+      precondition_type = Preconditioner::None;
+    }
     print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
     mg_params = MGParams(pin, input_block);
     relative_residual =
@@ -70,6 +80,7 @@ class BiCGSTABSolver {
   PARTHENON_INTERNALSOLVERVARIABLE(u, r);
   PARTHENON_INTERNALSOLVERVARIABLE(u, p);
   PARTHENON_INTERNALSOLVERVARIABLE(u, x);
+  PARTHENON_INTERNALSOLVERVARIABLE(u, diag);
 
   using internal_types_tl = TypeList<rhat0, v, h, s, t, r, p, x>;
   using preconditioner_t = MGSolver<u, rhs, equations>;
@@ -79,7 +90,7 @@ class BiCGSTABSolver {
 
   std::vector<std::string> GetInternalVariableNames() const {
     std::vector<std::string> names;
-    if (params_.precondition) {
+    if (params_.precondition_type == Preconditioner::Multigrid) {
       all_internal_types_tl::IterateTypes(
           [&names](auto t) { names.push_back(decltype(t)::name()); });
     } else {
@@ -105,11 +116,20 @@ class BiCGSTABSolver {
     pkg->AddField(r::name(), m_no_ghost);
     pkg->AddField(p::name(), m_no_ghost);
     pkg->AddField(x::name(), m_no_ghost);
+    pkg->AddField(diag::name(), m_no_ghost);
   }
 
   template <class TL_t>
   TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
-    return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
+    if (params_.precondition_type == Preconditioner::Multigrid) {
+      return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      auto partitions = pmesh->GetDefaultBlockPartitions();
+      auto &md = pmesh->mesh_data.Add(container_, partitions[partition]);
+      return tl.AddTask(dependence, &equations::template SetDiagonal<diag>, &eqs_, md);
+    } else {
+      return dependence;
+    }
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
@@ -174,13 +194,15 @@ class BiCGSTABSolver {
 
     // 1. u <- M p
     auto precon1 = reset;
-    if (params_.precondition) {
+    if (params_.precondition_type == Preconditioner::Multigrid) {
       auto set_rhs = itl.AddTask(precon1, TF(CopyData<p, rhs>), md);
       auto zero_u = itl.AddTask(precon1, TF(SetToZero<u>), md);
       precon1 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      precon1 = itl.AddTask(precon1, TF(ADividedByB<p, diag, u>), md);
     } else {
-      precon1 = itl.AddTask(none, TF(CopyData<p, u>), md);
+      precon1 = itl.AddTask(precon1, TF(CopyData<p, u>), md);
     }
 
     // 2. v <- A u
@@ -224,11 +246,13 @@ class BiCGSTABSolver {
 
     // 6. u <- M s
     auto precon2 = correct_s;
-    if (params_.precondition) {
+    if (params_.precondition_type == Preconditioner::Multigrid) {
       auto set_rhs = itl.AddTask(precon2, TF(CopyData<s, rhs>), md);
       auto zero_u = itl.AddTask(precon2, TF(SetToZero<u>), md);
       precon2 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      precon2 = itl.AddTask(precon2, TF(ADividedByB<s, diag, u>), md);
     } else {
       precon2 = itl.AddTask(precon2, TF(CopyData<s, u>), md);
     }
