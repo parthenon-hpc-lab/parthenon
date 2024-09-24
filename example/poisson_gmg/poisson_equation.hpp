@@ -195,7 +195,7 @@ class PoissonEquation {
     constexpr int dirs[6]{X1DIR, X1DIR, X2DIR, X2DIR, X3DIR, X3DIR};
 
     parthenon::par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "InitializeRadiationQuantities", DevExecSpace(),
+        DEFAULT_OUTER_LOOP_PATTERN, "SetFluxBoundaries", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
           const auto &coords = pack.GetCoordinates(b);
