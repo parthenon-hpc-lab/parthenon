@@ -47,7 +47,7 @@
 // and using flat range and MDRange in Kokkos
 //
 
-#include <stdio.h>
+#include <cstdio>
 
 #include <iostream>
 #include <memory>

@@ -14,6 +14,7 @@
 #define SOLVERS_MG_SOLVER_HPP_
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <string>

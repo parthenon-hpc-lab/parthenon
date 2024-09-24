@@ -59,6 +59,8 @@ class SparsePackBase {
   using pack_h_t = typename pack_t::HostMirror;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename bounds_t::HostMirror;
+  using block_props_t = ParArray2D<int>;
+  using block_props_h_t = typename block_props_t::HostMirror;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken
@@ -90,6 +92,8 @@ class SparsePackBase {
   pack_h_t pack_h_;
   bounds_t bounds_;
   bounds_h_t bounds_h_;
+  block_props_t block_props_;
+  block_props_h_t block_props_h_;
   coords_t coords_;
 
   int flx_idx_;

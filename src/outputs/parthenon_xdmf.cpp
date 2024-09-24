@@ -30,6 +30,7 @@
 // C++
 #include <iostream>
 #include <string>
+#include <vector>
 
 // Parthenon
 #include "basic_types.hpp"
@@ -211,7 +212,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
   if (swarm_xdmf && all_swarm_info.all_info.size() > 0) {
     std::string sfilename_aux = hdfFile + ".swarm.xdmf";
     std::ofstream pxdmf;
-    hsize_t dims[H5_NDIM] = {0}; // zero-initialized
 
     // open file
     pxdmf = std::ofstream(sfilename_aux.c_str(), std::ofstream::trunc);

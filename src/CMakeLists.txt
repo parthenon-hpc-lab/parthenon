@@ -231,6 +231,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
+  tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
 
@@ -245,6 +246,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp

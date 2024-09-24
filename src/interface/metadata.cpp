@@ -13,8 +13,11 @@
 
 #include "interface/metadata.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
+#include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -321,6 +324,28 @@ std::vector<MetadataFlag> Metadata::Flags() const {
   }
 
   return set_flags;
+}
+
+bool Metadata::HasSameFlags(const Metadata &b) const {
+  auto const &a = *this;
+
+  // Check extra bits are unset
+  auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
+  auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
+  for (auto i = min_bits; i < longer.size(); i++) {
+    if (longer[i]) {
+      // Bits are default false, so if any bit in the extraneous portion of the longer
+      // bit list is set, then it cannot be equal to a.
+      return false;
+    }
+  }
+
+  for (size_t i = 0; i < min_bits; i++) {
+    if (a.bits_[i] != b.bits_[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 std::array<int, MAX_VARIABLE_DIMENSION>
