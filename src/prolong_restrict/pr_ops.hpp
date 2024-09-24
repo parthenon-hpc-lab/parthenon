@@ -303,7 +303,8 @@ struct ProlongateSharedMG {
     if (d == 0) return 1.0; // Indicates this dimension is not included
     if (d == 1 || d == -1) return 30.0 / 32.0;
     if (d == 3 || d == -3) return 5.0 / 32.0;
-    return -3.0 / 32.0;
+    if (d == 5 || d == -5) return -3.0 / 32.0;
+    return 0.0;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -347,11 +348,11 @@ struct ProlongateSharedMG {
         for (int foi = 0; foi < 1 + (DIM > 0); ++foi) {
           auto &f = fine(element_idx, l, m, n, fk + fok, fj + foj, fi + foi);
           f = 0.0;
-          const bool lo_bound_x = (fi == ib.s);
+          const bool lo_bound_x = ((fi + foi) == ib.s);
           const bool up_bound_x = ((fi + foi) == ib.e);
-          const bool lo_bound_y = (fj == jb.s);
+          const bool lo_bound_y = ((fj + foj) == jb.s);
           const bool up_bound_y = ((fj + foj) == jb.e);
-          const bool lo_bound_z = (fk == kb.s);
+          const bool lo_bound_z = ((fk + fok) == kb.s);
           const bool up_bound_z = ((fk + fok) == kb.e);
           for (int ok = -(DIM > 2); ok < 1 + (DIM > 2); ++ok) {
             for (int oj = -(DIM > 1); oj < 1 + (DIM > 1); ++oj) {
