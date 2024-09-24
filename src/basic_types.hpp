@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <Kokkos_Core.hpp>
@@ -41,6 +42,7 @@ using Real = double;
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
+  operator std::pair<int, int>() const { return {s, e}; }
 };
 
 // Enum speficying whether or not you requested a flux variable in
