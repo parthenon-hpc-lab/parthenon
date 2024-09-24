@@ -40,6 +40,7 @@ struct MGParams {
   std::string smoother = "SRJ2";
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
+  std::string prolongation = "Linear";
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
@@ -48,6 +49,7 @@ struct MGParams {
         pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
     do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
     smoother = pin->GetOrAddString(input_block, "smoother", smoother);
+    prolongation = pin->GetOrAddString(input_block, "prolongation", prolongation);
     two_by_two_diagonal =
         pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
     max_coarsenings =
@@ -97,7 +99,21 @@ class MGSolver {
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::GMGRestrict,
                   Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
-    mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  
+    if (params_.prolongation == "Linear") {
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Linear>, RestrictAverage>();
+    } else if (params_.prolongation == "Kwak") {
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Kwak>, RestrictAverage>();
+    } else if (params_.prolongation == "Quadratic") {
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Quadratic>, RestrictAverage>();
+    } else if (params_.prolongation == "Consatnts") {
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>, RestrictAverage>();
+    } else if (params_.prolongation == "OldLinear") {
+      mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+    } else {
+      printf("Requested prolongation type: %s\n", params_.prolongation.c_str());
+      PARTHENON_FAIL("Unknown multi-grid prolongation type.");
+    }
     pkg->AddField(res_err::name(), mres_err);
 
     auto mtemp =
@@ -391,7 +407,7 @@ class MGSolver {
       pre_stages = 3;
       post_stages = 3;
     } else {
-      PARTHENON_FAIL("Unknown solver type.");
+      PARTHENON_FAIL("Unknown smoother type.");
     }
 
 //    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
