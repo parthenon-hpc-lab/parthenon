@@ -35,6 +35,7 @@ namespace poisson_package {
 class PoissonEquation {
  public:
   bool do_flux_cor = false;
+  bool set_flux_boundary = false;
 
   // Add tasks to calculate the result of the matrix A (which is implicitly defined by
   // this class) being applied to x_t and store it in field out_t
@@ -42,7 +43,9 @@ class PoissonEquation {
   parthenon::TaskID Ax(TL_t &tl, parthenon::TaskID depends_on,
                        std::shared_ptr<parthenon::MeshData<Real>> &md) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
-    flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md);
+    if (set_flux_boundary) {
+      flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md);
+    }
     if (do_flux_cor && !(md->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md);

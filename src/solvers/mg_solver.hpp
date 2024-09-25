@@ -41,7 +41,7 @@ struct MGParams {
   std::string smoother = "SRJ2";
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
-  std::string prolongation = "Linear";
+  std::string prolongation = "OldLinear";
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {

@@ -87,9 +87,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string solver = pin->GetOrAddString("poisson", "solver", "MG");
   pkg->AddParam<>("solver", solver);
 
-  bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
-  pkg->AddParam<>("flux_correct", flux_correct);
-
   Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
   pkg->AddParam<>("error_tolerance", err_tol);
 
@@ -97,7 +94,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
 
   PoissonEquation eq;
-  eq.do_flux_cor = flux_correct;
+  eq.do_flux_cor = pin->GetOrAddBoolean("poisson", "flux_correct", false);
+  eq.set_flux_boundary = pin->GetOrAddBoolean("poisson", "set_flux_boundary", false);
 
   parthenon::solvers::MGParams mg_params(pin, "poisson/solver_params");
   parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
