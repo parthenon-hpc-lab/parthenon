@@ -101,27 +101,7 @@ class MGSolver {
                   Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
 
-    if (params_.prolongation == "Linear") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Linear>,
-                                     RestrictAverage>();
-    } else if (params_.prolongation == "Kwak") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Kwak>,
-                                     RestrictAverage>();
-    } else if (params_.prolongation == "Quadratic") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Quadratic>,
-                                     RestrictAverage>();
-    } else if (params_.prolongation == "Constant") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>,
-                                     RestrictAverage>();
-    } else if (params_.prolongation == "OldLinear") {
-      mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
-    } else if (params_.prolongation == "User") {
-      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>,
-                                     RestrictAverage>();
-    } else {
-      printf("Requested prolongation type: %s\n", params_.prolongation.c_str());
-      PARTHENON_FAIL("Unknown multi-grid prolongation type.");
-    }
+    mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
     auto mtemp =
@@ -508,7 +488,8 @@ class MGSolver {
       if (params_.prolongation == "User") {
         prolongate = eqs_.template Prolongate<res_err>(tl, set_from_coarser, md_comm);
       } else {
-        prolongate = tl.AddTask(set_from_coarser,
+        prolongate =
+            tl.AddTask(set_from_coarser,
                        BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
       }
 
