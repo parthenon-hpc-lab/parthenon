@@ -6,6 +6,8 @@
 #include <utils/error_checking.hpp>
 #include <stdlib.h> 
 #include <globals.hpp>
+
+#include "config.hpp"
 #include "kokkos_abstraction.hpp"
 #include "basic_types.hpp"
 

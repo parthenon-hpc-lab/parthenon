@@ -11,14 +11,19 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# set(WITH_NEIGHBORHOOD_COLLECTIVES OFF CACHE BOOL "Build with Neighborhood collectives")
-
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 if (ENABLE_MPI)
   set(MPI_OPTION MPI_PARALLEL)
 else ()
   set(MPI_OPTION NOT_MPI_PARALLEL)
+endif()
+
+# Configure config.hpp
+if (WITH_NEIGHBORHOOD_COLLECTIVES)
+  set(ENABLE_NEIGHBORHOOD_COLLECTIVES USE_NEIGHBORHOOD_COLLECTIVES)
+else ()
+  set(ENABLE_NEIGHBORHOOD_COLLECTIVES DO_NOT_USE_NEIGHBORHOOD_COLLECTIVES)
 endif()
 
 # The following lines determine the default loop pattern by setting the
@@ -320,10 +325,6 @@ if (PARTHENON_ENABLE_ASCENT)
   if(CMAKE_CUDA_COMPILER)
     set_property(TARGET parthenon PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
   endif()
-endif()
-
-if(WITH_NEIGHBORHOOD_COLLECTIVES)
-   ADD_DEFINITIONS(-DUSE_NEIGHBORHOOD_COLLECTIVES)
 endif()
 
 lint_target(parthenon)
