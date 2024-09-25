@@ -136,11 +136,11 @@ class CGSolver {
     if (params_.print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
-          [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual, Mesh *pm) {
-            Real tol =
-                relative_residual
-                    ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
-                    : *res_tol;
+          [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+              Mesh *pm) {
+            Real tol = relative_residual
+                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
+                           : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
             printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));

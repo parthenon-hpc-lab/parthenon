@@ -86,7 +86,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
-  
+
   std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
 
   PoissonEquation eq(pin, "poisson");

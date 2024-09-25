@@ -37,21 +37,22 @@ class PoissonEquation {
   bool do_flux_cor = false;
   bool set_flux_boundary = false;
   bool include_flux_dx = false;
-  enum class ProlongationType { Constant, Linear, Kwak }; 
-  ProlongationType prolongation_type = ProlongationType::Constant; 
+  enum class ProlongationType { Constant, Linear, Kwak };
+  ProlongationType prolongation_type = ProlongationType::Constant;
 
   PoissonEquation(parthenon::ParameterInput *pin, const std::string &label) {
     do_flux_cor = pin->GetOrAddBoolean(label, "flux_correct", false);
     set_flux_boundary = pin->GetOrAddBoolean(label, "set_flux_boundary", false);
-    include_flux_dx = (pin->GetOrAddString(label, "boundary_prolongation", "Linear") == "Constant");
+    include_flux_dx =
+        (pin->GetOrAddString(label, "boundary_prolongation", "Linear") == "Constant");
     auto pro_int = pin->GetOrAddString(label, "interior_prolongation", "Linear");
-    if (pro_int == "Constant") { 
+    if (pro_int == "Constant") {
       prolongation_type = ProlongationType::Constant;
-    } else if (pro_int == "Linear") { 
+    } else if (pro_int == "Linear") {
       prolongation_type = ProlongationType::Linear;
-    } else if (pro_int == "Kwak") { 
+    } else if (pro_int == "Kwak") {
       prolongation_type = ProlongationType::Kwak;
-    } else { 
+    } else {
       PARTHENON_FAIL("Invalid user prolongation type.");
     }
   }
@@ -186,16 +187,19 @@ class PoissonEquation {
   template <class... var_ts>
   parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                                std::shared_ptr<parthenon::MeshData<Real>> &md) {
-    if (prolongation_type == ProlongationType::Constant) { 
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, var_ts...>, md);
-    } else if (prolongation_type == ProlongationType::Linear) { 
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, var_ts...>, md);
-    } else if (prolongation_type == ProlongationType::Kwak) { 
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, var_ts...>, md);
+    if (prolongation_type == ProlongationType::Constant) {
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, var_ts...>,
+                        md);
+    } else if (prolongation_type == ProlongationType::Linear) {
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, var_ts...>,
+                        md);
+    } else if (prolongation_type == ProlongationType::Kwak) {
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, var_ts...>,
+                        md);
     }
     return depends_on;
   }
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
   static Real LinearFactor(int d, bool lo_bound, bool up_bound) {
     if (d == 0) return 1.0; // Indicates this dimension is not included
@@ -203,6 +207,15 @@ class PoissonEquation {
     if (d == -1) return (2.0 + !lo_bound) / 4.0;
     if (d == 3) return !up_bound / 4.0;
     if (d == -3) return !lo_bound / 4.0;
+    return 0.0;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  static Real QuadraticFactor(int d) {
+    if (d == 0) return 1.0; // Indicates this dimension is not included
+    if (d == 1 || d == -1) return 30.0 / 32.0;
+    if (d == 3 || d == -3) return 5.0 / 32.0;
+    if (d == 5 || d == -5) return -3.0 / 32.0;
     return 0.0;
   }
 
@@ -222,33 +235,34 @@ class PoissonEquation {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-    for (int b = 0; b < nblocks; ++b) { 
-      include_block[b] = md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
+    for (int b = 0; b < nblocks; ++b) {
+      include_block[b] =
+          md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
     const auto desc = parthenon::MakePackDescriptor<var_ts...>(md.get());
-    const auto desc_coarse = parthenon::MakePackDescriptor<var_ts...>(md.get(), {}, {PDOpt::Coarse});
+    const auto desc_coarse =
+        parthenon::MakePackDescriptor<var_ts...>(md.get(), {}, {PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
-    
+
     parthenon::par_for(
-        "Prolongate", 0, pack.GetNBlocks() - 1,
-        pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0),
-        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int n, const int fk, const int fj, const int fi) {
+        "Prolongate", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
+        pack.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int n, const int fk, const int fj,
+                      const int fi) {
           const int ck = (ndim > 2) ? (fk - kb.s) / 2 + ckb.s : ckb.s;
           const int cj = (ndim > 1) ? (fj - jb.s) / 2 + cjb.s : cjb.s;
           const int ci = (ndim > 0) ? (fi - ib.s) / 2 + cib.s : cib.s;
           const int fok = (fk - kb.s) % 2;
           const int foj = (fj - jb.s) % 2;
           const int foi = (fi - ib.s) % 2;
-          const bool bound[6]{
-            pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
-            pack.IsPhysicalBoundary(b, 0, 0,  1) && (ib.e == fi),
-            pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
-            pack.IsPhysicalBoundary(b, 0,  1, 0) && (jb.e == fj),
-            pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
-            pack.IsPhysicalBoundary(b,  1, 0, 0) && (kb.e == fk)};
-          
+          const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
+                              pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
+                              pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
+                              pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
+                              pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
+                              pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
+
           if constexpr (ProlongationType::Constant == prolongation_type) {
             pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
           } else if constexpr (ProlongationType::Linear == prolongation_type) {
@@ -256,32 +270,31 @@ class PoissonEquation {
             for (int ok = -(ndim > 2); ok < 1 + (ndim > 2); ++ok) {
               for (int oj = -(ndim > 1); oj < 1 + (ndim > 1); ++oj) {
                 for (int oi = -(ndim > 0); oi < 1 + (ndim > 0); ++oi) {
-                  const int dx3 = (ndim > 2) ? 4 * ok - (2 * fok - 1) : 0; 
-                  const int dx2 = (ndim > 1) ? 4 * oj - (2 * foj - 1) : 0; 
+                  const int dx3 = (ndim > 2) ? 4 * ok - (2 * fok - 1) : 0;
+                  const int dx2 = (ndim > 1) ? 4 * oj - (2 * foj - 1) : 0;
                   const int dx1 = 4 * oi - (2 * foi - 1);
-                  pack(b, n, fk, fj, fi) += LinearFactor(dx1, bound[0], bound[1])
-                                          * LinearFactor(dx2, bound[2], bound[3])
-                                          * LinearFactor(dx3, bound[4], bound[5])
-                                          * pack_coarse(b, n, ck + ok, cj + oj, ci + oi);
-                  
+                  pack(b, n, fk, fj, fi) += LinearFactor(dx1, bound[0], bound[1]) *
+                                            LinearFactor(dx2, bound[2], bound[3]) *
+                                            LinearFactor(dx3, bound[4], bound[5]) *
+                                            pack_coarse(b, n, ck + ok, cj + oj, ci + oi);
                 }
               }
             }
-          } else if constexpr (ProlongationType::Kwak == prolongation_type) { 
+          } else if constexpr (ProlongationType::Kwak == prolongation_type) {
             pack(b, n, fk, fj, fi) = 0.0;
-            if (ndim > 2 && !bound[4 + fok]) { 
+            if (ndim > 2 && !bound[4 + fok]) {
               for (int ok = fok - 1; ok <= fok; ++ok) {
-                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck + ok, cj, ci); 
+                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck + ok, cj, ci);
               }
             }
-            if (ndim > 1 && !bound[2 + foj]) { 
+            if (ndim > 1 && !bound[2 + foj]) {
               for (int oj = foj - 1; oj <= foj; ++oj) {
-                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck, cj + oj, ci); 
+                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck, cj + oj, ci);
               }
             }
-            if (ndim > 0 && !bound[foi]) { 
+            if (ndim > 0 && !bound[foi]) {
               for (int oi = foi - 1; oi <= foi; ++oi) {
-                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck, cj, ci + oi); 
+                pack(b, n, fk, fj, fi) += pack_coarse(b, n, ck, cj, ci + oi);
               }
             }
             pack(b, n, fk, fj, fi) /= 2.0 * ndim;
