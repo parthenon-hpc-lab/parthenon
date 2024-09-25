@@ -67,8 +67,9 @@ KOKKOS_FORCEINLINE_FUNCTION
 bool SoftEquiv(const Real &val, const Real &ref,
                const Real eps = 10. * std::numeric_limits<Real>::epsilon(),
                const bool pass_on_small = true) {
-  return ((std::fabs(val - ref) < eps * std::fabs(ref)) ||
-          ((std::fabs(ref) < std::numeric_limits<Real>::min()) && pass_on_small));
+  const bool is_close = std::abs(val - ref) < eps * std::abs(ref);
+  const bool is_small = std::abs(ref) < std::numeric_limits<Real>::min();
+  return (is_close || (is_small && pass_on_small));
 }
 
 } // namespace robust
