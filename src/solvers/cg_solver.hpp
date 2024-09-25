@@ -121,7 +121,7 @@ class CGSolver {
     auto zero_p = tl.AddTask(dependence, TF(SetToZero<p>), md);
     auto copy_r = tl.AddTask(dependence, TF(CopyData<rhs, r>), md);
     auto get_rhs2 = none;
-    if (params_.relative_residual)
+    if (params_.relative_residual || params_.print_per_step)
       get_rhs2 = DotProduct<rhs, rhs>(dependence, tl, &rhs2, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
@@ -136,16 +136,17 @@ class CGSolver {
     if (params_.print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
-          [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual) {
+          [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual, Mesh *pm) {
             Real tol =
                 relative_residual
-                    ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                    ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
                     : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
+            printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
             return TaskStatus::complete;
           },
-          this, params_.residual_tolerance, params_.relative_residual);
+          this, params_.residual_tolerance, params_.relative_residual, pmesh);
     }
 
     // BEGIN ITERATIVE TASKS

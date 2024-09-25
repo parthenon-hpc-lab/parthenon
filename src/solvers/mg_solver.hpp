@@ -506,7 +506,7 @@ class MGSolver {
           recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto prolongate = set_from_coarser;
       if (params_.prolongation == "User") {
-        prolongate = tl.AddTask(set_from_coarser, BTF(&equations::template Prolongate<res_err>), md_comm);
+        prolongate = eqs_.template Prolongate<res_err>(tl, set_from_coarser, md_comm);
       } else {
         prolongate = tl.AddTask(set_from_coarser,
                        BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);

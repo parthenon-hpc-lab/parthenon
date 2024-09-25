@@ -78,30 +78,20 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
   pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
 
-  int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
-  pkg->AddParam<>("max_iterations", max_poisson_iterations);
-
   Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
   pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
 
   std::string solver = pin->GetOrAddString("poisson", "solver", "MG");
   pkg->AddParam<>("solver", solver);
 
-  Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
-  pkg->AddParam<>("error_tolerance", err_tol);
-
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
   
-  bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
-  pkg->AddParam<>("flux_correct", flux_correct);
+  std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
 
-  std::string prolong = pin->GetOrAddString("poisson", "prolongation", "Linear");
+  PoissonEquation eq(pin, "poisson");
+  pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
 
-  PoissonEquation eq;
-  eq.do_flux_cor = flux_correct;
-  eq.set_flux_boundary = pin->GetOrAddBoolean("poisson", "set_flux_boundary", false);
-  eq.include_flux_dx = (prolong == "Constant");
   parthenon::solvers::MGParams mg_params(pin, "poisson/solver_params");
   parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
                                                                   eq);

@@ -75,7 +75,6 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto solver = pkg->Param<std::string>("solver");
-  auto flux_correct = pkg->Param<bool>("flux_correct");
   auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
   auto *mg_solver =
       pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
@@ -100,9 +99,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<exact, u>), md);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-      PoissonEquation eqs;
-      eqs.do_flux_cor = flux_correct;
-      get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
+      auto *eqs = pkg->MutableParam<PoissonEquation>("poisson_equation");
+      get_rhs = eqs->Ax<u, rhs>(tl, comm, md);
     }
 
     // Set initial solution guess to zero

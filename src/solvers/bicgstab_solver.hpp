@@ -151,7 +151,7 @@ class BiCGSTABSolver {
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<rhs, rhat0>), md);
     auto get_rhat0r_init = DotProduct<rhat0, r>(dependence, tl, &rhat0r, md);
     auto get_rhs2 = get_rhat0r_init;
-    if (params_.relative_residual)
+    if (params_.relative_residual || params_.print_per_step)
       get_rhs2 = DotProduct<rhs, rhs>(dependence, tl, &rhs2, md);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
@@ -172,6 +172,7 @@ class BiCGSTABSolver {
                            : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
+            printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
           }
           return TaskStatus::complete;
         },
