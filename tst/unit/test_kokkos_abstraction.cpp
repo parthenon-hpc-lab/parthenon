@@ -26,12 +26,14 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "utils/robust.hpp"
 
 using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
+using parthenon::robust::SoftEquiv;
 using Real = double;
 
 template <class T>
@@ -316,7 +318,6 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
-  Real max_rel_err = -1;
   const Real rel_tol = std::numeric_limits<Real>::epsilon();
 
   // compare data on the host
@@ -324,14 +325,15 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
     for (int j = 0; j < N; j++) {
       for (int i = 1; i < N - 1; i++) {
         const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
-        const Real err = host_du(k, j, i - 1) - analytic;
 
-        max_rel_err = fmax(fabs(err / analytic), max_rel_err);
+        if (!SoftEquiv(host_du(k, j, i - 1), analytic, rel_tol)) {
+          return false;
+        }
       }
     }
   }
 
-  return max_rel_err < rel_tol;
+  return true;
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
@@ -385,7 +387,6 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
-  Real max_rel_err = -1;
   const Real rel_tol = std::numeric_limits<Real>::epsilon();
 
   // compare data on the host
@@ -394,15 +395,16 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
       for (int j = 0; j < N; j++) {
         for (int i = 1; i < N - 1; i++) {
           const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
-          const Real err = host_du(n, k, j, i - 1) - analytic;
 
-          max_rel_err = fmax(fabs(err / analytic), max_rel_err);
+          if (!SoftEquiv(host_du(n, k, j, i - 1), analytic, rel_tol)) {
+            return false;
+          }
         }
       }
     }
   }
 
-  return max_rel_err < rel_tol;
+  return true;
 }
 
 TEST_CASE("nested par_for loops", "[wrapper]") {
