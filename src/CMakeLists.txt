@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# set(WITH_NEIGHBORHOOD_COLLECTIVES OFF CACHE BOOL "Build with Neighborhood collectives")
+
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 if (ENABLE_MPI)
@@ -318,6 +320,10 @@ if (PARTHENON_ENABLE_ASCENT)
   if(CMAKE_CUDA_COMPILER)
     set_property(TARGET parthenon PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
   endif()
+endif()
+
+if(WITH_NEIGHBORHOOD_COLLECTIVES)
+   ADD_DEFINITIONS(-DUSE_NEIGHBORHOOD_COLLECTIVES)
 endif()
 
 lint_target(parthenon)
