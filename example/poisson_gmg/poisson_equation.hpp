@@ -36,6 +36,7 @@ class PoissonEquation {
  public:
   bool do_flux_cor = false;
   bool set_flux_boundary = false;
+  bool include_flux_dx = false;
 
   // Add tasks to calculate the result of the matrix A (which is implicitly defined by
   // this class) being applied to x_t and store it in field out_t
@@ -44,7 +45,7 @@ class PoissonEquation {
                        std::shared_ptr<parthenon::MeshData<Real>> &md) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes<x_t>, md);
     if (set_flux_boundary) {
-      flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md);
+      flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md, include_flux_dx);
     }
     if (do_flux_cor && !(md->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
@@ -164,9 +165,53 @@ class PoissonEquation {
     return TaskStatus::complete;
   }
 
+  template <class... var_ts>
+  static parthenon::TaskStatus
+  Prolongate(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+    IndexRange cib = md->GetBoundsI(CellLevel::coarse, IndexDomain::interior);
+    IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior);
+    IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior);
+
+    using TE = parthenon::TopologicalElement;
+
+    int nblocks = md->NumBlocks();
+    std::vector<bool> include_block(nblocks, true);
+    for (int b = 0; b < nblocks; ++b) { 
+      include_block[b] = md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
+    }
+    const auto desc = parthenon::MakePackDescriptor<var_ts...>(md.get());
+    const auto desc_coarse = parthenon::MakePackDescriptor<var_ts...>(md.get(), {}, {PDOpt::Coarse});
+    auto pack = desc.GetPack(md.get(), include_block);
+    auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+     
+    parthenon::par_for(
+        "Prolongate", 0, pack.GetNBlocks() - 1,
+        pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0),
+        kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int n, const int fk, const int fj, const int fi) {
+          const int ck = (ndim > 2) ? (fk - kb.s) / 2 + ckb.s : ckb.s;
+          const int cj = (ndim > 1) ? (fj - jb.s) / 2 + cjb.s : cjb.s;
+          const int ci = (ndim > 0) ? (fi - ib.s) / 2 + cib.s : cib.s;
+          pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
+          //for (int ok = -(ndim > 2); ok < 1 + (ndim > 2); ++ok) {
+          //  for (int oj = -(ndim > 1); oj < 1 + (ndim > 1); ++oj) {
+          //    for (int oi = -(ndim > 0); oi < 1 + (ndim > 0); ++oi) {
+          //       
+          //    }
+          //  }
+          //}
+        });
+    return TaskStatus::complete;
+  }
+
   template <class var_t>
   static parthenon::TaskStatus
-  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -196,7 +241,6 @@ class PoissonEquation {
     constexpr int x3off[6]{0, 0, 0, 0, -1, 1};
     constexpr TE tes[6]{TE::F1, TE::F1, TE::F2, TE::F2, TE::F3, TE::F3};
     constexpr int dirs[6]{X1DIR, X1DIR, X2DIR, X2DIR, X3DIR, X3DIR};
-
     parthenon::par_for_outer(
         DEFAULT_OUTER_LOOP_PATTERN, "SetFluxBoundaries", DevExecSpace(),
         scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
@@ -228,7 +272,8 @@ class PoissonEquation {
             }
             // Correct for size of neighboring zone at fine-coarse boundary when using
             // constant prolongation
-            if (pack.GetLevel(b, x3off[face], x2off[face], x1off[face]) == level - 1) {
+            if (do_flux_dx &&
+                pack.GetLevel(b, x3off[face], x2off[face], x1off[face]) == level - 1) {
               parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
                                        idxer.size() - 1, [&](const int idx) {
                                          const auto [k, j, i] = idxer(idx);

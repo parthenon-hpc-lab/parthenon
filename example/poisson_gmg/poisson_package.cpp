@@ -92,11 +92,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
+  
+  bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
+  pkg->AddParam<>("flux_correct", flux_correct);
+
+  std::string prolong = pin->GetOrAddString("poisson", "prolongation", "Linear");
 
   PoissonEquation eq;
-  eq.do_flux_cor = pin->GetOrAddBoolean("poisson", "flux_correct", false);
+  eq.do_flux_cor = flux_correct;
   eq.set_flux_boundary = pin->GetOrAddBoolean("poisson", "set_flux_boundary", false);
-
+  eq.include_flux_dx = (prolong == "Constant");
   parthenon::solvers::MGParams mg_params(pin, "poisson/solver_params");
   parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
                                                                   eq);
@@ -124,7 +129,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict});
-  std::string prolong = pin->GetOrAddString("poisson", "prolongation", "Linear");
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   } else if (prolong == "Constant") {

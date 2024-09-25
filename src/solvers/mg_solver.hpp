@@ -115,6 +115,9 @@ class MGSolver {
                                      RestrictAverage>();
     } else if (params_.prolongation == "OldLinear") {
       mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+    } else if (params_.prolongation == "User") {
+      mres_err.RegisterRefinementOps<ProlongateSharedMG<MGProlongationType::Constant>,
+                                     RestrictAverage>();
     } else {
       printf("Requested prolongation type: %s\n", params_.prolongation.c_str());
       PARTHENON_FAIL("Unknown multi-grid prolongation type.");
@@ -501,9 +504,13 @@ class MGSolver {
                      TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
-      auto prolongate =
-          tl.AddTask(set_from_coarser,
-                     BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+      auto prolongate = set_from_coarser;
+      if (params_.prolongation == "User") {
+        prolongate = tl.AddTask(set_from_coarser, BTF(&equations::template Prolongate<res_err>), md_comm);
+      } else {
+        prolongate = tl.AddTask(set_from_coarser,
+                       BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+      }
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
