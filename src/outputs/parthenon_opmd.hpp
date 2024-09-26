@@ -25,7 +25,7 @@ namespace OpenPMDUtils {
 // access to non-standard groups (such as "Params" versus the standard "meshes").
 // TODO(pgrete & reviewer) (agree on delim and add check for package name and keys) OR
 // better use of opmd-api
-inline static const std::string delim = "+";
+inline static const std::string delim = "🤝";
 
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
 // - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
