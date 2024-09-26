@@ -39,6 +39,7 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "amr_criteria/refinement_package.hpp"
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
@@ -820,8 +821,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     FillDerived();
 
     if (init_problem && adaptive) {
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->pmr->CheckRefinementCondition();
+      for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        auto &md = mesh_data.Add("base", partition);
+        Refinement::Tag(md.get());
       }
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function

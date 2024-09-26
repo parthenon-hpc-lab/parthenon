@@ -52,16 +52,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
     numcrit++;
   }
-  std::vector<std::string> fields;
-  for (auto &amr : ref->amr_criteria) {
-    fields.push_back(amr->field);
-  }
-  ref->AddParam("refine_fields", fields);
   return ref;
 }
 
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc) {
-  printf("allrefine!!\n");
   const int nblocks = mc->NumBlocks();
   // maybe not great to allocate this all the time
   auto delta_levels = ParArray1D<AmrTag>(Kokkos::View<AmrTag *>(
@@ -71,8 +65,6 @@ ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc) {
   Mesh *pm = mc->GetMeshPointer();
   static const bool check_refine_mesh =
       pm->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
-  static const std::vector<std::string> refine_fields =
-      pm->packages.Get("Refinement")->Param<std::vector<std::string>>("refine_fields");
 
   for (auto &pkg : pm->packages.AllPackages()) {
     auto &desc = pkg.second;
@@ -80,7 +72,7 @@ ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc) {
 
     if (check_refine_mesh) {
       for (auto &amr : desc->amr_criteria) {
-        (*amr)(mc, refine_fields, delta_levels);
+        (*amr)(mc, delta_levels);
       }
     }
   }
@@ -193,17 +185,11 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
   return AmrTag::same;
 }
 
-void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
-                     const std::vector<std::string> &fields,
-                     ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
-                     const Real derefine_criteria_) {
-  std::vector<std::pair<std::string, bool>> var_regex;
-  for (std::string var : fields) {
-    var_regex.push_back(std::pair(var, false));
-  }
-
-  static auto desc =
-      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), var_regex);
+void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
+                     Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                     const Real refine_criteria_, const Real derefine_criteria_) {
+  const auto desc =
+      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
   auto pack = desc.GetPack(mc);
   const int ndim = mc->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
@@ -211,56 +197,49 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   auto delta_levels = delta_levels_;
+  // TODO(?): I have no idea how to get the index from the tensor indices...
+  const int var = index[2];
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
         if (delta_levels(b) == AmrTag::refine) return;
         Real maxd = 0.;
-        for (int var = 0; var < nvars; var++) {
-          par_reduce_inner(
-              inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
-              bnds.is, bnds.ie,
-              [&](const int k, const int j, const int i, Real &maxder) {
-                Real scale = std::abs(pack(b, var, k, j, i));
-                Real d =
-                    0.5 *
-                    std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
+        par_reduce_inner(
+            inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
+            bnds.is, bnds.ie,
+            [&](const int k, const int j, const int i, Real &maxder) {
+              Real scale = std::abs(pack(b, var, k, j, i));
+              Real d = 0.5 *
+                       std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
+                       (scale + TINY_NUMBER);
+              maxder = (d > maxder ? d : maxder);
+              if (ndim > 1) {
+                d = 0.5 *
+                    std::abs((pack(b, var, k, j + 1, i) - pack(b, var, k, j - 1, i))) /
                     (scale + TINY_NUMBER);
-                maxd = (d > maxd ? d : maxd);
-                if (ndim > 1) {
-                  d = 0.5 *
-                      std::abs((pack(b, var, k, j + 1, i) - pack(b, var, k, j - 1, i))) /
-                      (scale + TINY_NUMBER);
-                  maxd = (d > maxd ? d : maxd);
-                }
-                if (ndim > 2) {
-                  d = 0.5 *
-                      std::abs((pack(b, var, k + 1, j, i) - pack(b, var, k - 1, j, i))) /
-                      (scale + TINY_NUMBER);
-                  maxd = (d > maxd ? d : maxd);
-                }
-              },
-              Kokkos::Max<Real>(maxd));
+                maxder = (d > maxder ? d : maxder);
+              }
+              if (ndim > 2) {
+                d = 0.5 *
+                    std::abs((pack(b, var, k + 1, j, i) - pack(b, var, k - 1, j, i))) /
+                    (scale + TINY_NUMBER);
+                maxder = (d > maxder ? d : maxder);
+              }
+            },
+            Kokkos::Max<Real>(maxd));
 
-          AmrTag flag = AmrTag::same;
-          if (maxd > refine_criteria) flag = AmrTag::refine;
-          if (maxd < derefine_criteria) flag = AmrTag::derefine;
-          delta_levels(b) = std::max(delta_levels(b), flag);
-        }
+        AmrTag flag = AmrTag::same;
+        if (maxd > refine_criteria) flag = AmrTag::refine;
+        if (maxd < derefine_criteria) flag = AmrTag::derefine;
+        delta_levels(b) = std::max(delta_levels(b), flag);
       });
 }
 
-void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
-                      const std::vector<std::string> &fields,
-                      ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
-                      const Real derefine_criteria_) {
-  std::vector<std::pair<std::string, bool>> var_regex;
-  for (std::string var : fields) {
-    var_regex.push_back(std::pair(var, false));
-  }
-
-  static auto desc =
-      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), var_regex);
+void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
+                      Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                      const Real refine_criteria_, const Real derefine_criteria_) {
+  const auto desc =
+      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
   auto pack = desc.GetPack(mc);
   const int ndim = mc->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
@@ -268,38 +247,38 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   auto delta_levels = delta_levels_;
+  // TODO(?): I have no idea how to get the index from the tensor indices...
+  const int var = index[2];
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
         if (delta_levels(b) == AmrTag::refine) return;
         Real maxd = 0.;
-        for (int var = 0; var < nvars; var++) {
-          par_reduce_inner(
-              inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
-              bnds.is, bnds.ie,
-              [&](const int k, const int j, const int i, Real &maxder) {
-                Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
-                Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
-                Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-                maxd = (d > maxd ? d : maxd);
-                if (ndim > 1) {
-                  qavg = 0.5 * (pack(b, var, k, j + 1, i) + pack(b, var, k, j - 1, i));
-                  d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-                  maxd = (d > maxd ? d : maxd);
-                }
-                if (ndim > 2) {
-                  qavg = 0.5 * (pack(b, var, k + 1, j, i) + pack(b, var, k - 1, j, i));
-                  d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-                  maxd = (d > maxd ? d : maxd);
-                }
-              },
-              Kokkos::Max<Real>(maxd));
+        par_reduce_inner(
+            inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
+            bnds.is, bnds.ie,
+            [&](const int k, const int j, const int i, Real &maxder) {
+              Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
+              Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
+              Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+              maxder = (d > maxder ? d : maxder);
+              if (ndim > 1) {
+                qavg = 0.5 * (pack(b, var, k, j + 1, i) + pack(b, var, k, j - 1, i));
+                d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+                maxder = (d > maxder ? d : maxder);
+              }
+              if (ndim > 2) {
+                qavg = 0.5 * (pack(b, var, k + 1, j, i) + pack(b, var, k - 1, j, i));
+                d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+                maxder = (d > maxder ? d : maxder);
+              }
+            },
+            Kokkos::Max<Real>(maxd));
 
-          AmrTag flag = AmrTag::same;
-          if (maxd > refine_criteria) flag = AmrTag::refine;
-          if (maxd < derefine_criteria) flag = AmrTag::derefine;
-          delta_levels(b) = std::max(delta_levels(b), flag);
-        }
+        AmrTag flag = AmrTag::same;
+        if (maxd > refine_criteria) flag = AmrTag::refine;
+        if (maxd < derefine_criteria) flag = AmrTag::derefine;
+        delta_levels(b) = std::max(delta_levels(b), flag);
       });
 }
 

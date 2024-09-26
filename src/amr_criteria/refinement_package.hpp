@@ -40,23 +40,21 @@ TaskStatus Tag(T *rc);
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc,
                           const AmrTag &level = AmrTag::derefine);
-void CheckAllRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level);
+ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc);
 
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
-void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
-                     const std::vector<std::string> &fields,
-                     ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
-                     const Real derefine_criteria_);
+void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
+                     Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                     const Real refine_criteria_, const Real derefine_criteria_);
 
 AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                         const Real refine_criteria, const Real derefine_criteria);
 
-void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
-                      const std::vector<std::string> &fields,
-                      ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
-                      const Real derefine_criteria_);
+void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
+                      Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                      const Real refine_criteria_, const Real derefine_criteria_);
 
 } // namespace Refinement
 
