@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <string>
+
 #include "error_checking.hpp"
 
 #ifdef MPI_PARALLEL

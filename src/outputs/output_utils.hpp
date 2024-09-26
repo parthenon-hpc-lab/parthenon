@@ -43,6 +43,9 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+// forward declaration
+class ParameterInput;
+
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
@@ -365,6 +368,7 @@ VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
 std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
                                     const IndexShape &cellbounds);
 
+void CheckParameterInputConsistent(ParameterInput *pin);
 } // namespace OutputUtils
 } // namespace parthenon
 

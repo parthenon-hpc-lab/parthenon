@@ -77,6 +77,9 @@ class MeshBlockData {
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
 
+  // This mirrors a MeshBlockData routine
+  int NumBlocks() const { return 1; }
+
   template <class... Ts>
   IndexRange GetBoundsI(Ts &&...args) const {
     return GetBlockPointer()->cellbounds.GetBoundsI(std::forward<Ts>(args)...);
@@ -506,19 +509,7 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  bool operator==(const MeshBlockData<T> &cmp) {
-    // do some kind of check of equality
-    // do the two containers contain the same named fields?
-    std::vector<std::string> my_keys;
-    std::vector<std::string> cmp_keys;
-    for (auto &v : varMap_) {
-      my_keys.push_back(v.first);
-    }
-    for (auto &v : cmp.GetVariableMap()) {
-      cmp_keys.push_back(v.first);
-    }
-    return (my_keys == cmp_keys);
-  }
+  bool operator==(const MeshBlockData<T> &cmp);
 
   bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
   bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }
@@ -553,54 +544,15 @@ class MeshBlockData {
   void AddField(const std::string &base_name, const Metadata &metadata,
                 int sparse_id = InvalidSparseID);
 
-  void Add(std::shared_ptr<Variable<T>> var) noexcept {
-    if (varUidMap_.count(var->GetUniqueID())) {
-      PARTHENON_THROW("Tried to add variable " + var->label() + " twice!");
-    }
-    varVector_.push_back(var);
-    varMap_[var->label()] = var;
-    varUidMap_[var->GetUniqueID()] = var;
-    for (const auto &flag : var->metadata().Flags()) {
-      flagsToVars_[flag].insert(var);
-    }
-  }
+  void Add(std::shared_ptr<Variable<T>> var) noexcept;
 
   std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label,
-                                              bool flag_uninitialized = false) {
-    if (!HasVariable(label)) {
-      PARTHENON_THROW("Tried to allocate sparse variable '" + label +
-                      "', but no such sparse variable exists");
-    }
-
-    auto var = GetVarPtr(label);
-    PARTHENON_REQUIRE_THROWS(var->IsSparse(),
-                             "Tried to allocate non-sparse variable " + label);
-
-    var->Allocate(pmy_block, flag_uninitialized);
-
-    return var;
-  }
-
+                                              bool flag_uninitialized = false);
   std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
                                              const int sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
-
-  void DeallocateSparse(std::string const &label) {
-    PARTHENON_REQUIRE_THROWS(HasVariable(label),
-                             "Tried to deallocate sparse variable '" + label +
-                                 "', but no such sparse variable exists");
-
-    auto var = GetVarPtr(label);
-    // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
-    //                         "Tried to deallocate non-sparse variable " + label);
-
-    if (var->IsAllocated()) {
-      std::int64_t bytes = var->Deallocate();
-      auto pmb = GetBlockPointer();
-      pmb->LogMemUsage(-bytes);
-    }
-  }
+  void DeallocateSparse(std::string const &label);
 
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages;

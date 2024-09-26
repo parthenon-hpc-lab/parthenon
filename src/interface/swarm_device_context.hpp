@@ -13,6 +13,8 @@
 #ifndef INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 
+#include <cstdio>
+
 #include "coordinates/coordinates.hpp"
 #include "utils/utils.hpp"
 
