@@ -19,6 +19,7 @@
 //! \file error_checking.hpp
 //  \brief utility macros for error checking
 
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <string>

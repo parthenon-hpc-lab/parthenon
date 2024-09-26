@@ -3,7 +3,7 @@
 # Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -60,6 +60,17 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
+
+option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
+if (PARTHENON_USE_SYSTEM_PACKAGES)
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    ON)
+else()
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    OFF)
+endif()
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
@@ -205,7 +216,7 @@ if (PARTHENON_ENABLE_OPENPMD)
   FetchContent_Declare(openPMD
     GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
     # we need newer than the latest 0.15.2 release to support writing attriutes from a subset of ranks
-    GIT_TAG        "bda3544") # develop as of 2024-07-12
+    GIT_TAG        "1c7d7ff") # develop as of 2024-09-02
   FetchContent_MakeAvailable(openPMD)
   install(TARGETS openPMD EXPORT parthenonTargets)
 endif()
@@ -225,7 +236,6 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 4)
@@ -388,7 +398,11 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
 endif()
 
 if (PARTHENON_ENABLE_ASCENT)
-  find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  if (PARTHENON_USE_SYSTEM_PACKAGES)
+    find_package(Ascent REQUIRED)
+  else()
+    find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  endif()
 endif()
 
 # Installation configuration
