@@ -262,7 +262,9 @@ class PoissonEquation {
                               pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
                               pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
                               pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
-
+          // Use both pack and pack_coarse outside of the constexpr if
+          // statements to prevent compilation errors in some CUDA compilers
+          pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
           if constexpr (ProlongationType::Constant == prolongation_type) {
             pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
           } else if constexpr (ProlongationType::Linear == prolongation_type) {
