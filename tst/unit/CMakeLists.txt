@@ -25,7 +25,7 @@ list(APPEND unit_tests_SOURCES
     test_unit_constants.cpp
     test_unit_domain.cpp
     test_unit_sort.cpp
-    kokkos_abstraction.cpp
+    test_kokkos_abstraction.cpp
     test_index_split.cpp
     test_logical_location.cpp
     test_forest.cpp
