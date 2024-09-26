@@ -30,7 +30,6 @@
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
-#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"

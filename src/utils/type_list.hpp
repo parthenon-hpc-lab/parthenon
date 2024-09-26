@@ -54,9 +54,8 @@ struct TypeList {
     (func(Args()), ...);
   }
 
- private:
   template <std::size_t Start, std::size_t End>
-  static auto ContinuousSublist() {
+  static auto ContinuousSublistImpl() {
     return ContinuousSublistImpl<Start>(std::make_index_sequence<End - Start + 1>());
   }
   template <std::size_t Start, std::size_t... Is>
@@ -64,9 +63,8 @@ struct TypeList {
     return sublist<(Start + Is)...>();
   }
 
- public:
-  template <std::size_t Start, std::size_t End>
-  using continuous_sublist = decltype(ContinuousSublist<Start, End>());
+  template <std::size_t Start, std::size_t End = sizeof...(Args) - 1>
+  using continuous_sublist = decltype(ContinuousSublistImpl<Start, End>());
 };
 
 namespace impl {
@@ -92,6 +90,65 @@ auto GetNames() {
   TL::IterateTypes([&names](auto t) { names.push_back(decltype(t)::name()); });
   return names;
 }
+
+namespace impl {
+template <class TL, int cidx>
+static constexpr int FirstNonIntegralImpl() {
+  if constexpr (cidx == TL::n_types) {
+    return TL::n_types;
+  } else {
+    if constexpr (std::is_integral_v<typename std::remove_reference<
+                      typename TL::template type<cidx>>::type>)
+      return FirstNonIntegralImpl<TL, cidx + 1>();
+    return cidx;
+  }
+}
+} // namespace impl
+
+template <class TL>
+static constexpr int FirstNonIntegralIdx() {
+  return impl::FirstNonIntegralImpl<TL, 0>();
+}
+
+template <class F, class = void>
+struct is_functor : std::false_type {};
+
+template <class F>
+struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
+
+template <class TL, int idx = 0>
+constexpr int FirstFuncIdx() {
+  if constexpr (idx == TL::n_types) {
+    return TL::n_types;
+  } else {
+    using cur_type = typename TL::template type<idx>;
+    if constexpr (is_functor<cur_type>::value) return idx;
+    if constexpr (std::is_function<std::remove_pointer<cur_type>>::value) return idx;
+    return FirstFuncIdx<TL, idx + 1>();
+  }
+  return -1;
+}
+
+template <class Function>
+struct FuncSignature;
+
+template <class Functor>
+struct FuncSignature : public FuncSignature<decltype(&Functor::operator())> {};
+
+template <class R, class... Args>
+struct FuncSignature<R(Args...)> {
+  using type = R(Args...);
+  using arg_types_tl = TypeList<Args...>;
+  using ret_type = R;
+};
+
+template <class R, class T, class... Args>
+struct FuncSignature<R (T::*)(Args...) const> {
+  using type = R (T::*)(Args...);
+  using arg_types_tl = TypeList<Args...>;
+  using ret_type = R;
+};
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_

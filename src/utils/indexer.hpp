@@ -13,11 +13,12 @@
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
-#include <array>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+
+#include <Kokkos_Core.hpp>
 
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
@@ -97,8 +98,12 @@ struct Indexer {
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetIdxArray(int idx) const {
-    return get_array_from_tuple(
-        GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>()));
+    return GetIndicesArrayImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  void GetIdxCArray(int idx, int *indices) const {
+    GetIndicesCArrayImpl(idx, indices, std::make_index_sequence<sizeof...(Ts)>());
   }
 
   template <std::size_t I>
@@ -120,12 +125,38 @@ struct Indexer {
     std::tuple<Ts...> idxs;
     (
         [&] {
-          std::get<Is>(idxs) = idx / std::get<Is>(N);
-          idx -= std::get<Is>(idxs) * std::get<Is>(N);
-          std::get<Is>(idxs) += std::get<Is>(start);
+          std::get<Is>(idxs) = idx / N[Is];
+          idx -= std::get<Is>(idxs) * N[Is];
+          std::get<Is>(idxs) += start[Is];
         }(),
         ...);
     return idxs;
+  }
+
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION void
+  GetIndicesCArrayImpl(int idx, int *indices, std::index_sequence<Is...>) const {
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
+  }
+
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION std::array<int, sizeof...(Ts)>
+  GetIndicesArrayImpl(int idx, std::index_sequence<Is...>) const {
+    std::array<int, sizeof...(Ts)> indices;
+    (
+        [&] {
+          indices[Is] = idx / N[Is];
+          idx -= indices[Is] * N[Is];
+          indices[Is] += start[Is];
+        }(),
+        ...);
+    return indices;
   }
 
   template <std::size_t... Is>
@@ -136,7 +167,7 @@ struct Indexer {
     (
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
-          std::get<idx>(N) = cur;
+          N[idx] = cur;
           cur *= std::get<idx>(Nt);
         }(),
         ...);
@@ -188,6 +219,11 @@ using Indexer7D = Indexer<int, int, int, int, int, int, int>;
 using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
+
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {
+  return Indexer<Ts...>(ranges...);
+}
 
 } // namespace parthenon
 #endif // UTILS_INDEXER_HPP_

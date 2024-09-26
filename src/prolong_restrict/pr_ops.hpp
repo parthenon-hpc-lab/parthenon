@@ -427,9 +427,8 @@ struct ProlongateInternalTothAndRoe {
           return (*pfine)(eidx, l, m, n, fk + ok * g3, fj + oj * g2, fi + oi);
         } else if constexpr (fel == TE::F2) {
           return (*pfine)(eidx, l, m, n, fk + oj * g3, fj + oi * g2, fi + ok);
-        } else {
-          return (*pfine)(eidx, l, m, n, fk + oi * g3, fj + ok * g2, fi + oj);
         }
+        return (*pfine)(eidx, l, m, n, fk + oi * g3, fj + ok * g2, fi + oj);
       };
 
       using iarr2 = std::array<int, 2>;

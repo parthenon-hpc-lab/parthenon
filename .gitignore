@@ -45,3 +45,4 @@ cmake_hdf5_test.o
 # Python artifacts
 *.pyc
 *.egg-info
+*_venv
