@@ -42,6 +42,7 @@ using Real = double;
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
+  int size() const { return e - s + 1;}
   operator std::pair<int, int>() const { return {s, e}; }
 };
 
