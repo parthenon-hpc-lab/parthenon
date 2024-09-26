@@ -18,11 +18,15 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "Kokkos_Macros.hpp"
 #include "amr_criteria/amr_criteria.hpp"
+#include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -33,6 +37,9 @@ namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
+  bool check_refine_mesh =
+      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", false);
+  ref->AddParam("check_refine_mesh", check_refine_mesh);
 
   int numcrit = 0;
   while (true) {
@@ -45,10 +52,43 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
     numcrit++;
   }
+  std::vector<std::string> fields;
+  for (auto &amr : ref->amr_criteria) {
+    fields.push_back(amr->field);
+  }
+  ref->AddParam("refine_fields", fields);
   return ref;
 }
 
-AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
+ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc) {
+  printf("allrefine!!\n");
+  const int nblocks = mc->NumBlocks();
+  // maybe not great to allocate this all the time
+  auto delta_levels = ParArray1D<AmrTag>(Kokkos::View<AmrTag *>(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "delta_levels"), nblocks));
+  Kokkos::deep_copy(delta_levels.KokkosView(), AmrTag::derefine);
+
+  Mesh *pm = mc->GetMeshPointer();
+  static const bool check_refine_mesh =
+      pm->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
+  static const std::vector<std::string> refine_fields =
+      pm->packages.Get("Refinement")->Param<std::vector<std::string>>("refine_fields");
+
+  for (auto &pkg : pm->packages.AllPackages()) {
+    auto &desc = pkg.second;
+    desc->CheckRefinement(mc, delta_levels);
+
+    if (check_refine_mesh) {
+      for (auto &amr : desc->amr_criteria) {
+        (*amr)(mc, refine_fields, delta_levels);
+      }
+    }
+  }
+
+  return delta_levels;
+}
+
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -62,8 +102,10 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   //       neighboring blocks.  Similarly for "do nothing"
   PARTHENON_INSTRUMENT
   MeshBlock *pmb = rc->GetBlockPointer();
+  static const bool check_refine_mesh =
+      pmb->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
   // delta_level holds the max over all criteria.  default to derefining.
-  AmrTag delta_level = AmrTag::derefine;
+  AmrTag delta_level = level;
   for (auto &pkg : pmb->packages.AllPackages()) {
     auto &desc = pkg.second;
     delta_level = std::max(delta_level, desc->CheckRefinement(rc));
@@ -71,6 +113,7 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
       // since 1 is the max, we can return without having to look at anything else
       return AmrTag::refine;
     }
+    if (check_refine_mesh) continue;
     // call parthenon criteria that were registered
     for (auto &amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
@@ -150,9 +193,120 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
   return AmrTag::same;
 }
 
-void SetRefinement_(MeshBlockData<Real> *rc) {
+void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
+                     const std::vector<std::string> &fields,
+                     ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
+                     const Real derefine_criteria_) {
+  std::vector<std::pair<std::string, bool>> var_regex;
+  for (std::string var : fields) {
+    var_regex.push_back(std::pair(var, false));
+  }
+
+  static auto desc =
+      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), var_regex);
+  auto pack = desc.GetPack(mc);
+  const int ndim = mc->GetMeshPointer()->ndim;
+  const int nvars = pack.GetMaxNumberOfVars();
+
+  const Real refine_criteria = refine_criteria_;
+  const Real derefine_criteria = derefine_criteria_;
+  auto delta_levels = delta_levels_;
+  par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
+        if (delta_levels(b) == AmrTag::refine) return;
+        Real maxd = 0.;
+        for (int var = 0; var < nvars; var++) {
+          par_reduce_inner(
+              inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
+              bnds.is, bnds.ie,
+              [&](const int k, const int j, const int i, Real &maxder) {
+                Real scale = std::abs(pack(b, var, k, j, i));
+                Real d =
+                    0.5 *
+                    std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
+                    (scale + TINY_NUMBER);
+                maxd = (d > maxd ? d : maxd);
+                if (ndim > 1) {
+                  d = 0.5 *
+                      std::abs((pack(b, var, k, j + 1, i) - pack(b, var, k, j - 1, i))) /
+                      (scale + TINY_NUMBER);
+                  maxd = (d > maxd ? d : maxd);
+                }
+                if (ndim > 2) {
+                  d = 0.5 *
+                      std::abs((pack(b, var, k + 1, j, i) - pack(b, var, k - 1, j, i))) /
+                      (scale + TINY_NUMBER);
+                  maxd = (d > maxd ? d : maxd);
+                }
+              },
+              Kokkos::Max<Real>(maxd));
+
+          AmrTag flag = AmrTag::same;
+          if (maxd > refine_criteria) flag = AmrTag::refine;
+          if (maxd < derefine_criteria) flag = AmrTag::derefine;
+          delta_levels(b) = std::max(delta_levels(b), flag);
+        }
+      });
+}
+
+void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
+                      const std::vector<std::string> &fields,
+                      ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
+                      const Real derefine_criteria_) {
+  std::vector<std::pair<std::string, bool>> var_regex;
+  for (std::string var : fields) {
+    var_regex.push_back(std::pair(var, false));
+  }
+
+  static auto desc =
+      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), var_regex);
+  auto pack = desc.GetPack(mc);
+  const int ndim = mc->GetMeshPointer()->ndim;
+  const int nvars = pack.GetMaxNumberOfVars();
+
+  const Real refine_criteria = refine_criteria_;
+  const Real derefine_criteria = derefine_criteria_;
+  auto delta_levels = delta_levels_;
+  par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
+        if (delta_levels(b) == AmrTag::refine) return;
+        Real maxd = 0.;
+        for (int var = 0; var < nvars; var++) {
+          par_reduce_inner(
+              inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
+              bnds.is, bnds.ie,
+              [&](const int k, const int j, const int i, Real &maxder) {
+                Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
+                Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
+                Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+                maxd = (d > maxd ? d : maxd);
+                if (ndim > 1) {
+                  qavg = 0.5 * (pack(b, var, k, j + 1, i) + pack(b, var, k, j - 1, i));
+                  d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+                  maxd = (d > maxd ? d : maxd);
+                }
+                if (ndim > 2) {
+                  qavg = 0.5 * (pack(b, var, k + 1, j, i) + pack(b, var, k - 1, j, i));
+                  d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+                  maxd = (d > maxd ? d : maxd);
+                }
+              },
+              Kokkos::Max<Real>(maxd));
+
+          AmrTag flag = AmrTag::same;
+          if (maxd > refine_criteria) flag = AmrTag::refine;
+          if (maxd < derefine_criteria) flag = AmrTag::derefine;
+          delta_levels(b) = std::max(delta_levels(b), flag);
+        }
+      });
+}
+
+void SetRefinement_(MeshBlockData<Real> *rc,
+                    const AmrTag &delta_level = AmrTag::derefine) {
   auto pmb = rc->GetBlockPointer();
-  pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+  pmb->pmr->SetRefinement(CheckAllRefinement(rc, delta_level));
 }
 
 template <>
@@ -165,8 +319,11 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
   PARTHENON_INSTRUMENT
+  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc);
+  auto delta_levels_h = delta_levels.GetHostMirrorAndCopy();
+
   for (int i = 0; i < rc->NumBlocks(); i++) {
-    SetRefinement_(rc->GetBlockData(i).get());
+    SetRefinement_(rc->GetBlockData(i).get(), delta_levels_h(i));
   }
   return TaskStatus::complete;
 }

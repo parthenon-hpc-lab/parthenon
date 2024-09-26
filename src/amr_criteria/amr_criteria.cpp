@@ -95,6 +95,17 @@ AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
   return Refinement::FirstDerivative(bnds, q, refine_criteria, derefine_criteria);
 }
 
+void AMRFirstDerivative::operator()(MeshData<Real> *mc,
+                                    const std::vector<std::string> &fields,
+                                    ParArray1D<AmrTag> &delta_levels) const {
+  auto ib = mc->GetBoundsI(IndexDomain::interior);
+  auto jb = mc->GetBoundsJ(IndexDomain::interior);
+  auto kb = mc->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  Refinement::FirstDerivative(bnds, mc, fields, delta_levels, refine_criteria,
+                              derefine_criteria);
+}
+
 AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
   if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
     return AmrTag::same;
@@ -102,7 +113,19 @@ AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
   auto bnds = GetBounds(rc);
   auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
                            Kokkos::ALL(), Kokkos::ALL());
+  printf("first deriv woo\n");
   return Refinement::SecondDerivative(bnds, q, refine_criteria, derefine_criteria);
+}
+
+void AMRSecondDerivative::operator()(MeshData<Real> *mc,
+                                     const std::vector<std::string> &fields,
+                                     ParArray1D<AmrTag> &delta_levels) const {
+  auto ib = mc->GetBoundsI(IndexDomain::interior);
+  auto jb = mc->GetBoundsJ(IndexDomain::interior);
+  auto kb = mc->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  Refinement::SecondDerivative(bnds, mc, fields, delta_levels, refine_criteria,
+                               derefine_criteria);
 }
 
 } // namespace parthenon

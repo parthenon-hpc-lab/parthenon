@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
@@ -37,13 +38,25 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
 TaskStatus Tag(T *rc);
 
-AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc,
+                          const AmrTag &level = AmrTag::derefine);
+void CheckAllRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level);
 
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
+void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
+                     const std::vector<std::string> &fields,
+                     ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
+                     const Real derefine_criteria_);
+
 AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                         const Real refine_criteria, const Real derefine_criteria);
+
+void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc,
+                      const std::vector<std::string> &fields,
+                      ParArray1D<AmrTag> &delta_levels_, const Real refine_criteria_,
+                      const Real derefine_criteria_);
 
 } // namespace Refinement
 
