@@ -121,10 +121,6 @@ class Mesh {
   BValNames_t mesh_swarm_bc_names;
 
   // these are flags not boundary functions
-  // JMM: A consequence of having only one boundary flag array but
-  // multiple boundary function arrays is that swarms *must* be
-  // periodic if the mesh is periodic but otherwise mesh and swarm
-  // boundaries are decoupled.
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;

@@ -1189,6 +1189,16 @@ void Mesh::SetBCNames_(ParameterInput *pin) {
       pin->GetOrAddString("parthenon/swarm", "ox2_bc", mesh_bc_names[3]),
       pin->GetOrAddString("parthenon/swarm", "ix3_bc", mesh_bc_names[4]),
       pin->GetOrAddString("parthenon/swarm", "ox3_bc", mesh_bc_names[5])};
+  // JMM: A consequence of having only one boundary flag array but
+  // multiple boundary function arrays is that swarms *must* be
+  // periodic if the mesh is periodic but otherwise mesh and swarm
+  // boundaries are decoupled.
+  for (int i = 0; i < BOUNDARY_NFACES; ++i) {
+    if (mesh_bc_names[i] == "periodic") {
+      PARTHENON_REQUIRE(mesh_swarm_bc_names == "periodic",
+                        "If the mesh is periodic, swarms must be also.");
+    }
+  }
 }
 
 std::array<BoundaryFlag, BOUNDARY_NFACES>
