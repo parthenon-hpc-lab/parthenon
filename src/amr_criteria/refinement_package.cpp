@@ -186,7 +186,7 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 }
 
 void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                     Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                     const int &idx, ParArray1D<AmrTag> &delta_levels_,
                      const Real refine_criteria_, const Real derefine_criteria_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
@@ -197,8 +197,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   auto delta_levels = delta_levels_;
-  // TODO(?): I have no idea how to get the index from the tensor indices...
-  const int var = index[2];
+  const int var = idx;
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
@@ -236,7 +235,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
 }
 
 void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                      Kokkos::Array<int, 3> index, ParArray1D<AmrTag> &delta_levels_,
+                      const int &idx, ParArray1D<AmrTag> &delta_levels_,
                       const Real refine_criteria_, const Real derefine_criteria_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
@@ -247,8 +246,7 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::stri
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   auto delta_levels = delta_levels_;
-  // TODO(?): I have no idea how to get the index from the tensor indices...
-  const int var = index[2];
+  const int var = idx;
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {

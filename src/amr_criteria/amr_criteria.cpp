@@ -101,8 +101,18 @@ void AMRFirstDerivative::operator()(MeshData<Real> *mc,
   auto jb = mc->GetBoundsJ(IndexDomain::interior);
   auto kb = mc->GetBoundsK(IndexDomain::interior);
   auto bnds = AMRBounds(ib, jb, kb);
-  Refinement::FirstDerivative(bnds, mc, field, {comp6, comp5, comp4}, delta_levels,
-                              refine_criteria, derefine_criteria);
+  auto dims = mc->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
+  }
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::FirstDerivative(bnds, mc, field, idx, delta_levels, refine_criteria,
+                              derefine_criteria);
 }
 
 AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
@@ -121,8 +131,18 @@ void AMRSecondDerivative::operator()(MeshData<Real> *mc,
   auto jb = mc->GetBoundsJ(IndexDomain::interior);
   auto kb = mc->GetBoundsK(IndexDomain::interior);
   auto bnds = AMRBounds(ib, jb, kb);
-  Refinement::SecondDerivative(bnds, mc, field, {comp6, comp5, comp4}, delta_levels,
-                               refine_criteria, derefine_criteria);
+  auto dims = mc->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
+  }
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::SecondDerivative(bnds, mc, field, idx, delta_levels, refine_criteria,
+                               derefine_criteria);
 }
 
 } // namespace parthenon
