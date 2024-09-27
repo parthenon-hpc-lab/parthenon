@@ -1195,7 +1195,7 @@ void Mesh::SetBCNames_(ParameterInput *pin) {
   // boundaries are decoupled.
   for (int i = 0; i < BOUNDARY_NFACES; ++i) {
     if (mesh_bc_names[i] == "periodic") {
-      PARTHENON_REQUIRE(mesh_swarm_bc_names == "periodic",
+      PARTHENON_REQUIRE(mesh_swarm_bc_names[i] == "periodic",
                         "If the mesh is periodic, swarms must be also.");
     }
   }
