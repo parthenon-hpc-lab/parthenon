@@ -16,6 +16,7 @@
 - [[PR1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1175]](https://github.com/parthenon-hpc-lab/parthenon/pull/1175) Add inner comm loop specializations to maximize comms performance
 - [[PR1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
