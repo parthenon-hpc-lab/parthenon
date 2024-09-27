@@ -1,4 +1,4 @@
-.. _sphinx-doc:
+.. _boundary-conds:
 
 Boundary Conditions
 ===================
@@ -108,7 +108,7 @@ are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop
   ``app_in->RegisterDefaultReflectingBoundaryConditions()`` and it
   will be available as a mesh boundary with the name ``reflecting``.
   The reason manual registration is required is to support custom
-  reflecting boundary conditions int he case where a single variable
+  reflecting boundary conditions in the case where a single variable
   is used as the state vector.
 
 
