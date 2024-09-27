@@ -94,10 +94,64 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField<Conserved::divD>(
       Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
 
-  pkg->CheckRefinementBlock = CheckRefinement;
+  bool check_refine_mesh =
+      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", false);
+  if (check_refine_mesh) {
+    pkg->CheckRefinementMesh = CheckRefinementMesh;
+  } else {
+    pkg->CheckRefinementBlock = CheckRefinement;
+  }
   pkg->EstimateTimestepMesh = EstimateTimestep;
   pkg->FillDerivedMesh = FillDerived;
   return pkg;
+}
+
+void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &data_levels) {
+  // refine on advected, for example.  could also be a derived quantity
+  static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
+  auto pack = desc.GetPack(md);
+
+  auto pkg = md->GetMeshPointer()->packages.Get("advection_package");
+  const auto &refine_tol = pkg->Param<Real>("refine_tol");
+  const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
+
+  auto ib = md->GetBoundsI(IndexDomain::entire);
+  auto jb = md->GetBoundsJ(IndexDomain::entire);
+  auto kb = md->GetBoundsK(IndexDomain::entire);
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
+        if (data_levels(b) == AmrTag::refine) return;
+        using MinMax_t = typename Kokkos::MinMax<Real>::value_type;
+        MinMax_t minmax, temp_minmax;
+        minmax.max_val = 0.;
+        minmax.min_val = 0.;
+        for (int n = pack.GetLowerBound(b); n <= pack.GetUpperBound(b); n++) {
+          parthenon::par_reduce_inner(
+              parthenon::inner_loop_pattern_ttr_tag, team_member, kb.s, kb.e, jb.s, jb.e,
+              ib.s, ib.e,
+              [&](const int k, const int j, const int i, MinMax_t &lminmax) {
+                lminmax.min_val =
+                    (pack(b, n, k, j, i) < lminmax.min_val ? pack(b, n, k, j, i)
+                                                           : lminmax.min_val);
+                lminmax.max_val =
+                    (pack(b, n, k, j, i) > lminmax.max_val ? pack(b, n, k, j, i)
+                                                           : lminmax.max_val);
+              },
+              Kokkos::MinMax<Real>(temp_minmax));
+          minmax.min_val =
+              temp_minmax.min_val < minmax.min_val ? temp_minmax.min_val : minmax.min_val;
+          minmax.max_val =
+              temp_minmax.max_val > minmax.max_val ? temp_minmax.max_val : minmax.max_val;
+        }
+        if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol) {
+          data_levels(b) = AmrTag::refine;
+        } else if (minmax.max_val < derefine_tol) {
+          data_levels(b) = AmrTag::derefine;
+        } else {
+          data_levels(b) = AmrTag::same;
+        }
+      });
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
