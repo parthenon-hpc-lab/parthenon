@@ -1182,13 +1182,18 @@ void Mesh::SetBCNames_(ParameterInput *pin) {
                    pin->GetOrAddString("parthenon/mesh", "ox2_bc", "outflow"),
                    pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow"),
                    pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow")};
+  // JMM: This is needed because not all BCs are necessarily
+  // implemented for swarms
+  auto maybe = [](const std::string &s) {
+    return ((s == "outflow") || (s == "periodic")) ? s : "outflow";
+  };
   mesh_swarm_bc_names = {
-      pin->GetOrAddString("parthenon/swarm", "ix1_bc", mesh_bc_names[0]),
-      pin->GetOrAddString("parthenon/swarm", "ox1_bc", mesh_bc_names[1]),
-      pin->GetOrAddString("parthenon/swarm", "ix2_bc", mesh_bc_names[2]),
-      pin->GetOrAddString("parthenon/swarm", "ox2_bc", mesh_bc_names[3]),
-      pin->GetOrAddString("parthenon/swarm", "ix3_bc", mesh_bc_names[4]),
-      pin->GetOrAddString("parthenon/swarm", "ox3_bc", mesh_bc_names[5])};
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", maybe(mesh_bc_names[0])),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", maybe(mesh_bc_names[1])),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", maybe(mesh_bc_names[2])),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", maybe(mesh_bc_names[3])),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", maybe(mesh_bc_names[4])),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", maybe(mesh_bc_names[5]))};
   // JMM: A consequence of having only one boundary flag array but
   // multiple boundary function arrays is that swarms *must* be
   // periodic if the mesh is periodic but otherwise mesh and swarm
