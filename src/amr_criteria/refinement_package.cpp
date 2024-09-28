@@ -18,9 +18,9 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
-#include "Kokkos_Macros.hpp"
+#include <Kokkos_Macros.hpp>
+
 #include "amr_criteria/amr_criteria.hpp"
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
@@ -96,7 +96,8 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level) {
   MeshBlock *pmb = rc->GetBlockPointer();
   static const bool check_refine_mesh =
       pmb->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
-  // delta_level holds the max over all criteria.  default to derefining.
+  // delta_level holds the max over all criteria.  default to derefining, or level from
+  // MeshData check.
   AmrTag delta_level = level;
   for (auto &pkg : pmb->packages.AllPackages()) {
     auto &desc = pkg.second;

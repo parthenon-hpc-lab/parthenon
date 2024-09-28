@@ -16,7 +16,6 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
