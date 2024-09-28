@@ -106,7 +106,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &data_levels) {
+void CheckRefinementMesh(MeshData<Real> *md,
+                         parthenon::ParArray1D<AmrTag> &delta_levels) {
   // refine on advected, for example.  could also be a derived quantity
   static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
   auto pack = desc.GetPack(md);
@@ -121,7 +122,7 @@ void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &data
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
-        if (data_levels(b) == AmrTag::refine) return;
+        if (delta_levels(b) == AmrTag::refine) return;
         using MinMax_t = typename Kokkos::MinMax<Real>::value_type;
         MinMax_t minmax, temp_minmax;
         minmax.max_val = 0.;
@@ -144,13 +145,11 @@ void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &data
           minmax.max_val =
               temp_minmax.max_val > minmax.max_val ? temp_minmax.max_val : minmax.max_val;
         }
-        if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol) {
-          data_levels(b) = AmrTag::refine;
-        } else if (minmax.max_val < derefine_tol) {
-          data_levels(b) = AmrTag::derefine;
-        } else {
-          data_levels(b) = AmrTag::same;
-        }
+        auto flag = AmrTag::same;
+        if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol)
+          flag = AmrTag::refine;
+        if (minmax.max_val < derefine_tol) flag = AmrTag::derefine;
+        delta_levels(b) = std::max(delta_levels(b), flag);
       });
 }
 
