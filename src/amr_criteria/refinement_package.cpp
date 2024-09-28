@@ -21,6 +21,7 @@
 
 #include <Kokkos_Macros.hpp>
 
+#include "Kokkos_ScatterView.hpp"
 #include "amr_criteria/amr_criteria.hpp"
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
@@ -31,6 +32,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
+#include "utils/instrument.hpp"
 
 namespace parthenon {
 namespace Refinement {
@@ -187,7 +189,7 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 }
 
 void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                     const int &idx, ParArray1D<AmrTag> &delta_levels_,
+                     const int &idx, ParArray1D<AmrTag> &delta_levels,
                      const Real refine_criteria_, const Real derefine_criteria_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
@@ -197,46 +199,37 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
-  auto delta_levels = delta_levels_;
   const int var = idx;
-  par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
-      KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
-        if (delta_levels(b) == AmrTag::refine) return;
-        Real maxd = 0.;
-        par_reduce_inner(
-            inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
-            bnds.is, bnds.ie,
-            [&](const int k, const int j, const int i, Real &maxder) {
-              Real scale = std::abs(pack(b, var, k, j, i));
-              Real d = 0.5 *
-                       std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
-                       (scale + TINY_NUMBER);
-              maxder = (d > maxder ? d : maxder);
-              if (ndim > 1) {
-                d = 0.5 *
-                    std::abs((pack(b, var, k, j + 1, i) - pack(b, var, k, j - 1, i))) /
-                    (scale + TINY_NUMBER);
-                maxder = (d > maxder ? d : maxder);
-              }
-              if (ndim > 2) {
-                d = 0.5 *
-                    std::abs((pack(b, var, k + 1, j, i) - pack(b, var, k - 1, j, i))) /
-                    (scale + TINY_NUMBER);
-                maxder = (d > maxder ? d : maxder);
-              }
-            },
-            Kokkos::Max<Real>(maxd));
-
-        AmrTag flag = AmrTag::same;
-        if (maxd > refine_criteria) flag = AmrTag::refine;
-        if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        delta_levels(b) = std::max(delta_levels(b), flag);
+  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js, bnds.je,
+      bnds.is, bnds.ie,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        Real scale = std::abs(pack(b, var, k, j, i));
+        Real d = 0.5 * std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
+                 (scale + TINY_NUMBER);
+        Real maxder = d;
+        if (ndim > 1) {
+          d = 0.5 * std::abs((pack(b, var, k, j + 1, i) - pack(b, var, k, j - 1, i))) /
+              (scale + TINY_NUMBER);
+          maxder = (d > maxder ? d : maxder);
+        }
+        if (ndim > 2) {
+          d = 0.5 * std::abs((pack(b, var, k + 1, j, i) - pack(b, var, k - 1, j, i))) /
+              (scale + TINY_NUMBER);
+          maxder = (d > maxder ? d : maxder);
+        }
+        auto levels_access = scatter_levels.access();
+        auto flag = AmrTag::same;
+        if (maxder > refine_criteria) flag = AmrTag::refine;
+        if (maxder < derefine_criteria) flag = AmrTag::derefine;
+        levels_access(b).update(flag);
       });
+  delta_levels.ContributeScatter(scatter_levels);
 }
 
 void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                      const int &idx, ParArray1D<AmrTag> &delta_levels_,
+                      const int &idx, ParArray1D<AmrTag> &delta_levels,
                       const Real refine_criteria_, const Real derefine_criteria_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
@@ -246,39 +239,33 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::stri
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
-  auto delta_levels = delta_levels_;
   const int var = idx;
-  par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
-      KOKKOS_LAMBDA(team_mbr_t team_member, const int b) {
-        if (delta_levels(b) == AmrTag::refine) return;
-        Real maxd = 0.;
-        par_reduce_inner(
-            inner_loop_pattern_ttr_tag, team_member, bnds.ks, bnds.ke, bnds.js, bnds.je,
-            bnds.is, bnds.ie,
-            [&](const int k, const int j, const int i, Real &maxder) {
-              Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
-              Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
-              Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-              maxder = (d > maxder ? d : maxder);
-              if (ndim > 1) {
-                qavg = 0.5 * (pack(b, var, k, j + 1, i) + pack(b, var, k, j - 1, i));
-                d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-                maxder = (d > maxder ? d : maxder);
-              }
-              if (ndim > 2) {
-                qavg = 0.5 * (pack(b, var, k + 1, j, i) + pack(b, var, k - 1, j, i));
-                d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
-                maxder = (d > maxder ? d : maxder);
-              }
-            },
-            Kokkos::Max<Real>(maxd));
-
-        AmrTag flag = AmrTag::same;
-        if (maxd > refine_criteria) flag = AmrTag::refine;
-        if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        delta_levels(b) = std::max(delta_levels(b), flag);
+  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js, bnds.je,
+      bnds.is, bnds.ie,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
+        Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
+        Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+        Real maxder = d;
+        if (ndim > 1) {
+          qavg = 0.5 * (pack(b, var, k, j + 1, i) + pack(b, var, k, j - 1, i));
+          d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+          maxder = (d > maxder ? d : maxder);
+        }
+        if (ndim > 2) {
+          qavg = 0.5 * (pack(b, var, k + 1, j, i) + pack(b, var, k - 1, j, i));
+          d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
+          maxder = (d > maxder ? d : maxder);
+        }
+        auto levels_access = scatter_levels.access();
+        auto flag = AmrTag::same;
+        if (maxder > refine_criteria) flag = AmrTag::refine;
+        if (maxder < derefine_criteria) flag = AmrTag::derefine;
+        levels_access(b).update(flag);
       });
+  delta_levels.ContributeScatter(scatter_levels);
 }
 
 void SetRefinement_(MeshBlockData<Real> *rc,

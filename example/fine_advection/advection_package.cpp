@@ -17,8 +17,10 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include <Kokkos_ScatterView.hpp>
 #include <coordinates/coordinates.hpp>
 #include <globals.hpp>
 #include <parthenon/package.hpp>
@@ -28,6 +30,7 @@
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/instrument.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -119,38 +122,19 @@ void CheckRefinementMesh(MeshData<Real> *md,
   auto ib = md->GetBoundsI(IndexDomain::entire);
   auto jb = md->GetBoundsJ(IndexDomain::entire);
   auto kb = md->GetBoundsK(IndexDomain::entire);
-  parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int b) {
-        if (delta_levels(b) == AmrTag::refine) return;
-        using MinMax_t = typename Kokkos::MinMax<Real>::value_type;
-        MinMax_t minmax, temp_minmax;
-        minmax.max_val = 0.;
-        minmax.min_val = 0.;
-        for (int n = pack.GetLowerBound(b); n <= pack.GetUpperBound(b); n++) {
-          parthenon::par_reduce_inner(
-              parthenon::inner_loop_pattern_ttr_tag, team_member, kb.s, kb.e, jb.s, jb.e,
-              ib.s, ib.e,
-              [&](const int k, const int j, const int i, MinMax_t &lminmax) {
-                lminmax.min_val =
-                    (pack(b, n, k, j, i) < lminmax.min_val ? pack(b, n, k, j, i)
-                                                           : lminmax.min_val);
-                lminmax.max_val =
-                    (pack(b, n, k, j, i) > lminmax.max_val ? pack(b, n, k, j, i)
-                                                           : lminmax.max_val);
-              },
-              Kokkos::MinMax<Real>(temp_minmax));
-          minmax.min_val =
-              temp_minmax.min_val < minmax.min_val ? temp_minmax.min_val : minmax.min_val;
-          minmax.max_val =
-              temp_minmax.max_val > minmax.max_val ? temp_minmax.max_val : minmax.max_val;
-        }
+  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, 0, pack.GetMaxNumberOfVars() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int n, const int k, const int j, const int i) {
+        auto levels_access = scatter_levels.access();
         auto flag = AmrTag::same;
-        if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol)
-          flag = AmrTag::refine;
-        if (minmax.max_val < derefine_tol) flag = AmrTag::derefine;
-        delta_levels(b) = std::max(delta_levels(b), flag);
+        const auto val = pack(b, n, k, j, i);
+        if (val > refine_tol) flag = AmrTag::refine;
+        if (val < derefine_tol) flag = AmrTag::derefine;
+        levels_access(b).update(flag);
       });
+  delta_levels.ContributeScatter(scatter_levels);
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
