@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 
-#include <Kokkos_ScatterView.hpp>
 #include <coordinates/coordinates.hpp>
 #include <globals.hpp>
 #include <parthenon/package.hpp>
@@ -29,7 +28,6 @@
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/instrument.hpp"
 
 using namespace parthenon::package::prelude;
 
