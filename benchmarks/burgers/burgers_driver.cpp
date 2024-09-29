@@ -123,6 +123,8 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
+      auto tag_refine =
+          tl.AddTask(update, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
     }
   }
 
@@ -135,14 +137,6 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     // set physical boundaries
     auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
-
-    if (stage == integrator->nstages) {
-      // Update refinement
-      if (pmesh->adaptive) {
-        auto tag_refine = tl.AddTask(
-            set_bc, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
-      }
-    }
   }
   return tc;
 }
