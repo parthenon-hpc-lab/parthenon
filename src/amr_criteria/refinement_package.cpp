@@ -296,7 +296,7 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
   PARTHENON_INSTRUMENT
-  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc);
+  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc, AmrTag::derefine);
   auto delta_levels_h = delta_levels.GetHostMirrorAndCopy();
 
   for (int i = 0; i < rc->NumBlocks(); i++) {

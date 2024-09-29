@@ -37,8 +37,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
 TaskStatus Tag(T *rc);
 
-AmrTag CheckAllRefinement(MeshBlockData<Real> *rc,
-                          const AmrTag &level = AmrTag::derefine);
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level);
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc);
 
 AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
