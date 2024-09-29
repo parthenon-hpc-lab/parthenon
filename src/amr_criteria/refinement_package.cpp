@@ -19,9 +19,6 @@
 #include <string>
 #include <utility>
 
-#include <Kokkos_Macros.hpp>
-
-#include "Kokkos_ScatterView.hpp"
 #include "amr_criteria/amr_criteria.hpp"
 #include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
