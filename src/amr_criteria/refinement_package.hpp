@@ -45,14 +45,16 @@ AmrTag FirstDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 
 void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
                      const int &idx, ParArray1D<AmrTag> &delta_levels_,
-                     const Real refine_criteria_, const Real derefine_criteria_);
+                     const Real refine_criteria_, const Real derefine_criteria_,
+                     const int max_level_);
 
 AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
                         const Real refine_criteria, const Real derefine_criteria);
 
 void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
                       const int &idx, ParArray1D<AmrTag> &delta_levels_,
-                      const Real refine_criteria_, const Real derefine_criteria_);
+                      const Real refine_criteria_, const Real derefine_criteria_,
+                      const int max_level_);
 
 } // namespace Refinement
 

@@ -112,7 +112,7 @@ void AMRFirstDerivative::operator()(MeshData<Real> *mc,
   }
   const int idx = comp4 + n4 * (comp5 + n5 * comp6);
   Refinement::FirstDerivative(bnds, mc, field, idx, delta_levels, refine_criteria,
-                              derefine_criteria);
+                              derefine_criteria, max_level);
 }
 
 AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
@@ -142,7 +142,7 @@ void AMRSecondDerivative::operator()(MeshData<Real> *mc,
   }
   const int idx = comp4 + n4 * (comp5 + n5 * comp6);
   Refinement::SecondDerivative(bnds, mc, field, idx, delta_levels, refine_criteria,
-                               derefine_criteria);
+                               derefine_criteria, max_level);
 }
 
 } // namespace parthenon

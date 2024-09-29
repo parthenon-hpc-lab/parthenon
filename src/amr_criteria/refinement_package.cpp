@@ -187,7 +187,8 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
 
 void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
                      const int &idx, ParArray1D<AmrTag> &delta_levels,
-                     const Real refine_criteria_, const Real derefine_criteria_) {
+                     const Real refine_criteria_, const Real derefine_criteria_,
+                     const int max_level_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
   auto pack = desc.GetPack(mc);
@@ -196,6 +197,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
+  const int max_level = max_level_;
   const int var = idx;
   auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
   par_for_outer(
@@ -227,7 +229,8 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
             Kokkos::Max<Real>(maxd));
         auto levels_access = scatter_levels.access();
         auto flag = AmrTag::same;
-        if (maxd > refine_criteria) flag = AmrTag::refine;
+        if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
+          flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
         levels_access(b).update(flag);
       });
@@ -236,7 +239,8 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
 
 void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
                       const int &idx, ParArray1D<AmrTag> &delta_levels,
-                      const Real refine_criteria_, const Real derefine_criteria_) {
+                      const Real refine_criteria_, const Real derefine_criteria_,
+                      const int max_level_) {
   const auto desc =
       MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
   auto pack = desc.GetPack(mc);
@@ -245,6 +249,7 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::stri
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
+  const int max_level = max_level_;
   const int var = idx;
   auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
   par_for_outer(
@@ -273,7 +278,8 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::stri
             Kokkos::Max<Real>(maxd));
         auto levels_access = scatter_levels.access();
         auto flag = AmrTag::same;
-        if (maxd > refine_criteria) flag = AmrTag::refine;
+        if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
+          flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
         levels_access(b).update(flag);
       });
