@@ -37,7 +37,7 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
   bool check_refine_mesh =
-      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", false);
+      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", true);
   ref->AddParam("check_refine_mesh", check_refine_mesh);
 
   int numcrit = 0;
@@ -296,7 +296,7 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
   PARTHENON_INSTRUMENT
-  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc, AmrTag::derefine);
+  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc);
   auto delta_levels_h = delta_levels.GetHostMirrorAndCopy();
 
   for (int i = 0; i < rc->NumBlocks(); i++) {

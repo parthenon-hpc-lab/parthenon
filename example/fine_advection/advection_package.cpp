@@ -95,7 +95,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
 
   bool check_refine_mesh =
-      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", false);
+      pin->GetOrAddBoolean("parthenon/mesh", "CheckRefineMesh", true);
   if (check_refine_mesh) {
     pkg->CheckRefinementMesh = CheckRefinementMesh;
   } else {
