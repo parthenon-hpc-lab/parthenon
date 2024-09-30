@@ -12,7 +12,9 @@
 //========================================================================================
 #include "amr_criteria/amr_criteria.hpp"
 
+#include <iostream>
 #include <memory>
+#include <string>
 
 #include "amr_criteria/refinement_package.hpp"
 #include "interface/meshblock_data.hpp"

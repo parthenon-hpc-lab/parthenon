@@ -15,9 +15,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "tag_map.hpp"
+#include <memory>
+
 #include "bnd_info.hpp"
 #include "bvals_utils.hpp"
+#include "tag_map.hpp"
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {

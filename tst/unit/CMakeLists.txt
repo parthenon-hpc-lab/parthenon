@@ -25,7 +25,7 @@ list(APPEND unit_tests_SOURCES
     test_unit_constants.cpp
     test_unit_domain.cpp
     test_unit_sort.cpp
-    kokkos_abstraction.cpp
+    test_kokkos_abstraction.cpp
     test_index_split.cpp
     test_logical_location.cpp
     test_forest.cpp
@@ -36,7 +36,7 @@ list(APPEND unit_tests_SOURCES
     test_pararrays.cpp
     test_sparse_pack.cpp
     test_swarm.cpp
-    test_required_desired.cpp
+    test_parameter_input.cpp
     test_error_checking.cpp
     test_partitioning.cpp
     test_state_descriptor.cpp
