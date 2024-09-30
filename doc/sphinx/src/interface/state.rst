@@ -104,6 +104,10 @@ several useful features and functions.
   ``std::function`` member ``CheckRefinementBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to define
   an application-specific refinement/de-refinement tagging function.
+- ``void CheckRefinement(MeshData<Real>* md)`` delegates to the
+  ``std::function`` member ``CheckRefinementMesh`` if set (defaults to
+  ``nullptr`` and therefore a no-op) that allows an application to define
+  an application-specific refinement/de-refinement tagging function.
 - ``void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
   deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
   set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
