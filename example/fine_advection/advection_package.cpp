@@ -106,8 +106,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-void CheckRefinementMesh(MeshData<Real> *md,
-                         parthenon::ParArray1D<AmrTag> &delta_levels) {
+void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &amr_tags) {
   // refine on advected, for example.  could also be a derived quantity
   static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
   auto pack = desc.GetPack(md);
@@ -119,7 +118,7 @@ void CheckRefinementMesh(MeshData<Real> *md,
   auto ib = md->GetBoundsI(IndexDomain::entire);
   auto jb = md->GetBoundsJ(IndexDomain::entire);
   auto kb = md->GetBoundsK(IndexDomain::entire);
-  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  auto scatter_tags = amr_tags.ToScatterView<Kokkos::Experimental::ScatterMax>();
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1, 0,
       pack.GetMaxNumberOfVars() - 1, kb.s, kb.e,
@@ -137,14 +136,14 @@ void CheckRefinementMesh(MeshData<Real> *md,
             },
             Kokkos::MinMax<Real>(minmax));
 
-        auto levels_access = scatter_levels.access();
+        auto tags_access = scatter_tags.access();
         auto flag = AmrTag::same;
         if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol)
           flag = AmrTag::refine;
         if (minmax.max_val < derefine_tol) flag = AmrTag::derefine;
-        levels_access(b).update(flag);
+        tags_access(b).update(flag);
       });
-  delta_levels.ContributeScatter(scatter_levels);
+  amr_tags.ContributeScatter(scatter_tags);
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {

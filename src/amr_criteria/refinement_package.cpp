@@ -54,29 +54,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *mc) {
-  const int nblocks = mc->NumBlocks();
+ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md) {
+  const int nblocks = md->NumBlocks();
   // maybe not great to allocate this all the time
-  auto delta_levels = ParArray1D<AmrTag>(Kokkos::View<AmrTag *>(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "delta_levels"), nblocks));
-  Kokkos::deep_copy(delta_levels.KokkosView(), AmrTag::derefine);
+  auto amr_tags = ParArray1D<AmrTag>(Kokkos::View<AmrTag *>(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks));
+  Kokkos::deep_copy(amr_tags.KokkosView(), AmrTag::derefine);
 
-  Mesh *pm = mc->GetMeshPointer();
+  Mesh *pm = md->GetMeshPointer();
   static const bool check_refine_mesh =
       pm->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
 
   for (auto &pkg : pm->packages.AllPackages()) {
     auto &desc = pkg.second;
-    desc->CheckRefinement(mc, delta_levels);
+    desc->CheckRefinement(md, amr_tags);
 
     if (check_refine_mesh) {
       for (auto &amr : desc->amr_criteria) {
-        (*amr)(mc, delta_levels);
+        (*amr)(md, amr_tags);
       }
     }
   }
 
-  return delta_levels;
+  return amr_tags;
 }
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level) {
@@ -185,21 +185,21 @@ AmrTag SecondDerivative(const AMRBounds &bnds, const ParArray3D<Real> &q,
   return AmrTag::same;
 }
 
-void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                     const int &idx, ParArray1D<AmrTag> &delta_levels,
+void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::string &field,
+                     const int &idx, ParArray1D<AmrTag> &amr_tags,
                      const Real refine_criteria_, const Real derefine_criteria_,
                      const int max_level_) {
   const auto desc =
-      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
-  auto pack = desc.GetPack(mc);
-  const int ndim = mc->GetMeshPointer()->ndim;
+      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  auto pack = desc.GetPack(md);
+  const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   const int max_level = max_level_;
   const int var = idx;
-  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  auto scatter_tags = amr_tags.ToScatterView<Kokkos::Experimental::ScatterMax>();
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js,
       bnds.je,
@@ -227,31 +227,31 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::strin
               }
             },
             Kokkos::Max<Real>(maxd));
-        auto levels_access = scatter_levels.access();
+        auto tags_access = scatter_tags.access();
         auto flag = AmrTag::same;
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        levels_access(b).update(flag);
+        tags_access(b).update(flag);
       });
-  delta_levels.ContributeScatter(scatter_levels);
+  amr_tags.ContributeScatter(scatter_tags);
 }
 
-void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::string &field,
-                      const int &idx, ParArray1D<AmrTag> &delta_levels,
+void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::string &field,
+                      const int &idx, ParArray1D<AmrTag> &amr_tags,
                       const Real refine_criteria_, const Real derefine_criteria_,
                       const int max_level_) {
   const auto desc =
-      MakePackDescriptor(mc->GetMeshPointer()->resolved_packages.get(), {field});
-  auto pack = desc.GetPack(mc);
-  const int ndim = mc->GetMeshPointer()->ndim;
+      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  auto pack = desc.GetPack(md);
+  const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
 
   const Real refine_criteria = refine_criteria_;
   const Real derefine_criteria = derefine_criteria_;
   const int max_level = max_level_;
   const int var = idx;
-  auto scatter_levels = delta_levels.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  auto scatter_tags = amr_tags.ToScatterView<Kokkos::Experimental::ScatterMax>();
   par_for_outer(
       PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js,
       bnds.je,
@@ -276,14 +276,14 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *mc, const std::stri
               }
             },
             Kokkos::Max<Real>(maxd));
-        auto levels_access = scatter_levels.access();
+        auto tags_access = scatter_tags.access();
         auto flag = AmrTag::same;
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        levels_access(b).update(flag);
+        tags_access(b).update(flag);
       });
-  delta_levels.ContributeScatter(scatter_levels);
+  amr_tags.ContributeScatter(scatter_tags);
 }
 
 void SetRefinement_(MeshBlockData<Real> *rc,
@@ -300,13 +300,13 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 }
 
 template <>
-TaskStatus Tag(MeshData<Real> *rc) {
+TaskStatus Tag(MeshData<Real> *md) {
   PARTHENON_INSTRUMENT
-  ParArray1D<AmrTag> delta_levels = CheckAllRefinement(rc);
-  auto delta_levels_h = delta_levels.GetHostMirrorAndCopy();
+  ParArray1D<AmrTag> amr_tags = CheckAllRefinement(md);
+  auto amr_tags_h = amr_tags.GetHostMirrorAndCopy();
 
-  for (int i = 0; i < rc->NumBlocks(); i++) {
-    SetRefinement_(rc->GetBlockData(i).get(), delta_levels_h(i));
+  for (int i = 0; i < md->NumBlocks(); i++) {
+    SetRefinement_(md->GetBlockData(i).get(), amr_tags_h(i));
   }
   return TaskStatus::complete;
 }
