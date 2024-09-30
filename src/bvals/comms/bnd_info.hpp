@@ -64,6 +64,11 @@ struct BndInfo {
   static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  static BndInfo NeighCommGetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                              std::shared_ptr<Variable<Real>> v,
+                              CommBuffer<buf_pool_t<Real>::owner_t> *buf);
+  #endif
   static BndInfo GetSendCCFluxCor(MeshBlock *pmb, const NeighborBlock &nb,
                                   std::shared_ptr<Variable<Real>> v,
                                   CommBuffer<buf_pool_t<Real>::owner_t> *buf);

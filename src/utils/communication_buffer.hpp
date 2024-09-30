@@ -28,6 +28,7 @@
 #include "globals.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/mpi_types.hpp"
+#include "bvals/comms/mm_neigh_token.hpp"
 
 namespace parthenon {
 
@@ -41,12 +42,18 @@ enum class BuffCommType { sender, receiver, both, sparse_receiver };
 
 template <class T>
 class CommBuffer {
+ #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+ public:
+  std::shared_ptr<BufferState> state_;
+ #endif
+
  private:
   // Need specializations to be friends with each other
   template <typename U>
   friend class CommBuffer;
-
-  std::shared_ptr<BufferState> state_;
+  #ifndef USE_NEIGHBORHOOD_COLLECTIVES
+  std::shared_ptr<BufferState> state_; // MORARU : make it public
+  #endif
   std::shared_ptr<BuffCommType> comm_type_;
   std::shared_ptr<bool> started_irecv_;
   std::shared_ptr<int> nrecv_tries_;

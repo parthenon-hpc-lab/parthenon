@@ -293,6 +293,44 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   return out;
 }
 
+#ifdef USE_NEIGHBORHOOD_COLLECTIVES
+BndInfo BndInfo::NeighCommGetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
+                               std::shared_ptr<Variable<Real>> v,
+                               CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
+  BndInfo out;
+  buf->Allocate();
+  out.buf = buf->buffer();
+  auto buf_state = buf->GetState();
+  out.buf_allocated = true;
+  
+  out.allocated = v->IsAllocated();
+  out.alloc_status = v->GetAllocationStatus();
+
+  int Nv = v->GetDim(4);
+  int Nu = v->GetDim(5);
+  int Nt = v->GetDim(6);
+
+  int mylevel = pmb->loc.level();
+
+  auto elements = v->GetTopologicalElements();
+  out.ntopological_elements = elements.size();
+  auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
+  if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) == 0)
+    idx_range_type = IndexRangeType::InteriorRecv;
+  for (auto el : elements) {
+    int idx = static_cast<int>(el) % 3;
+    out.idxer[idx] = CalcIndices(nb, pmb, el, idx_range_type, false, {Nt, Nu, Nv});
+  }
+  if (nb.snb.level < mylevel) {
+    out.var = v->coarse_s.Get();
+  } else {
+    out.var = v->data.Get();
+  }
+
+  return out;
+}
+#endif
+
 ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
                                            std::shared_ptr<Variable<Real>> v) {
   ProResInfo out;

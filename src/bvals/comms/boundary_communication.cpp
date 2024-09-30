@@ -141,7 +141,20 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
-
+  
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  if(bound_type == BoundaryType::nonlocal)
+    pmesh->neigh_token.start_data_exchange_neigh_alltoallv();
+  else{
+    for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
+      auto &buf = *cache.buf_vec[ibuf];
+      if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+        buf.Send();
+      else
+        buf.SendNull();
+    }
+  }
+  #else 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
@@ -149,7 +162,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     else
       buf.SendNull();
   }
-
+  #endif // USE_NEIGHBORHOOD_COLLECTIVES
   return TaskStatus::complete;
 }
 
@@ -199,9 +212,28 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       false);
 
   bool all_received = true;
+  #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+  if(bound_type == BoundaryType::nonlocal){
+    all_received = pmesh->neigh_token.test_data_exchange_neigh_alltoallv();
+
+    if(all_received){
+        std::for_each(
+          std::begin(cache.buf_vec), std::end(cache.buf_vec),
+          [&all_received](auto pbuf) { 
+              *(pbuf->state_) = BufferState::received; 
+      });
+    }
+  }
+  else{
+    std::for_each(
+        std::begin(cache.buf_vec), std::end(cache.buf_vec),
+        [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+  }
+  #else
   std::for_each(
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+  #endif // USE_NEIGHBORHOOD_COLLECTIVES
 
   int ibound = 0;
   if (Globals::sparse_config.enabled) {
@@ -253,8 +285,18 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
     } else {
+
+      #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+      if(bound_type == BoundaryType::nonlocal)
+        RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::NeighCommGetSetBndInfo,
+                                              ProResInfo::GetSet);
+      else 
+        RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+      #else
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetSet);
+      #endif
     }
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
@@ -346,8 +388,17 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
     } else {
+      #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+      if(bound_type == BoundaryType::nonlocal)
+        RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::NeighCommGetSetBndInfo,
+                                              ProResInfo::GetSet);
+      else 
+        RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+      #else
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetSet);
+      #endif
     }
   }
 

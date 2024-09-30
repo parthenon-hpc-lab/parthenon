@@ -85,7 +85,11 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     const auto any = parthenon::BoundaryType::any;
 
-    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    #ifdef USE_NEIGHBORHOOD_COLLECTIVES
+    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<parthenon::BoundaryType::local>, mc1); //any
+    #else
+    auto start_bnd = tl.AddTask(none, parthenon::StartReceiveBoundBufs<parthenon::BoundaryType::any>, mc1); //any
+    #endif
     auto start_flx_recv = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
     // this is the main task where most of the real work is done
