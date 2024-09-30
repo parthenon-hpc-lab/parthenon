@@ -120,23 +120,16 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
+    auto set_bc = tl.AddTask(update, parthenon::ApplyBoundaryConditionsMD, mc1);
+
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
-      auto tag_refine =
-          tl.AddTask(update, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      if (pmesh->adaptive) {
+        auto tag_refine =
+            tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      }
     }
-  }
-
-  TaskRegion &async_region2 = tc.AddRegion(blocks.size());
-  assert(blocks.size() == async_region2.size());
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto &tl = async_region2[i];
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-
-    // set physical boundaries
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
   }
   return tc;
 }
