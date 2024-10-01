@@ -56,12 +56,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md) {
   const int nblocks = md->NumBlocks();
-  // maybe not great to allocate this all the time
-  auto amr_tags = ParArray1D<AmrTag>(Kokkos::View<AmrTag *>(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks));
+  Mesh *pm = md->GetMeshPointer();
+  auto amr_tags = pm->GetAmrTags();
   Kokkos::deep_copy(amr_tags.KokkosView(), AmrTag::derefine);
 
-  Mesh *pm = md->GetMeshPointer();
   static const bool check_refine_mesh =
       pm->packages.Get("Refinement")->Param<bool>("check_refine_mesh");
 

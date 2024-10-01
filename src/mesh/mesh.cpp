@@ -913,6 +913,18 @@ const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   }
 }
 
+ParArray1D<AmrTag> &Mesh::GetAmrTags() {
+  const int nblocks = GetNumMeshBlocksThisRank();
+  if (!amr_tags.KokkosView().is_allocated()) {
+    amr_tags.KokkosView() = Kokkos::View<AmrTag *>(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks);
+  }
+  if (amr_tags.KokkosView().size() != nblocks) {
+    Kokkos::realloc(amr_tags.KokkosView(), nblocks);
+  }
+  return amr_tags;
+}
+
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
 #ifdef MPI_PARALLEL // JMM: Not sure this ifdef is needed

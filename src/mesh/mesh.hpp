@@ -34,6 +34,8 @@
 #include <utility>
 #include <vector>
 
+#include "Kokkos_Core.hpp"
+#include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
@@ -108,6 +110,8 @@ class Mesh {
     return forest.GetBlockDomain(loc);
   }
   const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+
+  ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
 
@@ -276,6 +280,8 @@ class Mesh {
   std::vector<int> bnref, bnderef;
   std::vector<int> brdisp, bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
+  // Refinement tags used by MeshData checks
+  ParArray1D<AmrTag> amr_tags;
 
   std::vector<LogicalLocation> loclist;
 
