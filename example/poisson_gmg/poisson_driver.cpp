@@ -86,7 +86,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<u>), md);
     zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
-    zero_u = tl.AddTask(zero_u, TF(solvers::StageUtils::CopyData), std::vector<std::string>{rhs::name()}, md, md_rhs);
+    zero_u = tl.AddTask(zero_u, TF(solvers::StageUtils::CopyData<parthenon::TypeList<rhs>>), md, md_rhs);
     zero_u = tl.AddTask(zero_u, TF(solvers::utils::CopyData<rhs, u>), md_rhs); 
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);

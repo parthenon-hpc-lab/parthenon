@@ -107,7 +107,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   } else if (solver == "CGStages") {
     using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
     parthenon::solvers::CGParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::CGSolverStages<PoissEqStages>>(std::vector<std::string>{u::name()},
+    psolver = std::make_shared<parthenon::solvers::CGSolverStages<PoissEqStages>>(
                                                                     "base", "u", "rhs",
                                                                     pkg.get(), params,
                                                                     PoissEqStages(pin, "poisson")); 

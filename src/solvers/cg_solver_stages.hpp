@@ -44,6 +44,8 @@ namespace solvers {
 // the matrix A to it and stores the result in y_t.
 template <class equations>
 class CGSolverStages : public SolverBase {
+  
+  using FieldTL = typename equations::IndependentVars;
 
   std::vector<std::string> sol_fields;
   // Name of user defined container that should contain information required to 
@@ -59,20 +61,19 @@ class CGSolverStages : public SolverBase {
  
  public:
 
-  CGSolverStages(const std::vector<std::string> &fields,
-                 const std::string &container_base, 
+  CGSolverStages(const std::string &container_base, 
                  const std::string &container_u,
                  const std::string &container_rhs,
                  StateDescriptor *pkg,
                  CGParams params_in,
                  const equations &eq_in = equations())
-      : sol_fields(fields),
-        container_base(container_base), 
+      : container_base(container_base), 
         container_u(container_u),
         container_rhs(container_rhs),
         params_(params_in),
         iter_counter(0),
         eqs_(eq_in) {
+    FieldTL::IterateTypes([this](auto t){this->sol_fields.push_back(decltype(t)::name());}); 
     std::string solver_id = "cg";
     container_x = solver_id + "_x";
     container_r = solver_id + "_r";
@@ -108,14 +109,14 @@ class CGSolverStages : public SolverBase {
     bool multilevel = pmesh->multilevel;
 
     // Initialization: u <- 0, r <- rhs, p <- 0, ru <- 1
-    auto zero_u = tl.AddTask(dependence, TF(SetToZero), sol_fields, md_u);
-    auto zero_v = tl.AddTask(dependence, TF(SetToZero), sol_fields, md_v);
-    auto zero_x = tl.AddTask(dependence, TF(SetToZero), sol_fields, md_x);
-    auto zero_p = tl.AddTask(dependence, TF(SetToZero), sol_fields, md_p);
-    auto copy_r = tl.AddTask(dependence, TF(CopyData), sol_fields, md_rhs, md_r);
+    auto zero_u = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
+    auto zero_v = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_v);
+    auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
+    auto zero_p = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_p);
+    auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto get_rhs2 = none;
     if (params_.relative_residual || params_.print_per_step)
-      get_rhs2 = DotProduct(dependence, tl, &rhs2, sol_fields, md_rhs, md_rhs);
+      get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         zero_u | zero_v | zero_x | zero_p | copy_r | get_rhs2, "zero factors",
@@ -159,24 +160,24 @@ class CGSolverStages : public SolverBase {
     // 1. u <- M r
     auto precon = reset;
     if (params_.precondition) {
-      //auto set_rhs = itl.AddTask(precon, TF(CopyData), sol_fields, md_r, m_rhs);
-      //auto zero_u = itl.AddTask(precon, TF(SetToZero), sol_fields, md_u);
+      //auto set_rhs = itl.AddTask(precon, TF(CopyData<FieldTL>), md_r, m_rhs);
+      //auto zero_u = itl.AddTask(precon, TF(SetToZero<FieldTL>), md_u);
       //precon =
       //    preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
       PARTHENON_FAIL("Preconditioning not yet implemented.");
     } else {
-      precon = itl.AddTask(precon, TF(CopyData), sol_fields, md_r, md_u);
+      precon = itl.AddTask(precon, TF(CopyData<FieldTL>), md_r, md_u);
     }
 
     // 2. beta <- r dot u / r dot u {old}
-    auto get_ru = DotProduct(precon, itl, &ru, sol_fields, md_r, md_u);
+    auto get_ru = DotProduct<FieldTL>(precon, itl, &ru, md_r, md_u);
 
     // 3. p <- u + beta p
     auto correct_p = itl.AddTask(
         get_ru, "p <- u + beta p",
         [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_p) {
           Real beta = solver->iter_counter > 0 ? solver->ru.val / solver->ru_old : 0.0;
-          return AddFieldsAndStore(solver->sol_fields, md_u, md_p, md_p, 1.0, beta);
+          return AddFieldsAndStore<FieldTL>(md_u, md_p, md_p, 1.0, beta);
         },
         this, md_u, md_p);
 
@@ -186,7 +187,7 @@ class CGSolverStages : public SolverBase {
     auto get_v = eqs_.template Ax(itl, comm, md_base, md_p, md_v);
 
     // 5. alpha <- r dot u / p dot v (calculate denominator)
-    auto get_pAp = DotProduct(get_v, itl, &pAp, sol_fields, md_p, md_v);
+    auto get_pAp = DotProduct<FieldTL>(get_v, itl, &pAp, md_p, md_v);
 
     // 6. x <- x + alpha p
     auto correct_x = itl.AddTask(
@@ -195,7 +196,7 @@ class CGSolverStages : public SolverBase {
            std::shared_ptr<MeshData<Real>> &md_x,
            std::shared_ptr<MeshData<Real>> &md_p) {
           Real alpha = solver->ru.val / solver->pAp.val;
-          return AddFieldsAndStore(solver->sol_fields, md_x, md_p, md_x, 1.0, alpha);
+          return AddFieldsAndStore<FieldTL>(md_x, md_p, md_x, 1.0, alpha);
         },
         this, md_x, md_p);
 
@@ -206,12 +207,12 @@ class CGSolverStages : public SolverBase {
            std::shared_ptr<MeshData<Real>> &md_r,
            std::shared_ptr<MeshData<Real>> &md_v) {
           Real alpha = solver->ru.val / solver->pAp.val;
-          return AddFieldsAndStore(solver->sol_fields, md_r, md_v, md_r, 1.0, -alpha);
+          return AddFieldsAndStore<FieldTL>(md_r, md_v, md_r, 1.0, -alpha);
         },
         this, md_r, md_v);
 
     // 7. Check and print out residual
-    auto get_res = DotProduct(correct_r, itl, &residual, sol_fields, md_r, md_r);
+    auto get_res = DotProduct<FieldTL>(correct_r, itl, &residual, md_r, md_r);
 
     auto print = itl.AddTask(
         TaskQualifier::once_per_region, get_res,
@@ -243,7 +244,7 @@ class CGSolverStages : public SolverBase {
         this, pmesh, params_.max_iters, params_.residual_tolerance,
         params_.relative_residual);
 
-    return tl.AddTask(solver_id, TF(CopyData), sol_fields, md_x, md_u);
+    return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }

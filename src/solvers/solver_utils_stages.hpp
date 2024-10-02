@@ -28,9 +28,8 @@ namespace solvers {
 
 namespace StageUtils {
 
-template <bool only_fine_on_composite = true>
-TaskStatus CopyData(const std::vector<std::string> &fields,
-                    const std::shared_ptr<MeshData<Real>> &md_in,
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
                     const std::shared_ptr<MeshData<Real>> &md_out) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
@@ -38,7 +37,7 @@ TaskStatus CopyData(const std::vector<std::string> &fields,
   IndexRange jb = md_in->GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = md_in->GetBoundsK(IndexDomain::entire, te);
 
-  auto desc = parthenon::MakePackDescriptor(md_in.get(), fields);
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_in.get());
   auto pack_in = desc.GetPack(md_in.get(), only_fine_on_composite);
   auto pack_out = desc.GetPack(md_out.get(), only_fine_on_composite);
   const int scratch_size = 0;
@@ -61,9 +60,8 @@ TaskStatus CopyData(const std::vector<std::string> &fields,
   return TaskStatus::complete;
 }
 
-template <bool only_fine_on_composite = true>
-TaskStatus AddFieldsAndStoreInteriorSelect(const std::vector<std::string> &fields,
-                                           const std::shared_ptr<MeshData<Real>> &md_a,
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md_a,
                                            const std::shared_ptr<MeshData<Real>> &md_b,
                                            const std::shared_ptr<MeshData<Real>> &md_out,
                                            Real wa = 1.0, Real wb = 1.0,
@@ -82,7 +80,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::vector<std::string> &field
       include_block[b] = md_a->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
   
-  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get(), include_block, only_fine_on_composite);
   auto pack_b = desc.GetPack(md_b.get(), include_block, only_fine_on_composite);
   auto pack_out = desc.GetPack(md_out.get(), include_block, only_fine_on_composite);
@@ -107,22 +105,21 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::vector<std::string> &field
   return TaskStatus::complete;
 }
 
-template <bool only_fine_on_composite = true>
-TaskStatus AddFieldsAndStore(const std::vector<std::string> &fields,
-                             const std::shared_ptr<MeshData<Real>> &md_a,
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md_a,
                              const std::shared_ptr<MeshData<Real>> &md_b,
                              const std::shared_ptr<MeshData<Real>> &md_out,
                              Real wa = 1.0, Real wb = 1.0) {
-  return AddFieldsAndStoreInteriorSelect<only_fine_on_composite>(
-      fields, md_a, md_b, md_out, wa, wb, false); 
+  return AddFieldsAndStoreInteriorSelect<TL, only_fine_on_composite>(
+      md_a, md_b, md_out, wa, wb, false); 
 }
 
-template <bool only_fine_on_composite = true>
-TaskStatus SetToZero(const std::vector<std::string> &fields, const std::shared_ptr<MeshData<Real>> &md) {
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  auto desc = parthenon::MakePackDescriptor(md.get(), fields);
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
@@ -147,15 +144,15 @@ TaskStatus SetToZero(const std::vector<std::string> &fields, const std::shared_p
   return TaskStatus::complete;
 }
 
-inline TaskStatus ADividedByB(const std::vector<std::string> &fields,
-                       const std::shared_ptr<MeshData<Real>> &md_a,
+template <class TL>
+TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
                        const std::shared_ptr<MeshData<Real>> &md_b,
                        const std::shared_ptr<MeshData<Real>> &md_out) {
   IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
 
-  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   auto pack_out = desc.GetPack(md_out.get());
@@ -171,8 +168,8 @@ inline TaskStatus ADividedByB(const std::vector<std::string> &fields,
   return TaskStatus::complete;
 }
 
-inline TaskStatus DotProductLocal(const std::vector<std::string> &fields,
-                           const std::shared_ptr<MeshData<Real>> &md_a,
+template <class TL>
+TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
@@ -181,7 +178,7 @@ inline TaskStatus DotProductLocal(const std::vector<std::string> &fields,
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
 
-  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
@@ -201,8 +198,8 @@ inline TaskStatus DotProductLocal(const std::vector<std::string> &fields,
   return TaskStatus::complete;
 }
 
-inline TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
-                  const std::vector<std::string> &fields,
+template <class TL>
+TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::shared_ptr<MeshData<Real>> &md_a,
                   const std::shared_ptr<MeshData<Real>> &md_b) {
   using namespace impl;
@@ -214,7 +211,7 @@ inline TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *ad
       },
       adotb);
   auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
-                              DotProductLocal, fields, md_a, md_b, adotb);
+                              DotProductLocal<TL>, md_a, md_b, adotb);
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =

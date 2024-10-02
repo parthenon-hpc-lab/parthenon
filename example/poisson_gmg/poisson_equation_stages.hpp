@@ -40,6 +40,8 @@ class PoissonEquationStages {
   bool include_flux_dx = false;
   enum class ProlongationType { Constant, Linear, Kwak };
   ProlongationType prolongation_type = ProlongationType::Constant;
+  
+  using IndependentVars = parthenon::TypeList<var_t>; 
 
   PoissonEquationStages(parthenon::ParameterInput *pin, const std::string &label) {
     do_flux_cor = pin->GetOrAddBoolean(label, "flux_correct", false);
