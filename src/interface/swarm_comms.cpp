@@ -44,21 +44,6 @@ void Swarm::SetNeighborIndices_() {
     }
   }
 
-  // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = ndim < 3 ? 0 : 1;
-  const int kmax = ndim < 3 ? 3 : 2;
-  const int jmin = ndim < 2 ? 0 : 1;
-  const int jmax = ndim < 2 ? 3 : 2;
-  const int imin = 1;
-  const int imax = 2;
-  for (int k = kmin; k <= kmax; k++) {
-    for (int j = jmin; j <= jmax; j++) {
-      for (int i = imin; i <= imax; i++) {
-        neighbor_indices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
   // Create a point in the center of each ghost halo region at maximum refinement level
   // and then test whether each neighbor block includes that point.
   const auto &bsize = pmb->block_size;
@@ -126,6 +111,21 @@ void Swarm::SetNeighborIndices_() {
             break;
           }
         }
+      }
+    }
+  }
+
+  // Indicate which neighbor regions correspond to this meshblock
+  const int kmin = ndim < 3 ? 0 : 1;
+  const int kmax = ndim < 3 ? 3 : 2;
+  const int jmin = ndim < 2 ? 0 : 1;
+  const int jmax = ndim < 2 ? 3 : 2;
+  const int imin = 1;
+  const int imax = 2;
+  for (int k = kmin; k <= kmax; k++) {
+    for (int j = jmin; j <= jmax; j++) {
+      for (int i = imin; i <= imax; i++) {
+        neighbor_indices_h(k, j, i) = this_block_;
       }
     }
   }
