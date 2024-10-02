@@ -25,12 +25,14 @@
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
 #include <solvers/cg_solver.hpp>
+#include <solvers/cg_solver_stages.hpp>
 #include <solvers/mg_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "poisson_equation.hpp"
+#include "poisson_equation_stages.hpp"
 #include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
@@ -107,7 +109,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   parthenon::solvers::CGSolver<u, rhs, PoissonEquation> cg_solver(pkg.get(), cg_params,
                                                                   eq);
   pkg->AddParam<>("MGCGsolver", cg_solver, parthenon::Params::Mutability::Mutable);
-
+  
+  using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
+  parthenon::solvers::CGSolverStages<PoissEqStages> cgstages_solver({u::name()}, "base", "u", "rhs",
+                                                                    pkg.get(), cg_params,
+                                                                    PoissEqStages(pin, "poisson"));
+  
   using namespace parthenon::refinement_ops;
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});

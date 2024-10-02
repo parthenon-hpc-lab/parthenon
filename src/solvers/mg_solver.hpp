@@ -58,6 +58,23 @@ struct MGParams {
   }
 };
 
+class SolverBase {
+ public:
+  virtual ~SolverBase(){} 
+
+  virtual TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition,
+                                Mesh *pmesh) = 0;  
+  virtual TaskID AddTasks(TaskList &tl, TaskID dependence, int partition,
+                                Mesh *pmesh) = 0;  
+
+  Real GetFinalResidual() const { return final_residual; }
+  int GetFinalIterations() const { return final_iteration; }
+ 
+ protected:
+  Real final_residual;
+  int final_iteration;
+};
+
 // The equations class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -73,7 +90,7 @@ struct MGParams {
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class u, class rhs, class equations>
-class MGSolver {
+class MGSolver : public SolverBase {
  public:
   PARTHENON_INTERNALSOLVERVARIABLE(
       u, res_err); // residual on the way up and error on the way down
@@ -119,7 +136,7 @@ class MGSolver {
     pkg->AddField(D::name(), mD);
   }
 
-  TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
@@ -188,8 +205,7 @@ class MGSolver {
     return post_sync;
   }
 
-  template <class TL_t>
-  TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
+  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     using namespace utils;
 
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
@@ -207,16 +223,12 @@ class MGSolver {
 
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
-  Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
 
  protected:
   MGParams params_;
   int iter_counter;
   AllReduce<Real> residual;
   equations eqs_;
-  Real final_residual;
-  int final_iteration;
   std::string container_;
 
   // These functions apparently have to be public to compile with cuda since

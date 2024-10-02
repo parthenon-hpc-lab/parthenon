@@ -85,6 +85,11 @@ inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::stri
                             options);
 }
 
+template <class... Args>
+inline auto MakePackDescriptor(MeshData<Real> *pmd, Args&&...args) {
+  return MakePackDescriptor(pmd->GetMeshPointer()->resolved_packages.get(), std::forward<Args>(args)...);
+}
+
 template <class... Ts>
 inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
                                const std::vector<MetadataFlag> &flags = {},

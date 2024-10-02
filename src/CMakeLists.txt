@@ -228,8 +228,10 @@ add_library(parthenon
 
   solvers/bicgstab_solver.hpp
   solvers/cg_solver.hpp
+  solvers/cg_solver_stages.hpp
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
+  solvers/solver_utils_stages.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

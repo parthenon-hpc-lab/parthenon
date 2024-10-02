@@ -70,7 +70,7 @@ struct BiCGSTABParams {
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
 template <class u, class rhs, class equations>
-class BiCGSTABSolver {
+class BiCGSTABSolver : public SolverBase {
  public:
   PARTHENON_INTERNALSOLVERVARIABLE(u, rhat0);
   PARTHENON_INTERNALSOLVERVARIABLE(u, v);
@@ -119,8 +119,7 @@ class BiCGSTABSolver {
     pkg->AddField(diag::name(), m_no_ghost);
   }
 
-  template <class TL_t>
-  TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
+  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     if (params_.precondition_type == Preconditioner::Multigrid) {
       return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
@@ -132,7 +131,7 @@ class BiCGSTABSolver {
     }
   }
 
-  TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace utils;
     TaskID none;
     auto &md = pmesh->mesh_data.GetOrAdd(container_, partition);
@@ -341,9 +340,6 @@ class BiCGSTABSolver {
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
 
-  Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
-
   BiCGSTABParams &GetParams() { return params_; }
 
  protected:
@@ -353,8 +349,6 @@ class BiCGSTABSolver {
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
   Real rhat0r_old;
   equations eqs_;
-  Real final_residual;
-  int final_iteration;
   std::string container_;
 };
 

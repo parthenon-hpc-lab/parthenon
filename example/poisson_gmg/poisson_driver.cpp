@@ -26,6 +26,7 @@
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
 #include "poisson_equation.hpp"
+#include "poisson_equation_stages.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "solvers/bicgstab_solver.hpp"
@@ -109,13 +110,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto solve = zero_u;
     if (solver == "BiCGSTAB") {
       auto setup = bicgstab_solver->AddSetupTasks(tl, zero_u, i, pmesh);
-      solve = bicgstab_solver->AddTasks(tl, setup, pmesh, i);
+      solve = bicgstab_solver->AddTasks(tl, setup, i, pmesh);
     } else if (solver == "CG") {
       auto setup = cg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
-      solve = cg_solver->AddTasks(tl, setup, pmesh, i);
+      solve = cg_solver->AddTasks(tl, setup, i, pmesh);
     } else if (solver == "MG") {
       auto setup = mg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
-      solve = mg_solver->AddTasks(tl, setup, pmesh, i);
+      solve = mg_solver->AddTasks(tl, setup, i, pmesh);
     } else {
       PARTHENON_FAIL("Unknown solver type.");
     }
