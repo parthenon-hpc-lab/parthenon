@@ -38,7 +38,7 @@ TaskStatus CopyData(const std::vector<std::string> &fields,
   IndexRange jb = md_in->GetBoundsJ(IndexDomain::entire, te);
   IndexRange kb = md_in->GetBoundsK(IndexDomain::entire, te);
 
-  static auto desc = parthenon::MakePackDescriptor(md_in.get(), fields);
+  auto desc = parthenon::MakePackDescriptor(md_in.get(), fields);
   auto pack_in = desc.GetPack(md_in.get(), only_fine_on_composite);
   auto pack_out = desc.GetPack(md_out.get(), only_fine_on_composite);
   const int scratch_size = 0;
@@ -82,7 +82,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::vector<std::string> &field
       include_block[b] = md_a->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
   
-  static auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
   auto pack_a = desc.GetPack(md_a.get(), include_block, only_fine_on_composite);
   auto pack_b = desc.GetPack(md_b.get(), include_block, only_fine_on_composite);
   auto pack_out = desc.GetPack(md_out.get(), include_block, only_fine_on_composite);
@@ -122,7 +122,7 @@ TaskStatus SetToZero(const std::vector<std::string> &fields, const std::shared_p
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  static auto desc = parthenon::MakePackDescriptor(md.get(), fields);
+  auto desc = parthenon::MakePackDescriptor(md.get(), fields);
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
   const size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
@@ -147,7 +147,7 @@ TaskStatus SetToZero(const std::vector<std::string> &fields, const std::shared_p
   return TaskStatus::complete;
 }
 
-TaskStatus ADividedByB(const std::vector<std::string> &fields,
+inline TaskStatus ADividedByB(const std::vector<std::string> &fields,
                        const std::shared_ptr<MeshData<Real>> &md_a,
                        const std::shared_ptr<MeshData<Real>> &md_b,
                        const std::shared_ptr<MeshData<Real>> &md_out) {
@@ -155,7 +155,7 @@ TaskStatus ADividedByB(const std::vector<std::string> &fields,
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
 
-  static auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   auto pack_out = desc.GetPack(md_out.get());
@@ -171,7 +171,7 @@ TaskStatus ADividedByB(const std::vector<std::string> &fields,
   return TaskStatus::complete;
 }
 
-TaskStatus DotProductLocal(const std::vector<std::string> &fields,
+inline TaskStatus DotProductLocal(const std::vector<std::string> &fields,
                            const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
@@ -181,7 +181,7 @@ TaskStatus DotProductLocal(const std::vector<std::string> &fields,
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
 
-  static auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
+  auto desc = parthenon::MakePackDescriptor(md_a.get(), fields);
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
@@ -201,7 +201,7 @@ TaskStatus DotProductLocal(const std::vector<std::string> &fields,
   return TaskStatus::complete;
 }
 
-TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
+inline TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::vector<std::string> &fields,
                   const std::shared_ptr<MeshData<Real>> &md_a,
                   const std::shared_ptr<MeshData<Real>> &md_b) {

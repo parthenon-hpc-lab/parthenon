@@ -26,7 +26,7 @@
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver.hpp"
 #include "solvers/cg_solver.hpp"
-//#include "solvers/solver_utils.hpp"
+#include "solvers/solver_utils.hpp"
 #include "solvers/solver_utils_stages.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/type_list.hpp"
@@ -88,14 +88,15 @@ class CGSolverStages : public SolverBase {
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace StageUtils;
     TaskID none;
+    auto partitions = pmesh->GetDefaultBlockPartitions();
     // Should contain all fields necessary for applying the matrix to a give state vector, 
     // e.g. diffusion coefficients and diagonal, these will not be modified by the solvers
-    auto &md_base = pmesh->mesh_data.GetOrAdd(container_base, partition);
+    auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     // Container in which the solution is stored and with which the downstream user can 
     // interact. This container only requires the fields in sol_fields 
-    auto &md_u = pmesh->mesh_data.GetOrAdd(container_u, partition);
+    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition]);
     // Container of the rhs, only requires fields in sol_fields
-    auto &md_rhs = pmesh->mesh_data.GetOrAdd(container_rhs, partition);
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
     // Internal solver containers
     auto &md_x = pmesh->mesh_data.Add(container_x, md_u, sol_fields);
     auto &md_r = pmesh->mesh_data.Add(container_r, md_u, sol_fields);
@@ -162,6 +163,7 @@ class CGSolverStages : public SolverBase {
       //auto zero_u = itl.AddTask(precon, TF(SetToZero), sol_fields, md_u);
       //precon =
       //    preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+      PARTHENON_FAIL("Preconditioning not yet implemented.");
     } else {
       precon = itl.AddTask(precon, TF(CopyData), sol_fields, md_r, md_u);
     }
