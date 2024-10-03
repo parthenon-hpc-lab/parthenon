@@ -419,9 +419,6 @@ class MGSolverStages : public SolverBase {
     }
 
     // 2. Do pre-smooth and fill solution on this level
-    // set_from_finer =
-    //    tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal), &eqs_, md,
-    //    md_diag);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
         tl, set_from_finer, pre_stages, multilevel, partition, level, pmesh);
     // If we are finer than the coarsest level:
@@ -453,7 +450,7 @@ class MGSolverStages : public SolverBase {
                      md_res_err);
       auto prolongate = set_from_coarser;
       if (params_.prolongation == "User") {
-        // prolongate = eqs_.template Prolongate(tl, set_from_coarser, md_res_err);
+        prolongate = eqs_.template Prolongate<FieldTL>(tl, set_from_coarser, md_res_err);
         PARTHENON_FAIL("Not implemented.");
       } else {
         prolongate = tl.AddTask(set_from_coarser,

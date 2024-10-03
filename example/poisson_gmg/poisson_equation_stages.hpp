@@ -67,9 +67,9 @@ class PoissonEquationStages {
                        std::shared_ptr<parthenon::MeshData<Real>> &md_in,
                        std::shared_ptr<parthenon::MeshData<Real>> &md_out) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes, md_mat, md_in);
-    // if (set_flux_boundary) {
-    //   flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md, include_flux_dx);
-    // }
+    if (set_flux_boundary) {
+      flux_res = tl.AddTask(flux_res, SetFluxBoundaries, md_mat, md_in, include_flux_dx);
+    }
     if (do_flux_cor && !(md_mat->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md_in);
@@ -192,17 +192,17 @@ class PoissonEquationStages {
     return TaskStatus::complete;
   }
 
-  template <class... var_ts>
+  template <class VarTL>
   parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                                std::shared_ptr<parthenon::MeshData<Real>> &md) {
     if (prolongation_type == ProlongationType::Constant) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, var_ts...>,
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, VarTL>,
                         md);
     } else if (prolongation_type == ProlongationType::Linear) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, var_ts...>,
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, VarTL>,
                         md);
     } else if (prolongation_type == ProlongationType::Kwak) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, var_ts...>,
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, VarTL>,
                         md);
     }
     return depends_on;
@@ -227,7 +227,7 @@ class PoissonEquationStages {
     return 0.0;
   }
 
-  template <ProlongationType prolongation_type, class... var_ts>
+  template <ProlongationType prolongation_type, class VarTL>
   static parthenon::TaskStatus
   ProlongateImpl(std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
@@ -247,9 +247,9 @@ class PoissonEquationStages {
       include_block[b] =
           md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
-    const auto desc = parthenon::MakePackDescriptor<var_ts...>(md.get());
+    const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse =
-        parthenon::MakePackDescriptor<var_ts...>(md.get(), {}, {PDOpt::Coarse});
+        parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
 
@@ -314,7 +314,7 @@ class PoissonEquationStages {
   }
 
   static parthenon::TaskStatus
-  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
+  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md_mat, std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -327,8 +327,10 @@ class PoissonEquationStages {
     std::vector<bool> include_block(nblocks, true);
 
     auto desc =
-        parthenon::MakePackDescriptor<var_t, D_t>(md.get(), {}, {PDOpt::WithFluxes});
+        parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+    auto desc_mat = parthenon::MakePackDescriptor<D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
+    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
     const std::size_t scratch_size_in_bytes = 0;
     const std::size_t scratch_level = 1;
 
@@ -369,7 +371,7 @@ class PoissonEquationStages {
                   [&](const int idx) {
                     const auto [k, j, i] = idxer(idx);
                     pack.flux(b, dir, var_t(), k, j, i) =
-                        sign * pack(b, te, D_t(), k, j, i) *
+                        sign * pack_mat(b, te, D_t(), k, j, i) *
                         pack(b, var_t(), k + koff, j + joff, i + ioff) / (0.5 * dx);
                   });
             }
