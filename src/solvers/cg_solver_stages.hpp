@@ -24,9 +24,9 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "solvers/cg_solver.hpp"
 #include "solvers/mg_solver.hpp"
 #include "solvers/mg_solver_stages.hpp"
-#include "solvers/cg_solver.hpp"
 #include "solvers/solver_utils.hpp"
 #include "solvers/solver_utils_stages.hpp"
 #include "tasks/tasks.hpp"
@@ -45,38 +45,32 @@ namespace solvers {
 // the matrix A to it and stores the result in y_t.
 template <class equations>
 class CGSolverStages : public SolverBase {
-  
   using FieldTL = typename equations::IndependentVars;
   using preconditioner_t = MGSolverStages<equations>;
 
   std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to 
+  // Name of user defined container that should contain information required to
   // calculate the matrix part of the matrix vector product
-  std::string container_base; 
-  // User defined container in which the solution will reside, only needs to contain sol_fields
+  std::string container_base;
+  // User defined container in which the solution will reside, only needs to contain
+  // sol_fields
   // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u; 
+  std::string container_u;
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_x, container_r, container_v, container_p;
- 
- public:
 
-  CGSolverStages(const std::string &container_base, 
-                 const std::string &container_u,
-                 const std::string &container_rhs,
-                 StateDescriptor *pkg,
-                 CGParams params_in,
-                 const equations &eq_in = equations())
-      : preconditioner(container_base, container_u, container_rhs, pkg, params_in.mg_params, eq_in),
-        container_base(container_base), 
-        container_u(container_u),
-        container_rhs(container_rhs),
-        params_(params_in),
-        iter_counter(0),
-        eqs_(eq_in) {
-    FieldTL::IterateTypes([this](auto t){this->sol_fields.push_back(decltype(t)::name());}); 
+ public:
+  CGSolverStages(const std::string &container_base, const std::string &container_u,
+                 const std::string &container_rhs, StateDescriptor *pkg,
+                 CGParams params_in, const equations &eq_in = equations())
+      : preconditioner(container_base, container_u, container_rhs, pkg,
+                       params_in.mg_params, eq_in),
+        container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {
+    FieldTL::IterateTypes(
+        [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "cg";
     container_x = solver_id + "_x";
     container_r = solver_id + "_r";
@@ -92,18 +86,19 @@ class CGSolverStages : public SolverBase {
     using namespace StageUtils;
     TaskID none;
     auto partitions = pmesh->GetDefaultBlockPartitions();
-    // Should contain all fields necessary for applying the matrix to a give state vector, 
+    // Should contain all fields necessary for applying the matrix to a give state vector,
     // e.g. diffusion coefficients and diagonal, these will not be modified by the solvers
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
-    // Container in which the solution is stored and with which the downstream user can 
-    // interact. This container only requires the fields in sol_fields 
+    // Container in which the solution is stored and with which the downstream user can
+    // interact. This container only requires the fields in sol_fields
     auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition]);
     // Container of the rhs, only requires fields in sol_fields
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
     // Internal solver containers
     auto &md_x = pmesh->mesh_data.Add(container_x, md_u, sol_fields);
     auto &md_r = pmesh->mesh_data.Add(container_r, md_u, sol_fields);
-    // TODO(LFR): The v container can probably be removed and the u container used in its stead
+    // TODO(LFR): The v container can probably be removed and the u container used in its
+    // stead
     auto &md_v = pmesh->mesh_data.Add(container_v, md_u, sol_fields);
     auto &md_p = pmesh->mesh_data.Add(container_p, md_u, sol_fields);
 
@@ -132,8 +127,8 @@ class CGSolverStages : public SolverBase {
     if (params_.print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
-          [&](CGSolverStages *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
-              Mesh *pm) {
+          [&](CGSolverStages *solver, std::shared_ptr<Real> res_tol,
+              bool relative_residual, Mesh *pm) {
             Real tol = relative_residual
                            ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
                            : *res_tol;
@@ -176,7 +171,8 @@ class CGSolverStages : public SolverBase {
     // 3. p <- u + beta p
     auto correct_p = itl.AddTask(
         get_ru, "p <- u + beta p",
-        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_p) {
+        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_u,
+           std::shared_ptr<MeshData<Real>> &md_p) {
           Real beta = solver->iter_counter > 0 ? solver->ru.val / solver->ru_old : 0.0;
           return AddFieldsAndStore<FieldTL>(md_u, md_p, md_p, 1.0, beta);
         },
@@ -193,8 +189,7 @@ class CGSolverStages : public SolverBase {
     // 6. x <- x + alpha p
     auto correct_x = itl.AddTask(
         get_pAp, "x <- x + alpha p",
-        [](CGSolverStages *solver, 
-           std::shared_ptr<MeshData<Real>> &md_x,
+        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_x,
            std::shared_ptr<MeshData<Real>> &md_p) {
           Real alpha = solver->ru.val / solver->pAp.val;
           return AddFieldsAndStore<FieldTL>(md_x, md_p, md_x, 1.0, alpha);
@@ -204,8 +199,7 @@ class CGSolverStages : public SolverBase {
     // 6. r <- r - alpha A p
     auto correct_r = itl.AddTask(
         get_pAp, "r <- r - alpha A p",
-        [](CGSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_r,
+        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_r,
            std::shared_ptr<MeshData<Real>> &md_v) {
           Real alpha = solver->ru.val / solver->pAp.val;
           return AddFieldsAndStore<FieldTL>(md_r, md_v, md_r, 1.0, -alpha);
@@ -227,8 +221,8 @@ class CGSolverStages : public SolverBase {
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res | correct_x, "completion",
-        [](CGSolverStages *solver, Mesh *pmesh, int max_iter, std::shared_ptr<Real> res_tol,
-           bool relative_residual) {
+        [](CGSolverStages *solver, Mesh *pmesh, int max_iter,
+           std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;

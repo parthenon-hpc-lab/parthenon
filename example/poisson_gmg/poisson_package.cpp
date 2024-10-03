@@ -94,36 +94,36 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   PoissonEquation eq(pin, "poisson");
   pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
-  
+
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   if (solver == "MG") {
     parthenon::solvers::MGParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(pkg.get(), params, eq);
-  } else if (solver == "BiCGSTAB") { 
+    psolver = std::make_shared<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
+        pkg.get(), params, eq);
+  } else if (solver == "BiCGSTAB") {
     parthenon::solvers::BiCGSTABParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(pkg.get(), params, eq);
+    psolver =
+        std::make_shared<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
+            pkg.get(), params, eq);
   } else if (solver == "CG") {
     parthenon::solvers::CGParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(pkg.get(), params, eq); 
+    psolver = std::make_shared<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(
+        pkg.get(), params, eq);
   } else if (solver == "CGStages") {
     using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
     parthenon::solvers::CGParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::CGSolverStages<PoissEqStages>>(
-                                                                    "base", "u", "rhs",
-                                                                    pkg.get(), params,
-                                                                    PoissEqStages(pin, "poisson")); 
+        "base", "u", "rhs", pkg.get(), params, PoissEqStages(pin, "poisson"));
   } else if (solver == "BiCGSTABStages") {
     using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
     parthenon::solvers::BiCGSTABParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::BiCGSTABSolverStages<PoissEqStages>>(
-                                                                    "base", "u", "rhs",
-                                                                    pkg.get(), params,
-                                                                    PoissEqStages(pin, "poisson")); 
-  } else { 
+        "base", "u", "rhs", pkg.get(), params, PoissEqStages(pin, "poisson"));
+  } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
-  pkg->AddParam<>("solver_pointer", psolver); 
-  
+  pkg->AddParam<>("solver_pointer", psolver);
+
   using namespace parthenon::refinement_ops;
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
@@ -132,10 +132,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
-  
-  std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                              Metadata::WithFluxes, Metadata::GMGRestrict};
-  if (solver == "CGStages" || solver == "BiCGSTABStages") flags.push_back(Metadata::GMGProlongate);
+
+  std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent,
+                                  Metadata::FillGhost, Metadata::WithFluxes,
+                                  Metadata::GMGRestrict};
+  if (solver == "CGStages" || solver == "BiCGSTABStages")
+    flags.push_back(Metadata::GMGProlongate);
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();

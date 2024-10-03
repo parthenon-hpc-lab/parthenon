@@ -40,8 +40,8 @@ class PoissonEquationStages {
   bool include_flux_dx = false;
   enum class ProlongationType { Constant, Linear, Kwak };
   ProlongationType prolongation_type = ProlongationType::Constant;
-  
-  using IndependentVars = parthenon::TypeList<var_t>; 
+
+  using IndependentVars = parthenon::TypeList<var_t>;
 
   PoissonEquationStages(parthenon::ParameterInput *pin, const std::string &label) {
     do_flux_cor = pin->GetOrAddBoolean(label, "flux_correct", false);
@@ -67,14 +67,16 @@ class PoissonEquationStages {
                        std::shared_ptr<parthenon::MeshData<Real>> &md_in,
                        std::shared_ptr<parthenon::MeshData<Real>> &md_out) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes, md_mat, md_in);
-    //if (set_flux_boundary) {
-    //  flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md, include_flux_dx);
-    //}
+    // if (set_flux_boundary) {
+    //   flux_res = tl.AddTask(flux_res, SetFluxBoundaries<x_t>, md, include_flux_dx);
+    // }
     if (do_flux_cor && !(md_mat->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md_in);
-      auto send_flxcor = tl.AddTask(flux_res, parthenon::LoadAndSendFluxCorrections, md_in);
-      auto recv_flxcor = tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, md_in);
+      auto send_flxcor =
+          tl.AddTask(flux_res, parthenon::LoadAndSendFluxCorrections, md_in);
+      auto recv_flxcor =
+          tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, md_in);
       flux_res = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, md_in);
     }
     return tl.AddTask(flux_res, FluxMultiplyMatrix, md_in, md_out);
@@ -84,7 +86,7 @@ class PoissonEquationStages {
   // For a uniform grid or when flux correction is ignored, this diagonal calculation
   // is exact. Exactness is (probably) not required since it is just used in Jacobi
   // iterations.
-  parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md_mat, 
+  parthenon::TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
                                     std::shared_ptr<parthenon::MeshData<Real>> &md_diag) {
     using namespace parthenon;
     const int ndim = md_mat->GetMeshPointer()->ndim;
@@ -109,21 +111,21 @@ class PoissonEquationStages {
           const auto &coords = pack_mat.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          Real diag_elem =
-              -(pack_mat(b, TE::F1, D_t(), k, j, i) + pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
-                  (dx1 * dx1) -
-              alpha;
+          Real diag_elem = -(pack_mat(b, TE::F1, D_t(), k, j, i) +
+                             pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
+                               (dx1 * dx1) -
+                           alpha;
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            diag_elem -=
-                (pack_mat(b, TE::F2, D_t(), k, j, i) + pack_mat(b, TE::F2, D_t(), k, j + 1, i)) /
-                (dx2 * dx2);
+            diag_elem -= (pack_mat(b, TE::F2, D_t(), k, j, i) +
+                          pack_mat(b, TE::F2, D_t(), k, j + 1, i)) /
+                         (dx2 * dx2);
           }
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            diag_elem -=
-                (pack_mat(b, TE::F3, D_t(), k, j, i) + pack_mat(b, TE::F3, D_t(), k + 1, j, i)) /
-                (dx3 * dx3);
+            diag_elem -= (pack_mat(b, TE::F3, D_t(), k, j, i) +
+                          pack_mat(b, TE::F3, D_t(), k + 1, j, i)) /
+                         (dx3 * dx3);
           }
           pack_diag(b, te, var_t(), k, j, i) = diag_elem;
         });
@@ -131,7 +133,8 @@ class PoissonEquationStages {
   }
 
   static parthenon::TaskStatus
-  CalculateFluxes(std::shared_ptr<parthenon::MeshData<Real>> &md_mat, std::shared_ptr<parthenon::MeshData<Real>> &md) {
+  CalculateFluxes(std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
+                  std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;
@@ -145,11 +148,9 @@ class PoissonEquationStages {
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
 
-    auto desc =
-        parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get(), include_block);
-    auto desc_mat =
-        parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
+    auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
     auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
     parthenon::par_for(
         "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -408,8 +409,7 @@ class PoissonEquationStages {
 
     static auto desc =
         parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
-    static auto desc_out =
-        parthenon::MakePackDescriptor<var_t>(md_out.get());
+    static auto desc_out = parthenon::MakePackDescriptor<var_t>(md_out.get());
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_out = desc_out.GetPack(md_out.get(), include_block);
     parthenon::par_for(
@@ -418,22 +418,25 @@ class PoissonEquationStages {
           const auto &coords = pack.GetCoordinates(b);
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           pack_out(b, te, var_t(), k, j, i) = -alpha * pack(b, te, var_t(), k, j, i);
-          pack_out(b, te, var_t(), k, j, i) += (pack.flux(b, X1DIR, var_t(), k, j, i) -
-                                               pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
-                                               dx1;
+          pack_out(b, te, var_t(), k, j, i) +=
+              (pack.flux(b, X1DIR, var_t(), k, j, i) -
+               pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
+              dx1;
 
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            pack_out(b, te, var_t(), k, j, i) += (pack.flux(b, X2DIR, var_t(), k, j, i) -
-                                                 pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
-                                                 dx2;
+            pack_out(b, te, var_t(), k, j, i) +=
+                (pack.flux(b, X2DIR, var_t(), k, j, i) -
+                 pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
+                dx2;
           }
 
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            pack_out(b, te, var_t(), k, j, i) += (pack.flux(b, X3DIR, var_t(), k, j, i) -
-                                              pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
-                                             dx3;
+            pack_out(b, te, var_t(), k, j, i) +=
+                (pack.flux(b, X3DIR, var_t(), k, j, i) -
+                 pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
+                dx3;
           }
         });
     return TaskStatus::complete;

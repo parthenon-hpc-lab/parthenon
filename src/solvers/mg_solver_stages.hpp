@@ -55,31 +55,26 @@ class MGSolverStages : public SolverBase {
   using FieldTL = typename equations::IndependentVars;
 
   std::vector<std::string> sol_fields;
-  
-  // Name of user defined container that should contain information required to 
+
+  // Name of user defined container that should contain information required to
   // calculate the matrix part of the matrix vector product
-  std::string container_base; 
-  // User defined container in which the solution will reside, only needs to contain sol_fields
+  std::string container_base;
+  // User defined container in which the solution will reside, only needs to contain
+  // sol_fields
   // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u; 
+  std::string container_u;
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
 
-  MGSolverStages(const std::string &container_base, 
-                 const std::string &container_u,
-                 const std::string &container_rhs,
-                 StateDescriptor *pkg,
-                 MGParams params_in,
-                 equations eq_in = equations())
-      : container_base(container_base), 
-        container_u(container_u),
-        container_rhs(container_rhs),
-        params_(params_in),
-        iter_counter(0),
-        eqs_(eq_in) {
-    FieldTL::IterateTypes([this](auto t){this->sol_fields.push_back(decltype(t)::name());}); 
+  MGSolverStages(const std::string &container_base, const std::string &container_u,
+                 const std::string &container_rhs, StateDescriptor *pkg,
+                 MGParams params_in, equations eq_in = equations())
+      : container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {
+    FieldTL::IterateTypes(
+        [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg";
     container_res_err = solver_id + "_res_err";
     container_temp = solver_id + "_temp";
@@ -113,10 +108,11 @@ class MGSolverStages : public SolverBase {
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
                                                             pmesh->multilevel);
     auto calc_pointwise_res = eqs_.template Ax(itl, comm, md, md_u, md_res_err);
-    calc_pointwise_res = itl.AddTask(
-        calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
-        md_rhs, md_res_err, md_res_err, 1.0, -1.0, false);
-    auto get_res = DotProduct<FieldTL>(calc_pointwise_res, itl, &residual, md_res_err, md_res_err);
+    calc_pointwise_res =
+        itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
+                    md_rhs, md_res_err, md_res_err, 1.0, -1.0, false);
+    auto get_res =
+        DotProduct<FieldTL>(calc_pointwise_res, itl, &residual, md_res_err, md_res_err);
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res, "Check residual",
@@ -188,12 +184,11 @@ class MGSolverStages : public SolverBase {
   // These functions apparently have to be public to compile with cuda since
   // they contain device side lambdas
  public:
-  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md_rhs, 
+  TaskStatus Jacobi(std::shared_ptr<MeshData<Real>> &md_rhs,
                     std::shared_ptr<MeshData<Real>> &md_Ax,
                     std::shared_ptr<MeshData<Real>> &md_diag,
                     std::shared_ptr<MeshData<Real>> &md_xold,
-                    std::shared_ptr<MeshData<Real>> &md_xnew,
-                    double weight) {
+                    std::shared_ptr<MeshData<Real>> &md_xnew, double weight) {
     using namespace parthenon;
     const int ndim = md_rhs->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;
@@ -211,8 +206,7 @@ class MGSolverStages : public SolverBase {
             md_rhs->GetBlockData(b)->GetBlockPointer()->loc.level() == current_level;
       }
     }
-    static auto desc =
-        parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_rhs.get());
+    static auto desc = parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_rhs.get());
     auto pack_rhs = desc.GetPack(md_rhs.get(), include_block);
     auto pack_Ax = desc.GetPack(md_Ax.get(), include_block);
     auto pack_diag = desc.GetPack(md_diag.get(), include_block);
@@ -221,11 +215,10 @@ class MGSolverStages : public SolverBase {
     const int scratch_size = 0;
     const int scratch_level = 0;
     parthenon::par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size,
-        scratch_level, 0, pack_rhs.GetNBlocks() - 1, kb.s, kb.e,
+        DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size, scratch_level,
+        0, pack_rhs.GetNBlocks() - 1, kb.s, kb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
-          const int nvars =
-              pack_rhs.GetUpperBound(b) - pack_rhs.GetLowerBound(b) + 1;
+          const int nvars = pack_rhs.GetUpperBound(b) - pack_rhs.GetLowerBound(b) + 1;
           for (int c = 0; c < nvars; ++c) {
             Real *Ax = &pack_Ax(b, te, c, k, jb.s, ib.s);
             Real *diag = &pack_diag(b, te, c, k, jb.s, ib.s);
@@ -263,8 +256,8 @@ class MGSolverStages : public SolverBase {
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
     auto mat_mult = eqs_.template Ax(tl, comm, md_base, md_in, md_out);
-    return tl.AddTask(mat_mult, TF(&MGSolverStages::Jacobi), this,
-                      md_rhs, md_out, md_diag, md_in, md_out, omega);
+    return tl.AddTask(mat_mult, TF(&MGSolverStages::Jacobi), this, md_rhs, md_out,
+                      md_diag, md_in, md_out, omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
@@ -272,7 +265,7 @@ class MGSolverStages : public SolverBase {
                          int partition, int level, Mesh *pmesh) {
     using namespace StageUtils;
 
-    const int ndim = pmesh->ndim; 
+    const int ndim = pmesh->ndim;
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
@@ -325,7 +318,8 @@ class MGSolverStages : public SolverBase {
           tl.AddTask(task_out, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md);
       task_out = tl.AddTask(task_out, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md);
     }
-    task_out = tl.AddTask(task_out, BTF(&equations::template SetDiagonal), &eqs_, md, md_diag);
+    task_out =
+        tl.AddTask(task_out, BTF(&equations::template SetDiagonal), &eqs_, md, md_diag);
     // If we are finer than the coarsest level:
     if (level > min_level) {
       task_out =
@@ -384,20 +378,23 @@ class MGSolverStages : public SolverBase {
     auto set_from_finer = dependence;
     if (level < max_level) {
       // Fill fields with restricted values
-      // TODO: ARGH, WTF this may not be fixable since we need to communicate on two stages concurrently
+      // TODO(LFR): Need to make sure that this communication pattern is ok, since we are
+      //            trying to concurrently communicate on two stages
       auto recv_from_finer = tl.AddTask(
           dependence, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_u);
-      set_from_finer = tl.AddTask(
-          recv_from_finer, BTF(SetBounds<BoundaryType::gmg_restrict_recv>), md_u);
-      recv_from_finer = tl.AddTask(
-          set_from_finer, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_res_err);
+      set_from_finer = tl.AddTask(recv_from_finer,
+                                  BTF(SetBounds<BoundaryType::gmg_restrict_recv>), md_u);
+      recv_from_finer =
+          tl.AddTask(set_from_finer,
+                     TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_res_err);
       set_from_finer = tl.AddTask(
           recv_from_finer, BTF(SetBounds<BoundaryType::gmg_restrict_recv>), md_res_err);
       // 1. Copy residual from dual purpose communication field to the rhs, should be
       // actual RHS for finest level
       if (!do_FAS) {
         auto zero_u = tl.AddTask(set_from_finer, BTF(SetToZero<FieldTL, true>), md_u);
-        auto copy_rhs = tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_res_err, md_rhs);
+        auto copy_rhs =
+            tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_res_err, md_rhs);
         set_from_finer = zero_u | copy_rhs;
       } else {
         // TODO(LFR): Determine if this boundary exchange task is required, I think it is
@@ -406,72 +403,76 @@ class MGSolverStages : public SolverBase {
         // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
             set_from_finer, tl, md_u, multilevel);
-        set_from_finer = tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
+        set_from_finer =
+            tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
         set_from_finer = eqs_.template Ax(tl, set_from_finer, md, md_u, md_temp);
-        set_from_finer =
-            tl.AddTask(set_from_finer,
-                       BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
-                       md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
+        set_from_finer = tl.AddTask(set_from_finer,
+                                    BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
+                                    md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
       }
     } else {
-      set_from_finer = tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
+      set_from_finer =
+          tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
     }
 
     // 2. Do pre-smooth and fill solution on this level
-    //set_from_finer =
-    //    tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal), &eqs_, md, md_diag);
+    // set_from_finer =
+    //    tl.AddTask(set_from_finer, BTF(&equations::template SetDiagonal), &eqs_, md,
+    //    md_diag);
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
         tl, set_from_finer, pre_stages, multilevel, partition, level, pmesh);
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
-      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl,
-                                                                     md_u, multilevel);
+      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
+                                                                     multilevel);
 
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.template Ax(tl, comm_u, md, md_u, md_temp);
-      residual = tl.AddTask(
-          residual, BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>), md_rhs, md_temp, md_res_err,
-          1.0, -1.0, false);
+      residual = tl.AddTask(residual, BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
+                            md_rhs, md_temp, md_res_err, 1.0, -1.0, false);
 
       // 5. Restrict communication field and send to next level
-      // TODO: ARGH, this also needs to get fixed, possibly
-      auto communicate_to_coarse = tl.AddTask(
-          residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
-      communicate_to_coarse = tl.AddTask(
-          communicate_to_coarse, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+      // TODO(LFR): Other place where we are receiving two stage communication
+      auto communicate_to_coarse =
+          tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
+      communicate_to_coarse =
+          tl.AddTask(communicate_to_coarse,
+                     BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
 
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser =
           tl.AddTask(communicate_to_coarse,
                      TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_res_err);
-      auto set_from_coarser = tl.AddTask(
-          recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_res_err);
+      auto set_from_coarser =
+          tl.AddTask(recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>),
+                     md_res_err);
       auto prolongate = set_from_coarser;
       if (params_.prolongation == "User") {
-        //prolongate = eqs_.template Prolongate(tl, set_from_coarser, md_res_err);
+        // prolongate = eqs_.template Prolongate(tl, set_from_coarser, md_res_err);
         PARTHENON_FAIL("Not implemented.");
       } else {
-        prolongate =
-            tl.AddTask(set_from_coarser,
-                       BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_res_err);
+        prolongate = tl.AddTask(set_from_coarser,
+                                BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
+                                md_res_err);
       }
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
-      auto update_sol = tl.AddTask(
-          prolongate, BTF(AddFieldsAndStore<FieldTL, true>), md_u, md_res_err, md_u, 1.0, 1.0);
+      auto update_sol = tl.AddTask(prolongate, BTF(AddFieldsAndStore<FieldTL, true>),
+                                   md_u, md_res_err, md_u, 1.0, 1.0);
 
       // 8. Post smooth using communication field and stored RHS
-      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
-                                                            multilevel, partition, level, pmesh);
+      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(
+          tl, update_sol, post_stages, multilevel, partition, level, pmesh);
 
     } else {
-      post_smooth = tl.AddTask(pre_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
+      post_smooth =
+          tl.AddTask(pre_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
     }
 
     // 9. Send communication field to next finer level (should be error field for that
@@ -480,18 +481,19 @@ class MGSolverStages : public SolverBase {
     if (level < max_level) {
       auto copy_over = post_smooth;
       if (!do_FAS) {
-        copy_over = tl.AddTask(post_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
+        copy_over =
+            tl.AddTask(post_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
       } else {
-        auto calc_err = tl.AddTask(
-            post_smooth, BTF(AddFieldsAndStore<FieldTL, true>), md_u, md_u0, md_res_err, 1.0, -1.0);
+        auto calc_err = tl.AddTask(post_smooth, BTF(AddFieldsAndStore<FieldTL, true>),
+                                   md_u, md_u0, md_res_err, 1.0, -1.0);
         copy_over = calc_err;
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
           copy_over, tl, md_res_err, multilevel);
-      last_task = tl.AddTask(boundary,
-                             BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
+      last_task = tl.AddTask(
+          boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }
     // The boundaries are not up to date on return
     return last_task;

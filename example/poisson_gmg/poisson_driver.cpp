@@ -48,7 +48,8 @@ parthenon::DriverStatus PoissonDriver::Execute() {
 
   // After running, retrieve the final residual for checking in tests
   auto pkg = pmesh->packages.Get("poisson_package");
-  auto psolver = pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+  auto psolver =
+      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
   final_rms_residual = psolver->GetFinalResidual();
 
   return DriverStatus::complete;
@@ -62,7 +63,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
-  auto psolver = pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+  auto psolver =
+      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
@@ -86,8 +88,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<u>), md);
     zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
-    zero_u = tl.AddTask(zero_u, TF(solvers::StageUtils::CopyData<parthenon::TypeList<rhs>>), md, md_rhs);
-    zero_u = tl.AddTask(zero_u, TF(solvers::utils::CopyData<rhs, u>), md_rhs); 
+    zero_u = tl.AddTask(
+        zero_u, TF(solvers::StageUtils::CopyData<parthenon::TypeList<rhs>>), md, md_rhs);
+    zero_u = tl.AddTask(zero_u, TF(solvers::utils::CopyData<rhs, u>), md_rhs);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 

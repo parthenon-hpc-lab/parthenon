@@ -46,9 +46,9 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
   const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level,
-      0, pack_in.GetNBlocks() - 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        const int nvars =
-            pack_in.GetUpperBound(b) - pack_in.GetLowerBound(b) + 1;
+      0, pack_in.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+        const int nvars = pack_in.GetUpperBound(b) - pack_in.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c) {
           Real *in = &pack_in(b, te, c, kb.s, jb.s, ib.s);
           Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
@@ -79,7 +79,7 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
     for (int b = 0; b < nblocks; ++b)
       include_block[b] = md_a->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
   }
-  
+
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get(), include_block, only_fine_on_composite);
   auto pack_b = desc.GetPack(md_b.get(), include_block, only_fine_on_composite);
@@ -108,10 +108,10 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md_a,
                              const std::shared_ptr<MeshData<Real>> &md_b,
-                             const std::shared_ptr<MeshData<Real>> &md_out,
-                             Real wa = 1.0, Real wb = 1.0) {
-  return AddFieldsAndStoreInteriorSelect<TL, only_fine_on_composite>(
-      md_a, md_b, md_out, wa, wb, false); 
+                             const std::shared_ptr<MeshData<Real>> &md_out, Real wa = 1.0,
+                             Real wb = 1.0) {
+  return AddFieldsAndStoreInteriorSelect<TL, only_fine_on_composite>(md_a, md_b, md_out,
+                                                                     wa, wb, false);
 }
 
 template <class TL, bool only_fine_on_composite = true>
@@ -137,8 +137,7 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         for (int c = 0; c < nvars; ++c) {
           parthenon::par_for_inner(
               parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
-              ib.s, ib.e,
-              [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
+              ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
         }
       });
   return TaskStatus::complete;
@@ -157,13 +156,12 @@ TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
   auto pack_b = desc.GetPack(md_b.get());
   auto pack_out = desc.GetPack(md_out.get());
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack_a.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack_a.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c)
-          pack_out(b, c, k, j, i) =
-              pack_a(b, c, k, j, i) / pack_b(b, c, k, j, i);
+          pack_out(b, c, k, j, i) = pack_a(b, c, k, j, i) / pack_b(b, c, k, j, i);
       });
   return TaskStatus::complete;
 }
@@ -210,8 +208,8 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
         return TaskStatus::complete;
       },
       adotb);
-  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
-                              DotProductLocal<TL>, md_a, md_b, adotb);
+  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb, DotProductLocal<TL>,
+                              md_a, md_b, adotb);
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
@@ -220,7 +218,7 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
   return finish_global_adotb;
 }
 
-} // namespace utils
+} // namespace StageUtils
 
 } // namespace solvers
 

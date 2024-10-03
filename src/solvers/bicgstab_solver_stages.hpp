@@ -46,12 +46,13 @@ class BiCGSTABSolverStages : public SolverBase {
   using preconditioner_t = MGSolverStages<equations>;
 
   std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to 
+  // Name of user defined container that should contain information required to
   // calculate the matrix part of the matrix vector product
-  std::string container_base; 
-  // User defined container in which the solution will reside, only needs to contain sol_fields
+  std::string container_base;
+  // User defined container in which the solution will reside, only needs to contain
+  // sol_fields
   // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u; 
+  std::string container_u;
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
@@ -59,22 +60,16 @@ class BiCGSTABSolverStages : public SolverBase {
   std::string container_t, container_r, container_p, container_x, container_diag;
 
  public:
-
-  BiCGSTABSolverStages(const std::string &container_base, 
-                       const std::string &container_u,
-                       const std::string &container_rhs,
-                       StateDescriptor *pkg,
-                       BiCGSTABParams params_in,
-                       equations eq_in = equations())
-      : preconditioner(container_base, container_u, container_rhs, pkg, params_in.mg_params, eq_in),
-        container_base(container_base), 
-        container_u(container_u),
-        container_rhs(container_rhs),
-        params_(params_in),
-        iter_counter(0),
-        eqs_(eq_in) {
-    FieldTL::IterateTypes([this](auto t){this->sol_fields.push_back(decltype(t)::name());}); 
-    std::string solver_id = "bicgstab"; 
+  BiCGSTABSolverStages(const std::string &container_base, const std::string &container_u,
+                       const std::string &container_rhs, StateDescriptor *pkg,
+                       BiCGSTABParams params_in, equations eq_in = equations())
+      : preconditioner(container_base, container_u, container_rhs, pkg,
+                       params_in.mg_params, eq_in),
+        container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {
+    FieldTL::IterateTypes(
+        [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
+    std::string solver_id = "bicgstab";
     container_rhat0 = solver_id + "_rhat0";
     container_v = solver_id + "_v";
     container_h = solver_id + "_h";
@@ -102,13 +97,13 @@ class BiCGSTABSolverStages : public SolverBase {
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace StageUtils;
     TaskID none;
-    
+
     auto partitions = pmesh->GetDefaultBlockPartitions();
-    // Should contain all fields necessary for applying the matrix to a give state vector, 
+    // Should contain all fields necessary for applying the matrix to a give state vector,
     // e.g. diffusion coefficients and diagonal, these will not be modified by the solvers
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
-    // Container in which the solution is stored and with which the downstream user can 
-    // interact. This container only requires the fields in sol_fields 
+    // Container in which the solution is stored and with which the downstream user can
+    // interact. This container only requires the fields in sol_fields
     auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition]);
     // Container of the rhs, only requires fields in sol_fields
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
@@ -148,8 +143,8 @@ class BiCGSTABSolverStages : public SolverBase {
         this);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolverStages *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
-            Mesh *pm) {
+        [&](BiCGSTABSolverStages *solver, std::shared_ptr<Real> res_tol,
+            bool relative_residual, Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
             Real tol = relative_residual
                            ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
@@ -200,10 +195,8 @@ class BiCGSTABSolverStages : public SolverBase {
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
         get_rhat0v, "h <- x + alpha u",
-        [](BiCGSTABSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_x,
-           std::shared_ptr<MeshData<Real>> &md_u,
-           std::shared_ptr<MeshData<Real>> &md_h) {
+        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_x,
+           std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_h) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<FieldTL>(md_x, md_u, md_h, 1.0, alpha);
         },
@@ -212,10 +205,8 @@ class BiCGSTABSolverStages : public SolverBase {
     // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
     auto correct_s = itl.AddTask(
         get_rhat0v, "s <- r - alpha v",
-        [](BiCGSTABSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_r,
-           std::shared_ptr<MeshData<Real>> &md_v,
-           std::shared_ptr<MeshData<Real>> &md_s) {
+        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_r,
+           std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_s) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<FieldTL>(md_r, md_v, md_s, 1.0, -alpha);
         },
@@ -259,10 +250,8 @@ class BiCGSTABSolverStages : public SolverBase {
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
         get_tt | get_ts, "x <- h + omega u",
-        [](BiCGSTABSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_h,
-           std::shared_ptr<MeshData<Real>> &md_u,
-           std::shared_ptr<MeshData<Real>> &md_x) {
+        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_h,
+           std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_x) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<FieldTL>(md_h, md_u, md_x, 1.0, omega);
         },
@@ -271,10 +260,8 @@ class BiCGSTABSolverStages : public SolverBase {
     // 10. r <- s - omega t
     auto correct_r = itl.AddTask(
         get_tt | get_ts, "r <- s - omega t",
-        [](BiCGSTABSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_s,
-           std::shared_ptr<MeshData<Real>> &md_t,
-           std::shared_ptr<MeshData<Real>> &md_r) {
+        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_s,
+           std::shared_ptr<MeshData<Real>> &md_t, std::shared_ptr<MeshData<Real>> &md_r) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<FieldTL>(md_s, md_t, md_r, 1.0, -omega);
         },
@@ -300,10 +287,8 @@ class BiCGSTABSolverStages : public SolverBase {
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
         get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
-        [](BiCGSTABSolverStages *solver,
-           std::shared_ptr<MeshData<Real>> &md_p,
-           std::shared_ptr<MeshData<Real>> &md_v,
-           std::shared_ptr<MeshData<Real>> &md_r) {
+        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_p,
+           std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_r) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;
           Real beta = solver->rhat0r.val / solver->rhat0r_old * alpha / omega;
@@ -356,4 +341,4 @@ class BiCGSTABSolverStages : public SolverBase {
 
 } // namespace parthenon
 
-#endif // SOLVERS_BICGSTAB_SOLVER_HPP_
+#endif // SOLVERS_BICGSTAB_SOLVER_STAGES_HPP_

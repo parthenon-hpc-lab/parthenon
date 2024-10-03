@@ -60,16 +60,16 @@ struct MGParams {
 
 class SolverBase {
  public:
-  virtual ~SolverBase(){} 
+  virtual ~SolverBase() {}
 
   virtual TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition,
-                                Mesh *pmesh) = 0;  
+                               Mesh *pmesh) = 0;
   virtual TaskID AddTasks(TaskList &tl, TaskID dependence, int partition,
-                                Mesh *pmesh) = 0;  
+                          Mesh *pmesh) = 0;
 
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
- 
+
  protected:
   Real final_residual;
   int final_iteration;
