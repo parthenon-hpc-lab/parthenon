@@ -14,6 +14,7 @@
 #define EXAMPLE_POISSON_GMG_POISSON_EQUATION_STAGES_HPP_
 
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -199,11 +200,9 @@ class PoissonEquationStages {
       return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, VarTL>,
                         md);
     } else if (prolongation_type == ProlongationType::Linear) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, VarTL>,
-                        md);
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, VarTL>, md);
     } else if (prolongation_type == ProlongationType::Kwak) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, VarTL>,
-                        md);
+      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, VarTL>, md);
     }
     return depends_on;
   }
@@ -248,8 +247,8 @@ class PoissonEquationStages {
           md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
-    const auto desc_coarse =
-        parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
+    const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
+        md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
 
@@ -314,7 +313,8 @@ class PoissonEquationStages {
   }
 
   static parthenon::TaskStatus
-  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md_mat, std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
+  SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
+                    std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -326,8 +326,7 @@ class PoissonEquationStages {
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
 
-    auto desc =
-        parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);

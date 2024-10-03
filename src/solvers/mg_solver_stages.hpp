@@ -451,7 +451,6 @@ class MGSolverStages : public SolverBase {
       auto prolongate = set_from_coarser;
       if (params_.prolongation == "User") {
         prolongate = eqs_.template Prolongate<FieldTL>(tl, set_from_coarser, md_res_err);
-        PARTHENON_FAIL("Not implemented.");
       } else {
         prolongate = tl.AddTask(set_from_coarser,
                                 BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
