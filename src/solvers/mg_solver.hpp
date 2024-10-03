@@ -25,6 +25,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
@@ -56,23 +57,6 @@ struct MGParams {
     max_coarsenings =
         pin->GetOrAddInteger(input_block, "max_coarsenings", max_coarsenings);
   }
-};
-
-class SolverBase {
- public:
-  virtual ~SolverBase() {}
-
-  virtual TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition,
-                               Mesh *pmesh) = 0;
-  virtual TaskID AddTasks(TaskList &tl, TaskID dependence, int partition,
-                          Mesh *pmesh) = 0;
-
-  Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
-
- protected:
-  Real final_residual;
-  int final_iteration;
 };
 
 // The equations class must include a template method

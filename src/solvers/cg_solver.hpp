@@ -25,6 +25,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/type_list.hpp"

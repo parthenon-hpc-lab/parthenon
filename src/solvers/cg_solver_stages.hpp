@@ -27,7 +27,7 @@
 #include "solvers/cg_solver.hpp"
 #include "solvers/mg_solver.hpp"
 #include "solvers/mg_solver_stages.hpp"
-#include "solvers/solver_utils.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils_stages.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/type_list.hpp"

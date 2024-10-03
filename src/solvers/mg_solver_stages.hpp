@@ -25,7 +25,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "solvers/solver_utils.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils_stages.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
