@@ -24,6 +24,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
+#include <solvers/bicgstab_solver_stages.hpp>
 #include <solvers/cg_solver.hpp>
 #include <solvers/cg_solver_stages.hpp>
 #include <solvers/mg_solver.hpp>
@@ -111,6 +112,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                                                                     "base", "u", "rhs",
                                                                     pkg.get(), params,
                                                                     PoissEqStages(pin, "poisson")); 
+  } else if (solver == "BiCGSTABStages") {
+    using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
+    parthenon::solvers::BiCGSTABParams params(pin, "poisson/solver_params");
+    psolver = std::make_shared<parthenon::solvers::BiCGSTABSolverStages<PoissEqStages>>(
+                                                                    "base", "u", "rhs",
+                                                                    pkg.get(), params,
+                                                                    PoissEqStages(pin, "poisson")); 
   } else { 
     PARTHENON_FAIL("Unknown solver type.");
   }
@@ -127,7 +135,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   
   std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
                               Metadata::WithFluxes, Metadata::GMGRestrict};
-  if (solver == "CGStages") flags.push_back(Metadata::GMGProlongate);
+  if (solver == "CGStages" || solver == "BiCGSTABStages") flags.push_back(Metadata::GMGProlongate);
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
