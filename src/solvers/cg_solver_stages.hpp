@@ -25,6 +25,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver.hpp"
+#include "solvers/mg_solver_stages.hpp"
 #include "solvers/cg_solver.hpp"
 #include "solvers/solver_utils.hpp"
 #include "solvers/solver_utils_stages.hpp"
@@ -46,6 +47,7 @@ template <class equations>
 class CGSolverStages : public SolverBase {
   
   using FieldTL = typename equations::IndependentVars;
+  using preconditioner_t = MGSolverStages<equations>;
 
   std::vector<std::string> sol_fields;
   // Name of user defined container that should contain information required to 
@@ -67,7 +69,8 @@ class CGSolverStages : public SolverBase {
                  StateDescriptor *pkg,
                  CGParams params_in,
                  const equations &eq_in = equations())
-      : container_base(container_base), 
+      : preconditioner(container_base, container_u, container_rhs, pkg, params_in.mg_params, eq_in),
+        container_base(container_base), 
         container_u(container_u),
         container_rhs(container_rhs),
         params_(params_in),
@@ -82,8 +85,7 @@ class CGSolverStages : public SolverBase {
   }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
-    return dependence;
-    //return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
+    return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
@@ -160,11 +162,10 @@ class CGSolverStages : public SolverBase {
     // 1. u <- M r
     auto precon = reset;
     if (params_.precondition) {
-      //auto set_rhs = itl.AddTask(precon, TF(CopyData<FieldTL>), md_r, m_rhs);
-      //auto zero_u = itl.AddTask(precon, TF(SetToZero<FieldTL>), md_u);
-      //precon =
-      //    preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
-      PARTHENON_FAIL("Preconditioning not yet implemented.");
+      auto set_rhs = itl.AddTask(precon, TF(CopyData<FieldTL>), md_r, md_rhs);
+      auto zero_u = itl.AddTask(precon, TF(SetToZero<FieldTL>), md_u);
+      precon =
+          preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
     } else {
       precon = itl.AddTask(precon, TF(CopyData<FieldTL>), md_r, md_u);
     }
@@ -253,6 +254,7 @@ class CGSolverStages : public SolverBase {
   CGParams &GetParams() { return params_; }
 
  protected:
+  preconditioner_t preconditioner;
   CGParams params_;
   int iter_counter;
   AllReduce<Real> ru, pAp, residual, rhs2;

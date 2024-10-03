@@ -124,9 +124,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
-
-  auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                              Metadata::WithFluxes, Metadata::GMGRestrict});
+  
+  std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
+                              Metadata::WithFluxes, Metadata::GMGRestrict};
+  if (solver == "CGStages") flags.push_back(Metadata::GMGProlongate);
+  auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
   } else if (prolong == "Constant") {
