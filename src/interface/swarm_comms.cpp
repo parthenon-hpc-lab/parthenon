@@ -141,6 +141,9 @@ void Swarm::SetupPersistentMPI() {
 
   const int nbmax = vbswarm->bd_var_.nbmax;
 
+  // Build up convenience array of neighbor indices
+  SetNeighborIndices_();
+
   // Build device array mapping neighbor index to neighbor bufid
   if (pmb->neighbors.size() > 0) {
     ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->neighbors.size());
