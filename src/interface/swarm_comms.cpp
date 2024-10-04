@@ -141,9 +141,6 @@ void Swarm::SetupPersistentMPI() {
 
   const int nbmax = vbswarm->bd_var_.nbmax;
 
-  // Build up convenience array of neighbor indices
-  SetNeighborIndices_();
-
   // Build device array mapping neighbor index to neighbor bufid
   if (pmb->neighbors.size() > 0) {
     ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->neighbors.size());
@@ -437,6 +434,9 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
   pmb->pbswarm->bswarms.push_back(vbswarm);
+
+  // Evaluate neigbor indices
+  SetNeighborIndices_();
 }
 
 } // namespace parthenon
