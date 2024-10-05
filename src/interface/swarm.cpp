@@ -89,22 +89,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   // Initialize index metadata
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
-  printf("%s:%i\n", __FILE__, __LINE__);
   UpdateEmptyIndices();
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("num_active: %i max_active_index: %i\n", num_active_, max_active_index_);
-  for (int n = 0; n < nmax_pool_ - num_active_; n++) {
-    printf("empty indices[%i] = %i\n", n, static_cast<int>(empty_indices_(n)));
-    PARTHENON_REQUIRE(mask_(empty_indices_(n)) == false, "??");
-  }
 }
 
 void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
@@ -205,15 +190,6 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
@@ -254,7 +230,6 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   nmax_pool_ = nmax_pool;
 
   // Populate new empty indices
-  printf("%s:%i\n", __FILE__, __LINE__);
   UpdateEmptyIndices();
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following SetPoolMax
@@ -263,41 +238,15 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   for (auto &partition : pm->GetDefaultBlockPartitions()) {
     pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    printf("AddEmptyParticles nactive: %i num_active_: %i\n", nactive, num_active_);
-    printf("adding: %i particles\n", num_to_add);
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-    for (int n = 0; n < nmax_pool_ - num_active_; n++) {
-      printf("empty indices[%i] = %i\n", n, static_cast<int>(empty_indices_(n)));
-      PARTHENON_REQUIRE(mask_(empty_indices_(n)) == false, "??");
-    }
-  }
 
   auto pmb = GetBlockPointer();
 
   if (num_to_add > 0) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     while (nmax_pool_ - num_active_ < num_to_add) {
-      printf("%s:%i\n", __FILE__, __LINE__);
       IncreasePoolMax();
     }
 
@@ -314,51 +263,27 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 
           // Record vote for max active index
           max_ind = new_indices(n);
-          printf("[%i] new_index = %i max_ind = %i\n", n, new_indices(n), max_ind);
         },
         Kokkos::Max<int>(max_new_active_index));
-    printf("max new active index: %i\n", max_new_active_index);
 
     // Update max active index if necessary
     max_active_index_ = std::max(max_active_index_, max_new_active_index);
 
     new_indices_max_idx_ = num_to_add - 1;
     num_active_ += num_to_add;
-    printf("max_active_index_: %i new_indices_max_idx_: %i num_active_: %i\n",
-           max_active_index_, new_indices_max_idx_, num_active_);
 
-    printf("%s:%i\n", __FILE__, __LINE__);
     UpdateEmptyIndices();
   } else {
-    printf("%s:%i\n", __FILE__, __LINE__);
     new_indices_max_idx_ = -1;
   }
 
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    printf("%s:%i mask_active: %i num_active_: %i\n", __FILE__, __LINE__, nactive,
-           num_active_);
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
-
   // Create and return NewParticlesContext
-  printf("%s:%i\n", __FILE__, __LINE__);
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
 }
 
 // Updates the empty_indices_ array so the first N elements contain an ascending list of
 // indices into empty elements of the swarm pool, where N is the number of empty indices
 void Swarm::UpdateEmptyIndices() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("num_active: %i max_active_index: %i\n", num_active_, max_active_index_);
-  // for (int n = 0; n < nmax_pool_ - num_active_; n++) {
-  //  printf("empty indices[%i] = %i\n", n, static_cast<int>(empty_indices_(n)));
-  //  PARTHENON_REQUIRE(mask_(empty_indices_(n)) == false, "??");
-  //}
   auto &mask = mask_;
   auto &empty_indices = empty_indices_;
 
@@ -386,29 +311,13 @@ void Swarm::UpdateEmptyIndices() {
           empty_indices(empty_indices_scan(n) - 1) = n;
         }
       });
-
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("num_active: %i max_active_index: %i\n", num_active_, max_active_index_);
-  for (int n = 0; n < nmax_pool_ - num_active_; n++) {
-    printf("empty indices[%i] = %i\n", n, static_cast<int>(empty_indices(n)));
-    PARTHENON_REQUIRE(mask_(empty_indices_(n)) == false, "??");
-  }
 }
 
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  printf("%s:%i\n", __FILE__, __LINE__);
   int &max_active_index = max_active_index_;
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
 
   auto &mask = mask_;
   auto &marked_for_removal = marked_for_removal_;
@@ -430,22 +339,10 @@ void Swarm::RemoveMarkedParticles() {
 
   num_active_ -= num_removed;
 
-  printf("%s:%i\n", __FILE__, __LINE__);
   UpdateEmptyIndices();
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::Defrag() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("Swarm::Defrag()\n");
   if (GetNumActive() == 0) {
     return;
   }
@@ -455,26 +352,12 @@ void Swarm::Defrag() {
   auto &map = scratch_b_;
 
   auto &mask = mask_;
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
 
   const int &num_active = num_active_;
   auto empty_indices = empty_indices_;
-  printf("num_active: %i\n", num_active);
-  printf("nmax_pool_: %i\n", nmax_pool_);
-  printf("nmax_pool_ - num_active_ - 1: %i\n", nmax_pool_ - num_active_ - 1);
   parthenon::par_scan(
-      //"Set empty indices prefix sum", 0, nmax_pool_ - num_active_ - 1,
       "Set empty indices prefix sum", num_active, nmax_pool_ - 1,
-      // KOKKOS_LAMBDA(const int nn, int &update, const bool &final) {
       KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
-        // const int n = nn + num_active;
         const int val = mask(n);
         if (val) {
           update += 1;
@@ -486,10 +369,6 @@ void Swarm::Defrag() {
         }
       });
 
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("scan_scratch_toread(%i) = %i\n", n, scan_scratch_toread(n));
-  }
-
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
         if (n >= num_active) {
@@ -499,16 +378,9 @@ void Swarm::Defrag() {
           mask(n) = false;
         }
       });
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("map(%i) = %i\n", n, map(n));
-  }
 
   // Reuse scratch memory
   auto &scan_scratch_towrite = scan_scratch_toread;
-
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("mask(%i) = %i\n", n, mask_(n));
-  }
 
   // Update list of empty indices
   parthenon::par_scan(
@@ -520,9 +392,6 @@ void Swarm::Defrag() {
         }
         if (final) scan_scratch_towrite(n) = update;
       });
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("scan_scratch_towrite(%i) = %i\n", n, scan_scratch_towrite(n));
-  }
 
   // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
@@ -538,28 +407,12 @@ void Swarm::Defrag() {
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
 
-  Real hash = 0.;
-  for (int n = 0; n < num_active_ - 1; n++) {
-    if (mask(n)) {
-      for (int vidx = 0; vidx < realPackDim; vidx++) {
-        hash += vreal(vidx, n);
-      }
-    }
-    if (!mask(n)) {
-      for (int vidx = 0; vidx < realPackDim; vidx++) {
-        hash += vreal(vidx, map(scan_scratch_towrite(n) - 1));
-      }
-    }
-  }
-  printf("old hash: %e\n", hash);
-
   // Loop over only the active number of particles, and if mask is empty, copy in particle
   // using address from prefix sum
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, num_active_ - 1, KOKKOS_LAMBDA(const int n) {
         if (!mask(n)) {
           const int nread = map(scan_scratch_towrite(n) - 1);
-          printf("write from %i to %i\n", nread, n);
           for (int vidx = 0; vidx < realPackDim; vidx++) {
             vreal(vidx, n) = vreal(vidx, nread);
           }
@@ -572,33 +425,6 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-
-  Real new_hash = 0.;
-  for (int n = 0; n < num_active_ - 1; n++) {
-    if (mask(n)) {
-      for (int vidx = 0; vidx < realPackDim; vidx++) {
-        new_hash += vreal(vidx, n);
-      }
-    }
-  }
-  printf("new hash: %e\n", new_hash);
-  PARTHENON_REQUIRE(std::abs(new_hash - hash) / hash < 1.e-8, "BUG!");
-  {
-    int nactive = 0;
-    for (int n = 0; n < nmax_pool_; n++) {
-      if (mask_(n)) nactive++;
-      printf("mask(%i) = %i\n", n, mask_(n));
-    }
-    PARTHENON_REQUIRE(nactive == num_active_, "!");
-  }
-
-  // UpdateEmptyIndices();
-  printf("%s:%i\n", __FILE__, __LINE__);
-  printf("num_active: %i max_active_index: %i\n", num_active_, max_active_index_);
-  for (int n = 0; n < nmax_pool_ - num_active_; n++) {
-    printf("empty indices[%i] = %i\n", n, static_cast<int>(empty_indices_(n)));
-    PARTHENON_REQUIRE(mask_(empty_indices_(n)) == false, "??");
-  }
 }
 
 ///

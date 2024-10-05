@@ -39,9 +39,9 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
-#<parthenon/meshblock>
-#nx1 = 8
-#nx2 = 8
+<parthenon/meshblock>
+nx1 = 8
+nx2 = 8
 
 <parthenon/output0>
 file_type = hdf5
@@ -50,7 +50,6 @@ variables = particle_deposition
 
 <parthenon/time>
 tlim = 1.e2
-nlim=10 # debug
 integrator = rk1
 
 <Particles>
