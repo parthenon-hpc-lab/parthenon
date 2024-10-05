@@ -465,6 +465,7 @@ void Swarm::Defrag() {
   }
 
   const int &num_active = num_active_;
+  auto empty_indices = empty_indices_;
   printf("num_active: %i\n", num_active);
   printf("nmax_pool_: %i\n", nmax_pool_);
   printf("nmax_pool_ - num_active_ - 1: %i\n", nmax_pool_ - num_active_ - 1);
@@ -479,7 +480,10 @@ void Swarm::Defrag() {
           update += 1;
         }
         // TODO(BRR) actually scan_scratch_towrite
-        if (final) scan_scratch_toread(n) = update;
+        if (final) {
+          scan_scratch_toread(n) = update;
+          empty_indices(n - num_active) = n;
+        }
       });
 
   for (int n = 0; n < nmax_pool_; n++) {
@@ -587,7 +591,8 @@ void Swarm::Defrag() {
     }
     PARTHENON_REQUIRE(nactive == num_active_, "!");
   }
-  UpdateEmptyIndices();
+
+  // UpdateEmptyIndices();
   printf("%s:%i\n", __FILE__, __LINE__);
   printf("num_active: %i max_active_index: %i\n", num_active_, max_active_index_);
   for (int n = 0; n < nmax_pool_ - num_active_; n++) {

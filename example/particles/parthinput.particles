@@ -50,6 +50,7 @@ variables = particle_deposition
 
 <parthenon/time>
 tlim = 1.e2
+nlim=10 # debug
 integrator = rk1
 
 <Particles>
