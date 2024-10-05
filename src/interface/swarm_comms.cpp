@@ -275,6 +275,15 @@ void Swarm::LoadBuffers_() {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  {
+    int nactive = 0;
+    for (int n = 0; n < nmax_pool_; n++) {
+      if (mask_(n)) nactive++;
+      printf("mask(%i) = %i\n", n, mask_(n));
+    }
+    PARTHENON_REQUIRE(nactive == num_active_, "!");
+  }
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
@@ -287,9 +296,26 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
   // Send buffer data
   vbswarm->Send(phase);
+  {
+    int nactive = 0;
+    for (int n = 0; n < nmax_pool_; n++) {
+      if (mask_(n)) nactive++;
+      printf("mask(%i) = %i\n", n, mask_(n));
+    }
+    PARTHENON_REQUIRE(nactive == num_active_, "!");
+  }
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 void Swarm::UnloadBuffers_() {
+  {
+    int nactive = 0;
+    for (int n = 0; n < nmax_pool_; n++) {
+      if (mask_(n)) nactive++;
+      printf("mask(%i) = %i\n", n, mask_(n));
+    }
+    PARTHENON_REQUIRE(nactive == num_active_, "!");
+  }
   auto pmb = GetBlockPointer();
 
   // Count received particles
@@ -368,9 +394,18 @@ void Swarm::UnloadBuffers_() {
           }
         });
   }
+  {
+    int nactive = 0;
+    for (int n = 0; n < nmax_pool_; n++) {
+      if (mask_(n)) nactive++;
+      printf("mask(%i) = %i\n", n, mask_(n));
+    }
+    PARTHENON_REQUIRE(nactive == num_active_, "!");
+  }
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 
@@ -399,6 +434,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       all_boundaries_received = false;
     }
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   return all_boundaries_received;
 }

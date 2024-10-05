@@ -39,9 +39,9 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
-<parthenon/meshblock>
-nx1 = 8
-nx2 = 8
+#<parthenon/meshblock>
+#nx1 = 8
+#nx2 = 8
 
 <parthenon/output0>
 file_type = hdf5
@@ -58,4 +58,5 @@ particle_speed = 1.0
 rng_seed = 23487
 const_dt = 0.5
 deposition_method = per_cell
-destroy_particles_frac = 0.1
+destroy_particles_frac = 0.5
+defrag_threshold=1.0
