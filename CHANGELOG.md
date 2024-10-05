@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
 - [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
 - [[PR 1179]](https://github.com/parthenon-hpc-lab/parthenon/pull/1179) Make a global variable for whether simulation is a restart
 - [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option

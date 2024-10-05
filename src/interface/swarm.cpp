@@ -362,7 +362,6 @@ void Swarm::Defrag() {
         if (val) {
           update += 1;
         }
-        // TODO(BRR) actually scan_scratch_towrite
         if (final) {
           scan_scratch_toread(n) = update;
           empty_indices(n - num_active) = n;
