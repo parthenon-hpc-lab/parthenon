@@ -541,4 +541,52 @@ void Swarm::SortParticlesByCell() {
       });
 }
 
+void Swarm::Validate(bool test_comms) const {
+  auto mask = mask_;
+  auto neighbor_indices = neighbor_indices_;
+  auto empty_indices = empty_indices_;
+
+  // Check that number of unmasked particles is number of active particles
+  int nactive = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nact) {
+        if (mask(n)) {
+          nact += 1;
+        }
+      },
+      Kokkos::Sum<int>(nactive));
+  PARTHENON_REQUIRE(nactive == num_active_, "Mask and num_active counter do not agree!");
+
+  // Check that region of neighbor indices corresponding to this block is correct
+  // This is optional because the relevant infrastructure for comms isn't always allocated
+  // in testing.
+  int num_err = 0;
+  if (test_comms) {
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 1, 2,
+        1, 2, 1, 2,
+        KOKKOS_LAMBDA(const int k, const int j, const int i, int &nerr) {
+          if (neighbor_indices(k, j, i) != this_block_) {
+            nerr += 1;
+          }
+        },
+        Kokkos::Sum<int>(num_err));
+    PARTHENON_REQUIRE(num_err == 0,
+                      "This block region of neighbor indices is incorrect!");
+  }
+
+  num_err = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nerr) {
+        if (mask(empty_indices(n)) == true) {
+          nerr += 1;
+        }
+      },
+      Kokkos::Sum<int>(num_err));
+  PARTHENON_REQUIRE(num_err == 0,
+                    "empty_indices_ array pointing to unmasked particle indices!");
+}
+
 } // namespace parthenon
