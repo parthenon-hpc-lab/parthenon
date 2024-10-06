@@ -312,6 +312,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
           weight(n) = 1.0;
 
+          // Check that we are on current meshblock
+          bool is_on_current_mesh_block = false;
+          PARTHENON_REQUIRE(swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n),
+                                                          is_on_current_mesh_block) == -1,
+                            "Particle must be on current meshblock!");
+          PARTHENON_REQUIRE(is_on_current_mesh_block == true,
+                            "Particle must be on current meshblock!");
+
           rng_pool.free_state(rng_gen);
         });
   } else {
@@ -337,6 +345,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
           t(n) = t0;
 
           weight(n) = 1.0;
+
+          // Check that we are on current meshblock
+          bool is_on_current_mesh_block = false;
+          PARTHENON_REQUIRE(swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n),
+                                                          is_on_current_mesh_block) == -1,
+                            "Particle must be on current meshblock!");
+          PARTHENON_REQUIRE(is_on_current_mesh_block == true,
+                            "Particle must be on current meshblock!");
 
           rng_pool.free_state(rng_gen);
         });
