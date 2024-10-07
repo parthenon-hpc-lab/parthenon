@@ -25,6 +25,7 @@
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart_hdf5.hpp"
 
 using parthenon::Params;
 using parthenon::Real;
@@ -136,9 +137,19 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
   }
 }
 
-#ifdef ENABLE_HDF5
+#if defined(ENABLE_HDF5) && defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderHDF5;
+using OutputTypes = std::tuple<RestartReaderHDF5>;
+#elif defined(ENABLE_HDF5)
+using parthenon::RestartReaderHDF5;
+using OutputTypes = std::tuple<RestartReaderHDF5>;
+#elif defined(PARTHENON_ENABLE_OPENPMD)
+#else
+using OutputTypes = std::tuple<>;
+#endif
 
-TEST_CASE("A set of params can be dumped to file", "[params][output]") {
+TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][output]",
+                        OutputTypes) {
   GIVEN("A params object with a few kinds of objects") {
     Params params;
     const auto restart = Params::Mutability::Restart;
@@ -171,35 +182,42 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     }
     params.Add("hostarr2d", hostarr, restart);
 
-    THEN("We can output to hdf5") {
+    THEN("We can output") {
       const std::string filename = "params_test.h5";
       const std::string groupname = "params";
       const std::string prefix = "test_pkg";
-      using namespace parthenon::HDF5;
-      {
+      if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+        using namespace parthenon::HDF5;
+
         H5F file = H5F::FromHIDCheck(
             H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
         auto group = MakeGroup(file, groupname);
         params.WriteAllToHDF5(prefix, group);
+      } else {
+        FAIL("This logic is flawed. I should not be here.");
       }
-      AND_THEN("We can directly read the relevant data from the hdf5 file") {
-        H5F file =
-            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
-        const H5O obj = H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
-
+      AND_THEN("We can directly read the relevant data from the file") {
         Real in_scalar;
-        HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
-        REQUIRE(std::abs(scalar - in_scalar) <= 1e-10);
-
         std::vector<int> in_vector;
-        HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5O obj =
+              H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+
+          HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
+          HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+          HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+        }
+        REQUIRE(scalar == in_scalar);
+
         for (int i = 0; i < vector.size(); ++i) {
           REQUIRE(in_vector[i] == vector[i]);
         }
 
         // deliberately the wrong size
-        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
-        HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
         REQUIRE(in_arr2d.extent_int(0) == arr2d.extent_int(0));
         REQUIRE(in_arr2d.extent_int(1) == arr2d.extent_int(1));
         int nwrong = 1;
@@ -232,14 +250,17 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         parthenon::HostArray2D<Real> test_hostarr("hostarr2d", 1, 1);
         rparams.Add("hostarr2d", test_hostarr, restart);
 
-        H5F file =
-            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
-        const H5G obj = H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
-        rparams.ReadFromRestart(prefix, obj);
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5G obj =
+              H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+          rparams.ReadFromRestart(prefix, obj);
+        }
 
         AND_THEN("The values for the restartable params are updated to match the file") {
           auto test_scalar = rparams.Get<Real>("scalar");
-          REQUIRE(std::abs(test_scalar - scalar) <= 1e-10);
+          REQUIRE(test_scalar == scalar);
 
           auto test_bool = rparams.Get<bool>("boolscalar");
           REQUIRE(test_bool == boolscalar);
@@ -264,5 +285,3 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     }
   }
 }
-
-#endif // ENABLE_HDF5
