@@ -212,7 +212,9 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
       AND_THEN("We can directly read the relevant data from the file") {
         Real in_scalar;
         std::vector<int> in_vector;
+        // deliberately the wrong size
         parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
 
           H5F file =
@@ -226,12 +228,13 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
           auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
           auto it = std::make_unique<openPMD::Iteration>(series.iterations[0]);
-          // Explicitly open (important for parallel execution)
-          it->open();
-          in_scalar = it->getAttribute(prefix + "/scalar").get<Real>();
-          in_vector = it->getAttribute(prefix + "/vector").get<std::vector<int>>();
-          in_arr2d =
-              it->getAttribute(prefix + "/arr2d").get<parthenon::ParArray2D<Real>>();
+          // Note that we're explicitly using `delim` here which tests the character
+          // replacement of '/' in the WriteAllParams function.
+          using parthenon::OpenPMDUtils::delim;
+          in_scalar = it->getAttribute(prefix + delim + "scalar").get<Real>();
+          in_vector = it->getAttribute(prefix + delim + "vector").get<std::vector<int>>();
+          in_arr2d = it->getAttribute(prefix + delim + "arr2d")
+                         .get<parthenon::ParArray2D<Real>>();
         }
         REQUIRE(scalar == in_scalar);
 
@@ -239,7 +242,6 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           REQUIRE(in_vector[i] == vector[i]);
         }
 
-        // deliberately the wrong size
         REQUIRE(in_arr2d.extent_int(0) == arr2d.extent_int(0));
         REQUIRE(in_arr2d.extent_int(1) == arr2d.extent_int(1));
         int nwrong = 1;

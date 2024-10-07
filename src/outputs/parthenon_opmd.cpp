@@ -72,7 +72,13 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
     const auto type = params.GetType(key);
     if (type == std::type_index(typeid(T))) {
       // auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-      it->setAttribute(prefix + key, params.Get<T>(key));
+      auto full_path = prefix + delim + key;
+      // The '/' is kind of a reserved character in the OpenPMD standard, which results
+      // in attribute keys with said character not being exposed.
+      // Thus we replace it.
+      std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
+
+      it->setAttribute(full_path, params.Get<T>(key));
     }
   }
 }
