@@ -24,8 +24,11 @@
 #include "config.hpp"
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
+#include "openPMD/Series.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "outputs/restart_opmd.hpp"
 
 using parthenon::Params;
 using parthenon::Real;
@@ -139,11 +142,14 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
 
 #if defined(ENABLE_HDF5) && defined(PARTHENON_ENABLE_OPENPMD)
 using parthenon::RestartReaderHDF5;
-using OutputTypes = std::tuple<RestartReaderHDF5>;
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderHDF5, RestartReaderOPMD>;
 #elif defined(ENABLE_HDF5)
 using parthenon::RestartReaderHDF5;
 using OutputTypes = std::tuple<RestartReaderHDF5>;
 #elif defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderOPMD>;
 #else
 using OutputTypes = std::tuple<>;
 #endif
@@ -183,16 +189,23 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
     params.Add("hostarr2d", hostarr, restart);
 
     THEN("We can output") {
-      const std::string filename = "params_test.h5";
+      std::string filename;
       const std::string groupname = "params";
       const std::string prefix = "test_pkg";
       if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
         using namespace parthenon::HDF5;
+        filename = "params_test.h5";
 
         H5F file = H5F::FromHIDCheck(
             H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
         auto group = MakeGroup(file, groupname);
         params.WriteAllToHDF5(prefix, group);
+      } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+        filename = ("params_test.%05T.bp");
+        auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+        series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+        auto it = series.iterations[0];
+        parthenon::OpenPMDUtils::WriteAllParams(params, prefix, &it);
       } else {
         FAIL("This logic is flawed. I should not be here.");
       }
@@ -210,6 +223,15 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
           HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
           HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
+          auto it = std::make_unique<openPMD::Iteration>(series.iterations[0]);
+          // Explicitly open (important for parallel execution)
+          it->open();
+          in_scalar = it->getAttribute(prefix + "/scalar").get<Real>();
+          in_vector = it->getAttribute(prefix + "/vector").get<std::vector<int>>();
+          in_arr2d =
+              it->getAttribute(prefix + "/arr2d").get<parthenon::ParArray2D<Real>>();
         }
         REQUIRE(scalar == in_scalar);
 

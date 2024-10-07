@@ -63,11 +63,11 @@ namespace parthenon {
 
 using namespace OutputUtils;
 
+namespace OpenPMDUtils {
+
 template <typename T>
-void WriteAllParamsOfType(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
-  using OpenPMDUtils::delim;
-  const std::string prefix = "Params" + delim + pkg->label() + delim;
-  const auto &params = pkg->AllParams();
+void WriteAllParamsOfType(const Params &params, const std::string &prefix,
+                          openPMD::Iteration *it) {
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
     if (type == std::type_index(typeid(T))) {
@@ -78,19 +78,33 @@ void WriteAllParamsOfType(std::shared_ptr<StateDescriptor> pkg, openPMD::Iterati
 }
 
 template <typename... Ts>
-void WriteAllParamsOfMultipleTypes(std::shared_ptr<StateDescriptor> pkg,
+void WriteAllParamsOfMultipleTypes(const Params &params, const std::string &prefix,
                                    openPMD::Iteration *it) {
-  ([&] { WriteAllParamsOfType<Ts>(pkg, it); }(), ...);
+  ([&] { WriteAllParamsOfType<Ts>(params, prefix, it); }(), ...);
 }
 
 template <typename T>
-void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
-  WriteAllParamsOfMultipleTypes<T, std::vector<T>>(pkg, it);
+void WriteAllParams(const Params &params, const std::string &prefix,
+                    openPMD::Iteration *it) {
+  WriteAllParamsOfMultipleTypes<T, std::vector<T>>(params, prefix, it);
   // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
   // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
 }
 
-namespace OpenPMDUtils {
+void WriteAllParams(const Params &params, const std::string &prefix,
+                    openPMD::Iteration *it) {
+  // WriteAllParams<bool>(params, prefix, it); // check why this (vector of bool) doesn't
+  // work
+  WriteAllParams<int32_t>(params, prefix, it);
+  WriteAllParams<int64_t>(params, prefix, it);
+  WriteAllParams<uint32_t>(params, prefix, it);
+  WriteAllParams<uint64_t>(params, prefix, it);
+  WriteAllParams<float>(params, prefix, it);
+  WriteAllParams<double>(params, prefix, it);
+  WriteAllParams<std::string>(params, prefix, it);
+  WriteAllParamsOfType<bool>(params, prefix, it);
+  // WriteAllParamsOfType<std::vector<bool>>(params,prefix, it);
+}
 
 template <typename T>
 void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
@@ -231,7 +245,11 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     filename.append(".now");
   }
   filename.append(".%05T.bp");
-  Series series = Series(filename, Access::CREATE, MPI_COMM_WORLD, backend_config);
+  Series series = Series(filename, Access::CREATE,
+#ifdef MPI_PARALLEL
+                         MPI_COMM_WORLD,
+#endif
+                         backend_config);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
@@ -291,16 +309,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
 
     for (const auto &[key, pkg] : pm->packages.AllPackages()) {
-      // WriteAllParams<bool>(pkg, &it); // check why this (vector of bool) doesn't work
-      WriteAllParams<int32_t>(pkg, &it);
-      WriteAllParams<int64_t>(pkg, &it);
-      WriteAllParams<uint32_t>(pkg, &it);
-      WriteAllParams<uint64_t>(pkg, &it);
-      WriteAllParams<float>(pkg, &it);
-      WriteAllParams<double>(pkg, &it);
-      WriteAllParams<std::string>(pkg, &it);
-      WriteAllParamsOfType<bool>(pkg, &it);
-      // WriteAllParamsOfType<std::vector<bool>>(pkg, &it);
+      using OpenPMDUtils::delim;
+      const std::string prefix = "Params" + delim + pkg->label() + delim;
+      const auto &params = pkg->AllParams();
+      OpenPMDUtils::WriteAllParams(params, prefix, &it);
     }
   }
   // Then our own

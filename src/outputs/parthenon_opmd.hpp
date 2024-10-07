@@ -14,11 +14,15 @@
 
 #include "mesh/meshblock.hpp"
 #include "openPMD/Dataset.hpp"
+#include "openPMD/Iteration.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {
 
 namespace OpenPMDUtils {
+
+void WriteAllParams(const Params &params, const std::string &prefix,
+                    openPMD::Iteration *it);
 
 // Deliminter to separate packages and parameters in attributes.
 // More or less a workaround as the OpenPMD API does currently not expose

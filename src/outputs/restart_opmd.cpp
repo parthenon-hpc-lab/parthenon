@@ -28,7 +28,12 @@ namespace parthenon {
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
 RestartReaderOPMD::RestartReaderOPMD(const char *filename)
-    : filename_(filename), series(filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD) {
+    : filename_(filename), series(filename, openPMD::Access::READ_ONLY
+#ifdef MPI_PARALLEL
+                                  ,
+                                  MPI_COMM_WORLD
+#endif
+                           ) {
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
       "Parthenon restarts should only contain one iteration/timestep.");
@@ -122,12 +127,12 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &pkg_name, Params 
     auto mutability = params.GetMutability(key);
     if (type == std::type_index(typeid(T)) && mutability == Params::Mutability::Restart) {
       auto attrs = it->attributes();
-      for (const auto & attr : attrs) {
+      for (const auto &attr : attrs) {
         std::cout << "Contains attribute: " << attr << std::endl;
       }
       std::cout << "Reading '"
-                << "Params" + delim + pkg_name + delim + key << "' with type: " << typeid(T).name()
-                << std::endl;
+                << "Params" + delim + pkg_name + delim + key
+                << "' with type: " << typeid(T).name() << std::endl;
 
       auto val = it->getAttribute("Params" + delim + pkg_name + delim + key).get<T>();
       params.Update(key, val);
