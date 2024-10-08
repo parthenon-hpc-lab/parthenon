@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -233,7 +234,7 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
         }
       }
     } // loop over components
-  }   // loop over blocks
+  } // loop over blocks
 
   // Now actually read the registered chunks form disk
   it->seriesFlush();

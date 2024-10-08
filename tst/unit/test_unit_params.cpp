@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -219,7 +220,6 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
 
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
-
           H5F file =
               H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
           const H5O obj =
