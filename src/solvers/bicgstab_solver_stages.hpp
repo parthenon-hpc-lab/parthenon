@@ -41,10 +41,9 @@ namespace solvers {
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations>
+template <class equations, class preconditioner_t = MGSolverStages<equations>>
 class BiCGSTABSolverStages : public SolverBase {
   using FieldTL = typename equations::IndependentVars;
-  using preconditioner_t = MGSolverStages<equations>;
 
   std::vector<std::string> sol_fields;
   // Name of user defined container that should contain information required to
@@ -62,12 +61,13 @@ class BiCGSTABSolverStages : public SolverBase {
 
  public:
   BiCGSTABSolverStages(const std::string &container_base, const std::string &container_u,
-                       const std::string &container_rhs,
-                       BiCGSTABParams params_in, equations eq_in = equations())
-      : preconditioner(container_base, container_u, container_rhs,
-                       params_in.mg_params, eq_in),
+                       const std::string &container_rhs, ParameterInput *pin,
+                       const std::string &input_block, equations eq_in = equations())
+      : preconditioner(container_base, container_u, container_rhs, pin, input_block,
+                       eq_in),
         container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {
+        container_rhs(container_rhs), params_(pin, input_block), iter_counter(0),
+        eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "bicgstab";

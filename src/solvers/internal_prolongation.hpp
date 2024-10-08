@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,35 +26,38 @@
 namespace parthenon {
 
 namespace solvers {
-// This uses the prolongation operator set in the fields metadata when doing prolongation 
+// This uses the prolongation operator set in the fields metadata when doing prolongation
 // in the interior of a block during multigrid
 class ProlongationBlockInteriorDefault {
  public:
   ProlongationBlockInteriorDefault() = default;
-  ProlongationBlockInteriorDefault(parthenon::ParameterInput *pin, const std::string &label) {
-    auto pro_int = pin->GetOrAddString(label, "block_interior_prolongation", "MetadataDefault");
-    PARTHENON_REQUIRE(pro_int == "MetadataDefault", "Parameter input specifies an unsupported block interior prolongation type.");
+  ProlongationBlockInteriorDefault(parthenon::ParameterInput *pin,
+                                   const std::string &label) {
+    auto pro_int =
+        pin->GetOrAddString(label, "block_interior_prolongation", "MetadataDefault");
+    PARTHENON_REQUIRE(
+        pro_int == "MetadataDefault",
+        "Parameter input specifies an unsupported block interior prolongation type.");
   }
 
   template <class>
   parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                                std::shared_ptr<parthenon::MeshData<Real>> &md) {
-     return tl.AddTask(depends_on,
-                       TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
-                       md);
+    return tl.AddTask(depends_on, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
+                      md);
   }
 };
 
-// Using this class overrides the prolongation operator set in a fields metadata when 
+// Using this class overrides the prolongation operator set in a fields metadata when
 // doing prolongation over the interior of a block during multigrid
 class ProlongationBlockInteriorZeroDirichlet {
  public:
-  
-  enum class ProlongationType { Constant, Linear, Kwak };
+  enum class ProlongationType { MetadataDefault, Constant, Linear, Kwak };
   ProlongationType prolongation_type = ProlongationType::Linear;
-  
+
   ProlongationBlockInteriorZeroDirichlet() = default;
-  ProlongationBlockInteriorZeroDirichlet(parthenon::ParameterInput *pin, const std::string &label) {
+  ProlongationBlockInteriorZeroDirichlet(parthenon::ParameterInput *pin,
+                                         const std::string &label) {
     auto pro_int = pin->GetOrAddString(label, "block_interior_prolongation", "Linear");
     if (pro_int == "Constant") {
       prolongation_type = ProlongationType::Constant;
@@ -61,6 +65,8 @@ class ProlongationBlockInteriorZeroDirichlet {
       prolongation_type = ProlongationType::Linear;
     } else if (pro_int == "Kwak") {
       prolongation_type = ProlongationType::Kwak;
+    } else if (pro_int == "MetadataDefault") {
+      prolongation_type = ProlongationType::MetadataDefault;
     } else {
       PARTHENON_FAIL("Invalid zero Dirichlet prolongation type.");
     }
@@ -70,14 +76,17 @@ class ProlongationBlockInteriorZeroDirichlet {
   parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                                std::shared_ptr<parthenon::MeshData<Real>> &md) {
     if (prolongation_type == ProlongationType::Constant) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Constant, VarTL>,
+      return tl.AddTask(depends_on, TF(ProlongateImpl<ProlongationType::Constant, VarTL>),
                         md);
     } else if (prolongation_type == ProlongationType::Linear) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Linear, VarTL>,
+      return tl.AddTask(depends_on, TF(ProlongateImpl<ProlongationType::Linear, VarTL>),
                         md);
     } else if (prolongation_type == ProlongationType::Kwak) {
-      return tl.AddTask(depends_on, ProlongateImpl<ProlongationType::Kwak, VarTL>,
+      return tl.AddTask(depends_on, TF(ProlongateImpl<ProlongationType::Kwak, VarTL>),
                         md);
+    } else if (prolongation_type == ProlongationType::MetadataDefault) {
+      return tl.AddTask(depends_on,
+                        TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md);
     }
     return depends_on;
   }
@@ -122,8 +131,8 @@ class ProlongationBlockInteriorZeroDirichlet {
           md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
-    const auto desc_coarse =
-        parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get(), {}, {PDOpt::Coarse});
+    const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
+        md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
 
@@ -191,4 +200,4 @@ class ProlongationBlockInteriorZeroDirichlet {
 
 } // namespace parthenon
 
-#endif // SOLVERS_SOLVER_UTILS_STAGES_HPP_
+#endif  // SOLVERS_INTERNAL_PROLONGATION_HPP_

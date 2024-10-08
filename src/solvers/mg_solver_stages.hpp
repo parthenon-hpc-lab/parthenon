@@ -68,29 +68,20 @@ class MGSolverStages : public SolverBase {
   std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
- 
-  MGSolverStages(const std::string &container_base,
-                 const std::string &container_u,
-                 const std::string &container_rhs,
-                 ParameterInput *pin,
-                 const std::string &input_block,
-                 equations_t eq_in = equations_t()) 
+
+  MGSolverStages(const std::string &container_base, const std::string &container_u,
+                 const std::string &container_rhs, ParameterInput *pin,
+                 const std::string &input_block, equations_t eq_in = equations_t())
       : MGSolverStages(container_base, container_u, container_rhs,
                        MGParams(pin, input_block), eq_in,
                        prolongator_t(pin, input_block)) {}
 
-  MGSolverStages(const std::string &container_base,
-                 const std::string &container_u,
-                 const std::string &container_rhs,
-                 MGParams params_in,
+  MGSolverStages(const std::string &container_base, const std::string &container_u,
+                 const std::string &container_rhs, MGParams params_in,
                  equations_t eq_in = equations_t(),
                  prolongator_t prol_in = prolongator_t())
-      : container_base(container_base),
-        container_u(container_u),
-        container_rhs(container_rhs),
-        params_(params_in),
-        iter_counter(0),
-        eqs_(eq_in),
+      : container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in),
         prolongator_(prol_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
@@ -468,14 +459,8 @@ class MGSolverStages : public SolverBase {
       auto set_from_coarser =
           tl.AddTask(recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>),
                      md_res_err);
-      auto prolongate = set_from_coarser;
-      if (params_.prolongation == "User") {
-        prolongate = eqs_.template Prolongate<FieldTL>(tl, set_from_coarser, md_res_err);
-      } else {
-        prolongate = tl.AddTask(set_from_coarser,
-                                BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
-                                md_res_err);
-      }
+      auto prolongate =
+          prolongator_.template Prolongate<FieldTL>(tl, set_from_coarser, md_res_err);
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field
