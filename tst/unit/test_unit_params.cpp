@@ -192,7 +192,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
 
     THEN("We can output") {
       std::string filename;
-      const std::string groupname = "params";
+      const std::string groupname = "Params";
       const std::string prefix = "test_pkg";
       if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
         using namespace parthenon::HDF5;
@@ -233,12 +233,15 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           // Note that we're explicitly using `delim` here which tests the character
           // replacement of '/' in the WriteAllParams function.
           using parthenon::OpenPMDUtils::delim;
-          in_scalar = it->getAttribute(prefix + delim + "scalar").get<Real>();
-          in_vector = it->getAttribute(prefix + delim + "vector").get<std::vector<int>>();
+          in_scalar =
+              it->getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
+          in_vector = it->getAttribute(groupname + delim + prefix + delim + "vector")
+                          .get<std::vector<int>>();
           // Note that we also change the type here as ParArrays (or View in general) are
           // downcasted to flattened vector.
-          auto rank_and_dims = it->getAttribute(prefix + delim + "arr2d.rankdims")
-                                   .get<std::vector<size_t>>();
+          auto rank_and_dims =
+              it->getAttribute(groupname + delim + prefix + delim + "arr2d.rankdims")
+                  .get<std::vector<size_t>>();
           // Resize view.
           using ViewType =
               typename std::remove_reference<decltype(in_arr2d.KokkosView())>::type;
@@ -277,7 +280,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         REQUIRE(nwrong == 0);
       }
 
-      AND_THEN("We can restart a params object from the HDF5 file") {
+      AND_THEN("We can restart a params object from the file") {
         Params rparams;
 
         // init the params object to restart into
@@ -302,6 +305,9 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           const H5G obj =
               H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
           rparams.ReadFromRestart(prefix, obj);
+        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          resfile.ReadParams(prefix, rparams);
         }
 
         AND_THEN("The values for the restartable params are updated to match the file") {

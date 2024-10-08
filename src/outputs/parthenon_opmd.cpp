@@ -150,8 +150,10 @@ void WriteAllParams(const Params &params, const std::string &prefix,
   // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
 }
 
-void WriteAllParams(const Params &params, const std::string &prefix,
+void WriteAllParams(const Params &params, const std::string &pkg_name,
                     openPMD::Iteration *it) {
+  using OpenPMDUtils::delim;
+  const std::string prefix = "Params" + delim + pkg_name;
   // WriteAllParams<bool>(params, prefix, it); // check why this (vector of bool) doesn't
   // work
   WriteAllParams<int32_t>(params, prefix, it);
@@ -358,11 +360,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   {
     PARTHENON_INSTRUMENT_REGION("Dump Params");
 
-    for (const auto &[key, pkg] : pm->packages.AllPackages()) {
-      using OpenPMDUtils::delim;
-      const std::string prefix = "Params" + delim + pkg->label() + delim;
+    for (const auto &[pkg_name, pkg] : pm->packages.AllPackages()) {
       const auto &params = pkg->AllParams();
-      OpenPMDUtils::WriteAllParams(params, prefix, &it);
+      OpenPMDUtils::WriteAllParams(params, pkg_name, &it);
     }
   }
   // Then our own

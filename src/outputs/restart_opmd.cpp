@@ -27,13 +27,21 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void RestartReader::RestartReader(const std::string filename)
 //  \brief Opens the restart file and stores appropriate file handle in fh_
-RestartReaderOPMD::RestartReaderOPMD(const char *filename)
-    : filename_(filename), series(filename, openPMD::Access::READ_ONLY
+RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename) {
+  // This silly logic is required as the unit tests may or may not define MPI_PARALLEL but
+  // are always run in serial.
 #ifdef MPI_PARALLEL
-                                  ,
-                                  MPI_COMM_WORLD
+  int mpi_initialized;
+  PARTHENON_MPI_CHECK(MPI_Initialized(&mpi_initialized));
+  if (mpi_initialized) {
+    series = openPMD::Series(filename, openPMD::Access::READ_ONLY, MPI_COMM_WORLD);
+  } else {
+    series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
+  }
+#else
+  series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
+
 #endif
-                           ) {
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
       "Parthenon restarts should only contain one iteration/timestep.");
@@ -120,9 +128,9 @@ std::size_t RestartReaderOPMD::GetSwarmCounts(const std::string &swarm,
 }
 
 template <typename T>
-void RestartReaderOPMD::ReadAllParamsOfType(const std::string &pkg_name, Params &params) {
-  using OpenPMDUtils::delim;
+void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &params) {
   for (const auto &key : params.GetKeys()) {
+    using OpenPMDUtils::delim;
     const auto type = params.GetType(key);
     auto mutability = params.GetMutability(key);
     if (type == std::type_index(typeid(T)) && mutability == Params::Mutability::Restart) {
@@ -130,11 +138,10 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &pkg_name, Params 
       for (const auto &attr : attrs) {
         std::cout << "Contains attribute: " << attr << std::endl;
       }
-      std::cout << "Reading '"
-                << "Params" + delim + pkg_name + delim + key
+      std::cout << "Reading '" << prefix + delim + key
                 << "' with type: " << typeid(T).name() << std::endl;
 
-      auto val = it->getAttribute("Params" + delim + pkg_name + delim + key).get<T>();
+      auto val = it->getAttribute(prefix + delim + key).get<T>();
       params.Update(key, val);
     }
   }
@@ -153,14 +160,16 @@ void RestartReaderOPMD::ReadAllParams(const std::string &pkg_name, Params &p) {
   // ReadAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
 }
 void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
-  ReadAllParams<int32_t>(pkg_name, p);
-  ReadAllParams<int64_t>(pkg_name, p);
-  ReadAllParams<uint32_t>(pkg_name, p);
-  ReadAllParams<uint64_t>(pkg_name, p);
-  ReadAllParams<float>(pkg_name, p);
-  ReadAllParams<double>(pkg_name, p);
-  ReadAllParams<std::string>(pkg_name, p);
-  ReadAllParamsOfType<bool>(pkg_name, p);
+  using OpenPMDUtils::delim;
+  const auto prefix = "Params" + delim + pkg_name;
+  ReadAllParams<int32_t>(prefix, p);
+  ReadAllParams<int64_t>(prefix, p);
+  ReadAllParams<uint32_t>(prefix, p);
+  ReadAllParams<uint64_t>(prefix, p);
+  ReadAllParams<float>(prefix, p);
+  ReadAllParams<double>(prefix, p);
+  ReadAllParams<std::string>(prefix, p);
+  ReadAllParamsOfType<bool>(prefix, p);
 }
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
