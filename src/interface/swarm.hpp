@@ -240,6 +240,10 @@ class Swarm {
     return std::get<getType<T>()>(vectors_);
   }
 
+  // Check for internal consistency among member variables and arrays, mainly for
+  // debugging
+  void Validate(bool test_comms = false) const;
+
   static constexpr int inactive_max_active_index = -1;
 
  private:
