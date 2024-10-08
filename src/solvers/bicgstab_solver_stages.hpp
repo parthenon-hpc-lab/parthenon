@@ -89,7 +89,7 @@ class BiCGSTABSolverStages : public SolverBase {
       auto partitions = pmesh->GetDefaultBlockPartitions();
       auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
       auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
-      return tl.AddTask(dependence, &equations::template SetDiagonal, &eqs_, md, md_diag);
+      return tl.AddTask(dependence, &equations::SetDiagonal, &eqs_, md, md_diag);
     } else {
       return dependence;
     }
@@ -188,7 +188,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 2. v <- A u
     auto comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
-    auto get_v = eqs_.template Ax(itl, comm, md_base, md_u, md_v);
+    auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
     auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v);
@@ -242,7 +242,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 7. t <- A u
     auto pre_t_comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
-    auto get_t = eqs_.template Ax(itl, pre_t_comm, md_base, md_u, md_t);
+    auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)
     auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s);

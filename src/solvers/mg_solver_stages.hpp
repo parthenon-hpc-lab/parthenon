@@ -117,7 +117,7 @@ class MGSolverStages : public SolverBase {
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, md, sol_fields);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
                                                             pmesh->multilevel);
-    auto calc_pointwise_res = eqs_.template Ax(itl, comm, md, md_u, md_res_err);
+    auto calc_pointwise_res = eqs_.Ax(itl, comm, md, md_u, md_res_err);
     calc_pointwise_res =
         itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
                     md_rhs, md_res_err, md_res_err, 1.0, -1.0, false);
@@ -266,7 +266,7 @@ class MGSolverStages : public SolverBase {
 
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
-    auto mat_mult = eqs_.template Ax(tl, comm, md_base, md_in, md_out);
+    auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
     return tl.AddTask(mat_mult, TF(&MGSolverStages::Jacobi), this, md_rhs, md_out,
                       md_diag, md_in, md_out, omega);
   }
@@ -329,8 +329,7 @@ class MGSolverStages : public SolverBase {
           tl.AddTask(task_out, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md);
       task_out = tl.AddTask(task_out, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md);
     }
-    task_out =
-        tl.AddTask(task_out, BTF(&equations_t::template SetDiagonal), &eqs_, md, md_diag);
+    task_out = tl.AddTask(task_out, BTF(&equations_t::SetDiagonal), &eqs_, md, md_diag);
     // If we are finer than the coarsest level:
     if (level > min_level) {
       task_out =
@@ -419,7 +418,7 @@ class MGSolverStages : public SolverBase {
         // This should set the rhs only in blocks that correspond to interior nodes, the
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
-        set_from_finer = eqs_.template Ax(tl, set_from_finer, md, md_u, md_temp);
+        set_from_finer = eqs_.Ax(tl, set_from_finer, md, md_u, md_temp);
         set_from_finer = tl.AddTask(set_from_finer,
                                     BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
                                     md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
@@ -440,7 +439,7 @@ class MGSolverStages : public SolverBase {
                                                                      multilevel);
 
       // 4. Caclulate residual and store in communication field
-      auto residual = eqs_.template Ax(tl, comm_u, md, md_u, md_temp);
+      auto residual = eqs_.Ax(tl, comm_u, md, md_u, md_temp);
       residual = tl.AddTask(residual, BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
                             md_rhs, md_temp, md_res_err, 1.0, -1.0, false);
 

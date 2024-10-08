@@ -181,7 +181,7 @@ class CGSolverStages : public SolverBase {
     // 4. v <- A p
     auto comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p, multilevel);
-    auto get_v = eqs_.template Ax(itl, comm, md_base, md_p, md_v);
+    auto get_v = eqs_.Ax(itl, comm, md_base, md_p, md_v);
 
     // 5. alpha <- r dot u / p dot v (calculate denominator)
     auto get_pAp = DotProduct<FieldTL>(get_v, itl, &pAp, md_p, md_v);
