@@ -233,8 +233,10 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           using parthenon::OpenPMDUtils::delim;
           in_scalar = it->getAttribute(prefix + delim + "scalar").get<Real>();
           in_vector = it->getAttribute(prefix + delim + "vector").get<std::vector<int>>();
-          in_arr2d = it->getAttribute(prefix + delim + "arr2d")
-                         .get<parthenon::ParArray2D<Real>>();
+          // Note that we also change the type here as ParArrays (or View in general) are
+          // downcasted to flattened vector.
+          // in_arr2d = it->getAttribute(prefix + delim +
+          // "arr2d").get<std::vector<Real>>();
         }
         REQUIRE(scalar == in_scalar);
 

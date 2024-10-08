@@ -26,6 +26,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -66,6 +67,25 @@ using namespace OutputUtils;
 namespace OpenPMDUtils {
 
 template <typename T>
+auto GetFlatHostVecFromView(T view) {
+  // Take a view and return a flattendned (1D) std::vector that can then
+  // easily be passed to OpenPMD.
+  // Note, this function is not optimial as multiple (unnecessary) copies may be done.
+  // PG didn't come up with a smarter way but thinks that it's not a
+  // performance issue as this is only called for outputs (thus not that often)
+  // and for mostly small amounts of data.
+  // With a C++20 span we could probably direct reuse the host mirror data pointer.
+  auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
+
+  using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+  auto host_vec = std::vector<base_t>(view_h.size());
+  for (auto i = 0; i < view_h.size(); i++) {
+    host_vec[i] = view_h.data()[i];
+  }
+  return host_vec;
+}
+
+template <typename T>
 void WriteAllParamsOfType(const Params &params, const std::string &prefix,
                           openPMD::Iteration *it) {
   for (const auto &key : params.GetKeys()) {
@@ -78,7 +98,17 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      it->setAttribute(full_path, params.Get<T>(key));
+      if constexpr (implements<kokkos_view(T)>::value) {
+        const auto &view = params.Get<T>(key);
+        auto host_vec = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path, host_vec);
+      } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
+        const auto &view = params.Get<T>(key).KokkosView();
+        auto host_vec = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path, host_vec);
+      } else {
+        it->setAttribute(full_path, params.Get<T>(key));
+      }
     }
   }
 }
@@ -110,6 +140,8 @@ void WriteAllParams(const Params &params, const std::string &prefix,
   WriteAllParams<std::string>(params, prefix, it);
   WriteAllParamsOfType<bool>(params, prefix, it);
   // WriteAllParamsOfType<std::vector<bool>>(params,prefix, it);
+  WriteAllParamsOfType<Kokkos::View<Real *>>(params, prefix, it);
+  WriteAllParamsOfType<ParArray2D<Real>>(params, prefix, it);
 }
 
 template <typename T>
@@ -300,19 +332,8 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setTime(-1.0);
     it.setDt(-1.0);
   }
-  { // FIXME move this to dump params
-    // TODO(pgrete) Make this test piece work on devices
-    if constexpr (false) {
-      PARTHENON_INSTRUMENT_REGION("Dump Params");
-      const auto view_d =
-          Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
-      // Map a view onto a host allocation (so that we can call deep_copy)
-      auto host_vec = std::vector<Real>(view_d.size());
-      Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-          view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
-      Kokkos::deep_copy(view_h, view_d);
-      it.setAttribute("blub", host_vec);
-    }
+  {
+    PARTHENON_INSTRUMENT_REGION("Dump Params");
 
     for (const auto &[key, pkg] : pm->packages.AllPackages()) {
       using OpenPMDUtils::delim;
