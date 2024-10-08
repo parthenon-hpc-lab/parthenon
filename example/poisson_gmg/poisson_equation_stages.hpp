@@ -39,8 +39,6 @@ class PoissonEquationStages {
   bool do_flux_cor = false;
   bool set_flux_boundary = false;
   bool include_flux_dx = false;
-  enum class ProlongationType { Constant, Linear, Kwak };
-  ProlongationType prolongation_type = ProlongationType::Constant;
 
   using IndependentVars = parthenon::TypeList<var_t>;
 
@@ -49,16 +47,6 @@ class PoissonEquationStages {
     set_flux_boundary = pin->GetOrAddBoolean(label, "set_flux_boundary", false);
     include_flux_dx =
         (pin->GetOrAddString(label, "boundary_prolongation", "Linear") == "Constant");
-    auto pro_int = pin->GetOrAddString(label, "interior_prolongation", "Linear");
-    if (pro_int == "Constant") {
-      prolongation_type = ProlongationType::Constant;
-    } else if (pro_int == "Linear") {
-      prolongation_type = ProlongationType::Linear;
-    } else if (pro_int == "Kwak") {
-      prolongation_type = ProlongationType::Kwak;
-    } else {
-      PARTHENON_FAIL("Invalid user prolongation type.");
-    }
   }
 
   // Add tasks to calculate the result of the matrix A (which is implicitly defined by
