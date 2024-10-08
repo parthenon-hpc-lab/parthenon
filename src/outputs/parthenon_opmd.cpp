@@ -93,7 +93,7 @@ auto GetFlatHostVecFromView(T view) {
 }
 
 template <typename T>
-auto RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it) {
+void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it) {
   auto rank_and_dims =
       it->getAttribute(full_path + ".rankdims").get<std::vector<size_t>>();
   // Resize view.
@@ -172,6 +172,7 @@ void WriteAllParams(const Params &params, const std::string &pkg_name,
   // WriteAllParamsOfType<std::vector<bool>>(params,prefix, it);
   WriteAllParamsOfType<Kokkos::View<Real *>>(params, prefix, it);
   WriteAllParamsOfType<ParArray2D<Real>>(params, prefix, it);
+  WriteAllParamsOfType<HostArray2D<Real>>(params, prefix, it);
 }
 
 template <typename T>

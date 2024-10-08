@@ -182,13 +182,13 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
     Kokkos::deep_copy(arr2d, arr2d_h);
     params.Add("arr2d", arr2d);
 
-    parthenon::HostArray2D<Real> hostarr("hostarr2d", 2, 3);
+    parthenon::HostArray2D<Real> hostarr2d("hostarr2d", 2, 3);
     for (int i = 0; i < 2; ++i) {
       for (int j = 0; j < 3; ++j) {
-        hostarr(i, j) = 2 * i + j + 1;
+        hostarr2d(i, j) = 2 * i + j + 1;
       }
     }
-    params.Add("hostarr2d", hostarr, restart);
+    params.Add("hostarr2d", hostarr2d, restart);
 
     THEN("We can output") {
       std::string filename;
@@ -216,6 +216,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         std::vector<int> in_vector;
         // deliberately the wrong size
         parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+        parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
 
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
 
@@ -227,20 +228,28 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
           HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
           HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+          HDF5ReadAttribute(obj, prefix + "/hostarr2d", in_hostarr2d);
         } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
           auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
-          auto it = std::make_unique<openPMD::Iteration>(series.iterations[0]);
+          auto it = series.iterations[0];
           // Note that we're explicitly using `delim` here which tests the character
           // replacement of '/' in the WriteAllParams function.
           using parthenon::OpenPMDUtils::delim;
           in_scalar =
-              it->getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
-          in_vector = it->getAttribute(groupname + delim + prefix + delim + "vector")
+              it.getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
+          in_vector = it.getAttribute(groupname + delim + prefix + delim + "vector")
                           .get<std::vector<int>>();
-          // Note that we also change the type here as ParArrays (or View in general) are
-          // downcasted to flattened vector.
+
+          // auto &tmp_view = in_arr2d.KokkosView();
+          // using ViewType =
+          // typename std::remove_reference<decltype(in_arr2d.KokkosView())>::type;
+          // parthenon::OpenPMDUtils::RestoreViewAttribute<ViewType>(
+          // groupname + delim + prefix + delim + "arr2d", tmp_view, &it);
+
+          // Note that we also change the type here as ParArrays (or View in general)
+          // are downcasted to flattened vector.
           auto rank_and_dims =
-              it->getAttribute(groupname + delim + prefix + delim + "arr2d.rankdims")
+              it.getAttribute(groupname + delim + prefix + delim + "arr2d.rankdims")
                   .get<std::vector<size_t>>();
           // Resize view.
           using ViewType =
@@ -255,7 +264,8 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
               Kokkos::create_mirror_view(parthenon::HostMemSpace(), in_arr2d_view);
 
           auto in_arr2d_data =
-              it->getAttribute(prefix + delim + "arr2d").get<std::vector<Real>>();
+              it.getAttribute(groupname + delim + prefix + delim + "arr2d")
+                  .get<std::vector<Real>>();
           for (auto i = 0; i < view_h.size(); i++) {
             view_h.data()[i] = in_arr2d_data[i];
           }
@@ -278,6 +288,14 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
             },
             nwrong);
         REQUIRE(nwrong == 0);
+
+        REQUIRE(in_hostarr2d.extent_int(0) == hostarr2d.extent_int(0));
+        REQUIRE(in_hostarr2d.extent_int(1) == hostarr2d.extent_int(1));
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 3; ++j) {
+            REQUIRE(hostarr2d(i, j) == in_hostarr2d(i, j));
+          }
+        }
       }
 
       AND_THEN("We can restart a params object from the file") {
@@ -318,11 +336,11 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           REQUIRE(test_bool == boolscalar);
 
           auto test_hostarr = params.Get<parthenon::HostArray2D<Real>>("hostarr2d");
-          REQUIRE(test_hostarr.extent_int(0) == hostarr.extent_int(0));
-          REQUIRE(test_hostarr.extent_int(1) == hostarr.extent_int(1));
-          for (int i = 0; i < hostarr.extent_int(0); ++i) {
-            for (int j = 0; j < hostarr.extent_int(1); ++j) {
-              REQUIRE(test_hostarr(i, j) == hostarr(i, j));
+          REQUIRE(test_hostarr.extent_int(0) == hostarr2d.extent_int(0));
+          REQUIRE(test_hostarr.extent_int(1) == hostarr2d.extent_int(1));
+          for (int i = 0; i < hostarr2d.extent_int(0); ++i) {
+            for (int j = 0; j < hostarr2d.extent_int(1); ++j) {
+              REQUIRE(test_hostarr(i, j) == hostarr2d(i, j));
             }
           }
         }

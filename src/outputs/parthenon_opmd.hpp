@@ -21,6 +21,9 @@ namespace parthenon {
 
 namespace OpenPMDUtils {
 
+template <typename T>
+void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);
+
 void WriteAllParams(const Params &params, const std::string &prefix,
                     openPMD::Iteration *it);
 

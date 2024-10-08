@@ -186,6 +186,8 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
   ReadAllParams<double>(prefix, p);
   ReadAllParams<std::string>(prefix, p);
   ReadAllParamsOfType<bool>(prefix, p);
+  // ReadAllParamsOfType<ParArray2D<Real>>(prefix, p);
+  // ReadAllParamsOfType<HostArray2D<Real>>(prefix, p);
 }
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
