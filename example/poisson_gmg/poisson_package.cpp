@@ -113,12 +113,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
     parthenon::solvers::CGParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::CGSolverStages<PoissEqStages>>(
-        "base", "u", "rhs", pkg.get(), params, PoissEqStages(pin, "poisson"));
+        "base", "u", "rhs", params, PoissEqStages(pin, "poisson"));
   } else if (solver == "BiCGSTABStages") {
     using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
     parthenon::solvers::BiCGSTABParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::BiCGSTABSolverStages<PoissEqStages>>(
-        "base", "u", "rhs", pkg.get(), params, PoissEqStages(pin, "poisson"));
+        "base", "u", "rhs", params, PoissEqStages(pin, "poisson"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }

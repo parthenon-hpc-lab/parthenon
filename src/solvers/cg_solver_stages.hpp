@@ -63,9 +63,9 @@ class CGSolverStages : public SolverBase {
 
  public:
   CGSolverStages(const std::string &container_base, const std::string &container_u,
-                 const std::string &container_rhs, StateDescriptor *pkg,
+                 const std::string &container_rhs,
                  CGParams params_in, const equations &eq_in = equations())
-      : preconditioner(container_base, container_u, container_rhs, pkg,
+      : preconditioner(container_base, container_u, container_rhs,
                        params_in.mg_params, eq_in),
         container_base(container_base), container_u(container_u),
         container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {

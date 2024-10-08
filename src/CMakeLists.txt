@@ -230,6 +230,7 @@ add_library(parthenon
   solvers/bicgstab_solver_stages.hpp
   solvers/cg_solver.hpp
   solvers/cg_solver_stages.hpp
+  solvers/internal_prolongation.hpp
   solvers/mg_solver.hpp
   solvers/mg_solver_stages.hpp
   solvers/solver_base.hpp

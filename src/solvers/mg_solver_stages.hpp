@@ -25,6 +25,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "solvers/internal_prolongation.hpp"
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils_stages.hpp"
 #include "tasks/tasks.hpp"
@@ -35,7 +36,7 @@ namespace parthenon {
 
 namespace solvers {
 
-// The equations class must include a template method
+// The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
 //   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
@@ -49,10 +50,10 @@ namespace solvers {
 //
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
-template <class equations>
+template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
 class MGSolverStages : public SolverBase {
  public:
-  using FieldTL = typename equations::IndependentVars;
+  using FieldTL = typename equations_t::IndependentVars;
 
   std::vector<std::string> sol_fields;
 
@@ -67,12 +68,30 @@ class MGSolverStages : public SolverBase {
   std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
+ 
+  MGSolverStages(const std::string &container_base,
+                 const std::string &container_u,
+                 const std::string &container_rhs,
+                 ParameterInput *pin,
+                 const std::string &input_block,
+                 equations_t eq_in = equations_t()) 
+      : MGSolverStages(container_base, container_u, container_rhs,
+                       MGParams(pin, input_block), eq_in,
+                       prolongator_t(pin, input_block)) {}
 
-  MGSolverStages(const std::string &container_base, const std::string &container_u,
-                 const std::string &container_rhs, StateDescriptor *pkg,
-                 MGParams params_in, equations eq_in = equations())
-      : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in) {
+  MGSolverStages(const std::string &container_base,
+                 const std::string &container_u,
+                 const std::string &container_rhs,
+                 MGParams params_in,
+                 equations_t eq_in = equations_t(),
+                 prolongator_t prol_in = prolongator_t())
+      : container_base(container_base),
+        container_u(container_u),
+        container_rhs(container_rhs),
+        params_(params_in),
+        iter_counter(0),
+        eqs_(eq_in),
+        prolongator_(prol_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg";
@@ -178,7 +197,8 @@ class MGSolverStages : public SolverBase {
   MGParams params_;
   int iter_counter;
   AllReduce<Real> residual;
-  equations eqs_;
+  equations_t eqs_;
+  prolongator_t prolongator_;
   std::string container_;
 
   // These functions apparently have to be public to compile with cuda since
@@ -319,7 +339,7 @@ class MGSolverStages : public SolverBase {
       task_out = tl.AddTask(task_out, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md);
     }
     task_out =
-        tl.AddTask(task_out, BTF(&equations::template SetDiagonal), &eqs_, md, md_diag);
+        tl.AddTask(task_out, BTF(&equations_t::template SetDiagonal), &eqs_, md, md_diag);
     // If we are finer than the coarsest level:
     if (level > min_level) {
       task_out =
