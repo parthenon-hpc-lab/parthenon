@@ -68,14 +68,35 @@ namespace OpenPMDUtils {
 
 template <typename T>
 auto GetFlatHostVecFromView(T view) {
-  // Take a view and return a flattendned (1D) std::vector that can then
-  // easily be passed to OpenPMD.
-  // Note, this function is not optimial as multiple (unnecessary) copies may be done.
-  // PG didn't come up with a smarter way but thinks that it's not a
-  // performance issue as this is only called for outputs (thus not that often)
-  // and for mostly small amounts of data.
-  // With a C++20 span we could probably direct reuse the host mirror data pointer.
+  // Take a view and return a vector containing rank and dims and a flattened (1D)
+  // std::vector that can then easily be passed to OpenPMD.
+  // Note, this function is not
+  // optimial as multiple (unnecessary) copies may be done. PG didn't come up with a
+  // smarter way but thinks that it's not a performance issue as this is only called for
+  // outputs (thus not that often) and for mostly small amounts of data. With a C++20 span
+  // we could probably direct reuse the host mirror data pointer.
   auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
+
+  using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+  auto host_vec = std::vector<base_t>(view_h.size());
+  for (auto i = 0; i < view_h.size(); i++) {
+    host_vec[i] = view_h.data()[i];
+  }
+  // cpplint demands compile constants be all caps
+  constexpr auto RANK = static_cast<size_t>(T::rank);
+  std::vector<size_t> rank_and_dims(RANK + 1);
+  rank_and_dims[0] = RANK;
+  for (size_t d = 0; d < RANK; ++d) {
+    rank_and_dims[1 + d] = view.extent_int(d);
+  }
+  return std::make_tuple(rank_and_dims, host_vec);
+}
+
+template <typename Vec, typename T>
+auto CopyFlatHostVecToView(const Vec &vec, T view) {
+  // Copy flat std::vector to view (doens't do any checks at the moment).
+  // As above, potentially extra copies are being made.
+  auto view_h = Kokkos::create_mirror_view(HostMemSpace(), view);
 
   using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
   auto host_vec = std::vector<base_t>(view_h.size());
@@ -100,11 +121,13 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
 
       if constexpr (implements<kokkos_view(T)>::value) {
         const auto &view = params.Get<T>(key);
-        auto host_vec = GetFlatHostVecFromView(view);
+        auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path + ".rankdims", rank_and_dims);
         it->setAttribute(full_path, host_vec);
       } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
         const auto &view = params.Get<T>(key).KokkosView();
-        auto host_vec = GetFlatHostVecFromView(view);
+        auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path + ".rankdims", rank_and_dims);
         it->setAttribute(full_path, host_vec);
       } else {
         it->setAttribute(full_path, params.Get<T>(key));

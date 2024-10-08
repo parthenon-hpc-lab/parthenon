@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -29,6 +30,7 @@
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "outputs/restart_opmd.hpp"
+#include "parthenon_array_generic.hpp"
 
 using parthenon::Params;
 using parthenon::Real;
@@ -235,8 +237,26 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           in_vector = it->getAttribute(prefix + delim + "vector").get<std::vector<int>>();
           // Note that we also change the type here as ParArrays (or View in general) are
           // downcasted to flattened vector.
-          // in_arr2d = it->getAttribute(prefix + delim +
-          // "arr2d").get<std::vector<Real>>();
+          auto rank_and_dims = it->getAttribute(prefix + delim + "arr2d.rankdims")
+                                   .get<std::vector<size_t>>();
+          // Resize view.
+          using ViewType =
+              typename std::remove_reference<decltype(in_arr2d.KokkosView())>::type;
+          ViewType::array_layout layout;
+          for (int d = 0; d < rank_and_dims[0]; ++d) {
+            layout.dimension[d] = rank_and_dims[1 + d];
+          }
+          auto &in_arr2d_view = in_arr2d.KokkosView();
+          in_arr2d_view = ViewType(in_arr2d_view.label(), layout);
+          auto view_h =
+              Kokkos::create_mirror_view(parthenon::HostMemSpace(), in_arr2d_view);
+
+          auto in_arr2d_data =
+              it->getAttribute(prefix + delim + "arr2d").get<std::vector<Real>>();
+          for (auto i = 0; i < view_h.size(); i++) {
+            view_h.data()[i] = in_arr2d_data[i];
+          }
+          Kokkos::deep_copy(in_arr2d_view, view_h);
         }
         REQUIRE(scalar == in_scalar);
 
