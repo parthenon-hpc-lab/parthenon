@@ -200,4 +200,4 @@ class ProlongationBlockInteriorZeroDirichlet {
 
 } // namespace parthenon
 
-#endif  // SOLVERS_INTERNAL_PROLONGATION_HPP_
+#endif // SOLVERS_INTERNAL_PROLONGATION_HPP_
