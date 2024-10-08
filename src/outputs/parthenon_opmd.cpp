@@ -92,18 +92,24 @@ auto GetFlatHostVecFromView(T view) {
   return std::make_tuple(rank_and_dims, host_vec);
 }
 
-template <typename Vec, typename T>
-auto CopyFlatHostVecToView(const Vec &vec, T view) {
-  // Copy flat std::vector to view (doens't do any checks at the moment).
-  // As above, potentially extra copies are being made.
+template <typename T>
+auto RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it) {
+  auto rank_and_dims =
+      it->getAttribute(full_path + ".rankdims").get<std::vector<size_t>>();
+  // Resize view.
+  typename T::array_layout layout;
+  for (int d = 0; d < rank_and_dims[0]; ++d) {
+    layout.dimension[d] = rank_and_dims[1 + d];
+  }
+  Kokkos::resize(Kokkos::WithoutInitializing, view, layout);
   auto view_h = Kokkos::create_mirror_view(HostMemSpace(), view);
 
   using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
-  auto host_vec = std::vector<base_t>(view_h.size());
+  auto flat_data = it->getAttribute(full_path).get<std::vector<base_t>>();
   for (auto i = 0; i < view_h.size(); i++) {
-    host_vec[i] = view_h.data()[i];
+    view_h.data()[i] = flat_data[i];
   }
-  return host_vec;
+  Kokkos::deep_copy(view, view_h);
 }
 
 template <typename T>
@@ -112,7 +118,6 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
     if (type == std::type_index(typeid(T))) {
-      // auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
       auto full_path = prefix + delim + key;
       // The '/' is kind of a reserved character in the OpenPMD standard, which results
       // in attribute keys with said character not being exposed.

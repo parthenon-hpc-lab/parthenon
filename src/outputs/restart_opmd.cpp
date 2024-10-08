@@ -134,14 +134,30 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
     const auto type = params.GetType(key);
     auto mutability = params.GetMutability(key);
     if (type == std::type_index(typeid(T)) && mutability == Params::Mutability::Restart) {
+      auto full_path = prefix + delim + key;
+      // The '/' is kind of a reserved character in the OpenPMD standard, which results
+      // in attribute keys with said character not being exposed.
+      // Thus we replace it.
+      std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
+
       auto attrs = it->attributes();
       for (const auto &attr : attrs) {
         std::cout << "Contains attribute: " << attr << std::endl;
       }
-      std::cout << "Reading '" << prefix + delim + key
-                << "' with type: " << typeid(T).name() << std::endl;
+      std::cout << "Reading '" << full_path << "' with type: " << typeid(T).name()
+                << std::endl;
 
-      auto val = it->getAttribute(prefix + delim + key).get<T>();
+      T val;
+      if constexpr (implements<kokkos_view(T)>::value) {
+        val = params.Get<T>(key);
+        RestoreViewAttribute(full_path, val, it);
+      } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
+        val = params.Get<T>(key);
+        auto &view = val.KokkosView();
+        RestoreViewAttribute(full_path, view, it);
+      } else {
+        val = it->getAttribute(full_path).get<T>();
+      }
       params.Update(key, val);
     }
   }
