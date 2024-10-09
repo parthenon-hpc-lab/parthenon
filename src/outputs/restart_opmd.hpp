@@ -153,9 +153,9 @@ class RestartReaderOPMD : public RestartReader {
   std::unique_ptr<openPMD::Iteration> it;
 
   template <typename T>
-  void ReadAllParamsOfType(const std::string &pkg_name, Params &params);
+  void ReadAllParamsOfType(const std::string &prefix, Params &params);
   template <typename... Ts>
-  void ReadAllParamsOfMultipleTypes(const std::string &pkg_name, Params &p);
+  void ReadAllParamsOfMultipleTypes(const std::string &prefix, Params &p);
   template <typename T>
   void ReadAllParams(const std::string &pkg_name, Params &p);
 };

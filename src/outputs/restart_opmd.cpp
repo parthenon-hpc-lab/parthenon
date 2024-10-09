@@ -142,13 +142,6 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      auto attrs = it->attributes();
-      for (const auto &attr : attrs) {
-        std::cout << "Contains attribute: " << attr << std::endl;
-      }
-      std::cout << "Reading '" << full_path << "' with type: " << typeid(T).name()
-                << std::endl;
-
       T val;
       if constexpr (implements<kokkos_view(T)>::value) {
         val = params.Get<T>(key);
@@ -166,9 +159,9 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
 }
 
 template <typename... Ts>
-void RestartReaderOPMD::ReadAllParamsOfMultipleTypes(const std::string &pkg_name,
+void RestartReaderOPMD::ReadAllParamsOfMultipleTypes(const std::string &prefix,
                                                      Params &p) {
-  ([&] { ReadAllParamsOfType<Ts>(pkg_name, p); }(), ...);
+  ([&] { ReadAllParamsOfType<Ts>(prefix, p); }(), ...);
 }
 
 template <typename T>
