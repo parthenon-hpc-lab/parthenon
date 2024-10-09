@@ -78,8 +78,6 @@ Some notes:
   in the ghost cells of blocks from the prolongation operators used in their interiors. Users can 
   easily define their own prolongation operators. An example of using these interior prolongation 
   operators is contained in the ``poisson_gmg`` example.
-- Note that none of the example code does not currently rely on the Stencil and SparseMatrixAccessor 
-  code described below, which persist from an older version of the solvers
 
 Some implementation notes about geometric multi-grid can be found in 
 :ref:`these notes <doc/latex/main.pdf>`.
