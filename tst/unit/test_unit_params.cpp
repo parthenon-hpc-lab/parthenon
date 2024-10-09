@@ -235,41 +235,23 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           // Note that we're explicitly using `delim` here which tests the character
           // replacement of '/' in the WriteAllParams function.
           using parthenon::OpenPMDUtils::delim;
+
           in_scalar =
               it.getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
+
           in_vector = it.getAttribute(groupname + delim + prefix + delim + "vector")
                           .get<std::vector<int>>();
 
-          // auto &tmp_view = in_arr2d.KokkosView();
-          // using ViewType =
-          // typename std::remove_reference<decltype(in_arr2d.KokkosView())>::type;
-          // parthenon::OpenPMDUtils::RestoreViewAttribute<ViewType>(
-          // groupname + delim + prefix + delim + "arr2d", tmp_view, &it);
+          // Technically, we're not reading "directly" here but the restart reader ctor
+          // literally just opens the file.
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          auto &in_arr2d_v = in_arr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "arr2d",
+                                       in_arr2d_v);
 
-          // Note that we also change the type here as ParArrays (or View in general)
-          // are downcasted to flattened vector.
-          auto rank_and_dims =
-              it.getAttribute(groupname + delim + prefix + delim + "arr2d.rankdims")
-                  .get<std::vector<size_t>>();
-          // Resize view.
-          using ViewType =
-              typename std::remove_reference<decltype(in_arr2d.KokkosView())>::type;
-          ViewType::array_layout layout;
-          for (int d = 0; d < rank_and_dims[0]; ++d) {
-            layout.dimension[d] = rank_and_dims[1 + d];
-          }
-          auto &in_arr2d_view = in_arr2d.KokkosView();
-          in_arr2d_view = ViewType(in_arr2d_view.label(), layout);
-          auto view_h =
-              Kokkos::create_mirror_view(parthenon::HostMemSpace(), in_arr2d_view);
-
-          auto in_arr2d_data =
-              it.getAttribute(groupname + delim + prefix + delim + "arr2d")
-                  .get<std::vector<Real>>();
-          for (auto i = 0; i < view_h.size(); i++) {
-            view_h.data()[i] = in_arr2d_data[i];
-          }
-          Kokkos::deep_copy(in_arr2d_view, view_h);
+          auto &in_hostarr2d_v = in_hostarr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "hostarr2d",
+                                       in_hostarr2d_v);
         }
         REQUIRE(scalar == in_scalar);
 
@@ -293,7 +275,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         REQUIRE(in_hostarr2d.extent_int(1) == hostarr2d.extent_int(1));
         for (int i = 0; i < 2; ++i) {
           for (int j = 0; j < 3; ++j) {
-            REQUIRE((hostarr2d(i, j) == in_hostarr2d(i, j) || true));
+            REQUIRE(hostarr2d(i, j) == in_hostarr2d(i, j));
           }
         }
       }
