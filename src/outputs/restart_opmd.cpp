@@ -155,7 +155,7 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
       } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
         val = params.Get<T>(key);
         auto &view = val.KokkosView();
-        RestoreViewAttribute(full_path, view, it);
+        RestoreViewAttribute(full_path, view);
       } else {
         val = it->getAttribute(full_path).get<T>();
       }
@@ -188,7 +188,7 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
   ReadAllParams<std::string>(prefix, p);
   ReadAllParamsOfType<bool>(prefix, p);
   // ReadAllParamsOfType<ParArray2D<Real>>(prefix, p);
-  // ReadAllParamsOfType<HostArray2D<Real>>(prefix, p);
+  ReadAllParamsOfType<HostArray2D<Real>>(prefix, p);
 }
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
