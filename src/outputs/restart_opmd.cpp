@@ -18,6 +18,7 @@
 #include "interface/params.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
+#include "outputs/output_attr.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_opmd.hpp"
@@ -151,7 +152,7 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
       T val;
       if constexpr (implements<kokkos_view(T)>::value) {
         val = params.Get<T>(key);
-        RestoreViewAttribute(full_path, val, it);
+        RestoreViewAttribute(full_path, val);
       } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
         val = params.Get<T>(key);
         auto &view = val.KokkosView();
@@ -172,9 +173,7 @@ void RestartReaderOPMD::ReadAllParamsOfMultipleTypes(const std::string &pkg_name
 
 template <typename T>
 void RestartReaderOPMD::ReadAllParams(const std::string &pkg_name, Params &p) {
-  ReadAllParamsOfMultipleTypes<T, std::vector<T>>(pkg_name, p);
-  // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
-  // ReadAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+  ReadAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg_name, p);
 }
 void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
   using OpenPMDUtils::delim;
@@ -186,9 +185,8 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
   ReadAllParams<float>(prefix, p);
   ReadAllParams<double>(prefix, p);
   ReadAllParams<std::string>(prefix, p);
+  // TODO(pgrete) same as for the writing. fix vec of bool
   ReadAllParamsOfType<bool>(prefix, p);
-  // ReadAllParamsOfType<ParArray2D<Real>>(prefix, p);
-  ReadAllParamsOfType<HostArray2D<Real>>(prefix, p);
 }
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,

@@ -48,6 +48,7 @@
 #include "openPMD/Mesh.hpp"
 #include "openPMD/ParticleSpecies.hpp"
 #include "openPMD/Series.hpp"
+#include "outputs/output_attr.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
@@ -130,17 +131,16 @@ void WriteAllParamsOfMultipleTypes(const Params &params, const std::string &pref
 template <typename T>
 void WriteAllParams(const Params &params, const std::string &prefix,
                     openPMD::Iteration *it) {
-  WriteAllParamsOfMultipleTypes<T, std::vector<T>>(params, prefix, it);
-  // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
-  // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+  WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(params, prefix, it);
 }
 
 void WriteAllParams(const Params &params, const std::string &pkg_name,
                     openPMD::Iteration *it) {
   using OpenPMDUtils::delim;
   const std::string prefix = "Params" + delim + pkg_name;
-  // WriteAllParams<bool>(params, prefix, it); // check why this (vector of bool) doesn't
-  // work
+  // check why this (vector of bool) doesn't work
+  // WriteAllParams<bool>(params, prefix, it);
+  WriteAllParamsOfType<bool>(params, prefix, it);
   WriteAllParams<int32_t>(params, prefix, it);
   WriteAllParams<int64_t>(params, prefix, it);
   WriteAllParams<uint32_t>(params, prefix, it);
@@ -148,11 +148,6 @@ void WriteAllParams(const Params &params, const std::string &pkg_name,
   WriteAllParams<float>(params, prefix, it);
   WriteAllParams<double>(params, prefix, it);
   WriteAllParams<std::string>(params, prefix, it);
-  WriteAllParamsOfType<bool>(params, prefix, it);
-  // WriteAllParamsOfType<std::vector<bool>>(params,prefix, it);
-  WriteAllParamsOfType<Kokkos::View<Real *>>(params, prefix, it);
-  WriteAllParamsOfType<ParArray2D<Real>>(params, prefix, it);
-  WriteAllParamsOfType<HostArray2D<Real>>(params, prefix, it);
 }
 
 template <typename T>

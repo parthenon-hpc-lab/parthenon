@@ -183,6 +183,16 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
     Kokkos::deep_copy(arr2d, arr2d_h);
     params.Add("arr2d", arr2d);
 
+    // "Vectors" of bools have some special sauce under the hood so let's try the logic
+    // with a plain view
+    Kokkos::View<bool *> bool1d("boolview", 10);
+    auto bool1d_h = Kokkos::create_mirror_view(bool1d);
+    for (int i = 0; i < 10; ++i) {
+      bool1d_h(i) = i % 2;
+    }
+    Kokkos::deep_copy(bool1d, bool1d_h);
+    params.Add("bool1d", bool1d);
+
     parthenon::HostArray2D<Real> hostarr2d("hostarr2d", 2, 3);
     for (int i = 0; i < 2; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -218,6 +228,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         // deliberately the wrong size
         parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
         parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
+        Kokkos::View<bool *> in_bool1d("in_bool1d", 5);
 
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
           H5F file =
@@ -229,6 +240,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
           HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
           HDF5ReadAttribute(obj, prefix + "/hostarr2d", in_hostarr2d);
+          HDF5ReadAttribute(obj, prefix + "/bool1d", in_bool1d);
         } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
           auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
           auto it = series.iterations[0];
@@ -252,6 +264,9 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           auto &in_hostarr2d_v = in_hostarr2d.KokkosView();
           resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "hostarr2d",
                                        in_hostarr2d_v);
+          //  TODO(pgrete) make this work and also add checks for correctness below
+          // resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "bool1d",
+          //  in_bool1d);
         }
         REQUIRE(scalar == in_scalar);
 
