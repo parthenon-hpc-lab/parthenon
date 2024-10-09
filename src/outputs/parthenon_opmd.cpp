@@ -26,6 +26,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -47,6 +48,7 @@
 #include "openPMD/Mesh.hpp"
 #include "openPMD/ParticleSpecies.hpp"
 #include "openPMD/Series.hpp"
+#include "outputs/output_attr.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
@@ -63,34 +65,90 @@ namespace parthenon {
 
 using namespace OutputUtils;
 
+namespace OpenPMDUtils {
+
 template <typename T>
-void WriteAllParamsOfType(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
-  using OpenPMDUtils::delim;
-  const std::string prefix = "Params" + delim + pkg->label() + delim;
-  const auto &params = pkg->AllParams();
+auto GetFlatHostVecFromView(T view) {
+  // Take a view and return a vector containing rank and dims and a flattened (1D)
+  // std::vector that can then easily be passed to OpenPMD.
+  // Note, this function is not
+  // optimial as multiple (unnecessary) copies may be done. PG didn't come up with a
+  // smarter way but thinks that it's not a performance issue as this is only called for
+  // outputs (thus not that often) and for mostly small amounts of data. With a C++20 span
+  // we could probably direct reuse the host mirror data pointer.
+  auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
+
+  using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+  auto host_vec = std::vector<base_t>(view_h.size());
+  for (auto i = 0; i < view_h.size(); i++) {
+    host_vec[i] = view_h.data()[i];
+  }
+  // cpplint demands compile constants be all caps
+  constexpr auto RANK = static_cast<size_t>(T::rank);
+  std::vector<size_t> rank_and_dims(RANK + 1);
+  rank_and_dims[0] = RANK;
+  for (size_t d = 0; d < RANK; ++d) {
+    rank_and_dims[1 + d] = view.extent_int(d);
+  }
+  return std::make_tuple(rank_and_dims, host_vec);
+}
+
+template <typename T>
+void WriteAllParamsOfType(const Params &params, const std::string &prefix,
+                          openPMD::Iteration *it) {
   for (const auto &key : params.GetKeys()) {
     const auto type = params.GetType(key);
     if (type == std::type_index(typeid(T))) {
-      // auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-      it->setAttribute(prefix + key, params.Get<T>(key));
+      auto full_path = prefix + delim + key;
+      // The '/' is kind of a reserved character in the OpenPMD standard, which results
+      // in attribute keys with said character not being exposed.
+      // Thus we replace it.
+      std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
+
+      if constexpr (implements<kokkos_view(T)>::value) {
+        const auto &view = params.Get<T>(key);
+        auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path + ".rankdims", rank_and_dims);
+        it->setAttribute(full_path, host_vec);
+      } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
+        const auto &view = params.Get<T>(key).KokkosView();
+        auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
+        it->setAttribute(full_path + ".rankdims", rank_and_dims);
+        it->setAttribute(full_path, host_vec);
+      } else {
+        it->setAttribute(full_path, params.Get<T>(key));
+      }
     }
   }
 }
 
 template <typename... Ts>
-void WriteAllParamsOfMultipleTypes(std::shared_ptr<StateDescriptor> pkg,
+void WriteAllParamsOfMultipleTypes(const Params &params, const std::string &prefix,
                                    openPMD::Iteration *it) {
-  ([&] { WriteAllParamsOfType<Ts>(pkg, it); }(), ...);
+  ([&] { WriteAllParamsOfType<Ts>(params, prefix, it); }(), ...);
 }
 
 template <typename T>
-void WriteAllParams(std::shared_ptr<StateDescriptor> pkg, openPMD::Iteration *it) {
-  WriteAllParamsOfMultipleTypes<T, std::vector<T>>(pkg, it);
-  // TODO(pgrete) check why this doens't work, i.e., which type is causing problems
-  // WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(pkg, it);
+void WriteAllParams(const Params &params, const std::string &prefix,
+                    openPMD::Iteration *it) {
+  WriteAllParamsOfMultipleTypes<PARTHENON_ATTR_VALID_VEC_TYPES(T)>(params, prefix, it);
 }
 
-namespace OpenPMDUtils {
+void WriteAllParams(const Params &params, const std::string &pkg_name,
+                    openPMD::Iteration *it) {
+  using OpenPMDUtils::delim;
+  const std::string prefix = "Params" + delim + pkg_name;
+  // check why this (vector of bool) doesn't work
+  // WriteAllParams<bool>(params, prefix, it);
+  WriteAllParamsOfType<bool>(params, prefix, it);
+  WriteAllParams<int32_t>(params, prefix, it);
+  WriteAllParams<int64_t>(params, prefix, it);
+  WriteAllParams<uint32_t>(params, prefix, it);
+  WriteAllParams<uint64_t>(params, prefix, it);
+  WriteAllParams<float>(params, prefix, it);
+  WriteAllParams<double>(params, prefix, it);
+  WriteAllParams<std::string>(params, prefix, it);
+}
 
 template <typename T>
 void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
@@ -231,7 +289,11 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     filename.append(".now");
   }
   filename.append(".%05T.bp");
-  Series series = Series(filename, Access::CREATE, MPI_COMM_WORLD, backend_config);
+  Series series = Series(filename, Access::CREATE,
+#ifdef MPI_PARALLEL
+                         MPI_COMM_WORLD,
+#endif
+                         backend_config);
 
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
@@ -276,31 +338,12 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     it.setTime(-1.0);
     it.setDt(-1.0);
   }
-  { // FIXME move this to dump params
-    // TODO(pgrete) Make this test piece work on devices
-    if constexpr (false) {
-      PARTHENON_INSTRUMENT_REGION("Dump Params");
-      const auto view_d =
-          Kokkos::View<Real **, Kokkos::DefaultExecutionSpace>("blub", 5, 3);
-      // Map a view onto a host allocation (so that we can call deep_copy)
-      auto host_vec = std::vector<Real>(view_d.size());
-      Kokkos::View<Real **, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-          view_h(host_vec.data(), view_d.extent_int(0), view_d.extent_int(1));
-      Kokkos::deep_copy(view_h, view_d);
-      it.setAttribute("blub", host_vec);
-    }
+  {
+    PARTHENON_INSTRUMENT_REGION("Dump Params");
 
-    for (const auto &[key, pkg] : pm->packages.AllPackages()) {
-      // WriteAllParams<bool>(pkg, &it); // check why this (vector of bool) doesn't work
-      WriteAllParams<int32_t>(pkg, &it);
-      WriteAllParams<int64_t>(pkg, &it);
-      WriteAllParams<uint32_t>(pkg, &it);
-      WriteAllParams<uint64_t>(pkg, &it);
-      WriteAllParams<float>(pkg, &it);
-      WriteAllParams<double>(pkg, &it);
-      WriteAllParams<std::string>(pkg, &it);
-      WriteAllParamsOfType<bool>(pkg, &it);
-      // WriteAllParamsOfType<std::vector<bool>>(pkg, &it);
+    for (const auto &[pkg_name, pkg] : pm->packages.AllPackages()) {
+      const auto &params = pkg->AllParams();
+      OpenPMDUtils::WriteAllParams(params, pkg_name, &it);
     }
   }
   // Then our own
@@ -568,10 +611,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
             }
           }
         } // loop over components
-      }   // out_var->IsAllocated()
-    }     // loop over blocks
+      } // out_var->IsAllocated()
+    } // loop over blocks
     it.seriesFlush();
-  }                               // loop over vars
+  } // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // -------------------------------------------------------------------------------- //

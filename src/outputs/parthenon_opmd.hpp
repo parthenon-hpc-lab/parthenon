@@ -14,18 +14,23 @@
 
 #include "mesh/meshblock.hpp"
 #include "openPMD/Dataset.hpp"
+#include "openPMD/Iteration.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {
 
 namespace OpenPMDUtils {
 
+template <typename T>
+void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);
+
+void WriteAllParams(const Params &params, const std::string &prefix,
+                    openPMD::Iteration *it);
+
 // Deliminter to separate packages and parameters in attributes.
 // More or less a workaround as the OpenPMD API does currently not expose
 // access to non-standard groups (such as "Params" versus the standard "meshes").
-// TODO(pgrete & reviewer) (agree on delim and add check for package name and keys) OR
-// better use of opmd-api
-inline static const std::string delim = "🤝";
+inline static const std::string delim = "~";
 
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
 // - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,

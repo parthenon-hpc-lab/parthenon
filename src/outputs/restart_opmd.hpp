@@ -119,6 +119,27 @@ class RestartReaderOPMD : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
+  template <typename T>
+  void RestoreViewAttribute(const std::string &full_path, T &view) {
+    auto rank_and_dims =
+        it->getAttribute(full_path + ".rankdims").get<std::vector<size_t>>();
+    // Resize view.
+    typename T::array_layout layout;
+    for (int d = 0; d < rank_and_dims[0]; ++d) {
+      layout.dimension[d] = rank_and_dims[1 + d];
+    }
+    // Cannot use Kokkos::resize here as it's ambiguous at this point.
+    // Also, resize() interally also just create a new view.
+    view = T(Kokkos::view_alloc(Kokkos::WithoutInitializing, view.label()), layout);
+    auto view_h = Kokkos::create_mirror_view(HostMemSpace(), view);
+
+    using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+    auto flat_data = it->getAttribute(full_path).get<std::vector<base_t>>();
+    for (auto i = 0; i < view_h.size(); i++) {
+      view_h.data()[i] = flat_data[i];
+    }
+    Kokkos::deep_copy(view, view_h);
+  }
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();
@@ -132,9 +153,9 @@ class RestartReaderOPMD : public RestartReader {
   std::unique_ptr<openPMD::Iteration> it;
 
   template <typename T>
-  void ReadAllParamsOfType(const std::string &pkg_name, Params &params);
+  void ReadAllParamsOfType(const std::string &prefix, Params &params);
   template <typename... Ts>
-  void ReadAllParamsOfMultipleTypes(const std::string &pkg_name, Params &p);
+  void ReadAllParamsOfMultipleTypes(const std::string &prefix, Params &p);
   template <typename T>
   void ReadAllParams(const std::string &pkg_name, Params &p);
 };
