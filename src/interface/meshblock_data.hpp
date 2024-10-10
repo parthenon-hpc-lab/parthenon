@@ -141,6 +141,17 @@ class MeshBlockData {
     resolved_packages = resolved_packages_in;
     is_shallow_ = shallow_copy;
 
+    // Store the list of variables used to create this container
+    // so we can compare to it when searching the cache
+    varUidIn_.clear();
+    if constexpr (std::is_same_v<ID_t, std::string>) {
+      for (const auto &var : vars)
+        varUidIn_.insert(Variable<Real>::GetUniqueID(var));
+    } else {
+      for (const auto &var : vars)
+        varUidIn_.insert(var);
+    }
+
     // clear all variables, maps, and pack caches
     varVector_.clear();
     varMap_.clear();
@@ -185,9 +196,29 @@ class MeshBlockData {
             if (!found) add_var(src->GetVarPtr(flx_name));
           }
         }
+      } else if constexpr (std::is_same_v<SRC_t, MeshBlock> &&
+                           std::is_same_v<ID_t, std::string>) {
+        for (const auto &v : vars) {
+          const auto &vid = resolved_packages->GetFieldVarID(v);
+          const auto &md = resolved_packages->GetFieldMetadata(v);
+          AddField(vid.base_name, md, vid.sparse_id);
+          // Add the associated flux as well if not explicitly
+          // asked for
+          if (md.IsSet(Metadata::WithFluxes)) {
+            auto flx_name = md.GetFluxName();
+            bool found = false;
+            for (const auto &v2 : vars)
+              if (v2 == flx_name) found = true;
+            if (!found) {
+              const auto &vid = resolved_packages->GetFieldVarID(flx_name);
+              const auto &md = resolved_packages->GetFieldMetadata(flx_name);
+              AddField(vid.base_name, md, vid.sparse_id);
+            }
+          }
+        }
       } else {
-        PARTHENON_FAIL(
-            "Variable subset selection not yet implemented for MeshBlock input.");
+        PARTHENON_FAIL("Variable subset selection not yet implemented for MeshBlock "
+                       "input with unique ids.");
       }
     }
 
@@ -525,6 +556,18 @@ class MeshBlockData {
     return Contains(vars) && (vars.size() == varVector_.size());
   }
 
+  bool CreatedFrom(const std::vector<Uid_t> &vars) {
+    return (vars.size() == varUidIn_.size()) &&
+           std::all_of(vars.begin(), vars.end(),
+                       [this](const auto &v) { return this->varUidIn_.count(v); });
+  }
+  bool CreatedFrom(const std::vector<std::string> &vars) {
+    return (vars.size() == varUidIn_.size()) &&
+           std::all_of(vars.begin(), vars.end(), [this](const auto &v) {
+             return this->varUidIn_.count(Variable<Real>::GetUniqueID(v));
+           });
+  }
+
   void SetAllVariablesToInitialized() {
     std::for_each(varVector_.begin(), varVector_.end(),
                   [](auto &sp_var) { sp_var->data.initialized = true; });
@@ -561,6 +604,8 @@ class MeshBlockData {
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
+  std::set<Uid_t> varUidIn_; // Uid list from which this MeshBlockData was created,
+                             // empty implies all variables were included
 
   MapToVars<T> varMap_;
   MetadataFlagToVariableMap<T> flagsToVars_;
