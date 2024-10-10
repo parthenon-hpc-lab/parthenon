@@ -72,8 +72,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
     auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-    auto &md_u = pmesh->mesh_data.Add("u", md);
-    auto &md_rhs = pmesh->mesh_data.Add("rhs", md);
+    auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
+    auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
@@ -85,12 +85,14 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       get_rhs = eqs->Ax<u, rhs>(tl, comm, md);
     }
 
+    // Move the rhs variable into the rhs stage for stage based solver
+    auto copy_rhs = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<rhs, u>), md);
+    copy_rhs = tl.AddTask(
+        copy_rhs, TF(solvers::StageUtils::CopyData<parthenon::TypeList<u>>), md, md_rhs);
+    
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<u>), md);
+    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md);
     zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
-    zero_u = tl.AddTask(
-        zero_u, TF(solvers::StageUtils::CopyData<parthenon::TypeList<rhs>>), md, md_rhs);
-    zero_u = tl.AddTask(zero_u, TF(solvers::utils::CopyData<rhs, u>), md_rhs);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 
