@@ -89,7 +89,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto copy_rhs = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<rhs, u>), md);
     copy_rhs = tl.AddTask(
         copy_rhs, TF(solvers::StageUtils::CopyData<parthenon::TypeList<u>>), md, md_rhs);
-    
+
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md);
     zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
