@@ -204,8 +204,9 @@ class StateDescriptor {
   std::vector<std::string> Swarms() noexcept;
 
   const auto GetFieldVarID(const VarID &id) const {
-    PARTHENON_REQUIRE_THROWS(metadataMap_.count(id),
-                             "Asking for a variable that is not in this StateDescriptor.");
+    PARTHENON_REQUIRE_THROWS(
+        metadataMap_.count(id),
+        "Asking for a variable that is not in this StateDescriptor.");
     return id;
   }
 
