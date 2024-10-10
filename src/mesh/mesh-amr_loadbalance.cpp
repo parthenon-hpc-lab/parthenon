@@ -979,8 +979,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
       }
 
-      CommunicateBoundaries(noncc); // Called to make sure shared values are correct,
-                                    // ghosts of non-cell centered vars may get some junk
+      CommunicateBoundaries(
+          noncc, noncc_names); // Called to make sure shared values are correct,
+                               // ghosts of non-cell centered vars may get some junk
       // Now there is the correct data for prolongating on un-shared topological elements
       // on the new fine blocks
       if (nprolong > 0) {
