@@ -54,6 +54,7 @@ vx = 1.0
 vy = 1.0
 vz = 1.0
 profile = hard_sphere
+test_metadata_none = true
 
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
@@ -64,7 +65,8 @@ file_type = hdf5
 dt = 1.0
 variables = advected, one_minus_advected, & # comments are ok
             one_minus_advected_sq, & # on every (& characters are ok in comments)
-            one_minus_sqrt_one_minus_advected_sq # line
+            one_minus_sqrt_one_minus_advected_sq, & # line
+            metadata_none_var
 
 <parthenon/output1>
 file_type = hst
