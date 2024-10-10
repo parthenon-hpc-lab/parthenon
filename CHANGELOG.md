@@ -3,21 +3,25 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
+- [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
+- [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
 - [[PR 1179]](https://github.com/parthenon-hpc-lab/parthenon/pull/1179) Make a global variable for whether simulation is a restart
 - [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
+- [[PR 1186]](https://github.com/parthenon-hpc-lab/parthenon/pull/1186) Bump Kokkos submodule to 4.4.1
 - [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
-- [[PR1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
+- [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
+- [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
 

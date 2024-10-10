@@ -62,6 +62,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       destroy_particles_frac >= 0. && destroy_particles_frac <= 1.,
       "Fraction of particles to destroy each timestep must be between 0 and 1");
 
+  Real defrag_threshold = pin->GetOrAddReal("Particles", "defrag_threshold", 0.9);
+  pkg->AddParam<>("defrag_threshold", defrag_threshold);
+  PARTHENON_REQUIRE(defrag_threshold >= 0. && defrag_threshold <= 1.,
+                    "Defragmentation threshold must be between 0 and 1 inclusive.");
+
   std::string deposition_method =
       pin->GetOrAddString("Particles", "deposition_method", "per_particle");
   if (deposition_method == "per_particle") {
@@ -307,6 +312,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
           weight(n) = 1.0;
 
+          // Check that we are on current meshblock
+          bool is_on_current_mesh_block = false;
+          PARTHENON_REQUIRE(swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n),
+                                                          is_on_current_mesh_block) == -1,
+                            "Particle must be on current meshblock!");
+          PARTHENON_REQUIRE(is_on_current_mesh_block == true,
+                            "Particle must be on current meshblock!");
+
           rng_pool.free_state(rng_gen);
         });
   } else {
@@ -332,6 +345,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
           t(n) = t0;
 
           weight(n) = 1.0;
+
+          // Check that we are on current meshblock
+          bool is_on_current_mesh_block = false;
+          PARTHENON_REQUIRE(swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n),
+                                                          is_on_current_mesh_block) == -1,
+                            "Particle must be on current meshblock!");
+          PARTHENON_REQUIRE(is_on_current_mesh_block == true,
+                            "Particle must be on current meshblock!");
 
           rng_pool.free_state(rng_gen);
         });
@@ -609,6 +630,9 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto &sc1 = pmb->meshblock_data.Get();
     auto &tl = async_region1[i];
 
+    auto pkg = pmb->packages.Get("particles_package");
+    const auto defrag_threshold = pkg->Param<Real>("defrag_threshold");
+
     auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
     auto sort_particles = tl.AddTask(destroy_some_particles,
@@ -617,7 +641,8 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto deposit_particles = tl.AddTask(sort_particles, DepositParticles, pmb.get());
 
     // Defragment if swarm memory pool occupancy is 90%
-    auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(), 0.9);
+    auto defrag = tl.AddTask(deposit_particles, &SwarmContainer::Defrag, sc.get(),
+                             defrag_threshold);
 
     // estimate next time step
     auto new_dt = tl.AddTask(

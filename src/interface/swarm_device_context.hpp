@@ -75,9 +75,9 @@ class SwarmDeviceContext {
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      block_index_(n) = neighbor_indices_(0, 0, i);
+      block_index_(n) = neighbor_indices_(1, 1, i);
     } else if (ndim_ == 2) {
-      block_index_(n) = neighbor_indices_(0, j, i);
+      block_index_(n) = neighbor_indices_(1, j, i);
     } else {
       block_index_(n) = neighbor_indices_(k, j, i);
     }
