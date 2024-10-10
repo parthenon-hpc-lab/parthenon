@@ -196,8 +196,7 @@ class MeshBlockData {
             if (!found) add_var(src->GetVarPtr(flx_name));
           }
         }
-      } else if constexpr (std::is_same_v<SRC_t, MeshBlock> &&
-                           std::is_same_v<ID_t, std::string>) {
+      } else if constexpr (std::is_same_v<SRC_t, MeshBlock>) {
         for (const auto &v : vars) {
           const auto &vid = resolved_packages->GetFieldVarID(v);
           const auto &md = resolved_packages->GetFieldMetadata(v);
@@ -205,20 +204,16 @@ class MeshBlockData {
           // Add the associated flux as well if not explicitly
           // asked for
           if (md.IsSet(Metadata::WithFluxes)) {
-            auto flx_name = md.GetFluxName();
+            auto flx_vid = resolved_packages->GetFieldVarID(md.GetFluxName());
             bool found = false;
             for (const auto &v2 : vars)
-              if (v2 == flx_name) found = true;
+              if (resolved_packages->GetFieldVarID(v2) == flx_vid) found = true;
             if (!found) {
-              const auto &vid = resolved_packages->GetFieldVarID(flx_name);
-              const auto &md = resolved_packages->GetFieldMetadata(flx_name);
-              AddField(vid.base_name, md, vid.sparse_id);
+              const auto &flx_md = resolved_packages->GetFieldMetadata(flx_vid);
+              AddField(flx_vid.base_name, flx_md, flx_vid.sparse_id);
             }
           }
         }
-      } else {
-        PARTHENON_FAIL("Variable subset selection not yet implemented for MeshBlock "
-                       "input with unique ids.");
       }
     }
 
