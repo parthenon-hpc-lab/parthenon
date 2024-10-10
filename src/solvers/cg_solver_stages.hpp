@@ -91,9 +91,9 @@ class CGSolverStages : public SolverBase {
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     // Container in which the solution is stored and with which the downstream user can
     // interact. This container only requires the fields in sol_fields
-    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition]);
+    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition], sol_fields);
     // Container of the rhs, only requires fields in sol_fields
-    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     // Internal solver containers
     auto &md_x = pmesh->mesh_data.Add(container_x, md_u, sol_fields);
     auto &md_r = pmesh->mesh_data.Add(container_r, md_u, sol_fields);

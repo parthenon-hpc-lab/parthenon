@@ -261,7 +261,7 @@ class MGSolverStages : public SolverBase {
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
-    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, md_base, sol_fields);
 
     auto comm =
@@ -377,8 +377,8 @@ class MGSolverStages : public SolverBase {
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
     auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
-    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition]);
-    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition]);
+    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition], sol_fields);
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, md, sol_fields);
     auto &md_temp = pmesh->mesh_data.Add(container_temp, md, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, md, sol_fields);
