@@ -644,7 +644,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   }
 }
 
-void Mesh::CommunicateBoundaries(std::string md_name) {
+void Mesh::CommunicateBoundaries(std::string md_name,
+                                 const std::vector<std::string> &fields) {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   constexpr std::int64_t max_it = 1e10;
@@ -656,7 +657,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_sent = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -680,7 +681,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_received = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -696,14 +697,14 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       "Too many iterations waiting to receive boundary communication buffers.");
 
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);

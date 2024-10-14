@@ -58,7 +58,7 @@ class DataCollection {
     auto key = GetKey(name, src);
     auto it = containers_.find(key);
     if (it != containers_.end()) {
-      if (fields.size() && !(it->second)->Contains(fields)) {
+      if (fields.size() && !(it->second)->CreatedFrom(fields)) {
         PARTHENON_THROW(key + " already exists in collection but fields do not match.");
       }
       return it->second;
