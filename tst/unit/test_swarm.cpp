@@ -212,6 +212,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 
+  // Check for internal index consistency after defragmentation operation
+  swarm->Validate();
+
   // Check that data was moved during defrag
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(2) == 1.1);

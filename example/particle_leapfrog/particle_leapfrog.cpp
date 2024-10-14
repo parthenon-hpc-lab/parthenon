@@ -148,7 +148,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
-  const auto &ic = particles_ic;
+  const auto ic = particles_ic;
 
   const bool no_particles = pin->GetOrAddBoolean("Particles", "disable", false);
   if (no_particles) return;
