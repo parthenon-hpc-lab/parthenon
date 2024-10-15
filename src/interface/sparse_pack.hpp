@@ -191,13 +191,18 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION int GetLevel(const int b, const int off3, const int off2,
                                       const int off1) const {
-    return block_props_(b, (off3 + 1) + 3 * ((off2 + 1) + 3 * (off1 + 1)));
+    return block_props_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1)));
+  }
+
+  KOKKOS_INLINE_FUNCTION bool IsPhysicalBoundary(const int b, const int off3,
+                                                 const int off2, const int off1) const {
+    return block_props_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1))) == bnd_flag;
   }
 
   KOKKOS_INLINE_FUNCTION int GetGID(const int b) const { return block_props_(b, 27); }
 
   int GetLevelHost(const int b, const int off3, const int off2, const int off1) const {
-    return block_props_h_(b, (off3 + 1) + 3 * ((off2 + 1) + 3 * (off1 + 1)));
+    return block_props_h_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1)));
   }
 
   int GetGIDHost(const int b) const { return block_props_h_(b, 27); }

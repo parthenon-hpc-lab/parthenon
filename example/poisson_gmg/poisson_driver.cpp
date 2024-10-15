@@ -26,9 +26,12 @@
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
 #include "poisson_equation.hpp"
+#include "poisson_equation_stages.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "solvers/bicgstab_solver.hpp"
+#include "solvers/cg_solver.hpp"
+#include "solvers/cg_solver_stages.hpp"
 #include "solvers/mg_solver.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -45,18 +48,9 @@ parthenon::DriverStatus PoissonDriver::Execute() {
 
   // After running, retrieve the final residual for checking in tests
   auto pkg = pmesh->packages.Get("poisson_package");
-  auto solver = pkg->Param<std::string>("solver");
-  if (solver == "BiCGSTAB") {
-    auto *bicgstab_solver =
-        pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
-            "MGBiCGSTABsolver");
-    final_rms_residual = bicgstab_solver->GetFinalResidual();
-  } else if (solver == "MG") {
-    auto *mg_solver =
-        pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
-            "MGsolver");
-    final_rms_residual = mg_solver->GetFinalResidual();
-  }
+  auto psolver =
+      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+  final_rms_residual = psolver->GetFinalResidual();
 
   return DriverStatus::complete;
 }
@@ -68,15 +62,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   TaskID none(0);
 
   auto pkg = pmesh->packages.Get("poisson_package");
-  auto solver = pkg->Param<std::string>("solver");
-  auto flux_correct = pkg->Param<bool>("flux_correct");
   auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
-  auto *mg_solver =
-      pkg->MutableParam<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
-          "MGsolver");
-  auto *bicgstab_solver =
-      pkg->MutableParam<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
-          "MGBiCGSTABsolver");
+  auto psolver =
+      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
@@ -84,6 +72,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   for (int i = 0; i < num_partitions; ++i) {
     TaskList &tl = region[i];
     auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
+    auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
@@ -91,24 +81,20 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<exact, u>), md);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md, true);
-      PoissonEquation eqs;
-      eqs.do_flux_cor = flux_correct;
-      get_rhs = eqs.Ax<u, rhs>(tl, comm, md);
+      auto *eqs = pkg->MutableParam<PoissonEquation>("poisson_equation");
+      get_rhs = eqs->Ax<u, rhs>(tl, comm, md);
     }
+
+    // Move the rhs variable into the rhs stage for stage based solver
+    auto copy_rhs = tl.AddTask(get_rhs, TF(solvers::utils::CopyData<rhs, u>), md);
+    copy_rhs = tl.AddTask(
+        copy_rhs, TF(solvers::StageUtils::CopyData<parthenon::TypeList<u>>), md, md_rhs);
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<u>), md);
-
-    auto solve = zero_u;
-    if (solver == "BiCGSTAB") {
-      auto setup = bicgstab_solver->AddSetupTasks(tl, zero_u, i, pmesh);
-      solve = bicgstab_solver->AddTasks(tl, setup, pmesh, i);
-    } else if (solver == "MG") {
-      auto setup = mg_solver->AddSetupTasks(tl, zero_u, i, pmesh);
-      solve = mg_solver->AddTasks(tl, setup, pmesh, i);
-    } else {
-      PARTHENON_FAIL("Unknown solver type.");
-    }
+    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md);
+    zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
+    auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
+    auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution

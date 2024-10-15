@@ -25,6 +25,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
@@ -41,6 +42,7 @@ struct MGParams {
   std::string smoother = "SRJ2";
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
+  std::string prolongation = "OldLinear";
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
@@ -49,6 +51,7 @@ struct MGParams {
         pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
     do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
     smoother = pin->GetOrAddString(input_block, "smoother", smoother);
+    prolongation = pin->GetOrAddString(input_block, "prolongation", prolongation);
     two_by_two_diagonal =
         pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
     max_coarsenings =
@@ -71,7 +74,7 @@ struct MGParams {
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class u, class rhs, class equations>
-class MGSolver {
+class MGSolver : public SolverBase {
  public:
   PARTHENON_INTERNALSOLVERVARIABLE(
       u, res_err); // residual on the way up and error on the way down
@@ -98,6 +101,7 @@ class MGSolver {
         Metadata({Metadata::Cell, Metadata::Independent, Metadata::GMGRestrict,
                   Metadata::GMGProlongate, Metadata::OneCopy},
                  shape);
+
     mres_err.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
     pkg->AddField(res_err::name(), mres_err);
 
@@ -116,7 +120,7 @@ class MGSolver {
     pkg->AddField(D::name(), mD);
   }
 
-  TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
@@ -185,8 +189,7 @@ class MGSolver {
     return post_sync;
   }
 
-  template <class TL_t>
-  TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
+  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     using namespace utils;
 
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
@@ -204,16 +207,12 @@ class MGSolver {
 
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
-  Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
 
  protected:
   MGParams params_;
   int iter_counter;
   AllReduce<Real> residual;
   equations eqs_;
-  Real final_residual;
-  int final_iteration;
   std::string container_;
 
   // These functions apparently have to be public to compile with cuda since
@@ -231,7 +230,13 @@ class MGSolver {
 
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-
+    if (md->grid.type == GridType::two_level_composite) {
+      int current_level = md->grid.logical_level;
+      for (int b = 0; b < nblocks; ++b) {
+        include_block[b] =
+            md->GetBlockData(b)->GetBlockPointer()->loc.level() == current_level;
+      }
+    }
     static auto desc =
         parthenon::MakePackDescriptor<xold_t, xnew_t, Axold_t, rhs_t, D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
@@ -392,7 +397,7 @@ class MGSolver {
       pre_stages = 3;
       post_stages = 3;
     } else {
-      PARTHENON_FAIL("Unknown solver type.");
+      PARTHENON_FAIL("Unknown smoother type.");
     }
 
 //    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
@@ -475,9 +480,14 @@ class MGSolver {
                      TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_comm);
       auto set_from_coarser = tl.AddTask(
           recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
-      auto prolongate =
-          tl.AddTask(set_from_coarser,
-                     BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+      auto prolongate = set_from_coarser;
+      if (params_.prolongation == "User") {
+        prolongate = eqs_.template Prolongate<res_err>(tl, set_from_coarser, md_comm);
+      } else {
+        prolongate =
+            tl.AddTask(set_from_coarser,
+                       BTF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>), md_comm);
+      }
 
       // 7. Correct solution on this level with res_err field and store in
       //    communication field

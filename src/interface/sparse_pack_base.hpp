@@ -63,6 +63,8 @@ class SparsePackBase {
   using block_props_h_t = typename block_props_t::HostMirror;
   using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
 
+  static constexpr int bnd_flag = -2000;
+
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>

@@ -3,23 +3,84 @@
 Solvers
 =======
 
-Parthenon does not yet provide an exhaustive set of plug and play solvers. 
-Nevertheless, the building blocks required for implementing Krylov subspace 
-methods (i.e. global reductions for vector dot products) like CG, BiCGStab, 
-and GMRES are available. An example of a Parthenon based implementation of 
-BiCGStab can be found in ``examples/poisson_gmg``. Additionally, the 
-infrastructure required for implementing multigrid solvers is also 
-included in Parthenon. The requisite hierarchy of grids is produced if 
-``parthenon/mesh/multigrid=true`` is set in the parameter input. An example 
-of a multi-grid based linear solver in Parthenon is also given in 
-``examples/poisson_gmg`` (and also an example of using multi-grid as a 
-preconditioner for BiCGStab). We plan to build wrappers that simplify the 
-use of these methods in down stream codes in the future. Note that the 
-example code does not currently rely on the Stencil and SparseMatrixAccessor 
-code described below.
+Parthenon provides a number of linear solvers, including a geometric multigrid
+solver, a CG solver, a BiCGSTAB solver, and multigrid preconditioned versions
+of the latter two solvers. 
+
+Solvers are templated on a type defining the system of equations they are solving. 
+The type defining the system of equations must provide two methods and a ``TypeList`` 
+of all of the fields that make up the vector space:
+.. code:: c++
+  class MySystemOfEquations {
+    using IndependentVars = parthenon::TypeList<var1_t, var2_t>;
+
+    TaskId Ax(TaskList &tl, TaskID depends_on,
+              std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
+              std::shared_ptr<parthenon::MeshData<Real>> &md_in,
+              std::shared_ptr<parthenon::MeshData<Real>> &md_out);
+
+    TaskStatus SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
+                           std::shared_ptr<parthenon::MeshData<Real>> &md_diag)
+  };
+
+The routine ``Ax`` must calculate the matrix vector product ``y <- A.x`` by taking a container
+``md_mat`` which contains all of the fields required to reconstruct the matrix ``A`` associated
+with the system of linear equations, the container ``md_in`` which will store the vector ``x`` 
+in the fields in the typelist ``IndependentVars``, and ``md_out`` which will hold the vector ``y``. 
+
+The routine ``SetDiagonal`` takes the same container ``md_mat`` as ``Ax`` and returns the
+(approximate) diagonal of ``A`` in the container ``md_diag``. This only needs to be approximate
+since it is only used in preconditioners/smoothers.
+
+With such a class defining a linear system of equations, one can then define and use a solver with 
+code along the lines of:
+.. code:: c++ 
+  std::string base_cont_name = "base";
+  std::string u_cont_name = "u";
+  std::string rhs_cont_name = "rhs";
+
+  MySystemOfEquations eqs(....);
+  std::shared_ptr<SolverBase> psolver = std::make_shared<BiCGSTABSolverStages<MySystemOfEquations>>(
+      base_cont_name, u_cont_name, rhs_cont_name, pin, "location/of/solver_params", eqs);
+
+  ...
+
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  for (int partition = 0; partition < num_partitions; ++partition) {
+    TaskList &tl = region[partition];
+    auto &md = pmesh->mesh_data.Add(base_cont_name, partitions[partition]);
+    auto &md_u = pmesh->mesh_data.Add(u_cont_name, md);
+    auto &md_rhs = pmesh->mesh_data.Add(rhs_cont_name, md);
+
+    // Do some stuff to fill the base container with information necessary to define A
+    // if it wasn't defined during initialization or something
+    
+    // Do some stuff to fill the rhs container
+
+    auto setup = psolver->AddSetupTasks(tl, dependence, partition, pmesh);
+    auto solve = psolver->AddTasks(tl, setup, partition, pmesh); 
+
+    // Do some stuff with the solution stored in md_u
+  }
+
+Some notes: 
+- All solvers inherit from ``SolverBase``, so the best practice is to stash a shared pointer to a 
+  ``SolverBase`` object in params during initialization and pull this solver out while building a 
+  task list. This should make switching between solvers trivial.
+- For any solver involving geometric multigrid, the input parameter 
+  ``parthenon/mesh/multigrid`` must be set to ``true``. This tells the ``Mesh``
+  to build the coarsened blocks associated with the multi-grid hierarchy.
+- For geometric multigrid based solvers, it is possible to define block interior prolongation 
+  operators that are separate from the standard prolongation machinery in Parthenon. This allows 
+  for defining boundary aware prolongation operators and having different prolongation operators
+  in the ghost cells of blocks from the prolongation operators used in their interiors. Users can 
+  easily define their own prolongation operators. An example of using these interior prolongation 
+  operators is contained in the ``poisson_gmg`` example.
 
 Some implementation notes about geometric multi-grid can be found in 
-:ref:`these notes <doc/latex/main.pdf>`. 
+:ref:`these notes <doc/latex/main.pdf>`.
 
 Stencil
 -------

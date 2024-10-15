@@ -256,6 +256,27 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
+template <class a_t, class b_t, class out_t>
+TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md) {
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+
+  static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out_t>(md.get());
+  auto pack = desc.GetPack(md.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        // printf("(%i, %i) diag_elem = %e\n", j, i, pack(b, b_t(), k, j, i));
+        const int nvars = pack.GetUpperBound(b, a_t()) - pack.GetLowerBound(b, a_t()) + 1;
+        for (int c = 0; c < nvars; ++c)
+          pack(b, out_t(c), k, j, i) =
+              pack(b, a_t(c), k, j, i) / pack(b, b_t(c), k, j, i);
+      });
+  return TaskStatus::complete;
+}
+
 template <class a_t, class b_t>
 TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
                            AllReduce<Real> *adotb) {
