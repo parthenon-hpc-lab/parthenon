@@ -338,7 +338,8 @@ class Mesh {
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
-  void CommunicateBoundaries(std::string md_name = "base");
+  void CommunicateBoundaries(std::string md_name = "base",
+                             const std::vector<std::string> &fields = {});
   void PreCommFillDerived();
   void FillDerived();
 

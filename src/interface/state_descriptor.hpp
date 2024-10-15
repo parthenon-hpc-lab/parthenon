@@ -203,6 +203,20 @@ class StateDescriptor {
   // retrieve all swarm names
   std::vector<std::string> Swarms() noexcept;
 
+  const auto GetFieldVarID(const VarID &id) const {
+    PARTHENON_REQUIRE_THROWS(
+        metadataMap_.count(id),
+        "Asking for a variable that is not in this StateDescriptor.");
+    return id;
+  }
+
+  const auto &GetFieldVarID(const std::string &label) const {
+    return labelToVidMap_.at(label);
+  }
+  const auto &GetFieldMetadata(const std::string &label) const {
+    return metadataMap_.at(labelToVidMap_.at(label));
+  }
+  const auto &GetFieldMetadata(const VarID &id) const { return metadataMap_.at(id); }
   const auto &AllFields() const noexcept { return metadataMap_; }
   const auto &AllSparsePools() const noexcept { return sparsePoolMap_; }
   const auto &AllSwarms() const noexcept { return swarmMetadataMap_; }
@@ -397,6 +411,7 @@ class StateDescriptor {
   const std::string label_;
 
   // for each variable label (full label for sparse variables) hold metadata
+  std::unordered_map<std::string, VarID> labelToVidMap_;
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
   std::unordered_map<VarID, VarID, VarIDHasher> allocControllerReverseMap_;
   std::unordered_map<std::string, std::vector<std::string>> allocControllerMap_;
