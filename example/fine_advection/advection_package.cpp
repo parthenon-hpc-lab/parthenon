@@ -116,14 +116,15 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   typename Kokkos::MinMax<Real>::value_type minmax;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
+      0, pack.GetNBlocks() - 1, // Runs from [0, 0] since pack built from MeshBlockData
       pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e, ib.s,
       ib.e,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
+      KOKKOS_LAMBDA(const int b, const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
-            (pack(n, k, j, i) < lminmax.min_val ? pack(n, k, j, i) : lminmax.min_val);
+            (pack(b, n, k, j, i) < lminmax.min_val ? pack(b, n, k, j, i) : lminmax.min_val);
         lminmax.max_val =
-            (pack(n, k, j, i) > lminmax.max_val ? pack(n, k, j, i) : lminmax.max_val);
+            (pack(b, n, k, j, i) > lminmax.max_val ? pack(b, n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
