@@ -304,6 +304,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
+
     max_fillsize =
         std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
   }
