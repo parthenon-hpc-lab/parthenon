@@ -72,8 +72,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   using namespace parthenon::Update;
   TaskCollection tc;
   TaskID none(0);
-  
-  std::shared_ptr<parthenon::StateDescriptor> pkg = pmesh->packages.Get("advection_package");
+
+  std::shared_ptr<parthenon::StateDescriptor> pkg =
+      pmesh->packages.Get("advection_package");
   const auto do_regular_advection = pkg->Param<bool>("do_regular_advection");
   const auto do_fine_advection = pkg->Param<bool>("do_fine_advection");
   const auto do_CT_advection = pkg->Param<bool>("do_CT_advection");
@@ -125,8 +126,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto flx_fine = none;
     for (auto face : faces) {
       if (do_regular_advection) {
-        flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>, desc,
-                               face, parthenon::CellLevel::same, mc0.get());
+        flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>,
+                               desc, face, parthenon::CellLevel::same, mc0.get());
       }
       if (do_fine_advection) {
         flx_fine = flx_fine |
@@ -150,20 +151,22 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     auto update = set_flx;
     if (do_regular_advection) {
-      update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt, desc,
-                              mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+      update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt,
+                              desc, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
     }
 
     auto update_fine = set_flx;
     if (do_fine_advection) {
-      update_fine = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::fine, TT::Cell, beta, dt,
+      update_fine =
+          AddUpdateTasks(set_flx, tl, parthenon::CellLevel::fine, TT::Cell, beta, dt,
                          desc_fine, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
     }
 
     auto update_vec = set_flx;
     if (do_CT_advection) {
-      update_vec = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Face, beta, dt,
-                                 desc_vec, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+      update_vec =
+          AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Face, beta, dt,
+                         desc_vec, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
     }
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(

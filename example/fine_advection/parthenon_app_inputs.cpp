@@ -111,8 +111,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                 }
           }
         } else {
-          if (do_regular_advection)
-            pack(b, phi(), k, j, i) = 0.0;
+          if (do_regular_advection) pack(b, phi(), k, j, i) = 0.0;
           if (do_fine_advection) {
             for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)

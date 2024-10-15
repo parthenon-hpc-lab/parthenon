@@ -126,15 +126,16 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   constexpr int scratch_size = 0;
   constexpr int scratch_level = 1;
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 
-      kb.s - (ndim > 2), kb.e + (ndim > 2), 
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
+      kb.s - (ndim > 2), kb.e + (ndim > 2),
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         parthenon::Indexer2D idxer({jb.s - (ndim > 1), jb.e + (ndim > 1)},
                                    {ib.s - (ndim > 0), ib.e + (ndim > 0)});
         if (pack.GetLowerBound(b, flux_var()) <= pack.GetUpperBound(b, flux_var())) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
             const auto [j, i] = idxer(idx);
-            // Piecewise linear in the orthogonal directions, could do something better here
+            // Piecewise linear in the orthogonal directions, could do something better
+            // here
             pack(b, TE::CC, recon(0), k, j, i) =
                 0.5 * (pack(b, fe, flux_var(), k, j, i) +
                        pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
@@ -160,9 +161,8 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   jb = md->GetBoundsJ(cl, IndexDomain::interior, edge);
   kb = md->GetBoundsK(cl, IndexDomain::interior, edge);
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 
-      kb.s, kb.e, 
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
@@ -191,15 +191,16 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
     jb = md->GetBoundsJ(cl, IndexDomain::interior, f);
     kb = md->GetBoundsK(cl, IndexDomain::interior, f);
     parthenon::par_for_outer(
-        PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 
-        kb.s - (ndim > 2), kb.e + (ndim > 2), 
+        PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
+        kb.s - (ndim > 2), kb.e + (ndim > 2),
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
           parthenon::Indexer2D idxer({jb.s - (ndim > 1), jb.e + (ndim > 1)},
                                      {ib.s - (ndim > 0), ib.e + (ndim > 0)});
           if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
             parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
               const auto [j, i] = idxer(idx);
-              // Piecewise linear in the orthogonal directions, could do something better here
+              // Piecewise linear in the orthogonal directions, could do something better
+              // here
               pack(b, f, recon_f(0), k, j, i) = pack(b, f, var(), k, j, i);
               pack(b, f, recon_f(1), k, j, i) = pack(b, f, var(), k, j, i);
             });
@@ -220,9 +221,8 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   d2[static_cast<int>(edge) % 3] = 0;
   d2[static_cast<int>(f2) % 3] = 0;
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 
-      kb.s, kb.e, 
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {

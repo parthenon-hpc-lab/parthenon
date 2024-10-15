@@ -65,39 +65,39 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
-
-  bool do_regular_advection = pin->GetOrAddBoolean("Advection", "do_regular_advection", true);
+  bool do_regular_advection =
+      pin->GetOrAddBoolean("Advection", "do_regular_advection", true);
   pkg->AddParam<>("do_regular_advection", do_regular_advection);
-  if (do_regular_advection) { 
+  if (do_regular_advection) {
     int shape_size = pin->GetOrAddInteger("Advection", "shape_size", 1);
     int sparse_size = pin->GetOrAddInteger("Advection", "sparse_size", 1);
     Real alloc_threshold = pin->GetOrAddReal("Advection", "alloc_threshold", 1.e-6);
     Real dealloc_threshold = pin->GetOrAddReal("Advection", "dealloc_threshold", 5.e-7);
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                Metadata::FillGhost, Metadata::Sparse}, std::vector<int>{shape_size});
+                Metadata::FillGhost, Metadata::Sparse},
+               std::vector<int>{shape_size});
     m.SetSparseThresholds(alloc_threshold, dealloc_threshold, 0.0);
-    std::vector<int> sparse_idxs(sparse_size); 
+    std::vector<int> sparse_idxs(sparse_size);
     std::iota(sparse_idxs.begin(), sparse_idxs.end(), 0);
     pkg->AddSparsePool<Conserved::phi>(m, sparse_idxs);
   }
 
-
   bool do_fine_advection = pin->GetOrAddBoolean("Advection", "do_fine_advection", true);
   pkg->AddParam<>("do_fine_advection", do_fine_advection);
-  if (do_fine_advection) { 
+  if (do_fine_advection) {
     pkg->AddField<Conserved::phi_fine>(
         Metadata({Metadata::Cell, Metadata::Fine, Metadata::Independent,
                   Metadata::WithFluxes, Metadata::FillGhost}));
 
     pkg->AddField<Conserved::phi_fine_restricted>(
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
-  } 
+  }
 
   bool do_CT_advection = pin->GetOrAddBoolean("Advection", "do_CT_advection", true);
   pkg->AddParam<>("do_CT_advection", do_CT_advection);
-  if (do_CT_advection) { 
-    auto m = Metadata(
-        {Metadata::Face, Metadata::Independent, Metadata::WithFluxes, Metadata::FillGhost});
+  if (do_CT_advection) {
+    auto m = Metadata({Metadata::Face, Metadata::Independent, Metadata::WithFluxes,
+                       Metadata::FillGhost});
     m.RegisterRefinementOps<parthenon::refinement_ops::ProlongateSharedMinMod,
                             parthenon::refinement_ops::RestrictAverage,
                             parthenon::refinement_ops::ProlongateInternalTothAndRoe>();
@@ -115,7 +115,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
     pkg->AddField<Conserved::divD>(
         Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
-  } 
+  }
 
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepMesh = EstimateTimestep;
@@ -139,16 +139,16 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 
     typename Kokkos::MinMax<Real>::value_type minmax;
     parthenon::par_reduce(
-        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(),
-        0, pack.GetNBlocks() - 1, // Runs from [0, 0] since pack built from MeshBlockData
-        pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e, ib.s,
-        ib.e,
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+        pack.GetNBlocks() - 1, // Runs from [0, 0] since pack built from MeshBlockData
+        pack.GetLowerBoundHost(0), pack.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int n, const int k, const int j, const int i,
                       typename Kokkos::MinMax<Real>::value_type &lminmax) {
-          lminmax.min_val =
-              (pack(b, n, k, j, i) < lminmax.min_val ? pack(b, n, k, j, i) : lminmax.min_val);
-          lminmax.max_val =
-              (pack(b, n, k, j, i) > lminmax.max_val ? pack(b, n, k, j, i) : lminmax.max_val);
+          lminmax.min_val = (pack(b, n, k, j, i) < lminmax.min_val ? pack(b, n, k, j, i)
+                                                                   : lminmax.min_val);
+          lminmax.max_val = (pack(b, n, k, j, i) > lminmax.max_val ? pack(b, n, k, j, i)
+                                                                   : lminmax.max_val);
         },
         Kokkos::MinMax<Real>(minmax));
 
@@ -156,7 +156,8 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
     const auto &refine_tol = pkg->Param<Real>("refine_tol");
     const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
-    if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol) return AmrTag::refine;
+    if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol)
+      return AmrTag::refine;
     if (minmax.max_val < derefine_tol) return AmrTag::derefine;
   }
   return AmrTag::same;
@@ -203,21 +204,21 @@ TaskStatus FillDerived(MeshData<Real> *md) {
                                     Conserved::D_cc, Conserved::divC, Conserved::divD>(
           md);
   auto pack = desc.GetPack(md);
-  
+
   std::shared_ptr<StateDescriptor> pkg =
       md->GetMeshPointer()->packages.Get("advection_package");
-  
+
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nghost = parthenon::Globals::nghost;
-  
+
   auto do_fine_advection = pkg->Param<bool>("do_fine_advection");
   if (do_fine_advection) {
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+        ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const int kf = (ndim > 2) ? (k - nghost) * 2 + nghost : k;
           const int jf = (ndim > 1) ? (j - nghost) * 2 + nghost : j;
           const int fi = (ndim > 0) ? (i - nghost) * 2 + nghost : i;
@@ -238,8 +239,8 @@ TaskStatus FillDerived(MeshData<Real> *md) {
   if (do_CT_advection) {
     using TE = parthenon::TopologicalElement;
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+        ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           pack(b, Conserved::C_cc(0), k, j, i) =
               0.5 * (pack(b, TE::F1, Conserved::C(), k, j, i) +
                      pack(b, TE::F1, Conserved::C(), k, j, i + (ndim > 0)));
