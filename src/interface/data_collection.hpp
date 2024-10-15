@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -58,7 +58,7 @@ class DataCollection {
     auto key = GetKey(name, src);
     auto it = containers_.find(key);
     if (it != containers_.end()) {
-      if (fields.size() && !(it->second)->Contains(fields)) {
+      if (fields.size() && !(it->second)->CreatedFrom(fields)) {
         PARTHENON_THROW(key + " already exists in collection but fields do not match.");
       }
       return it->second;

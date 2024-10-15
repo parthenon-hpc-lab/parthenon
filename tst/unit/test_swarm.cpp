@@ -19,8 +19,10 @@
 
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -80,10 +82,15 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
+  auto descrip = std::make_shared<parthenon::StateDescriptor>("test");
+  descrip->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+  descrip->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  packages.Add(descrip);
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-  mesh->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
-  mesh->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+
+  // loc needs to be set to call bndry condition routines below
+  meshblock->loc = mesh->GetLocList()[0];
   mesh->mesh_bcs[0] = BoundaryFlag::user;
   meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
@@ -205,10 +212,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 
+  // Check for internal index consistency after defragmentation operation
+  swarm->Validate();
+
   // Check that data was moved during defrag
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  REQUIRE(x_h(2) == 1.2);
-  REQUIRE(x_h(4) == 1.1);
+  REQUIRE(x_h(2) == 1.1);
+  REQUIRE(x_h(4) == 1.2);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 

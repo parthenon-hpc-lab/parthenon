@@ -90,8 +90,6 @@ class SwarmContainer {
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
                   const std::shared_ptr<MeshBlock> pmb);
 
-  void InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb);
-
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
@@ -165,23 +163,7 @@ class SwarmContainer {
   TaskStatus FinalizeCommunicationIterative();
   [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
-  bool operator==(const SwarmContainer &cmp) {
-    // Test that labels of swarms are the same
-    std::vector<std::string> my_keys(swarmMap_.size());
-    auto &cmpMap = cmp.GetSwarmMap();
-    std::vector<std::string> cmp_keys(cmpMap.size());
-    size_t i = 0;
-    for (auto &s : swarmMap_) {
-      my_keys[i] = s.first;
-      i++;
-    }
-    i = 0;
-    for (auto &s : cmpMap) {
-      cmp_keys[i] = s.first;
-      i++;
-    }
-    return my_keys == cmp_keys;
-  }
+  bool operator==(const SwarmContainer &cmp);
 
  private:
   void UpdateMetadataMap_(std::shared_ptr<Swarm> swarm) {

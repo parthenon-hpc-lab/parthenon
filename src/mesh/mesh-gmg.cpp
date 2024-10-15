@@ -20,11 +20,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <unordered_set>
+#include <vector>
 
 #include "parthenon_mpi.hpp"
 
@@ -71,8 +73,8 @@ void Mesh::SetMeshBlockNeighbors(
                                                        -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
       int lgid = forest.GetLeafGid(nloc.global_loc);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[lgid], gid,
-                                 offsets, bid, tid, f[0], f[1]);
+      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc,
+                                 ranklist[lgid], gid, offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
@@ -81,6 +83,9 @@ void Mesh::SetMeshBlockNeighbors(
       nb.ownership =
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
+
+      // Set logical coordinate transformation from this block to the neighbor
+      nb.lcoord_trans = nloc.lcoord_trans;
     }
 
     if (grid_id.type == GridType::leaf) {
@@ -161,24 +166,31 @@ void Mesh::SetGMGNeighbors() {
         int gid = forest.GetGid(ploc);
         if (gid >= 0) {
           int leaf_gid = forest.GetLeafGid(ploc);
-          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, ploc, ranklist[leaf_gid],
-                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
-                                                  0, 0);
+          pmb->gmg_coarser_neighbors.emplace_back(
+              pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
+              std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 
       // Finer neighbor(s)
       pmb->gmg_finer_neighbors.clear();
+      pmb->gmg_leaf_neighbors.clear();
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
         for (auto &d : dlocs) {
           int gid = forest.GetGid(d);
           if (gid >= 0) {
             int leaf_gid = forest.GetLeafGid(d);
-            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, ranklist[leaf_gid],
+            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
                                                   gid, std::array<int, 3>{0, 0, 0}, 0, 0,
                                                   0, 0);
           }
+        }
+        if (pmb->gmg_finer_neighbors.size() == 0) {
+          // This is a leaf block, so add itself as a finer neighbor
+          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc,
+                                               Globals::my_rank, pmb->gid,
+                                               std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 

@@ -1,0 +1,68 @@
+\begin{tikzpicture}[line/.style={red, very thick}]
+\coordinate (m2) (10.0, 0.0);
+
+\coordinate (n1) at (0,0); 
+\coordinate (n2) at (5,0);
+\coordinate (n3) at (2.5,4);
+\coordinate (n4) at (2.5,1.5);
+
+\fill[fill=red!5] (n1) to[out=-10,in=190] (n2) to[out=140,in=-35] (n3) to[out=-135,in=80] cycle;
+\shade[ball color=blue!10!white,opacity=0.20] (n1) to[out=-10,in=190] (n2) to[out=140,in=-35] (n3) to[out=-135,in=80] cycle;
+
+\draw[line] (n1) to[out=-10,in=190] coordinate[pos=.45] (m12) (n2);
+\draw[line] (n2) to[out=140,in=-35] coordinate[pos=.6] (m23) (n3);
+\draw[line] (n3) to[out=-135,in=80] coordinate[pos=.5] (m31) (n1);
+
+\draw[line] (n4) to[out=-85,in=85] (m12);
+\draw[line] (n4) to[out=45,in=225] (m23);
+\draw[line] (n4) to[out=140,in=-45] (m31);
+
+\node (m1) at ($0.25*(n1) + 0.25*(m12) + 0.25*(n4) + 0.25*(m31)$) {$\mathcal{M}_1$};
+\node (m2) at ($0.25*(m12) + 0.25*(n2) + 0.25*(m23) + 0.25*(n4)$) {$\mathcal{M}_2$};
+\node (m3) at ($0.25*(n4) + 0.25*(m23) + 0.25*(n3) + 0.25*(m31)$) {$\mathcal{M}_3$};
+
+\begin{axis}[grid=both,
+             ymin=0,
+             ymax=5.5,
+             xmax=5.5,
+             xmin=0,
+             xticklabel=\empty,
+             yticklabel=\empty,
+             minor tick num=1,
+             axis lines = middle,
+             xlabel=$x_1$,
+             ylabel=$x_2$,
+             label style = {at={(ticklabel cs:1.1)}}, 
+             axis equal=true, 
+             at={(6cm, 0)},
+             width=6.0cm, height=6.0cm]
+
+  \coordinate (t1ll) at (1, 1);
+  \pic at (t1ll) {ig_tree={t1, $\Omega_1$}};
+
+  \coordinate (t2ll) at (4, 1);
+  \pic at (t2ll) {ig_tree={t2, $\Omega_2$}};
+
+  \coordinate (t3ll) at (1, 4);
+  \pic at (t3ll) {ig_tree={t3, $\Omega_3$}};
+
+  \path[thick, ->, black!40] ([shift={(0.9,0.4)}]t1ll) edge[bend right] 
+          node [above] {$\tau_{1 \rightarrow 2}$} ([shift={(-0.1,0.4)}]t2ll);
+  \path[thick, ->, black!40] ([shift={(0.1,0.6)}]t2ll) edge[bend right] 
+          node [above] {$\tau_{2 \rightarrow 1}$} ([shift={(1.1,0.6)}]t1ll);
+
+  \path[thick, ->, black!40] ([shift={(0.6,0.9)}]t2ll) edge[bend right] 
+          node [right] {$\tau_{2 \rightarrow 3}$} ([shift={(1.1,0.6)}]t3ll);
+  \path[thick, ->, black!40] ([shift={(0.9,0.4)}]t3ll) edge[bend right] 
+          node [right] {$\tau_{3 \rightarrow 2}$} ([shift={(0.4, 1.1)}]t2ll);
+  
+  \path[thick, ->, black!40] ([shift={(0.4,0.1)}]t3ll) edge[bend right] 
+          node [] {$\tau_{3 \rightarrow 1}$} ([shift={(0.4, 1.1)}]t1ll);
+  \path[thick, ->, black!40] ([shift={(0.6,0.9)}]t1ll) edge[bend right] 
+          node [] {$\tau_{1 \rightarrow 3}$} ([shift={(0.6, -0.1)}]t3ll);        
+\end{axis}
+
+\path[thick, ->] (m1.south) edge[bend right = 60] node [below] {$g_1^{-1}$} (t1.south);
+\path[thick, ->] (m2.south) edge[bend right = 50] node [below] {$g_2^{-1}$} (t2.south);
+\path[thick, ->] (m3.north) edge[bend left] node [above] {$g_3^{-1}$} (t3.west);
+\end{tikzpicture}

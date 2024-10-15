@@ -24,11 +24,12 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -151,7 +152,9 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
     if (loc.lx2() != ntree[1] - 1) tree_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
     if (loc.lx3() != 0) tree_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
     if (loc.lx3() != ntree[2] - 1) tree_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
-    p.second = Tree::create(tid++, ndim, ref_level, p.first, tree_bcs);
+
+    auto &tree_domain = p.first;
+    p.second = Tree::create(tid++, ndim, ref_level, tree_domain, tree_bcs);
     p.second->athena_forest_loc = loc;
   }
 
@@ -181,10 +184,10 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
       }
       if (add) {
         LogicalLocation nloc(level, nx[0], nx[1], nx[2]);
-        RelativeOrientation orient;
-        orient.use_offset = true;
-        orient.offset = ox;
-        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, orient, p);
+        LogicalCoordinateTransformation lcoord_trans;
+        lcoord_trans.use_offset = true;
+        lcoord_trans.offset = ox;
+        ll_map[loc].second->AddNeighborTree(ox, ll_map[nloc].second, lcoord_trans, p);
       }
     }
   }
@@ -196,6 +199,134 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   for (auto &[loc, p] : ll_map)
     fout.AddTree(p.second);
   return fout;
+}
+
+Forest Forest::Make2D(ForestDefinition &forest_def) {
+  auto &faces = forest_def.faces;
+  // Set the topological connections of the faces
+  for (auto &face : faces) {
+    face->SetNeighbors();
+    face->SetEdgeCoordinateTransforms();
+  }
+  // Have to do this in a second sweep after setting edge transformations, since it relies
+  // on composing edge coordinate transformations
+  for (auto &face : faces)
+    face->SetNodeCoordinateTransforms();
+
+  using tree_bc_t = std::array<BoundaryFlag, BOUNDARY_NFACES>;
+  std::unordered_map<int64_t, tree_bc_t> tree_bcs;
+  for (auto &face : faces) {
+    tree_bc_t bcs;
+
+    // Set the boundaries that are shared with other trees
+    if (face->HasNeighbor(-1, 0)) bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
+    if (face->HasNeighbor(1, 0)) bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
+    if (face->HasNeighbor(0, -1)) bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
+    if (face->HasNeighbor(0, 1)) bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
+    bcs[BoundaryFace::inner_x3] = BoundaryFlag::periodic;
+    bcs[BoundaryFace::outer_x3] = BoundaryFlag::periodic;
+
+    tree_bcs[face->GetId()] = bcs;
+  }
+
+  // Set the user specified boundary conditions, the order of this matters wrt the
+  // BoundaryFlag::block setting
+  for (auto &bc_edge : forest_def.bc_edges) {
+    auto edge = bc_edge.element;
+    for (auto &node : edge.nodes) {
+      for (auto &face : node->associated_faces) {
+        auto opt_offset = face->IsEdge(edge);
+        if (opt_offset) {
+          auto &bcs = tree_bcs[face->GetId()];
+          if ((*opt_offset)[0] == Offset::Low) {
+            bcs[BoundaryFace::inner_x1] = bc_edge.bflag;
+          } else if ((*opt_offset)[0] == Offset::Up) {
+            bcs[BoundaryFace::outer_x1] = bc_edge.bflag;
+          } else if ((*opt_offset)[1] == Offset::Low) {
+            bcs[BoundaryFace::inner_x2] = bc_edge.bflag;
+          } else if ((*opt_offset)[1] == Offset::Up) {
+            bcs[BoundaryFace::outer_x2] = bc_edge.bflag;
+          }
+        }
+      }
+    }
+  }
+
+  // Build the list of trees and set neighbors
+  std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
+  Real x_offset = 0.0;
+  for (int f = 0; f < faces.size(); ++f) {
+    const auto &face = faces[f];
+    const auto &face_size = forest_def.face_sizes[f];
+    RegionSize tree_domain = forest_def.block_size;
+    // TODO(LFR): Fix this to do something not stupid
+    tree_domain.xmin(X1DIR) = face_size.xmin(X1DIR);
+    tree_domain.xmax(X1DIR) = face_size.xmax(X1DIR);
+    tree_domain.xmin(X2DIR) = face_size.xmin(X2DIR);
+    tree_domain.xmax(X2DIR) = face_size.xmax(X2DIR);
+    tree_domain.xmin(X3DIR) = face_size.xmin(X3DIR);
+    tree_domain.xmax(X3DIR) = face_size.xmax(X3DIR);
+    auto &bcs = tree_bcs[face->GetId()];
+    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
+                                        tree_bcs[face->GetId()], face->nodes);
+    x_offset += 2.0;
+  }
+
+  for (const auto &face : faces) {
+    for (int ox1 = -1; ox1 < 2; ++ox1) {
+      for (int ox2 = -1; ox2 < 2; ++ox2) {
+        for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
+          trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0),
+                                                trees[neighbor->GetId()], ct, false);
+        }
+      }
+    }
+  }
+
+  Forest fout;
+  fout.root_level = 0;
+  fout.forest_level = 0;
+  for (auto &[id, tree] : trees)
+    fout.AddTree(tree);
+
+  // Add requested refinement to base forest
+  for (const auto &loc : forest_def.refinement_locations)
+    fout.AddMeshBlock(loc);
+
+  return fout;
+}
+
+// TODO(LFR): Probably eventually remove this. This is only meaningful for simply
+// oriented grids
+LogicalLocation Forest::GetLegacyTreeLocation(const LogicalLocation &loc) const {
+  if (loc.tree() < 0)
+    return loc; // This is already presumed to be an Athena++ tree location
+  auto parent_loc = trees.at(loc.tree())->athena_forest_loc;
+  int composite_level = parent_loc.level() + loc.level();
+  int lx1 = (parent_loc.lx1() << loc.level()) + loc.lx1();
+  int lx2 = (parent_loc.lx2() << loc.level()) + loc.lx2();
+  int lx3 = (parent_loc.lx3() << loc.level()) + loc.lx3();
+  return LogicalLocation(composite_level, lx1, lx2, lx3);
+}
+
+LogicalLocation
+Forest::GetForestLocationFromLegacyTreeLocation(const LogicalLocation &loc) const {
+  if (loc.tree() >= 0)
+    return loc; // This location is already associated with a tree in the Parthenon
+                // forest
+  int macro_level = (*trees.begin()).second->athena_forest_loc.level();
+  auto forest_loc = loc.GetParent(loc.level() - macro_level);
+  for (auto &[id, t] : trees) {
+    if (t->athena_forest_loc == forest_loc) {
+      return LogicalLocation(
+          t->GetId(), loc.level() - macro_level,
+          loc.lx1() - (forest_loc.lx1() << (loc.level() - macro_level)),
+          loc.lx2() - (forest_loc.lx2() << (loc.level() - macro_level)),
+          loc.lx3() - (forest_loc.lx3() << (loc.level() - macro_level)));
+    }
+  }
+  PARTHENON_FAIL("Somehow didn't find a tree.");
+  return LogicalLocation();
 }
 
 } // namespace forest

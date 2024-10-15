@@ -14,6 +14,7 @@
 #include "interface/update.hpp"
 
 #include <memory>
+#include <vector>
 
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
@@ -156,11 +157,6 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   auto packIdx = desc.GetMap();
 
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
-  const int Ni = ib.e + 1 - ib.s;
-  const int Nj = jb.e + 1 - jb.s;
-  const int Nk = kb.e + 1 - kb.s;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
@@ -174,13 +170,11 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
           const auto &var = pack(b, v);
           const Real threshold = var.deallocation_threshold;
           bool all_zero = true;
+          const auto &var_raw = var.data();
           Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, NkNjNi),
+              Kokkos::TeamThreadRange<>(team_member, var.size()),
               [&](const int idx, bool &lall_zero) {
-                const int k = kb.s + idx / NjNi;
-                const int j = jb.s + (idx % NjNi) / Ni;
-                const int i = ib.s + idx % Ni;
-                if (std::abs(var(k, j, i)) > threshold) {
+                if (std::abs(var_raw[idx]) > threshold) {
                   lall_zero = false;
                   return;
                 }

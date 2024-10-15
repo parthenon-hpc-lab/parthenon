@@ -162,10 +162,13 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
+  mesh/forest/forest_node.hpp
+  mesh/forest/forest_topology.cpp
+  mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
-  mesh/forest/relative_orientation.hpp
-  mesh/forest/relative_orientation.cpp
+  mesh/forest/logical_coordinate_transformation.hpp
+  mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
   mesh/forest/logical_location.cpp
@@ -227,6 +230,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
+  tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
 
@@ -241,6 +245,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
@@ -267,6 +272,7 @@ add_library(parthenon
   utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
+  utils/type_list.hpp
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
@@ -325,7 +331,7 @@ endif()
 # Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
 # the flag is not added when compiling with Clang for Cuda.
 if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
+   target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)

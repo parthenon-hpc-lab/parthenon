@@ -13,18 +13,43 @@
 
 #include <iomanip>
 #include <iostream>
+#include <memory>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/swarm.hpp"
+#include "interface/variable.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {
+  if (m.HasRefinementOps()) {
+    const auto &funcs = m.GetRefinementFunctions();
+    // Guard against uninitialized refinement functions by checking
+    // if the label is the empty string.
+    if (funcs.label().size() == 0) {
+      std::stringstream ss;
+      ss << "Variable " << varname << " registed for refinement, "
+         << "but no prolongation/restriction options found!"
+         << "Please register them with Metadata::RegisterRefinementOps." << std::endl;
+      PARTHENON_THROW(ss);
+    }
+    bool in_map = (funcs_to_ids.count(funcs) > 0);
+    if (!in_map) {
+      funcs_to_ids[funcs] = next_refinement_id_++;
+    }
+  }
+}
 
 void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
   const auto &name = package->label();
@@ -261,8 +286,21 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
   return true;
 }
 
-bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
-                                   const VarID &control_vid) {
+bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in,
+                               const std::string &controlling_field) {
+  Metadata m = m_in; // so we can modify it
+  if (m.IsSet(Metadata::Sparse)) {
+    PARTHENON_THROW(
+        "Tried to add a sparse field with AddField, use AddSparsePool instead");
+  }
+  if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
+  VarID controller = VarID(controlling_field);
+  if (controlling_field == "") controller = VarID(field_name);
+  return AddFieldImpl_(VarID(field_name), m, controller);
+}
+
+bool StateDescriptor::AddFieldImpl_(const VarID &vid, const Metadata &m_in,
+                                    const VarID &control_vid) {
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
@@ -273,29 +311,12 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
     return false; // this field has already been added
   } else {
     if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
-      std::vector<MetadataFlag> mFlags = {Metadata::OneCopy, Metadata::Flux};
-      if (m.IsSet(Metadata::Sparse)) mFlags.push_back(Metadata::Sparse);
-      if (m.IsSet(Metadata::Fine)) mFlags.push_back(Metadata::Fine);
-      if (m.IsSet(Metadata::Cell))
-        mFlags.push_back(Metadata::Face);
-      else if (m.IsSet(Metadata::Face))
-        mFlags.push_back(Metadata::Edge);
-      else if (m.IsSet(Metadata::Edge))
-        mFlags.push_back(Metadata::Node);
-
-      Metadata mf;
-      if (m.GetRefinementFunctions().label().size() > 0) {
-        // Propagate custom refinement ops to flux field
-        mf = Metadata(mFlags, m.Shape(), std::vector<std::string>(), std::string(),
-                      m.GetRefinementFunctions());
-      } else {
-        mf = Metadata(mFlags, m.Shape());
-      }
       auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
                        vid.sparse_id};
-      AddFieldImpl(fId, mf, control_vid);
+      AddFieldImpl_(fId, *(m.GetSPtrFluxMetadata()), control_vid);
       m.SetFluxName(fId.label());
     }
+    labelToVidMap_.insert({vid.label(), vid});
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
     allocControllerReverseMap_.insert({vid, control_vid});
@@ -307,7 +328,7 @@ bool StateDescriptor::AddFieldImpl(const VarID &vid, const Metadata &m_in,
   return true;
 }
 
-bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
+bool StateDescriptor::AddSparsePoolImpl_(const SparsePool &pool) {
   if (pool.pool().size() == 0) {
     return false;
   }
@@ -324,8 +345,8 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   if (controller_base == "") controller_base = pool.base_name();
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    if (!AddFieldImpl(VarID(pool.base_name(), itr.first), itr.second,
-                      VarID(controller_base, itr.first))) {
+    if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second,
+                       VarID(controller_base, itr.first))) {
       // a field with this name already exists, this would leave the StateDescriptor in an
       // inconsistent state, so throw
       PARTHENON_THROW("Couldn't add sparse field " +
@@ -334,6 +355,24 @@ bool StateDescriptor::AddSparsePoolImpl(const SparsePool &pool) {
   }
 
   return true;
+}
+
+std::vector<std::string> StateDescriptor::Fields() noexcept {
+  std::vector<std::string> names;
+  names.reserve(metadataMap_.size());
+  for (auto &x : metadataMap_) {
+    names.push_back(x.first.label());
+  }
+  return names;
+}
+
+std::vector<std::string> StateDescriptor::Swarms() noexcept {
+  std::vector<std::string> names;
+  names.reserve(swarmMetadataMap_.size());
+  for (auto &x : swarmMetadataMap_) {
+    names.push_back(x.first);
+  }
+  return names;
 }
 
 bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
@@ -347,6 +386,46 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
   // TODO(JL): What about swarmValueMetadataMap_?
 
   return false;
+}
+
+std::string StateDescriptor::GetFieldController(const std::string &field_name) {
+  VarID field_id(field_name);
+  auto controller = allocControllerReverseMap_.find(field_id);
+  PARTHENON_REQUIRE(controller != allocControllerReverseMap_.end(),
+                    "Asking for controlling field that is not in this package (" +
+                        field_name + ")");
+  return controller->second.label();
+}
+
+bool StateDescriptor::SwarmValuePresent(const std::string &value_name,
+                                        const std::string &swarm_name) const noexcept {
+  if (!SwarmPresent(swarm_name)) return false;
+  return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
+}
+
+const std::vector<std::string> &
+StateDescriptor::GetControlledVariables(const std::string &field_name) {
+  auto iter = allocControllerMap_.find(field_name);
+  if (iter == allocControllerMap_.end()) return nullControl_;
+  return iter->second;
+}
+
+std::vector<std::string> StateDescriptor::GetControlVariables() {
+  std::vector<std::string> vars;
+  for (auto &pair : allocControllerMap_) {
+    vars.push_back(pair.first);
+  }
+  return vars;
+}
+
+// retrieve metadata for a specific field
+const Metadata &StateDescriptor::FieldMetadata(const std::string &base_name,
+                                               int sparse_id) const {
+  const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
+  PARTHENON_REQUIRE_THROWS(itr != metadataMap_.end(),
+                           "FieldMetadata: Non-existent field: " +
+                               MakeVarLabel(base_name, sparse_id));
+  return itr->second;
 }
 
 std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
@@ -450,6 +529,13 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     // sort
     field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
+
+    if (!package->AllSwarms().empty() && !std::is_same<Real, double>::value) {
+      PARTHENON_WARN(
+          "Swarms always use Real precision, even for ParticleVariables containing "
+          "time data, while Parthenon time variables are fixed to double precision. This "
+          "may cause inaccurate comparisons with cycle beginning and end times.")
+    }
 
     // Add package registered boundary conditions
     for (int i = 0; i < 6; ++i)
@@ -564,6 +650,37 @@ StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_name
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {
   return GetVariableNames({}, flags, {});
+}
+
+// Get the total length of this StateDescriptor's variables when packed
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  std::vector<std::string> names = GetVariableNames(req_names, flags, sparse_ids);
+  int dimension = 0;
+  for (auto name : names) {
+    const auto &meta = metadataMap_[VarID(name)];
+    // if meta.Shape().size() < 1, then 'accumulate' will return the initialization value,
+    // which is 1. Otherwise, this multiplies all elements present in 'Shape' to obtain
+    // total length
+    dimension += std::accumulate(meta.Shape().begin(), meta.Shape().end(), 1,
+                                 [](auto a, auto b) { return a * b; });
+  }
+  return dimension;
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags,
+                                      const std::vector<int> &sparse_ids) {
+  return GetPackDimension({}, flags, sparse_ids);
+}
+int StateDescriptor::GetPackDimension(const std::vector<std::string> &req_names) {
+  return GetPackDimension(req_names, Metadata::FlagCollection(), {});
+}
+int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags) {
+  return GetPackDimension({}, flags, {});
 }
 
 } // namespace parthenon

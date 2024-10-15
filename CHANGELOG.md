@@ -3,6 +3,45 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
+- [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
+- [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
+- [[PR 1179]](https://github.com/parthenon-hpc-lab/parthenon/pull/1179) Make a global variable for whether simulation is a restart
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+- [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
+- [[PR 1186]](https://github.com/parthenon-hpc-lab/parthenon/pull/1186) Bump Kokkos submodule to 4.4.1
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+- [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
+- [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+## Release 24.08
+Date: 2024-08-30
+
+### Added (new features/APIs/variables/...)
+- [[PR 1167]](https://github.com/parthenon-hpc-lab/parthenon/pull/1167) Store block gid and neighbor refinement levels in sparse packs
+- [[PR 1151]](https://github.com/parthenon-hpc-lab/parthenon/pull/1151) Add time offset `c` to LowStorageIntegrator
+- [[PR 1147]](https://github.com/parthenon-hpc-lab/parthenon/pull/1147) Add `par_reduce_inner` functions
+- [[PR 1159]](https://github.com/parthenon-hpc-lab/parthenon/pull/1159) Add additional timestep controllers in parthenon/time.
+- [[PR 1148]](https://github.com/parthenon-hpc-lab/parthenon/pull/1148) Add `GetPackDimension` to `StateDescriptor` for calculating pack sizes before `Mesh` initialization
+- [[PR 1143]](https://github.com/parthenon-hpc-lab/parthenon/pull/1143) Add tensor indices to VariableState, add radiation constant to constants, add TypeLists, allow for arbitrary containers for solvers
+- [[PR 1140]](https://github.com/parthenon-hpc-lab/parthenon/pull/1140) Allow for relative convergence tolerance in BiCGSTAB solver.
+- [[PR 1047]](https://github.com/parthenon-hpc-lab/parthenon/pull/1047) General three- and four-valent 2D forests w/ arbitrary orientations.
+- [[PR 1130]](https://github.com/parthenon-hpc-lab/parthenon/pull/1130) Enable `parthenon::par_reduce` for MD loops with Kokkos 1D Range
 - [[PR 1119]](https://github.com/parthenon-hpc-lab/parthenon/pull/1119) Formalize MeshData partitioning.
 - [[PR 1128]](https://github.com/parthenon-hpc-lab/parthenon/pull/1128) Add cycle and nbtotal to hst
 - [[PR 1099]](https://github.com/parthenon-hpc-lab/parthenon/pull/1099) Functionality for outputting task graphs in GraphViz format.
@@ -25,12 +64,22 @@
 - [[PR 1019]](https://github.com/parthenon-hpc-lab/parthenon/pull/1019) Enable output for non-cell-centered variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1153]](https://github.com/parthenon-hpc-lab/parthenon/pull/1153) Allow base grid with fewer blocks than ranks before initial AMR
 - [[PR 1105]](https://github.com/parthenon-hpc-lab/parthenon/pull/1105) Refactor parameter input for linear solvers
 - [[PR 1078]](https://github.com/parthenon-hpc-lab/parthenon/pull/1078) Add reduction fallback in 1D. Add IndexRange overload for 1D par loops
 - [[PR 1024]](https://github.com/parthenon-hpc-lab/parthenon/pull/1024) Add .outN. to history output filenames
 - [[PR 1004]](https://github.com/parthenon-hpc-lab/parthenon/pull/1004) Allow parameter modification from an input file for restarts
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1145]](https://github.com/parthenon-hpc-lab/parthenon/pull/1145) Fix remaining swarm D->H->D copies
+- [[PR 1150]](https://github.com/parthenon-hpc-lab/parthenon/pull/1150) Reduce memory consumption for buffer pool
+- [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
+- [[PR 1152]](https://github.com/parthenon-hpc-lab/parthenon/pull/1152) Fix memory leak in task graph outputs related to `abi::__cxa_demangle`
+- [[PR 1146]](https://github.com/parthenon-hpc-lab/parthenon/pull/1146) Fix an issue outputting >4GB single variables per rank
+- [[PR 1144]](https://github.com/parthenon-hpc-lab/parthenon/pull/1144) Fix some restarts w/non-CC fields
+- [[PR 1132]](https://github.com/parthenon-hpc-lab/parthenon/pull/1132) Fix regional dependencies for iterative task lists and make solvers work for arbirtrary MeshData partitioning
+- [[PR 1139]](https://github.com/parthenon-hpc-lab/parthenon/pull/1139) only add --expt-relaxed-constexpr for COMPILE_LANGUAGE:CXX
+- [[PR 1131]](https://github.com/parthenon-hpc-lab/parthenon/pull/1131) Make deallocation of fine and sparse fields work
 - [[PR 1127]](https://github.com/parthenon-hpc-lab/parthenon/pull/1127) Add WithFluxes to IsRefined check
 - [[PR 1111]](https://github.com/parthenon-hpc-lab/parthenon/pull/1111) Fix undefined behavior due to bitshift of negative number in LogicalLocation
 - [[PR 1092]](https://github.com/parthenon-hpc-lab/parthenon/pull/1092) Updates to DataCollection and MeshData to remove requirement of predefining MeshBlockData
@@ -56,6 +105,7 @@
 - [[PR 1031]](https://github.com/parthenon-hpc-lab/parthenon/pull/1031) Fix bug in non-cell centered AMR
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1117]](https://github.com/parthenon-hpc-lab/parthenon/pull/1117) Enable CI pipelines on AMD GPUs with ROCM/HIP
 - [[PR 1114]](https://github.com/parthenon-hpc-lab/parthenon/pull/1114) Enable sanitizers for extended CI host build
 - [[PR 1123]](https://github.com/parthenon-hpc-lab/parthenon/pull/1123) Default initialize ProResInfo.dir
 - [[PR 1121]](https://github.com/parthenon-hpc-lab/parthenon/pull/1121) Default initialize BndInfo.dir
@@ -73,6 +123,7 @@
 - [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1135]](https://github.com/parthenon-hpc-lab/parthenon/pull/1135) Drivers now correctly return DriverStatus::timeout on hittig walltime limit
 - [[PR 1128]](https://github.com/parthenon-hpc-lab/parthenon/pull/1128) Add cycle and nbtotal to hst
 - [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 - [[PR 1026]](https://github.com/parthenon-hpc-lab/parthenon/pull/1026) Particle BCs without relocatable device code

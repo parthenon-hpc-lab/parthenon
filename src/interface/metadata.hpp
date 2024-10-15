@@ -120,6 +120,9 @@
   PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
+  /** Align memory of fields to cell centered memory                                     \
+      (Field will be missing one layer of ghosts if it is not cell centered) **/         \
+  PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -325,28 +328,48 @@ class Metadata {
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
+      const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
+      const refinement::RefinementFunctions_t flux_ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+
+  Metadata(
       const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
       const std::vector<std::string> &component_labels = {},
       const std::string &associated = "",
       const refinement::RefinementFunctions_t ref_funcs_ =
           refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+      : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
       : Metadata(bits, shape, {}, associated) {}
 
-  // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
       : Metadata(bits, {1}, component_labels, associated) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
       : Metadata(bits, {1}, {}, associated) {}
 
+  std::shared_ptr<Metadata> GetSPtrFluxMetadata() {
+    PARTHENON_REQUIRE(IsSet(WithFluxes),
+                      "Asking for flux metadata from metadata that doesn't have it.");
+    return flux_metadata;
+  }
+
+ private:
+  std::shared_ptr<Metadata> flux_metadata;
+
+ public:
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
@@ -536,30 +559,16 @@ class Metadata {
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
                                                        InternalProlongationOp>();
+    // Propagate refinement operations to flux metadata for backward compatibility
+    if (IsSet(WithFluxes)) {
+      flux_metadata->refinement_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                         InternalProlongationOp>();
+    }
   }
 
   // Operators
-  bool HasSameFlags(const Metadata &b) const {
-    auto const &a = *this;
-
-    // Check extra bits are unset
-    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
-    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
-    for (auto i = min_bits; i < longer.size(); i++) {
-      if (longer[i]) {
-        // Bits are default false, so if any bit in the extraneous portion of the longer
-        // bit list is set, then it cannot be equal to a.
-        return false;
-      }
-    }
-
-    for (size_t i = 0; i < min_bits; i++) {
-      if (a.bits_[i] != b.bits_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool HasSameFlags(const Metadata &b) const;
 
   bool operator==(const Metadata &b) const {
     return HasSameFlags(b) && (shape_ == b.shape_);
@@ -688,7 +697,6 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
   return out;
 }
 } // namespace MetadataUtils
-
 } // namespace parthenon
 
 #endif // INTERFACE_METADATA_HPP_

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 

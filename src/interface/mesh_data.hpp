@@ -290,6 +290,14 @@ class MeshData {
 
   const auto &GetAllBlockData() const { return block_data_; }
 
+  bool ContainsGid(int gid) const {
+    bool contains = false;
+    for (auto &b : block_data_) {
+      if (b->GetBlockPointer()->gid == gid) contains = true;
+    }
+    return contains;
+  }
+
   void SetAllVariablesToInitialized() {
     std::for_each(block_data_.begin(), block_data_.end(),
                   [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
@@ -468,6 +476,14 @@ class MeshData {
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
+  // Checks that the same set of variables was requested to create this container
+  // (which may be different than the set of variables in the container because of fluxes)
+  template <typename Vars_t>
+  bool CreatedFrom(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->CreatedFrom(vars); });
+  }
+
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
     PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
                       "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
@@ -511,6 +527,7 @@ class MeshData {
 
 template <typename T, typename... Args>
 std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  if (md1->NumBlocks() == 0 || md2->NumBlocks() == 0) return std::vector<Uid_t>();
   return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
                          std::forward<Args>(args)...);
 }

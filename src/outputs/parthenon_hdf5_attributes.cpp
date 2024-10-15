@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <tuple>

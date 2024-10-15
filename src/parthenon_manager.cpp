@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <exception>
+#include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -26,6 +28,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include FS_HEADER
@@ -50,30 +53,24 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // initialize MPI
 #ifdef MPI_PARALLEL
-  if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+  int mpi_initialized;
+  PARTHENON_MPI_CHECK(MPI_Initialized(&mpi_initialized));
+  if (!mpi_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+    std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
   // Get process id (rank) in MPI_COMM_WORLD
-  if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_Comm_rank failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank)));
 
   // Get total number of MPI processes (ranks)
-  if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "MPI_Comm_size failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks));
 #else  // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
+
+  Globals::is_restart = IsRestart();
 
   Kokkos::initialize(argc, argv);
 
@@ -170,7 +167,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   return ParthenonStatus::ok;
 }
 
-void ParthenonManager::ParthenonInitPackagesAndMesh() {
+void ParthenonManager::ParthenonInitPackagesAndMesh(
+    std::optional<forest::ForestDefinition> forest_def) {
   if (called_init_packages_and_mesh_) {
     PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
   }
@@ -185,8 +183,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-
-  if (arg.res_flag == 0) {
+  if (forest_def) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
+  } else if (arg.res_flag == 0) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
@@ -230,7 +229,9 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
-  MPI_Finalize();
+  int mpi_finalized;
+  PARTHENON_MPI_CHECK(MPI_Finalized(&mpi_finalized));
+  if (!mpi_finalized) PARTHENON_MPI_CHECK(MPI_Finalize());
 #endif
   return ParthenonStatus::complete;
 }
@@ -288,7 +289,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Allocate space based on largest vector
   int num_sparse = 0;
-  size_t max_size = 1;
+  size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -303,16 +304,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
-    IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
-    IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
-
-    std::vector<size_t> bsize;
-    bsize.push_back(out_ib.e - out_ib.s + 1);
-    bsize.push_back(out_jb.e - out_jb.s + 1);
-    bsize.push_back(out_kb.e - out_kb.s + 1);
-
-    max_size = std::max(max_size, v_info.TensorSize() * bsize[0] * bsize[1] * bsize[2]);
+    max_fillsize =
+        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -320,9 +313,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       num_sparse == sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * max_size);
+  std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
-    const auto vlen = v_info.TensorSize();
+    const auto vlen = v_info.num_components * v_info.ntop_elems;
+    const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
@@ -350,13 +344,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = dealloc_count;
         } else {
           // nothing to read for this block, advance reading index
-          IndexRange out_ib = v_info.cellbounds.GetBoundsI(theDomain);
-          IndexRange out_jb = v_info.cellbounds.GetBoundsJ(theDomain);
-          IndexRange out_kb = v_info.cellbounds.GetBoundsK(theDomain);
-          int nCells = (out_ib.e - out_ib.s + 1);
-          nCells *= (out_jb.e - out_jb.s + 1);
-          nCells *= (out_kb.e - out_kb.s + 1);
-          index += nCells * vlen;
+          index += fill_size;
           continue;
         }
       }

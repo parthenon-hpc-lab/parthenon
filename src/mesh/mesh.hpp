@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
@@ -46,6 +45,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -58,8 +58,10 @@
 namespace parthenon {
 
 // Forward declarations
+class ApplicationInput;
 class MeshBlock;
 class MeshRefinement;
+class Packages_t;
 class ParameterInput;
 class RestartReader;
 
@@ -89,6 +91,8 @@ class Mesh {
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
        Packages_t &packages, int test_flag = 0);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       forest::ForestDefinition &forest_def);
   ~Mesh();
 
   // accessors
@@ -103,7 +107,7 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const {
     return forest.GetBlockDomain(loc);
   }
-  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+  const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
   const forest::Forest &Forest() const { return forest; }
 
@@ -140,7 +144,8 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+    return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                  : default_pack_size_;
   }
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
@@ -166,12 +171,6 @@ class Mesh {
 
   void ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
                                         SimTime const &time, OutputParameters *pparams);
-
-  // Boundary Functions
-  BValFunc MeshBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  SBValFunc MeshSwarmBndryFnctn[BOUNDARY_NFACES] = {nullptr};
-  std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
-  std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
@@ -219,7 +218,7 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
-  using channel_key_t = std::tuple<int, int, std::string, int>;
+  using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t =
@@ -254,6 +253,8 @@ class Mesh {
     return resolved_packages->GetVariableNames(std::forward<Args>(args)...);
   }
 
+  forest::Forest forest;
+
  private:
   // data
   int root_level, max_level, current_level;
@@ -277,7 +278,6 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;
-  forest::Forest forest;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -324,14 +324,13 @@ class Mesh {
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
-  void EnrollBndryFncts_(ApplicationInput *app_in);
-
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
-  void CommunicateBoundaries(std::string md_name = "base");
+  void CommunicateBoundaries(std::string md_name = "base",
+                             const std::vector<std::string> &fields = {});
   void PreCommFillDerived();
   void FillDerived();
 
