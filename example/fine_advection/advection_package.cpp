@@ -71,6 +71,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (do_regular_advection) {
     int shape_size = pin->GetOrAddInteger("Advection", "shape_size", 1);
     int sparse_size = pin->GetOrAddInteger("Advection", "sparse_size", 1);
+    pkg->AddParam<>("sparse_size", sparse_size);
     Real alloc_threshold = pin->GetOrAddReal("Advection", "alloc_threshold", 1.e-6);
     Real dealloc_threshold = pin->GetOrAddReal("Advection", "dealloc_threshold", 5.e-7);
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,

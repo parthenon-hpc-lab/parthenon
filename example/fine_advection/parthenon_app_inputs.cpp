@@ -61,7 +61,11 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto coords = pmb->coords;
 
   using namespace advection_package::Conserved;
-  pmb->AllocSparseID(phi::name(), 0);
+  if (do_regular_advection) {
+    const int sparse_size = pkg->Param<int>("sparse_size");
+    for (int s = 0; s < sparse_size; ++s)
+      pmb->AllocSparseID(phi::name(), s);
+  }
   static auto desc = parthenon::MakePackDescriptor<phi, phi_fine, C, D>(data.get());
   auto pack = desc.GetPack(data.get());
 
@@ -74,53 +78,72 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const int b = 0;
   const int ndim = pmb->pmy_mesh->ndim;
   const int nghost = parthenon::Globals::nghost;
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
-        const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
-        const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
-        if (profile_type == 0) {
-          PARTHENON_FAIL("Profile type wave not implemented.");
-        } else if (profile_type == 1) {
-          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
-                     coords.Xc<2>(j) * coords.Xc<2>(j) +
-                     coords.Xc<3>(k) * coords.Xc<3>(k);
-          if (do_regular_advection)
-            pack(b, phi(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
-          if (do_fine_advection) {
+
+  if (do_regular_advection) {
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, pack.GetLowerBoundHost(b, phi()),
+        pack.GetUpperBoundHost(b, phi()), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+          const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
+          const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
+          const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
+          if (profile_type == 0) {
+            PARTHENON_FAIL("Profile type wave not implemented.");
+          } else if (profile_type == 1) {
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
+                       coords.Xc<3>(k) * coords.Xc<3>(k);
+            pack(b, phi(l), k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          } else if (profile_type == 2) {
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
+                       coords.Xc<3>(k) * coords.Xc<3>(k);
+            pack(b, phi(l), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          } else {
+            pack(b, phi(l), k, j, i) = 0.0;
+          }
+        });
+  }
+
+  if (do_fine_advection) {
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
+          const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
+          const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
+          if (profile_type == 0) {
+            PARTHENON_FAIL("Profile type wave not implemented.");
+          } else if (profile_type == 1) {
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
+                       coords.Xc<3>(k) * coords.Xc<3>(k);
             for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
                 for (int koff = 0; koff <= (ndim > 2); ++koff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                       1. + amp * exp(-100.0 * rsq);
                 }
-          }
-        } else if (profile_type == 2) {
-          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
-                     coords.Xc<2>(j) * coords.Xc<2>(j) +
-                     coords.Xc<3>(k) * coords.Xc<3>(k);
-          if (do_regular_advection)
-            pack(b, phi(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
-          if (do_fine_advection) {
+          } else if (profile_type == 2) {
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
+                       coords.Xc<3>(k) * coords.Xc<3>(k);
             for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
                 for (int koff = 0; koff <= (ndim > 2); ++koff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                       (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
                 }
-          }
-        } else {
-          if (do_regular_advection) pack(b, phi(), k, j, i) = 0.0;
-          if (do_fine_advection) {
+          } else {
             for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
                 for (int koff = 0; koff <= (ndim > 2); ++koff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
                 }
           }
-        }
-      });
+        });
+  }
+
   if (do_CT_advection) {
     ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F2);
     jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F2);
