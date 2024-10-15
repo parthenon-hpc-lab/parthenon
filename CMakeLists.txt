@@ -291,6 +291,13 @@ if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
+
+  # Async malloc are enabled by default until Kokkos <= 4.4.1 but
+  # cause issues with IPCs and MPI,
+  # see https://github.com/parthenon-hpc-lab/athenapk/pull/114#issuecomment-2358981857
+  # Given that it's also not expected to be a significant performance gain
+  # it's hard disabled now.
+  set(Kokkos_ENABLE_IMPL_CUDA_MALLOC_ASYNC OFF CACHE BOOL "Disable Cuda async malloc (to address MPI/IPC issues)")
 endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
