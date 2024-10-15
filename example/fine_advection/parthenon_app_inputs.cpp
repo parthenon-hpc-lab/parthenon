@@ -49,6 +49,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto pkg = pmb->packages.Get("advection_package");
   const auto &profile = pkg->Param<std::string>("profile");
+  auto do_regular_advection = pkg->Param<bool>("do_regular_advection");
+  auto do_fine_advection = pkg->Param<bool>("do_fine_advection");
+  auto do_CT_advection = pkg->Param<bool>("do_CT_advection");
 
   auto cellbounds = pmb->cellbounds;
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
@@ -83,62 +86,72 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(b, phi(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
-          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
-            for (int joff = 0; joff <= (ndim > 1); ++joff)
-              for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
-                    1. + amp * exp(-100.0 * rsq);
-              }
+          if (do_regular_advection)
+            pack(b, phi(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          if (do_fine_advection) {
+            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+              for (int joff = 0; joff <= (ndim > 1); ++joff)
+                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                  pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
+                      1. + amp * exp(-100.0 * rsq);
+                }
+          }
         } else if (profile_type == 2) {
           Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                      coords.Xc<2>(j) * coords.Xc<2>(j) +
                      coords.Xc<3>(k) * coords.Xc<3>(k);
-          pack(b, phi(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
-          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
-            for (int joff = 0; joff <= (ndim > 1); ++joff)
-              for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
-                    (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
-              }
+          if (do_regular_advection)
+            pack(b, phi(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          if (do_fine_advection) {
+            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+              for (int joff = 0; joff <= (ndim > 1); ++joff)
+                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                  pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
+                      (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+                }
+          }
         } else {
-          pack(b, phi(), k, j, i) = 0.0;
-          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
-            for (int joff = 0; joff <= (ndim > 1); ++joff)
-              for (int koff = 0; koff <= (ndim > 2); ++koff) {
-                pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
-              }
+          if (do_regular_advection)
+            pack(b, phi(), k, j, i) = 0.0;
+          if (do_fine_advection) {
+            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+              for (int joff = 0; joff <= (ndim > 1); ++joff)
+                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                  pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
+                }
+          }
         }
       });
+  if (do_CT_advection) {
+    ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F2);
+    jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F2);
+    kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F2);
+    const Real x0 = 0.2;
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          auto &coords = pack.GetCoordinates(b);
+          Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
+          Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
+          Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
+          Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
+          pack(b, TE::F2, C(), k, j, i) = (Alo - Ahi) / (xhi - xlo);
+        });
 
-  ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F2);
-  jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F2);
-  kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F2);
-  const Real x0 = 0.2;
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        auto &coords = pack.GetCoordinates(b);
-        Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
-        Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
-        Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
-        Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
-        pack(b, TE::F2, C(), k, j, i) = (Alo - Ahi) / (xhi - xlo);
-      });
-
-  ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F3);
-  jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F3);
-  kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F3);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        auto &coords = pack.GetCoordinates(b);
-        Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
-        Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
-        Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
-        Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
-        pack(b, TE::F3, D(), k, j, i) = (Alo - Ahi) / (xhi - xlo);
-      });
+    ib = cellbounds.GetBoundsI(IndexDomain::interior, TE::F3);
+    jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F3);
+    kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F3);
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          auto &coords = pack.GetCoordinates(b);
+          Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
+          Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
+          Real Alo = std::abs(xlo) < x0 ? sign(xlo, xhi) * (x0 - std::abs(xlo)) : 0.0;
+          Real Ahi = std::abs(xhi) < x0 ? sign(xhi, xlo) * (x0 - std::abs(xhi)) : 0.0;
+          pack(b, TE::F3, D(), k, j, i) = (Alo - Ahi) / (xhi - xlo);
+        });
+  }
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
