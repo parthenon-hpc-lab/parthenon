@@ -19,6 +19,7 @@
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
+#include <utils/indexer.hpp>
 
 namespace advection_example {
 using namespace parthenon::driver::prelude;
@@ -36,21 +37,27 @@ TaskStatus WeightedSumDataElement(parthenon::CellLevel cl,
   IndexRange jb = in1->GetBoundsJ(cl, IndexDomain::entire, te);
   IndexRange kb = in1->GetBoundsK(cl, IndexDomain::entire, te);
 
-  PARTHENON_REQUIRE(pack1.GetLowerBoundHost(0) == pack2.GetLowerBoundHost(0),
-                    "Packs are different size.");
-  PARTHENON_REQUIRE(pack1.GetLowerBoundHost(0) == pack_out.GetLowerBoundHost(0),
-                    "Packs are different size.");
-  PARTHENON_REQUIRE(pack1.GetUpperBoundHost(0) == pack2.GetUpperBoundHost(0),
-                    "Packs are different size.");
-  PARTHENON_REQUIRE(pack1.GetUpperBoundHost(0) == pack_out.GetUpperBoundHost(0),
-                    "Packs are different size.");
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack1.GetNBlocks() - 1, pack1.GetLowerBoundHost(0),
-      pack1.GetUpperBoundHost(0), // This is safe for dense vars
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        pack_out(b, te, l, k, j, i) =
-            w1 * pack1(b, te, l, k, j, i) + w2 * pack2(b, te, l, k, j, i);
+  constexpr int scratch_size = 0;
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack1.GetNBlocks() - 1, kb.s,
+      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        PARTHENON_REQUIRE(pack1.GetLowerBound(b) == pack2.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetLowerBound(b) == pack_out.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetUpperBound(b) == pack2.GetUpperBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack1.GetUpperBound(b) == pack_out.GetUpperBound(b),
+                          "Packs are different size.");
+        for (int l = pack1.GetLowerBound(b); l <= pack1.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            pack_out(b, te, l, k, j, i) =
+                w1 * pack1(b, te, l, k, j, i) + w2 * pack2(b, te, l, k, j, i);
+          });
+        }
       });
   return TaskStatus::complete;
 }
@@ -73,12 +80,18 @@ void StokesZero(parthenon::CellLevel cl, parthenon::TopologicalElement TeVar,
   IndexRange jb = out->GetBoundsJ(cl, IndexDomain::interior, TeVar);
   IndexRange kb = out->GetBoundsK(cl, IndexDomain::interior, TeVar);
 
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack_out.GetNBlocks() - 1, pack_out.GetLowerBoundHost(0),
-      pack_out.GetUpperBoundHost(0), // This is safe for dense vars only
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        pack_out(b, TeVar, l, k, j, i) = 0.0;
+  constexpr int scratch_size = 0;
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack_out.GetNBlocks() - 1,
+      kb.s, kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        for (int l = pack_out.GetLowerBound(b); l <= pack_out.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            pack_out(b, TeVar, l, k, j, i) = 0.0;
+          });
+        }
       });
 }
 
@@ -103,22 +116,29 @@ void StokesComponent(Real fac, parthenon::CellLevel cl,
   koff = ndim > 2 ? koff : 0;
   joff = ndim > 1 ? joff : 0;
 
-  PARTHENON_REQUIRE(pack_in.GetLowerBoundHost(0) == pack_out.GetLowerBoundHost(0),
-                    "Packs are different size.");
-  PARTHENON_REQUIRE(pack_in.GetUpperBoundHost(0) == pack_out.GetUpperBoundHost(0),
-                    "Packs are different size.");
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack_in.GetNBlocks() - 1, pack_in.GetLowerBoundHost(0),
-      pack_in.GetUpperBoundHost(0), // This is safe for dense vars only
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+  constexpr int scratch_size = 0;
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack_out.GetNBlocks() - 1,
+      kb.s, kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         auto &coords = pack_in.GetCoordinates(b);
-        pack_out(b, TeVar, l, k, j, i) +=
-            fac *
-            (coords.Volume(cl, TeFlux, k, j, i) * pack_in.flux(b, TeFlux, l, k, j, i) -
-             coords.Volume(cl, TeFlux, k + koff, j + joff, i + ioff) *
-                 pack_in.flux(b, TeFlux, l, k + koff, j + joff, i + ioff)) /
-            coords.Volume(cl, TeVar, k, j, i);
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        PARTHENON_REQUIRE(pack_in.GetLowerBound(b) == pack_out.GetLowerBound(b),
+                          "Packs are different size.");
+        PARTHENON_REQUIRE(pack_in.GetUpperBound(b) == pack_out.GetUpperBound(b),
+                          "Packs are different size.");
+        for (int l = pack_out.GetLowerBound(b); l <= pack_out.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            pack_out(b, TeVar, l, k, j, i) +=
+                fac *
+                (coords.Volume(cl, TeFlux, k, j, i) *
+                     pack_in.flux(b, TeFlux, l, k, j, i) -
+                 coords.Volume(cl, TeFlux, k + koff, j + joff, i + ioff) *
+                     pack_in.flux(b, TeFlux, l, k + koff, j + joff, i + ioff)) /
+                coords.Volume(cl, TeVar, k, j, i);
+          });
+        }
       });
 }
 
