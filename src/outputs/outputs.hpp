@@ -23,6 +23,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Kokkos_ScatterView.hpp"
@@ -169,6 +170,22 @@ class AscentOutput : public OutputType {
   //  Ghost mask currently (Ascent 0.9) needs to be of float type on device as the
   //  automated conversion between int and float does not work
   ParArray1D<Real> ghost_mask_;
+};
+
+//----------------------------------------------------------------------------------------
+//! \class OpenPMDOutput
+//  \brief derived OutputType class for OpenPMD based output
+
+class OpenPMDOutput : public OutputType {
+ public:
+  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config)
+      : OutputType(oparams), backend_config_(std::move(backend_config)) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+
+ private:
+  //  path to file containing config passed to backend
+  std::string backend_config_;
 };
 
 #ifdef ENABLE_HDF5

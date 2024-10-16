@@ -360,22 +360,21 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       const auto &pmb = pm->block_list[b_idx];
       bool is_allocated = false;
       int dealloc_count = 0;
-      // for each variable that this local meshblock actually has
-      const auto vars = get_vars(pmb);
-      for (auto &v : vars) {
-        // For reference, if we update the logic here, there's also
-        // a similar block in parthenon_manager.cpp
-        if (v->IsAllocated() && (var_name == v->label())) {
-          auto v_h = v->data.GetHostMirrorAndCopy();
-          OutputUtils::PackOrUnpackVar(
-              vinfo, output_params.include_ghost_zones, index,
-              [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
-                tmpData[index] = static_cast<OutT>(v_h(topo, t, u, v, k, j, i));
-              });
-          is_allocated = true;
-          dealloc_count = v->dealloc_count;
-          break;
-        }
+      // TODO(reviewers) Why was the loop originally there? Does the direct Get causes
+      // issue?
+      auto v = pmb->meshblock_data.Get()->GetVarPtr(var_name);
+      // For reference, if we update the logic here, there's also
+      // a similar block in parthenon_manager.cpp
+      if (v->IsAllocated() && (var_name == v->label())) {
+        auto v_h = v->data.GetHostMirrorAndCopy();
+        OutputUtils::PackOrUnpackVar(
+            vinfo, output_params.include_ghost_zones, index,
+            [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+              tmpData[index] = static_cast<OutT>(v_h(topo, t, u, v, k, j, i));
+            });
+
+        is_allocated = true;
+        dealloc_count = v->dealloc_count;
       }
 
       if (vinfo.is_sparse) {

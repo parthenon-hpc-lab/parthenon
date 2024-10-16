@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -33,6 +34,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 #include "parameter_input.hpp"
+#include "utils/mpi_types.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
@@ -253,6 +255,47 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm) {
                                });
 }
 
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
+  const int n_blocks_global = pm->nbtotal;
+  const int n_blocks_local = static_cast<int>(pm->block_list.size());
+
+  const int n_elem = data_local.size() / n_blocks_local;
+  PARTHENON_REQUIRE_THROWS(data_local.size() % n_blocks_local == 0,
+                           "Results from flattened input vector does not evenly divide "
+                           "into number of local blocks.");
+  std::vector<T> data_global(n_elem * n_blocks_global);
+
+  std::vector<int> counts(Globals::nranks);
+  std::vector<int> offsets(Globals::nranks);
+
+  const auto &nblist = pm->GetNbList();
+  counts[0] = n_elem * nblist[0];
+  offsets[0] = 0;
+  for (int r = 1; r < Globals::nranks; r++) {
+    counts[r] = n_elem * nblist[r];
+    offsets[r] = offsets[r - 1] + counts[r - 1];
+  }
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(data_local.data(), counts[Globals::my_rank],
+                                     MPITypeMap<T>::type(), data_global.data(),
+                                     counts.data(), offsets.data(), MPITypeMap<T>::type(),
+                                     MPI_COMM_WORLD));
+#else
+  return data_local;
+#endif
+  return data_global;
+}
+
+// explicit template instantiation
+template std::vector<std::size_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
+template std::vector<int64_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
+template std::vector<int> FlattendedLocalToGlobal(Mesh *pm,
+                                                  const std::vector<int> &data_local);
+
 // TODO(JMM): I could make this use the other loop
 // functionality/high-order functions.  but it was more code than this
 // for, I think, little benefit.
@@ -327,6 +370,35 @@ std::size_t MPISum(std::size_t val) {
                                     MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
+}
+
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables) {
+  const auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+  auto vars_to_write = GetAnyVariables(var_vec, variables);
+  if (restart) {
+    // get all vars with flag Independent OR restart
+    auto restart_vars = GetAnyVariables(
+        var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+    for (auto restart_var : restart_vars) {
+      vars_to_write.emplace_back(restart_var);
+    }
+  }
+  return vars_to_write;
+}
+
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds) {
+  std::vector<VarInfo> all_vars_info;
+  for (auto &v : vars) {
+    all_vars_info.emplace_back(v, cellbounds);
+  }
+
+  // sort alphabetically
+  std::sort(all_vars_info.begin(), all_vars_info.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+  return all_vars_info;
 }
 
 void CheckParameterInputConsistent(ParameterInput *pin) {

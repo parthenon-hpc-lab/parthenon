@@ -21,29 +21,9 @@
 #include "defs.hpp"
 
 #include "kokkos_abstraction.hpp"
+#include "output_attr.hpp"
 #include "parthenon_arrays.hpp"
 
-// JMM: This could probably be done with template magic but I think
-// using a macro is honestly the simplest and cleanest solution here.
-// Template solution would be to define a variatic class to conain the
-// list of types and then a hierarchy of structs/functions to turn
-// that into function calls. Preprocessor seems easier, given we're
-// not manipulating this list in any way.
-#define PARTHENON_ATTR_VALID_VEC_TYPES(T)                                                \
-  T, std::vector<T>, ParArray1D<T>, ParArray2D<T>, ParArray3D<T>, HostArray1D<T>,        \
-      HostArray2D<T>, HostArray3D<T>, Kokkos::View<T *>, Kokkos::View<T **>,             \
-      ParArrayND<T>, ParArrayHost<T>
-// JMM: This is the list of template specializations we
-// "pre-instantiate" We only pre-instantiate device memory, not host
-// memory. The reason is that when building with the Kokkos serial
-// backend, DevMemSpace and HostMemSpace are the same and so this
-// resolves to the same type in the macro, which causes problems.
-#define PARTHENON_ATTR_FOREACH_VECTOR_TYPE(T)                                            \
-  PARTHENON_ATTR_APPLY(T);                                                               \
-  PARTHENON_ATTR_APPLY(Kokkos::View<T *, LayoutWrapper, DevMemSpace>);                   \
-  PARTHENON_ATTR_APPLY(Kokkos::View<T **, LayoutWrapper, DevMemSpace>);                  \
-  PARTHENON_ATTR_APPLY(Kokkos::View<T ***, LayoutWrapper, DevMemSpace>);                 \
-  PARTHENON_ATTR_APPLY(device_view_t<T>)
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 

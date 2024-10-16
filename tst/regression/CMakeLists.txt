@@ -152,6 +152,21 @@ if (ENABLE_HDF5)
 
 endif()
 
+if (PARTHENON_ENABLE_OPENPMD)
+
+  # h5py is needed for restart and hdf5 test
+  list(APPEND REQUIRED_PYTHON_MODULES openpmd_api)
+
+  # Restart
+  list(APPEND TEST_DIRS restart_opmd)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_opmd/parthinput.restart \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  endif()
+
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
 # list variable, before including TestSetup.cmake.
 list(APPEND REQUIRED_PYTHON_MODULES numpy)

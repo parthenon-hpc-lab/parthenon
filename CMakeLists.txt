@@ -36,6 +36,7 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_ENABLE_OPENPMD "OpenPMD is enabled by default if found, set this to True to disable OpenPMD" ON)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -198,6 +199,26 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
   install(TARGETS HDF5_C EXPORT parthenonTargets)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+#TODO(pgrete) add logic for serial/parallel
+#TODO(pgrete) add logic for internal/external build
+  include(FetchContent)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+  set(openPMD_BUILD_CLI_TOOLS OFF)
+  set(openPMD_BUILD_EXAMPLES OFF)
+  set(openPMD_BUILD_TESTING OFF)
+  set(openPMD_BUILD_SHARED_LIBS OFF)  # precedence over BUILD_SHARED_LIBS if needed
+  set(openPMD_INSTALL OFF)            # or instead use:
+  # set(openPMD_INSTALL ${BUILD_SHARED_LIBS})  # only install if used as a shared library
+  set(openPMD_USE_PYTHON OFF)
+  FetchContent_Declare(openPMD
+    GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
+    # we need newer than the latest 0.15.2 release to support writing attriutes from a subset of ranks
+    GIT_TAG        "1c7d7ff") # develop as of 2024-09-02
+  FetchContent_MakeAvailable(openPMD)
+  install(TARGETS openPMD EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions

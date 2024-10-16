@@ -213,8 +213,8 @@ struct SwarmInfo {
   std::size_t count_on_rank = 0;                        // per-meshblock
   std::size_t global_offset;                            // global
   std::size_t global_count;                             // global
-  std::vector<std::size_t> counts;                      // per-meshblock
-  std::vector<std::size_t> offsets;                     // global
+  std::vector<std::size_t> counts;                      // on local meshblocks
+  std::vector<std::size_t> offsets; // global offset for local meshblocks
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -236,7 +236,7 @@ struct SwarmInfo {
   // Copies swarmvar to host in prep for output
   template <typename T>
   std::vector<T> FillHostBuffer(const std::string vname,
-                                ParticleVariableVector<T> &swmvarvec) {
+                                const ParticleVariableVector<T> &swmvarvec) const {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
@@ -245,6 +245,7 @@ struct SwarmInfo {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              // TODO(pgrete) understand what's doing on with the blocks here...
               std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?
@@ -344,12 +345,28 @@ std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
+// Takes a vector containing flattened data of all rank local blocks and returns the
+// flattened data over all blocks.
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
+
 // TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
 // however I think it's probably safe to assume we'll be on systems
 // where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
+
+// Return all variables to write, i.e., for restarts all indpendent variables and ones
+// with explicit Restart flag, but also variables explicitly defined to output in the
+// input file.
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables);
+
+// Returns a sorted vector of VarInfo associated with vars
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds);
 
 void CheckParameterInputConsistent(ParameterInput *pin);
 } // namespace OutputUtils

@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -16,6 +16,8 @@
 //========================================================================================
 
 #include <string>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -24,7 +26,12 @@
 #include "config.hpp"
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
+#include "openPMD/Series.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_hdf5.hpp"
+#include "outputs/restart_opmd.hpp"
+#include "parthenon_array_generic.hpp"
 
 using parthenon::Params;
 using parthenon::Real;
@@ -136,9 +143,22 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
   }
 }
 
-#ifdef ENABLE_HDF5
+#if defined(ENABLE_HDF5) && defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderHDF5;
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderHDF5, RestartReaderOPMD>;
+#elif defined(ENABLE_HDF5)
+using parthenon::RestartReaderHDF5;
+using OutputTypes = std::tuple<RestartReaderHDF5>;
+#elif defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderOPMD>;
+#else
+using OutputTypes = std::tuple<>;
+#endif
 
-TEST_CASE("A set of params can be dumped to file", "[params][output]") {
+TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][output]",
+                        OutputTypes) {
   GIVEN("A params object with a few kinds of objects") {
     Params params;
     const auto restart = Params::Mutability::Restart;
@@ -163,43 +183,97 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     Kokkos::deep_copy(arr2d, arr2d_h);
     params.Add("arr2d", arr2d);
 
-    parthenon::HostArray2D<Real> hostarr("hostarr2d", 2, 3);
+    // "Vectors" of bools have some special sauce under the hood so let's try the logic
+    // with a plain view
+    Kokkos::View<bool *> bool1d("boolview", 10);
+    auto bool1d_h = Kokkos::create_mirror_view(bool1d);
+    for (int i = 0; i < 10; ++i) {
+      bool1d_h(i) = i % 2;
+    }
+    Kokkos::deep_copy(bool1d, bool1d_h);
+    params.Add("bool1d", bool1d);
+
+    parthenon::HostArray2D<Real> hostarr2d("hostarr2d", 2, 3);
     for (int i = 0; i < 2; ++i) {
       for (int j = 0; j < 3; ++j) {
-        hostarr(i, j) = 2 * i + j + 1;
+        hostarr2d(i, j) = 2 * i + j + 1;
       }
     }
-    params.Add("hostarr2d", hostarr, restart);
+    params.Add("hostarr2d", hostarr2d, restart);
 
-    THEN("We can output to hdf5") {
-      const std::string filename = "params_test.h5";
-      const std::string groupname = "params";
+    THEN("We can output") {
+      std::string filename;
+      const std::string groupname = "Params";
       const std::string prefix = "test_pkg";
-      using namespace parthenon::HDF5;
-      {
+      if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+        using namespace parthenon::HDF5;
+        filename = "params_test.h5";
+
         H5F file = H5F::FromHIDCheck(
             H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
         auto group = MakeGroup(file, groupname);
         params.WriteAllToHDF5(prefix, group);
+      } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+        filename = ("params_test.%05T.bp");
+        auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+        series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+        auto it = series.iterations[0];
+        parthenon::OpenPMDUtils::WriteAllParams(params, prefix, &it);
+      } else {
+        FAIL("This logic is flawed. I should not be here.");
       }
-      AND_THEN("We can directly read the relevant data from the hdf5 file") {
-        H5F file =
-            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
-        const H5O obj = H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
-
+      AND_THEN("We can directly read the relevant data from the file") {
         Real in_scalar;
-        HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
-        REQUIRE(std::abs(scalar - in_scalar) <= 1e-10);
-
         std::vector<int> in_vector;
-        HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+        // deliberately the wrong size
+        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+        parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
+        Kokkos::View<bool *> in_bool1d("in_bool1d", 5);
+
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5O obj =
+              H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+
+          HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
+          HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+          HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+          HDF5ReadAttribute(obj, prefix + "/hostarr2d", in_hostarr2d);
+          HDF5ReadAttribute(obj, prefix + "/bool1d", in_bool1d);
+        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
+          auto it = series.iterations[0];
+          // Note that we're explicitly using `delim` here which tests the character
+          // replacement of '/' in the WriteAllParams function.
+          using parthenon::OpenPMDUtils::delim;
+
+          in_scalar =
+              it.getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
+
+          in_vector = it.getAttribute(groupname + delim + prefix + delim + "vector")
+                          .get<std::vector<int>>();
+
+          // Technically, we're not reading "directly" here but the restart reader ctor
+          // literally just opens the file.
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          auto &in_arr2d_v = in_arr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "arr2d",
+                                       in_arr2d_v);
+
+          auto &in_hostarr2d_v = in_hostarr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "hostarr2d",
+                                       in_hostarr2d_v);
+          //  TODO(pgrete) make this work and also add checks for correctness below
+          // resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "bool1d",
+          //  in_bool1d);
+        }
+        REQUIRE(scalar == in_scalar);
+
         for (int i = 0; i < vector.size(); ++i) {
           REQUIRE(in_vector[i] == vector[i]);
         }
 
-        // deliberately the wrong size
-        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
-        HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
         REQUIRE(in_arr2d.extent_int(0) == arr2d.extent_int(0));
         REQUIRE(in_arr2d.extent_int(1) == arr2d.extent_int(1));
         int nwrong = 1;
@@ -211,9 +285,17 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
             },
             nwrong);
         REQUIRE(nwrong == 0);
+
+        REQUIRE(in_hostarr2d.extent_int(0) == hostarr2d.extent_int(0));
+        REQUIRE(in_hostarr2d.extent_int(1) == hostarr2d.extent_int(1));
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 3; ++j) {
+            REQUIRE(hostarr2d(i, j) == in_hostarr2d(i, j));
+          }
+        }
       }
 
-      AND_THEN("We can restart a params object from the HDF5 file") {
+      AND_THEN("We can restart a params object from the file") {
         Params rparams;
 
         // init the params object to restart into
@@ -232,24 +314,30 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
         parthenon::HostArray2D<Real> test_hostarr("hostarr2d", 1, 1);
         rparams.Add("hostarr2d", test_hostarr, restart);
 
-        H5F file =
-            H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
-        const H5G obj = H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
-        rparams.ReadFromRestart(prefix, obj);
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5G obj =
+              H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+          rparams.ReadFromRestart(prefix, obj);
+        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          resfile.ReadParams(prefix, rparams);
+        }
 
         AND_THEN("The values for the restartable params are updated to match the file") {
           auto test_scalar = rparams.Get<Real>("scalar");
-          REQUIRE(std::abs(test_scalar - scalar) <= 1e-10);
+          REQUIRE(test_scalar == scalar);
 
           auto test_bool = rparams.Get<bool>("boolscalar");
           REQUIRE(test_bool == boolscalar);
 
-          auto test_hostarr = params.Get<parthenon::HostArray2D<Real>>("hostarr2d");
-          REQUIRE(test_hostarr.extent_int(0) == hostarr.extent_int(0));
-          REQUIRE(test_hostarr.extent_int(1) == hostarr.extent_int(1));
-          for (int i = 0; i < hostarr.extent_int(0); ++i) {
-            for (int j = 0; j < hostarr.extent_int(1); ++j) {
-              REQUIRE(test_hostarr(i, j) == hostarr(i, j));
+          auto test_hostarr = rparams.Get<parthenon::HostArray2D<Real>>("hostarr2d");
+          REQUIRE(test_hostarr.extent_int(0) == hostarr2d.extent_int(0));
+          REQUIRE(test_hostarr.extent_int(1) == hostarr2d.extent_int(1));
+          for (int i = 0; i < hostarr2d.extent_int(0); ++i) {
+            for (int j = 0; j < hostarr2d.extent_int(1); ++j) {
+              REQUIRE(test_hostarr(i, j) == hostarr2d(i, j));
             }
           }
         }
@@ -264,5 +352,3 @@ TEST_CASE("A set of params can be dumped to file", "[params][output]") {
     }
   }
 }
-
-#endif // ENABLE_HDF5
