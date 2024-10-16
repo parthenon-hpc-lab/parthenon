@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 //! \file defs.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -121,7 +122,7 @@ struct RegionSize {
 // tasks.hpp, ???
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
+enum class BoundaryFlag { block = -1, undef, periodic, user };
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
@@ -134,6 +135,7 @@ enum BoundaryFace {
   inner_x3 = 4,
   outer_x3 = 5
 };
+using BValNames_t = std::array<std::string, BOUNDARY_NFACES>;
 
 inline BoundaryFace GetInnerBoundaryFace(CoordinateDirection dir) {
   if (dir == X1DIR) {

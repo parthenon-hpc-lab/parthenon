@@ -14,11 +14,13 @@
 #ifndef BVALS_BOUNDARY_CONDITIONS_HPP_
 #define BVALS_BOUNDARY_CONDITIONS_HPP_
 
+#include <array>
 #include <functional>
 #include <memory>
-#include <string>
+#include <vector>
 
 #include "basic_types.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 
@@ -32,6 +34,8 @@ class Swarm;
 // Physical boundary conditions
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
 using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
+using BValFuncArray_t = std::array<std::vector<BValFunc>, BOUNDARY_NFACES>;
+using SBValFuncArray_t = std::array<std::vector<SBValFunc>, BOUNDARY_NFACES>;
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);

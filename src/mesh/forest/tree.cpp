@@ -24,12 +24,14 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
+#include "parameter_input.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 
@@ -383,70 +385,21 @@ std::int64_t Tree::GetOldGid(const LogicalLocation &loc) const {
   return -1;
 }
 
-void Tree::EnrollBndryFncts(
-    ApplicationInput *app_in,
-    std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
-    std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
+void Tree::EnrollBndryFncts(ApplicationInput *app_in, const BValNames_t &names,
+                            const BValNames_t &swarm_names,
+                            const BValFuncArray_t &UserBoundaryFunctions_in,
+                            const SBValFuncArray_t &UserSwarmBoundaryFunctions_in) {
   UserBoundaryFunctions = UserBoundaryFunctions_in;
   UserSwarmBoundaryFunctions = UserSwarmBoundaryFunctions_in;
-  static const BValFunc outflow[6] = {
-      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
-      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
-      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
-  static const BValFunc reflect[6] = {
-      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
-      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
-      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
-  static const SBValFunc soutflow[6] = {
-      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
-      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
-      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
-  static const SBValFunc speriodic[6] = {
-      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
-      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
-      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
 
   for (int f = 0; f < BOUNDARY_NFACES; f++) {
-    switch (boundary_conditions[f]) {
-    case BoundaryFlag::reflect:
-      MeshBndryFnctn[f] = reflect[f];
-      break;
-    case BoundaryFlag::outflow:
-      MeshBndryFnctn[f] = outflow[f];
-      SwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::user:
-      if (app_in->boundary_conditions[f] != nullptr) {
-        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested. but no condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      break;
-    default: // periodic/block BCs handled elsewhere.
-      break;
-    }
-
-    switch (boundary_conditions[f]) {
-    case BoundaryFlag::outflow:
-      SwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::periodic:
-      SwarmBndryFnctn[f] = speriodic[f];
-      break;
-    case BoundaryFlag::reflect:
-      // Default "reflect" boundaries not available for swarms; catch later on if swarms
-      // are present
-      break;
-    case BoundaryFlag::user:
-      if (app_in->swarm_boundary_conditions[f] != nullptr) {
-        SwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      }
-      break;
-    default: // Default BCs handled elsewhere
-      break;
+    auto flag = boundary_conditions[f];
+    auto face = static_cast<BoundaryFace>(f);
+    if (flag == BoundaryFlag::user) {
+      MeshBndryFnctn[f] = app_in->GetBoundaryCondition(face, names[f]);
+      SwarmBndryFnctn[f] = app_in->GetSwarmBoundaryCondition(face, swarm_names[f]);
+    } else if (flag == BoundaryFlag::periodic) {
+      SwarmBndryFnctn[f] = app_in->GetSwarmBoundaryCondition(face, swarm_names[f]);
     }
   }
 }

@@ -86,7 +86,6 @@ class RestartReader {
 
   struct MeshInfo {
     int nbnew, nbdel, nbtotal, root_level, includes_ghost, n_ghost;
-    std::vector<std::string> bound_cond;
     std::vector<int> block_size;
     std::vector<Real> grid_dim;
     std::vector<int64_t> lx123;

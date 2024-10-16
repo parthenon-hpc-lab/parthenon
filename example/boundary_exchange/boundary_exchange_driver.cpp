@@ -76,23 +76,23 @@ int main(int argc, char *argv[]) {
                      ar3_t{1.0, 1.0, 1.0});
   // forest_def.AddFace(0, {n[0], n[1], n[3], n[2]}, ar3_t{0.0, 0.0, 0.0},
   // ar3_t{1.0, 1.0, 1.0});
-  forest_def.AddBC(edge_t({n[0], n[1]}), parthenon::BoundaryFlag::outflow);
-  forest_def.AddBC(edge_t({n[0], n[3]}), parthenon::BoundaryFlag::outflow);
+  forest_def.AddBC(edge_t({n[0], n[1]}));
+  forest_def.AddBC(edge_t({n[0], n[3]}));
 
   forest_def.AddFace(1, {n[1], n[4], n[2], n[5]}, ar3_t{2.0, 0.0, 0.0},
                      ar3_t{3.0, 1.0, 1.0});
-  forest_def.AddBC(edge_t({n[1], n[4]}), parthenon::BoundaryFlag::outflow);
-  forest_def.AddBC(edge_t({n[4], n[5]}), parthenon::BoundaryFlag::outflow);
+  forest_def.AddBC(edge_t({n[1], n[4]}));
+  forest_def.AddBC(edge_t({n[4], n[5]}));
 
   forest_def.AddFace(3, {n[3], n[2], n[6], n[7]}, ar3_t{0.0, 2.0, 0.0},
                      ar3_t{1.0, 3.0, 1.0});
-  forest_def.AddBC(edge_t({n[6], n[7]}), parthenon::BoundaryFlag::outflow);
-  forest_def.AddBC(edge_t({n[3], n[6]}), parthenon::BoundaryFlag::outflow);
+  forest_def.AddBC(edge_t({n[6], n[7]}));
+  forest_def.AddBC(edge_t({n[3], n[6]}));
 
   forest_def.AddFace(4, {n[2], n[5], n[7], n[8]}, ar3_t{2.0, 2.0, 0.0},
                      ar3_t{3.0, 3.0, 1.0});
-  forest_def.AddBC(edge_t({n[5], n[8]}), parthenon::BoundaryFlag::outflow);
-  forest_def.AddBC(edge_t({n[7], n[8]}), parthenon::BoundaryFlag::outflow);
+  forest_def.AddBC(edge_t({n[5], n[8]}));
+  forest_def.AddBC(edge_t({n[7], n[8]}));
 
   forest_def.AddInitialRefinement(parthenon::LogicalLocation(0, 1, 0, 0, 0));
   pman.ParthenonInitPackagesAndMesh(forest_def);
