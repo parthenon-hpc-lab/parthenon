@@ -340,6 +340,10 @@ class StateDescriptor {
     return AmrTag::derefine;
   }
 
+  void CheckRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level) const {
+    if (CheckRefinementMesh != nullptr) CheckRefinementMesh(mc, delta_level);
+  }
+
   void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
     if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
   }
@@ -389,6 +393,8 @@ class StateDescriptor {
   std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 
   std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
+  std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>
+      CheckRefinementMesh = nullptr;
 
   std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;

@@ -48,6 +48,7 @@ VARIABLE(advection, divD);
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
+void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &amr_tags);
 Real EstimateTimestep(MeshData<Real> *md);
 TaskStatus FillDerived(MeshData<Real> *md);
 
