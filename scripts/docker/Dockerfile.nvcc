@@ -1,23 +1,36 @@
-FROM nvidia/cuda:11.6.1-devel-ubuntu20.04
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-11-6 cmake ninja-build
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 emacs nvi sphinx-doc python3-sphinx-rtd-theme python3-sphinxcontrib.bibtex python3-sphinx-copybutton && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 10 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 10
+
+RUN g++ --version
 
 RUN pip3 install unyt
 
+RUN pip3 install blosc2
+
+# for Codespaces/VSCode Sphinx support
+RUN pip3 install esbonio
+
+# h5py from the repo is incompatible with the default numpy 2.1.0
+# Downgrading is not the cleanest solution, but it works...
+# see https://stackoverflow.com/questions/78634235/numpy-dtype-size-changed-may-indicate-binary-incompatibility-expected-96-from
+RUN pip3 install numpy==1.26.4
+
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
-    echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main" > /etc/apt/sources.list.d/llvm.list
+    echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" > /etc/apt/sources.list.d/llvm.list
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-15 llvm-15 libomp-15-dev && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-19 llvm-19 libomp-19-dev clangd-19 && \
     rm -rf /var/lib/apt/lists/*
-
 
 RUN cd /tmp && \
     wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.bz2 && \
     tar xjf openmpi-4.1.4.tar.bz2 && \
     cd openmpi-4.1.4 && \
-    ./configure --prefix=/opt/openmpi --enable-mpi-cxx --with-cuda && \
+    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda && \
     make -j16 && \
     make install && \
     cd / && \
@@ -36,19 +49,48 @@ RUN cd /tmp && \
     cd / && \
     rm -rf /tmp/hdf5-1.12.2*
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
-
-RUN curl -L https://github.com/Kitware/CMake/releases/download/v3.23.2/cmake-3.23.2-linux-x86_64.tar.gz -o cmake-3.23.2-linux-x86_64.tar.gz && \
-    tar -xzf cmake-3.23.2-linux-x86_64.tar.gz -C /opt
-
-ENV PATH=/opt/cmake-3.23.2-linux-x86_64/bin:$PATH
-
-COPY build_ascent_cuda.sh /tmp/build-ascent/build_ascent_cuda.sh
-
-RUN cd /tmp/build-ascent && \
-    bash build_ascent_cuda.sh && \
+RUN mkdir /tmp/build-adios2 && cd /tmp/build-adios2 && \
+    wget https://github.com/ornladios/ADIOS2/archive/refs/tags/v2.10.1.tar.gz && \
+    tar xzf v2.10.1.tar.gz && \
+    mkdir adios2-build && cd adios2-build && \
+    cmake ../ADIOS2-2.10.1 -DADIOS2_USE_Blosc2=ON -DADIOS2_USE_Fortran=OFF && \
+    make -j 16 && make install && \
     cd / && \
-    rm -rf /tmp/build-ascent
+    rm -rf /tmp/build-adios2
 
-# manually downgrade numpy as deprecated `typeDict` is still used by h5py
-RUN pip install numpy==1.21
+# commit version is dev branch on 2024-08-30
+RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
+    wget https://github.com/openPMD/openPMD-api/archive/1c7d7ff.tar.gz && \
+    tar xzf 1c7d7ff.tar.gz && \
+    mkdir openPMD-api-build && cd openPMD-api-build && \
+    cmake ../openPMD-api-1c7d7ffc5ef501e1d2dcbd5169b3e5eff677b399 -DopenPMD_USE_PYTHON=ON -DPython_EXECUTABLE=$(which python3) -DopenPMD_USE_ADIOS2=ON && \
+    cmake --build . -j 16 && \
+    cmake --build . --target install && \
+    cd / && \
+    rm -rf /tmp/build-openpmd
+
+RUN mkdir /tmp/build-ascent
+
+COPY ascent_build.patch /tmp/build-ascent
+
+## NOTE: with enable_cuda=ON, you need a Docker VM with a LARGE amount of RAM (at least 15 GB RAM, 4 GB swap)
+
+# commit version is dev branch on 2024-08-30
+RUN cd /tmp/build-ascent && \
+    wget https://github.com/Alpine-DAV/ascent/archive/dc2ec9c.tar.gz && \
+    tar xzf dc2ec9c.tar.gz -C . --strip-components=1 && \
+    wget https://github.com/LLNL/blt/archive/9ff7734.tar.gz && \
+    tar xzf 9ff7734.tar.gz -C ./src/blt --strip-components=1 && \
+    cd ./scripts/build_ascent && \
+    patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
+    env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
+    cd / && \
+    rm -rf /tmp/ascent_build
+
+# uid 1000 maps to the one running the container on the CI host
+RUN groupadd -g 109 render
+RUN useradd --create-home --shell /bin/bash -u 1000 -G render,sudo ci
+
+USER ci
+
+WORKDIR /home/ci
