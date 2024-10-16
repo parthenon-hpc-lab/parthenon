@@ -62,7 +62,8 @@ class ForestDefinition {
     face_sizes.emplace_back(xmin, xmax, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1});
   }
 
-  void AddBC(Edge edge, BoundaryFlag bf, std::optional<Edge> periodic_connection = {}) {
+  void AddBC(Edge edge, BoundaryFlag bf = BoundaryFlag::user,
+             std::optional<Edge> periodic_connection = {}) {
     if (bf == BoundaryFlag::periodic)
       PARTHENON_REQUIRE(periodic_connection,
                         "Must specify another edge for periodic boundary conditions.");
@@ -134,12 +135,12 @@ class Forest {
     return trees.at(loc.tree())->GetBlockBCs(loc);
   }
 
-  void EnrollBndryFncts(
-      ApplicationInput *app_in,
-      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
-      std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
+  void EnrollBndryFncts(ApplicationInput *app_in, const BValNames_t &names,
+                        const BValNames_t &swarm_names,
+                        const BValFuncArray_t &UserBoundaryFunctions_in,
+                        const SBValFuncArray_t &UserSwarmBoundaryFunctions_in) {
     for (auto &[id, ptree] : trees)
-      ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in,
+      ptree->EnrollBndryFncts(app_in, names, swarm_names, UserBoundaryFunctions_in,
                               UserSwarmBoundaryFunctions_in);
   }
 

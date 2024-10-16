@@ -49,12 +49,14 @@ int main(int argc, char *argv[]) {
 
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = particles_example::ProcessPackages;
-  pman.app_input->boundary_conditions[BoundaryFace::inner_x1] =
-      parthenon::BoundaryFunction::OutflowInnerX1;
-  pman.app_input->boundary_conditions[BoundaryFace::outer_x1] =
-      parthenon::BoundaryFunction::OutflowOuterX1;
-  pman.app_input->swarm_boundary_conditions[BoundaryFace::inner_x1] = SwarmUserInnerX1;
-  pman.app_input->swarm_boundary_conditions[BoundaryFace::outer_x1] = SwarmUserOuterX1;
+  pman.app_input->RegisterBoundaryCondition(BoundaryFace::inner_x1,
+                                            parthenon::BoundaryFunction::OutflowInnerX1);
+  pman.app_input->RegisterBoundaryCondition(BoundaryFace::outer_x1,
+                                            parthenon::BoundaryFunction::OutflowOuterX1);
+  pman.app_input->RegisterSwarmBoundaryCondition(BoundaryFace::inner_x1,
+                                                 SwarmUserInnerX1);
+  pman.app_input->RegisterSwarmBoundaryCondition(BoundaryFace::outer_x1,
+                                                 SwarmUserOuterX1);
   // Note that this example does not use a ProblemGenerator
   pman.ParthenonInitPackagesAndMesh();
 

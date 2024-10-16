@@ -476,6 +476,14 @@ class MeshData {
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
+  // Checks that the same set of variables was requested to create this container
+  // (which may be different than the set of variables in the container because of fluxes)
+  template <typename Vars_t>
+  bool CreatedFrom(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->CreatedFrom(vars); });
+  }
+
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
     PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
                       "MeshData::GetSwarmData requires n within [0, block_data_.size()]");

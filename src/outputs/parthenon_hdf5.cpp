@@ -190,12 +190,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
 
     // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
-
-    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+    HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
+    HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
   }                                 // Info section
 
