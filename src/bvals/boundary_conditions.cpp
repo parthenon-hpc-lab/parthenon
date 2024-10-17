@@ -207,7 +207,7 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
     return false;
   } // ndim always at least 1
 
-  return true; // reflect, outflow, user, dims correct
+  return true; // user, dims correct
 }
 
 bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
@@ -215,7 +215,7 @@ bool DoPhysicalSwarmBoundary_(const BoundaryFlag flag, const BoundaryFace face,
   if (flag == BoundaryFlag::undef) return false;
   if (flag == BoundaryFlag::block) return false;
 
-  return true; // outflow, periodic, user, dims (particles always 3D) correct
+  return true; // periodic, user, dims (particles always 3D) correct
 }
 
 } // namespace boundary_cond_impl

@@ -116,6 +116,11 @@ class Mesh {
   bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
+
+  BValNames_t mesh_bc_names;
+  BValNames_t mesh_swarm_bc_names;
+
+  // these are flags not boundary functions
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
@@ -296,6 +301,10 @@ class Mesh {
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
 #endif
+
+  void SetBCNames_(ParameterInput *pin);
+  std::array<BoundaryFlag, BOUNDARY_NFACES>
+  GetBCsFromNames_(const BValNames_t &names) const;
 
   // functions
   void CheckMeshValidity() const;

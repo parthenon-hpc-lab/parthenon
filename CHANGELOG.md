@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
+- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185) Bugfix to particle defragmentation
 - [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
 - [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
 - [[PR 1179]](https://github.com/parthenon-hpc-lab/parthenon/pull/1179) Make a global variable for whether simulation is a restart
@@ -12,6 +12,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.4.1
+- [[PR 1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 - [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
 - [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
@@ -28,7 +29,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
-
+- [[PR 1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 
 ## Release 24.08
 Date: 2024-08-30
@@ -152,12 +153,12 @@ Date: 2024-03-21
 - [[PR 973]](https://github.com/parthenon-hpc-lab/parthenon/pull/973) Multigrid performance upgrades
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
-- [[PR1012]](https://github.com/parthenon-hpc-lab/parthenon/pull/1012) Remove accidentally duplicated code
-- [[PR992]](https://github.com/parthenon-hpc-lab/parthenon/pull/992) Allow custom PR ops with sparse pools
-- [[PR988]](https://github.com/parthenon-hpc-lab/parthenon/pull/988) Fix bug in neighbor finding routine for small, periodic, refined meshes
-- [[PR986]](https://github.com/parthenon-hpc-lab/parthenon/pull/986) Fix bug in sparse boundary communication BndInfo cacheing
-- [[PR978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
+- [[PR 1023]](https://github.com/parthenon-hpc-lab/parthenon/pull/1023) Fix broken param of a scalar bool
+- [[PR 1012]](https://github.com/parthenon-hpc-lab/parthenon/pull/1012) Remove accidentally duplicated code
+- [[PR 992]](https://github.com/parthenon-hpc-lab/parthenon/pull/992) Allow custom PR ops with sparse pools
+- [[PR 988]](https://github.com/parthenon-hpc-lab/parthenon/pull/988) Fix bug in neighbor finding routine for small, periodic, refined meshes
+- [[PR 986]](https://github.com/parthenon-hpc-lab/parthenon/pull/986) Fix bug in sparse boundary communication BndInfo cacheing
+- [[PR 978]](https://github.com/parthenon-hpc-lab/parthenon/pull/978) remove erroneous sparse check
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1027]](https://github.com/parthenon-hpc-lab/parthenon/pull/1027) Refactor RestartReader as abstract class
@@ -224,7 +225,7 @@ Date: 2023-11-16
 - [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
 ### Removed (removing behavior/API/varaibles/...)
-- [[PR 930](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
+- [[PR 930]](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
 
 
 ## Release 0.8.0
