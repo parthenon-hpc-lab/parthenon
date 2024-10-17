@@ -276,6 +276,10 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                  IndexRangeType idx_range_type) {
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
+  
+  tag = pmb->pmy_mesh->tag_map.GetTag(pmb, nb); 
+  var_id = v->GetUniqueID();
+  
 
   buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
@@ -307,17 +311,23 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
 
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
+                                BoundaryType b_type,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   // Test if the neighbor block is not offset from this block (i.e. is a
   // parent or daughter block of pmb), and change the IndexRangeType
   // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
-  return BndInfo(pmb, nb, v, buf, idx_range_type);
+  BndInfo out(pmb, nb, v, buf, idx_range_type);
+  out.rank_send = Globals::my_rank; 
+  out.rank_recv = nb.rank;
+  out.extra_id = static_cast<int>(b_type); 
+  return out;
 }
 
 BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v,
+                               BoundaryType b_type,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   // Test if the neighbor block is not offset from this block (i.e. is a
@@ -325,6 +335,9 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
+  out.rank_recv = Globals::my_rank; 
+  out.rank_send = nb.rank;
+  out.extra_id = static_cast<int>(b_type); 
 
   auto buf_state = buf->GetState();
   if (buf_state == BufferState::received) {

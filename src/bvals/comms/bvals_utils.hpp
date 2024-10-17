@@ -203,6 +203,7 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
 
 using F_BND_INFO = std::function<BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                          std::shared_ptr<Variable<Real>> v,
+                                         BoundaryType b_type,
                                          CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
 using F_PRORES_INFO = std::function<ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
@@ -230,7 +231,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // bnd_info
     const std::size_t ibuf = cache.idx_vec[ibound];
-    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, BOUND_TYPE, cache.buf_vec[ibuf]);
 
     // subsets ordering is same as in cache.bnd_info
     // RefinementFunctions_t owns all relevant functionality, so
