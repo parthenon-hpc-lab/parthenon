@@ -27,6 +27,7 @@
 
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
+#include "combined_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -110,6 +111,11 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     tag = pmesh->tag_map.GetTag(pmb, nb);
     auto comm_label = v->label();
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
+
+    // Register this buffer with the combined buffers
+    if (receiver_rank != sender_rank) {
+      pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
+    }
 #else
       // Setting to zero is fine here since this doesn't actually get used when everything
       // is on the same rank

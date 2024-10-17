@@ -138,6 +138,15 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
         });
       });
+  // 1. Parallel scan per rank to get the starting indices of the buffers
+
+  // 2. Check the size of the buffer (how do you do this without extra DtoH call?) and
+  // possibly allocate more storage
+  //    [Alternatively could just allocate to maximal size initially]
+
+  // 3. Pack the combined buffers
+
+  // 4. Send the combined buffers
 
   // Send buffers
   if (Globals::sparse_config.enabled)

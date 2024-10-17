@@ -251,7 +251,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there

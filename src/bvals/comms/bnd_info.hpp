@@ -124,7 +124,7 @@ struct ProResInfo {
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1D<BndInfo>;
