@@ -201,10 +201,9 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   return std::make_tuple(rebuild, nbound);
 }
 
-using F_BND_INFO = std::function<BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                                         std::shared_ptr<Variable<Real>> v,
-                                         BoundaryType b_type,
-                                         CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
+using F_BND_INFO = std::function<BndInfo(
+    MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
+    BoundaryType b_type, CommBuffer<buf_pool_t<Real>::owner_t> *buf)>;
 
 using F_PRORES_INFO = std::function<ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                                std::shared_ptr<Variable<Real>> v)>;

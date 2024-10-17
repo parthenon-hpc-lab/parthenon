@@ -48,30 +48,36 @@ enum class IndexRangeType {
   InteriorRecv
 };
 
-struct BndInfo {
-  // Information for identifying the buffer with a communication 
+struct BndId {
+  // Information for identifying the buffer with a communication
   // channel, variable, and the ranks it is communicated across
   int tag;
-  int var_id; 
+  int var_id;
   int extra_id;
   int rank_send;
   int rank_recv;
   BoundaryType bound_type;
-  
+
   // MeshData partition id of the *sender*
   // not set by constructors and only necessary for coalesced comms
   int partition;
-  
+  int size;
+  int start_idx;
+};
+
+struct BndInfo {
+  BndId id;
+
   int ntopological_elements = 1;
   using TE = TopologicalElement;
   TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
   forest::LogicalCoordinateTransformation lcoord_trans;
-  
+
   KOKKOS_FORCEINLINE_FUNCTION
-  int size() const { 
+  int size() const {
     int s = 0;
-    for (int n = 0; n < ntopological_elements; ++n) { 
+    for (int n = 0; n < ntopological_elements; ++n) {
       s += idxer[n].size();
     }
     return s;
@@ -97,12 +103,10 @@ struct BndInfo {
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                                std::shared_ptr<Variable<Real>> v,
-                                BoundaryType b_type,
+                                std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                               std::shared_ptr<Variable<Real>> v,
-                               BoundaryType b_type,
+                               std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 
