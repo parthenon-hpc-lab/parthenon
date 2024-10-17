@@ -42,6 +42,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "bvals/comms/combined_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -85,7 +86,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pcombined_buffers(std::make_shared<CombinedBuffers>()) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
