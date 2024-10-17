@@ -11,9 +11,8 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.2.01
+- [[PR 1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.4.1
 - [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
-- [[Issue 1165]](https://github.com/parthenon-hpc-lab/parthenon/issues/1165) Bump Kokkos submodule to 4.4.1
 - [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
