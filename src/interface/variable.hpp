@@ -123,7 +123,8 @@ class Variable {
   Uid_t GetUniqueID() const { return uid_; }
 
   static Uid_t GetUniqueID(const std::string &var_label) { return get_uid_(var_label); }
-
+  static const std::string &GetLabel(Uid_t uid) {return get_uid_(uid);}
+  
   /// return information string
   std::string info();
 

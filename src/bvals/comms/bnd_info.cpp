@@ -24,6 +24,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -277,9 +278,6 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
-  id.tag = pmb->pmy_mesh->tag_map.GetTag(pmb, nb);
-  id.var_id = v->GetUniqueID();
-
   if (combuf != nullptr) buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
@@ -308,25 +306,37 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   }
 }
 
+BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
+                     std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                     int partition, int start_idx) {
+  auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type);
+  BndId out;
+  out.send_gid() = send_gid;
+  out.recv_gid() = recv_gid;
+  out.loc_idx() = loc;
+  out.var_id() = v->GetUniqueID();
+  out.extra_id() = extra_id;
+  out.rank_send() = Globals::my_rank;
+  out.rank_recv() = nb.rank;
+  out.partition() = partition;
+  out.size() = BndInfo::GetSendBndInfo(pmb, nb, v, nullptr).size();
+  out.start_idx() = start_idx;
+  return out;
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                                std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                                std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryInteriorSend;
   // Test if the neighbor block is not offset from this block (i.e. is a
   // parent or daughter block of pmb), and change the IndexRangeType
   // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorSend;
-  BndInfo out(pmb, nb, v, buf, idx_range_type);
-  out.id.rank_send = Globals::my_rank;
-  out.id.rank_recv = nb.rank;
-  out.id.extra_id = static_cast<int>(b_type);
-  out.id.size = out.size();
-  out.id.bound_type = b_type;
-  return out;
+  return BndInfo(pmb, nb, v, buf, idx_range_type);
 }
 
 BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                               std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                               std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
   auto idx_range_type = IndexRangeType::BoundaryExteriorRecv;
   // Test if the neighbor block is not offset from this block (i.e. is a
@@ -334,11 +344,6 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   // accordingly
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
-  out.id.rank_recv = Globals::my_rank;
-  out.id.rank_send = nb.rank;
-  out.id.extra_id = static_cast<int>(b_type);
-  out.id.size = out.size();
-  out.id.bound_type = b_type;
 
   auto buf_state = buf != nullptr ? buf->GetState() : BufferState::received;
   if (buf_state == BufferState::received) {

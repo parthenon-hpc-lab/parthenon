@@ -44,6 +44,7 @@ struct CombinedBuffersRank {
   bool send_buffers_built{false};
   std::map<int, coalesced_message_structure_t> combined_send_info;
   std::map<int, BufArray1D<Real>> combined_send_buffers;
+  std::map<int, int> current_send_size;
 
   // map from neighbor partition id to coalesced message structures that
   // this rank can receive from other_rank. We will use the partition id
@@ -58,9 +59,11 @@ struct CombinedBuffersRank {
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type) {
-    auto bnd = BndInfo::GetSendBndInfo(pmb, nb, var, b_type, nullptr);
-    bnd.id.partition = partition;
-    combined_send_info[partition].push_back(bnd.id);
+    if (current_send_size.count(partition) == 0) current_send_size[partition] = 0;
+    auto &cur_size = current_send_size[partition];
+    combined_send_info[partition].push_back(
+        BndId::GetSend(pmb, nb, var, b_type, partition, cur_size));
+    cur_size += combined_send_info[partition].back().size();
   }
 
   void TryReceiveBufInfo() {
@@ -71,28 +74,17 @@ struct CombinedBuffersRank {
     std::vector<int> message(mesg_size);
     if (received) {
       int npartitions = message[0];
-      // Current starting buffer index
-      int bidx{nglobal + nper_part * npartitions};
-      // Current starting partition index
-      int pidx{nglobal};
+      // Unpack into per combined buffer information
+      int idx{nglobal};
       for (int p = 0; p < npartitions; ++p) {
-        const int partition = message[pidx++];
-        const int nbuf = message[pidx++];
-        const int total_size = message[pidx++];
+        const int partition = message[idx++];
+        const int nbuf = message[idx++];
+        const int total_size = message[idx++];
         combined_recv_buffers[partition] = buf_t("combined recv buffer", total_size);
         auto &cr_info = combined_recv_info[partition];
         for (int b = 0; b < nbuf; ++b) {
-          BndId id;
-          id.partition = partition;
-          id.tag = message[bidx++];
-          id.var_id = message[bidx++];
-          id.extra_id = message[bidx++];
-          id.size = message[bidx++];
-          id.start_idx = message[bidx++];
-          id.rank_send = other_rank;
-          id.rank_recv = Globals::my_rank;
-          id.bound_type = static_cast<BoundaryType>(id.extra_id);
-          cr_info.push_back(id);
+          cr_info.emplace_back(&(message[idx]));
+          idx += BndId::NDAT;
         }
       }
       recv_buffers_built = true;
@@ -106,41 +98,21 @@ struct CombinedBuffersRank {
       total_buffers += buf_struct_vec.size();
     int total_partitions = combined_send_info.size();
 
-    int mesg_size = nglobal + nper_part * total_partitions + nper_buf * total_buffers;
+    int mesg_size = nglobal + nper_part * total_partitions + BndId::NDAT * total_buffers;
     std::vector<int> message(mesg_size);
 
     message[0] = total_partitions;
 
-    // First store the number of buffers in each partition
-    int p{0};
+    // Pack the data
+    int idx{nglobal};
     for (auto &[partition, buf_struct_vec] : combined_send_info) {
-      message[nglobal + nper_part * p] = partition; // Used as the comm tag
-      message[nglobal + nper_part * p + 1] = buf_struct_vec.size(); // Number of buffers
-      p++;
-    }
-
-    // Now store the buffer information for each partition,
-    // the total size of the message associated with each
-    // partition
-    int b{0};
-    p = 0;
-    const int start = nglobal + nper_part * total_partitions;
-    std::map<int, int> combined_buf_size;
-    for (auto &[partition, buf_struct_vec] : combined_send_info) {
-      int total_size{0};
+      message[idx++] = partition;                    // Used as the comm tag
+      message[idx++] = buf_struct_vec.size();        // Number of buffers
+      message[idx++] = current_send_size[partition]; // combined size of buffers
       for (auto &buf_struct : buf_struct_vec) {
-        buf_struct.start_idx = total_size;
-        message[start + 4 * b + 0] = buf_struct.tag;
-        message[start + 4 * b + 1] = buf_struct.var_id;
-        message[start + 4 * b + 2] = buf_struct.extra_id;
-        message[start + 4 * b + 3] = buf_struct.size;
-        message[start + 4 * b + 4] = buf_struct.start_idx;
-        total_size += buf_struct.size;
-        b++;
+        buf_struct.Serialize(&(message[idx]));
+        idx += BndId::NDAT;
       }
-      combined_buf_size[partition] = total_size;
-      message[nglobal + nper_part * p + 2] = total_size; // Size of combined buffer
-      ++p;
     }
 
     // Send message to other rank
@@ -148,12 +120,12 @@ struct CombinedBuffersRank {
 
     // Allocate the combined buffers
     int total_size{0};
-    for (auto &[partition, size] : combined_buf_size)
+    for (auto &[partition, size] : current_send_size)
       total_size += size;
 
     buf_t alloc_at_once("shared combined buffer", total_size);
     int current_position{0};
-    for (auto &[partition, size] : combined_buf_size) {
+    for (auto &[partition, size] : current_send_size) {
       combined_send_buffers[partition] =
           buf_t(alloc_at_once, std::make_pair(current_position, current_position + size));
       current_position += size;

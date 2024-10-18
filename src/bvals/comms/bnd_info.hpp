@@ -49,25 +49,49 @@ enum class IndexRangeType {
 };
 
 struct BndId {
+  constexpr static std::size_t NDAT = 10;
+  int data[NDAT];
+
   // Information for identifying the buffer with a communication
   // channel, variable, and the ranks it is communicated across
-  int tag;
-  int var_id;
-  int extra_id;
-  int rank_send;
-  int rank_recv;
+  int &send_gid() { return data[0]; }
+  int &recv_gid() { return data[1]; }
+  int &loc_idx() { return data[2]; }
+  int &var_id() { return data[3]; }
+  int &extra_id() { return data[4]; }
+  int &rank_send() { return data[5]; }
+  int &rank_recv() { return data[6]; }
   BoundaryType bound_type;
 
   // MeshData partition id of the *sender*
   // not set by constructors and only necessary for coalesced comms
-  int partition;
-  int size;
-  int start_idx;
+  int &partition() { return data[7]; }
+  int &size() { return data[0]; }
+  int &start_idx() { return data[9]; }
+
+  KOKKOS_DEFAULTED_FUNCTION
+  BndId() = default;
+  KOKKOS_DEFAULTED_FUNCTION
+  BndId(const BndId &) = default;
+
+  explicit BndId(const int *const data_in) {
+    for (int i = 0; i < NDAT; ++i) {
+      data[i] = data_in[i];
+    }
+  }
+
+  void Serialize(int *data_out) {
+    for (int i = 0; i < NDAT; ++i) {
+      data_out[i] = data[i];
+    }
+  }
+
+  static BndId GetSend(MeshBlock *pmb, const NeighborBlock &nb,
+                       std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                       int partition, int start_idx);
 };
 
 struct BndInfo {
-  BndId id;
-
   int ntopological_elements = 1;
   using TE = TopologicalElement;
   TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
@@ -103,10 +127,10 @@ struct BndInfo {
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
   static BndInfo GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                                std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                                std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf);
   static BndInfo GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
-                               std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                               std::shared_ptr<Variable<Real>> v,
                                CommBuffer<buf_pool_t<Real>::owner_t> *buf);
 };
 

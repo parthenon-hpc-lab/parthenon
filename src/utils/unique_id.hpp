@@ -33,11 +33,17 @@ class UniqueIDGenerator {
     // as an invalid id
     Uid_t uid = uids_.size() + 1;
     uids_.emplace(key, uid);
+    uids_inverse_.emplace(uid, key);
     return uid;
+  }
+
+  const T &operator()(const Uid_t uid) {
+    return uids_inverse_.at(uid);
   }
 
  private:
   std::unordered_map<T, Uid_t> uids_;
+  std::unordered_map<Uid_t, T> uids_inverse_;
 };
 
 std::vector<Uid_t> UidIntersection(std::vector<Uid_t> v1, std::vector<Uid_t> v2);
