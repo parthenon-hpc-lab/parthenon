@@ -215,7 +215,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   using namespace loops;
   using namespace loops::shorthands;
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
-  cache.bnd_info = BndInfoArr_t("bnd_info", nbound);
+  cache.bnd_info =
+      BndInfoArr_t(Kokkos::view_alloc("bnd_info", Kokkos::SequentialHostInit), nbound);
   cache.bnd_info_h = Kokkos::create_mirror_view(cache.bnd_info);
 
   // prolongation/restriction sub-sets
