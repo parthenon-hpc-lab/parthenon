@@ -24,6 +24,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -251,7 +252,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
@@ -277,7 +278,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
-  buf = combuf->buffer();
+  if (combuf != nullptr) buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
   if (!allocated) return;
@@ -305,6 +306,24 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   }
 }
 
+BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
+                     std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                     int partition, int start_idx) {
+  auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type);
+  BndId out;
+  out.send_gid() = send_gid;
+  out.recv_gid() = recv_gid;
+  out.loc_idx() = loc;
+  out.var_id() = v->GetUniqueID();
+  out.extra_id() = extra_id;
+  out.rank_send() = Globals::my_rank;
+  out.rank_recv() = nb.rank;
+  out.partition() = partition;
+  out.size() = BndInfo::GetSendBndInfo(pmb, nb, v, nullptr).size();
+  out.start_idx() = start_idx;
+  return out;
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {
@@ -326,7 +345,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
 
-  auto buf_state = buf->GetState();
+  auto buf_state = buf != nullptr ? buf->GetState() : BufferState::received;
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
   } else if (buf_state == BufferState::received_null) {
