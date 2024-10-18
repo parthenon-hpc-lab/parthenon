@@ -37,9 +37,7 @@ class UniqueIDGenerator {
     return uid;
   }
 
-  const T &operator()(const Uid_t uid) {
-    return uids_inverse_.at(uid);
-  }
+  const T &operator()(const Uid_t uid) { return uids_inverse_.at(uid); }
 
  private:
   std::unordered_map<T, Uid_t> uids_;
