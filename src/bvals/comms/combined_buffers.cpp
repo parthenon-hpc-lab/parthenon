@@ -52,7 +52,7 @@ void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
   cur_size += combined_info[partition].back().size();
 }
 
-bool CombinedBuffersRank::TryReceiveBufInfo() {
+bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
   PARTHENON_REQUIRE(!sender, "Trying to receive on a combined sender.");
   if (buffers_built) return buffers_built;
 
@@ -70,6 +70,9 @@ bool CombinedBuffersRank::TryReceiveBufInfo() {
       auto &cr_info = combined_info[partition];
       for (int b = 0; b < nbuf; ++b) {
         cr_info.emplace_back(&(mess_buf[idx]));
+        auto &buf = cr_info.back();
+        // Store the buffer
+        buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
         idx += BndId::NDAT;
       }
     }
@@ -80,7 +83,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo() {
   return false;
 }
 
-void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
+void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
   // First calculate the total size of the message
   int total_buffers{0};
   for (auto &[partition, buf_struct_vec] : combined_info)
@@ -101,6 +104,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
     mess_buf[idx++] = current_size[partition]; // combined size of buffers
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.Serialize(&(mess_buf[idx]));
+      buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
       idx += BndId::NDAT;
     }
   }

@@ -59,9 +59,9 @@ struct CombinedBuffersRank {
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
 
-  bool TryReceiveBufInfo();
+  bool TryReceiveBufInfo(Mesh *pmesh);
 
-  void ResolveSendBuffersAndSendInfo();
+  void ResolveSendBuffersAndSendInfo(Mesh *pmesh);
 };
 
 struct CombinedBuffers {
@@ -94,12 +94,12 @@ struct CombinedBuffers {
           CombinedBuffersRank(nb.rank, b_type, false);
   }
 
-  void ResolveAndSendSendBuffers() {
+  void ResolveAndSendSendBuffers(Mesh *pmesh) {
     for (auto &[id, buf] : combined_send_buffers)
-      buf.ResolveSendBuffersAndSendInfo();
+      buf.ResolveSendBuffersAndSendInfo(pmesh);
   }
 
-  void ReceiveBufferInfo() {
+  void ReceiveBufferInfo(Mesh *pmesh) {
     constexpr std::int64_t max_it = 1e10;
     std::vector<bool> received(combined_recv_buffers.size(), false);
     bool all_received;
@@ -107,7 +107,7 @@ struct CombinedBuffers {
     do {
       all_received = true;
       for (auto &[id, buf] : combined_recv_buffers)
-        all_received = buf.TryReceiveBufInfo() && all_received;
+        all_received = buf.TryReceiveBufInfo(pmesh) && all_received;
       receive_iters++;
     } while (!all_received && receive_iters < max_it);
     PARTHENON_REQUIRE(
