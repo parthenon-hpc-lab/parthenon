@@ -31,11 +31,11 @@ namespace parthenon {
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send)
     : other_rank(o_rank), sender(send), buffers_built(false) {
   if (sender) {
-    message = com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD,
+    message = com_buf_t(1234, Globals::my_rank, other_rank, comm_,
                         [](int size) { return std::vector<int>(size); });
   } else {
     message = com_buf_t(
-        1234, other_rank, Globals::my_rank, MPI_COMM_WORLD,
+        1234, other_rank, Globals::my_rank, comm_,
         [](int size) { return std::vector<int>(size); }, true);
   }
   PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");

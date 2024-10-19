@@ -52,6 +52,12 @@ struct CombinedBuffersRank {
   using com_buf_t = CommBuffer<std::vector<int>>;
   com_buf_t message;
 
+#ifdef MPI_PARALLEL
+  mpi_comm_t comm_{MPI_COMM_WORLD};
+#else
+  mpi_comm_t comm_{0};
+#endif
+
   bool sender{true};
   CombinedBuffersRank() = default;
   CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send);
