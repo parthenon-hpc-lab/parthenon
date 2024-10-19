@@ -113,9 +113,8 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 
     // Register this buffer with the combined buffers
-    if (receiver_rank != sender_rank) {
+    if (receiver_rank != sender_rank)
       pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-    }
 #else
       // Setting to zero is fine here since this doesn't actually get used when everything
       // is on the same rank
@@ -123,7 +122,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 #endif
 
     bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
-    auto get_resource_method = [pmesh, buf_size]() {
+    auto get_resource_method = [pmesh, buf_size](int size) {
+      PARTHENON_REQUIRE(size <= buf_size,
+                        "Asking for a buffer that is larger than size of pool.");
       return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
     };
 

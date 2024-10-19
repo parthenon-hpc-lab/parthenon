@@ -52,6 +52,8 @@ class CommBuffer {
   std::shared_ptr<int> nrecv_tries_;
   std::shared_ptr<mpi_request_t> my_request_;
 
+  using get_resource_func_t = std::function<T(int)>;
+
   int my_rank;
   int tag_;
   int send_rank_;
@@ -62,7 +64,7 @@ class CommBuffer {
   buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
   bool active_ = false;
 
-  std::function<T()> get_resource_;
+  get_resource_func_t get_resource_;
 
   T buf_;
 
@@ -77,7 +79,7 @@ class CommBuffer {
   }
 
   CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
-             std::function<T()> get_resource, bool do_sparse_allocation = false);
+             get_resource_func_t get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
 
@@ -93,11 +95,9 @@ class CommBuffer {
   T &buffer() { return buf_; }
   const T &buffer() const { return buf_; }
 
-  void Allocate() {
-    if (!active_) {
-      buf_ = get_resource_();
-      active_ = true;
-    }
+  void Allocate(int size = 0) {
+    buf_ = get_resource_(size);
+    active_ = true;
   }
 
   void Free() {
@@ -131,7 +131,7 @@ class CommBuffer {
 
 template <class T>
 CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm,
-                          std::function<T()> get_resource, bool do_sparse_allocation)
+                          get_resource_func_t get_resource, bool do_sparse_allocation)
     : state_(std::make_shared<BufferState>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
       started_irecv_(std::make_shared<bool>(false)),
@@ -287,7 +287,8 @@ void CommBuffer<T>::TryStartReceive() noexcept {
         *my_request_ == MPI_REQUEST_NULL,
         "Cannot have another pending request in a buffer that is starting to receive.");
     if (!IsActive())
-      Allocate(); // For early start of Irecv, always need storage space even if not used
+      Allocate(
+          -1); // For early start of Irecv, always need storage space even if not used
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));
@@ -303,7 +304,7 @@ void CommBuffer<T>::TryStartReceive() noexcept {
       int size;
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
-        if (!active_) Allocate();
+        if (!active_ || buf_.size() < size) Allocate(size);
         PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                       MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
                                       comm_, my_request_.get()));
