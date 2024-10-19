@@ -66,7 +66,7 @@ struct BndId {
   // MeshData partition id of the *sender*
   // not set by constructors and only necessary for coalesced comms
   int &partition() { return data[7]; }
-  int &size() { return data[0]; }
+  int &size() { return data[8]; }
   int &start_idx() { return data[9]; }
 
   KOKKOS_DEFAULTED_FUNCTION
