@@ -112,9 +112,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     auto comm_label = v->label();
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 
-    // Register this buffer with the combined buffers
-    if (receiver_rank != sender_rank)
-      pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
 #else
       // Setting to zero is fine here since this doesn't actually get used when everything
       // is on the same rank
@@ -130,6 +127,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
+      // Register this buffer with the combined buffers
+      if (receiver_rank != sender_rank)
+        pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
       auto s_key = SendKey(pmb, nb, v, BTYPE);
       if (buf_map.count(s_key) == 0)
         buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
@@ -140,6 +140,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
+        pmesh->pcombined_buffers->AddRecvBuffer(pmb, nb, v, BTYPE);
         auto r_key = ReceiveKey(pmb, nb, v, BTYPE);
         if (buf_map.count(r_key) == 0)
           buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(

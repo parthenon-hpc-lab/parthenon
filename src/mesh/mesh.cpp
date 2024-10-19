@@ -644,6 +644,10 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       }
     }
   }
+
+  pcombined_buffers->ResolveAndSendSendBuffers();
+  // This operation is blocking
+  pcombined_buffers->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,

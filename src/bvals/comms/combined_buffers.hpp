@@ -55,7 +55,7 @@ struct CombinedBuffersRank {
   bool sender{true};
   CombinedBuffersRank() = default;
   CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send)
-      : other_rank(o_rank), sender(send) {
+      : other_rank(o_rank), sender(send), buffers_built(false) {
     if (sender) {
       message =
           com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD, [](int size) {
@@ -79,9 +79,9 @@ struct CombinedBuffersRank {
     cur_size += combined_info[partition].back().size();
   }
 
-  void TryReceiveBufInfo() {
+  bool TryReceiveBufInfo() {
     PARTHENON_REQUIRE(!sender, "Trying to receive on a combined sender.");
-    if (buffers_built) return;
+    if (buffers_built) return buffers_built;
 
     bool received = message.TryReceive();
     if (received) {
@@ -146,14 +146,18 @@ struct CombinedBuffersRank {
     }
     buffers_built = true;
   }
-
-  bool ReceiveFinished() { return true; }
 };
 
 struct CombinedBuffers {
   // Combined buffers for each rank
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
+
+  void clear() {
+    // TODO(LFR): Need to be careful here that the asynchronous send buffers are finished
+    combined_send_buffers.clear();
+    combined_recv_buffers.clear();
+  }
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type) {
@@ -172,6 +176,27 @@ struct CombinedBuffers {
     if (combined_recv_buffers.count({nb.rank, b_type}) == 0)
       combined_recv_buffers[{nb.rank, b_type}] =
           CombinedBuffersRank(nb.rank, b_type, false);
+  }
+
+  void ResolveAndSendSendBuffers() {
+    for (auto &[id, buf] : combined_send_buffers)
+      buf.ResolveSendBuffersAndSendInfo();
+  }
+
+  void ReceiveBufferInfo() {
+    constexpr std::int64_t max_it = 1e10;
+    std::vector<bool> received(combined_recv_buffers.size(), false);
+    bool all_received;
+    std::int64_t receive_iters = 0;
+    do {
+      all_received = true;
+      for (auto &[id, buf] : combined_recv_buffers)
+        all_received = buf.TryReceiveBufInfo() && all_received;
+      receive_iters++;
+    } while (!all_received && receive_iters < max_it);
+    PARTHENON_REQUIRE(
+        receive_iters < max_it,
+        "Too many iterations waiting to receive boundary communication buffers.");
   }
 };
 
