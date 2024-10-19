@@ -31,21 +31,21 @@ namespace parthenon {
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send)
     : other_rank(o_rank), sender(send), buffers_built(false) {
   if (sender) {
-    message =
-        com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD, [](int size) {
-          PARTHENON_FAIL("Comms should not be allocating sender.");
-          return std::vector<int>(size);
-        });
+    message = com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD, [](int size) {
+      PARTHENON_FAIL("Comms should not be allocating sender.");
+      return std::vector<int>(size);
+    });
   } else {
     message = com_buf_t(1234, other_rank, Globals::my_rank, MPI_COMM_WORLD,
                         [](int size) { return std::vector<int>(size); });
   }
-  PARTHENON_REQUIRE(other_rank != Globals::my_rank,
-                    "Should only build for other ranks.");
+  PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
 }
 
-void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
-                   const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type) {
+void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
+                                        const NeighborBlock &nb,
+                                        const std::shared_ptr<Variable<Real>> &var,
+                                        BoundaryType b_type) {
   if (current_size.count(partition) == 0) current_size[partition] = 0;
   auto &cur_size = current_size[partition];
   combined_info[partition].push_back(
