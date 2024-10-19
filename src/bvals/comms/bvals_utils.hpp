@@ -66,6 +66,11 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
+inline Mesh::channel_key_t GetChannelKey(BndId &in) {
+  return {in.send_gid(), in.recv_gid(), Variable<Real>::GetLabel(in.var_id()),
+          in.loc_idx(), in.extra_id()};
+}
+
 // Build a vector of pointers to all of the sending or receiving communication buffers on
 // MeshData md. This cache is important for performance, since this elides a map look up
 // for the buffer every time the bvals code iterates over boundaries.

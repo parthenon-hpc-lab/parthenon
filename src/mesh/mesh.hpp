@@ -59,6 +59,7 @@ namespace parthenon {
 
 // Forward declarations
 class ApplicationInput;
+class CombinedBuffers;
 class MeshBlock;
 class MeshRefinement;
 class Packages_t;
@@ -218,6 +219,9 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
+  // channel_key_t is tuple of (gid_sender, gid_receiver, variable_name,
+  // block_location_idx, extra_delineater) which uniquely define a communication channel
+  // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
@@ -225,6 +229,8 @@ class Mesh {
       std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+
+  std::shared_ptr<CombinedBuffers> pcombined_buffers;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
