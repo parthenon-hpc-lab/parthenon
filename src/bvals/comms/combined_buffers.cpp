@@ -31,13 +31,12 @@ namespace parthenon {
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send)
     : other_rank(o_rank), sender(send), buffers_built(false) {
   if (sender) {
-    message = com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD, [](int size) {
-      PARTHENON_FAIL("Comms should not be allocating sender.");
-      return std::vector<int>(size);
-    });
-  } else {
-    message = com_buf_t(1234, other_rank, Globals::my_rank, MPI_COMM_WORLD,
+    message = com_buf_t(1234, Globals::my_rank, other_rank, MPI_COMM_WORLD,
                         [](int size) { return std::vector<int>(size); });
+  } else {
+    message = com_buf_t(
+        1234, other_rank, Globals::my_rank, MPI_COMM_WORLD,
+        [](int size) { return std::vector<int>(size); }, true);
   }
   PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
 }
@@ -88,10 +87,10 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
     total_buffers += buf_struct_vec.size();
   int total_partitions = combined_info.size();
 
-  auto &mess_buf = message.buffer();
   int mesg_size = nglobal + nper_part * total_partitions + BndId::NDAT * total_buffers;
-  mess_buf.resize(mesg_size);
+  message.Allocate(mesg_size);
 
+  auto &mess_buf = message.buffer();
   mess_buf[0] = total_partitions;
 
   // Pack the data
