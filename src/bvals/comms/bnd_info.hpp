@@ -127,7 +127,7 @@ struct ProResInfo {
 int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
-using BndInfoArr_t = ParArray1D<BndInfo>;
+using BndInfoArr_t = Kokkos::View<BndInfo *, LayoutWrapper, DevMemSpace>;
 using BndInfoArrHost_t = typename BndInfoArr_t::HostMirror;
 
 using ProResInfoArr_t = ParArray1D<ProResInfo>;
