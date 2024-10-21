@@ -72,6 +72,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
         cr_info.emplace_back(&(mess_buf[idx]));
         auto &buf = cr_info.back();
         // Store the buffer
+        PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)), "Buffer doesn't exist.");
         buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
         idx += BndId::NDAT;
       }
@@ -104,6 +105,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
     mess_buf[idx++] = current_size[partition]; // combined size of buffers
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.Serialize(&(mess_buf[idx]));
+      PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)), "Buffer doesn't exist.");
       buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
       idx += BndId::NDAT;
     }
