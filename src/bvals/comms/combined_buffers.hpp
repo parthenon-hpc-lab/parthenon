@@ -73,6 +73,8 @@ struct CombinedBuffersRank {
 
   void PackAndSend(int partition);
 
+  bool TryReceiveAndUnpack(int partition);
+
 };
 
 struct CombinedBuffers {

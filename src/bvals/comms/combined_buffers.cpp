@@ -184,4 +184,27 @@ void CombinedBuffersRank::PackAndSend(int partition) {
   combined_buffers[partition].Send();
 }
 
+bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
+  PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built")
+  auto &comb_info = combined_info_device[partition];
+  auto received = combined_buffers[partition].TryReceive();
+  if (!received) return false;
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        const int buf_size = comb_info[b].size();
+        Real *com_buf = &((*comb_info[b].pcombined_buf)(comb_info[b].start_idx()));
+        Real *buf = &(comb_info[b].buf(0));
+        Kokkos::parallel_for(
+              Kokkos::TeamThreadRange<>(team_member, buf_size),
+              [&](const int idx) {
+                buf[idx] = com_buf[idx];
+              });
+      });
+  combined_buffers[partition].Stale();
+  return true;
+}
+
 } // namespace parthenon
