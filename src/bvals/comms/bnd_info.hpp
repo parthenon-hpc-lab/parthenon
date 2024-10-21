@@ -54,19 +54,29 @@ struct BndId {
 
   // Information for identifying the buffer with a communication
   // channel, variable, and the ranks it is communicated across
+  KOKKOS_FORCEINLINE_FUNCTION
   int &send_gid() { return data[0]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &recv_gid() { return data[1]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &loc_idx() { return data[2]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &var_id() { return data[3]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &extra_id() { return data[4]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &rank_send() { return data[5]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &rank_recv() { return data[6]; }
   BoundaryType bound_type;
 
   // MeshData partition id of the *sender*
   // not set by constructors and only necessary for coalesced comms
+  KOKKOS_FORCEINLINE_FUNCTION
   int &partition() { return data[7]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &size() { return data[8]; }
+  KOKKOS_FORCEINLINE_FUNCTION
   int &start_idx() { return data[9]; }
 
   buf_pool_t<Real>::weak_t buf;    // comm buffer from pool
