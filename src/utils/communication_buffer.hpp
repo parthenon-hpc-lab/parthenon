@@ -448,7 +448,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
+  //PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
 
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");

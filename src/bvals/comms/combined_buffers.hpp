@@ -76,6 +76,7 @@ struct CombinedBuffersRank {
 
   bool TryReceiveAndUnpack(int partition);
 
+  void RepointBuffers(Mesh *pmesh, int partition);
 };
 
 struct CombinedBuffers {
@@ -133,6 +134,20 @@ struct CombinedBuffers {
     for (int rank = 0; rank < Globals::nranks; ++rank) {
       if (combined_send_buffers.count({rank, b_type}))
         combined_send_buffers[{rank, b_type}].PackAndSend(partition);
+    }
+  }
+
+  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) { 
+    for (int rank = 0; rank < Globals::nranks; ++rank) {
+      if (combined_send_buffers.count({rank, b_type}))
+        combined_send_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
+    }
+  }
+  
+  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type) { 
+    for (int rank = 0; rank < Globals::nranks; ++rank) {
+      if (combined_recv_buffers.count({rank, b_type}))
+        combined_recv_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
     }
   }
 

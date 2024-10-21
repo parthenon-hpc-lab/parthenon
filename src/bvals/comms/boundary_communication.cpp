@@ -78,6 +78,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetSend);
     }
+    pmesh->pcombined_buffers->RepointSendBuffers(pmesh, md->partition, bound_type);
   }
   // Restrict
   if (md->NumBlocks() > 0) {
