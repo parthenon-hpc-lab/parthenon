@@ -127,6 +127,22 @@ struct CombinedBuffers {
         receive_iters < max_it,
         "Too many iterations waiting to receive boundary communication buffers.");
   }
+
+  void TryReceiveAny(BoundaryType b_type) {
+#ifdef MPI_PARALLEL
+    MPI_Status status;
+    int flag;
+    do {
+      // TODO(LFR): Switch to a different communicator for each BoundaryType
+      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+      if (flag) {
+        const int rank = status.MPI_SOURCE;
+        const int partition = status.MPI_TAG;
+        combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(partition);
+      }
+    } while(flag);
+#endif
+  }
 };
 
 } // namespace parthenon
