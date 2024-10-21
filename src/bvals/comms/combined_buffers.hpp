@@ -128,6 +128,13 @@ struct CombinedBuffers {
         receive_iters < max_it,
         "Too many iterations waiting to receive boundary communication buffers.");
   }
+  
+  void PackAndSend(int partition, BoundaryType b_type) { 
+    for (int rank = 0; rank < Globals::nranks; ++rank) {
+      if (combined_send_buffers.count({rank, b_type}))
+        combined_send_buffers[{rank, b_type}].PackAndSend(partition);
+    }
+  }
 
   void TryReceiveAny(BoundaryType b_type) {
 #ifdef MPI_PARALLEL

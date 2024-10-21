@@ -26,6 +26,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
+#include "combined_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -155,11 +156,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
+  
+  pmesh->pcombined_buffers->PackAndSend(md->partition, bound_type);
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
-      buf.Send();
+      buf.SendLocal();
     else
       buf.SendNull();
   }
@@ -215,11 +218,14 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
+  
+  // Receive any messages that are around
+  pmesh->pcombined_buffers->TryReceiveAny(bound_type);
 
   bool all_received = true;
   std::for_each(
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+      [&all_received](auto pbuf) { all_received = pbuf->TryReceiveLocal() && all_received; });
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {

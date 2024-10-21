@@ -129,6 +129,7 @@ class CommBuffer {
 
   void TryStartReceive() noexcept;
   bool TryReceive() noexcept;
+  bool TryReceiveLocal() noexcept;
   void SetReceived() noexcept {
    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver, "This doesn't make sense for a non-receiver.");
    *state_ = BufferState::received;
@@ -349,6 +350,13 @@ void CommBuffer<T>::TryStartReceive() noexcept {
     }
   }
 #endif
+}
+
+template <class T>
+bool CommBuffer<T>::TryReceiveLocal() noexcept {
+  if (*state_ == BufferState::received || *state_ == BufferState::received_null)
+    return true;
+  return false;
 }
 
 template <class T>
