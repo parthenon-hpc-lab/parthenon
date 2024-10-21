@@ -202,9 +202,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pin->GetOrAddBoolean("Advection", "test_metadata_none", false);
   pkg->AddParam<bool>("test_metadata_none", test_metadata_none);
   if (test_metadata_none) {
-    const int nx1 = pin->GetOrAddInteger("parthenon/mesh", "nx1", 1);
-    const int nx2 = pin->GetOrAddInteger("parthenon/mesh", "nx2", 1);
-    const int nx3 = pin->GetOrAddInteger("parthenon/mesh", "nx3", 1);
+    const int nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", 1);
+    const int nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", 1);
+    const int nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", 1);
     std::vector<int> test_shape = {nx1 + 1, nx2 + 1, nx3 + 1, 3};
     m = Metadata({Metadata::OneCopy, Metadata::None}, test_shape);
     pkg->AddField("metadata_none_var", m);
@@ -320,20 +320,23 @@ void PreFill(MeshBlockData<Real> *rc) {
 
   // Fill the metadata::None var with index gymnastics.
   if (test_metadata_none) {
-    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+    const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::interior);
+    const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::interior);
+    const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::interior);
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars({"metadata_none_var"});
     PackIndexMap imap;
     const auto &v = rc->PackVariables(vars, imap);
 
-    const int ivar = imap.get("metadata_none_var").first;
+    const int ivar_lo = imap.get("metadata_none_var").first;
+    const int ivar_hi = imap.get("metadata_none_var").second;
     pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, 2, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, 0, 2, 0, nx3, 0, nx2, 0, nx1,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          v(ivar, n, k, j, i) = n + k * j * i;
+          v(ivar_lo, n, k, j, i) = n + k * j * i;
+          v(ivar_lo + 1, n, k, j, i) = 1 + n + k * j * i;
+          v(ivar_hi, n, k, j, i) = 2 + n + k * j * i;
         });
   }
 }
