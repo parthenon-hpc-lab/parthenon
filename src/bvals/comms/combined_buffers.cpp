@@ -212,7 +212,7 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
       });
   combined_buffers[partition].Stale();
   for (auto &buf : buffers[partition])
-    buf.ReceiveLocal();
+    buf.SetReceived();
   return true;
 }
 
