@@ -126,7 +126,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
       buf_struct.Serialize(&(mess_buf[idx]));
       PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)),
                         "Buffer doesn't exist.");
-      buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
+      
       bufs.push_back(pmesh->boundary_comm_map[GetChannelKey(buf_struct)]);
       idx += BndId::NDAT;
     }
@@ -134,35 +134,38 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 
   message.Send();
 
-  // Allocate the combined buffers and point the BndId objects to them
-  int total_size{0};
-  for (auto &[partition, size] : current_size)
-    total_size += size;
-
-  int current_position{0};
+  // Allocate the combined buffers
   for (auto &[partition, size] : current_size) {
     combined_buffers[partition] =
         CommBuffer<buf_t>(partition, Globals::my_rank, other_rank, comm_);
-    combined_buffers[partition].ConstructBuffer("combined send buffer", total_size);
-    current_position += size;
+    combined_buffers[partition].ConstructBuffer("combined send buffer", size);
   }
 
+  // Point the BndId objects to the combined buffers 
   for (auto &[partition, buf_struct_vec] : combined_info) {
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.pcombined_buf = &(combined_buffers[partition].buffer());
     }
   }
+  
+  buffers_built = true;
+}
 
-  // Get the BndId objects on device
-  for (auto &[partition, buf_vec] : combined_info) {
-    combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_vec.size());
-    auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
-    for (int i = 0; i < ci_host.size(); ++i)
-      ci_host[i] = buf_vec[i];
-    Kokkos::deep_copy(combined_info_device[partition], ci_host);
+void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
+  // Pull out the buffers and point them to the buf_struct 
+  auto &buf_struct_vec = combined_info[partition];
+  for (auto &buf_struct : buf_struct_vec) {
+    buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
   }
 
-  buffers_built = true;
+  // Get the BndId objects on device
+  auto &buf_vec = combined_info[partition];
+  
+  combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_vec.size());
+  auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
+  for (int i = 0; i < ci_host.size(); ++i)
+    ci_host[i] = buf_vec[i];
+  Kokkos::deep_copy(combined_info_device[partition], ci_host);
 }
 
 void CombinedBuffersRank::PackAndSend(int partition) {
