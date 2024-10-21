@@ -72,6 +72,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
           CommBuffer<buf_t>(partition, other_rank, Globals::my_rank, comm_);
       combined_buffers[partition].ConstructBuffer("combined recv buffer", total_size);
       auto &cr_info = combined_info[partition];
+      auto &bufs = buffers[partition];
       for (int b = 0; b < nbuf; ++b) {
         cr_info.emplace_back(&(mess_buf[idx]));
         auto &buf = cr_info.back();
@@ -79,6 +80,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
         PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)),
                           "Buffer doesn't exist.");
         buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
+        bufs.push_back(pmesh->boundary_comm_map[GetChannelKey(buf)]);
         buf.pcombined_buf = &(combined_buffers[partition].buffer());
         idx += BndId::NDAT;
       }
@@ -119,11 +121,13 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
     mess_buf[idx++] = partition;               // Used as the comm tag
     mess_buf[idx++] = buf_struct_vec.size();   // Number of buffers
     mess_buf[idx++] = current_size[partition]; // combined size of buffers
+    auto &bufs = buffers[partition];
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.Serialize(&(mess_buf[idx]));
       PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)),
                         "Buffer doesn't exist.");
       buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
+      bufs.push_back(pmesh->boundary_comm_map[GetChannelKey(buf_struct)]);
       idx += BndId::NDAT;
     }
   }
@@ -182,6 +186,9 @@ void CombinedBuffersRank::PackAndSend(int partition) {
   Kokkos::fence();
 #endif
   combined_buffers[partition].Send();
+  // Information in these send buffers is no longer required
+  for (auto &buf : buffers[partition])
+    buf.Stale();
 }
 
 bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
@@ -204,6 +211,8 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
               });
       });
   combined_buffers[partition].Stale();
+  for (auto &buf : buffers[partition])
+    buf.ReceiveLocal();
   return true;
 }
 

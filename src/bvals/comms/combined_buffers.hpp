@@ -44,6 +44,7 @@ struct CombinedBuffersRank {
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
   std::map<int, coalesced_message_structure_t> combined_info;
+  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::weak_t>>> buffers;
   std::map<int, ParArray1D<BndId>> combined_info_device;
   std::map<int, CommBuffer<buf_t>> combined_buffers;
   std::map<int, int> current_size;
