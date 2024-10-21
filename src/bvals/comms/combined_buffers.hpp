@@ -70,6 +70,9 @@ struct CombinedBuffersRank {
   bool TryReceiveBufInfo(Mesh *pmesh);
 
   void ResolveSendBuffersAndSendInfo(Mesh *pmesh);
+
+  void PackAndSend(int partition);
+
 };
 
 struct CombinedBuffers {
