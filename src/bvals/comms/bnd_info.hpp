@@ -69,7 +69,8 @@ struct BndId {
   int &size() { return data[8]; }
   int &start_idx() { return data[9]; }
 
-  CommBuffer<buf_pool_t<Real>::weak_t> buf; // comm buffer from pool
+  buf_pool_t<Real>::weak_t buf;    // comm buffer from pool
+  BufArray1D<Real> *pcombined_buf; // Combined buffer
 
   KOKKOS_DEFAULTED_FUNCTION
   BndId() = default;

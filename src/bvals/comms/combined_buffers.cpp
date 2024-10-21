@@ -29,13 +29,15 @@
 namespace parthenon {
 
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send)
-    : other_rank(o_rank), sender(send), buffers_built(false) {
+    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false) {
+
+  int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
   if (sender) {
-    message = com_buf_t(1234, Globals::my_rank, other_rank, comm_,
+    message = com_buf_t(tag, Globals::my_rank, other_rank, comm_,
                         [](int size) { return std::vector<int>(size); });
   } else {
     message = com_buf_t(
-        1234, other_rank, Globals::my_rank, comm_,
+        tag, other_rank, Globals::my_rank, comm_,
         [](int size) { return std::vector<int>(size); }, true);
   }
   PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
@@ -66,18 +68,32 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
       const int partition = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
       const int total_size = mess_buf[idx++];
-      combined_buffers[partition] = buf_t("combined recv buffer", total_size);
+      combined_buffers[partition] =
+          CommBuffer<buf_t>(partition, other_rank, Globals::my_rank, comm_);
+      combined_buffers[partition].ConstructBuffer("combined recv buffer", total_size);
       auto &cr_info = combined_info[partition];
       for (int b = 0; b < nbuf; ++b) {
         cr_info.emplace_back(&(mess_buf[idx]));
         auto &buf = cr_info.back();
         // Store the buffer
-        PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)), "Buffer doesn't exist.");
+        PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)),
+                          "Buffer doesn't exist.");
         buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
+        buf.pcombined_buf = &(combined_buffers[partition].buffer());
         idx += BndId::NDAT;
       }
     }
     message.Stale();
+
+    // Get the BndId objects on device
+    for (auto &[partition, buf_vec] : combined_info) {
+      combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_vec.size());
+      auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
+      for (int i = 0; i < ci_host.size(); ++i)
+        ci_host[i] = buf_vec[i];
+      Kokkos::deep_copy(combined_info_device[partition], ci_host);
+    }
+
     buffers_built = true;
     return true;
   }
@@ -105,7 +121,8 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
     mess_buf[idx++] = current_size[partition]; // combined size of buffers
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.Serialize(&(mess_buf[idx]));
-      PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)), "Buffer doesn't exist.");
+      PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)),
+                        "Buffer doesn't exist.");
       buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
       idx += BndId::NDAT;
     }
@@ -113,18 +130,34 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 
   message.Send();
 
-  // Allocate the combined buffers
+  // Allocate the combined buffers and point the BndId objects to them
   int total_size{0};
   for (auto &[partition, size] : current_size)
     total_size += size;
 
-  buf_t alloc_at_once("shared combined buffer", total_size);
   int current_position{0};
   for (auto &[partition, size] : current_size) {
     combined_buffers[partition] =
-        buf_t(alloc_at_once, std::make_pair(current_position, current_position + size));
+        CommBuffer<buf_t>(partition, Globals::my_rank, other_rank, comm_);
+    combined_buffers[partition].ConstructBuffer("combined send buffer", total_size);
     current_position += size;
   }
+
+  for (auto &[partition, buf_struct_vec] : combined_info) {
+    for (auto &buf_struct : buf_struct_vec) {
+      buf_struct.pcombined_buf = &(combined_buffers[partition].buffer());
+    }
+  }
+
+  // Get the BndId objects on device
+  for (auto &[partition, buf_vec] : combined_info) {
+    combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_vec.size());
+    auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
+    for (int i = 0; i < ci_host.size(); ++i)
+      ci_host[i] = buf_vec[i];
+    Kokkos::deep_copy(combined_info_device[partition], ci_host);
+  }
+
   buffers_built = true;
 }
 } // namespace parthenon

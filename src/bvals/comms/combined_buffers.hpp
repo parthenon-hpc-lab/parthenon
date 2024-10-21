@@ -37,13 +37,15 @@ struct CombinedBuffersRank {
   using buf_t = BufArray1D<Real>;
 
   // Rank that these buffers communicate with
+  BoundaryType b_type;
   int other_rank;
 
   // map from partion id to coalesced message structure for communication
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
   std::map<int, coalesced_message_structure_t> combined_info;
-  std::map<int, BufArray1D<Real>> combined_buffers;
+  std::map<int, ParArray1D<BndId>> combined_info_device;
+  std::map<int, CommBuffer<buf_t>> combined_buffers;
   std::map<int, int> current_size;
 
   static constexpr int nglobal{1};
