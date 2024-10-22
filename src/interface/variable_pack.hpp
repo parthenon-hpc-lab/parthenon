@@ -244,10 +244,11 @@ class PackIndexMap {
 };
 
 template <typename T>
-using ViewOfParArrays = ParArray1D<ParArray3D<T, VariableState>>;
+using ViewOfParArrays =
+    Kokkos::View<ParArray3D<T, VariableState> *, LayoutWrapper, DevMemSpace>;
 
 template <typename T>
-using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
+using ViewOfParArrays1D = Kokkos::View<ParArray1D<T> *, LayoutWrapper, DevMemSpace>;
 
 // forward declaration
 template <typename T>
@@ -760,10 +761,11 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize * (extra_components ? 3 : 1));
-  ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
-  ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
-  ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakeFluxPack::cv"),
+                        vsize * (extra_components ? 3 : 1));
+  ViewOfParArrays<T> f1(ViewOfViewAlloc("MakeFluxPack::f1"), fsize);
+  ViewOfParArrays<T> f2(ViewOfViewAlloc("MakeFluxPack::f2"), fsize);
+  ViewOfParArrays<T> f3(ViewOfViewAlloc("MakeFluxPack::f3"), fsize);
   ParArray1D<bool> flux_allocated("MakePack::allocated", fsize);
   ParArray1D<int> sparse_id("MakeFluxPack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakeFluxPack::vector_component", vsize);
@@ -814,7 +816,8 @@ VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakePack::cv", vsize * (extra_components ? 3 : 1));
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakePack::cv"),
+                        vsize * (extra_components ? 3 : 1));
   ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
   ParArray1D<bool> allocated("MakePack::allocated", vsize);
@@ -847,7 +850,7 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
   }
 
   // make the outer view
-  ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
+  ViewOfParArrays1D<T> cv(ViewOfViewAlloc("MakePack::cv"), vsize);
 
   std::array<int, 2> cv_size{0, 0};
   if (vsize > 0) {

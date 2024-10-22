@@ -451,7 +451,7 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
   }
 
   GIVEN("An array of ParArrays filled with the values contained in their state") {
-    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
+    Kokkos::View<arr3d_t *> pack(parthenon::ViewOfViewAlloc("test pack"), NS);
     auto pack_h =
         Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), pack);
 
