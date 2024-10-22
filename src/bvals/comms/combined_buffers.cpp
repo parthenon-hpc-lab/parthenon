@@ -81,7 +81,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
                           "Buffer doesn't exist.");
         buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
         bufs.push_back(&(pmesh->boundary_comm_map[GetChannelKey(buf)]));
-        buf.pcombined_buf = &(combined_buffers[partition].buffer());
+        buf.combined_buf = combined_buffers[partition].buffer();
         idx += BndId::NDAT;
       }
     }
@@ -144,7 +144,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
   // Point the BndId objects to the combined buffers 
   for (auto &[partition, buf_struct_vec] : combined_info) {
     for (auto &buf_struct : buf_struct_vec) {
-      buf_struct.pcombined_buf = &(combined_buffers[partition].buffer());
+      buf_struct.combined_buf = combined_buffers[partition].buffer();
     }
   }
   
@@ -176,7 +176,7 @@ void CombinedBuffersRank::PackAndSend(int partition) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         const int buf_size = comb_info[b].size();
-        Real *com_buf = &((*comb_info[b].pcombined_buf)(comb_info[b].start_idx()));
+        Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
         Real *buf = &(comb_info[b].buf(0));
         Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, buf_size),
@@ -216,7 +216,7 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         const int buf_size = comb_info[b].size();
-        Real *com_buf = &((*comb_info[b].pcombined_buf)(comb_info[b].start_idx()));
+        Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
         Real *buf = &(comb_info[b].buf(0));
         Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, buf_size),
