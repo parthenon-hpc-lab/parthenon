@@ -1,0 +1,569 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Particles &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Task-based reductions" href="reductions.html" />
+    <link rel="prev" title="Parthenon Manager" href="parthenon_manager.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Particles</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#swarms">Swarms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-dispatch">Parallel Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sorting">Sorting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#defragmenting">Defragmenting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#swarmcontainer">SwarmContainer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#particles-example"><code class="docutils literal notranslate"><span class="pre">particles</span></code> Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#communication">Communication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#variable-packing">Variable Packing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-conditions">Boundary conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#outputs">Outputs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Particles</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/particles.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="particles">
+<h1>Particles<a class="headerlink" href="#particles" title="Link to this heading"></a></h1>
+<p>Parthenon provides a data framework for particle methods that allows for
+Kokkos accelerated parallel dispatch of compute operations. Particle
+memory is allocated as a separate pool for each variable in the
+particle.</p>
+<section id="swarms">
+<h2>Swarms<a class="headerlink" href="#swarms" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> contains all the particle data for all particles of a given
+species. It owns a set of <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s, one for each value of
+each particle. For example, the spatial positions <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">z</span></code> of the particles in a swarm are three separate
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s. <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s can be either <code class="docutils literal notranslate"><span class="pre">Real</span></code>-
+or <code class="docutils literal notranslate"><span class="pre">int</span></code>-valued, which is specified by the metadata values
+<code class="docutils literal notranslate"><span class="pre">Metadata::Real</span></code> and <code class="docutils literal notranslate"><span class="pre">Metadata::Integer</span></code>. <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s
+should also contain the <code class="docutils literal notranslate"><span class="pre">Metadata::Particle</span></code> flag. By default,
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s provide one scalar quantity per particle, but up
+to 2D data per particle is currently supported, by passing
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;int&gt;{N1,</span> <span class="pre">N2}</span></code> as the second argument to the
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code> <code class="docutils literal notranslate"><span class="pre">Metadata</span></code>. All <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s by default contain
+<code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code> <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s; additional fields can
+be added as:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Swarm</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">metadata</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For a given species, each <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> contains its own <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> that
+holds the particles of that species that are spatially contained by that
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>. The <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> is pointed to by <code class="docutils literal notranslate"><span class="pre">Swarm::pmy_block</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> is a host-side object, but some of its data members are
+required for device- side compution. To access this data, a
+<code class="docutils literal notranslate"><span class="pre">SwarmDeviceContext</span></code> object is created via
+<code class="docutils literal notranslate"><span class="pre">Swarm::GetDeviceContext()</span></code>. This object can then be passed by copy
+into Kokkos lambdas. Hereafter we refer to it as <code class="docutils literal notranslate"><span class="pre">swarm_d</span></code>.</p>
+<p>To add particles to a <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>, one calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="w"> </span><span class="n">new_particles_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">swarm</span><span class="o">-&gt;</span><span class="n">AddEmptyParticles</span><span class="p">(</span><span class="n">num_to_add</span><span class="p">,</span><span class="w"> </span><span class="n">new_indices</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This call automatically resizes the memory pools as necessary and
+returns a <code class="docutils literal notranslate"><span class="pre">ParArray1D&lt;bool&gt;</span></code> mask indicating which indices in the
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s are newly available. <code class="docutils literal notranslate"><span class="pre">new_indices</span></code> is a
+reference to a <code class="docutils literal notranslate"><span class="pre">ParArrayND&lt;int&gt;</span></code> of size <code class="docutils literal notranslate"><span class="pre">num_to_add</span></code> which contains
+the indices of each newly added particle.</p>
+<p>To remove particles from a <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>, one first calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">swarm_d</span><span class="p">.</span><span class="n">MarkParticleForRemoval</span><span class="p">(</span><span class="n">index_to_remove</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>inside device code. This only indicates that this particle should be
+removed from the pool, it does not actually update any data. To remove
+all particles so marked, one then calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">swarm</span><span class="p">.</span><span class="n">RemoveMarkedParticles</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>in host code. This updates the swarm such that the marked particles are
+seen as free slots in the memory pool.</p>
+</section>
+<section id="parallel-dispatch">
+<h2>Parallel Dispatch<a class="headerlink" href="#parallel-dispatch" title="Link to this heading"></a></h2>
+<p>Parallel computations on particle data can be performed with the usual
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> <code class="docutils literal notranslate"><span class="pre">par_for</span></code> calls. Typically one loops over the entire
+range of active indices and uses a mask variable to only perform
+computations on currently active particles:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">swarm</span><span class="p">.</span><span class="n">Get</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">).</span><span class="n">Get</span><span class="p">();</span>
+<span class="n">swarm</span><span class="p">.</span><span class="n">pmy_block</span><span class="o">-&gt;</span><span class="n">par_for</span><span class="p">(</span><span class="s">&quot;Simple loop&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">swarm</span><span class="p">.</span><span class="n">GetMaxActiveIndex</span><span class="p">(),</span>
+<span class="w">  </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">swarm_d</span><span class="p">.</span><span class="n">IsActive</span><span class="p">(</span><span class="n">n</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+<section id="sorting">
+<h2>Sorting<a class="headerlink" href="#sorting" title="Link to this heading"></a></h2>
+<p>By default, particles are stored in per-meshblock pools of memory.
+However, one frequently wants convenient access to all the particles in
+each computational cell separately. To facilitate this, the Swarm
+provides the method <code class="docutils literal notranslate"><span class="pre">SortParticlesByCell</span></code> (and the <code class="docutils literal notranslate"><span class="pre">SwarmContainer</span></code>
+provides the matching task <code class="docutils literal notranslate"><span class="pre">SortParticlesByCell</span></code>). Calling this
+function populates internal data structures that map from per-cell
+indices to the per-meshblock data array. These are accessed by the
+<code class="docutils literal notranslate"><span class="pre">SwarmDeviceContext</span></code> member functions <code class="docutils literal notranslate"><span class="pre">GetParticleCountPerCell</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GetFullIndex</span></code>. See <code class="docutils literal notranslate"><span class="pre">examples/particles</span></code> for example usage.</p>
+</section>
+<section id="defragmenting">
+<h2>Defragmenting<a class="headerlink" href="#defragmenting" title="Link to this heading"></a></h2>
+<p>Because one typically loops over particles from 0 to
+<code class="docutils literal notranslate"><span class="pre">max_active_index</span></code>, if only a small fraction of particles in that
+range are active, significant effort will be wasted. To clean up these
+situations, <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> provides a <code class="docutils literal notranslate"><span class="pre">Defrag</span></code> method which, when called,
+will copy all active particles to be contiguous starting from the 0
+index. <code class="docutils literal notranslate"><span class="pre">Defrag</span></code> is not fully parallelized so should be called only
+sparingly.</p>
+</section>
+<section id="swarmcontainer">
+<h2>SwarmContainer<a class="headerlink" href="#swarmcontainer" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">SwarmContainer</span></code> contains a set of related <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s, such as the
+different stages used by a higher order time integrator. This feature is
+currently not exercised in detail.</p>
+</section>
+<section id="particles-example">
+<h2><code class="docutils literal notranslate"><span class="pre">particles</span></code> Example<a class="headerlink" href="#particles-example" title="Link to this heading"></a></h2>
+<p>An example showing how to create a Parthenon application that defines a
+<code class="docutils literal notranslate"><span class="pre">Swarm</span></code> and creates, destroys, and transports particles is available
+in <code class="docutils literal notranslate"><span class="pre">parthenon/examples/particles</span></code>.</p>
+</section>
+<section id="communication">
+<h2>Communication<a class="headerlink" href="#communication" title="Link to this heading"></a></h2>
+<p>Communication of particles across <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s, including across MPI
+processors, is supported. Particle communication is currently handled
+via paired asynchronous/synchronous tasking regions on each MPI
+processor. The asynchronous tasks include transporting particles and
+<code class="docutils literal notranslate"><span class="pre">SwarmContainer::Send</span></code> and <code class="docutils literal notranslate"><span class="pre">SwarmContainer::Receive</span></code> calls. The
+synchronous task checks every <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> on that MPI processor for
+whether the <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s are finished transporting. This set of tasks
+must be repeated in the driver’s evolution function until all particles
+are completed. See the <code class="docutils literal notranslate"><span class="pre">particles</span></code> example for further details. Note
+that this pattern is blocking, and may be replaced in the future.</p>
+<p>AMR is currently not supported, but support will be added in the future.</p>
+</section>
+<section id="variable-packing">
+<h2>Variable Packing<a class="headerlink" href="#variable-packing" title="Link to this heading"></a></h2>
+<p>Similarly to grid variables, particle swarms support
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code> packing, by the function <code class="docutils literal notranslate"><span class="pre">Swarm::PackVariables</span></code>.
+This also supports <code class="docutils literal notranslate"><span class="pre">FlatIdx</span></code> for indexing; see the
+<code class="docutils literal notranslate"><span class="pre">particle_leapfrog</span></code> example for usage.</p>
+</section>
+<section id="boundary-conditions">
+<h2>Boundary conditions<a class="headerlink" href="#boundary-conditions" title="Link to this heading"></a></h2>
+<p>Particle boundary conditions are not applied in separate kernel calls;
+instead, inherited classes containing boundary condition functions for
+updating particles or removing them when they are in boundary regions
+are allocated depending on the boundary flags specified in the input
+file. Currently, outflow and periodic boundaries are supported natively.
+User-specified boundary conditions must be set by specifying the “user”
+flag in the input parameter file and then updating the appropriate
+Swarm::bounds array entries to factory functions that allocate
+device-side boundary condition objects. An example is given in the
+<code class="docutils literal notranslate"><span class="pre">particles</span></code> example when ix1 and ox1 are set to <code class="docutils literal notranslate"><span class="pre">user</span></code> in the input
+parameter file.</p>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<p>Outputs for swarms can be set in an output block, just like any other
+variable. The user must specify a comma separated list denoting which
+swarms are marked for output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarms</span> <span class="o">=</span> <span class="n">swarm1</span><span class="p">,</span> <span class="n">swarm2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>By default every swarm is initialized with <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code>
+position variables. These are automatically output.</p>
+<p>To specify additional outputs, one may add an additional comma
+separated list:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarmname_variables</span> <span class="o">=</span> <span class="n">var1</span><span class="p">,</span> <span class="n">var2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Here <code class="docutils literal notranslate"><span class="pre">swarmname</span></code> is the name of the swarm in question, and <code class="docutils literal notranslate"><span class="pre">var1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">var2</span></code>, etc., are the variables to output for that particular
+swarm. You may still specify <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code>, but specifying
+them is superfluous as they are automatically output for any swarm
+that is output.</p>
+<p>Alternatively, you may provide the</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarm_variables</span> <span class="o">=</span> <span class="n">var1</span><span class="p">,</span> <span class="n">var2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>input as a comma separated list. This will output each variable in the
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> list for <strong>every</strong> swarm. This is most useful if
+all the swarms contain similar variable structure, or if you only have
+one swarm to output. The per-swarm lists can be composed with the
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> field. Every swarm will output the vars in
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> but then <strong>additionally</strong> the variables in a
+per-swarm list will be output for that swarm.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some visualization tools, like Visit and Paraview, prefer to have
+access to an <code class="docutils literal notranslate"><span class="pre">id</span></code> field for each particle, however it’s not clear
+that a unique ID is required for each particle in
+general. Therefore, swarms do not automatically contain an ID swarm
+variable. However, when Parthenon outputs a swarm, it automatically
+generates an ID variable even if one is not present or
+requested. If a variable named <code class="docutils literal notranslate"><span class="pre">id''</span> <span class="pre">is</span> <span class="pre">available</span> <span class="pre">**and**</span> <span class="pre">the</span> <span class="pre">user</span>
+<span class="pre">requests</span> <span class="pre">it</span> <span class="pre">be</span> <span class="pre">output,</span> <span class="pre">Parthenon</span> <span class="pre">will</span> <span class="pre">use</span> <span class="pre">it.</span> <span class="pre">Otherwise,</span> <span class="pre">Parthenon</span>
+<span class="pre">will</span> <span class="pre">generate</span> <span class="pre">an</span> <span class="pre">``id</span></code> variable just for output and write it to
+file.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The automatically generted <code class="docutils literal notranslate"><span class="pre">id</span></code> is unique for a snapshot in time,
+but not guaranteed to be time invariant. Indeed it is likely
+<strong>not</strong> the same between dumps.</p>
+</div>
+<p>Putting it all together, you might have an output block that looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output1</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">hdf5</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">swarms</span> <span class="o">=</span> <span class="n">swarm1</span><span class="p">,</span> <span class="n">swarm2</span>
+<span class="n">swarm_variables</span> <span class="o">=</span> <span class="n">shared_var</span>
+<span class="n">swarm1_variables</span> <span class="o">=</span> <span class="n">per_swarm_var</span>
+<span class="n">swarm2_variables</span> <span class="o">=</span> <span class="nb">id</span>
+</pre></div>
+</div>
+<p>The result would be that both <code class="docutils literal notranslate"><span class="pre">swarm1</span></code> and <code class="docutils literal notranslate"><span class="pre">swarm2</span></code> output the
+variables <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>, and <code class="docutils literal notranslate"><span class="pre">shared_var</span></code>. But only <code class="docutils literal notranslate"><span class="pre">swarm1</span></code>
+outputs <code class="docutils literal notranslate"><span class="pre">per_swarm_var</span></code>. Both <code class="docutils literal notranslate"><span class="pre">swarm1</span></code> and <code class="docutils literal notranslate"><span class="pre">swarm2</span></code> will output
+an <code class="docutils literal notranslate"><span class="pre">id</span></code> field. But the <code class="docutils literal notranslate"><span class="pre">id</span></code> field for <code class="docutils literal notranslate"><span class="pre">swarm1</span></code> will be
+automatically generated, but the <code class="docutils literal notranslate"><span class="pre">id</span></code> field for <code class="docutils literal notranslate"><span class="pre">swarm2</span></code> will use
+the user-initialized value if such a quantity is available.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="parthenon_manager.html" class="btn btn-neutral float-left" title="Parthenon Manager" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="reductions.html" class="btn btn-neutral float-right" title="Task-based reductions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jdolence/new_tasking
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/particles.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/particles.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/particles.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/particles.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/particles.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/particles.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/particles.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/particles.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/particles.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/particles.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/particles.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/particles.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/particles.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/particles.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/particles.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/particles.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/particles.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/particles.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/particles.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/particles.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/particles.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/particles.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/particles.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/particles.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/particles.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/particles.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/particles.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/particles.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/particles.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/particles.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/particles.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/particles.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/particles.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/particles.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/particles.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/particles.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/particles.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/particles.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/particles.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/particles.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/particles.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/particles.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/particles.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/particles.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/particles.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/particles.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/particles.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/particles.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/particles.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/particles.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/particles.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/particles.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/particles.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/particles.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/particles.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/particles.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/particles.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/particles.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/particles.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/particles.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/particles.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/particles.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/particles.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/particles.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/particles.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/particles.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/particles.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/particles.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/particles.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/particles.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../curvilinear/src/particles.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../force_inline_inner/src/particles.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../instrument/src/particles.html">jdolence/instrument</a></dd>
+      <dd><a href="../../meshblockdata_add/src/particles.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../move_string_creation/src/particles.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="particles.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../quickfixes/src/particles.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../thread_safe/src/particles.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../timer_based_loadbalancing/src/particles.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../trace/src/particles.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/particles.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/particles.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/particles.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/particles.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/particles.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/particles.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/particles.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/particles.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/particles.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/particles.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/particles.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/particles.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/particles.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/particles.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/particles.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/particles.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/particles.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/particles.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/particles.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/particles.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/particles.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/particles.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/particles.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/particles.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/particles.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/particles.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/particles.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/particles.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/particles.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/particles.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/particles.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/particles.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/particles.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/particles.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/particles.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/particles.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/particles.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/particles.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/particles.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/particles.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/particles.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/particles.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/particles.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/particles.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/particles.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/particles.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/particles.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/particles.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/particles.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/particles.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/particles.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/particles.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/particles.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/particles.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/particles.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/particles.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/particles.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/particles.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/particles.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/particles.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/particles.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/particles.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/particles.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/particles.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/particles.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/particles.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/particles.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/particles.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/particles.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/particles.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/particles.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/particles.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/particles.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/particles.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/particles.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/particles.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/particles.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/particles.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/particles.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/particles.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/particles.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/particles.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/particles.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/particles.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/particles.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/particles.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/particles.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/particles.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/particles.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/particles.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/particles.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/particles.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/particles.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/particles.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/particles.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/particles.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/particles.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/particles.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/particles.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/particles.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/particles.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/particles.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/particles.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/particles.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/particles.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/particles.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/particles.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/particles.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/particles.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/particles.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/particles.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/particles.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

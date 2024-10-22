@@ -1,0 +1,464 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adaptive Mesh Refinement &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Boundary communication-in-one concepts" href="boundary_communication.html" />
+    <link rel="prev" title="Overview" href="README.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Adaptive Mesh Refinement</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#enable-amr">Enable AMR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#built-in">Built-in</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#predefined-criteria">Predefined Criteria</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#package-specific-criteria">Package-specific Criteria</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ensuring-your-data-is-consistent-after-re-meshing">Ensuring your data is consistent after re-meshing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Adaptive Mesh Refinement</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/amr.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="adaptive-mesh-refinement">
+<span id="amr"></span><h1>Adaptive Mesh Refinement<a class="headerlink" href="#adaptive-mesh-refinement" title="Link to this heading"></a></h1>
+<p>There are two ways to control AMR in parthenon. First, built-in
+refinemnt criteria can be activated at runtime via the input file.
+Second, package developers can create a package-specific refinement
+tagging function to allow for more tailored criteria of less generic
+applicability.</p>
+<section id="enable-amr">
+<h2>Enable AMR<a class="headerlink" href="#enable-amr" title="Link to this heading"></a></h2>
+<p>To enable AMR, the following lines are required in the
+<code class="docutils literal notranslate"><span class="pre">&lt;parthenon/mesh&gt;</span></code> block of your input file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">refinement</span> <span class="o">=</span> <span class="n">adaptive</span>    <span class="c1"># enable adaptive mesh refinement</span>
+<span class="n">numlevel</span> <span class="o">=</span> <span class="mi">5</span>             <span class="c1"># how many refined levels can parthenon produce</span>
+</pre></div>
+</div>
+</section>
+<section id="built-in">
+<h2>Built-in<a class="headerlink" href="#built-in" title="Link to this heading"></a></h2>
+<p>Parthenon includes the ability to tag cells for refinement/derefinement
+based on predefined criteria that can be enabled at runtime in the input
+file. Multiple criteria can be enabled simultaneously, in which case the
+most refined criteria wins. If <code class="docutils literal notranslate"><span class="pre">refinement=adaptive</span></code> has been
+specified as above, parthenon will initialize your AMR choices by
+looking for blocks with names <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/refinement#&gt;</span></code> where <code class="docutils literal notranslate"><span class="pre">#</span></code> is
+a zero-based sequential indexing of Refinement criteria. An input file
+might looks like</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">mesh</span><span class="o">&gt;</span>
+<span class="n">refinement</span> <span class="o">=</span> <span class="n">adaptive</span>
+<span class="o">...</span>
+
+<span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">refinement0</span><span class="o">&gt;</span>
+<span class="o">...</span>
+
+<span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">efinement1</span><span class="o">&gt;</span>
+<span class="o">...</span>
+
+<span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">refinement2</span><span class="o">&gt;</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>In each refinement block, you are required to provide a <code class="docutils literal notranslate"><span class="pre">method</span></code> which
+is a string that selects among the provided critera (listed below).
+Additionally, you are required to provide a <code class="docutils literal notranslate"><span class="pre">field</span></code> which must be a
+valid variable name in the application. Optionally, you can provide a
+<code class="docutils literal notranslate"><span class="pre">refine_tol</span></code> value (defaults to 0.5) indicating that a block should be
+tagged for refinement if the criteria selected evaluates to a value
+above this threshold anywhere on the block. Similarly, the
+<code class="docutils literal notranslate"><span class="pre">derefine_tol</span></code> value (default 0.05) determines when derefinement can
+occur (all values of the criteria function must be less than this).
+Finally, an integer <code class="docutils literal notranslate"><span class="pre">max_level</span></code> value can be specified that limits
+refinement triggered by this criteria to no greater than this level. The
+default is to allow each criteria to refine to <code class="docutils literal notranslate"><span class="pre">numlevel</span></code>, which is
+the global maximum number of refinement levels specified in the
+<code class="docutils literal notranslate"><span class="pre">&lt;parthenon/mesh&gt;</span></code> block.</p>
+<section id="predefined-criteria">
+<h3>Predefined Criteria<a class="headerlink" href="#predefined-criteria" title="Link to this heading"></a></h3>
+<p>The predefined refinement criteria are calculated in terms of the user
+selected variable <span class="math notranslate nohighlight">\(q\)</span> as follows.
+Method:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">derivative_order_1</span></code>: <span class="math notranslate nohighlight">\(|\partial \ln q / \partial \ln x|\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">derivative_order_2</span></code>:
+<span class="math notranslate nohighlight">\(\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| }\)</span>
+Note that this quantity is bounded by <span class="math notranslate nohighlight">\([0,1]\)</span>.</p></li>
+</ul>
+</section>
+</section>
+<section id="package-specific-criteria">
+<h2>Package-specific Criteria<a class="headerlink" href="#package-specific-criteria" title="Link to this heading"></a></h2>
+<p>As a package developer, you can define a tagging function that takes a
+<code class="docutils literal notranslate"><span class="pre">Container</span></code> as an argument and returns an integer in {-1,0,1} to
+indicate the block should be derefined, left alone, or refined,
+respectively. This function should be registered in a
+<code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code> object by assigning the <code class="docutils literal notranslate"><span class="pre">CheckRefinement</span></code> function
+pointer to point at the packages function. An example is demonstrated
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/calculate_pi.cpp">here</a>.</p>
+</section>
+<section id="ensuring-your-data-is-consistent-after-re-meshing">
+<h2>Ensuring your data is consistent after re-meshing<a class="headerlink" href="#ensuring-your-data-is-consistent-after-re-meshing" title="Link to this heading"></a></h2>
+<p>When re-meshing happens, a few operations happen, which can be plugged
+in to in various ways. The operations performed (in order) are: - The
+function <code class="docutils literal notranslate"><span class="pre">InitMeshBlockUserData</span></code> is called. This function can be set
+by setting it in the <code class="docutils literal notranslate"><span class="pre">ApplicationInputs</span></code> field of the problem
+generator:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">MyInitMeshBlockUserData</span><span class="p">(</span><span class="n">MeshBlock</span><span class="w"> </span><span class="o">*</span><span class="n">pmb</span><span class="p">,</span><span class="w"> </span><span class="n">ParameterInput</span><span class="w"> </span><span class="o">*</span><span class="n">pin</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Do something on a meshblock</span>
+<span class="p">}</span>
+<span class="n">pman</span><span class="p">.</span><span class="n">app_input</span><span class="p">.</span><span class="n">InitMeshBlockUserData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyInitMeshBlockUserData</span><span class="p">;</span>
+<span class="c1">// continue with initialization...</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>When the mesh is being generated at initialization, the problem
+generator is called after every re-meshing.</p></li>
+<li><p>Prolongation, restriction, physical boundaries, and ghost zone
+communication are performed</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">FillDerived</span></code> functions set per-package and per-application are
+called.</p></li>
+</ul>
+<p>If you have a function that you would like called every cycle, you may
+wish to put it in <code class="docutils literal notranslate"><span class="pre">FillDerived</span></code>. If you have a function you would like
+performed only at re-meshing, you may wish to put it in
+<code class="docutils literal notranslate"><span class="pre">InitMeshBlockUserData</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="README.html" class="btn btn-neutral float-left" title="Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="boundary_communication.html" class="btn btn-neutral float-right" title="Boundary communication-in-one concepts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/fix-forest-multigrid
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/amr.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/amr.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/amr.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/amr.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/amr.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/amr.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/amr.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/amr.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/amr.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/amr.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/amr.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/amr.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/amr.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/amr.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/amr.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/amr.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/amr.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/amr.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/amr.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/amr.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/amr.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/amr.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/amr.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/amr.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/amr.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/amr.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/amr.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/amr.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/amr.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/amr.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/amr.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/amr.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/amr.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/amr.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/amr.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/amr.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/amr.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/amr.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/amr.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/amr.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/amr.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/amr.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/amr.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/amr.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/amr.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/amr.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/amr.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/amr.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/amr.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/amr.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/amr.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/amr.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/amr.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/amr.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/amr.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/amr.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/amr.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/amr.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/amr.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/amr.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/amr.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/amr.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/amr.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/amr.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/amr.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/amr.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/amr.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/amr.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/amr.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/amr.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/amr.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/amr.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/amr.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/amr.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/amr.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/amr.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/amr.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/amr.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/amr.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/amr.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/amr.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/amr.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/amr.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/amr.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/amr.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/amr.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/amr.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/amr.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/amr.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/amr.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/amr.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/amr.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/amr.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/amr.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/amr.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/amr.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/amr.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/amr.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/amr.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/amr.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/amr.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/amr.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/amr.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/amr.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/amr.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/amr.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/amr.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/amr.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/amr.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/amr.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/amr.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/amr.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/amr.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/amr.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/amr.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/amr.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../add-cg-solver/src/amr.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../add-combined-buffer-communication/src/amr.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../add-fine-field-deallocation/src/amr.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../add-fine-variables/src/amr.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../add-forest-block-orientation/src/amr.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../add-forest-mesh-example/src/amr.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../add-forest-of-octrees/src/amr.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../add-forest-orientation-2/src/amr.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../add-index-range-masking/src/amr.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../add-more-careful-container-checking/src/amr.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../add-morton-numbers/src/amr.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../add-multi-grid/src/amr.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../add-negative-levels/src/amr.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../add-non-one-copy-fluxes/src/amr.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../add-noncell-amr/src/amr.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../add-small-riot/src/amr.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../add-sparse-vector-wave-test/src/amr.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../add-task-graph/src/amr.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../add-vector-wave-test/src/amr.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/src/amr.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../bugfix-sparse-cache/src/amr.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../bugfix-symmetrized-coordinates/src/amr.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../cleanup-offsets/src/amr.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../composable-boundary-conditions/src/amr.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../face-boundary-communication/src/amr.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../fix-bitshift-of-negative/src/amr.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../fix-dealloc-count-bug/src/amr.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../fix-divide-by-zero/src/amr.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="amr.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../fix-iterative-task-qualifiers/src/amr.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../fix-multigrid-mpi/src/amr.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../fix-noncc-amr/src/amr.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../fix-one-block-minimum-per-rank/src/amr.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../fix-restart-state-bug/src/amr.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../fix-root-level/src/amr.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../fix-solver-relative-residual/src/amr.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/src/amr.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree-2/src/amr.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../fix-static-refinement/src/amr.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../generalize-par-dispatch/src/amr.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../in-one-zero-memory-amr/src/amr.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../local-face-fields/src/amr.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../mg-riot-updates/src/amr.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../multigrid-example-update/src/amr.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../performance-updates/src/amr.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../refactor-mesh-constructors/src/amr.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../refactor-meshblockdata-initialization/src/amr.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../refactor-partitioning/src/amr.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../refactor-region-size/src/amr.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../refactor-solver-input/src/amr.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../rename-cell-variable/src/amr.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../reorganize/src/amr.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../sparse-pack-update/src/amr.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/src/amr.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/amr.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/amr.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/amr.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/amr.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/amr.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/amr.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/amr.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/amr.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/amr.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/amr.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/amr.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/amr.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/amr.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/amr.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/amr.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/amr.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/amr.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/amr.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/amr.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/amr.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/amr.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/amr.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,458 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Use Sphinx for Writing Docs &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tasks" href="tasks.html" />
+    <link rel="prev" title="Solvers" href="solvers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to Use Sphinx for Writing Docs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-convert-a-markdown-file-to-rst">How to convert a Markdown file to rst</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-have-github-build-your-documentation-for-you">How to have github build your documentation for you</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-documentation-locally">Building documentation locally</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-get-the-dependencies">How to Get the Dependencies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#using-docker">Using Docker</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#more-info">More Info.</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How to Use Sphinx for Writing Docs</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/sphinx-doc.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-use-sphinx-for-writing-docs">
+<h1>How to Use Sphinx for Writing Docs<a class="headerlink" href="#how-to-use-sphinx-for-writing-docs" title="Link to this heading"></a></h1>
+<section id="how-to-convert-a-markdown-file-to-rst">
+<h2>How to convert a Markdown file to rst<a class="headerlink" href="#how-to-convert-a-markdown-file-to-rst" title="Link to this heading"></a></h2>
+<p>We are using the <a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html">reStructuredText</a> (rst) format for our documentation.
+If you have a markdown file you would like to convert to rst,
+as a first pass, you can have <a class="reference external" href="https://pandoc.org/">Pandoc</a> convert your file. For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pandoc<span class="w"> </span>Metadata.md<span class="w"> </span>--from<span class="w"> </span>markdown<span class="w"> </span>--to<span class="w"> </span>rst<span class="w"> </span>-s<span class="w"> </span>-o<span class="w"> </span>metadata.rst
+</pre></div>
+</div>
+<p>Pandoc can be installed easily through a Linux package manager. For example on Ubuntu,</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt<span class="w"> </span>install<span class="w"> </span>pandoc
+</pre></div>
+</div>
+<p>will get you the tool.</p>
+</section>
+<section id="how-to-have-github-build-your-documentation-for-you">
+<h2>How to have github build your documentation for you<a class="headerlink" href="#how-to-have-github-build-your-documentation-for-you" title="Link to this heading"></a></h2>
+<p>Github can automatically build your documentation for you through the continuous integration pipeline.
+After you submit a pull request with your .rst changes for documentation on <a class="reference external" href="https://parthenon-hpc-lab.github.io/parthenon">github-pages</a>,
+the documentation will automatically get built. You will see a “build and deploy documentation” job
+at the bottom of the pull request page. If this passes, your documentation will have been generated.</p>
+<p>On the bottom left of the documentation page on <a class="reference external" href="https://parthenon-hpc-lab.github.io/parthenon">github-pages</a>, you can select the branch/build
+of the documentation, one of which should be the branch you wrote your changes on.</p>
+</section>
+<section id="building-documentation-locally">
+<h2>Building documentation locally<a class="headerlink" href="#building-documentation-locally" title="Link to this heading"></a></h2>
+<p>While you can rely on the CI to build the documentation associated with your
+branch, you can also very easily build sphinx documentation locally through
+python. These instructions also <em>do not</em> require admin access and are usable
+with shared machines or python distributions.</p>
+<p>First, ensure that you are running a modern version of python (i.e. python 3 of
+some flavor)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python<span class="w"> </span>--version
+Python<span class="w"> </span><span class="m">3</span>.9.7
+</pre></div>
+</div>
+<p>Then, use pip to install <code class="code docutils literal notranslate"><span class="pre">spinx</span></code> and the RTD theme</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>--user<span class="w"> </span>sphinx<span class="w"> </span>sphinx-rtd-theme
+</pre></div>
+</div>
+<p>Now, navigate to the <code class="code docutils literal notranslate"><span class="pre">../doc/sphinx</span></code> directory where a <code class="code docutils literal notranslate"><span class="pre">make</span> <span class="pre">help</span></code>
+shows all of the available ways to build the documentation</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ make help
+Sphinx v4.2.0
+Please use `make target&#39; where target is one of
+  html        to make standalone HTML files
+  dirhtml     to make HTML files named index.html in directories
+  singlehtml  to make a single large HTML file
+  pickle      to make pickle files
+  json        to make JSON files
+  htmlhelp    to make HTML files and an HTML help project
+  qthelp      to make HTML files and a qthelp project
+  devhelp     to make HTML files and a Devhelp project
+  epub        to make an epub
+  latex       to make LaTeX files, you can set PAPER=a4 or PAPER=letter
+  latexpdf    to make LaTeX and PDF files (default pdflatex)
+  latexpdfja  to make LaTeX files and run them through platex/dvipdfmx
+  text        to make text files
+  man         to make manual pages
+  texinfo     to make Texinfo files
+  info        to make Texinfo files and run them through makeinfo
+  gettext     to make PO message catalogs
+  changes     to make an overview of all changed/added/deprecated items
+  xml         to make Docutils-native XML files
+  pseudoxml   to make pseudoxml-XML files for display purposes
+  linkcheck   to check all external links for integrity
+  doctest     to run all doctests embedded in the documentation (if enabled)
+  coverage    to run coverage check of the documentation (if enabled)
+  clean       to remove everything in the build directory
+</pre></div>
+</div>
+<p>Making the documentation will create a new directory, <code class="code docutils literal notranslate"><span class="pre">_build</span></code> in the
+<code class="code docutils literal notranslate"><span class="pre">sphinx</span></code> directory along with whichever type of documentation you wanted
+to build.</p>
+<p>For example, building the HTML documentation with <code class="code docutils literal notranslate"><span class="pre">make</span> <span class="pre">html</span></code> produces the
+<code class="code docutils literal notranslate"><span class="pre">../doc/sphinx/_build/html</span></code> directory with an <code class="code docutils literal notranslate"><span class="pre">index.html</span></code> file that
+you can point a browser to in order to view the documenation.</p>
+</section>
+<section id="how-to-get-the-dependencies">
+<h2>How to Get the Dependencies<a class="headerlink" href="#how-to-get-the-dependencies" title="Link to this heading"></a></h2>
+<section id="using-docker">
+<h3>Using Docker<a class="headerlink" href="#using-docker" title="Link to this heading"></a></h3>
+<p>If you are using <a class="reference external" href="https://www.docker.com">Docker</a>, then simply pull the docker image specified below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">image</span><span class="p">:</span> <span class="n">sphinxdoc</span><span class="o">/</span><span class="n">sphinx</span><span class="o">-</span><span class="n">latexpdf</span>
+</pre></div>
+</div>
+<p>Then, after running <code class="code docutils literal notranslate"><span class="pre">docker</span> <span class="pre">run</span> <span class="pre">-it</span> <span class="pre">&lt;docker-image-name&gt;</span> <span class="pre">/bin/bash</span></code>, install the theme we are using with <code class="code docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">sphinx_rtd_theme</span></code></p>
+</section>
+</section>
+<section id="more-info">
+<h2>More Info.<a class="headerlink" href="#more-info" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/installation.html">Sphinx Installation</a></p></li>
+</ul>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html">Sphinx reStructuredText Documentation</a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="solvers.html" class="btn btn-neutral float-left" title="Solvers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tasks.html" class="btn btn-neutral float-right" title="Tasks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: pgrete/non-atomic-scatter
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/src/sphinx-doc.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/sphinx-doc.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/sphinx-doc.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/sphinx-doc.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/sphinx-doc.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/sphinx-doc.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/sphinx-doc.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/sphinx-doc.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/sphinx-doc.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/sphinx-doc.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/sphinx-doc.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/sphinx-doc.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/sphinx-doc.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/sphinx-doc.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/sphinx-doc.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/sphinx-doc.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/sphinx-doc.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/sphinx-doc.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/sphinx-doc.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/sphinx-doc.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/sphinx-doc.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/sphinx-doc.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/sphinx-doc.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/sphinx-doc.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/sphinx-doc.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/sphinx-doc.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/sphinx-doc.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/sphinx-doc.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/sphinx-doc.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/sphinx-doc.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/sphinx-doc.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/sphinx-doc.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/sphinx-doc.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/sphinx-doc.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/sphinx-doc.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/sphinx-doc.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/sphinx-doc.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/sphinx-doc.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/sphinx-doc.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/sphinx-doc.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/sphinx-doc.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/sphinx-doc.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/sphinx-doc.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/sphinx-doc.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/sphinx-doc.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/sphinx-doc.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/sphinx-doc.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/sphinx-doc.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/sphinx-doc.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/sphinx-doc.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/sphinx-doc.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/sphinx-doc.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/sphinx-doc.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/sphinx-doc.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/sphinx-doc.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/sphinx-doc.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/sphinx-doc.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/sphinx-doc.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/sphinx-doc.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/sphinx-doc.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/sphinx-doc.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/sphinx-doc.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/sphinx-doc.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/sphinx-doc.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/sphinx-doc.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/sphinx-doc.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/sphinx-doc.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/sphinx-doc.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/sphinx-doc.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/sphinx-doc.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/sphinx-doc.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/sphinx-doc.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/sphinx-doc.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/sphinx-doc.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/sphinx-doc.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/sphinx-doc.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/sphinx-doc.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/sphinx-doc.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/sphinx-doc.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/sphinx-doc.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/sphinx-doc.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/sphinx-doc.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/sphinx-doc.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/sphinx-doc.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/sphinx-doc.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/sphinx-doc.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/sphinx-doc.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/sphinx-doc.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/sphinx-doc.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/sphinx-doc.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/src/sphinx-doc.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/sphinx-doc.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/sphinx-doc.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/sphinx-doc.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/sphinx-doc.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/sphinx-doc.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/sphinx-doc.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/sphinx-doc.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/sphinx-doc.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/sphinx-doc.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/sphinx-doc.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/sphinx-doc.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/sphinx-doc.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/sphinx-doc.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/sphinx-doc.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/sphinx-doc.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/sphinx-doc.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/sphinx-doc.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/sphinx-doc.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/sphinx-doc.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/sphinx-doc.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/sphinx-doc.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/sphinx-doc.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/sphinx-doc.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/sphinx-doc.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/sphinx-doc.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/sphinx-doc.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/sphinx-doc.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/sphinx-doc.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/sphinx-doc.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/sphinx-doc.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/sphinx-doc.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/sphinx-doc.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/sphinx-doc.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/sphinx-doc.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/sphinx-doc.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/sphinx-doc.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/sphinx-doc.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/sphinx-doc.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/sphinx-doc.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/sphinx-doc.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/sphinx-doc.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/sphinx-doc.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/sphinx-doc.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/sphinx-doc.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/sphinx-doc.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/sphinx-doc.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/sphinx-doc.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/sphinx-doc.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/sphinx-doc.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/sphinx-doc.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/sphinx-doc.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/sphinx-doc.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/sphinx-doc.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/sphinx-doc.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/sphinx-doc.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/sphinx-doc.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/sphinx-doc.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/sphinx-doc.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/sphinx-doc.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/sphinx-doc.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/sphinx-doc.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/sphinx-doc.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/sphinx-doc.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/sphinx-doc.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/sphinx-doc.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/sphinx-doc.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/sphinx-doc.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/sphinx-doc.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/sphinx-doc.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/sphinx-doc.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/sphinx-doc.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/sphinx-doc.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/sphinx-doc.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/sphinx-doc.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/sphinx-doc.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/sphinx-doc.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/sphinx-doc.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/sphinx-doc.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/sphinx-doc.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/sphinx-doc.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/sphinx-doc.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/sphinx-doc.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/sphinx-doc.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/sphinx-doc.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/sphinx-doc.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../adios2/src/sphinx-doc.html">pgrete/adios2</a></dd>
+      <dd><a href="../../always-chunck/src/sphinx-doc.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../ci-hamilton/src/sphinx-doc.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../fix-ascent-vars/src/sphinx-doc.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../fix-chunk/src/sphinx-doc.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../fix-hasghost-restart/src/sphinx-doc.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG/src/sphinx-doc.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG-winput/src/sphinx-doc.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../histogram-outputs/src/sphinx-doc.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../interpolation/src/sphinx-doc.html">pgrete/interpolation</a></dd>
+      <dd><a href="sphinx-doc.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/src/sphinx-doc.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pmd-output/src/sphinx-doc.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../refactor-restart/src/sphinx-doc.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../sycl-test/src/sphinx-doc.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../update-pool-alloc/src/sphinx-doc.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../user-output/src/sphinx-doc.html">pgrete/user-output</a></dd>
+      <dd><a href="../../user-output-w-pmd/src/sphinx-doc.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

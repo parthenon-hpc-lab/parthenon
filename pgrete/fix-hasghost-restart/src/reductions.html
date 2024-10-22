@@ -1,0 +1,400 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task-based reductions &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Solvers" href="solvers.html" />
+    <link rel="prev" title="Particles" href="particles.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Task-based reductions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#allreduce">AllReduce</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reduce">Reduce</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Task-based reductions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/reductions.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="task-based-reductions">
+<span id="reductions"></span><h1>Task-based reductions<a class="headerlink" href="#task-based-reductions" title="Link to this heading"></a></h1>
+<p>Many codes require the ability to do global reductions. In a task-based
+environment where each rank may be executing multiple tasks lists
+operating on independent sub-domains, orchestrating these reductions
+turns out to be nontrivial. Here, we document a Parthenon-ic way of
+expressing a global reduction. The basic strategy follows:</p>
+<ol class="arabic simple">
+<li><p>Initialize a variable that will capture the <em>local</em> (just a given MPI
+rank’s value) reduced value.</p></li>
+<li><p>Launch a task in each list which updates the <em>local</em> value. For
+example, if the reduction is a sum, each task will add its
+contribution to this shared variable. Since task launching is not
+threaded, there is no concern over race conditions.</p></li>
+<li><p>Mark the task which accumulates the <em>local</em> reduction using the
+<code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code> member function <code class="docutils literal notranslate"><span class="pre">AddRegionalDependencies</span></code>. This will
+ensure that tasks that require a complete local reduction will not
+launch until that <em>local</em> value is available.</p></li>
+<li><p>One task list on each rank launches a non-blocking reduction
+operation.</p></li>
+<li><p>All task lists launch a task which checks the status of the
+reduction, returning <code class="docutils literal notranslate"><span class="pre">TaskStatus::complete</span></code> once the value of the
+global reduction is set.</p></li>
+</ol>
+<p>To facilitate this pattern, parthenon provides an <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> struct,
+described below. Examples of the pattern above and the usage of
+<code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> are provided
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_driver.cpp">here</a>.</p>
+<section id="allreduce">
+<h2>AllReduce<a class="headerlink" href="#allreduce" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> is a struct templated on the type of value that needs to
+be reduced (e.g. <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">Real</span></code>, <code class="docutils literal notranslate"><span class="pre">std::vector&lt;Real&gt;</span></code>, etc.). It
+manages the storage in a member variable <code class="docutils literal notranslate"><span class="pre">val</span></code> which is of the type
+provided as a template argument. <code class="docutils literal notranslate"><span class="pre">val</span></code> must be appropriately
+initialized by the user. The functionality in <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> (described
+above) is exposed through two member functions, <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code> and
+<code class="docutils literal notranslate"><span class="pre">CheckReduce</span></code>. <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code> requires a single argument which is the
+MPI reduction operator (e.g. <code class="docutils literal notranslate"><span class="pre">MPI_SUM</span></code>, <code class="docutils literal notranslate"><span class="pre">MPI_MAX</span></code>, etc.). Both of
+these tasks are non-blocking (i.e. they call <code class="docutils literal notranslate"><span class="pre">MPI_Iallreduce</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MPI_Test</span></code>).</p>
+</section>
+<section id="reduce">
+<h2>Reduce<a class="headerlink" href="#reduce" title="Link to this heading"></a></h2>
+<p>Same as <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> except <code class="docutils literal notranslate"><span class="pre">MPI_Ireduce</span></code> is called and the root rank
+of the reduction must be provided in <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="particles.html" class="btn btn-neutral float-left" title="Particles" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="solvers.html" class="btn btn-neutral float-right" title="Solvers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: pgrete/fix-hasghost-restart
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/reductions.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/reductions.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/reductions.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/reductions.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/reductions.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/reductions.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/reductions.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/reductions.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/reductions.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/reductions.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/reductions.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/reductions.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/reductions.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/reductions.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/reductions.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/reductions.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/reductions.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/reductions.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/reductions.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/reductions.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/reductions.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/reductions.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/reductions.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/reductions.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/reductions.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/reductions.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/reductions.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/reductions.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/reductions.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/reductions.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/reductions.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/reductions.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/reductions.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/reductions.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/reductions.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/reductions.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/reductions.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/reductions.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/reductions.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/reductions.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/reductions.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/reductions.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/reductions.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/reductions.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/reductions.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/reductions.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/reductions.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/reductions.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/reductions.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/reductions.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/reductions.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/reductions.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/reductions.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/reductions.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/reductions.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/reductions.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/reductions.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/reductions.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/reductions.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/reductions.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/reductions.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/reductions.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/reductions.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/reductions.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/reductions.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/reductions.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/reductions.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/reductions.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/reductions.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/reductions.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/reductions.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/reductions.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/reductions.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/reductions.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/reductions.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/reductions.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/reductions.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/reductions.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/reductions.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/reductions.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/reductions.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/reductions.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/reductions.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/reductions.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/reductions.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/reductions.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/reductions.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/reductions.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/reductions.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/reductions.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/reductions.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/reductions.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/reductions.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/reductions.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/reductions.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/reductions.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/reductions.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/reductions.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/reductions.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/reductions.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/reductions.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/reductions.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/reductions.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/reductions.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/reductions.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/reductions.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/reductions.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/reductions.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/reductions.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/reductions.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/reductions.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/reductions.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/reductions.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/reductions.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/reductions.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/reductions.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/reductions.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/reductions.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/reductions.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/reductions.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/reductions.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/reductions.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/reductions.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/reductions.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/reductions.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/reductions.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/reductions.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/reductions.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/reductions.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/reductions.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/reductions.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/reductions.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/reductions.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/reductions.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/reductions.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/reductions.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/reductions.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/reductions.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/reductions.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/reductions.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/reductions.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/reductions.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/reductions.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/reductions.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/reductions.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/reductions.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/reductions.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/reductions.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/reductions.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/reductions.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/reductions.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/reductions.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/reductions.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/reductions.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/reductions.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/reductions.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/reductions.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/reductions.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/reductions.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/reductions.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/reductions.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/reductions.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/reductions.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/reductions.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/reductions.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/reductions.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/reductions.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/reductions.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/reductions.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/reductions.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/reductions.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/reductions.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/reductions.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/reductions.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../adios2/src/reductions.html">pgrete/adios2</a></dd>
+      <dd><a href="../../always-chunck/src/reductions.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../ci-hamilton/src/reductions.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../fix-ascent-vars/src/reductions.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../fix-chunk/src/reductions.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="reductions.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG/src/reductions.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG-winput/src/reductions.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../histogram-outputs/src/reductions.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../interpolation/src/reductions.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../non-atomic-scatter/src/reductions.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/src/reductions.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pmd-output/src/reductions.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../refactor-restart/src/reductions.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../sycl-test/src/reductions.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../update-pool-alloc/src/reductions.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../user-output/src/reductions.html">pgrete/user-output</a></dd>
+      <dd><a href="../../user-output-w-pmd/src/reductions.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

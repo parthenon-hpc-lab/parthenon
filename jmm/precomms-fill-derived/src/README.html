@@ -1,0 +1,672 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overview &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Adaptive Mesh Refinement" href="amr.html" />
+    <link rel="prev" title="Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Framework" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#building-parthenon">Building parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#description-of-examples">Description of examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#short-feature-descriptions">Short feature descriptions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#automated-tests">Automated tests</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#usage-in-downstream-codes">Usage in downstream codes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#parthenonmanager">ParthenonManager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#user-specified-internal-functions">User-specified internal functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mesh">Mesh</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#meshblock">MeshBlock</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#error-checking">Error checking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#developer-guide">Developer guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#state-management">State Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#application-drivers">Application Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adaptive-mesh-refinement">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tasks">Tasks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#meshblockdatas-and-meshblockdata-iterators">MeshBlockDatas and MeshBlockData Iterators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#index-shape-and-index-range">Index Shape and Index Range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#coordinates">Coordinates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#input-file-parameter">Input file parameter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#global-reductions">Global reductions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solvers">Solvers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Overview</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/README.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h1>
+<p>This file provides an overview of different (not necessarily all)
+features in Parthenon and how to use them.</p>
+<section id="building-parthenon">
+<h2>Building parthenon<a class="headerlink" href="#building-parthenon" title="Link to this heading"></a></h2>
+<p>See the <a class="reference internal" href="building.html#building"><span class="std std-ref">build doc</span></a> for details on building Parthenon
+for specific systems.</p>
+</section>
+<section id="description-of-examples">
+<h2>Description of examples<a class="headerlink" href="#description-of-examples" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi">Calculate π</a></p></li>
+<li><p><a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/face_fields">Average face-centered variables to cell
+centers</a></p></li>
+<li><p><a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/stochastic_subgrid">Stochastic subgrid</a> Performs a
+random amount of work per cell (drawn from a power law distribution)</p></li>
+</ul>
+</section>
+<section id="short-feature-descriptions">
+<h2>Short feature descriptions<a class="headerlink" href="#short-feature-descriptions" title="Link to this heading"></a></h2>
+<section id="automated-tests">
+<h3>Automated tests<a class="headerlink" href="#automated-tests" title="Link to this heading"></a></h3>
+<p>Regression and convergence tests that cover the majority of features are
+based on the <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection-example">Advection example</a> and
+defined in the
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/regression/test_suites/advection_convergence">advection-convergence</a>
+and <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/regression/test_suites/output_hdf5">output_hdf5</a> test
+suites.</p>
+<p>The tests currently cover</p>
+<ul class="simple">
+<li><p>advection of wave in x, y, and z direction
+as well oblique to the <em>static</em> grid for different resolutions to
+demonstrate first order convergence (see
+<code class="docutils literal notranslate"><span class="pre">tst/regression/outputs/advection_convergence/advection-errors.png</span></code>
+file in the build directory after running the test)</p></li>
+<li><p>Advection of a smoothed sphere at an angle on a <em>static</em> grid, on a <em>static</em> grid a
+twice the resolution, and with <em>AMR</em> covering the sphere at the
+effective higher resolution</p></li>
+<li><p>Advection of a sharp sphere at an angle
+with <em>AMR</em> writing hdf5 output and comparing against a gold standard output.</p></li>
+</ul>
+<p>To execute the tests run, e.g.,</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># from within the build directory (add -V fore more detailed output)</span>
+ctest<span class="w"> </span>-R<span class="w"> </span>regression
+</pre></div>
+</div>
+<p>The gold standard files (reference solutions) used in the regression
+tests should automatically be downloaded during the configure phase.
+Alternatively, you can download them as a release from
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/releases/">GitHub</a> and extract the
+contents of the archive to
+<code class="docutils literal notranslate"><span class="pre">PARTHENON_ROOT/tst/regression/gold_standard</span></code> directory. Make sure to
+get the correct version matching your source (stored in the
+<code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_VER</span></code> CMake variable). Note: If you results
+are (slightly) different, that may stem from using different
+compiler/optimization options.</p>
+<p>In case you adds new tests that require reference data just put all file
+in the <code class="docutils literal notranslate"><span class="pre">PARTHENON_ROOT/tst/regression/gold_standard</span></code> directory and
+either</p>
+<ul class="simple">
+<li><p>increase the version integer by one (both in the
+<code class="docutils literal notranslate"><span class="pre">PARTHENON_ROOT/tst/regression/gold_standard/current_version</span></code> file and
+in the <code class="docutils literal notranslate"><span class="pre">PARTHENON_ROOT/CMakeLists.txt</span></code> file), or</p></li>
+<li><p>configure with
+<code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_SYNC=OFF</span></code>. The former is considered the
+safer option as it prevents accidental overwriting of those files during
+configure (as <code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_SYNC</span></code> is <code class="docutils literal notranslate"><span class="pre">ON</span></code> by default).
+In the pull request of the suggested changes we will then update the
+official gold standard release file and appropriate hash prior to
+merging.</p></li>
+</ul>
+<section id="usage-in-downstream-codes">
+<h4>Usage in downstream codes<a class="headerlink" href="#usage-in-downstream-codes" title="Link to this heading"></a></h4>
+<p>The easiest/recommended way to reuse the <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> regression test
+infrastructure in downstream codes is to adapt a similar directory
+structure. The following steps have been tested to work when
+<code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> is built from source in the downstream project
+(specifically, the <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> source is expected to be located in the
+<code class="docutils literal notranslate"><span class="pre">external/parthenon</span></code> folder in the project’s root directory) :</p>
+<ol class="arabic simple">
+<li><p>Add the following to the downstream root <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> after
+<code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> has been included:</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">include</span><span class="p">(</span><span class="n">CTest</span><span class="p">)</span>
+<span class="n">add_subdirectory</span><span class="p">(</span><span class="n">tst</span><span class="o">/</span><span class="n">regression</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> regression tests should also be integrated
+in the downstream testing, the binary output directory should only be
+changed (e.g., via the <code class="docutils literal notranslate"><span class="pre">CMAKE_RUNTIME_OUTPUT_DIRECTORY</span></code> variable)
+<em>after</em> <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> has been included. Otherwise the paths to the
+<code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> regression test binaries will be wrong.</p>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Create the following directories and files in the project folder (for an example
+<code class="docutils literal notranslate"><span class="pre">my_first_test</span></code> test):</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tst</span><span class="o">/</span>
+    <span class="n">regression</span><span class="o">/</span>
+        <span class="n">CMakeLists</span><span class="o">.</span><span class="n">txt</span>
+        <span class="n">test_suites</span><span class="o">/</span>
+            <span class="fm">__init__</span><span class="o">.</span><span class="n">py</span>  <span class="c1"># &lt;-- empty file</span>
+            <span class="n">my_first_test</span><span class="o">/</span>
+                <span class="n">__init</span><span class="o">.</span><span class="n">py__</span>  <span class="c1"># &lt;-- empty file</span>
+                <span class="n">my_first_test</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Contents of <code class="docutils literal notranslate"><span class="pre">tst/regression/CMakeLists.txt</span></code></p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># import Parthenon setup_test_serial and setup_test_parallel
+include(${PROJECT_SOURCE_DIR}/external/parthenon/cmake/TestSetup.cmake)
+
+setup_test_serial(&quot;my_first_test&quot; &quot;--driver /path/to/downstream_binary \
+  --driver_input ${PROJECT_SOURCE_DIR}/inputs/test_input_file.in --num_steps 3&quot; &quot;my_custom_test_label&quot;)
+</pre></div>
+</div>
+<p>The same options for <code class="docutils literal notranslate"><span class="pre">setup_test_serial</span></code> and <code class="docutils literal notranslate"><span class="pre">setup_test_parallel</span></code>
+as described in Parthenon <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/regression/CMakeLists.txt">here</a>
+and <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/cmake/TestSetup.cmake">here</a> apply.</p>
+<ol class="arabic simple" start="4">
+<li><p><code class="docutils literal notranslate"><span class="pre">my_first_test.py</span></code> contains the same logic as any other test in Parthenon, see a
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/egression/test_suites/advection_outflow/advection_outflow.py">simple</a>
+or more
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/egression/test_suites/advection_outflow/advection_outflow.py">complicated</a>
+example.</p></li>
+<li><p>Now <code class="docutils literal notranslate"><span class="pre">my_first_test</span></code> should be automatically executed when
+running <code class="docutils literal notranslate"><span class="pre">ctest</span></code> from the build directory.</p></li>
+</ol>
+</section>
+</section>
+<section id="parthenonmanager">
+<h3>ParthenonManager<a class="headerlink" href="#parthenonmanager" title="Link to this heading"></a></h3>
+<p>This class provides a streamlined capability to write new applications
+by providing a simple interface to initialize and finalize a simulation.
+It’s usage is straightforward and demonstrated in the π
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/calculate_pi.cpp">example</a>.</p>
+<p>Initialization is mandatory and takes care of (including sanity checks)</p>
+<ol class="arabic simple">
+<li><p>initializing MPI (if enabled)</p></li>
+<li><p>initializing Kokkos (including device setup)</p></li>
+<li><p>parsing command line arguments and parameter input file</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ProcessPackages</span></code> Constructs and returns a <code class="docutils literal notranslate"><span class="pre">Packages_t</span></code> object
+that contains a listing of all the variables and their metadata
+associated with each package.</p></li>
+</ol>
+<p>Application can chose between a single and double stage initialization:</p>
+<ul class="simple">
+<li><p>Single stage: <code class="docutils literal notranslate"><span class="pre">ParthenonInit(int</span> <span class="pre">argc,</span> <span class="pre">char</span> <span class="pre">*argv[])</span></code> includes steps 1-5 above.</p></li>
+<li><p>Double stage: <code class="docutils literal notranslate"><span class="pre">ParthenonInitEnv(int</span> <span class="pre">argc,</span> <span class="pre">char</span> <span class="pre">*argv[])</span></code>
+includes steps 1-3 and <code class="docutils literal notranslate"><span class="pre">ParthenonInitPackagesAndMesh()</span></code> includes steps
+4 and 5. This double stage setup allows, for example, to control the
+package’s behavior at runtime by setting the problem generator based on
+a variable in the input file.</p></li>
+</ul>
+</section>
+<section id="user-specified-internal-functions">
+<h3>User-specified internal functions<a class="headerlink" href="#user-specified-internal-functions" title="Link to this heading"></a></h3>
+<p>During a simulation, Parthenon calls a number of default internal
+functions whose behavior can be redefined by an application. Currently,
+these functions are, by class:</p>
+<section id="mesh">
+<h4>Mesh<a class="headerlink" href="#mesh" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">InitUserMeshData</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PreStepUserWorkInLoop</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PostStepUserWorkInLoop</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UserWorkAfterLoop</span></code></p></li>
+</ul>
+</section>
+<section id="meshblock">
+<h4>MeshBlock<a class="headerlink" href="#meshblock" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">InitApplicationMeshBlockData</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">InitMeshBlockUserData</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ProblemGenerator</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UserWorkBeforeOutput</span></code></p></li>
+</ul>
+<p>To redefine these functions, the user sets the respective function
+pointers in the ApplicationInput member app_input of the
+ParthenonManager class prior to calling <code class="docutils literal notranslate"><span class="pre">ParthenonInit</span></code>. This is
+demonstrated in the <code class="docutils literal notranslate"><span class="pre">main()</span></code> functions in the examples.</p>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">ProblemGenerator</span></code>s of <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> and <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> are
+mutually exclusive. Moreover, the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> one requires
+<code class="docutils literal notranslate"><span class="pre">parthenon/mesh/pack_size=-1</span></code> during initialization, i.e., all blocks
+on a rank need to be in a single pack. This allows to use MPI reductions
+inside the function, for example, to globally normalize quantities. The
+<code class="docutils literal notranslate"><span class="pre">parthenon/mesh/pack_size=-1</span></code> exists only during problem
+inititalization, i.e., simulations can be restarted with an arbitrary
+<code class="docutils literal notranslate"><span class="pre">pack_size</span></code>. For an example of the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> version, see the <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp">Poisson
+example</a>.</p>
+</section>
+</section>
+<section id="error-checking">
+<h3>Error checking<a class="headerlink" href="#error-checking" title="Link to this heading"></a></h3>
+<p>Macros for causing execution to throw an exception are provided
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/utils/error_checking.hpp">here</a></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_REQUIRE(condition,</span> <span class="pre">message)</span></code> exits if the condition does not evaluate to true.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_REQUIRE_THROWS(condition,</span> <span class="pre">message)</span></code> throws a <code class="docutils literal notranslate"><span class="pre">std::runtime_error</span></code> exception if the condition does not evaluate to true.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_FAIL(message)</span></code> always exits.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_THROW(message)</span></code> throws a runtime error.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_DEBUG_REQUIRE(condition,</span> <span class="pre">message)</span></code> exits if the condition does not evaluate to true when in debug mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_DEBUG_REQUIRE_THROWS(condition,</span> <span class="pre">message)</span></code> throws if the condition does not evaluate to true when in debug mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_DEBUG_FAIL(message)</span></code> always exits when in debug mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_DEBUG_THROW(message)</span></code> throws a runtime error when in debug mode.</p></li>
+</ul>
+<p>All macros print the message, and filename and line number where the
+macro is called. PARTHENON_REQUIRE also prints the condition. The macros
+take a <code class="docutils literal notranslate"><span class="pre">std::string</span></code>, a <code class="docutils literal notranslate"><span class="pre">std::stringstream</span></code>, or a C-style string. As
+a rule of thumb:</p>
+<ul class="simple">
+<li><p>Use the exception throwing versions in non-GPU,
+non-performance critical code.</p></li>
+<li><p>On GPUs and in performance-critical
+sections, use the non-throwing versions and give them C-style strings.</p></li>
+</ul>
+</section>
+<section id="developer-guide">
+<h3>Developer guide<a class="headerlink" href="#developer-guide" title="Link to this heading"></a></h3>
+<p>Please see the <a class="reference internal" href="development.html#development"><span class="std std-ref">full development guide</span></a> on how to use
+Kokkos-based performance portable abstractions available within
+Parthenon and how to write performance portable code.</p>
+</section>
+<section id="state-management">
+<h3>State Management<a class="headerlink" href="#state-management" title="Link to this heading"></a></h3>
+<p><a class="reference internal" href="interface/state.html#state"><span class="std std-ref">Full Documentation</span></a></p>
+<p>Parthenon provides a convenient means of managing simulation data.
+Variables can be registered with Parthenon to have the framework
+automatically manage the field, including updating ghost cells,
+prolongation, restriction, and I/O.</p>
+</section>
+<section id="application-drivers">
+<h3>Application Drivers<a class="headerlink" href="#application-drivers" title="Link to this heading"></a></h3>
+<p>A description of the Parthenon-provided classes that facilitate
+developing the high-level functionality of an application (e..g. time
+stepping) can be found <a class="reference internal" href="driver.html#driver"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="adaptive-mesh-refinement">
+<h3>Adaptive Mesh Refinement<a class="headerlink" href="#adaptive-mesh-refinement" title="Link to this heading"></a></h3>
+<p>A description of how to enable and extend the AMR capabilities of
+Parthenon is provided <a class="reference internal" href="amr.html#amr"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="tasks">
+<h3>Tasks<a class="headerlink" href="#tasks" title="Link to this heading"></a></h3>
+<p>The tasking capabilities in Parthenon are documented
+<a class="reference internal" href="tasks.html#tasks"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="outputs">
+<h3>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h3>
+<p>Check <a class="reference internal" href="outputs.html#outputs"><span class="std std-ref">here</span></a> for a description of how to get data out of
+Parthenon and how to visualize it.</p>
+</section>
+<section id="meshblockdatas-and-meshblockdata-iterators">
+<h3>MeshBlockDatas and MeshBlockData Iterators<a class="headerlink" href="#meshblockdatas-and-meshblockdata-iterators" title="Link to this heading"></a></h3>
+<p>See <a class="reference internal" href="interface/containers.html#containers"><span class="std std-ref">here</span></a> for a description of containers,
+container iterators, and variable packs.</p>
+</section>
+<section id="index-shape-and-index-range">
+<h3>Index Shape and Index Range<a class="headerlink" href="#index-shape-and-index-range" title="Link to this heading"></a></h3>
+<p>A description of mesh indexing classes <a class="reference internal" href="mesh/domain.html#domain"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="coordinates">
+<h3>Coordinates<a class="headerlink" href="#coordinates" title="Link to this heading"></a></h3>
+<p>Accessing coordinate information on each block is described
+<a class="reference internal" href="coordinates.html#coordinates"><span class="std std-ref">here</span></a>. Currently only uniform Cartesian coordinates
+are supported in Parthenon but uniform Spherical and cylindrical
+coordinates specified at compile time are forthcoming.</p>
+</section>
+<section id="input-file-parameter">
+<h3>Input file parameter<a class="headerlink" href="#input-file-parameter" title="Link to this heading"></a></h3>
+<p>An overview of input file parameters <a class="reference internal" href="inputs.html#inputs"><span class="std std-ref">here</span></a></p>
+<p>Note that all parameters can be overridden (or new parameters added)
+through the command line by appending the parameters to the launch
+command. For example, the <code class="docutils literal notranslate"><span class="pre">refine_tol</span></code> parameter in the
+<code class="docutils literal notranslate"><span class="pre">&lt;parthenon/refinement0&gt;</span></code> block in the input file can be changed by
+appending <code class="docutils literal notranslate"><span class="pre">parthenon/refinement0/refine_tol=my_new_value</span></code> to the
+launch command (e.g.,
+<code class="docutils literal notranslate"><span class="pre">srun</span> <span class="pre">./myapp</span> <span class="pre">-i</span> <span class="pre">my_input.file</span> <span class="pre">parthenon/refinement0/refine_tol=my_new_value</span></code>).
+This similarly applies to simulations that are restarted.</p>
+</section>
+<section id="global-reductions">
+<h3>Global reductions<a class="headerlink" href="#global-reductions" title="Link to this heading"></a></h3>
+<p>Global reductions are a common need for downstream applications and can
+be accomplished within Parthenon’s task-based execution as described
+<a class="reference internal" href="reductions.html#reductions"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="solvers">
+<h3>Solvers<a class="headerlink" href="#solvers" title="Link to this heading"></a></h3>
+<p>Solvers are still a work in progress in Parthenon, but some basic
+building blocks are described <a class="reference internal" href="solvers.html#solvers"><span class="std std-ref">here</span></a>.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../index.html" class="btn btn-neutral float-left" title="Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Framework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="amr.html" class="btn btn-neutral float-right" title="Adaptive Mesh Refinement" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/precomms-fill-derived
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/README.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/README.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/README.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/README.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/README.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/README.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/README.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/README.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/README.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/README.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/README.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/README.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/README.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/README.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/README.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/README.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/README.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/README.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/README.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/README.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/README.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/README.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/README.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/README.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/README.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/README.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/README.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/README.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/README.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/README.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/README.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/README.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/README.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/README.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/README.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/README.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/README.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/README.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/README.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/README.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/README.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/README.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/README.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/README.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/README.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/README.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/README.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/README.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/README.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/README.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/README.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/README.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/README.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/README.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/README.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/README.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/README.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/README.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/README.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/README.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/README.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/README.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/README.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/README.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/README.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/README.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/README.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/README.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/README.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/README.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/README.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/README.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/README.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/README.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/README.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/README.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/README.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/README.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/README.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/README.html">jdolence/trace</a></dd>
+      <dd><a href="../../add-by-uid/src/README.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../custom-coords/src/README.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../deprecate-unified-init/src/README.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../dont-init-mpi-twice/src/README.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../ensure-tags-work-on-device/src/README.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../fix-bool-vector-params/src/README.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../fix-noparticle-case/src/README.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../fix-restart/src/README.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../fix-split-io/src/README.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../flat-sparse/src/README.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../flatpack-test/src/README.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../get-me-off-this-rollercoaster/src/README.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../global-boundaries/src/README.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../global-boundaries-2/src/README.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../hotfix-sparse-control-fields/src/README.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../include-guards/src/README.html">jmm/include-guards</a></dd>
+      <dd><a href="../../indexsplit/src/README.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../make-get-parent-pointer-consistent/src/README.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../metadata-fix/src/README.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../metadataset/src/README.html">jmm/metadataset</a></dd>
+      <dd><a href="../../move-to-impl/src/README.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../move-userwork-before-loop-before-io/src/README.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../param-hash/src/README.html">jmm/param-hash</a></dd>
+      <dd><a href="../../particle-output/src/README.html">jmm/particle-output</a></dd>
+      <dd><a href="README.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../remove-extraneous-check/src/README.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../sparse-pack-exists/src/README.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../sparsepack-wishlist/src/README.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../speed-up-compilation/src/README.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../threads-hack/src/README.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../two-more-pedagogical-examples/src/README.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../use-system-packages/src/README.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../user-work-before-loop/src/README.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../yet-more-io-cleanup/src/README.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/README.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/README.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/README.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/README.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/README.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/README.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/README.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/README.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/README.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/README.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/README.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/README.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/README.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/README.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/README.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/README.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/README.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/README.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/README.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/README.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/README.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/README.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/README.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/README.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/README.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/README.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/README.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/README.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/README.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/README.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/README.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/README.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/README.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/README.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/README.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/README.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/README.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/README.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/README.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/README.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/README.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/README.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/README.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/README.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/README.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/README.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/README.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/README.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/README.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/README.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/README.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/README.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/README.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/README.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/README.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/README.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/README.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/README.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/README.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/README.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/README.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/README.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/README.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/README.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/README.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/README.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/README.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/README.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/README.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/README.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/README.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/README.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/README.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/README.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/README.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/README.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/README.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/README.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

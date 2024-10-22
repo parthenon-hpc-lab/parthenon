@@ -1,0 +1,675 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metadata &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Prolongation and Restriction Operations" href="refinement_operations.html" />
+    <link rel="prev" title="Containers" href="containers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="containers.html">Containers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Metadata</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dependency-management">Dependency Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#variable-topology">Variable Topology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#variable-behaviors">Variable Behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#output">Output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tensor-properties-and-boundaries">Tensor properties and boundaries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#independent-derived">Independent/Derived</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#communication">Communication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ghost-zones-communication-and-fluxes">Ghost Zones, Communication, and Fluxes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requesting-or-excluding-flux-variables-from-searches">Requesting or excluding flux variables from searches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#application-metadata-flags">Application Metadata Flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#flag-collections">Flag Collections</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Metadata</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/src/interface/metadata.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="metadata">
+<span id="id1"></span><h1>Metadata<a class="headerlink" href="#metadata" title="Link to this heading"></a></h1>
+<p>Variables can be tagged with a variety of <code class="docutils literal notranslate"><span class="pre">MetadataFlag</span></code> values. These
+flags primarily allow an application to tell Parthenon to apply certain
+behaviors to each field.</p>
+<section id="dependency-management">
+<h2>Dependency Management<a class="headerlink" href="#dependency-management" title="Link to this heading"></a></h2>
+<p>Several packages may add variables of the same name. These metadata
+flags tell <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> how to resolve conflicts.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Private</span></code>: private metadata means a variable is package specific.
+The package name is prepended to the variable name, like a namespace.
+Two different variables can have the same name if they live in
+different packages.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Provides</span></code>: variables with this metadata are shared, and demand
+they be the only ones to provide a variable. The metadata of these
+variables takes priority. If two packages provide the same variable
+with the Provides metadata, an error is raised at runtime. Provides
+is on by default unless overriden by another flag.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Requires</span></code>: variables with this metadata flag are not added by a
+package. The package simply declares it expects the variable to exist
+and if it doesn’t, an error is raised.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Overridable</span></code>: Variables with this metadata flag are provided by
+the package that registers them unless another package provides said
+variable (with the Provides flag), in which case, that other package
+determines what happens to that variable. If two packages request an
+Overridable variable, but it is not provided, it’s undefined
+behaviour and Parthenon warns as such.</p></li>
+</ul>
+</section>
+<section id="variable-topology">
+<h2>Variable Topology<a class="headerlink" href="#variable-topology" title="Link to this heading"></a></h2>
+<p>Topology essentially specifies on which place on the finite volume grid
+the variable is defined. These fields specify what index space the
+variable is allocated over. E.g. <code class="docutils literal notranslate"><span class="pre">Metadata::Cell</span></code> specifies that the
+variable is allocated over the cell index space in each block.</p>
+<p>The following fields specify the topology of the variable, and are
+mutually exclusive:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::None</span></code>: no topology specified. The variable could be
+anywhere, or location is not a meaningful concept for this variable.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Cell</span></code>: The variable is defined on cell centers. The
+variable is likely volume-averaged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Face</span></code>: The variable is defined on cell faces. The
+variable is likely area-averaged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Edge</span></code>: The variable is defined on cell edges. The
+variable is likely length-averaged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Node</span></code>: The variable is defined at nodes, i.e.,
+cell-corners. The variable might be volume-averaged, or defined
+pointwise.</p></li>
+</ul>
+</section>
+<section id="variable-behaviors">
+<h2>Variable Behaviors<a class="headerlink" href="#variable-behaviors" title="Link to this heading"></a></h2>
+<p>These flags can be used to tell an application code how to treat a
+variable in relation to the problem.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Advected</span></code> implies a variable is advected with the flow
+of another variable, e.g., a velocity.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Conserved</span></code> implies a variable obeys a conservation law.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Intensive</span></code> implies that the value of a variable does not
+scale with volume.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Sparse</span></code> implies that the variable is sparse and hence it
+may not be allocated on all blocks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::ForceAllocOnNewBlocks</span></code> forces allocation of a sparse variable
+on any new <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> that may be created through AMR or load
+balancing.</p></li>
+</ul>
+</section>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Link to this heading"></a></h2>
+<p>These flags specify how a variable interacts with I/O. Enable them to
+enable output properties.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Restart</span></code> implies a variable is required in restart files</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">Metadata::CoordinatesVec</span></code> implies a variable should be used to</dt><dd><p>describe coordinate positions of nodes. Must be a node-centered
+variable with 3 components.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="tensor-properties-and-boundaries">
+<h2>Tensor properties and boundaries<a class="headerlink" href="#tensor-properties-and-boundaries" title="Link to this heading"></a></h2>
+<p>For multidimensional variables, these flags specify how to treat the
+individual components at boundaries. For concreteness, we will discuss
+reflecting boundaries. But this may apply more broadly. A variable with
+no flag set is assumed to be a <em>Scalar</em>. Scalars obey <a class="reference external" href="https://en.wikipedia.org/wiki/Dirichlet_boundary_condition">Dirichlet
+boundary
+conditions</a>
+at reflecting boundaries and are set to a constant value. The following
+flags are mutually exclusive.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Vector</span></code> implies the variable transforms as a <em>vector</em> at
+reflecting boundaries. And so i-th component is flipped for a
+boundary in the i-th direction.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Tensor</span></code> is the generalization of the vector boundary
+condition, but for tensor quantities.</p></li>
+</ul>
+</section>
+<section id="independent-derived">
+<h2>Independent/Derived<a class="headerlink" href="#independent-derived" title="Link to this heading"></a></h2>
+<p>These flags specify to an application code, and the infrastructure,
+whether or not a variable is part of independent state. Derived
+quantities can be calculated from the set of independent quantities,
+while independent quantities cannot. The following flags are mutually
+exclusive and required. All variables should be either independent or
+derived.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Independent</span></code> implies the variable is part of independent
+state. In particular, implies data is in restart files and is
+prolongated/restricted during remeshing. Buffers for a coarse grid
+are allocated for independent variables.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Derived</span></code> implies the variable can be calculated, given
+the independent state. This is the default.</p></li>
+</ul>
+</section>
+<section id="communication">
+<h2>Communication<a class="headerlink" href="#communication" title="Link to this heading"></a></h2>
+<p>These flags specify both how ghost zones are treated, and whether
+variables are copied or not in multiple stages.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::OneCopy</span></code> are shared between stages. They are only ever
+allocated once.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::FillGhost</span></code> specifies that ghost zones for this variable
+must be filled via communication or boundary conditions. This is not
+always required. <code class="docutils literal notranslate"><span class="pre">OneCopy</span></code> variables, for example, may not need
+this.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Metadata::Flux</span></code> specifies that elements shared with neighbor blocks
+at coarse-fine boundaries are communicated  and corrected during flux
+correction.</p></li>
+</ul>
+</section>
+<section id="ghost-zones-communication-and-fluxes">
+<h2>Ghost Zones, Communication, and Fluxes<a class="headerlink" href="#ghost-zones-communication-and-fluxes" title="Link to this heading"></a></h2>
+<p>Depending on a combination of flags, extra communication buffers and
+classes may be allocated. The behaviours are the following:</p>
+<ul class="simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">Metadata::FillGhosts</span></code> is set, boundary conditions data is set,
+MPI communication buffers are allocated, and buffers for a coarse
+grid are allocated. These buffers are <em>one-copy</em>, meaning they are
+shared between all instances of a variable in all <code class="docutils literal notranslate"><span class="pre">Containers</span></code> in a
+<code class="docutils literal notranslate"><span class="pre">DataCollection</span></code>.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">Metadata::WithFluxes</span></code> is set, a new one-copy variable with the</p></li>
+</ul>
+<blockquote>
+<div><p>correct topological type for a flux in the generalized Stokes theorem
+sense (e.g. if the <code class="docutils literal notranslate"><span class="pre">WithFluxes</span></code> variable has <code class="docutils literal notranslate"><span class="pre">Metadata::Cell</span></code>
+set the new variable will have <code class="docutils literal notranslate"><span class="pre">Metadata::Face</span></code>) will be created in
+the package with the name <code class="docutils literal notranslate"><span class="pre">bnd_flux::name_of_original_variable</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Metadata::Flux</span></code> and <code class="docutils literal notranslate"><span class="pre">Metadata::OneCopy</span></code>. When creating packs that
+include fluxes, the new flux field will be included in the flux portion
+of the pack if the parent field is in the pack.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">Metadata::Flux</span></code> is set, this field is exchanged on shared elements
+across fine-coarse boundaries when the flux correction tasks are called.
+<em>If ``Metadata::Flux`` and ``Metadata::Face`` are both set, the underlying
+array that stores the field will be one smaller than a regular face field
+in its x1, x2, and x3 dimensions so that it has the same shape in the
+final three dimensions as a cell centered field. This is to align the memory
+of cell variables and their fluxes, both for performance reasons and to
+ensure backward compatibilty for downstream codes.</em></p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">Metadata::ForceRemeshComm</span></code> is set, the variable is communicated
+between ranks during remeshing. Variables with
+<code class="docutils literal notranslate"><span class="pre">Metadata::Independent</span></code> and/or <code class="docutils literal notranslate"><span class="pre">Metadata::FillGhost</span></code> are also
+automatically communicated when a block is communicated from one
+process to another. Other variables <strong>are not</strong> communicated across
+ranks, since the Parthenon model assumes that all fields are either
+<code class="docutils literal notranslate"><span class="pre">Independent</span></code> or <code class="docutils literal notranslate"><span class="pre">Derived</span></code> and that the <code class="docutils literal notranslate"><span class="pre">Derived</span></code> fields can be
+reconstructed from only the <code class="docutils literal notranslate"><span class="pre">Independent</span></code> fields by calling
+<code class="docutils literal notranslate"><span class="pre">FillDerived</span></code>. Nevertheless, it is sometimes useful to pass certain
+<code class="docutils literal notranslate"><span class="pre">Derived</span></code> fields between ranks during remeshing rather than rebuild
+them (e.g. the initial guesses for a root find that may converge
+slowly or not at all without a good initial guess). <em>This flag should
+be used with caution, since it has the possibility the possibility to
+mask errors in the ``FillDerived`` implementation in downstream
+codes.</em></p></li>
+</ul>
+</section>
+<section id="requesting-or-excluding-flux-variables-from-searches">
+<h2>Requesting or excluding flux variables from searches<a class="headerlink" href="#requesting-or-excluding-flux-variables-from-searches" title="Link to this heading"></a></h2>
+<p>As discussed above, fluxes are themselves <code class="docutils literal notranslate"><span class="pre">Metadata::OneCopy</span></code>
+variables. A flux variable will have <code class="docutils literal notranslate"><span class="pre">Metadata::Flux</span></code> flag
+set. Several functions allow one to request variables by various
+properties such as name, unique ID, or metadata flag. These functions
+often take an optional enum argument <code class="docutils literal notranslate"><span class="pre">FluxRequest</span></code>. This variable
+can take on the values <code class="docutils literal notranslate"><span class="pre">FluxRequest::Any</span></code>, <code class="docutils literal notranslate"><span class="pre">FluxRequest::NoFlux</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">FluxRequest::OnlyFlux</span></code>. The default is
+<code class="docutils literal notranslate"><span class="pre">FluxRequest::NoFlux</span></code>. Specifying <code class="docutils literal notranslate"><span class="pre">FluxRequest::NoFlux</span></code> enforces
+that no variables returned by the search will be flux
+variables. Specifying <code class="docutils literal notranslate"><span class="pre">FluxRequest::OnlyFlux</span></code> specifically pulls out
+the flux variable <strong>associated</strong> with the variable
+requested. <code class="docutils literal notranslate"><span class="pre">FluxRequest::Any</span></code> does not modify search parameters. You
+will get flux or non-flux variables, and variable associations will be
+ignored.</p>
+</section>
+<section id="application-metadata-flags">
+<h2>Application Metadata Flags<a class="headerlink" href="#application-metadata-flags" title="Link to this heading"></a></h2>
+<p>Applications can allocate their own flags by calling
+<code class="docutils literal notranslate"><span class="pre">Metadata::AllocateNewFlag(&quot;FlagName&quot;)</span></code>. For example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">Metadata</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">MetadataFlag</span><span class="p">;</span>
+
+<span class="n">MetadataFlag</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">my_app_flag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">AllocateNewFlag</span><span class="p">(</span><span class="s">&quot;MyAppFlag&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>These can be used in all the same contexts that the built-in metadata
+flags are used. Parthenon will not interpret them in any way - it’s up
+to the application to interpret them.</p>
+<p>A user-registered metadata flag can be retrieved from the
+infrastructure by, for example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">MetadataFlag</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">my_app_flag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">GetUserFlag</span><span class="p">(</span><span class="s">&quot;MyAppFlag&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Note that this call will return an error if a flag is requested that
+hasn’t been registered.</p>
+</section>
+<section id="flag-collections">
+<h2>Flag Collections<a class="headerlink" href="#flag-collections" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">Metadata::FlagCollection</span></code> class provides a way to express a desire for
+a collection of <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> fields that satisfy some combinations of
+<code class="docutils literal notranslate"><span class="pre">MetadataFlag</span></code>s. In particular, a <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code> specifies for a
+desire for fields with:</p>
+<ul class="simple">
+<li><p>At least <strong>one</strong> of the flags in the <code class="docutils literal notranslate"><span class="pre">Unions</span></code> property of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code></p></li>
+<li><p><strong>All</strong> of the flags in the <code class="docutils literal notranslate"><span class="pre">Intersections</span></code> property of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code></p></li>
+<li><p><strong>None</strong> of the flags in the <code class="docutils literal notranslate"><span class="pre">Exclusions</span></code> property of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code></p></li>
+</ul>
+<p>Flag collections can be constructed from a C++
+standard library container of <code class="docutils literal notranslate"><span class="pre">MetadataFlag</span></code> objects, or simply a
+comma separated list of them. For example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">Metadata</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">MetadataFlag</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">FS_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">FlagCollection</span>
+<span class="c1">// Constructor from a container</span>
+<span class="n">FS_t</span><span class="w"> </span><span class="n">set1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="p">{</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Face</span><span class="p">});</span>
+<span class="c1">// Constructor from a comma separated list</span>
+<span class="n">FS_t</span><span class="w"> </span><span class="nf">set2</span><span class="p">(</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Requires</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Overridable</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>By default constructor arguments go into the <code class="docutils literal notranslate"><span class="pre">Intersections</span></code> property
+of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code>. However, if a container is passed into the
+constructor, you can also pass in an optional boolean flag to specify
+whether or not you want to match <strong>any</strong> flags instead of <strong>all</strong>
+flag. This adds the constructor arguments to the <code class="docutils literal notranslate"><span class="pre">Unions</span></code>
+property of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code>.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Implicit construction from a container, which</span>
+<span class="c1">// requests EITHER the following flags instead of BOTH</span>
+<span class="n">FS_t</span><span class="w"> </span><span class="nf">set2</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Independent</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">FillGhost</span><span class="p">},</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The flags contained in the <code class="docutils literal notranslate"><span class="pre">Unions</span></code>, <code class="docutils literal notranslate"><span class="pre">Intersections</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">Exclusions</span></code> properties of the <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code> can be extracted via
+equivalently named accessors, which return a <code class="docutils literal notranslate"><span class="pre">std::set</span></code>. For
+example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">set</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">u</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">set1</span><span class="p">.</span><span class="n">Unions</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">set</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">set1</span><span class="p">.</span><span class="n">Intersections</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">set</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">e</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">set1</span><span class="p">.</span><span class="n">Exclusions</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>For the most part, you should not need these accessors. They are used
+by Parthenon internal functions, such as variable and meshblock
+packing, to compute the correct variables to pack.</p>
+<p>You can add flags to these property fields with the <code class="docutils literal notranslate"><span class="pre">TakeUnion</span></code>,
+<code class="docutils literal notranslate"><span class="pre">TakeIntersection</span></code>, and <code class="docutils literal notranslate"><span class="pre">Exclude</span></code> methods. These methods take
+either a standard library container of metadata flags, or another
+<code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code> instance. For example, you could write:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">FS_t</span><span class="w"> </span><span class="n">my_set</span><span class="p">;</span>
+<span class="n">my_set</span><span class="p">.</span><span class="n">TakeUnion</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="p">{</span><span class="n">Flag1</span><span class="p">,</span><span class="w"> </span><span class="n">Flag2</span><span class="p">});</span>
+<span class="n">my_set</span><span class="p">.</span><span class="n">TakeIntersection</span><span class="p">(</span><span class="n">Flag3</span><span class="p">,</span><span class="w"> </span><span class="n">Flag4</span><span class="p">);</span>
+<span class="n">my_set</span><span class="p">.</span><span class="n">Exclude</span><span class="p">(</span><span class="n">Flag5</span><span class="p">,</span><span class="w"> </span><span class="n">Flag6</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>which expresses a desire for particles/fields with EITHER Flag1 or
+Flag2 AND Flag3 AND Flag4 and NOT Flag5 or Flag6. Note that these
+methods accept standard library containers as well as simple
+comma-separated lists.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">FlagCollection</span></code> class supports algebraic operations, although they are
+not entirely consistent with standard arithmetic order of
+operations. In particular:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// this could also be auto s = set1 || set2;</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">set1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">set2</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>produces a set s with the a unions field which is the set union of the
+union fields of set1 and set2. However,</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// this could also be s = set1 &amp;&amp; set2;</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">set1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">set2</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Produces a set s with a “unions” field of set1 and an intersections
+field containing the original intersections of set1, and the
+intersections of set2.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Set1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Set2</span>
+</pre></div>
+</div>
+<p>Produces a set s with the “unions” and “intersections” fields of set1
+and an exclusion field containing set1’s exlcusion field as well as
+ALL THREE fields (union, intersection, exclusion) contained by set2.</p>
+<p>This feels unintuitive, but it makes expressions like</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FS_t</span><span class="p">({</span><span class="n">Flag1</span><span class="p">,</span><span class="w"> </span><span class="n">Flag2</span><span class="p">},</span><span class="nb">true</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">FS_t</span><span class="p">({</span><span class="n">Flag3</span><span class="p">,</span><span class="w"> </span><span class="n">Flag4</span><span class="p">})</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">FS_t</span><span class="p">({</span><span class="n">Flag5</span><span class="p">,</span><span class="w"> </span><span class="n">Flag6</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>behave in an intuitive way. This translates to a desire for
+particles/fields with EITHER Flag1 or Flag2 AND Flag3 AND Flag4 and
+NOT Flag5 or Flag6.</p>
+<p>When in doubt about arithmetic with FlagCollections, aggressively use
+parenthesis to enforce the order of operations you expect.</p>
+<p>Note that the unary inverse operator is <strong>not</strong> supported.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="containers.html" class="btn btn-neutral float-left" title="Containers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="refinement_operations.html" class="btn btn-neutral float-right" title="Prolongation and Restriction Operations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/include-guards
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../../regression-gold-v16/src/interface/metadata.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../../regression-gold-v17/src/interface/metadata.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../../regression-gold-v18/src/interface/metadata.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../../regression-gold-v19/src/interface/metadata.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../../regression-gold-v20/src/interface/metadata.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../../regression-gold-v21/src/interface/metadata.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../../regression-gold-v22/src/interface/metadata.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../../regression-gold-v23/src/interface/metadata.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../../regression-gold-v24/src/interface/metadata.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../../regression-gold-v25/src/interface/metadata.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../../v0.8.0/src/interface/metadata.html">v0.8.0</a></dd>
+      <dd><a href="../../../../v23.11/src/interface/metadata.html">v23.11</a></dd>
+      <dd><a href="../../../../v24.03/src/interface/metadata.html">v24.03</a></dd>
+      <dd><a href="../../../../v24.08/src/interface/metadata.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../../952-sparse_advection-format-string-incorrect/src/interface/metadata.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../../BenWibking/move-params/src/interface/metadata.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../../BenWibking/ubsan-clean-nan/src/interface/metadata.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../../BenWibking/update-cuda-ci-container/src/interface/metadata.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../../ats5/src/interface/metadata.html">ats5</a></dd>
+      <dd><a href="../../../../ats5-cali/src/interface/metadata.html">ats5-cali</a></dd>
+      <dd><a href="../../../../ats5-debug/src/interface/metadata.html">ats5-debug</a></dd>
+      <dd><a href="../../../../bdw/gauss-quad/src/interface/metadata.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../../bprather/backport-bicgstab/src/interface/metadata.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../../bprather/backport-solvers/src/interface/metadata.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../../bprather/driver-overridable/src/interface/metadata.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../../bprather/fix-amr-ct/src/interface/metadata.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../../bprather/fix-line-continuation/src/interface/metadata.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../../bprather/fix-mpi-comms/src/interface/metadata.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../../bprather/fix-mpi-comms-again/src/interface/metadata.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../../bprather/fix-output-4GB-per-rank/src/interface/metadata.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../../bprather/flat-set-bounds/src/interface/metadata.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../../bprather/mbd_add_niceties/src/interface/metadata.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../../bprather/package-pack-dim/src/interface/metadata.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../../bprather/par-reduce-inner/src/interface/metadata.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../../bprather/pep1/src/interface/metadata.html">bprather/pep1</a></dd>
+      <dd><a href="../../../../bprather/print-less/src/interface/metadata.html">bprather/print-less</a></dd>
+      <dd><a href="../../../../bprather/register-internal-op/src/interface/metadata.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../../bprather/reqs-for-ct/src/interface/metadata.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../../bprather/te-restart-fix/src/interface/metadata.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../../brryan/fix_neighbor_idx/src/interface/metadata.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../../brryan/fix_particle_array/src/interface/metadata.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../../brryan/fix_swarm_mpi_reqs/src/interface/metadata.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../../brryan/flux_refinement_ops/src/interface/metadata.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../../brryan/h5py_str_fix/src/interface/metadata.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../../brryan/history++/src/interface/metadata.html">brryan/history++</a></dd>
+      <dd><a href="../../../../brryan/is_restart_soft_equiv/src/interface/metadata.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../../brryan/mesh_swarm_bc_funcs/src/interface/metadata.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../../brryan/more_swarm_prefix_sums/src/interface/metadata.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../../brryan/no_swarm_dynamic_alloc/src/interface/metadata.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../../brryan/pack_neighbors/src/interface/metadata.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../../brryan/param_whitespace_sanitize/src/interface/metadata.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../../brryan/particle_bcs_nordc/src/interface/metadata.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../../brryan/particle_idx_bug/src/interface/metadata.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../../brryan/particle_io_defrag/src/interface/metadata.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../../brryan/swarm_comms_prefix/src/interface/metadata.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../../brryan/swarm_mpi_tags/src/interface/metadata.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../../brryan/swarm_new_bc_comms/src/interface/metadata.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../../brryan/swarm_tag_map_2/src/interface/metadata.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../../brryan/swarms_smr/src/interface/metadata.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../../brryan/userworkrestartoutput/src/interface/metadata.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../../bumo-kokkos-42/src/interface/metadata.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../../dempsey/bnd_coords/src/interface/metadata.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../../dempsey/dt/src/interface/metadata.html">dempsey/dt</a></dd>
+      <dd><a href="../../../../dempsey/task_demangle/src/interface/metadata.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../../dempsey/timeout/src/interface/metadata.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../../develop/src/interface/metadata.html">develop</a></dd>
+      <dd><a href="../../../../forrestglines/4D-outer-parallel-loop/src/interface/metadata.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../../forrestglines/cuda-with-nvc++-fix/src/interface/metadata.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../../forrestglines/curvilinear/src/interface/metadata.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../../forrestglines/fix-deprecated-kokkos-num-devices/src/interface/metadata.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../../jdolence/curvilinear/src/interface/metadata.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../../jdolence/force_inline_inner/src/interface/metadata.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../../jdolence/instrument/src/interface/metadata.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../../jdolence/meshblockdata_add/src/interface/metadata.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../../jdolence/move_string_creation/src/interface/metadata.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../../jdolence/new_tasking/src/interface/metadata.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../../jdolence/quickfixes/src/interface/metadata.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../../jdolence/thread_safe/src/interface/metadata.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../../jdolence/timer_based_loadbalancing/src/interface/metadata.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../../jdolence/trace/src/interface/metadata.html">jdolence/trace</a></dd>
+      <dd><a href="../../../add-by-uid/src/interface/metadata.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../custom-coords/src/interface/metadata.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../deprecate-unified-init/src/interface/metadata.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../dont-init-mpi-twice/src/interface/metadata.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../ensure-tags-work-on-device/src/interface/metadata.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../fix-bool-vector-params/src/interface/metadata.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../fix-noparticle-case/src/interface/metadata.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../fix-restart/src/interface/metadata.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../fix-split-io/src/interface/metadata.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../flat-sparse/src/interface/metadata.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../flatpack-test/src/interface/metadata.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../get-me-off-this-rollercoaster/src/interface/metadata.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../global-boundaries/src/interface/metadata.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../global-boundaries-2/src/interface/metadata.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../hotfix-sparse-control-fields/src/interface/metadata.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="metadata.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../indexsplit/src/interface/metadata.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../make-get-parent-pointer-consistent/src/interface/metadata.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../metadata-fix/src/interface/metadata.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../metadataset/src/interface/metadata.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../move-to-impl/src/interface/metadata.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../move-userwork-before-loop-before-io/src/interface/metadata.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../param-hash/src/interface/metadata.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../particle-output/src/interface/metadata.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../precomms-fill-derived/src/interface/metadata.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../remove-extraneous-check/src/interface/metadata.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../sparse-pack-exists/src/interface/metadata.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../sparsepack-wishlist/src/interface/metadata.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../speed-up-compilation/src/interface/metadata.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../threads-hack/src/interface/metadata.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../two-more-pedagogical-examples/src/interface/metadata.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../use-system-packages/src/interface/metadata.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../user-work-before-loop/src/interface/metadata.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../yet-more-io-cleanup/src/interface/metadata.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../../lfroberts36/speedup-buffer-kernel/src/interface/metadata.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../../lfroberts36/update-solver-convergence-criteria/src/interface/metadata.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../../lroberts36/add-cg-solver/src/interface/metadata.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../../lroberts36/add-combined-buffer-communication/src/interface/metadata.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../../lroberts36/add-fine-field-deallocation/src/interface/metadata.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../../lroberts36/add-fine-variables/src/interface/metadata.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-block-orientation/src/interface/metadata.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-mesh-example/src/interface/metadata.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-of-octrees/src/interface/metadata.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-orientation-2/src/interface/metadata.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../../lroberts36/add-index-range-masking/src/interface/metadata.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../../lroberts36/add-more-careful-container-checking/src/interface/metadata.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../../lroberts36/add-morton-numbers/src/interface/metadata.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../../lroberts36/add-multi-grid/src/interface/metadata.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../../lroberts36/add-negative-levels/src/interface/metadata.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../../lroberts36/add-non-one-copy-fluxes/src/interface/metadata.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../../lroberts36/add-noncell-amr/src/interface/metadata.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../../lroberts36/add-small-riot/src/interface/metadata.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../../lroberts36/add-sparse-vector-wave-test/src/interface/metadata.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../../lroberts36/add-task-graph/src/interface/metadata.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../../lroberts36/add-vector-wave-test/src/interface/metadata.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../../lroberts36/boundary-comms-perforfmance-upgrades/src/interface/metadata.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../../lroberts36/bugfix-sparse-cache/src/interface/metadata.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../../lroberts36/bugfix-symmetrized-coordinates/src/interface/metadata.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../../lroberts36/cleanup-offsets/src/interface/metadata.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../../lroberts36/composable-boundary-conditions/src/interface/metadata.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../../lroberts36/face-boundary-communication/src/interface/metadata.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../../lroberts36/fix-bitshift-of-negative/src/interface/metadata.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../../lroberts36/fix-dealloc-count-bug/src/interface/metadata.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../../lroberts36/fix-divide-by-zero/src/interface/metadata.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../../lroberts36/fix-forest-multigrid/src/interface/metadata.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../../lroberts36/fix-iterative-task-qualifiers/src/interface/metadata.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../../lroberts36/fix-multigrid-mpi/src/interface/metadata.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../../lroberts36/fix-noncc-amr/src/interface/metadata.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../../lroberts36/fix-one-block-minimum-per-rank/src/interface/metadata.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../../lroberts36/fix-restart-state-bug/src/interface/metadata.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../../lroberts36/fix-root-level/src/interface/metadata.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../../lroberts36/fix-solver-relative-residual/src/interface/metadata.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../../lroberts36/fix-sptr-cycle-tree/src/interface/metadata.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../../lroberts36/fix-sptr-cycle-tree-2/src/interface/metadata.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../../lroberts36/fix-static-refinement/src/interface/metadata.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../../lroberts36/generalize-par-dispatch/src/interface/metadata.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../../lroberts36/in-one-zero-memory-amr/src/interface/metadata.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../../lroberts36/local-face-fields/src/interface/metadata.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../../lroberts36/mg-riot-updates/src/interface/metadata.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../../lroberts36/multigrid-example-update/src/interface/metadata.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../../lroberts36/performance-updates/src/interface/metadata.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-mesh-constructors/src/interface/metadata.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-meshblockdata-initialization/src/interface/metadata.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-partitioning/src/interface/metadata.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-region-size/src/interface/metadata.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-solver-input/src/interface/metadata.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../../lroberts36/rename-cell-variable/src/interface/metadata.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../../lroberts36/reorganize/src/interface/metadata.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../../lroberts36/sparse-pack-update/src/interface/metadata.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../../lroberts36/speedup-buffer-kernel-split/src/interface/metadata.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../../morarumaxim/neigh_collectives/src/interface/metadata.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../../neighborhood_ats5/src/interface/metadata.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../../pgrete-patch-1/src/interface/metadata.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../../pgrete-patch-bound_type/src/interface/metadata.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../../pgrete/adios2/src/interface/metadata.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../../pgrete/always-chunck/src/interface/metadata.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../../pgrete/ci-hamilton/src/interface/metadata.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../../pgrete/fix-ascent-vars/src/interface/metadata.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../../pgrete/fix-chunk/src/interface/metadata.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../../pgrete/fix-hasghost-restart/src/interface/metadata.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../../pgrete/histgram-analysis-pre-MG/src/interface/metadata.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../../pgrete/histgram-analysis-pre-MG-winput/src/interface/metadata.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../../pgrete/histogram-outputs/src/interface/metadata.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../../pgrete/interpolation/src/interface/metadata.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../../pgrete/non-atomic-scatter/src/interface/metadata.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../../pgrete/pgrete/pmd-output-wuser/src/interface/metadata.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../../pgrete/pmd-output/src/interface/metadata.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../../pgrete/refactor-restart/src/interface/metadata.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../../pgrete/sycl-test/src/interface/metadata.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../../pgrete/update-pool-alloc/src/interface/metadata.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../../pgrete/user-output/src/interface/metadata.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../../pgrete/user-output-w-pmd/src/interface/metadata.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

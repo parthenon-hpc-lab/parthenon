@@ -1,0 +1,514 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tasks &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How to add tests to Parthenon" href="tests.html" />
+    <link rel="prev" title="How to Use Sphinx for Writing Docs" href="sphinx-doc.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tasks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#task">Task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tasklist">TaskList</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#taskregion">TaskRegion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#taskcollection">TaskCollection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#taskqualifier">TaskQualifier</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Tasks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/tasks.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tasks">
+<span id="id1"></span><h1>Tasks<a class="headerlink" href="#tasks" title="Link to this heading"></a></h1>
+<p>Parthenon’s tasking infrastructure is how downstream applications describe
+and execute their work.  Tasks are organized into a hierarchy of objects.
+<a href="#id2"><span class="problematic" id="id3">``</span></a>TaskCollection``s have one or more <a href="#id4"><span class="problematic" id="id5">``</span></a>TaskRegion``s, <a href="#id6"><span class="problematic" id="id7">``</span></a>TaskRegion``s have
+one or more <a href="#id8"><span class="problematic" id="id9">``</span></a>TaskList``s, and <a href="#id10"><span class="problematic" id="id11">``</span></a>TaskList``s can have one or more sublists
+(that are themselves <a href="#id12"><span class="problematic" id="id13">``</span></a>TaskList``s).</p>
+<section id="task">
+<h2>Task<a class="headerlink" href="#task" title="Link to this heading"></a></h2>
+<p>Though downstream codes never have to interact with the <code class="docutils literal notranslate"><span class="pre">Task</span></code> object directly,
+it’s useful to describe nonetheless.  A <code class="docutils literal notranslate"><span class="pre">Task</span></code> object is essentially a functor
+that stores the necessary data to invoke a downstream code’s functions with
+the desired arguments.  Importantly, however, it also stores information that
+relates itself to other tasks, namely the tasks that must be complete before
+it should execute and the tasks that may be available to run after it completes.
+In other words, <a href="#id14"><span class="problematic" id="id15">``</span></a>Task``s are nodes in a directed (possibly cyclic) graph, and
+include the edges that connect to it and emerge from it.</p>
+</section>
+<section id="tasklist">
+<h2>TaskList<a class="headerlink" href="#tasklist" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">TaskList</span></code> class stores a vector of all the tasks and sublists (a nested
+<code class="docutils literal notranslate"><span class="pre">TaskList</span></code>) added to it.  Additionally, it stores various bookkeeping
+information that facilitate more advanced features described below.  Adding
+tasks and sublists are the only way to interact with <code class="docutils literal notranslate"><span class="pre">TaskList</span></code> objects.</p>
+<p>The basic call to <code class="docutils literal notranslate"><span class="pre">AddTask</span></code> takes the task’s dependencies, the function to be
+executed, and the arguments to the function as its arguments.  <code class="docutils literal notranslate"><span class="pre">AddTask</span></code> returns
+a <code class="docutils literal notranslate"><span class="pre">TaskID</span></code> object that can be used in subsequent calls to <code class="docutils literal notranslate"><span class="pre">AddTask</span></code> as a
+dependency either on its own or combined with other <code class="docutils literal notranslate"><span class="pre">TaskID``s</span> <span class="pre">via</span> <span class="pre">the</span> <span class="pre">``|</span></code>
+operator.  Use of the <code class="docutils literal notranslate"><span class="pre">|</span></code> operator is historical and perhaps a bit misleading as
+it really acts as a logical and – that is, all tasks combined with <code class="docutils literal notranslate"><span class="pre">|</span></code> must be
+complete before the dependencies are satisfied.  An overload of <code class="docutils literal notranslate"><span class="pre">AddTask</span></code> takes
+a <code class="docutils literal notranslate"><span class="pre">TaskQualifier</span></code> object as the first argument which specifies certain special,
+non-default behaviors.  These will be described below.  Note that the default
+constructor of <code class="docutils literal notranslate"><span class="pre">TaskID</span></code> produces a special object that when passed into
+<code class="docutils literal notranslate"><span class="pre">AddTask</span></code> signifies that the task has no dependencies.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">AddSublist</span></code> function adds a nested <code class="docutils literal notranslate"><span class="pre">TaskList</span></code> to the <code class="docutils literal notranslate"><span class="pre">TaskList</span></code> on
+which its called.  The principle use case for this is to add iterative cycles
+to the graph, allowing one to execute a series of tasks repeatedly until some
+criteria are satisfied.  The call takes as arguments the dependencies (via
+<code class="docutils literal notranslate"><span class="pre">TaskID``s</span> <span class="pre">combined</span> <span class="pre">with</span> <span class="pre">``|</span></code>) that must be complete before the sublist
+exectues and a <code class="docutils literal notranslate"><span class="pre">std::pair&lt;int,</span> <span class="pre">int&gt;</span></code> specifying the minimum
+and maximum number of times the sublist should execute.  Passing something like
+<code class="docutils literal notranslate"><span class="pre">{min_iters,</span> <span class="pre">max_iters}</span></code> as the second argument should suffice, with <cite>{1, 1}</cite>
+leading to a sublist that never cycles.  <code class="docutils literal notranslate"><span class="pre">AddSublist</span></code>
+returns a <code class="docutils literal notranslate"><span class="pre">std::pair&lt;TaskList&amp;,</span> <span class="pre">TaskID&gt;</span></code> which is conveniently accessed via
+a structured binding, e.g.
+.. code:: cpp</p>
+<blockquote>
+<div><p>TaskID none;
+auto [child_list, child_list_id] = parent_list.AddSublist(dependencies, {1,3});
+auto task_id = child_list.AddTask(none, SomeFunction, arg1, arg2);</p>
+</div></blockquote>
+<p>In the above example, passing <code class="docutils literal notranslate"><span class="pre">none</span></code> as the dependency for the task added to
+<code class="docutils literal notranslate"><span class="pre">child_list</span></code> does not imply that this task can execute at any time since
+<code class="docutils literal notranslate"><span class="pre">child_list</span></code> itself has dependencies that must be satisfied before any of its
+tasks can be invoked.</p>
+</section>
+<section id="taskregion">
+<h2>TaskRegion<a class="headerlink" href="#taskregion" title="Link to this heading"></a></h2>
+<p>Under the hood, a <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code> is a directed, possibly cyclic graph.  The graph
+is built up incrementally as tasks are added to the <code class="docutils literal notranslate"><span class="pre">TaskList``s</span> <span class="pre">within</span> <span class="pre">the</span>
+<span class="pre">``TaskRegion</span></code>, and it’s construction is completed upon the first time it’s
+executed.  <code class="docutils literal notranslate"><span class="pre">TaskRegion``s</span> <span class="pre">can</span> <span class="pre">have</span> <span class="pre">one</span> <span class="pre">or</span> <span class="pre">more</span> <span class="pre">``TaskList``s.</span>&#160; <span class="pre">The</span> <span class="pre">primary</span> <span class="pre">reason</span>
+<span class="pre">for</span> <span class="pre">this</span> <span class="pre">is</span> <span class="pre">to</span> <span class="pre">allow</span> <span class="pre">flexibility</span> <span class="pre">in</span> <span class="pre">how</span> <span class="pre">work</span> <span class="pre">is</span> <span class="pre">broken</span> <span class="pre">up</span> <span class="pre">into</span> <span class="pre">tasks</span> <span class="pre">(and</span>
+<span class="pre">eventually</span> <span class="pre">kernels).</span>&#160; <span class="pre">A</span> <span class="pre">region</span> <span class="pre">with</span> <span class="pre">many</span> <span class="pre">lists</span> <span class="pre">will</span> <span class="pre">produce</span> <span class="pre">many</span> <span class="pre">small</span>
+<span class="pre">tasks/kernels,</span> <span class="pre">but</span> <span class="pre">may</span> <span class="pre">expose</span> <span class="pre">more</span> <span class="pre">asynchrony</span> <span class="pre">(e.g.</span> <span class="pre">MPI</span> <span class="pre">communication).</span>&#160; <span class="pre">A</span> <span class="pre">region</span>
+<span class="pre">with</span> <span class="pre">fewer</span> <span class="pre">lists</span> <span class="pre">will</span> <span class="pre">produce</span> <span class="pre">more</span> <span class="pre">work</span> <span class="pre">per</span> <span class="pre">kernel</span> <span class="pre">(which</span> <span class="pre">may</span> <span class="pre">be</span> <span class="pre">good</span> <span class="pre">for</span> <span class="pre">GPUs,</span>
+<span class="pre">for</span> <span class="pre">example),</span> <span class="pre">but</span> <span class="pre">may</span> <span class="pre">limit</span> <span class="pre">asynchrony.</span>&#160; <span class="pre">Typically,</span> <span class="pre">each</span> <span class="pre">list</span> <span class="pre">is</span> <span class="pre">tied</span> <span class="pre">to</span> <span class="pre">a</span> <span class="pre">unique</span>
+<span class="pre">partition</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">mesh</span> <span class="pre">blocks</span> <span class="pre">owned</span> <span class="pre">by</span> <span class="pre">a</span> <span class="pre">rank.</span>&#160; <span class="pre">``TaskRegion</span></code> only provides a few
+public facing functions:
+- <code class="docutils literal notranslate"><span class="pre">TaskListStatus</span> <span class="pre">Execute(ThreadPool</span> <span class="pre">&amp;pool)</span></code>: <code class="docutils literal notranslate"><span class="pre">TaskRegion``s</span> <span class="pre">can</span> <span class="pre">be</span> <span class="pre">executed,</span> <span class="pre">requiring</span> <span class="pre">a</span>
+<span class="pre">``ThreadPool</span></code> be provided by the caller.  In practice, <code class="docutils literal notranslate"><span class="pre">Execute</span></code> is usually
+called from the <code class="docutils literal notranslate"><span class="pre">Execute</span></code> member function of <code class="docutils literal notranslate"><span class="pre">TaskCollection</span></code>.
+- <code class="docutils literal notranslate"><span class="pre">TaskList&amp;</span> <span class="pre">operator[](const</span> <span class="pre">int</span> <span class="pre">i)</span></code>: return a reference to the <code class="docutils literal notranslate"><span class="pre">i``th</span>
+<span class="pre">``TaskList</span></code> in the region.
+- <code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size()</span></code>: return the number of <a href="#id16"><span class="problematic" id="id17">``</span></a>TaskList``s in the region.</p>
+</section>
+<section id="taskcollection">
+<h2>TaskCollection<a class="headerlink" href="#taskcollection" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">TaskCollection</span></code> contains a
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;TaskRegion&gt;</span></code>, i.e. an ordered list of <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code>s.
+Importantly, each <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code> will be executed to completion before
+subsequent <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code>s, introducing a notion of sequential
+execution and enabling flexibility in task granularity. For example, the
+following code fragment uses the <code class="docutils literal notranslate"><span class="pre">TaskCollection</span></code> and <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code>
+abstractions to express work that can be done asynchronously across
+blocks, followed by a bulk synchronous task involving all blocks, and
+finally another round of asynchronous work.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">TaskCollection</span><span class="w"> </span><span class="n">tc</span><span class="p">;</span>
+<span class="n">TaskRegion</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tr1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tc</span><span class="p">.</span><span class="n">AddRegion</span><span class="p">(</span><span class="n">nmb</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">nmb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">task_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tr1</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">AddTask</span><span class="p">(</span><span class="n">dep</span><span class="p">,</span><span class="w"> </span><span class="n">foo</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">blocks</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+<span class="p">}</span>
+
+<span class="p">{</span>
+<span class="w">  </span><span class="n">TaskRegion</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tr2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tc</span><span class="p">.</span><span class="n">AddRegion</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">sync_task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tr2</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">AddTask</span><span class="p">(</span><span class="n">dep</span><span class="p">,</span><span class="w"> </span><span class="n">bar</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">blocks</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">TaskRegion</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tr3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tc</span><span class="p">.</span><span class="n">AddRegion</span><span class="p">(</span><span class="n">nmb</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">nmb</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">task_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tr3</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">AddTask</span><span class="p">(</span><span class="n">dep</span><span class="p">,</span><span class="w"> </span><span class="n">foo</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">blocks</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>A diagram illustrating the relationship between these different classes
+is shown below.</p>
+<figure class="align-default">
+<img alt="Task Diagram" src="../_images/TaskDiagram.png" />
+</figure>
+<p><code class="docutils literal notranslate"><span class="pre">TaskCollection</span></code> provides a few
+public-facing functions:
+- <code class="docutils literal notranslate"><span class="pre">TaskRegion&amp;</span> <span class="pre">AddRegion(const</span> <span class="pre">int</span> <span class="pre">num_lists)</span></code>: Add and return a reference to
+a new <code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code> with the specified number of <code class="docutils literal notranslate"><span class="pre">TaskList``s.</span>
+<span class="pre">-</span> <span class="pre">``TaskListStatus</span> <span class="pre">Execute(ThreadPool</span> <span class="pre">&amp;pool)</span></code>: Execute all regions in the
+collection.  Regions are executed completely, in the order they were added,
+before moving on to the next region.  Task execution will take advantage of
+the provided <code class="docutils literal notranslate"><span class="pre">ThreadPool</span></code> to (possibly) execute tasks across <code class="docutils literal notranslate"><span class="pre">TaskList``s</span>
+<span class="pre">in</span> <span class="pre">each</span> <span class="pre">region</span> <span class="pre">concurrently.</span>
+<span class="pre">-</span> <span class="pre">``TaskListStatus</span> <span class="pre">Execute()</span></code>: Same as above, but execution will use an
+internally generated <code class="docutils literal notranslate"><span class="pre">ThreadPool</span></code> with a single thread.</p>
+<p>NOTE: Work remains to make the rest of
+Parthenon thread-safe, so it is currently required to use a <code class="docutils literal notranslate"><span class="pre">ThreadPool</span></code>
+with one thread.</p>
+</section>
+<section id="taskqualifier">
+<h2>TaskQualifier<a class="headerlink" href="#taskqualifier" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TaskQualifier``s</span> <span class="pre">provide</span> <span class="pre">a</span> <span class="pre">mechanism</span> <span class="pre">for</span> <span class="pre">downstream</span> <span class="pre">codes</span> <span class="pre">to</span> <span class="pre">alter</span> <span class="pre">the</span> <span class="pre">default</span>
+<span class="pre">behavior</span> <span class="pre">of</span> <span class="pre">specific</span> <span class="pre">tasks</span> <span class="pre">in</span> <span class="pre">certain</span> <span class="pre">ways.</span>&#160; <span class="pre">The</span> <span class="pre">qualifiers</span> <span class="pre">are</span> <span class="pre">described</span> <span class="pre">below:</span>
+<span class="pre">-</span> <span class="pre">``TaskQualifier::local_sync</span></code>: Tasks marked with <code class="docutils literal notranslate"><span class="pre">local_sync</span></code> synchronize across
+lists in a region on a given MPI rank.  Tasks that depend on a <code class="docutils literal notranslate"><span class="pre">local_sync</span></code>
+marked task gain dependencies from the corresponding task on all lists within
+a region.  A typical use for this qualifier is to do a rank-local reduction, for
+example before initiating a global MPI reduction (which should be done only once
+per rank, not once per <code class="docutils literal notranslate"><span class="pre">TaskList</span></code>).  Note that Parthenon links tasks across
+lists in the order they are added to each list, i.e. the <code class="docutils literal notranslate"><span class="pre">n``th</span> <span class="pre">``local_sync</span></code> task
+in a list is assumed to be associated with the <code class="docutils literal notranslate"><span class="pre">n``th</span> <span class="pre">``local_sync</span></code> task in all
+lists in the region.
+- <code class="docutils literal notranslate"><span class="pre">TaskQualifier::global_sync</span></code>: Tasks marked with <code class="docutils literal notranslate"><span class="pre">global_sync</span></code> implicitly have
+the same semantics as <code class="docutils literal notranslate"><span class="pre">local_sync</span></code>, but additionally do a global reduction on the
+<code class="docutils literal notranslate"><span class="pre">TaskStatus</span></code> to determine if/when execution can proceed on to dependent tasks.
+- <code class="docutils literal notranslate"><span class="pre">TaskQualifier::completion</span></code>: Tasks marked with <code class="docutils literal notranslate"><span class="pre">completion</span></code> can lead to exiting
+execution of the owning <code class="docutils literal notranslate"><span class="pre">TaskList</span></code>.  If these tasks return <code class="docutils literal notranslate"><span class="pre">TaskStatus::complete</span></code>
+and the minimum number of iterations of the list have been completed, the remainder
+of the task list will be skipped (or the iteration stopped).  Returning
+<code class="docutils literal notranslate"><span class="pre">TaskList::iterate</span></code> leads to continued execution/iteration, unless the maximum
+number of iterations has been reached.
+- <code class="docutils literal notranslate"><span class="pre">TaskQualifier::once_per_region</span></code>: Tasks with the <code class="docutils literal notranslate"><span class="pre">once_per_region</span></code> qualifier
+will only execute once (per iteration, if relevant) regardless of the number of
+<code class="docutils literal notranslate"><span class="pre">TaskList``s</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">region.</span>&#160; <span class="pre">This</span> <span class="pre">can</span> <span class="pre">be</span> <span class="pre">useful</span> <span class="pre">when,</span> <span class="pre">for</span> <span class="pre">example,</span> <span class="pre">doing</span> <span class="pre">MPI</span>
+<span class="pre">reductions,</span> <span class="pre">printing</span> <span class="pre">out</span> <span class="pre">some</span> <span class="pre">rank-wide</span> <span class="pre">state,</span> <span class="pre">or</span> <span class="pre">calling</span> <span class="pre">a</span> <span class="pre">``completion</span></code> task
+that depends on some global condition where all lists would evaluate identical code.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TaskQualifier``s</span> <span class="pre">can</span> <span class="pre">be</span> <span class="pre">combined</span> <span class="pre">via</span> <span class="pre">the</span> <span class="pre">``|</span></code> operator and all combinations are
+supported.  For example, you might mark a task <code class="docutils literal notranslate"><span class="pre">global_sync</span> <span class="pre">|</span> <span class="pre">completion</span> <span class="pre">|</span> <span class="pre">once_per_region</span></code>
+if it were a task to determine whether an iteration should continue that depended
+on some previously reduced quantity.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="sphinx-doc.html" class="btn btn-neutral float-left" title="How to Use Sphinx for Writing Docs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tests.html" class="btn btn-neutral float-right" title="How to add tests to Parthenon" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: brryan/no_swarm_dynamic_alloc
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/tasks.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/tasks.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/tasks.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/tasks.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/tasks.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/tasks.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/tasks.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/tasks.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/tasks.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/tasks.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/tasks.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/tasks.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/tasks.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/tasks.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/tasks.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/tasks.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/tasks.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/tasks.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/tasks.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/tasks.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/tasks.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/tasks.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/tasks.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/tasks.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/tasks.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/tasks.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/tasks.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/tasks.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/tasks.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/tasks.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/tasks.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/tasks.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/tasks.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/tasks.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/tasks.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/tasks.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/tasks.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/tasks.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/tasks.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../fix_neighbor_idx/src/tasks.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../fix_particle_array/src/tasks.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../fix_swarm_mpi_reqs/src/tasks.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../flux_refinement_ops/src/tasks.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../h5py_str_fix/src/tasks.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../history++/src/tasks.html">brryan/history++</a></dd>
+      <dd><a href="../../is_restart_soft_equiv/src/tasks.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../mesh_swarm_bc_funcs/src/tasks.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../more_swarm_prefix_sums/src/tasks.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="tasks.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../pack_neighbors/src/tasks.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../param_whitespace_sanitize/src/tasks.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../particle_bcs_nordc/src/tasks.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../particle_idx_bug/src/tasks.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../particle_io_defrag/src/tasks.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../swarm_comms_prefix/src/tasks.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../swarm_mpi_tags/src/tasks.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../swarm_new_bc_comms/src/tasks.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../swarm_tag_map_2/src/tasks.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../swarms_smr/src/tasks.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../userworkrestartoutput/src/tasks.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/tasks.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/tasks.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/tasks.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/tasks.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/tasks.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/tasks.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/tasks.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/tasks.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/tasks.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/tasks.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/tasks.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/tasks.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/tasks.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/tasks.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/tasks.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/tasks.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/tasks.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/tasks.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/tasks.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/tasks.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/tasks.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/tasks.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/tasks.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/tasks.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/tasks.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/tasks.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/tasks.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/tasks.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/tasks.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/tasks.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/tasks.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/tasks.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/tasks.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/tasks.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/tasks.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/tasks.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/tasks.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/tasks.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/tasks.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/tasks.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/tasks.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/tasks.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/tasks.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/tasks.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/tasks.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/tasks.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/tasks.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/tasks.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/tasks.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/tasks.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/tasks.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/tasks.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/tasks.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/tasks.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/tasks.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/tasks.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/tasks.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/tasks.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/tasks.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/tasks.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/tasks.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/tasks.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/tasks.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/tasks.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/tasks.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/tasks.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/tasks.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/tasks.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/tasks.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/tasks.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/tasks.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/tasks.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/tasks.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/tasks.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/tasks.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/tasks.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/tasks.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/tasks.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/tasks.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/tasks.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/tasks.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/tasks.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/tasks.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/tasks.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/tasks.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/tasks.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/tasks.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/tasks.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/tasks.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/tasks.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/tasks.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/tasks.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/tasks.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/tasks.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/tasks.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/tasks.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/tasks.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/tasks.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/tasks.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/tasks.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/tasks.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/tasks.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/tasks.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/tasks.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/tasks.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/tasks.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/tasks.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/tasks.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/tasks.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/tasks.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/tasks.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/tasks.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/tasks.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/tasks.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/tasks.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/tasks.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/tasks.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/tasks.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/tasks.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/tasks.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/tasks.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/tasks.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/tasks.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/tasks.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/tasks.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/tasks.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/tasks.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/tasks.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/tasks.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/tasks.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/tasks.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/tasks.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

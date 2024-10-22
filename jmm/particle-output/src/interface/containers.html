@@ -1,0 +1,608 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Containers &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Metadata" href="metadata.html" />
+    <link rel="prev" title="Boundary related classes" href="boundary.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Containers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#meshblockdata"><code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#coordinates">Coordinates</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#meshdata-and-meshblockpacks"><code class="docutils literal notranslate"><span class="pre">MeshData</span></code> and <code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code>s</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#registering-meshdata">Registering <code class="docutils literal notranslate"><span class="pre">MeshData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#manual-registration">Manual registration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#automatic-registration">Automatic registration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#meshblockpack-access-and-data-layout"><code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code> Access and Data Layout</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#type">Type</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Containers</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/src/interface/containers.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="containers">
+<span id="id1"></span><h1>Containers<a class="headerlink" href="#containers" title="Link to this heading"></a></h1>
+<section id="meshblockdata">
+<h2><code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code><a class="headerlink" href="#meshblockdata" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container owns <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s. Each
+<code class="docutils literal notranslate"><span class="pre">Variable</span></code> is named, and the <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container knows about
+various types of <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s, such as whether the <code class="docutils literal notranslate"><span class="pre">Variable</span></code> is
+for cell-centered data, face-centered data, sparse data, or dense data.
+(For more details on anonymous variables, see <a class="reference internal" href="metadata.html#metadata"><span class="std std-ref">here</span></a>.)
+<code class="docutils literal notranslate"><span class="pre">Variable</span></code>s in a <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container can be different
+shapes, e.g., scalar, tensor, etc. A <code class="docutils literal notranslate"><span class="pre">Variable</span></code> can be added to a
+<code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container as:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">::</span><span class="n">MeshBlockData</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">metadata</span><span class="p">,</span><span class="w"> </span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where the name is a string, the metadata is a <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> of
+metadata flags, and the shape is a <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> of integers
+specifying the dimensions.</p>
+<p>Note that if a location, such as <code class="docutils literal notranslate"><span class="pre">Metadata::Cell</span></code> or
+<code class="docutils literal notranslate"><span class="pre">Metadata::Face</span></code>, then shape is the shape of the variable at a given
+point. If you have a scalar, you do not need to specify the shape in
+<code class="docutils literal notranslate"><span class="pre">Add</span></code>. If you want a vector field with 3 components, you would use</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="mi">3</span><span class="p">});</span>
+</pre></div>
+</div>
+<p>and if you wanted a 3x3 rank-2 tensor field, you would use</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">});</span>
+</pre></div>
+</div>
+<p>If you <em>do not</em> specify a location on the grid which the variable lives,
+then shape is the shape of the full array. I.e., a <code class="docutils literal notranslate"><span class="pre">11x12x13x14</span></code> array
+would be added with a shape of</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">,</span><span class="mi">14</span><span class="p">});</span>
+</pre></div>
+</div>
+<p>It is often desirable to extract from a <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container a
+specific set of <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s that have desired names, sparse ids, or
+conform to specific metadata flags. This set of <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s must be
+collected in such a way that it can be accessed easily and performantly
+on a GPU, and such that one can index into the collection in a known
+way. This capability is provided by <em>``VariablePack``s</em>.</p>
+<p>To extract a <code class="docutils literal notranslate"><span class="pre">VariablePack</span></code> for <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s with a set of names,
+call</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">meshblock_data</span><span class="p">.</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">names</span><span class="p">,</span><span class="w"> </span><span class="n">map</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">names</span></code> is a <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> of strings and <code class="docutils literal notranslate"><span class="pre">map</span></code> is an
+instance of a <code class="docutils literal notranslate"><span class="pre">parthenon::PackIndexMap</span></code>. This will return a
+<code class="docutils literal notranslate"><span class="pre">VariablePack</span></code> object, which is essentially a <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code> of
+<code class="docutils literal notranslate"><span class="pre">parthenon::ParArray3D</span></code>s. The map will be filled by reference as a
+map from <code class="docutils literal notranslate"><span class="pre">Variable</span></code> names to indices in the <code class="docutils literal notranslate"><span class="pre">VariablePack</span></code>.</p>
+<p>Similar methods are available for metadata and sparse IDs:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">meshblock_data</span><span class="p">.</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span><span class="w"> </span><span class="n">ids</span><span class="p">,</span><span class="w"> </span><span class="n">map</span><span class="p">)</span>
+<span class="n">meshblock_data</span><span class="p">.</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span><span class="w"> </span><span class="n">map</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you would like all <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s in a <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> container,
+you can ommit the metadata or name arguments:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">meshblock_data</span><span class="p">.</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">map</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you do not care about indexing into <code class="docutils literal notranslate"><span class="pre">Variable</span></code>s by name, you can
+ommit the <code class="docutils literal notranslate"><span class="pre">map</span></code> argument in any of the above calls.</p>
+<p>For examples of use, see
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_meshblock_data_iterator.cpp">here</a>.</p>
+<section id="coordinates">
+<h3>Coordinates<a class="headerlink" href="#coordinates" title="Link to this heading"></a></h3>
+<p>Variable packs contain a <code class="docutils literal notranslate"><span class="pre">coords</span></code> object, which is the coordinates on
+the meshblock for which the variables were packed. It can be accessed
+via</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">pack</span><span class="p">.</span><span class="n">GetCoords</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">pack</span><span class="p">.</span><span class="n">GetCoords</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>for any <code class="docutils literal notranslate"><span class="pre">i</span></code>. This latter API is used for consistency with
+<code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code>s.</p>
+</section>
+</section>
+<section id="meshdata-and-meshblockpacks">
+<h2><code class="docutils literal notranslate"><span class="pre">MeshData</span></code> and <code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code>s<a class="headerlink" href="#meshdata-and-meshblockpacks" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Kokkos</span></code> kernel launches come with an overhead (e.g., about 6
+microsecond on a V100). For small kernels that perform little work
+(e.g., because of the simplicity of the kernel itself or the small
+number of cells per <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>, say 163 or smaller), this can be a
+performance bottleneck when each kernel is launched per <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>.
+Parthenon therefore provides the capability to combine variables into a
+single data structure that spans some number of meshblocks, the
+<code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code>s created automatically and accessed transparently
+through <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> objects. These <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> objects are stored as a
+<code class="docutils literal notranslate"><span class="pre">DataCollection</span></code> of shared pointers in the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> object.</p>
+<p><em>IMPORTANT</em>, <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> and <code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code> are considered to be
+higher level representations of lower level data, i.e., the data used in
+the simulation itself always needs to be registered as <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code>
+first before it can be accessed through <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MeshBlockPacks</span></code>.</p>
+<section id="registering-meshdata">
+<h3>Registering <code class="docutils literal notranslate"><span class="pre">MeshData</span></code><a class="headerlink" href="#registering-meshdata" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MeshData</span></code> is a lightweight object that aggregates multiple
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s. Therefore, it needs to be setup/registered with some
+number of <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s (at least one and at most all), which is
+referred to as partitioning.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">Partition</span></code> machinery is implemented in
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/utils/partition_stl_containers.hpp">here</a>.</p>
+<p>Registration and partitioning can be controlled manually or
+automatically (recommended in multi-stage drivers).</p>
+<section id="manual-registration">
+<h4>Manual registration<a class="headerlink" href="#manual-registration" title="Link to this heading"></a></h4>
+<p>The following steps (used in the <code class="docutils literal notranslate"><span class="pre">calculate_pi</span></code> example
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/calculate_pi/pi_driver.cpp">here</a> ) are needed to
+manually register and fill a <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> object.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Number of MeshBlocks per Partition</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">pack_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">DefaultPackSize</span><span class="p">();</span>
+<span class="c1">// Partition all blocks of the Mesh into separate partitions containing pack_size MeshBlocks</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">partitions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">partition</span><span class="o">::</span><span class="n">ToSizeN</span><span class="p">(</span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">block_list</span><span class="p">,</span><span class="w"> </span><span class="n">pack_size</span><span class="p">);</span>
+<span class="c1">// Register a MeshData object for each partition (collection of blocks) using the partition</span>
+<span class="c1">// number as label and containing references to the data stored in the &quot;base&quot; MeshBlockPack</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">partitions</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">to_string</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="n">label</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// assign MeshBlocks of partitions[i] and data stored in &quot;base&quot; MeshBlockPack to MeshData object</span>
+<span class="w">  </span><span class="n">mesh_data</span><span class="o">-&gt;</span><span class="n">Set</span><span class="p">(</span><span class="n">partitions</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;base&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>There are two partitioning functions:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// Splits container into N equally sized partitions</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Container_t</span><span class="o">&gt;</span>
+<span class="n">Partition_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ToNPartitions</span><span class="p">(</span><span class="n">Container_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">container</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+
+<span class="c1">// Splits container into partitions of size N</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Container_t</span><span class="o">&gt;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">ToSizeN</span><span class="p">(</span><span class="n">Container_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">container</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Both functions live within the namespace <code class="docutils literal notranslate"><span class="pre">parthenon::partition</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Partition_t</span></code> is defined as:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Partition_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">pmesh-&gt;DefaultPackSize()</span></code> is controlled via the <code class="docutils literal notranslate"><span class="pre">pack_size</span></code>
+variable in a <code class="docutils literal notranslate"><span class="pre">parthenon</span></code> input file under the <code class="docutils literal notranslate"><span class="pre">parthenon/mesh</span></code>
+input block. e.g.,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">mesh</span><span class="o">&gt;</span>
+<span class="n">pack_size</span> <span class="o">=</span> <span class="mi">6</span>
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">pack_size</span> <span class="pre">&lt;</span> <span class="pre">1</span></code> in the input file indicates the entire mesh (per MPI
+rank) should be contained within a single pack.</p>
+<p>The registered <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> can then later be accessed, for example, via
+the <code class="docutils literal notranslate"><span class="pre">Get(label)</span></code> function:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">md</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">Get</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">to_string</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+</pre></div>
+</div>
+</section>
+<section id="automatic-registration">
+<h4>Automatic registration<a class="headerlink" href="#automatic-registration" title="Link to this heading"></a></h4>
+<p>For ease of use, the steps illustrated in the manual registration are
+automated in the
+<code class="docutils literal notranslate"><span class="pre">mesh_data.GetOrAdd(string</span> <span class="pre">MeshBlockData_label,</span> <span class="pre">int</span> <span class="pre">partition_id)</span></code>
+function (e.g., used in the <code class="docutils literal notranslate"><span class="pre">advection</span></code> example
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_driver.cpp">here</a> ). Here, the
+partitioning in the background uses the default Mesh partition size
+(<code class="docutils literal notranslate"><span class="pre">pack_size</span></code>) and the the total number of partition is accesse through
+<code class="docutils literal notranslate"><span class="pre">pmesh-&gt;DefaultNumPartitions();</span></code>. Thus, a sample usage in a driver
+that executes Tasks on multiple partitions in parallel may look like</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">TaskID</span><span class="w"> </span><span class="nf">no_dependency</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="c1">// no dependency</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">num_partitions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">DefaultNumPartitions</span><span class="p">();</span>
+<span class="n">TaskRegion</span><span class="w"> </span><span class="o">&amp;</span><span class="n">single_tasklist_per_partition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tc</span><span class="p">.</span><span class="n">AddRegion</span><span class="p">(</span><span class="n">num_partitions</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">num_partitions</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">single_tasklist_per_partition</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="c1">// &quot;base&quot; MeshBlockData of blocks in partition i</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mbase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">GetOrAdd</span><span class="p">(</span><span class="s">&quot;base&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// MeshBlockData of the previous stage of blocks in partition i</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mc0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">GetOrAdd</span><span class="p">(</span><span class="n">stage_name</span><span class="p">[</span><span class="n">stage</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// MeshBlockData of the current stage of blocks in partition i</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mc1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">GetOrAdd</span><span class="p">(</span><span class="n">stage_name</span><span class="p">[</span><span class="n">stage</span><span class="p">],</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">my_task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tl</span><span class="p">.</span><span class="n">AddTask</span><span class="p">(</span><span class="n">no_dependency</span><span class="p">,</span><span class="w"> </span><span class="n">MyTaskFunction</span><span class="p">,</span><span class="w"> </span><span class="n">mbase</span><span class="p">,</span><span class="w"> </span><span class="n">mc0</span><span class="p">,</span><span class="w"> </span><span class="n">mc1</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="meshblockpack-access-and-data-layout">
+<h3><code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code> Access and Data Layout<a class="headerlink" href="#meshblockpack-access-and-data-layout" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code> is indexable as a five-dimensional
+<code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>. The slowest moving index indexes into a 4-dimensional
+<code class="docutils literal notranslate"><span class="pre">VariablePack</span></code>. The next slowest indexes into a <code class="docutils literal notranslate"><span class="pre">Variable</span></code>. The
+fastest three index into the cells on a meshblock. They are accessed
+from existing <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> objects.</p>
+<p>For example:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// MeshData object must exists (see Registering above)</span>
+<span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">meshdata_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">Get</span><span class="p">(</span><span class="s">&quot;base&quot;</span><span class="p">);</span>
+
+<span class="c1">// Pack all &quot;independent&quot; variables (of MeshBlockData)</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">MetadataFlag</span><span class="o">&gt;</span><span class="w"> </span><span class="n">flags</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Independent</span><span class="p">});</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">meshblockpack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">in_obj</span><span class="o">-&gt;</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">flags</span><span class="p">);</span>
+
+<span class="c1">// If access to the &quot;fluxes&quot; of the Variable is required use PackVariableAndFluxes</span>
+<span class="c1">//auto meshblockpack = in_obj-&gt;PackVariablesAndFluxes(flags);</span>
+
+<span class="k">auto</span><span class="w"> </span><span class="n">variablepack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">(</span><span class="n">b</span><span class="p">);</span><span class="w"> </span><span class="c1">// Indexes into the b&#39;th meshblock</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">var</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">n</span><span class="p">);</span><span class="w"> </span><span class="c1">// Indexes into the n&#39;th variable on the b&#39;th MB</span>
+<span class="c1">// The n&#39;th variable in the i,j,k&#39;th cell of the b&#39;th meshblock</span>
+<span class="n">Real</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">n</span><span class="p">,</span><span class="n">k</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">i</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>For convenience, <code class="docutils literal notranslate"><span class="pre">MeshBlockPack</span></code> also includes the following methods
+and fields:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// An accessor method for the coords object on each meshblock</span>
+<span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">coords</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">.</span><span class="n">GetCoords</span><span class="p">(</span><span class="n">m</span><span class="p">);</span><span class="w"> </span><span class="c1">// gets the Coordinates_t object on the m&#39;th MB</span>
+
+<span class="c1">// The dimensionality of the simulation. Will be 1, 2, or 3.</span>
+<span class="c1">// This is needed because components of the flux vector</span>
+<span class="c1">// are only allocated for dimensions in use.</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">ndim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">.</span><span class="n">GetNdim</span><span class="p">();</span>
+
+<span class="c1">// Get the sparse index of the n&#39;th sparse variable in the pack.</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">sparse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">.</span><span class="n">GetSparse</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+
+<span class="c1">// The size of the n&#39;th dimension of the pack</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meshblockpack</span><span class="p">.</span><span class="n">GetDim</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>For an example using all these methods see the <code class="docutils literal notranslate"><span class="pre">FluxDivergence</span></code>
+function in <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/src/interface/update.cpp">update.cpp</a>.</p>
+</section>
+<section id="type">
+<h3>Type<a class="headerlink" href="#type" title="Link to this heading"></a></h3>
+<p>The types for packs are:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">MeshBlockVarPack</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>and</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">MeshBlockVarFluxPack</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>which correspond to packs over <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s that contain just
+variables or contain variables and fluxes.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="boundary.html" class="btn btn-neutral float-left" title="Boundary related classes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="metadata.html" class="btn btn-neutral float-right" title="Metadata" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/particle-output
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../../regression-gold-v16/src/interface/containers.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../../regression-gold-v17/src/interface/containers.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../../regression-gold-v18/src/interface/containers.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../../regression-gold-v19/src/interface/containers.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../../regression-gold-v20/src/interface/containers.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../../regression-gold-v21/src/interface/containers.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../../regression-gold-v22/src/interface/containers.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../../regression-gold-v23/src/interface/containers.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../../regression-gold-v24/src/interface/containers.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../../regression-gold-v25/src/interface/containers.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../../v0.8.0/src/interface/containers.html">v0.8.0</a></dd>
+      <dd><a href="../../../../v23.11/src/interface/containers.html">v23.11</a></dd>
+      <dd><a href="../../../../v24.03/src/interface/containers.html">v24.03</a></dd>
+      <dd><a href="../../../../v24.08/src/interface/containers.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../../952-sparse_advection-format-string-incorrect/src/interface/containers.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../../BenWibking/move-params/src/interface/containers.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../../BenWibking/ubsan-clean-nan/src/interface/containers.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../../BenWibking/update-cuda-ci-container/src/interface/containers.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../../ats5/src/interface/containers.html">ats5</a></dd>
+      <dd><a href="../../../../ats5-cali/src/interface/containers.html">ats5-cali</a></dd>
+      <dd><a href="../../../../ats5-debug/src/interface/containers.html">ats5-debug</a></dd>
+      <dd><a href="../../../../bdw/gauss-quad/src/interface/containers.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../../bprather/backport-bicgstab/src/interface/containers.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../../bprather/backport-solvers/src/interface/containers.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../../bprather/driver-overridable/src/interface/containers.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../../bprather/fix-amr-ct/src/interface/containers.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../../bprather/fix-line-continuation/src/interface/containers.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../../bprather/fix-mpi-comms/src/interface/containers.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../../bprather/fix-mpi-comms-again/src/interface/containers.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../../bprather/fix-output-4GB-per-rank/src/interface/containers.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../../bprather/flat-set-bounds/src/interface/containers.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../../bprather/mbd_add_niceties/src/interface/containers.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../../bprather/package-pack-dim/src/interface/containers.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../../bprather/par-reduce-inner/src/interface/containers.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../../bprather/pep1/src/interface/containers.html">bprather/pep1</a></dd>
+      <dd><a href="../../../../bprather/print-less/src/interface/containers.html">bprather/print-less</a></dd>
+      <dd><a href="../../../../bprather/register-internal-op/src/interface/containers.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../../bprather/reqs-for-ct/src/interface/containers.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../../bprather/te-restart-fix/src/interface/containers.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../../brryan/fix_neighbor_idx/src/interface/containers.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../../brryan/fix_particle_array/src/interface/containers.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../../brryan/fix_swarm_mpi_reqs/src/interface/containers.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../../brryan/flux_refinement_ops/src/interface/containers.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../../brryan/h5py_str_fix/src/interface/containers.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../../brryan/history++/src/interface/containers.html">brryan/history++</a></dd>
+      <dd><a href="../../../../brryan/is_restart_soft_equiv/src/interface/containers.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../../brryan/mesh_swarm_bc_funcs/src/interface/containers.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../../brryan/more_swarm_prefix_sums/src/interface/containers.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../../brryan/no_swarm_dynamic_alloc/src/interface/containers.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../../brryan/pack_neighbors/src/interface/containers.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../../brryan/param_whitespace_sanitize/src/interface/containers.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../../brryan/particle_bcs_nordc/src/interface/containers.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../../brryan/particle_idx_bug/src/interface/containers.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../../brryan/particle_io_defrag/src/interface/containers.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../../brryan/swarm_comms_prefix/src/interface/containers.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../../brryan/swarm_mpi_tags/src/interface/containers.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../../brryan/swarm_new_bc_comms/src/interface/containers.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../../brryan/swarm_tag_map_2/src/interface/containers.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../../brryan/swarms_smr/src/interface/containers.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../../brryan/userworkrestartoutput/src/interface/containers.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../../bumo-kokkos-42/src/interface/containers.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../../dempsey/bnd_coords/src/interface/containers.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../../dempsey/dt/src/interface/containers.html">dempsey/dt</a></dd>
+      <dd><a href="../../../../dempsey/task_demangle/src/interface/containers.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../../dempsey/timeout/src/interface/containers.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../../develop/src/interface/containers.html">develop</a></dd>
+      <dd><a href="../../../../forrestglines/4D-outer-parallel-loop/src/interface/containers.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../../forrestglines/cuda-with-nvc++-fix/src/interface/containers.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../../forrestglines/curvilinear/src/interface/containers.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../../forrestglines/fix-deprecated-kokkos-num-devices/src/interface/containers.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../../jdolence/curvilinear/src/interface/containers.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../../jdolence/force_inline_inner/src/interface/containers.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../../jdolence/instrument/src/interface/containers.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../../jdolence/meshblockdata_add/src/interface/containers.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../../jdolence/move_string_creation/src/interface/containers.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../../jdolence/new_tasking/src/interface/containers.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../../jdolence/quickfixes/src/interface/containers.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../../jdolence/thread_safe/src/interface/containers.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../../jdolence/timer_based_loadbalancing/src/interface/containers.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../../jdolence/trace/src/interface/containers.html">jdolence/trace</a></dd>
+      <dd><a href="../../../add-by-uid/src/interface/containers.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../custom-coords/src/interface/containers.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../deprecate-unified-init/src/interface/containers.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../dont-init-mpi-twice/src/interface/containers.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../ensure-tags-work-on-device/src/interface/containers.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../fix-bool-vector-params/src/interface/containers.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../fix-noparticle-case/src/interface/containers.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../fix-restart/src/interface/containers.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../fix-split-io/src/interface/containers.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../flat-sparse/src/interface/containers.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../flatpack-test/src/interface/containers.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../get-me-off-this-rollercoaster/src/interface/containers.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../global-boundaries/src/interface/containers.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../global-boundaries-2/src/interface/containers.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../hotfix-sparse-control-fields/src/interface/containers.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../include-guards/src/interface/containers.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../indexsplit/src/interface/containers.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../make-get-parent-pointer-consistent/src/interface/containers.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../metadata-fix/src/interface/containers.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../metadataset/src/interface/containers.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../move-to-impl/src/interface/containers.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../move-userwork-before-loop-before-io/src/interface/containers.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../param-hash/src/interface/containers.html">jmm/param-hash</a></dd>
+      <dd><a href="containers.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../precomms-fill-derived/src/interface/containers.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../remove-extraneous-check/src/interface/containers.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../sparse-pack-exists/src/interface/containers.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../sparsepack-wishlist/src/interface/containers.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../speed-up-compilation/src/interface/containers.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../threads-hack/src/interface/containers.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../two-more-pedagogical-examples/src/interface/containers.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../use-system-packages/src/interface/containers.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../user-work-before-loop/src/interface/containers.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../yet-more-io-cleanup/src/interface/containers.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../../lfroberts36/speedup-buffer-kernel/src/interface/containers.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../../lfroberts36/update-solver-convergence-criteria/src/interface/containers.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../../lroberts36/add-cg-solver/src/interface/containers.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../../lroberts36/add-combined-buffer-communication/src/interface/containers.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../../lroberts36/add-fine-field-deallocation/src/interface/containers.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../../lroberts36/add-fine-variables/src/interface/containers.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-block-orientation/src/interface/containers.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-mesh-example/src/interface/containers.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-of-octrees/src/interface/containers.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../../lroberts36/add-forest-orientation-2/src/interface/containers.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../../lroberts36/add-index-range-masking/src/interface/containers.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../../lroberts36/add-more-careful-container-checking/src/interface/containers.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../../lroberts36/add-morton-numbers/src/interface/containers.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../../lroberts36/add-multi-grid/src/interface/containers.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../../lroberts36/add-negative-levels/src/interface/containers.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../../lroberts36/add-non-one-copy-fluxes/src/interface/containers.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../../lroberts36/add-noncell-amr/src/interface/containers.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../../lroberts36/add-small-riot/src/interface/containers.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../../lroberts36/add-sparse-vector-wave-test/src/interface/containers.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../../lroberts36/add-task-graph/src/interface/containers.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../../lroberts36/add-vector-wave-test/src/interface/containers.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../../lroberts36/boundary-comms-perforfmance-upgrades/src/interface/containers.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../../lroberts36/bugfix-sparse-cache/src/interface/containers.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../../lroberts36/bugfix-symmetrized-coordinates/src/interface/containers.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../../lroberts36/cleanup-offsets/src/interface/containers.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../../lroberts36/composable-boundary-conditions/src/interface/containers.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../../lroberts36/face-boundary-communication/src/interface/containers.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../../lroberts36/fix-bitshift-of-negative/src/interface/containers.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../../lroberts36/fix-dealloc-count-bug/src/interface/containers.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../../lroberts36/fix-divide-by-zero/src/interface/containers.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../../lroberts36/fix-forest-multigrid/src/interface/containers.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../../lroberts36/fix-iterative-task-qualifiers/src/interface/containers.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../../lroberts36/fix-multigrid-mpi/src/interface/containers.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../../lroberts36/fix-noncc-amr/src/interface/containers.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../../lroberts36/fix-one-block-minimum-per-rank/src/interface/containers.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../../lroberts36/fix-restart-state-bug/src/interface/containers.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../../lroberts36/fix-root-level/src/interface/containers.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../../lroberts36/fix-solver-relative-residual/src/interface/containers.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../../lroberts36/fix-sptr-cycle-tree/src/interface/containers.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../../lroberts36/fix-sptr-cycle-tree-2/src/interface/containers.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../../lroberts36/fix-static-refinement/src/interface/containers.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../../lroberts36/generalize-par-dispatch/src/interface/containers.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../../lroberts36/in-one-zero-memory-amr/src/interface/containers.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../../lroberts36/local-face-fields/src/interface/containers.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../../lroberts36/mg-riot-updates/src/interface/containers.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../../lroberts36/multigrid-example-update/src/interface/containers.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../../lroberts36/performance-updates/src/interface/containers.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-mesh-constructors/src/interface/containers.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-meshblockdata-initialization/src/interface/containers.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-partitioning/src/interface/containers.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-region-size/src/interface/containers.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../../lroberts36/refactor-solver-input/src/interface/containers.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../../lroberts36/rename-cell-variable/src/interface/containers.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../../lroberts36/reorganize/src/interface/containers.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../../lroberts36/sparse-pack-update/src/interface/containers.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../../lroberts36/speedup-buffer-kernel-split/src/interface/containers.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../../morarumaxim/neigh_collectives/src/interface/containers.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../../neighborhood_ats5/src/interface/containers.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../../pgrete-patch-1/src/interface/containers.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../../pgrete-patch-bound_type/src/interface/containers.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../../pgrete/adios2/src/interface/containers.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../../pgrete/always-chunck/src/interface/containers.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../../pgrete/ci-hamilton/src/interface/containers.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../../pgrete/fix-ascent-vars/src/interface/containers.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../../pgrete/fix-chunk/src/interface/containers.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../../pgrete/fix-hasghost-restart/src/interface/containers.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../../pgrete/histgram-analysis-pre-MG/src/interface/containers.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../../pgrete/histgram-analysis-pre-MG-winput/src/interface/containers.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../../pgrete/histogram-outputs/src/interface/containers.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../../pgrete/interpolation/src/interface/containers.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../../pgrete/non-atomic-scatter/src/interface/containers.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../../pgrete/pgrete/pmd-output-wuser/src/interface/containers.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../../pgrete/pmd-output/src/interface/containers.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../../pgrete/refactor-restart/src/interface/containers.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../../pgrete/sycl-test/src/interface/containers.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../../pgrete/update-pool-alloc/src/interface/containers.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../../pgrete/user-output/src/interface/containers.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../../pgrete/user-output-w-pmd/src/interface/containers.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

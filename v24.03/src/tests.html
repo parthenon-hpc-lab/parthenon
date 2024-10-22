@@ -1,0 +1,453 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to add tests to Parthenon &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Running a Weak Scaling Test in Parthenon" href="weak_scaling.html" />
+    <link rel="prev" title="Tasks" href="tasks.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to add tests to Parthenon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#unit-tests">Unit Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#regression-tests">Regression Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gold-files">Gold Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How to add tests to Parthenon</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/tests.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-add-tests-to-parthenon">
+<span id="tests"></span><h1>How to add tests to Parthenon<a class="headerlink" href="#how-to-add-tests-to-parthenon" title="Link to this heading"></a></h1>
+<section id="unit-tests">
+<h2>Unit Tests<a class="headerlink" href="#unit-tests" title="Link to this heading"></a></h2>
+<p>Unit tests are straightforward to implement. Open the <code class="docutils literal notranslate"><span class="pre">tst/unit</span></code>
+directory to see the current test suites. You may either add a new
+file to this directory (and the associated <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file, or
+extend an existing file.</p>
+<p>Parthenon uses the <a class="reference external" href="https://github.com/catchorg/Catch2/tree/v2.x">Catch2</a> unit test framework. Tests are typically
+written in the following format:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">TEST_CASE</span><span class="p">(</span><span class="s">&quot;Name&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;[category1][category2]&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">GIVEN</span><span class="p">(</span><span class="s">&quot;Set up code&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// some code</span>
+<span class="w">    </span><span class="n">WHEN</span><span class="p">(</span><span class="s">&quot;Trigger&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">THEN</span><span class="p">(</span><span class="s">&quot;Condition&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">REQUIRE</span><span class="p">(</span><span class="n">some_bool_expression</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>See the Catch documentation for more details.</p>
+</section>
+<section id="regression-tests">
+<h2>Regression Tests<a class="headerlink" href="#regression-tests" title="Link to this heading"></a></h2>
+<p>The regression test infrastructure is more complicated, and our
+regression test infrastructure is built on a mix of Python and
+CMake. Each test is defined by a <em>test suite</em>. You can find the test
+suites in the <code class="docutils literal notranslate"><span class="pre">tst/regression/test_suites</span></code> directory. Each test
+suite is a Python module that defines a <code class="docutils literal notranslate"><span class="pre">TestCase</span></code> class, which
+inherits from the abstract base class provided by the
+<code class="docutils literal notranslate"><span class="pre">utils.test_case</span></code> module included in the test suite. A <code class="docutils literal notranslate"><span class="pre">TestCase</span></code>
+class must implement the following methods:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Prepare(self,</span> <span class="pre">parameters,</span> <span class="pre">step)</span></code> is the python code which sets up
+a simulation run. It modifies an included input deck for a given
+test, based on the test design. The <code class="docutils literal notranslate"><span class="pre">parameters</span></code> input contains a
+list of command line arguments that should modify the parthenon
+run. These are passed in to the test infrastructure via CMake
+(described below). The <code class="docutils literal notranslate"><span class="pre">step</span></code> argument is an integer. It is used
+for regression tests that require multiple simulation runs, such as
+a convergence test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Analyze(self,</span> <span class="pre">parameters)</span></code> is the post-processing step that
+checks whether or not the test passed. Some tests compare to gold
+files (described further below) and some simply compare to a known
+solution.</p></li>
+</ul>
+<p>A test suite needs to have not only the python file containing the
+<code class="docutils literal notranslate"><span class="pre">TestCase</span></code> class, but an empty <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> file to match the
+Python module API.</p>
+<p>After adding a module, you must also modify the file
+<code class="docutils literal notranslate"><span class="pre">tst/regression/CMakeLists.txt</span></code>. In particular for a new regression
+test, you must add a set of arguments like these:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>list(APPEND TEST_DIRS name_of_folder )
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
+list(APPEND EXTRA_TEST_LABELS &quot;my-awesome-test&quot;)
+</pre></div>
+</div>
+<p>The first argument specifies the name of the folder containing the new
+python module for the new test. The second argument specifies number
+of MPI ranks if the test should be run with MPI (specify 1 if
+not). The third argument specifies arguments to pass to your test
+suite, for example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;--driver $</span><span class="si">{PROJECT_BINARY_DIR}</span><span class="s2">/example/advection/advection-example --driver_input $</span><span class="si">{CMAKE_CURRENT_SOURCE_DIR}</span><span class="s2">/test_suites/advection_performance/parthinput.advection_performance --num_steps 4&quot;</span>
+</pre></div>
+</div>
+<p>which would specify which application to run for the test, as well as the input deck and the number of steps.</p>
+<p>The final argument specifies labels attached to the test for use with
+CTest.</p>
+</section>
+<section id="gold-files">
+<h2>Gold Files<a class="headerlink" href="#gold-files" title="Link to this heading"></a></h2>
+<p>Many tests use so-called <em>gold files</em>, files are files containing
+known results to compare against. Parthenon bundles its gold files as
+part of releases. These files are automatically downloaded and are
+located in <code class="docutils literal notranslate"><span class="pre">tst/regression/gold_standard</span></code>. To add a new gold file
+(or update an old one), place it in this directory.</p>
+<p>To make the new (or updated) test official, you must add it to the
+official test suite. First update
+<code class="docutils literal notranslate"><span class="pre">tst/regression/gold_standard/README.rst</span></code> and add a new version of
+the test suite, corresponding to the commit where you added the
+relevant test code and an explanation for why the gold files needed to
+change. Then run the script <code class="docutils literal notranslate"><span class="pre">`make_tarball.sh</span></code> as</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="n">make_tarball</span><span class="o">.</span><span class="n">sh</span> <span class="n">NEW_VERSION</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">NEW_VERSION</span></code> is the new version of the gold files (not
+necessarily tied to the version of the code release). You can then ask
+a maintainer to create a new goldfile release and attach the resultant
+tarball to the release.</p>
+<p>As a sanity check, Parthenon checks against the <code class="docutils literal notranslate"><span class="pre">sha512</span></code> hash of the
+tarball. The make tarball script will output the hash. The new version
+and new hash must be set as the default values of the
+<code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_VER</span></code> and <code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_HASH</span></code>
+in the top level <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tasks.html" class="btn btn-neutral float-left" title="Tasks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="weak_scaling.html" class="btn btn-neutral float-right" title="Running a Weak Scaling Test in Parthenon" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v24.03
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../regression-gold-v19/src/tests.html">regression-gold-v19</a></dd>
+      <dd><a href="../../regression-gold-v20/src/tests.html">regression-gold-v20</a></dd>
+      <dd><a href="../../regression-gold-v21/src/tests.html">regression-gold-v21</a></dd>
+      <dd><a href="../../regression-gold-v22/src/tests.html">regression-gold-v22</a></dd>
+      <dd><a href="../../regression-gold-v23/src/tests.html">regression-gold-v23</a></dd>
+      <dd><a href="../../regression-gold-v24/src/tests.html">regression-gold-v24</a></dd>
+      <dd><a href="../../regression-gold-v25/src/tests.html">regression-gold-v25</a></dd>
+      <dd><a href="../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../v23.11/src/tests.html">v23.11</a></dd>
+      <dd><a href="tests.html">v24.03</a></dd>
+      <dd><a href="../../v24.08/src/tests.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../952-sparse_advection-format-string-incorrect/src/tests.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../BenWibking/move-params/src/tests.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../BenWibking/ubsan-clean-nan/src/tests.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../BenWibking/update-cuda-ci-container/src/tests.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../ats5/src/tests.html">ats5</a></dd>
+      <dd><a href="../../ats5-cali/src/tests.html">ats5-cali</a></dd>
+      <dd><a href="../../ats5-debug/src/tests.html">ats5-debug</a></dd>
+      <dd><a href="../../bdw/gauss-quad/src/tests.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../bprather/backport-bicgstab/index.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../bprather/backport-solvers/src/tests.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../bprather/driver-overridable/src/tests.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../bprather/fix-amr-ct/src/tests.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../bprather/fix-line-continuation/src/tests.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms/index.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms-again/src/tests.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../bprather/fix-output-4GB-per-rank/src/tests.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../bprather/flat-set-bounds/src/tests.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../bprather/mbd_add_niceties/src/tests.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../bprather/package-pack-dim/src/tests.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../bprather/par-reduce-inner/src/tests.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../bprather/pep1/src/tests.html">bprather/pep1</a></dd>
+      <dd><a href="../../bprather/print-less/src/tests.html">bprather/print-less</a></dd>
+      <dd><a href="../../bprather/register-internal-op/src/tests.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../bprather/reqs-for-ct/index.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../bprather/te-restart-fix/src/tests.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../brryan/fix_neighbor_idx/src/tests.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../brryan/fix_particle_array/src/tests.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../brryan/fix_swarm_mpi_reqs/src/tests.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../brryan/flux_refinement_ops/src/tests.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../brryan/h5py_str_fix/src/tests.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../brryan/history++/src/tests.html">brryan/history++</a></dd>
+      <dd><a href="../../brryan/is_restart_soft_equiv/src/tests.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../brryan/mesh_swarm_bc_funcs/src/tests.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../brryan/more_swarm_prefix_sums/src/tests.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../brryan/no_swarm_dynamic_alloc/src/tests.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../brryan/pack_neighbors/src/tests.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../brryan/param_whitespace_sanitize/src/tests.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../brryan/particle_bcs_nordc/src/tests.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../brryan/particle_idx_bug/index.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../brryan/particle_io_defrag/src/tests.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../brryan/swarm_comms_prefix/src/tests.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../brryan/swarm_mpi_tags/src/tests.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../brryan/swarm_new_bc_comms/src/tests.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../brryan/swarm_tag_map_2/src/tests.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../brryan/swarms_smr/src/tests.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../brryan/userworkrestartoutput/src/tests.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../bumo-kokkos-42/src/tests.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../dempsey/bnd_coords/src/tests.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../dempsey/dt/src/tests.html">dempsey/dt</a></dd>
+      <dd><a href="../../dempsey/task_demangle/src/tests.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../dempsey/timeout/src/tests.html">dempsey/timeout</a></dd>
+      <dd><a href="../../develop/src/tests.html">develop</a></dd>
+      <dd><a href="../../forrestglines/4D-outer-parallel-loop/src/tests.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../forrestglines/cuda-with-nvc++-fix/src/tests.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../forrestglines/curvilinear/src/tests.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../forrestglines/fix-deprecated-kokkos-num-devices/src/tests.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../jdolence/curvilinear/src/tests.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../jdolence/force_inline_inner/src/tests.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../jdolence/instrument/src/tests.html">jdolence/instrument</a></dd>
+      <dd><a href="../../jdolence/meshblockdata_add/src/tests.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../jdolence/move_string_creation/src/tests.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../jdolence/new_tasking/src/tests.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../jdolence/quickfixes/src/tests.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../jdolence/thread_safe/src/tests.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../jdolence/timer_based_loadbalancing/src/tests.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../jdolence/trace/src/tests.html">jdolence/trace</a></dd>
+      <dd><a href="../../jmm/add-by-uid/src/tests.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../jmm/custom-coords/src/tests.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../jmm/deprecate-unified-init/src/tests.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../jmm/dont-init-mpi-twice/src/tests.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../jmm/ensure-tags-work-on-device/src/tests.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../jmm/fix-bool-vector-params/src/tests.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../jmm/fix-noparticle-case/index.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../jmm/fix-restart/index.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../jmm/fix-split-io/src/tests.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../jmm/flat-sparse/index.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../jmm/flatpack-test/src/tests.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../jmm/get-me-off-this-rollercoaster/src/tests.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../jmm/global-boundaries/src/tests.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../jmm/global-boundaries-2/src/tests.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../jmm/hotfix-sparse-control-fields/src/tests.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../jmm/include-guards/src/tests.html">jmm/include-guards</a></dd>
+      <dd><a href="../../jmm/indexsplit/src/tests.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../jmm/make-get-parent-pointer-consistent/src/tests.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../jmm/metadata-fix/index.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../jmm/metadataset/index.html">jmm/metadataset</a></dd>
+      <dd><a href="../../jmm/move-to-impl/src/tests.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../jmm/move-userwork-before-loop-before-io/src/tests.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../jmm/param-hash/src/tests.html">jmm/param-hash</a></dd>
+      <dd><a href="../../jmm/particle-output/index.html">jmm/particle-output</a></dd>
+      <dd><a href="../../jmm/precomms-fill-derived/index.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../jmm/remove-extraneous-check/src/tests.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../jmm/sparse-pack-exists/src/tests.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../jmm/sparsepack-wishlist/src/tests.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../jmm/speed-up-compilation/src/tests.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../jmm/threads-hack/src/tests.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../jmm/two-more-pedagogical-examples/src/tests.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../jmm/use-system-packages/src/tests.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../jmm/user-work-before-loop/src/tests.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../jmm/yet-more-io-cleanup/src/tests.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../lfroberts36/speedup-buffer-kernel/src/tests.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../lfroberts36/update-solver-convergence-criteria/src/tests.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../lroberts36/add-cg-solver/src/tests.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../lroberts36/add-combined-buffer-communication/src/tests.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../lroberts36/add-fine-field-deallocation/src/tests.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../lroberts36/add-fine-variables/src/tests.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../lroberts36/add-forest-block-orientation/src/tests.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../lroberts36/add-forest-mesh-example/src/tests.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../lroberts36/add-forest-of-octrees/src/tests.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../lroberts36/add-forest-orientation-2/src/tests.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../lroberts36/add-index-range-masking/src/tests.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../lroberts36/add-more-careful-container-checking/src/tests.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../lroberts36/add-morton-numbers/src/tests.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../lroberts36/add-multi-grid/src/tests.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../lroberts36/add-negative-levels/src/tests.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../lroberts36/add-non-one-copy-fluxes/src/tests.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../lroberts36/add-noncell-amr/src/tests.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../lroberts36/add-small-riot/src/tests.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../lroberts36/add-sparse-vector-wave-test/src/tests.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../lroberts36/add-task-graph/src/tests.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../lroberts36/add-vector-wave-test/src/tests.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../lroberts36/boundary-comms-perforfmance-upgrades/src/tests.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../lroberts36/bugfix-sparse-cache/src/tests.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../lroberts36/bugfix-symmetrized-coordinates/src/tests.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../lroberts36/cleanup-offsets/src/tests.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../lroberts36/composable-boundary-conditions/index.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../lroberts36/face-boundary-communication/index.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../lroberts36/fix-bitshift-of-negative/src/tests.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../lroberts36/fix-dealloc-count-bug/src/tests.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../lroberts36/fix-divide-by-zero/src/tests.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../lroberts36/fix-forest-multigrid/src/tests.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../lroberts36/fix-iterative-task-qualifiers/src/tests.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../lroberts36/fix-multigrid-mpi/src/tests.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../lroberts36/fix-noncc-amr/src/tests.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../lroberts36/fix-one-block-minimum-per-rank/src/tests.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../lroberts36/fix-restart-state-bug/src/tests.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../lroberts36/fix-root-level/src/tests.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../lroberts36/fix-solver-relative-residual/src/tests.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../lroberts36/fix-sptr-cycle-tree/src/tests.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../lroberts36/fix-sptr-cycle-tree-2/src/tests.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../lroberts36/fix-static-refinement/src/tests.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../lroberts36/generalize-par-dispatch/src/tests.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../lroberts36/in-one-zero-memory-amr/src/tests.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../lroberts36/local-face-fields/index.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../lroberts36/mg-riot-updates/src/tests.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../lroberts36/multigrid-example-update/src/tests.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../lroberts36/performance-updates/src/tests.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../lroberts36/refactor-mesh-constructors/src/tests.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../lroberts36/refactor-meshblockdata-initialization/src/tests.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../lroberts36/refactor-partitioning/src/tests.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../lroberts36/refactor-region-size/src/tests.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../lroberts36/refactor-solver-input/src/tests.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../lroberts36/rename-cell-variable/index.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../lroberts36/reorganize/src/tests.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../lroberts36/sparse-pack-update/index.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../lroberts36/speedup-buffer-kernel-split/src/tests.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../morarumaxim/neigh_collectives/src/tests.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../neighborhood_ats5/src/tests.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../pgrete-patch-1/src/tests.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../pgrete-patch-bound_type/src/tests.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../pgrete/adios2/src/tests.html">pgrete/adios2</a></dd>
+      <dd><a href="../../pgrete/always-chunck/src/tests.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../pgrete/ci-hamilton/src/tests.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../pgrete/fix-ascent-vars/index.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../pgrete/fix-chunk/src/tests.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../pgrete/fix-hasghost-restart/src/tests.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../pgrete/histgram-analysis-pre-MG/src/tests.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../pgrete/histgram-analysis-pre-MG-winput/src/tests.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../pgrete/histogram-outputs/src/tests.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../pgrete/interpolation/src/tests.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../pgrete/non-atomic-scatter/src/tests.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pgrete/pmd-output-wuser/src/tests.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pgrete/pmd-output/src/tests.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../pgrete/refactor-restart/src/tests.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../pgrete/sycl-test/index.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../pgrete/update-pool-alloc/src/tests.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../pgrete/user-output/src/tests.html">pgrete/user-output</a></dd>
+      <dd><a href="../../pgrete/user-output-w-pmd/src/tests.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

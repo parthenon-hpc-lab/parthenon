@@ -1,0 +1,399 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solvers &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How to Use Sphinx for Writing Docs" href="sphinx-doc.html" />
+    <link rel="prev" title="Task-based reductions" href="reductions.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Solvers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#stencil">Stencil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sparsematrixaccessor">SparseMatrixAccessor</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Solvers</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/solvers.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="solvers">
+<span id="id1"></span><h1>Solvers<a class="headerlink" href="#solvers" title="Link to this heading"></a></h1>
+<p>Parthenon does not yet provide an exhaustive set of plug and play solvers.
+Nevertheless, the building blocks required for implementing Krylov subspace
+methods (i.e. global reductions for vector dot products) like CG, BiCGStab,
+and GMRES are available. An example of a Parthenon based implementation of
+BiCGStab can be found in <code class="docutils literal notranslate"><span class="pre">examples/poisson_gmg</span></code>. Additionally, the
+infrastructure required for implementing multigrid solvers is also
+included in Parthenon. The requisite hierarchy of grids is produced if
+<code class="docutils literal notranslate"><span class="pre">parthenon/mesh/multigrid=true</span></code> is set in the parameter input. An example
+of a multi-grid based linear solver in Parthenon is also given in
+<code class="docutils literal notranslate"><span class="pre">examples/poisson_gmg</span></code> (and also an example of using multi-grid as a
+preconditioner for BiCGStab). We plan to build wrappers that simplify the
+use of these methods in down stream codes in the future. Note that the
+example code does not currently rely on the Stencil and SparseMatrixAccessor
+code described below.</p>
+<section id="stencil">
+<h2>Stencil<a class="headerlink" href="#stencil" title="Link to this heading"></a></h2>
+<p>This class provides a very simple and efficient means of storing a
+sparse matrix with the special form that every row has identical entries
+relative to the matrix diagonal. A good example of this is in the
+straightforward finite difference discretization of the Poisson equation
+(see <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp">here</a> for example
+usage). The <code class="docutils literal notranslate"><span class="pre">Stencil</span></code> object is extremely efficient at storing these
+sparse matrices because it only has to store the matrix values and
+offsets from the diagnonal for a single row. The <code class="docutils literal notranslate"><span class="pre">Stencil</span></code> class
+provides member functions to compute matrix vector products (<code class="docutils literal notranslate"><span class="pre">MatVec</span></code>)
+and Jacobi iterates (<code class="docutils literal notranslate"><span class="pre">Jacobi</span></code>). Both are designed to be called from
+within kernels and operate on a single matrix row at a time.</p>
+</section>
+<section id="sparsematrixaccessor">
+<h2>SparseMatrixAccessor<a class="headerlink" href="#sparsematrixaccessor" title="Link to this heading"></a></h2>
+<p>This is a helper class that allows one to store a more general sparse
+matrix than <code class="docutils literal notranslate"><span class="pre">Stencil</span></code> provides. Like <code class="docutils literal notranslate"><span class="pre">Stencil</span></code>, the
+<code class="docutils literal notranslate"><span class="pre">SparseMatrixAccessor</span></code> class assumes that the location of the nonzero
+matrix elements have fixed offsets from the diagonal in every row. Here,
+though, the values of the matrix elements can be different from row to
+row. The sparse matrix itself can be stored in a normal
+<a class="reference internal" href="interface/state.html#cell-var"><span class="std std-ref">Variable</span></a> with the number of components
+equal to the number of nonzero elements in a row of the matrix. The
+<code class="docutils literal notranslate"><span class="pre">SparseMatrixAccessor</span></code> class than associates each of these components
+with a particular matrix element. Like <code class="docutils literal notranslate"><span class="pre">Stencil</span></code>, the
+<code class="docutils literal notranslate"><span class="pre">SparseMatrixAccessor</span></code> class provides <code class="docutils literal notranslate"><span class="pre">MatVec</span></code> and <code class="docutils literal notranslate"><span class="pre">Jacobi</span></code> member
+functions. A simple demonstration of usage can be found in the <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp">Poisson
+example</a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="reductions.html" class="btn btn-neutral float-left" title="Task-based reductions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sphinx-doc.html" class="btn btn-neutral float-right" title="How to Use Sphinx for Writing Docs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/remove-extraneous-check
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/solvers.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/solvers.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/solvers.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/solvers.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/solvers.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/solvers.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/solvers.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/solvers.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/solvers.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/solvers.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/solvers.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/solvers.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/solvers.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/solvers.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/solvers.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/solvers.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/solvers.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/solvers.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/solvers.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/solvers.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/solvers.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/solvers.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/solvers.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/solvers.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/solvers.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/solvers.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/solvers.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/solvers.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/solvers.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/solvers.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/solvers.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/solvers.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/solvers.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/solvers.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/solvers.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/solvers.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/solvers.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/solvers.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/solvers.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/solvers.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/solvers.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/solvers.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/solvers.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/solvers.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/solvers.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/solvers.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/solvers.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/solvers.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/solvers.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/solvers.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/solvers.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/solvers.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/solvers.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/solvers.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/solvers.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/solvers.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/solvers.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/solvers.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/solvers.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/solvers.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/solvers.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/solvers.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/solvers.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/solvers.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/solvers.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/solvers.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/solvers.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/solvers.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/solvers.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/solvers.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/solvers.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/solvers.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/solvers.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/solvers.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/solvers.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/solvers.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/solvers.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/solvers.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/solvers.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/solvers.html">jdolence/trace</a></dd>
+      <dd><a href="../../add-by-uid/src/solvers.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../custom-coords/src/solvers.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../deprecate-unified-init/src/solvers.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../dont-init-mpi-twice/src/solvers.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../ensure-tags-work-on-device/src/solvers.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../fix-bool-vector-params/src/solvers.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../fix-noparticle-case/src/solvers.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../fix-restart/src/solvers.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../fix-split-io/src/solvers.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../flat-sparse/src/solvers.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../flatpack-test/src/solvers.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../get-me-off-this-rollercoaster/src/solvers.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../global-boundaries/src/solvers.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../global-boundaries-2/src/solvers.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../hotfix-sparse-control-fields/src/solvers.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../include-guards/src/solvers.html">jmm/include-guards</a></dd>
+      <dd><a href="../../indexsplit/src/solvers.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../make-get-parent-pointer-consistent/src/solvers.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../metadata-fix/src/solvers.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../metadataset/src/solvers.html">jmm/metadataset</a></dd>
+      <dd><a href="../../move-to-impl/src/solvers.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../move-userwork-before-loop-before-io/src/solvers.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../param-hash/src/solvers.html">jmm/param-hash</a></dd>
+      <dd><a href="../../particle-output/src/solvers.html">jmm/particle-output</a></dd>
+      <dd><a href="../../precomms-fill-derived/src/solvers.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="solvers.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../sparse-pack-exists/src/solvers.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../sparsepack-wishlist/src/solvers.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../speed-up-compilation/src/solvers.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../threads-hack/src/solvers.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../two-more-pedagogical-examples/src/solvers.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../use-system-packages/src/solvers.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../user-work-before-loop/src/solvers.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../yet-more-io-cleanup/src/solvers.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/solvers.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/solvers.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/solvers.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/solvers.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/solvers.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/solvers.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/solvers.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/solvers.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/solvers.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/solvers.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/solvers.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/solvers.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/solvers.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/solvers.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/solvers.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/solvers.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/solvers.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/solvers.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/solvers.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/solvers.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/solvers.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/solvers.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/solvers.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/solvers.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/solvers.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/solvers.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/solvers.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/solvers.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/solvers.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/solvers.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/solvers.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/solvers.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/solvers.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/solvers.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/solvers.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/solvers.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/solvers.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/solvers.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/solvers.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/solvers.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/solvers.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/solvers.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/solvers.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/solvers.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/solvers.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/solvers.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/solvers.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/solvers.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/solvers.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/solvers.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/solvers.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/solvers.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/solvers.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/solvers.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/solvers.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/solvers.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/solvers.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/solvers.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/solvers.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/solvers.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/solvers.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/solvers.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/solvers.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/solvers.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/solvers.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/solvers.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/solvers.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/solvers.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/solvers.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/solvers.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/solvers.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/solvers.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/solvers.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/solvers.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/solvers.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/solvers.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/solvers.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/solvers.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

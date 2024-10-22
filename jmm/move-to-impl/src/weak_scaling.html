@@ -1,0 +1,433 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Running a Weak Scaling Test in Parthenon &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Boundary related classes" href="interface/boundary.html" />
+    <link rel="prev" title="``TypeList``s" href="utilities.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">``TypeList``s</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#robust">Robust</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#c-11-style-concepts-implementation">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running a Weak Scaling Test in Parthenon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#to-build">To Build</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#to-run">To Run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#to-get-the-timing-data">To get the timing data</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html#parthenon-forest-implementation-details">Parthenon Forest Implementation Details</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Running a Weak Scaling Test in Parthenon</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/weak_scaling.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="running-a-weak-scaling-test-in-parthenon">
+<h1>Running a Weak Scaling Test in Parthenon<a class="headerlink" href="#running-a-weak-scaling-test-in-parthenon" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p>Here we present how to perform a weak scaling test on a Power9
+architecture with two Volta GPUs per node.</p></li>
+<li><p>We use the advection test with slightly modified input parameters for
+performance. AMR is turned on with 3 levels.</p></li>
+<li><p>The following procedure was tested on power9 nodes on Darwin by Jonah
+Miller. However, the same procedure should hold more generically.</p></li>
+</ul>
+<section id="to-build">
+<h2>To Build<a class="headerlink" href="#to-build" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Note that depending on your system you may need to disable HDF5 with
+<code class="docutils literal notranslate"><span class="pre">-DPARTHENON_DISABLE_HDF5=On</span></code>.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>module<span class="w"> </span>purge
+module<span class="w"> </span>load<span class="w"> </span>cmake<span class="w"> </span>gcc/7.4.0<span class="w"> </span>cuda/10.2<span class="w"> </span>openmpi/p9/4.0.1-gcc_7.4.0<span class="w"> </span>anaconda/Anaconda3.2019.10
+git<span class="w"> </span>clone<span class="w"> </span>git@github.com:parthenon-hpc-lab/parthenon.git<span class="w"> </span>--recursive
+<span class="nb">cd</span><span class="w"> </span>parthenon
+git<span class="w"> </span>checkout<span class="w"> </span>develop<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
+git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
+mkdir<span class="w"> </span>-p<span class="w"> </span>bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>bin
+cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DKokkos_ENABLE_OPENMP<span class="o">=</span>True<span class="w"> </span>-DKokkos_ARCH_POWER9<span class="o">=</span>True<span class="w"> </span>-DKokkos_ENABLE_CUDA<span class="o">=</span>True<span class="w"> </span>-DKokkos_ARCH_VOLTA70<span class="o">=</span>True<span class="w"> </span>-DCMAKE_CXX_COMPILER<span class="o">=</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/../external/Kokkos/bin/nvcc_wrapper<span class="w"> </span>..
+make<span class="w"> </span>-j
+</pre></div>
+</div>
+</section>
+<section id="to-run">
+<h2>To Run<a class="headerlink" href="#to-run" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Note that if you disabled HDF5 in the previous step, you must open up
+the <code class="docutils literal notranslate"><span class="pre">parthinput.advection</span></code> file and comment out all blocks
+beginning with <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code>.</p></li>
+<li><p>Place the following in your job script.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">N</span><span class="o">=</span><span class="m">1</span>
+mpirun<span class="w"> </span>-np<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/mesh/
+<span class="nv">nx3</span><span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span>.out
+
+<span class="nv">N</span><span class="o">=</span><span class="m">2</span>
+mpirun<span class="w"> </span>-np<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/mesh/
+<span class="nv">nx3</span><span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span>.out
+
+<span class="nv">N</span><span class="o">=</span><span class="m">4</span>
+mpirun<span class="w"> </span>-np<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/
+<span class="nv">nx3</span><span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span>.out
+
+<span class="nv">N</span><span class="o">=</span><span class="m">8</span>
+mpirun<span class="w"> </span>-np<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/
+<span class="nv">nx3</span><span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span>.out
+
+<span class="nv">N</span><span class="o">=</span><span class="m">16</span>
+mpirun<span class="w"> </span>-np<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">256</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/
+<span class="nv">nx3</span><span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="si">${</span><span class="nv">N</span><span class="si">}</span>.out
+
+<span class="c1"># and so on</span>
+</pre></div>
+</div>
+</section>
+<section id="to-get-the-timing-data">
+<h2>To get the timing data<a class="headerlink" href="#to-get-the-timing-data" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>We use the built in instrumentation inside Parthenon, which is stored
+in the output.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">filename</span><span class="o">=</span>timings.dat
+<span class="nb">printf</span><span class="w"> </span><span class="s2">&quot;# nprocs\tzone-cycles/cpu-second\n&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="si">${</span><span class="nv">filename</span><span class="si">}</span>
+<span class="c1"># make sure upper bound on this is log2(Nprocs max)</span>
+<span class="k">for</span><span class="w"> </span>n<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">0</span>..4<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">2</span><span class="o">**</span><span class="nv">n</span><span class="k">))</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span><span class="s2">&quot;zone-cycles/cpu_second = &quot;</span><span class="w"> </span><span class="k">$((</span><span class="m">2</span><span class="o">**</span><span class="nv">n</span><span class="k">))</span>.out<span class="w"> </span><span class="p">|</span><span class="w"> </span>cut<span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;=&quot;</span><span class="w"> </span>-f<span class="w"> </span><span class="m">2</span><span class="k">)</span><span class="w"> </span>&gt;&gt;<span class="w"> </span><span class="si">${</span><span class="nv">filename</span><span class="si">}</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+</pre></div>
+</div>
+<p>You can now load the timings in your favorite plotting program.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="utilities.html" class="btn btn-neutral float-left" title="``TypeList``s" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="interface/boundary.html" class="btn btn-neutral float-right" title="Boundary related classes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/move-to-impl
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/weak_scaling.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/weak_scaling.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/weak_scaling.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/weak_scaling.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/weak_scaling.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/weak_scaling.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/weak_scaling.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/weak_scaling.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/weak_scaling.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/weak_scaling.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/weak_scaling.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/weak_scaling.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/weak_scaling.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/weak_scaling.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/weak_scaling.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/weak_scaling.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/weak_scaling.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/weak_scaling.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/weak_scaling.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/weak_scaling.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/weak_scaling.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/weak_scaling.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/weak_scaling.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/weak_scaling.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/weak_scaling.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/weak_scaling.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/weak_scaling.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/weak_scaling.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/weak_scaling.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/weak_scaling.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/weak_scaling.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/weak_scaling.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/weak_scaling.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/weak_scaling.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/weak_scaling.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/weak_scaling.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/weak_scaling.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/weak_scaling.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/weak_scaling.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/weak_scaling.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/weak_scaling.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/weak_scaling.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/weak_scaling.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/weak_scaling.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/weak_scaling.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/weak_scaling.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/weak_scaling.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/weak_scaling.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/weak_scaling.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/weak_scaling.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/weak_scaling.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/weak_scaling.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/weak_scaling.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/weak_scaling.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/weak_scaling.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/weak_scaling.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/weak_scaling.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/weak_scaling.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/weak_scaling.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/weak_scaling.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/weak_scaling.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/weak_scaling.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/weak_scaling.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/weak_scaling.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/weak_scaling.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/weak_scaling.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/weak_scaling.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/weak_scaling.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/weak_scaling.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/weak_scaling.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/weak_scaling.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/weak_scaling.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/weak_scaling.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/weak_scaling.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/weak_scaling.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/weak_scaling.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/weak_scaling.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/weak_scaling.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/weak_scaling.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/weak_scaling.html">jdolence/trace</a></dd>
+      <dd><a href="../../add-by-uid/src/weak_scaling.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../custom-coords/src/weak_scaling.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../deprecate-unified-init/src/weak_scaling.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../dont-init-mpi-twice/src/weak_scaling.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../ensure-tags-work-on-device/src/weak_scaling.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../fix-bool-vector-params/src/weak_scaling.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../fix-noparticle-case/src/weak_scaling.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../fix-restart/src/weak_scaling.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../fix-split-io/src/weak_scaling.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../flat-sparse/src/weak_scaling.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../flatpack-test/src/weak_scaling.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../get-me-off-this-rollercoaster/src/weak_scaling.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../global-boundaries/src/weak_scaling.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../global-boundaries-2/src/weak_scaling.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../hotfix-sparse-control-fields/src/weak_scaling.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../include-guards/src/weak_scaling.html">jmm/include-guards</a></dd>
+      <dd><a href="../../indexsplit/src/weak_scaling.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../make-get-parent-pointer-consistent/src/weak_scaling.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../metadata-fix/src/weak_scaling.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../metadataset/src/weak_scaling.html">jmm/metadataset</a></dd>
+      <dd><a href="weak_scaling.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../move-userwork-before-loop-before-io/src/weak_scaling.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../param-hash/src/weak_scaling.html">jmm/param-hash</a></dd>
+      <dd><a href="../../particle-output/src/weak_scaling.html">jmm/particle-output</a></dd>
+      <dd><a href="../../precomms-fill-derived/src/weak_scaling.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../remove-extraneous-check/src/weak_scaling.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../sparse-pack-exists/src/weak_scaling.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../sparsepack-wishlist/src/weak_scaling.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../speed-up-compilation/src/weak_scaling.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../threads-hack/src/weak_scaling.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../two-more-pedagogical-examples/src/weak_scaling.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../use-system-packages/src/weak_scaling.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../user-work-before-loop/src/weak_scaling.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../yet-more-io-cleanup/src/weak_scaling.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/weak_scaling.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/weak_scaling.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/weak_scaling.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/weak_scaling.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/weak_scaling.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/weak_scaling.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/weak_scaling.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/weak_scaling.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/weak_scaling.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/weak_scaling.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/weak_scaling.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/weak_scaling.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/weak_scaling.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/weak_scaling.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/weak_scaling.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/weak_scaling.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/weak_scaling.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/weak_scaling.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/weak_scaling.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/weak_scaling.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/weak_scaling.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/weak_scaling.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/weak_scaling.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/weak_scaling.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/weak_scaling.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/weak_scaling.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/weak_scaling.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/weak_scaling.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/weak_scaling.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/weak_scaling.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/weak_scaling.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/weak_scaling.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/weak_scaling.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/weak_scaling.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/weak_scaling.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/weak_scaling.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/weak_scaling.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/weak_scaling.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/weak_scaling.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/weak_scaling.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/weak_scaling.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/weak_scaling.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/weak_scaling.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/weak_scaling.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/weak_scaling.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/weak_scaling.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/weak_scaling.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/weak_scaling.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/weak_scaling.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/weak_scaling.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/weak_scaling.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/weak_scaling.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/weak_scaling.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/weak_scaling.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/weak_scaling.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/weak_scaling.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/weak_scaling.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/weak_scaling.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/weak_scaling.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/weak_scaling.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/weak_scaling.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/weak_scaling.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/weak_scaling.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/weak_scaling.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/weak_scaling.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/weak_scaling.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/weak_scaling.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/weak_scaling.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/weak_scaling.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/weak_scaling.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/weak_scaling.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/weak_scaling.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/weak_scaling.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/weak_scaling.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/weak_scaling.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/weak_scaling.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/weak_scaling.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/weak_scaling.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

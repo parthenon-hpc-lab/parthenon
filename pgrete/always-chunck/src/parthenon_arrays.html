@@ -1,0 +1,515 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parthenon Set-Dimensional Arrays &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Particles" href="particles.html" />
+    <link rel="prev" title="Outputs" href="outputs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#constructors">Constructors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rank-counting">Rank counting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessors">Accessors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#slicing">Slicing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#get">Get</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#type-subtleties">Type Subtleties</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mirrors-and-deep-copies">Mirrors and Deep Copies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#a-note-on-templates">A note on templates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#examples-of-use">Examples of use</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Parthenon Set-Dimensional Arrays</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/parthenon_arrays.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parthenon-set-dimensional-arrays">
+<span id="pararrays"></span><h1>Parthenon Set-Dimensional Arrays<a class="headerlink" href="#parthenon-set-dimensional-arrays" title="Link to this heading"></a></h1>
+<p>We provide type aliases to <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>. They are</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray1D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray2D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">**</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray3D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">***</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray4D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">****</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray5D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">*****</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArray6D</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">******</span><span class="p">,</span><span class="w"> </span><span class="n">LayoutWrapper</span><span class="p">,</span><span class="w"> </span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">LayoutWrapper</span></code> is currently hardcoded to
+<code class="docutils literal notranslate"><span class="pre">Kokkos::LayoutRight</span></code>. <code class="docutils literal notranslate"><span class="pre">DevMemSpace</span></code> is the memory space associated
+with the default execution space. If UVM is enabled, it is
+<code class="docutils literal notranslate"><span class="pre">Kokkos::CudaUVMSpace</span></code>.</p>
+</section>
+<section id="parthenon-arbitrary-dimensional-arrays">
+<h1>Parthenon Arbitrary-Dimensional Arrays<a class="headerlink" href="#parthenon-arbitrary-dimensional-arrays" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> is a wrapper around a rank 6 <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>. It
+provides a rank-agnostic way to create, manage, and carry
+<code class="docutils literal notranslate"><span class="pre">Kokkos::Views</span></code>. Since it is built on <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>, it is
+reference counted, works on GPUs, and is almost as performant as
+<code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>.</p>
+<p>The index and size convention is the same as in <code class="docutils literal notranslate"><span class="pre">Athena++</span></code>. The
+fastest moving indexes come last.</p>
+<section id="constructors">
+<h2>Constructors<a class="headerlink" href="#constructors" title="Link to this heading"></a></h2>
+<p>To construct, call it with <code class="docutils literal notranslate"><span class="pre">ParArrayND(label,dimensions...)</span></code>, where
+dimensions is some number of ints specifying the shape of the array.
+e.g.,</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">ParArrayND</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">myArray</span><span class="p">(</span><span class="s">&quot;a 3d array&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>If you don’t know what to name your array, try using the
+<code class="docutils literal notranslate"><span class="pre">PARARRAY_TEMP</span></code> macro as the name. It is provided to name the array
+based on the file and line where it is created.</p>
+</section>
+<section id="rank-counting">
+<h2>Rank counting<a class="headerlink" href="#rank-counting" title="Link to this heading"></a></h2>
+<p>The rank of the object is indexed from 1, not 0. In other words, the
+code</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">ParArrayND</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">myArray</span><span class="p">(</span><span class="s">&quot;a 3d array&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">myArray</span><span class="p">.</span><span class="n">GetDim</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot; &quot;</span>
+<span class="w">          </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">myArray</span><span class="p">.</span><span class="n">GetDim</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot; &quot;</span>
+<span class="w">          </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">myArray</span><span class="p">.</span><span class="n">GetDim</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>prints out <code class="docutils literal notranslate"><span class="pre">6</span> <span class="pre">5</span> <span class="pre">4</span></code>.</p>
+</section>
+<section id="accessors">
+<h2>Accessors<a class="headerlink" href="#accessors" title="Link to this heading"></a></h2>
+<p>Similarly, you can access it using <code class="docutils literal notranslate"><span class="pre">operator()</span></code> with up to six
+integers specifying the indices. Unspecified (slow-moving) indices are
+assumed to be zero.</p>
+</section>
+<section id="slicing">
+<h2>Slicing<a class="headerlink" href="#slicing" title="Link to this heading"></a></h2>
+<p>You can slice a <code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> using <code class="docutils literal notranslate"><span class="pre">Kokkos::subview</span></code> as described in
+Kokkos documentation. We have overloaded <code class="docutils literal notranslate"><span class="pre">Kokkos::subview</span></code> to support
+this.</p>
+</section>
+<section id="get">
+<h2>Get<a class="headerlink" href="#get" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code> with the dimensionality you want can be extracted
+with <code class="docutils literal notranslate"><span class="pre">ParArrayND.Get&lt;D&gt;();</span></code>. This returns a rank-D view. Dimensions
+higher than D are set to zero.</p>
+<section id="type-subtleties">
+<h3>Type Subtleties<a class="headerlink" href="#type-subtleties" title="Link to this heading"></a></h3>
+<p>Note that the type returned by <code class="docutils literal notranslate"><span class="pre">ParArrayND.Get&lt;D&gt;()</span></code> is not not a
+simple type. For example, the type returned by
+<code class="docutils literal notranslate"><span class="pre">ParArrayND&lt;Real&gt;.Get&lt;4&gt;();</span></code> is:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">****</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">LayoutRight</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">Device</span><span class="o">&lt;</span><span class="n">Kokkos</span><span class="o">::</span><span class="n">Serial</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">HostSpace</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">MemoryTraits</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>while the type for <code class="docutils literal notranslate"><span class="pre">ParArray4D&lt;Real&gt;</span></code> is</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">*****</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">LayoutRight</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">HostSpace</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>These two types are compatible. So you can set one equal to the other
+and do implicit casts. I.e., the following works:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">doNothingByValue</span><span class="p">(</span><span class="n">ParArray4D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">array</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+<span class="n">ParArrayND</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ndarray</span><span class="p">;</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ndarray</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="n">doNothingByValue</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>However, implicit casts on reference variables are not performed. So the
+following fails:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">doNothingByReference</span><span class="p">(</span><span class="n">ParArray4D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">array</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+<span class="n">ParArrayND</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ndarray</span><span class="p">;</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ndarray</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="n">doNothingByReference</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>To avoid this issue, you can:</p>
+<ul class="simple">
+<li><p>Explicitly typecast <code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> when using it in conjunction with Kokkos views.</p></li>
+<li><p>Pass views by reference</p></li>
+<li><p>Template appropriate functions on array type</p></li>
+</ul>
+<p>For more details, see
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/issues/143">here</a>.</p>
+</section>
+</section>
+<section id="mirrors-and-deep-copies">
+<h2>Mirrors and Deep Copies<a class="headerlink" href="#mirrors-and-deep-copies" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> requires mirrors and deep copies, just like the
+<code class="docutils literal notranslate"><span class="pre">Kokkos</span></code> views it wraps. You can get one via, e.g.,</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">my_mirror</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">my_array</span><span class="p">.</span><span class="n">GetMirror</span><span class="p">(</span><span class="n">my_memory_space</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>you can then deep copy into <code class="docutils literal notranslate"><span class="pre">my_mirror</span></code> with</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">my_mirror</span><span class="p">.</span><span class="n">DeepCopy</span><span class="p">(</span><span class="n">my_array</span><span class="p">);</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> provides two convenience functions, <code class="docutils literal notranslate"><span class="pre">GetHostMirror()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">GetDeviceMirror()</span></code> which put a mirror on the host and device
+respectively. In addition, <code class="docutils literal notranslate"><span class="pre">GetHostMirrorAndCopy()</span></code> creates a new
+<code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> on the host with identical layout and deep copies the
+content, e.g.,</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">my_host_array</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">my_array</span><span class="p">.</span><span class="n">getHostMirrorAndCopy</span><span class="p">();</span>
+</pre></div>
+</div>
+</section>
+<section id="a-note-on-templates">
+<h2>A note on templates<a class="headerlink" href="#a-note-on-templates" title="Link to this heading"></a></h2>
+<p>Strictly, <code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> is a specialization of <code class="docutils literal notranslate"><span class="pre">ParArrayGeneric</span></code>,
+which wraps an arbitrary container. The specializations and type aliases
+available are as follows:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Layout</span><span class="o">=</span><span class="n">LayoutWrapper</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">device_view_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="o">******</span><span class="p">,</span><span class="n">Layout</span><span class="p">,</span><span class="n">DevMemSpace</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Layout</span><span class="o">=</span><span class="n">LayoutWrapper</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">host_view_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">device_view_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="n">Layout</span><span class="o">&gt;::</span><span class="n">HostMirror</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Layout</span><span class="o">=</span><span class="n">LayoutWrapper</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArrayND</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ParArrayGeneric</span><span class="o">&lt;</span><span class="n">device_view_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="n">Layout</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Layout</span><span class="o">=</span><span class="n">LayoutWrapper</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">ParArrayHost</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ParArrayGeneric</span><span class="o">&lt;</span><span class="n">host_view_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="n">Layout</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</pre></div>
+</div>
+</section>
+<section id="examples-of-use">
+<h2>Examples of use<a class="headerlink" href="#examples-of-use" title="Link to this heading"></a></h2>
+<p>See the <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_pararrays.cpp">unit test</a> for how to use
+<code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="outputs.html" class="btn btn-neutral float-left" title="Outputs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="particles.html" class="btn btn-neutral float-right" title="Particles" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: pgrete/always-chunck
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/parthenon_arrays.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/parthenon_arrays.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/parthenon_arrays.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/parthenon_arrays.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/parthenon_arrays.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/parthenon_arrays.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/parthenon_arrays.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/parthenon_arrays.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/parthenon_arrays.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/parthenon_arrays.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/parthenon_arrays.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/parthenon_arrays.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/parthenon_arrays.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/parthenon_arrays.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/parthenon_arrays.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/parthenon_arrays.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/parthenon_arrays.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/parthenon_arrays.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/parthenon_arrays.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/parthenon_arrays.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/parthenon_arrays.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/parthenon_arrays.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/parthenon_arrays.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/parthenon_arrays.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/parthenon_arrays.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/parthenon_arrays.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/parthenon_arrays.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/parthenon_arrays.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/parthenon_arrays.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/parthenon_arrays.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/parthenon_arrays.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/parthenon_arrays.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/parthenon_arrays.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/parthenon_arrays.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/parthenon_arrays.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/parthenon_arrays.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/parthenon_arrays.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/parthenon_arrays.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/parthenon_arrays.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/parthenon_arrays.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/parthenon_arrays.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/parthenon_arrays.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/parthenon_arrays.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/parthenon_arrays.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/parthenon_arrays.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/parthenon_arrays.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/parthenon_arrays.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/parthenon_arrays.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/parthenon_arrays.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/parthenon_arrays.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/parthenon_arrays.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/parthenon_arrays.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/parthenon_arrays.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/parthenon_arrays.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/parthenon_arrays.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/parthenon_arrays.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/parthenon_arrays.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/parthenon_arrays.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/parthenon_arrays.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/parthenon_arrays.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/parthenon_arrays.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/parthenon_arrays.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/parthenon_arrays.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/parthenon_arrays.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/parthenon_arrays.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/parthenon_arrays.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/parthenon_arrays.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/parthenon_arrays.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/parthenon_arrays.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/parthenon_arrays.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/parthenon_arrays.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/parthenon_arrays.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/parthenon_arrays.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/parthenon_arrays.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/parthenon_arrays.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/parthenon_arrays.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/parthenon_arrays.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/parthenon_arrays.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/parthenon_arrays.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/parthenon_arrays.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/parthenon_arrays.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/parthenon_arrays.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/parthenon_arrays.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/parthenon_arrays.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/parthenon_arrays.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/parthenon_arrays.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/parthenon_arrays.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/parthenon_arrays.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/parthenon_arrays.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/parthenon_arrays.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/parthenon_arrays.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/parthenon_arrays.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/parthenon_arrays.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/parthenon_arrays.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/parthenon_arrays.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/parthenon_arrays.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/parthenon_arrays.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/parthenon_arrays.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/parthenon_arrays.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/parthenon_arrays.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/parthenon_arrays.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/parthenon_arrays.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/parthenon_arrays.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/parthenon_arrays.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/parthenon_arrays.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/parthenon_arrays.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/parthenon_arrays.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/parthenon_arrays.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/parthenon_arrays.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/parthenon_arrays.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/parthenon_arrays.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/parthenon_arrays.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/parthenon_arrays.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/parthenon_arrays.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/parthenon_arrays.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/parthenon_arrays.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/parthenon_arrays.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/parthenon_arrays.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/parthenon_arrays.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/parthenon_arrays.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/parthenon_arrays.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/parthenon_arrays.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/parthenon_arrays.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/parthenon_arrays.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/parthenon_arrays.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/parthenon_arrays.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/parthenon_arrays.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/parthenon_arrays.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/parthenon_arrays.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/parthenon_arrays.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/parthenon_arrays.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/parthenon_arrays.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/parthenon_arrays.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/parthenon_arrays.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/parthenon_arrays.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/parthenon_arrays.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/parthenon_arrays.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/parthenon_arrays.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/parthenon_arrays.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/parthenon_arrays.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/parthenon_arrays.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/parthenon_arrays.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/parthenon_arrays.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/parthenon_arrays.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/parthenon_arrays.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/parthenon_arrays.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/parthenon_arrays.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/parthenon_arrays.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/parthenon_arrays.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/parthenon_arrays.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/parthenon_arrays.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/parthenon_arrays.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/parthenon_arrays.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/parthenon_arrays.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/parthenon_arrays.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/parthenon_arrays.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/parthenon_arrays.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/parthenon_arrays.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/parthenon_arrays.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/parthenon_arrays.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/parthenon_arrays.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/parthenon_arrays.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/parthenon_arrays.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/parthenon_arrays.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/parthenon_arrays.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/parthenon_arrays.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/parthenon_arrays.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/parthenon_arrays.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/parthenon_arrays.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/parthenon_arrays.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/parthenon_arrays.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/parthenon_arrays.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/parthenon_arrays.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/parthenon_arrays.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../adios2/src/parthenon_arrays.html">pgrete/adios2</a></dd>
+      <dd><a href="parthenon_arrays.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../ci-hamilton/src/parthenon_arrays.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../fix-ascent-vars/src/parthenon_arrays.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../fix-chunk/src/parthenon_arrays.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../fix-hasghost-restart/src/parthenon_arrays.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG/src/parthenon_arrays.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG-winput/src/parthenon_arrays.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../histogram-outputs/src/parthenon_arrays.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../interpolation/src/parthenon_arrays.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../non-atomic-scatter/src/parthenon_arrays.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/src/parthenon_arrays.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pmd-output/src/parthenon_arrays.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../refactor-restart/src/parthenon_arrays.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../sycl-test/src/parthenon_arrays.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../update-pool-alloc/src/parthenon_arrays.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../user-output/src/parthenon_arrays.html">pgrete/user-output</a></dd>
+      <dd><a href="../../user-output-w-pmd/src/parthenon_arrays.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

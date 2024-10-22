@@ -1,0 +1,425 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrators &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Load Balancing" href="load_balancing.html" />
+    <link rel="prev" title="Performance Instrumentation" href="instrumentation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Integrators</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#stagedintegrator">StagedIntegrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lowstorageintegrator">LowStorageIntegrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#butcherintegrator">ButcherIntegrator</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Integrators</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/integrators.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="integrators">
+<span id="id1"></span><h1>Integrators<a class="headerlink" href="#integrators" title="Link to this heading"></a></h1>
+<p>Integrators contain useful properties for writing a time-integration
+scheme. They are defined in a class hierarchy. <code class="docutils literal notranslate"><span class="pre">MultiStageDriver</span></code>
+owns a pointer to an integrator. The type of integrator depends on the
+template parameter. By default it is the base class, and you can
+assign child integrator you like, but you must cast the pointer at
+runtime to access useful features of the child classes. Alternatively
+if you inherit from <code class="docutils literal notranslate"><span class="pre">MultiStageDriver</span></code> and specialize to a specific
+child class, you can avoid doing the cast.</p>
+<section id="stagedintegrator">
+<h2>StagedIntegrator<a class="headerlink" href="#stagedintegrator" title="Link to this heading"></a></h2>
+<p>The base class is the <code class="docutils literal notranslate"><span class="pre">StagedIntegrator</span></code>. It contains a timestep
+<code class="docutils literal notranslate"><span class="pre">dt</span></code>, a total number of integration steps, <code class="docutils literal notranslate"><span class="pre">nstages</span></code>, a total
+number of scratch buffers required, <code class="docutils literal notranslate"><span class="pre">nbuffers</span></code>, and lists of strings
+containing suggested names for the stages and buffers, <code class="docutils literal notranslate"><span class="pre">buffer_name</span></code>
+and <code class="docutils literal notranslate"><span class="pre">stage_name</span></code>. All other integrators inherit from this one.</p>
+</section>
+<section id="lowstorageintegrator">
+<h2>LowStorageIntegrator<a class="headerlink" href="#lowstorageintegrator" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">LowStorageIntegrator</span></code> contains integrators in the 2S form as
+described in <a class="reference external" href="https://doi.org/10.1016/j.jcp.2009.11.006">Ketchson (2010)</a>. These integrators are of the classic
+<a class="reference external" href="https://doi.org/10.1016/0021-9991(88)90177-5">Shu Osher</a> form:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}u^{(0)} &amp;= u^n \\
+u^{(i)} &amp;= \sum_{k=0}^{i-1} (\alpha_{i,k} u^{(k)} + \Delta t \beta_{i, k} F(u^{(k)})\\
+u^{n+1} &amp;= u^{(m)}\end{split}\]</div>
+<p>where superscripts in parentheses mean subcycles in a Runge-Kutta
+integration and <span class="math notranslate nohighlight">\(F\)</span> is the right-hand-side of ODE system. The
+difference between these low-storage methods and the classic SSPK
+methods is that the low-storage methods typically have sparse
+<span class="math notranslate nohighlight">\(\alpha\)</span> and <span class="math notranslate nohighlight">\(\beta\)</span> matrices, which are replaced by
+diagonal termes, named <span class="math notranslate nohighlight">\(\gamma_0\)</span> and <span class="math notranslate nohighlight">\(\gamma_1\)</span>
+respectively.</p>
+<p>These methods can be generalized to support more general methods with
+the introduction of an additional <span class="math notranslate nohighlight">\(\delta\)</span> term for first
+averaging the updated stage with previous stages. This form is also described in Section 3.2.3 of the <a class="reference external" href="https://doi.org/10.3847/1538-4365/ab929b">Athena++ paper</a>.</p>
+<p>The full update then takes the form:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}u^{(1)} &amp;:= u^{(1)} + \delta_s u^{(0)} \\
+u^{(0)} &amp;:= \gamma_{s0} u^{(0)} + \gamma_{s1} u^{(1)} + \beta_{s,s-1} \Delta t F(u^{(0)})\end{split}\]</div>
+<p>where here <span class="math notranslate nohighlight">\(u^{(0)}\)</span> and <span class="math notranslate nohighlight">\(u^{(1)}\)</span> are the two storage
+buffers required to compute the update for a given Runge-Kutta stage
+<span class="math notranslate nohighlight">\(s\)</span>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">LowStorageIntegrator</span></code> contains arrays for <code class="docutils literal notranslate"><span class="pre">delta</span></code>, <code class="docutils literal notranslate"><span class="pre">beta</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gam0</span></code>, and <code class="docutils literal notranslate"><span class="pre">gam1</span></code>. Available integration methods are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RK1</span></code>, which is simply forward Euler.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK2</span></code>, which is Heun’s method.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">VL2</span></code>, 2nd-order Van Leer predictor-corrector from Stone and
+Gardiner 2009. Requires donor-cell reconstruction for the predictor
+stage.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK3</span></code>, a strong stability preserving variant.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK4</span></code>, a strong stability preserving variant.</p></li>
+</ul>
+</section>
+<section id="butcherintegrator">
+<h2>ButcherIntegrator<a class="headerlink" href="#butcherintegrator" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">ButcherIntegrator</span></code> provides a classic Butcher Tableau with
+arrays <span class="math notranslate nohighlight">\(a\)</span> to compute the stages, <span class="math notranslate nohighlight">\(c\)</span> to compute the time
+offsets, and <span class="math notranslate nohighlight">\(b\)</span> to compute the final update for a time
+step. Available integration methods are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RK1</span></code>, simple forward Euler.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK2</span></code>, Heun’s method.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK4</span></code>, The classic 4th-order method.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RK10</span></code>, A recent version with fewer stages than Fehlberg’s classic RK8(9), computed by Faegin and tabulated <a class="reference external" href="https://sce.uhcl.edu/rungekutta/">here</a>.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="instrumentation.html" class="btn btn-neutral float-left" title="Performance Instrumentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="load_balancing.html" class="btn btn-neutral float-right" title="Load Balancing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: pgrete/interpolation
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/integrators.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/integrators.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/integrators.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/integrators.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/integrators.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/integrators.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/integrators.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/integrators.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/integrators.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/integrators.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/integrators.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/integrators.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/integrators.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/integrators.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/integrators.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/integrators.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/integrators.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/integrators.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/integrators.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/integrators.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/integrators.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/integrators.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/integrators.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/integrators.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/integrators.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/integrators.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/integrators.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/index.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/integrators.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/integrators.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/integrators.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/integrators.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/integrators.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/integrators.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/integrators.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/integrators.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/integrators.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/integrators.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/integrators.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/integrators.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/integrators.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/integrators.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/integrators.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/integrators.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/integrators.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/integrators.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/integrators.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/integrators.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/integrators.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/integrators.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/integrators.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/integrators.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/index.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/integrators.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/integrators.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/integrators.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/integrators.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/integrators.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/integrators.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/integrators.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/integrators.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/integrators.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/integrators.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/integrators.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/integrators.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/integrators.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/integrators.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/integrators.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/integrators.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/integrators.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/integrators.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/integrators.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/integrators.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/integrators.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/integrators.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/integrators.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/integrators.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/integrators.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/integrators.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/integrators.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/integrators.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/integrators.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/integrators.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/integrators.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/integrators.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/integrators.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/integrators.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/integrators.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/integrators.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/integrators.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/integrators.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/integrators.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/integrators.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/integrators.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/integrators.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/integrators.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/integrators.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/integrators.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/index.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/index.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/integrators.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/integrators.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/integrators.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/integrators.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/integrators.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/integrators.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/integrators.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/integrators.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/integrators.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/integrators.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/integrators.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/integrators.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/integrators.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/integrators.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/integrators.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/integrators.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/integrators.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/integrators.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/integrators.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/integrators.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/integrators.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/integrators.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/integrators.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/integrators.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/integrators.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/integrators.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/integrators.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/integrators.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/integrators.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/integrators.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/integrators.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/integrators.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/integrators.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/integrators.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/integrators.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/integrators.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/integrators.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/integrators.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/integrators.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/integrators.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/integrators.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/integrators.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/integrators.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/integrators.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/integrators.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/integrators.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/integrators.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/integrators.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/integrators.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/integrators.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/integrators.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/integrators.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/integrators.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/integrators.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/integrators.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/integrators.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/integrators.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/integrators.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/integrators.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/integrators.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/integrators.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/integrators.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/integrators.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/integrators.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/integrators.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/integrators.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/integrators.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/integrators.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/integrators.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/integrators.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/integrators.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/integrators.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/integrators.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/integrators.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../adios2/src/integrators.html">pgrete/adios2</a></dd>
+      <dd><a href="../../always-chunck/src/integrators.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../ci-hamilton/src/integrators.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../fix-ascent-vars/src/integrators.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../fix-chunk/src/integrators.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../fix-hasghost-restart/src/integrators.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG/src/integrators.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../histgram-analysis-pre-MG-winput/src/integrators.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../histogram-outputs/src/integrators.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="integrators.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../non-atomic-scatter/src/integrators.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/src/integrators.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pmd-output/src/integrators.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../refactor-restart/src/integrators.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../sycl-test/index.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../update-pool-alloc/src/integrators.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../user-output/src/integrators.html">pgrete/user-output</a></dd>
+      <dd><a href="../../user-output-w-pmd/src/integrators.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

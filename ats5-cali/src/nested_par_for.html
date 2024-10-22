@@ -1,0 +1,571 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nested Parallelism &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Outputs" href="outputs.html" />
+    <link rel="prev" title="Load Balancing" href="load_balancing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Nested Parallelism</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#par-for-outer"><code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#par-for-inner"><code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scratchpadxd"><code class="docutils literal notranslate"><span class="pre">ScratchPadXD</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#on-barriers">On Barriers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cmake-options">Cmake Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#indexsplit">IndexSplit</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Nested Parallelism</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/nested_par_for.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="nested-parallelism">
+<span id="nested-par-for"></span><h1>Nested Parallelism<a class="headerlink" href="#nested-parallelism" title="Link to this heading"></a></h1>
+<p>The loop wrappers documented here abstracts a hierarchical parallelism
+model, which allows more fine grain control on core level vs. thread and
+vector level parallelism and allows explicitly defined caches for
+tightly nested loops. These wrappers provide a simplified interface of
+the <a class="reference external" href="https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/HierarchicalParallelism.html">hierarchical parallelism in
+Kokkos</a></p>
+<p>For an example of the nested parallel wrappers in use, see <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/kokkos_abstraction.cpp">the unit
+test</a></p>
+<section id="par-for-outer">
+<h2><code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code><a class="headerlink" href="#par-for-outer" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code> abstracts the team or multicore parallelism for outer
+loops. Inside the loop body, in the lambda function provided to
+<code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code>, synchronization and memory sharing between the
+threads in the single team is possible through the <code class="docutils literal notranslate"><span class="pre">member_type</span></code> team
+member type from Kokkos.</p>
+<p>The bytes of scratch memory for cache needed by a single team is
+specified via the <code class="docutils literal notranslate"><span class="pre">scratch_size_in_bytes</span></code>, which needs be computed
+using <code class="docutils literal notranslate"><span class="pre">ScratchPadXD::shmem_size</span></code>.</p>
+<p>The argument <code class="docutils literal notranslate"><span class="pre">scratch_level</span></code> defines where the scratch memory should
+be allocated. For CUDA GPUs, <code class="docutils literal notranslate"><span class="pre">scratch_level=0</span></code> allocates the cache in
+the faster by smaller <code class="docutils literal notranslate"><span class="pre">shared</span></code> memory and <code class="docutils literal notranslate"><span class="pre">scratch_level=1</span></code>
+allocates the cache in the slower but larger <code class="docutils literal notranslate"><span class="pre">global</span></code> or on device RAM
+memory. For CPUs, currently <code class="docutils literal notranslate"><span class="pre">scratch_level</span></code> makes no difference.</p>
+<p>Note that every thread within a team will execute code inside a
+<code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code> but outside of the <code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code>.</p>
+</section>
+<section id="par-for-inner">
+<h2><code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code><a class="headerlink" href="#par-for-inner" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code> abstracts the thread and vector level parallelism of
+compute units within a single team or core. Work defined through a
+<code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code> will be distributed between individual threads and
+vector lanes within the team.</p>
+</section>
+<section id="scratchpadxd">
+<h2><code class="docutils literal notranslate"><span class="pre">ScratchPadXD</span></code><a class="headerlink" href="#scratchpadxd" title="Link to this heading"></a></h2>
+<p>Data type for memory in scratch pad/cache memory. Use
+<code class="docutils literal notranslate"><span class="pre">ScratchPadXD::shmem_size</span></code>, which is documented in <a class="reference external" href="https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/HierarchicalParallelism.html?highlight=hierarchical">the Kokkos
+documentation</a>
+for determining scratch pad memory needs before kernel launch.</p>
+</section>
+<section id="on-barriers">
+<h2>On Barriers<a class="headerlink" href="#on-barriers" title="Link to this heading"></a></h2>
+<p>In order to ensure that individual threads of a team are synchronized
+always call <code class="docutils literal notranslate"><span class="pre">team_member.team_barrier();</span></code> after an <code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code>
+if the following execution depends on the results of the
+<code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code>. This pertains, for example, to filling a
+<code class="docutils literal notranslate"><span class="pre">ScratchPadXD</span></code> array in one <code class="docutils literal notranslate"><span class="pre">par_inner_for</span></code> and using the scratch
+array in the next one, see <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/kokkos_abstraction.cpp">the unit
+test</a> for sample usage.</p>
+<p>In addition, the entry to a <code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code> does <strong>not</strong> imply a
+barrier and not all threads of a team may even enter an inner parallel
+region (e.g., if there is not enough work – read indices – for all team
+members). This can lead to unintended side-effects when all team member
+write to common variables, see this
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/issues/659#issuecomment-1346871509">code</a>
+for an example.</p>
+</section>
+<section id="cmake-options">
+<h2>Cmake Options<a class="headerlink" href="#cmake-options" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT</span></code> controls how the inner loop is implemented.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT=TVR_INNER_LOOP</span></code> uses the Kokkos
+<code class="docutils literal notranslate"><span class="pre">TeamVectorRange</span></code>, which merges <code class="docutils literal notranslate"><span class="pre">TeamThreadRange</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ThreadVectorRange</span></code> into one loop, to distribute work between threads.
+<code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT=TVR_INNER_LOOP</span></code> is the only option supported
+for CUDA since the Kokkos loops are required for parallelization on
+GPUs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT=SIMDFOR_INNER_LOOP</span></code> uses a <code class="docutils literal notranslate"><span class="pre">for</span></code> loop with a
+<code class="docutils literal notranslate"><span class="pre">#pragma</span> <span class="pre">omp</span> <span class="pre">simd</span></code> to vectorize the loop, which typically gives better
+vectorization loops than <code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT=TVR_INNER_LOOP</span></code> on
+CPUs and so is the default on CPUs.</p>
+</section>
+<section id="performance-considerations">
+<h2>Performance Considerations<a class="headerlink" href="#performance-considerations" title="Link to this heading"></a></h2>
+<p>Hierarchical parallelism can produce very performant code, but a
+deeper awareness of how hardware is mapped to threads is required to
+get optimal performance. Here we list a few strategies/considerations.</p>
+<ul class="simple">
+<li><p>On CPU, with <cite>SIMDFOR_INNER_LOOP</cite> you may have trouble vectorizing
+unless you help the compiler along. One way to do so is to work with
+raw pointers to contiguous memory, rather than working with views
+and strides. Even for stencil ops, if you can pull out pointers that
+represent the different points on the stencil, this can help with
+vectorization.</p></li>
+<li><p>Similarly on CPUs, due to the cost of starting up a vector op,
+vectorization will only be a performance win if there’s enough work
+in the inner loop. A minimum of 16 points is required for the op to
+vectorize at all. Experience shows, however, that at least 64 is
+really required to see big wins. One strategy for providing enough
+vector cells in the inner loop is to do a 1D <code class="docutils literal notranslate"><span class="pre">SIMDFOR</span></code> inner loop
+but combine the <code class="docutils literal notranslate"><span class="pre">j</span></code> and <code class="docutils literal notranslate"><span class="pre">i</span></code> indices by simply looping over the
+contiguous memory in a rasterized plane on a block.</p></li>
+<li><p>On GPUs, the outer loop typically maps to blocks, while the inner
+maps to threads. To see good performance, you must both provide
+enough work in the inner loop to create enough threads to fill in
+CUDA terms a streaming multiprocessor (SM, equivalent to a Compute
+Unit or CU on AMD GPUs) with multiple warps (or wavefronts for AMD)
+to take advantage of pipelining and enough work in the outer loop to
+create enough blocks to fill all SMs on the GPU divided by the
+number of simultaneous streams. The number of warps in flight on the
+inner loop per SM (which is related to “occupancy”) will depend
+positively on length of the inner loop and negatively on higher
+shared memory usage (scratch pad memory in Kokkos parlance and Local
+Data Share or LDS on AMD GPUs) and higher register usage. Note that
+the number of SMs and the available shared memory and registers per
+SM will vary between GPU architectures and especially between GPU
+vendors.</p></li>
+</ul>
+</section>
+<section id="indexsplit">
+<h2>IndexSplit<a class="headerlink" href="#indexsplit" title="Link to this heading"></a></h2>
+<p>To balance the CPU vs GPU hardware considerations of hierarchical
+parallelism, <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> provides a utility, the <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code>
+class, defined in the <code class="docutils literal notranslate"><span class="pre">utils/index_split.hpp</span></code> header file and
+available in <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/package.hpp&gt;</span></code> in the
+<code class="docutils literal notranslate"><span class="pre">parthenon::package::prelude</span></code> namespace.</p>
+<p>In our experience <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code> is most beneficial when working with
+small meshblocks on CPUs, especially in two dimensions. For small
+blocks, we want vectorized operations over contiguous memory for our
+innermost loop, but we want that loop to contain enough work for,
+e.g., vector ops to function. We have often found that the optimal
+split is to fuse j, and i into the inner loop and use k and blocks in
+the outer loop.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code> class can be constructed as</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">IndexSplit</span><span class="p">(</span><span class="n">MeshData</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="n">IndexDomain</span><span class="w"> </span><span class="n">domain</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nkp</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">njp</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>where here <code class="docutils literal notranslate"><span class="pre">md</span></code> is a <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> object on which you want to
+operate. <code class="docutils literal notranslate"><span class="pre">domain</span></code> specifies where in the <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> you wish to
+operate, for example <code class="docutils literal notranslate"><span class="pre">IndexDomain::Interior</span></code>. <code class="docutils literal notranslate"><span class="pre">nkp</span></code> and <code class="docutils literal notranslate"><span class="pre">njp</span></code>
+are the number of points in <code class="docutils literal notranslate"><span class="pre">X3</span></code> and <code class="docutils literal notranslate"><span class="pre">X2</span></code> respectively that are in
+the outer loop. All remaining points are in the inner loop; each team
+will iterate over multiple <cite>k</cite> and/or <cite>j</cite> indices to cover the
+specified <cite>k/j</cite> range. Typically <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> index in the pack is
+also assumed to be in the outer loop. <code class="docutils literal notranslate"><span class="pre">nkp</span></code> and <code class="docutils literal notranslate"><span class="pre">njp</span></code> also accept
+special flags <code class="docutils literal notranslate"><span class="pre">IndexSplit::all_outer</span></code> and <code class="docutils literal notranslate"><span class="pre">IndexSplit::no_outer</span></code>,
+which specify that all and none of the indices in that direction
+should be in the outer loop.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Note that, in contrast to <code class="docutils literal notranslate"><span class="pre">njp</span></code>, <code class="docutils literal notranslate"><span class="pre">nkp</span></code> points in the
+<code class="docutils literal notranslate"><span class="pre">k</span></code>-direction are not included in the innermost loop bounds. You
+must loop over <code class="docutils literal notranslate"><span class="pre">k</span></code> by hand inside the outer loop body.</p>
+</div>
+<p>A second constructor alternatively sets the range for <code class="docutils literal notranslate"><span class="pre">X3</span></code>, <code class="docutils literal notranslate"><span class="pre">X2</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">X1</span></code> explicitly:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">IndexSplit</span><span class="p">(</span><span class="n">MeshData</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="o">*</span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="o">&amp;</span><span class="n">kb</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="o">&amp;</span><span class="n">jb</span><span class="p">,</span>
+<span class="w">           </span><span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ib</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nkp</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">njp</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>where here <code class="docutils literal notranslate"><span class="pre">kb</span></code>, <code class="docutils literal notranslate"><span class="pre">jb</span></code>, and <code class="docutils literal notranslate"><span class="pre">ib</span></code> specify the starting and ending
+indices for <code class="docutils literal notranslate"><span class="pre">X3</span></code>, <code class="docutils literal notranslate"><span class="pre">X2</span></code>, and <code class="docutils literal notranslate"><span class="pre">X1</span></code> respecively.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Note that, at this time, <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code> doesn’t know about
+face-centered or edge-centered data. To use <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code> with,
+e.g., face-centered data, set the input <code class="docutils literal notranslate"><span class="pre">IndexRange</span></code> quantities to
+match the shape for the face-centered data (e.g., with the
+appropriate offsets).</p>
+</div>
+<p>An <code class="docutils literal notranslate"><span class="pre">IndexSplit</span></code> object is typically used as:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">parthenon</span><span class="o">::</span><span class="nn">package</span><span class="o">::</span><span class="nn">prelude</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">ScratchPad1D</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">IndexSplit</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for_outer</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for_inner</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">team_mbr_t</span><span class="p">;</span>
+<span class="c1">// Initialize index split object</span>
+<span class="n">IndexSplit</span><span class="w"> </span><span class="nf">idx_sp</span><span class="p">(</span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">,</span><span class="w"> </span><span class="n">nkp</span><span class="p">,</span><span class="w"> </span><span class="n">njp</span><span class="p">);</span>
+
+<span class="c1">// Request maximum size in i and j in the inner loop, for scratch</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">Ni</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_sp</span><span class="p">.</span><span class="n">get_max_ni</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">Nj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_max_nj</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">tNmax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Ni</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Nj</span><span class="p">;</span>
+
+<span class="c1">// single scratch array for i,j</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">scratch_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ScratchPad1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;::</span><span class="n">shmem_size</span><span class="p">(</span><span class="n">Nmax</span><span class="p">);</span>
+<span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">scratch_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="c1">// Par for</span>
+<span class="n">par_for_outer</span><span class="p">(</span>
+<span class="w">        </span><span class="n">DEFAULT_OUTER_LOOP_PATTERN</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;KernalOuter&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">DevExecSpace</span><span class="p">(),</span><span class="w"> </span><span class="n">scratch_size</span><span class="p">,</span>
+<span class="w">        </span><span class="n">scratch_level</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">nblocks</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">idx_sp</span><span class="p">.</span><span class="n">outer_size</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="n">team_mbr_t</span><span class="w"> </span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">outer_idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">ScratchPad1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">scratch</span><span class="p">(</span><span class="n">member</span><span class="p">.</span><span class="n">team_scratch</span><span class="p">(</span><span class="n">scratch_level</span><span class="p">),</span><span class="w"> </span><span class="n">Nmax</span><span class="p">);</span>
+<span class="w">          </span><span class="c1">// Get index ranges. Note they depend on where we are in the outer index!</span>
+<span class="w">          </span><span class="c1">// These give us a sense for where we are in k,j space</span>
+<span class="w">          </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">krange</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_sp</span><span class="p">.</span><span class="n">GetBoundsK</span><span class="p">(</span><span class="n">outer_idx</span><span class="p">);</span>
+<span class="w">          </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">jrange</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_sp</span><span class="p">.</span><span class="n">GetBoundsJ</span><span class="p">(</span><span class="n">outer_idx</span><span class="p">);</span>
+<span class="w">          </span><span class="c1">// This is the loop of contiguous inner memory. May contain i and j!</span>
+<span class="w">          </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">flattened_inner_ijrange</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_sp</span><span class="p">.</span><span class="n">GetInnerBounds</span><span class="p">(</span><span class="n">jrange</span><span class="p">);</span>
+<span class="w">          </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">inner_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flattened_inner_ijrange</span><span class="p">.</span><span class="n">e</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">flattened_inner_ijrange</span><span class="p">.</span><span class="n">s</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="w">          </span><span class="c1">// Whatever part of k is not in the outer loop can be looped over</span>
+<span class="w">          </span><span class="c1">// with a normal for loop here</span>
+<span class="w">          </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">krange</span><span class="p">.</span><span class="n">s</span><span class="p">;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">krange</span><span class="p">.</span><span class="n">e</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">            </span><span class="c1">// pull out a pointer some variable in some pack. Note</span>
+<span class="w">            </span><span class="c1">// we pick the 0th index of i at k and jrange.s</span>
+<span class="w">            </span><span class="n">Real</span><span class="w"> </span><span class="o">*</span><span class="n">var</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">ivar</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">jrange</span><span class="p">.</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">flattened_inner_ijrange</span><span class="p">.</span><span class="n">s</span><span class="p">);</span>
+
+<span class="w">            </span><span class="c1">// Do something with the pointer in the inner loop.</span>
+<span class="w">            </span><span class="n">par_for_inner</span><span class="p">(</span><span class="n">DEFAULT_INNER_LOOP_PATTERN</span><span class="p">,</span><span class="w"> </span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">flattened_inner_size</span><span class="p">,</span>
+<span class="w">              </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">foo</span><span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+<span class="w">              </span><span class="p">});</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="load_balancing.html" class="btn btn-neutral float-left" title="Load Balancing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="outputs.html" class="btn btn-neutral float-right" title="Outputs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: ats5-cali
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../regression-gold-v16/src/nested_par_for.html">regression-gold-v16</a></dd>
+      <dd><a href="../../regression-gold-v17/src/nested_par_for.html">regression-gold-v17</a></dd>
+      <dd><a href="../../regression-gold-v18/src/nested_par_for.html">regression-gold-v18</a></dd>
+      <dd><a href="../../regression-gold-v19/src/nested_par_for.html">regression-gold-v19</a></dd>
+      <dd><a href="../../regression-gold-v20/src/nested_par_for.html">regression-gold-v20</a></dd>
+      <dd><a href="../../regression-gold-v21/src/nested_par_for.html">regression-gold-v21</a></dd>
+      <dd><a href="../../regression-gold-v22/src/nested_par_for.html">regression-gold-v22</a></dd>
+      <dd><a href="../../regression-gold-v23/src/nested_par_for.html">regression-gold-v23</a></dd>
+      <dd><a href="../../regression-gold-v24/src/nested_par_for.html">regression-gold-v24</a></dd>
+      <dd><a href="../../regression-gold-v25/src/nested_par_for.html">regression-gold-v25</a></dd>
+      <dd><a href="../../v0.8.0/src/nested_par_for.html">v0.8.0</a></dd>
+      <dd><a href="../../v23.11/src/nested_par_for.html">v23.11</a></dd>
+      <dd><a href="../../v24.03/src/nested_par_for.html">v24.03</a></dd>
+      <dd><a href="../../v24.08/src/nested_par_for.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../952-sparse_advection-format-string-incorrect/src/nested_par_for.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../BenWibking/move-params/src/nested_par_for.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../BenWibking/ubsan-clean-nan/src/nested_par_for.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../BenWibking/update-cuda-ci-container/src/nested_par_for.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../ats5/src/nested_par_for.html">ats5</a></dd>
+      <dd><a href="nested_par_for.html">ats5-cali</a></dd>
+      <dd><a href="../../ats5-debug/src/nested_par_for.html">ats5-debug</a></dd>
+      <dd><a href="../../bdw/gauss-quad/src/nested_par_for.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../bprather/backport-bicgstab/src/nested_par_for.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../bprather/backport-solvers/src/nested_par_for.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../bprather/driver-overridable/src/nested_par_for.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../bprather/fix-amr-ct/src/nested_par_for.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../bprather/fix-line-continuation/src/nested_par_for.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms/src/nested_par_for.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms-again/src/nested_par_for.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../bprather/fix-output-4GB-per-rank/src/nested_par_for.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../bprather/flat-set-bounds/src/nested_par_for.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../bprather/mbd_add_niceties/src/nested_par_for.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../bprather/package-pack-dim/src/nested_par_for.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../bprather/par-reduce-inner/src/nested_par_for.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../bprather/pep1/src/nested_par_for.html">bprather/pep1</a></dd>
+      <dd><a href="../../bprather/print-less/src/nested_par_for.html">bprather/print-less</a></dd>
+      <dd><a href="../../bprather/register-internal-op/src/nested_par_for.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../bprather/reqs-for-ct/src/nested_par_for.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../bprather/te-restart-fix/src/nested_par_for.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../brryan/fix_neighbor_idx/src/nested_par_for.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../brryan/fix_particle_array/src/nested_par_for.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../brryan/fix_swarm_mpi_reqs/src/nested_par_for.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../brryan/flux_refinement_ops/src/nested_par_for.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../brryan/h5py_str_fix/src/nested_par_for.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../brryan/history++/src/nested_par_for.html">brryan/history++</a></dd>
+      <dd><a href="../../brryan/is_restart_soft_equiv/src/nested_par_for.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../brryan/mesh_swarm_bc_funcs/src/nested_par_for.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../brryan/more_swarm_prefix_sums/src/nested_par_for.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../brryan/no_swarm_dynamic_alloc/src/nested_par_for.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../brryan/pack_neighbors/src/nested_par_for.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../brryan/param_whitespace_sanitize/src/nested_par_for.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../brryan/particle_bcs_nordc/src/nested_par_for.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../brryan/particle_idx_bug/src/nested_par_for.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../brryan/particle_io_defrag/src/nested_par_for.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../brryan/swarm_comms_prefix/src/nested_par_for.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../brryan/swarm_mpi_tags/src/nested_par_for.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../brryan/swarm_new_bc_comms/src/nested_par_for.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../brryan/swarm_tag_map_2/src/nested_par_for.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../brryan/swarms_smr/src/nested_par_for.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../brryan/userworkrestartoutput/src/nested_par_for.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../bumo-kokkos-42/src/nested_par_for.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../dempsey/bnd_coords/src/nested_par_for.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../dempsey/dt/src/nested_par_for.html">dempsey/dt</a></dd>
+      <dd><a href="../../dempsey/task_demangle/src/nested_par_for.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../dempsey/timeout/src/nested_par_for.html">dempsey/timeout</a></dd>
+      <dd><a href="../../develop/src/nested_par_for.html">develop</a></dd>
+      <dd><a href="../../forrestglines/4D-outer-parallel-loop/src/nested_par_for.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../forrestglines/cuda-with-nvc++-fix/src/nested_par_for.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../forrestglines/curvilinear/src/nested_par_for.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../forrestglines/fix-deprecated-kokkos-num-devices/src/nested_par_for.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../jdolence/curvilinear/src/nested_par_for.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../jdolence/force_inline_inner/src/nested_par_for.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../jdolence/instrument/src/nested_par_for.html">jdolence/instrument</a></dd>
+      <dd><a href="../../jdolence/meshblockdata_add/src/nested_par_for.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../jdolence/move_string_creation/src/nested_par_for.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../jdolence/new_tasking/src/nested_par_for.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../jdolence/quickfixes/src/nested_par_for.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../jdolence/thread_safe/src/nested_par_for.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../jdolence/timer_based_loadbalancing/src/nested_par_for.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../jdolence/trace/src/nested_par_for.html">jdolence/trace</a></dd>
+      <dd><a href="../../jmm/add-by-uid/src/nested_par_for.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../jmm/custom-coords/src/nested_par_for.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../jmm/deprecate-unified-init/src/nested_par_for.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../jmm/dont-init-mpi-twice/src/nested_par_for.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../jmm/ensure-tags-work-on-device/src/nested_par_for.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../jmm/fix-bool-vector-params/src/nested_par_for.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../jmm/fix-noparticle-case/src/nested_par_for.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../jmm/fix-restart/src/nested_par_for.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../jmm/fix-split-io/src/nested_par_for.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../jmm/flat-sparse/src/nested_par_for.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../jmm/flatpack-test/src/nested_par_for.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../jmm/get-me-off-this-rollercoaster/src/nested_par_for.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../jmm/global-boundaries/src/nested_par_for.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../jmm/global-boundaries-2/src/nested_par_for.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../jmm/hotfix-sparse-control-fields/src/nested_par_for.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../jmm/include-guards/src/nested_par_for.html">jmm/include-guards</a></dd>
+      <dd><a href="../../jmm/indexsplit/src/nested_par_for.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../jmm/make-get-parent-pointer-consistent/src/nested_par_for.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../jmm/metadata-fix/src/nested_par_for.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../jmm/metadataset/src/nested_par_for.html">jmm/metadataset</a></dd>
+      <dd><a href="../../jmm/move-to-impl/src/nested_par_for.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../jmm/move-userwork-before-loop-before-io/src/nested_par_for.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../jmm/param-hash/src/nested_par_for.html">jmm/param-hash</a></dd>
+      <dd><a href="../../jmm/particle-output/src/nested_par_for.html">jmm/particle-output</a></dd>
+      <dd><a href="../../jmm/precomms-fill-derived/src/nested_par_for.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../jmm/remove-extraneous-check/src/nested_par_for.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../jmm/sparse-pack-exists/src/nested_par_for.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../jmm/sparsepack-wishlist/src/nested_par_for.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../jmm/speed-up-compilation/src/nested_par_for.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../jmm/threads-hack/src/nested_par_for.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../jmm/two-more-pedagogical-examples/src/nested_par_for.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../jmm/use-system-packages/src/nested_par_for.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../jmm/user-work-before-loop/src/nested_par_for.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../jmm/yet-more-io-cleanup/src/nested_par_for.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../lfroberts36/speedup-buffer-kernel/src/nested_par_for.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../lfroberts36/update-solver-convergence-criteria/src/nested_par_for.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../lroberts36/add-cg-solver/src/nested_par_for.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../lroberts36/add-combined-buffer-communication/src/nested_par_for.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../lroberts36/add-fine-field-deallocation/src/nested_par_for.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../lroberts36/add-fine-variables/src/nested_par_for.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../lroberts36/add-forest-block-orientation/src/nested_par_for.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../lroberts36/add-forest-mesh-example/src/nested_par_for.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../lroberts36/add-forest-of-octrees/src/nested_par_for.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../lroberts36/add-forest-orientation-2/src/nested_par_for.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../lroberts36/add-index-range-masking/src/nested_par_for.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../lroberts36/add-more-careful-container-checking/src/nested_par_for.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../lroberts36/add-morton-numbers/src/nested_par_for.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../lroberts36/add-multi-grid/src/nested_par_for.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../lroberts36/add-negative-levels/src/nested_par_for.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../lroberts36/add-non-one-copy-fluxes/src/nested_par_for.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../lroberts36/add-noncell-amr/src/nested_par_for.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../lroberts36/add-small-riot/src/nested_par_for.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../lroberts36/add-sparse-vector-wave-test/src/nested_par_for.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../lroberts36/add-task-graph/src/nested_par_for.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../lroberts36/add-vector-wave-test/src/nested_par_for.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../lroberts36/boundary-comms-perforfmance-upgrades/src/nested_par_for.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../lroberts36/bugfix-sparse-cache/src/nested_par_for.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../lroberts36/bugfix-symmetrized-coordinates/src/nested_par_for.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../lroberts36/cleanup-offsets/src/nested_par_for.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../lroberts36/composable-boundary-conditions/src/nested_par_for.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../lroberts36/face-boundary-communication/src/nested_par_for.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../lroberts36/fix-bitshift-of-negative/src/nested_par_for.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../lroberts36/fix-dealloc-count-bug/src/nested_par_for.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../lroberts36/fix-divide-by-zero/src/nested_par_for.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../lroberts36/fix-forest-multigrid/src/nested_par_for.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../lroberts36/fix-iterative-task-qualifiers/src/nested_par_for.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../lroberts36/fix-multigrid-mpi/src/nested_par_for.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../lroberts36/fix-noncc-amr/src/nested_par_for.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../lroberts36/fix-one-block-minimum-per-rank/src/nested_par_for.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../lroberts36/fix-restart-state-bug/src/nested_par_for.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../lroberts36/fix-root-level/src/nested_par_for.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../lroberts36/fix-solver-relative-residual/src/nested_par_for.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../lroberts36/fix-sptr-cycle-tree/src/nested_par_for.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../lroberts36/fix-sptr-cycle-tree-2/src/nested_par_for.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../lroberts36/fix-static-refinement/src/nested_par_for.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../lroberts36/generalize-par-dispatch/src/nested_par_for.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../lroberts36/in-one-zero-memory-amr/src/nested_par_for.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../lroberts36/local-face-fields/src/nested_par_for.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../lroberts36/mg-riot-updates/src/nested_par_for.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../lroberts36/multigrid-example-update/src/nested_par_for.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../lroberts36/performance-updates/src/nested_par_for.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../lroberts36/refactor-mesh-constructors/src/nested_par_for.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../lroberts36/refactor-meshblockdata-initialization/src/nested_par_for.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../lroberts36/refactor-partitioning/src/nested_par_for.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../lroberts36/refactor-region-size/src/nested_par_for.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../lroberts36/refactor-solver-input/src/nested_par_for.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../lroberts36/rename-cell-variable/src/nested_par_for.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../lroberts36/reorganize/src/nested_par_for.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../lroberts36/sparse-pack-update/src/nested_par_for.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../lroberts36/speedup-buffer-kernel-split/src/nested_par_for.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../morarumaxim/neigh_collectives/src/nested_par_for.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../neighborhood_ats5/src/nested_par_for.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../pgrete-patch-1/src/nested_par_for.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../pgrete-patch-bound_type/src/nested_par_for.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../pgrete/adios2/src/nested_par_for.html">pgrete/adios2</a></dd>
+      <dd><a href="../../pgrete/always-chunck/src/nested_par_for.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../pgrete/ci-hamilton/src/nested_par_for.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../pgrete/fix-ascent-vars/src/nested_par_for.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../pgrete/fix-chunk/src/nested_par_for.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../pgrete/fix-hasghost-restart/src/nested_par_for.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../pgrete/histgram-analysis-pre-MG/src/nested_par_for.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../pgrete/histgram-analysis-pre-MG-winput/src/nested_par_for.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../pgrete/histogram-outputs/src/nested_par_for.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../pgrete/interpolation/src/nested_par_for.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../pgrete/non-atomic-scatter/src/nested_par_for.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../pgrete/pgrete/pmd-output-wuser/src/nested_par_for.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pgrete/pmd-output/src/nested_par_for.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../pgrete/refactor-restart/src/nested_par_for.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../pgrete/sycl-test/src/nested_par_for.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../pgrete/update-pool-alloc/src/nested_par_for.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../pgrete/user-output/src/nested_par_for.html">pgrete/user-output</a></dd>
+      <dd><a href="../../pgrete/user-output-w-pmd/src/nested_par_for.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1013 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outputs &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parthenon Set-Dimensional Arrays" href="parthenon_arrays.html" />
+    <link rel="prev" title="Nested Parallelism" href="nested_par_for.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Outputs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#hdf5">HDF5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tuning-hdf5-performance">Tuning HDF5 Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#restart-files">Restart Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#postprocessing-native-analysis">Postprocessing/native analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#history-files">History Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#histograms">Histograms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ascent-optional">Ascent (optional)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#python-scripts">Python scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#visualization-software">Visualization software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tying-non-standard-coordinates-to-visualization-tools">Tying non-standard coordinates to visualization tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#preparing-outputs-for-yt">Preparing outputs for <code class="docutils literal notranslate"><span class="pre">yt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Outputs</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/outputs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="outputs">
+<span id="id1"></span><h1>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h1>
+<p>Outputs from Parthenon are controlled via <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> blocks,
+where <code class="docutils literal notranslate"><span class="pre">*</span></code> should be replaced by a unique integer for each block.</p>
+<p>To disable an output block without removing it from the input file set
+the block’s <code class="docutils literal notranslate"><span class="pre">dt</span> <span class="pre">&lt;</span> <span class="pre">0.0</span></code>.</p>
+<p>In addition to time base outputs, two additional options to trigger
+outputs (applies to HDF5, restart and histogram outputs) exist.</p>
+<ul class="simple">
+<li><p>Signaling: If <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> catches a signal, e.g., <code class="docutils literal notranslate"><span class="pre">SIGALRM</span></code> which
+is often sent by schedulers such as Slurm to signal a job of
+exceeding the job’s allocated walltime, <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> will gracefully
+terminate and write output files with a <code class="docutils literal notranslate"><span class="pre">final</span></code> id rather than a
+number. This also applies to the <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> internal walltime
+limit, e.g., when executing an application with the <code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">HH:MM:SS</span></code>
+parameter on the command line.</p></li>
+<li><p>File trigger: If a user places a file with the name <code class="docutils literal notranslate"><span class="pre">output_now</span></code> in
+the working directory of a running application, <code class="docutils literal notranslate"><span class="pre">Parthenon</span></code> will
+write output files with a <code class="docutils literal notranslate"><span class="pre">now</span></code> id rather than a number. After the
+output is being written the <code class="docutils literal notranslate"><span class="pre">output_now</span></code> file is removed and the
+simulation continues normally. The user can repeat the process any
+time by creating a new <code class="docutils literal notranslate"><span class="pre">output_now</span></code> file.</p></li>
+</ul>
+<p>Note, in both cases the original numbering of the output will be
+unaffected and the <code class="docutils literal notranslate"><span class="pre">final</span></code> and <code class="docutils literal notranslate"><span class="pre">now</span></code> files will be overwritten each
+time without warning.</p>
+<section id="hdf5">
+<h2>HDF5<a class="headerlink" href="#hdf5" title="Link to this heading"></a></h2>
+<p>Parthenon allows users to select which fields are captured in the HDF5
+(<code class="docutils literal notranslate"><span class="pre">.phdf</span></code>) dumps at runtime. In the input file, include a
+<code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block, list of variables, and specify
+<code class="docutils literal notranslate"><span class="pre">file_type</span> <span class="pre">=</span> <span class="pre">hdf5</span></code>. A <code class="docutils literal notranslate"><span class="pre">dt</span></code> parameter controls the frequency of
+outputs for simulations involving evolution. If the optional parameter
+<code class="docutils literal notranslate"><span class="pre">single_precision_output</span></code> is set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, all variable data will
+be written in single precision. A <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block might
+look like</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output1</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">hdf5</span>
+<span class="n">write_xdmf</span> <span class="o">=</span> <span class="n">true</span> <span class="c1"># Determines whether xdmf annotations are output</span>
+<span class="c1"># nonexistent variables/swarms are ignored</span>
+<span class="n">variables</span> <span class="o">=</span> <span class="n">density</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="o">&amp;</span> <span class="c1"># comments are still ok</span>
+            <span class="n">energy</span>               <span class="c1"># notice the &amp; continuation character</span>
+                                 <span class="c1"># for multiline lists</span>
+<span class="n">swarms</span> <span class="o">=</span> <span class="n">tracers</span><span class="p">,</span> <span class="n">photons</span>  <span class="c1"># Particle swarms</span>
+<span class="n">swarm_variables</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span>  <span class="c1"># swarm variables output for every swarm</span>
+
+<span class="c1"># Each swarm can sepcify in a separate list which additional</span>
+<span class="c1"># variables it would like to output.</span>
+<span class="n">tracers_variables</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="nb">id</span>
+<span class="n">photons_variables</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">frequency</span>
+
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">file_number_width</span> <span class="o">=</span> <span class="mi">6</span> <span class="c1"># default: 5</span>
+<span class="n">use_final_label</span> <span class="o">=</span> <span class="n">true</span> <span class="c1"># default: true</span>
+
+<span class="c1"># Sparse variables may not be allocated on every block. By default</span>
+<span class="c1"># parthenon outputs de-allocated variables as 0 in the output</span>
+<span class="c1"># file. However, it is often convenient to output them as NaN</span>
+<span class="c1"># instead, marking deallocated and allocated but zero as</span>
+<span class="c1"># separate. This flag turns this functionality on.</span>
+<span class="n">sparse_seed_nans</span> <span class="o">=</span> <span class="n">false</span> <span class="c1"># default false</span>
+</pre></div>
+</div>
+<p>This will produce an hdf5 (<code class="docutils literal notranslate"><span class="pre">.phdf</span></code>) output file every 1 units of
+simulation time containing the density, velocity, and energy of each
+cell. The files will be identified by a 6-digit ID, and the output file
+generated upon completion of the simulation will be labeled
+<code class="docutils literal notranslate"><span class="pre">*.final.*</span></code> rather than with the integer ID.</p>
+<p>HDF5 and restart files write variable field data with inline compression
+by default. This is especially helpful when there are sparse variables
+allocated only in a few blocks, because all other blocks would write
+zeros of these variables, which can drastically increase output file
+size (and decrease I/O performance) without compression. The optional
+parameter <code class="docutils literal notranslate"><span class="pre">hdf5_compression_level</span></code> can be used to set the compression
+level (between 1 and 9, default is 5). If <code class="docutils literal notranslate"><span class="pre">parthenon</span></code> is compiled with
+support for compression, this also enables (logical) chunking of the
+data in blocks of <code class="docutils literal notranslate"><span class="pre">nx1*nx2*nx3</span></code>. Compression (and thus chunking) can
+be disabled altogether with the CMake build option
+<code class="docutils literal notranslate"><span class="pre">PARTHENON_DISABLE_HDF5_COMPRESSION</span></code>.
+See the <a class="reference internal" href="building.html#building"><span class="std std-ref">Building Parthenon</span></a> for more details.</p>
+</section>
+<section id="tuning-hdf5-performance">
+<h2>Tuning HDF5 Performance<a class="headerlink" href="#tuning-hdf5-performance" title="Link to this heading"></a></h2>
+<p>Tuning IO parameters can be passed to Parthenon through the use of
+environment variables. Available environment variables are:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Environment Variable</p></th>
+<th class="head"><p>Initial State</p></th>
+<th class="head"><p>Value Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line">H5_sieve_buf_size</div>
+<div class="line">H5_meta_block_size</div>
+<div class="line">H5_alignment_threshold</div>
+<div class="line">H5_alignment_alignment</div>
+<div class="line">H5_defer_metadata_flush</div>
+<div class="line">MPI_access_style</div>
+<div class="line">MPI_collective_buffering</div>
+<div class="line">MPI_cb_block_size</div>
+<div class="line">MPI_cb_buffer_size</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">disabled</div>
+<div class="line">disabled</div>
+<div class="line">disabled</div>
+<div class="line">disabled</div>
+<div class="line">disabled</div>
+<div class="line">enabled</div>
+<div class="line">disabled</div>
+<div class="line">N/A</div>
+<div class="line">N/A</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">string</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">Sets the maximum size of the data sieve buffer, in bytes. The value should be equal to a multiple of the disk block size. If no value is set then the default is 256 KiB.</div>
+<div class="line">Sets the minimum metadata block size, in bytes. If no value is set then the default is 8 MiB. May help performance if enabled.</div>
+<div class="line">The threshold value, in bytes, of H5Pset_alignment. Setting to 0 forces everything to be aligned. If a value is not set then the default is 0. Setting the environment variable automatically enables alignment.</div>
+<div class="line">The alignment value, in bytes, of H5Pset_alignment. If a value is not set then the default is 8 MiB. Setting the environment variable automatically enables alignment. H5Pset_alignment sets the alignment properties of a file access property list. Choose an alignment that is a multiple of the disk block size, enabling this usually shows better performance on parallel file systems. However, enabling may increase the file size significantly.</div>
+<div class="line">Value of 1 enables deferring metadata flush. Value of 0 disables. Experiment with before using.</div>
+<div class="line">Specifies the manner in which the file will be accessed until the file is closed. Default is “write_once”</div>
+<div class="line">Value of 1 enables MPI collective buffering. Value of 0 disables. Experiment with before using.</div>
+<div class="line">Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB.</div>
+<div class="line">Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, usually a multiple of cb_block_size. Default is 4 MiB.</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="restart-files">
+<h2>Restart Files<a class="headerlink" href="#restart-files" title="Link to this heading"></a></h2>
+<p>Parthenon allows users to output restart files for restarting a
+simulation. The restart file captures the input file, so no input file
+is required to be specified. Parameters for the input can be overridden
+in the usual way from the command line. At a future date we will allow
+for users the ability to extensively edit the parameters stored within
+the restart file.</p>
+<p>In the input file, include a <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block and specify
+<code class="docutils literal notranslate"><span class="pre">file_type</span> <span class="pre">=</span> <span class="pre">rst</span></code>. A <code class="docutils literal notranslate"><span class="pre">dt</span></code> parameter controls the frequency of
+outputs for simulations involving evolution. A <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code>
+block might look like</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output7</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">rst</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+</pre></div>
+</div>
+<p>This will produce an hdf5 (<code class="docutils literal notranslate"><span class="pre">.rhdf</span></code>) output file every 1 units of
+simulation time that can be used for restarting the simulation.</p>
+<p>To use this restart file, simply specify the restart file with a
+<code class="docutils literal notranslate"><span class="pre">-r</span> <span class="pre">&lt;restart.rhdf&gt;</span></code> at the command line. If both <code class="docutils literal notranslate"><span class="pre">-r</span> <span class="pre">&lt;restart.rhdf&gt;</span></code>
+and <code class="docutils literal notranslate"><span class="pre">-i</span> <span class="pre">&lt;input.in&gt;</span></code> are specified, the simulation will be restarted from
+the restart file with input parameters updated (or added) from the input file.</p>
+<p>For physics developers: The fields to be output are automatically
+selected as all the variables that have either the <code class="docutils literal notranslate"><span class="pre">Independent</span></code> or
+<code class="docutils literal notranslate"><span class="pre">Restart</span></code> <code class="docutils literal notranslate"><span class="pre">Metadata</span></code> flags specified. No other intervention is
+required by the developer.</p>
+<p>Additional user work at the per-mesh and per-meshblock levels can be performed
+immediately prior to restart files being written with the optional
+<code class="docutils literal notranslate"><span class="pre">UserWorkBeforeRestart</span></code> callbacks at either the per-Mesh (via
+<code class="docutils literal notranslate"><span class="pre">ApplicationInput</span></code>) or the per-package level (via <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code>). Both
+callbacks (if provided) will be called in that order before restart files are
+written.</p>
+<section id="postprocessing-native-analysis">
+<h3>Postprocessing/native analysis<a class="headerlink" href="#postprocessing-native-analysis" title="Link to this heading"></a></h3>
+<p>A rudimentary postprocessing option is available to analyze data in
+restart files within the downstream/Parthenon framework, i.e., making use of
+native compute capabilities.</p>
+<p>To trigger this kind of analysis, restart with <code class="docutils literal notranslate"><span class="pre">-a</span> <span class="pre">restart.rhdf</span></code> (instead of
+<code class="docutils literal notranslate"><span class="pre">-r</span></code>).
+This will launch the standard driver as if a simulation would be restarted,
+but never call the main time loop.
+Only the callbacks <code class="docutils literal notranslate"><span class="pre">UserWorkBeforeLoop</span></code> are executed.
+Afterwards, all output blocks that have the parameter <code class="docutils literal notranslate"><span class="pre">analysis_output=true</span></code> are
+going to be processed including <code class="docutils literal notranslate"><span class="pre">UserWorkBeforeOutput</span></code> callbacks.</p>
+<p>Note, the standard modifications to the original input parameters via the command line
+or via an input file apply.
+A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
+output block is specified in a file called <code class="docutils literal notranslate"><span class="pre">sample_hist.in</span></code> with all necessary details
+(particularly the <code class="docutils literal notranslate"><span class="pre">analysis_output=true</span></code> parameter within said block) and then the
+data can be processed via <code class="docutils literal notranslate"><span class="pre">-a</span> <span class="pre">restart.rhdf</span> <span class="pre">-i</span> <span class="pre">sample_hist.in</span></code>.</p>
+</section>
+</section>
+<section id="history-files">
+<span id="output-hist-files"></span><h2>History Files<a class="headerlink" href="#history-files" title="Link to this heading"></a></h2>
+<p>In the input file, include a <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block and specify
+<code class="docutils literal notranslate"><span class="pre">file_type</span> <span class="pre">=</span> <span class="pre">hst</span></code>. A <code class="docutils literal notranslate"><span class="pre">dt</span></code> parameter controls the frequency of
+outputs for simulations involving evolution. The default behavior is to provide
+all enrolled history outputs, but output can be limited to a specific set of
+packages with an optional comma-separated list argument
+<code class="docutils literal notranslate"><span class="pre">packages</span> <span class="pre">=</span>&#160; <span class="pre">package_a,</span> <span class="pre">package_b</span></code>. A <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code>
+block might look like</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output8</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">hst</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">packages</span> <span class="o">=</span> <span class="n">advection_app</span>
+</pre></div>
+</div>
+<p>This will produce a text file (<code class="docutils literal notranslate"><span class="pre">.hst</span></code>) output file every 1 units of
+simulation time. The content of the file is determined by the functions
+enrolled by specific packages, see <a class="reference internal" href="interface/state.html#state-history-output"><span class="std std-ref">History output</span></a>.</p>
+</section>
+<section id="histograms">
+<h2>Histograms<a class="headerlink" href="#histograms" title="Link to this heading"></a></h2>
+<p>Parthenon supports calculating flexible 1D and 2D histograms in-situ that
+are written to disk in HDF5 format.
+Currently supported are</p>
+<ul class="simple">
+<li><p>1D and 2D histograms (see examples below)</p></li>
+<li><p>binning by variable or coordinate (x1, x2, x3 and radial distance)</p></li>
+<li><p>counting samples and or summing a variable</p></li>
+<li><p>weighting by volume and/or variable</p></li>
+</ul>
+<p>The output format follows <code class="docutils literal notranslate"><span class="pre">numpy</span></code> convention, so that plotting data
+with Python based machinery should be straightforward (see example below).
+In other words, 2D histograms use C-ordering corresponding to <code class="docutils literal notranslate"><span class="pre">[x,y]</span></code>
+indexing with <code class="docutils literal notranslate"><span class="pre">y</span></code> being the fast index.
+In general, histograms are calculated using inclusive left bin edges and
+data equal to the rightmost edge is also included in the last bin.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block containing one simple and one complex
+example might look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output8</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">histogram</span>            <span class="c1"># required, sets the output type</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>                         <span class="c1"># required, sets the output interval</span>
+<span class="n">hist_names</span> <span class="o">=</span> <span class="n">myname</span><span class="p">,</span> <span class="n">other_name</span>  <span class="c1"># required, specifies the names of the histograms</span>
+                                 <span class="c1"># in this block (used a prefix below and in the output)</span>
+
+<span class="c1"># 1D histogram (&quot;standard&quot;, i.e., counting occurance in bin)</span>
+<span class="n">myname_ndim</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">myname_x_variable</span> <span class="o">=</span> <span class="n">advected</span>
+<span class="n">myname_x_variable_component</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">myname_x_edges_type</span> <span class="o">=</span> <span class="n">log</span>
+<span class="n">myname_x_edges_num_bins</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">myname_x_edges_min</span> <span class="o">=</span> <span class="mf">1e-9</span>
+<span class="n">myname_x_edges_max</span> <span class="o">=</span> <span class="mf">1e0</span>
+<span class="n">myname_binned_variable</span> <span class="o">=</span> <span class="n">HIST_ONES</span>
+
+<span class="c1"># 2D histogram of volume weighted variable according to two coordinates</span>
+<span class="n">other_name_ndim</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">other_name_x_variable</span> <span class="o">=</span> <span class="n">HIST_COORD_X1</span>
+<span class="n">other_name_x_edges_type</span> <span class="o">=</span> <span class="nb">list</span>
+<span class="n">other_name_x_edges_list</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span>
+<span class="n">other_name_y_variable</span> <span class="o">=</span> <span class="n">HIST_COORD_X2</span>
+<span class="n">other_name_y_edges_type</span> <span class="o">=</span> <span class="nb">list</span>
+<span class="n">other_name_y_edges_list</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span>
+<span class="n">other_name_binned_variable</span> <span class="o">=</span> <span class="n">advected</span>
+<span class="n">other_name_binned_variable_component</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">other_name_weight_by_volume</span> <span class="o">=</span> <span class="n">true</span>
+<span class="n">other_name_weight_variable</span> <span class="o">=</span> <span class="n">one_minus_advected_sq</span>
+<span class="n">other_name_weight_variable_component</span> <span class="o">=</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<p>with the following parameters</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">hist_names=STRING,</span> <span class="pre">STRING,</span> <span class="pre">STRING,</span> <span class="pre">...</span></code> (comma separated names)</dt><dd><p>The names of the histograms in this block.
+Will be used as prefix in the block as well as in the output file.
+All histograms will be written to the same output file with the “group” in the
+output corresponding to the histogram name.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_ndim=INT</span></code> (either <code class="docutils literal notranslate"><span class="pre">1</span></code> or <code class="docutils literal notranslate"><span class="pre">2</span></code>)</dt><dd><p>Dimensionality of the histogram.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_variable=STRING</span></code> (variable name or special coordinate string <code class="docutils literal notranslate"><span class="pre">HIST_COORD_X1</span></code>, <code class="docutils literal notranslate"><span class="pre">HIST_COORD_X2</span></code>, <code class="docutils literal notranslate"><span class="pre">HIST_COORD_X3</span></code> or <code class="docutils literal notranslate"><span class="pre">HIST_COORD_R</span></code>)</dt><dd><p>Variable to be used as bin. If a variable name is given a component has to be specified, too,
+see next parameter.
+For a scalar variable, the component needs to be specified as <code class="docutils literal notranslate"><span class="pre">0</span></code> anyway.
+If binning should be done by coordinate the special strings allow to bin by either one
+of the three dimensions or by radial distance from the origin.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_variable_component=INT</span></code></dt><dd><p>Component index of the binning variable.
+Used/required only if a non-coordinate variable is used for binning.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_edges_type=STRING</span></code> (<code class="docutils literal notranslate"><span class="pre">lin</span></code>, <code class="docutils literal notranslate"><span class="pre">log</span></code>, or <code class="docutils literal notranslate"><span class="pre">list</span></code>)</dt><dd><p>How the bin edges are defined in the first dimension.
+For <code class="docutils literal notranslate"><span class="pre">lin</span></code> and <code class="docutils literal notranslate"><span class="pre">log</span></code> direct indexing is used to determine the bin, which is significantly
+faster than specifying the edges via a <code class="docutils literal notranslate"><span class="pre">list</span></code> as the latter requires a binary search.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_edges_min=FLOAT</span></code></dt><dd><p>Minimum value (inclusive) of the bins in the first dim.
+Used/required only for <code class="docutils literal notranslate"><span class="pre">lin</span></code> and <code class="docutils literal notranslate"><span class="pre">log</span></code> edge type.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_edges_max=FLOAT</span></code></dt><dd><p>Maximum value (inclusive) of the bins in the first dim.
+Used/required only for <code class="docutils literal notranslate"><span class="pre">lin</span></code> and <code class="docutils literal notranslate"><span class="pre">log</span></code> edge type.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_edges_num_bins=INT</span></code> (must be <code class="docutils literal notranslate"><span class="pre">&gt;=1</span></code>)</dt><dd><p>Number of equally spaced bins between min and max value in the first dim.
+Used/required only for <code class="docutils literal notranslate"><span class="pre">lin</span></code> and <code class="docutils literal notranslate"><span class="pre">log</span></code> edge type.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_x_edges_list=FLOAT,FLOAT,FLOAT,...</span></code> (comma separated list of increasing values)</dt><dd><p>Arbitrary definition of edge values with inclusive innermost and outermost edges.
+Used/required only for <code class="docutils literal notranslate"><span class="pre">list</span></code> edge type.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_y_edges...</span></code></dt><dd><p>Same as the <code class="docutils literal notranslate"><span class="pre">NAME_x_edges...</span></code> parameters except for being used in the second
+dimension for <code class="docutils literal notranslate"><span class="pre">ndim=2</span></code> histograms.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_accumulate=BOOL</span></code> (<code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> default)</dt><dd><p>Accumulate data that is outside the binning range in the outermost bins.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_binned_variable=STRING</span></code> (variable name or <code class="docutils literal notranslate"><span class="pre">HIST_ONES</span></code>)</dt><dd><p>Variable to be binned. If a variable name is given a component has to be specified, too,
+see next parameter.
+For a scalar variable, the component needs to be specified as <code class="docutils literal notranslate"><span class="pre">0</span></code> anyway.
+If sampling (i.e., counting the number of value inside a bin) is to be used the special
+string <code class="docutils literal notranslate"><span class="pre">HIST_ONES</span></code> can be set.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_binned_variable_component=INT</span></code></dt><dd><p>Component index of the variable to be binned.
+Used/required only if a variable is binned and not <code class="docutils literal notranslate"><span class="pre">HIST_ONES</span></code>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_weight_by_volume=BOOL</span></code> (<code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code>)</dt><dd><p>Apply volume weighting to the binned variable. Can be used simultaneously with binning
+by a different variable. Note that this does <em>not</em> include any normalization
+(e.g., by total volume or the sum of the weight variable in question) and is left to
+the user during post processing.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_weight_variable=STRING</span></code></dt><dd><p>Variable to be used as weight.
+Can be used together with volume weighting.
+For a scalar variable, the component needs to be specified as <code class="docutils literal notranslate"><span class="pre">0</span></code> anyway.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">NAME_weight_variable_component=INT</span></code></dt><dd><p>Component index of the variable to be used as weight.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Note, weighting by volume and variable simultaneously might seem counterintuitive, but
+easily allows for, e.g., mass-weighted profiles, by enabling weighting by volume and
+using a mass density field as additional weight variable.</p>
+<p>In practice, a 1D histogram in the astrophysical context may look like (top panel from
+Fig 4 in <a class="reference external" href="https://dx.doi.org/10.3847/2041-8213/acba16">Curtis et al 2023 ApJL 945 L13</a>):</p>
+<figure class="align-default">
+<img alt="1D histogram example from Fig 2 in Curtis et al 2023 ApJL 945 L13" src="../_images/Curtis_et_al-ApJL-2023-1dhist.png" />
+</figure>
+<p>Translating this to the notation used for Parthenon histogram outputs means specifying
+for each histogram</p>
+<ul class="simple">
+<li><p>the field containing the Electron fraction as <code class="docutils literal notranslate"><span class="pre">x_variable</span></code>,</p></li>
+<li><p>the field containing the traced mass density as <code class="docutils literal notranslate"><span class="pre">binned_variable</span></code>, and</p></li>
+<li><p>enable <code class="docutils literal notranslate"><span class="pre">weight_by_volume</span></code> (to get the total traced mass).</p></li>
+</ul>
+<p>Similarly, a 2D histogram (also referred to as phase plot) example may look like
+(from the <a class="reference external" href="https://yt-project.org/doc/visualizing/plots.html#d-phase-plots">yt Project documentation</a>):</p>
+<figure class="align-default">
+<img alt="2D histogram example from the yt documentation" src="../_images/yt_doc-2dhist.png" />
+</figure>
+<p>Translating this to the notation used for Parthenon histogram outputs means using</p>
+<ul class="simple">
+<li><p>the field containing the density as <code class="docutils literal notranslate"><span class="pre">x_variable</span></code>,</p></li>
+<li><p>the field containing the temperature as <code class="docutils literal notranslate"><span class="pre">y_variable</span></code>,</p></li>
+<li><p>the field containing the mass density as <code class="docutils literal notranslate"><span class="pre">binned_variable</span></code>, and</p></li>
+<li><p>enable <code class="docutils literal notranslate"><span class="pre">weight_by_volume</span></code> (to get the total mass).</p></li>
+</ul>
+<p>The following is a minimal example to plot a 1D and 2D histogram from the output file:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s2">&quot;parthenon.out8.histograms.00040.hdf&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">infile</span><span class="p">:</span>
+  <span class="c1"># 1D histogram</span>
+   <span class="n">x</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[</span><span class="s2">&quot;myname/x_edges&quot;</span><span class="p">][:]</span>
+   <span class="n">y</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[</span><span class="s2">&quot;myname/data&quot;</span><span class="p">][:]</span>
+   <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+   <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+   <span class="c1"># 2D histogram</span>
+   <span class="n">x</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[</span><span class="s2">&quot;other_name/x_edges&quot;</span><span class="p">][:]</span>
+   <span class="n">y</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[</span><span class="s2">&quot;other_name/y_edges&quot;</span><span class="p">][:]</span>
+   <span class="n">z</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[</span><span class="s2">&quot;other_name/data&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">T</span>   <span class="c1"># note the transpose here (so that the data matches the axis for the pcolormesh)</span>
+   <span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">,)</span>
+   <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="ascent-optional">
+<h2>Ascent (optional)<a class="headerlink" href="#ascent-optional" title="Link to this heading"></a></h2>
+<p>Parthenon supports in situ visualization and analysis via the external
+<a class="reference external" href="https://ascent.readthedocs.io">Ascent</a> library.
+Support for Ascent is disabled by default and must be enabled via <code class="docutils literal notranslate"><span class="pre">PARTHENON_ENABLE_ASCENT=ON</span></code> during configure.</p>
+<p>In the input file, include a <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block and specify <code class="docutils literal notranslate"><span class="pre">file_type</span> <span class="pre">=</span> <span class="pre">ascent</span></code>.
+A <code class="docutils literal notranslate"><span class="pre">dt</span></code> parameter controls the frequency of outputs for simulations involving evolution.
+<em>Note</em> that in principle Ascent can control its own output cadence (including
+automated triggers).
+If you want to call Ascent on every cycle, set <code class="docutils literal notranslate"><span class="pre">dt</span></code> to a value smaller than the actual simulation <code class="docutils literal notranslate"><span class="pre">dt</span></code>.
+The mandatory <code class="docutils literal notranslate"><span class="pre">actions_file</span></code> parameter points to a separate file that defines
+Ascent actions in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">.json</span></code> format, see
+<a class="reference external" href="https://ascent.readthedocs.io/en/latest/Actions/index.html">Ascent documentation</a> for a complete list of options.</p>
+<p>Parthenon currently only publishes cell-centered variables to Ascent.
+Moreover, the published name of the field always starts with the base name (to avoid
+name clashes between multiple fields that may have the same [component] labels).
+If component label(s) are provided, they will be added as a suffix, e.g,.
+<code class="docutils literal notranslate"><span class="pre">basename_component-label</span></code> for all variable types (even scalars).
+Otherwise, an integer index is added for vectors/tensors with more than one component, i.e.,
+vectors/tensors with a single component and without component labels will not contain a suffix.
+The definition of component labels for variables is typically done by downstream codes
+so that the downstream documentation should be consulted for more specific information.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/output*&gt;</span></code> block might look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output9</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">ascent</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">actions_file</span> <span class="o">=</span> <span class="n">my_actions</span><span class="o">.</span><span class="n">yaml</span>
+</pre></div>
+</div>
+<p>see also the advection example
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/parthinput.advection">input file</a> and
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/custom_ascent_actions.yaml">actions file</a>.</p>
+<p><em>Note</em> by default “field filtering” is enabled for Ascent in Parthenon, i.e.,
+only fields that are used in Ascent actions are published.
+There may be cases, where Ascent cannot determine which fields it needs for
+an action and will fail.
+In this case, add an <code class="docutils literal notranslate"><span class="pre">ascent_options.yaml</span></code> file to the run directory containing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">field_filtering</span><span class="p">:</span> <span class="n">false</span>
+</pre></div>
+</div>
+<p>to override at runtime.
+See <a class="reference external" href="https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering">Ascent documenation</a> for more information.</p>
+</section>
+<section id="python-scripts">
+<h2>Python scripts<a class="headerlink" href="#python-scripts" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">scripts/python</span></code> folder includes scripts that may be useful for
+visualizing or analyzing data in the <code class="docutils literal notranslate"><span class="pre">.phdf</span></code> files. The <code class="docutils literal notranslate"><span class="pre">phdf.py</span></code>
+file defines a class to read in and query data. The <code class="docutils literal notranslate"><span class="pre">movie2d.py</span></code>
+script shows an example of using this class, and also provides a
+convenient means of making movies of 2D simulations. The script can be
+invoked as</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python3</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">movie2d</span><span class="o">.</span><span class="n">py</span> <span class="n">name_of_variable</span> <span class="o">*.</span><span class="n">phdf</span>
+</pre></div>
+</div>
+<p>which will produce a <code class="docutils literal notranslate"><span class="pre">png</span></code> image per dump suitable for encoding into a
+movie.</p>
+</section>
+<section id="visualization-software">
+<h2>Visualization software<a class="headerlink" href="#visualization-software" title="Link to this heading"></a></h2>
+<p>Both <a class="reference external" href="https://www.paraview.org/">ParaView</a> and
+<a class="reference external" href="https://wci.llnl.gov/simulation/computer-codes/visit/">VisIt</a> are
+capable of opening and visualizing Parthenon graphics dumps. In both
+cases, the <code class="docutils literal notranslate"><span class="pre">.xdmf</span></code> files should be opened. In ParaView, select the
+“XDMF Reader” when prompted.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Currently parthenon face- and edge- centered data is not supported
+for ParaView and VisIt. However, our python tooling does support
+all mesh locations.</p>
+</div>
+</section>
+<section id="tying-non-standard-coordinates-to-visualization-tools">
+<h2>Tying non-standard coordinates to visualization tools<a class="headerlink" href="#tying-non-standard-coordinates-to-visualization-tools" title="Link to this heading"></a></h2>
+<p>By default, Parthenon outputs the positions of faces on each block in
+<code class="docutils literal notranslate"><span class="pre">X1</span></code>, <code class="docutils literal notranslate"><span class="pre">X2</span></code> and <code class="docutils literal notranslate"><span class="pre">X3</span></code> and assumes these correspond to the <code class="docutils literal notranslate"><span class="pre">x</span></code>,
+<code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code> components of the nodes on the mesh. However, some
+applications may apply cooridnate transformations or use moving
+meshes. In these cases, the above strategy will not provide intuitive
+plots.</p>
+<p>For these applications we provide a special <code class="docutils literal notranslate"><span class="pre">Metadata</span></code> flag. If you
+mark a node-centered 3-vector variable with the the flag
+<code class="docutils literal notranslate"><span class="pre">Metadata::CoordinatesVec</span></code>, and fill it with the <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">z</span></code> values of your node positions, Parthenon will specify these
+values should be used by visualization software such as Visit or
+Paraview.</p>
+<p>For example, in your package <code class="docutils literal notranslate"><span class="pre">Initialize</span></code> function, you might
+declare something like:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="p">(</span><span class="s">&quot;locations&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">Metadata</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Node</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">CoordinatesVec</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Derived</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">OneCopy</span><span class="p">},</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">{</span><span class="mi">3</span><span class="p">}));</span>
+</pre></div>
+</div>
+<p>and then (trivially) if you set</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">pman</span><span class="p">.</span><span class="n">app_input</span><span class="o">-&gt;</span><span class="n">InitMeshBlockUserData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SetGeometryBlock</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>for</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">SetGeometryBlock</span><span class="p">(</span><span class="n">MeshBlock</span><span class="w"> </span><span class="o">*</span><span class="n">pmb</span><span class="p">,</span><span class="w"> </span><span class="n">ParameterInput</span><span class="w"> </span><span class="o">*</span><span class="n">pin</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="cm">/* boiler plate to build a pack object */</span>
+<span class="w">  </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span><span class="n">DEFAULT_LOOP_PATTERN</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;positions&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">DevExecSpace</span><span class="p">(),</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">.</span><span class="n">GetNBlocks</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="n">kb</span><span class="p">.</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">kb</span><span class="p">.</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">jb</span><span class="p">.</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">jb</span><span class="p">.</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">ib</span><span class="p">.</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">ib</span><span class="p">.</span><span class="n">e</span><span class="p">,</span>
+<span class="w">  </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">coords</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pack</span><span class="p">.</span><span class="n">GetCoordinates</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+<span class="w">       </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">coords</span><span class="p">.</span><span class="n">X</span><span class="o">&lt;</span><span class="n">X1DIR</span><span class="p">,</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">TopologicalElement</span><span class="o">::</span><span class="n">NN</span><span class="o">&gt;</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">       </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">coords</span><span class="p">.</span><span class="n">X</span><span class="o">&lt;</span><span class="n">X2DIR</span><span class="p">,</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">TopologicalElement</span><span class="o">::</span><span class="n">NN</span><span class="o">&gt;</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">       </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">coords</span><span class="p">.</span><span class="n">X</span><span class="o">&lt;</span><span class="n">X3DIR</span><span class="p">,</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">TopologicalElement</span><span class="o">::</span><span class="n">NN</span><span class="o">&gt;</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>then the code will set the nodal values to their trivial coordinate
+values and these will be used for visualization. In a more non-trivial
+example, <code class="docutils literal notranslate"><span class="pre">SetGeometryBlock</span></code> might apply a coordinate
+transformation. Or actually evolve <code class="docutils literal notranslate"><span class="pre">&quot;locations&quot;</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Non-standard coordinates are not supported in XDMF for 1D meshes
+and Parthenon will revert to the traditional output in 1D.</p>
+</div>
+</section>
+<section id="preparing-outputs-for-yt">
+<h2>Preparing outputs for <code class="docutils literal notranslate"><span class="pre">yt</span></code><a class="headerlink" href="#preparing-outputs-for-yt" title="Link to this heading"></a></h2>
+<p>Parthenon HDF5 outputs can be read with the python visualization library
+<a class="reference external" href="https://yt-project.org/">yt</a> as certain variables are named when
+adding fields via <code class="docutils literal notranslate"><span class="pre">StateDescriptor::AddField</span></code> and
+<code class="docutils literal notranslate"><span class="pre">StateDescriptor::AddSparsePool</span></code>. Variable names are added as a
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;std::string&gt;</span></code> in the variable metadata. These labels are
+optional and are only used for output to HDF5. 4D variables are named
+with a list of names for each row while 3D variables are named with a
+single name. For example, the following configurations are acceptable:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">StateDescriptor</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;Hydro&quot;</span><span class="p">);</span>
+
+<span class="cm">/* ... */</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nhydro</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">cons_labels</span><span class="p">(</span><span class="n">nhydro</span><span class="p">);</span>
+<span class="n">cons_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Density&quot;</span><span class="p">;</span>
+<span class="n">cons_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;MomentumDensity1&quot;</span><span class="p">;</span>
+<span class="n">cons_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;MomentumDensity2&quot;</span><span class="p">;</span>
+<span class="n">cons_labels</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;MomentumDensity3&quot;</span><span class="p">;</span>
+<span class="n">cons_labels</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;TotalEnergyDensity&quot;</span><span class="p">;</span>
+<span class="n">Metadata</span><span class="w"> </span><span class="nf">m</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Independent</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">FillGhost</span><span class="p">},</span>
+<span class="w">           </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="n">nhydro</span><span class="p">}),</span><span class="w"> </span><span class="n">cons_labels</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="p">(</span><span class="s">&quot;cons&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">);</span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">ndensity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">density_labels</span><span class="p">(</span><span class="n">ndensity</span><span class="p">);</span>
+<span class="n">density_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Density&quot;</span><span class="p">;</span>
+<span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Derived</span><span class="p">},</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="n">ndensity</span><span class="p">}),</span><span class="w"> </span><span class="n">density_labels</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="p">(</span><span class="s">&quot;dens&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">);</span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">nvelocity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">velocity_labels</span><span class="p">(</span><span class="n">nvelocity</span><span class="p">);</span>
+<span class="n">velocity_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Velocity1&quot;</span><span class="p">;</span>
+<span class="n">velocity_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Velocity2&quot;</span><span class="p">;</span>
+<span class="n">velocity_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Velocity3&quot;</span><span class="p">;</span>
+<span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Derived</span><span class="p">},</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="n">nvelocity</span><span class="p">}),</span><span class="w"> </span><span class="n">velocity_labels</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="p">(</span><span class="s">&quot;vel&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">);</span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">npressure</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pressure_labels</span><span class="p">(</span><span class="n">npressure</span><span class="p">);</span>
+<span class="n">pressure_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="s">&quot;Pressure&quot;</span><span class="p">;</span>
+<span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="p">({</span><span class="n">Metadata</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="n">Metadata</span><span class="o">::</span><span class="n">Derived</span><span class="p">},</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">({</span><span class="n">npressure</span><span class="p">}),</span><span class="w"> </span><span class="n">pressure_labels</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="p">(</span><span class="s">&quot;pres&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">yt</span></code> frontend needs either the hydrodynamic conserved variables or
+primitive compute derived quantities. The conserved variables must have
+the names <code class="docutils literal notranslate"><span class="pre">&quot;Density&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;MomentumDensity1&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;MomentumDensity2&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;MomentumDensity3&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;TotalEnergyDensity&quot;</span></code> while the primitive
+variables must have the names <code class="docutils literal notranslate"><span class="pre">&quot;Density&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;Velocity1&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;Velocity2&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;Velocity3&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;Pressure&quot;</span></code>. Either of these sets
+of variables must be named and present in the output, with the primitive
+variables taking precedence over the conserved variables when computing
+derived quantities such as specific thermal energy. In the above
+example, including either <code class="docutils literal notranslate"><span class="pre">&quot;cons&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;dens&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;vel&quot;</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">&quot;pres&quot;</span></code> in the HDF5 output would allow <code class="docutils literal notranslate"><span class="pre">yt</span></code> to read the data.</p>
+<p>Additional parameters can also be packaged into the HDF5 file to help
+<code class="docutils literal notranslate"><span class="pre">yt</span></code> interpret the data, namely adiabatic index and code unit
+information. These are identified by passing <code class="docutils literal notranslate"><span class="pre">true</span></code> as an optional
+boolean argument when adding parameters via
+<code class="docutils literal notranslate"><span class="pre">StateDescriptor::AddParam</span></code>. For example,</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;CodeLength&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;CodeMass&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;CodeTime&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;AdibaticIndex&quot;</span><span class="p">,</span><span class="w"> </span><span class="mf">5.</span><span class="o">/</span><span class="mf">3.</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;IntParam&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddParam</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;EquationOfState&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Adiabatic&quot;</span><span class="p">,</span><span class="nb">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>adds the parameters <code class="docutils literal notranslate"><span class="pre">CodeLength</span></code>, <code class="docutils literal notranslate"><span class="pre">CodeMass</span></code>, <code class="docutils literal notranslate"><span class="pre">CodeTime</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AdiabaticIndex</span></code>, <code class="docutils literal notranslate"><span class="pre">IntParam</span></code>, and <code class="docutils literal notranslate"><span class="pre">EquationOfState</span></code> to the HDF5
+output. Currently, only <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">float</span></code>, and <code class="docutils literal notranslate"><span class="pre">std::string</span></code>
+parameters can be included with the HDF5.</p>
+<p>Code units can be defined for <code class="docutils literal notranslate"><span class="pre">yt</span></code> by including the parameters
+<code class="docutils literal notranslate"><span class="pre">CodeLength</span></code>, <code class="docutils literal notranslate"><span class="pre">CodeMass</span></code>, and <code class="docutils literal notranslate"><span class="pre">CodeTime</span></code>, which specify the code
+units used by Parthenon in terms of centimeters, grams, and seconds by
+writing the parameters. In the above example, these parameters dictate
+<code class="docutils literal notranslate"><span class="pre">yt</span></code> to interpret code lengths in the data in units of 100 centimeters
+(or 1 meter per code unit), code masses in units of 1000 grams (or 1
+kilogram per code units) and code times in units of seconds (or 1 second
+per code time). Alternatively, this unit information can also be
+supplied to the <code class="docutils literal notranslate"><span class="pre">yt</span></code> frontend when loading the data. If code units are
+not defined in the HDF5 file or at load time, <code class="docutils literal notranslate"><span class="pre">yt</span></code> will assume that
+the data is in <code class="docutils literal notranslate"><span class="pre">CGS</span></code>.</p>
+<p>The adiabatic index can also be specified via the parameter
+<code class="docutils literal notranslate"><span class="pre">AdiabaticIndex</span></code>, defined at load time for <code class="docutils literal notranslate"><span class="pre">yt</span></code>, or left as its
+default <code class="docutils literal notranslate"><span class="pre">5./3.</span></code>.</p>
+<p>For example, the following methods are valid to load data with <code class="docutils literal notranslate"><span class="pre">yt</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;parthenon.out0.00000.phdf&quot;</span>
+
+<span class="c1">#Read units and adiabatic index from the HDF5 file or use defaults</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+<span class="c1">#Specify units and adiabatic index explicitly</span>
+<span class="n">units_override</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;length_unit&quot;</span> <span class="p">:</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;cm&quot;</span><span class="p">),</span>
+                  <span class="s2">&quot;time_unit&quot;</span>   <span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span>   <span class="s2">&quot;s&quot;</span><span class="p">),</span>
+                  <span class="s2">&quot;mass_unit&quot;</span>   <span class="p">:</span> <span class="p">(</span><span class="mi">1000</span><span class="p">,</span><span class="s2">&quot;g&quot;</span><span class="p">)}</span>
+
+<span class="n">ds</span> <span class="o">=</span> <span class="n">yt</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="n">units_override</span><span class="o">=</span><span class="n">units_override</span><span class="p">,</span><span class="n">gamma</span><span class="o">=</span><span class="mf">5.</span><span class="o">/</span><span class="mf">3.</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Currently, the <code class="docutils literal notranslate"><span class="pre">yt</span></code> frontend for Parthenon is hosted on the
+<code class="docutils literal notranslate"><span class="pre">parthenon-frontend</span></code> branch of this <a class="reference external" href="https://github.com/forrestglines/yt/tree/parthenon-frontend">yt fork</a>. In
+the future, the Parthenon frontend will be included in the main <code class="docutils literal notranslate"><span class="pre">yt</span></code>
+repo.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nested_par_for.html" class="btn btn-neutral float-left" title="Nested Parallelism" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="parthenon_arrays.html" class="btn btn-neutral float-right" title="Parthenon Set-Dimensional Arrays" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/refactor-meshblockdata-initialization
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/outputs.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/outputs.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/outputs.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/outputs.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/outputs.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/outputs.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/outputs.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/outputs.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/outputs.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/outputs.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/outputs.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/outputs.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/outputs.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/outputs.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/outputs.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/outputs.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/outputs.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/outputs.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/outputs.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/outputs.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/outputs.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/outputs.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/outputs.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/outputs.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/outputs.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/outputs.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/outputs.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/outputs.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/outputs.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/outputs.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/outputs.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/outputs.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/outputs.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/outputs.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/outputs.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/outputs.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/outputs.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/outputs.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/outputs.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/outputs.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/outputs.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/outputs.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/outputs.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/outputs.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/outputs.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/outputs.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/outputs.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/outputs.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/outputs.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/outputs.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/outputs.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/outputs.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/outputs.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/outputs.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/outputs.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/outputs.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/outputs.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/outputs.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/outputs.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/outputs.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/outputs.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/outputs.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/outputs.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/outputs.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/outputs.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/outputs.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/outputs.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/outputs.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/outputs.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/outputs.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/outputs.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/outputs.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/outputs.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/outputs.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/outputs.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/outputs.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/outputs.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/outputs.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/outputs.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/outputs.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/outputs.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/outputs.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/outputs.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/outputs.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/outputs.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/outputs.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/outputs.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/outputs.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/outputs.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/outputs.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/outputs.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/outputs.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/outputs.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/outputs.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/outputs.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/outputs.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/outputs.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/outputs.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/outputs.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/outputs.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/outputs.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/outputs.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/outputs.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/outputs.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/outputs.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/outputs.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/outputs.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/outputs.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/outputs.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/outputs.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/outputs.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/outputs.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/outputs.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/outputs.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/outputs.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/outputs.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../add-cg-solver/src/outputs.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../add-combined-buffer-communication/src/outputs.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../add-fine-field-deallocation/src/outputs.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../add-fine-variables/src/outputs.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../add-forest-block-orientation/src/outputs.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../add-forest-mesh-example/src/outputs.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../add-forest-of-octrees/src/outputs.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../add-forest-orientation-2/src/outputs.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../add-index-range-masking/src/outputs.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../add-more-careful-container-checking/src/outputs.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../add-morton-numbers/src/outputs.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../add-multi-grid/src/outputs.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../add-negative-levels/src/outputs.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../add-non-one-copy-fluxes/src/outputs.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../add-noncell-amr/src/outputs.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../add-small-riot/src/outputs.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../add-sparse-vector-wave-test/src/outputs.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../add-task-graph/src/outputs.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../add-vector-wave-test/src/outputs.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/src/outputs.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../bugfix-sparse-cache/src/outputs.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../bugfix-symmetrized-coordinates/src/outputs.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../cleanup-offsets/src/outputs.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../composable-boundary-conditions/src/outputs.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../face-boundary-communication/src/outputs.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../fix-bitshift-of-negative/src/outputs.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../fix-dealloc-count-bug/src/outputs.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../fix-divide-by-zero/src/outputs.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../fix-forest-multigrid/src/outputs.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../fix-iterative-task-qualifiers/src/outputs.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../fix-multigrid-mpi/src/outputs.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../fix-noncc-amr/src/outputs.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../fix-one-block-minimum-per-rank/src/outputs.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../fix-restart-state-bug/src/outputs.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../fix-root-level/src/outputs.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../fix-solver-relative-residual/src/outputs.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/src/outputs.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree-2/src/outputs.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../fix-static-refinement/src/outputs.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../generalize-par-dispatch/src/outputs.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../in-one-zero-memory-amr/src/outputs.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../local-face-fields/src/outputs.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../mg-riot-updates/src/outputs.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../multigrid-example-update/src/outputs.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../performance-updates/src/outputs.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../refactor-mesh-constructors/src/outputs.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="outputs.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../refactor-partitioning/src/outputs.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../refactor-region-size/src/outputs.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../refactor-solver-input/src/outputs.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../rename-cell-variable/src/outputs.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../reorganize/src/outputs.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../sparse-pack-update/src/outputs.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/src/outputs.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/outputs.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/outputs.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/outputs.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/outputs.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/outputs.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/outputs.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/outputs.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/outputs.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/outputs.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/outputs.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/outputs.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/outputs.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/outputs.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/outputs.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/outputs.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/outputs.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/outputs.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/outputs.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/outputs.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/outputs.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/outputs.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/outputs.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

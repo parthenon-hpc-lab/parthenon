@@ -1,0 +1,574 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parthenon developer guide &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Application Drivers" href="driver.html" />
+    <link rel="prev" title="Coordinates" href="coordinates.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Parthenon developer guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#kokkos-programming-model">(Kokkos) programming model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#kokkos-wrappers-abstractions">Kokkos wrappers/abstractions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-need-for-reductions-within-function-handling-meshblock-data">The need for reductions within function handling <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#faq">FAQ</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Parthenon developer guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/development.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parthenon-developer-guide">
+<span id="development"></span><h1>Parthenon developer guide<a class="headerlink" href="#parthenon-developer-guide" title="Link to this heading"></a></h1>
+<section id="kokkos-programming-model">
+<h2>(Kokkos) programming model<a class="headerlink" href="#kokkos-programming-model" title="Link to this heading"></a></h2>
+<p>The following list contains a few overall design decision that are
+useful to keep in mind</p>
+<ul class="simple">
+<li><p>Kokkos never hides copies, i.e., there are no hidden deep copies and
+all data transfer needs to be explicit.</p></li>
+<li><p>Kernel launches (e.g., a parallel region) are non-blocking, i.e., the
+CPU continues to execute code following a kernel that is executed on
+a GPU.</p></li>
+</ul>
+</section>
+<section id="kokkos-wrappers-abstractions">
+<h2>Kokkos wrappers/abstractions<a class="headerlink" href="#kokkos-wrappers-abstractions" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">par_for</span></code> wrappers use inclusive bounds, i.e., the loop will
+include the last index given</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> arrays by default allocate on the <em>device</em> using
+default precision configured</p></li>
+<li><p>To create an array on the host with identical layout to the device
+array either use</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">auto</span> <span class="pre">arr_host</span> <span class="pre">=</span> <span class="pre">Kokkos::create_mirror(arr_dev);</span></code> to always
+create a new array even if the device is associated with the host
+(e.g., OpenMP) or</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">auto</span> <span class="pre">arr_host</span> <span class="pre">=</span> <span class="pre">Kokkos::create_mirror_view(arr_dev);</span></code> to create
+an array on the host if the HostSpace != DeviceSpace or get
+another reference to arr_dev through arr_host if HostSpace ==
+DeviceSpace</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">par_for</span></code> and <code class="docutils literal notranslate"><span class="pre">Kokkos::deep_copy</span></code> by default use the standard
+stream (on Cuda devices) and are discouraged from use. Use
+<code class="docutils literal notranslate"><span class="pre">mb-&gt;par_for</span></code> and <code class="docutils literal notranslate"><span class="pre">mb-&gt;deep_copy</span></code> instead where <code class="docutils literal notranslate"><span class="pre">mb</span></code> is a
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> (explanation: each <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> has an
+<code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code>, which may be changed at runtime, e.g., to a
+different stream, and the wrapper within a <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> offer
+transparent access to the parallel region/copy where the
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>’s <code class="docutils literal notranslate"><span class="pre">ExecutionSpace</span></code> is automatically used).</p></li>
+<li><p>The default loop pattern for the <code class="docutils literal notranslate"><span class="pre">mb-&gt;par_for</span></code> wrappers is defined
+at compile time through the <code class="docutils literal notranslate"><span class="pre">PAR_LOOP_LAYOUT</span></code> and
+<code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT</span></code> <code class="docutils literal notranslate"><span class="pre">CMake</span></code> variables Note, that the 1D and
+2D abstractions currently only wrap <code class="docutils literal notranslate"><span class="pre">Kokkos::RangePolicy</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Kokkos::MDRangePolicy</span></code>, respectively, and, thus, are indepdent of
+the <code class="docutils literal notranslate"><span class="pre">PAR_LOOP_LAYOUT</span></code> and <code class="docutils literal notranslate"><span class="pre">PAR_LOOP_INNER_LAYOUT</span></code> configuration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DeviceAllocate</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceCopy</span></code> return a <code class="docutils literal notranslate"><span class="pre">unique_ptr</span></code> to an
+object allocated on device memory; the latter also copies data from a
+provided object in host memory. These <code class="docutils literal notranslate"><span class="pre">unique_ptr</span></code>s automatically
+free the device memory when they go out of scope. This is especially
+useful for inheritance, but note that these allocation and
+deallocation calls are not performant and should be used minimally.</p></li>
+</ul>
+<p>An arbitrary-dimensional wrapper for <code class="docutils literal notranslate"><span class="pre">Kokkos::Views</span></code> is available as
+<code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code>. See documentation <a class="reference internal" href="parthenon_arrays.html#pararrays"><span class="std std-ref">here</span></a>.</p>
+<p>The wrappers <code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code> and <code class="docutils literal notranslate"><span class="pre">par_for_inner</span></code> provide a nested
+parallelism interface that is needed for managing memory cached in
+tightly nested loops. The wrappers are documented
+<a class="reference internal" href="nested_par_for.html#nested-par-for"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="the-need-for-reductions-within-function-handling-meshblock-data">
+<h2>The need for reductions within function handling <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> data<a class="headerlink" href="#the-need-for-reductions-within-function-handling-meshblock-data" title="Link to this heading"></a></h2>
+<p>A task (often a function associated with a <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>) in the
+original Athena++ code was guaranteed to only being executed using a
+single CPU thread at any time. Thus, a reduction within a single
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>(e.g., finding a minimum value in the <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> data
+or filling a buffer using an incremented <code class="docutils literal notranslate"><span class="pre">offset</span></code> pointer) did not
+require special care. This is <em>not</em> true in Parthenon any more as a
+parallel region may be handled by many (GPU/…) threads in parallel.
+Therefore, a <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> needs to be used instead of a
+<code class="docutils literal notranslate"><span class="pre">parallel_for</span></code>.</p>
+<p>A strong hint where this is in order are places where a single variable
+is incremented within a kernel or where another reduction over MPI
+processes follows the preceding computations.</p>
+<p>Parthenon provides abstractions that provide the ability to perform
+reductions. In particular, reductions are available for loops from 1D to
+5D, but do not include any nested parallel patterns. The interface for
+the abstracted <code class="docutils literal notranslate"><span class="pre">parallel_for</span></code> and <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> executions are
+nearly identical, with calls to <code class="docutils literal notranslate"><span class="pre">par_reduce</span></code> having one additional
+final argument compared to <code class="docutils literal notranslate"><span class="pre">par_for</span></code>. The additional argument should
+be a Kokkos Reducer, for example one of the built-in
+<a class="reference external" href="https://kokkos.github.io/kokkos-core-wiki/ProgrammingGuide/Custom-Reductions-Built-In-Reducers.html">Reducers</a>
+that ship with Kokkos.</p>
+<p>Examples can be found in the <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/advection/advection_package.cpp">advection
+example</a></p>
+<div class="highlight-diff notranslate"><div class="highlight"><pre><span></span><span class="gd">-  Real vmin = 1.0;</span>
+<span class="gd">-  Real vmax = 0.0;</span>
+<span class="gd">-  for (int k = kb.s; k &lt;= kb.e; k++) {</span>
+<span class="gd">-    for (int j = jb.s; j &lt;= jb.e; j++) {</span>
+<span class="gd">-      for (int i = ib.s; i &lt;= ib.e; i++) {</span>
+<span class="gd">-        vmin = (v(k, j, i) &lt; vmin ? v(k, j, i) : vmin);</span>
+<span class="gd">-        vmax = (v(k, j, i) &gt; vmax ? v(k, j, i) : vmax);</span>
+<span class="gd">-      }</span>
+<span class="gd">-    }</span>
+<span class="gd">-  }</span>
+<span class="gi">+ typename Kokkos::MinMax&lt;Real&gt;::value_type minmax;</span>
+<span class="gi">+ pmb-&gt;par_reduce(</span>
+<span class="gi">+     &quot;advection check refinement&quot;, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,</span>
+<span class="gi">+     KOKKOS_LAMBDA(int k, int j, int i,</span>
+<span class="gi">+                   typename Kokkos::MinMax&lt;Real&gt;::value_type &amp;lminmax) {</span>
+<span class="gi">+       lminmax.min_val = (v(k, j, i) &lt; lminmax.min_val ? v(k, j, i) : lminmax.min_val);</span>
+<span class="gi">+       lminmax.max_val = (v(k, j, i) &gt; lminmax.max_val ? v(k, j, i) : lminmax.max_val);</span>
+<span class="gi">+     },</span>
+<span class="gi">+     Kokkos::MinMax&lt;Real&gt;(minmax));</span>
+</pre></div>
+</div>
+<p>or in the buffer packing functions</p>
+<div class="highlight-diff notranslate"><div class="highlight"><pre><span></span><span class="gd">-void PackData(ParArrayND&lt;T&gt; &amp;src, T *buf, int sn, int en, int si, int ei, int sj, int ej,</span>
+<span class="gd">-              int sk, int ek, int &amp;offset) {</span>
+<span class="gd">-  for (int n = sn; n &lt;= en; ++n) {</span>
+<span class="gd">-    for (int k = sk; k &lt;= ek; k++) {</span>
+<span class="gd">-      for (int j = sj; j &lt;= ej; j++) {</span>
+<span class="gd">-#pragma omp simd</span>
+<span class="gd">-        for (int i = si; i &lt;= ei; i++)</span>
+<span class="gd">-          buf[offset++] = src(n, k, j, i);</span>
+<span class="gd">-      }</span>
+<span class="gd">-    }</span>
+<span class="gd">-  }</span>
+<span class="gi">+void PackData(ParArray4D&lt;T&gt; &amp;src, ParArray1D&lt;T&gt; &amp;buf, int sn, int en, int si, int ei,</span>
+<span class="gi">+              int sj, int ej, int sk, int ek, int &amp;offset, MeshBlock *pmb) {</span>
+<span class="gi">+  int ni = ei + 1 - si;</span>
+<span class="gi">+  int nj = ej + 1 - sj;</span>
+<span class="gi">+  int nk = ek + 1 - sk;</span>
+<span class="gi">+  int nn = en + 1 - sn;</span>
+<span class="gi">+</span>
+<span class="gi">+  pmb-&gt;par_for(</span>
+<span class="gi">+      &quot;PackData 4D&quot;, sn, en, sk, ek, sj, ej, si, ei,</span>
+<span class="gi">+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {</span>
+<span class="gi">+        buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =</span>
+<span class="gi">+            src(n, k, j, i);</span>
+<span class="gi">+      });</span>
+<span class="gi">+  offset += nn * nk * nj * ni;</span>
+<span class="gi">+  return;</span>
+</pre></div>
+</div>
+<p>Note the explicit calculation of the offset within the kernel and the
+explicit increment of the offset by the full extent after the kernel.</p>
+</section>
+<section id="faq">
+<h2>FAQ<a class="headerlink" href="#faq" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>What’s the difference between <code class="docutils literal notranslate"><span class="pre">GetDim</span></code> and <code class="docutils literal notranslate"><span class="pre">extent</span></code>?</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">ParArrayND</span></code> offer <code class="docutils literal notranslate"><span class="pre">GetDim</span></code> to access the underlying array
+dimension. Here, <code class="docutils literal notranslate"><span class="pre">GetDim(0)</span></code> refers to the “first” dimension (e.g.,
+x-direction). <code class="docutils literal notranslate"><span class="pre">ParArray#D</span></code>s (with <code class="docutils literal notranslate"><span class="pre">#</span></code> being 1, 2, 3, …) are direct
+typedefs to <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>s. Thus, a call to <code class="docutils literal notranslate"><span class="pre">extent(0)</span></code> returns
+the dimension along the first index. Given that <code class="docutils literal notranslate"><span class="pre">ParArray#D</span></code>s are
+constructed using reverse indices (note the <code class="docutils literal notranslate"><span class="pre">k,j,i</span></code> order in accessing
+elements), <code class="docutils literal notranslate"><span class="pre">extent</span></code> and <code class="docutils literal notranslate"><span class="pre">GetDim</span></code> using the same number usually have
+different meaning.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">auto</span> <span class="n">myarr_nd</span> <span class="o">=</span> <span class="n">ParArrayND</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">(</span><span class="s2">&quot;myarr&quot;</span><span class="p">,</span><span class="n">nx4</span><span class="p">,</span><span class="n">nx3</span><span class="p">,</span><span class="n">nx2</span><span class="p">,</span><span class="n">nx1</span><span class="p">);</span> <span class="o">//</span> <span class="ow">is</span> <span class="n">logically</span> <span class="n">a</span> <span class="mi">6</span><span class="n">D</span> <span class="n">array</span> <span class="n">under</span> <span class="n">the</span> <span class="n">hood</span>
+<span class="n">ParArray4D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span> <span class="n">myarr_fd</span> <span class="o">=</span> <span class="n">myarr_nd</span><span class="o">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">();</span> <span class="o">//</span> <span class="n">extracts</span> <span class="n">a</span> <span class="mi">4</span><span class="n">D</span> <span class="n">View</span> <span class="k">with</span> <span class="n">fixed</span> <span class="n">dimensions</span>
+
+<span class="n">myarr_nd</span><span class="o">.</span><span class="n">GetDim</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span> <span class="o">//</span> <span class="o">=</span> <span class="n">nx4</span>
+<span class="n">myarr_nd</span><span class="o">.</span><span class="n">GetDim</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="o">//</span> <span class="o">=</span> <span class="n">nx1</span>
+<span class="n">myarr_fd</span><span class="o">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="o">//</span> <span class="o">=</span> <span class="n">nx4</span>
+<span class="n">myarr_fd</span><span class="o">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span> <span class="o">//</span> <span class="o">=</span> <span class="n">nx1</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Where to allocate scratch pad memory (e.g., for temporary arrays that
+are shared between multiple function calls within a nested parallel
+region)?</p></li>
+</ul>
+<p>Scratch pad memory is unique to each team can will be reused from a
+larger pool of memory available for all teams. However, this allocation
+tracking only works if the <code class="docutils literal notranslate"><span class="pre">ScratchPadView</span></code>s are constructed within
+the outer parallel regions. Therefore, allocating/constructing
+<code class="docutils literal notranslate"><span class="pre">ScratchPadView</span></code>s within functions that are called in the outer
+parallel region will lead to an overallocation of memory (and likely
+result in a segfault or out of memory exceptions).</p>
+<ul class="simple">
+<li><p>Where to use barriers/fences?</p></li>
+</ul>
+<p>As mentioned above, kernel launches are non-blocking and kernel
+executions are asynchronous (potentially handles by the execution space
+scheduler). Thus, barriers are required where the following code
+requires the successful execution of all kernels scheduled. There are
+three obvious places where this applies: 1. Around MPI calls, e.g.,
+sending a buffer should first be done when the kernel filling the buffer
+has finished. In order for the parallel execution to continue (e.g.,
+multiple <code class="docutils literal notranslate"><span class="pre">MeshBlocks</span></code> in multiple device streams) the <code class="docutils literal notranslate"><span class="pre">fence</span></code>
+function of the corresponding execution space needs to be used, i.e.,
+<code class="docutils literal notranslate"><span class="pre">pmb-&gt;exec_space.fence();</span></code> and <em>not</em> the global fence
+(<code class="docutils literal notranslate"><span class="pre">Kokkos::fence();</span></code>). 2. Within a nested parallel regions when using
+scratch space. The threads within a team are independent and thus a
+<code class="docutils literal notranslate"><span class="pre">member.team_barrier()</span></code> is required between filling the scratch space
+and (re)using it. 3. When collecting the results of a parallel reduction
+on a <code class="docutils literal notranslate"><span class="pre">View</span></code>. Usually <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> regions are blocking if the
+result of the reduction is a host variable (more precisely, of scalar
+type), e.g., a simple <code class="docutils literal notranslate"><span class="pre">double</span></code> (or here a <code class="docutils literal notranslate"><span class="pre">Real</span></code>). If the result of
+the reduction is a <code class="docutils literal notranslate"><span class="pre">View</span></code> then the region is non-blocking and other
+places in the code should ensure that all reductions are finished (e.g.,
+calculating the minimum timestep over all <code class="docutils literal notranslate"><span class="pre">MeshBlocks</span></code> of a single
+process. This also applies to hierarchical parallelism, i.e., when an
+inner <code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code> reduces to a <code class="docutils literal notranslate"><span class="pre">ScratchPadView</span></code> then a
+<code class="docutils literal notranslate"><span class="pre">team_barrier()</span></code> is required.</p>
+<ul class="simple">
+<li><p>Why do I need to redefine variables preceding a parallel region?</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">KOKKOS_LAMBDA</span></code> macro expands into a capture by value <code class="docutils literal notranslate"><span class="pre">[=]</span></code>
+(plus host/device annotations). Thus, class member variables are not
+captured directly, but rather <code class="docutils literal notranslate"><span class="pre">this</span></code> is, see also a related
+<a class="reference external" href="https://github.com/kokkos/kokkos/issues/695">issue</a> on GitHub. A
+redefinition, e.g., <code class="docutils literal notranslate"><span class="pre">auto</span> <span class="pre">coarse_coords</span> <span class="pre">=</span> <span class="pre">this-&gt;coarse_coords;</span></code>
+ensures that the desired object is properly captured and available
+within the kernel(/parallel region).</p>
+<ul class="simple">
+<li><p>What does
+<code class="docutils literal notranslate"><span class="pre">&quot;error:</span> <span class="pre">The</span> <span class="pre">enclosing</span> <span class="pre">parent</span> <span class="pre">function</span> <span class="pre">(&quot;...&quot;)</span> <span class="pre">for</span> <span class="pre">an</span> <span class="pre">extended</span> <span class="pre">__host__</span> <span class="pre">__device__</span> <span class="pre">lambda</span> <span class="pre">cannot</span> <span class="pre">have</span> <span class="pre">private</span> <span class="pre">or</span> <span class="pre">protected</span> <span class="pre">access</span> <span class="pre">within</span> <span class="pre">its</span> <span class="pre">class&quot;</span></code>
+mean?</p></li>
+</ul>
+<p>This is a current Cuda limitation for extended device lambdas, see <a class="reference external" href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/#extended-lambda-restrictions">Cuda
+programming
+guide</a>,
+and can be “fixed”/addressed by making the function public.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coordinates.html" class="btn btn-neutral float-left" title="Coordinates" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="driver.html" class="btn btn-neutral float-right" title="Application Drivers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jdolence/trace
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/development.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/development.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/development.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/development.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/development.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/development.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/development.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/development.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/development.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/development.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/development.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/development.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/development.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/development.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/development.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/development.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/development.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/development.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/development.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/development.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/development.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/development.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/development.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/development.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/development.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/development.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/development.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/development.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/development.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/development.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/development.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/development.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/development.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/development.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/development.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/development.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/development.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/development.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/development.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/development.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/development.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/development.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/development.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/development.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/development.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/development.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/development.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/development.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/development.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/development.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/development.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/development.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/development.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/development.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/development.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/development.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/development.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/development.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/development.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/development.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/development.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/development.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/development.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/development.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/development.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/development.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/development.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/development.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/development.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/development.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../curvilinear/src/development.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../force_inline_inner/src/development.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../instrument/src/development.html">jdolence/instrument</a></dd>
+      <dd><a href="../../meshblockdata_add/src/development.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../move_string_creation/src/development.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../new_tasking/src/development.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../quickfixes/src/development.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../thread_safe/src/development.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../timer_based_loadbalancing/src/development.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="development.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/development.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/development.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/development.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/development.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/development.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/development.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/development.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/development.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/development.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/development.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/development.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/development.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/development.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/development.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/development.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/development.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/development.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/development.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/development.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/development.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/development.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/development.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/development.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/development.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/development.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/development.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/development.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/development.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/development.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/development.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/development.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/development.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/development.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/development.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/development.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/development.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/development.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/development.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/development.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/development.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/development.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/development.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/development.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/development.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/development.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/development.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/development.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/development.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/development.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/development.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/development.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/development.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/development.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/development.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/development.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/development.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/development.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/development.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/development.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/development.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/development.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/development.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/development.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/development.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/development.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/development.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/development.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/development.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/development.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/development.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/development.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/development.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/development.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/development.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/development.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/development.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/development.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/development.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/development.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/development.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/development.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/development.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/development.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/development.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/development.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/development.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/development.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/development.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/development.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/development.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/development.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/development.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/development.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/development.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/development.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/development.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/development.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/development.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/development.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/development.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/development.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/development.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/development.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/development.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/development.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/development.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/development.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/development.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/development.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/development.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/development.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/development.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

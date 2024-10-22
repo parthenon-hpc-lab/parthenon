@@ -1,0 +1,431 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coordinates &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parthenon developer guide" href="development.html" />
+    <link rel="prev" title="Parthenon Built-in Physical Constants" href="constants.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Coordinates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#compile-time-vs-run-time-parameters">Compile Time vs. Run Time Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">``TypeList``s</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#robust">Robust</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#c-11-style-concepts-implementation">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html#indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html#parthenon-forest-implementation-details">Parthenon Forest Implementation Details</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Coordinates</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/coordinates.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="coordinates">
+<span id="id1"></span><h1>Coordinates<a class="headerlink" href="#coordinates" title="Link to this heading"></a></h1>
+<p><em>Parthenon currently provides a coordinates class ``UniformCartesian``
+for a uniform Cartesian coordinate system. In the near future we will
+provide uniform spherical and uniform cylindrical coordinate systems.
+Other coordinate systems may be implemented in downstream codes.
+Alternatively, coordinate systems can be incorporated in the fluid
+equations such as is done
+in</em><a class="reference external" href="https://github.com/lanl/phoebus">Phoebus</a><em>.</em></p>
+<p>Coordinate objects under the <code class="docutils literal notranslate"><span class="pre">Coordinates_t</span></code> type are created for each
+meshblock. Coordinate information such as positions of different
+elements within each cell (cell centers, face centers, edge centers, and
+nodes), distance between elements, and integration elements (cell
+widths, edge centers, face areas, and cell volumes) can be accessed from
+the coordinate object for each meshblock. The coordinates object for
+meshblock <code class="docutils literal notranslate"><span class="pre">b</span></code> in a variable pack <code class="docutils literal notranslate"><span class="pre">var_pack</span></code> can be accessed via
+<code class="docutils literal notranslate"><span class="pre">var_pack.GetCoords(b)</span></code>.</p>
+<p>The interface for coordinate systems is derived from Athena++ but with
+new names and with directions, faces, and edges specified by either
+template parameters at compile time or arguments at run time instead of
+with different function names. For ease of conversion from Athena++, we
+summarize the new coordinate functions with their Athena++ predecessors.</p>
+<p>Position of elements (replacing <code class="docutils literal notranslate"><span class="pre">x1v</span></code>, <code class="docutils literal notranslate"><span class="pre">x1f</span></code>, <code class="docutils literal notranslate"><span class="pre">x1s2</span></code> etc. in
+Athena++)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Xc</span><span class="o">&lt;</span><span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Cell</span> <span class="n">Centers</span>
+<span class="n">Xf</span><span class="o">&lt;</span><span class="nb">int</span> <span class="n">face</span><span class="p">,</span> <span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Face</span> <span class="n">Centers</span>
+<span class="n">Xe</span><span class="o">&lt;</span><span class="nb">int</span> <span class="n">edge</span><span class="p">,</span> <span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Edge</span> <span class="n">Centers</span>
+<span class="n">Xn</span><span class="o">&lt;</span> <span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Cell</span> <span class="n">Nodes</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">1&lt;=dir&lt;=3</span></code> is which component of the direction being queried
+(i.e. x,y,z), <code class="docutils literal notranslate"><span class="pre">face</span></code> and <code class="docutils literal notranslate"><span class="pre">edge</span></code> specify which face/edge is being
+queried, and <code class="docutils literal notranslate"><span class="pre">idx</span></code> is the index along <code class="docutils literal notranslate"><span class="pre">dir</span></code>. For the function
+<code class="docutils literal notranslate"><span class="pre">Xf</span></code>, when <code class="docutils literal notranslate"><span class="pre">dir==face</span></code> it gives the same face position as <code class="docutils literal notranslate"><span class="pre">x1f</span></code>,
+<code class="docutils literal notranslate"><span class="pre">x2f</span></code>, and <code class="docutils literal notranslate"><span class="pre">x3f</span></code> in Athena++. When <code class="docutils literal notranslate"><span class="pre">dir!=face</span></code>, it returns the
+face-average position, lying within the plane of the face, which
+replaces <code class="docutils literal notranslate"><span class="pre">x1s2</span></code>, <code class="docutils literal notranslate"><span class="pre">x1s3</span></code>, <code class="docutils literal notranslate"><span class="pre">x2s1</span></code>, <code class="docutils literal notranslate"><span class="pre">x2s3</span></code>, <code class="docutils literal notranslate"><span class="pre">x3s1</span></code>, and <code class="docutils literal notranslate"><span class="pre">x3s2</span></code>
+in Athena++. <code class="docutils literal notranslate"><span class="pre">Xe</span></code> and <code class="docutils literal notranslate"><span class="pre">Xn</span></code> have no equivalents in Athena++ put
+return the positions of off-cell-center locations consistent with these
+positions computed from cell-centers and face-centers in Athena++.</p>
+<p>Distance between elements (previously <code class="docutils literal notranslate"><span class="pre">dx1v</span></code>, <code class="docutils literal notranslate"><span class="pre">dx1f</span></code> etc. )</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Dxc</span><span class="o">&lt;</span><span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Distance</span> <span class="n">between</span> <span class="n">cell</span> <span class="n">centers</span> <span class="n">along</span> <span class="nb">dir</span>
+<span class="n">Dxf</span><span class="o">&lt;</span><span class="nb">int</span> <span class="nb">dir</span><span class="p">,</span> <span class="nb">int</span> <span class="n">face</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Distance</span> <span class="n">between</span> <span class="n">face</span> <span class="n">centers</span> <span class="n">along</span> <span class="nb">dir</span>
+<span class="n">Dxe</span><span class="o">&lt;</span><span class="nb">int</span> <span class="nb">dir</span><span class="p">,</span> <span class="nb">int</span> <span class="n">edge</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Distance</span> <span class="n">between</span> <span class="n">edge</span> <span class="n">centers</span> <span class="n">along</span> <span class="nb">dir</span>
+<span class="n">Dxn</span><span class="o">&lt;</span> <span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span><span class="n">const</span> <span class="nb">int</span> <span class="n">idx</span><span class="p">);</span> <span class="o">//</span><span class="n">Distance</span> <span class="n">between</span> <span class="n">cell</span> <span class="n">Nodes</span> <span class="n">along</span> <span class="nb">dir</span>
+</pre></div>
+</div>
+<p>Likewise, <code class="docutils literal notranslate"><span class="pre">face</span></code>, <code class="docutils literal notranslate"><span class="pre">edge</span></code>, <code class="docutils literal notranslate"><span class="pre">Dxe</span></code>, and <code class="docutils literal notranslate"><span class="pre">Dxn</span></code> are new to get
+distances between different elements along different dimensions.</p>
+<p>Integration elements (replacing <code class="docutils literal notranslate"><span class="pre">CenterWidth1</span></code>, <code class="docutils literal notranslate"><span class="pre">Edge1Length</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Face1Area</span></code>, and <code class="docutils literal notranslate"><span class="pre">CellVolume</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">CellWidth</span><span class="o">&lt;</span><span class="nb">int</span> <span class="nb">dir</span><span class="o">&gt;</span><span class="p">(</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">i</span><span class="p">);</span> <span class="o">//</span><span class="n">Cell</span> <span class="n">Width</span> <span class="n">at</span> <span class="n">cell</span> <span class="n">center</span>
+<span class="n">FaceArea</span><span class="o">&lt;</span><span class="nb">int</span> <span class="n">face</span><span class="o">&gt;</span><span class="p">(</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">i</span><span class="p">);</span> <span class="o">//</span><span class="n">Area</span> <span class="n">of</span> <span class="n">Face</span>
+<span class="n">EdgeLength</span><span class="o">&lt;</span><span class="nb">int</span> <span class="n">edge</span><span class="o">&gt;</span><span class="p">(</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">i</span><span class="p">);</span> <span class="o">//</span><span class="n">Length</span> <span class="n">of</span> <span class="n">edge</span>
+<span class="n">CellVolume</span><span class="p">(</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">i</span><span class="p">);</span> <span class="o">//</span><span class="n">CellVolume</span>
+</pre></div>
+</div>
+<p>These functions take all three indices to accommodate extension to
+spherical and cylindrical.</p>
+<section id="compile-time-vs-run-time-parameters">
+<h2>Compile Time vs. Run Time Parameters<a class="headerlink" href="#compile-time-vs-run-time-parameters" title="Link to this heading"></a></h2>
+<p>For each of these functions that take parameters <code class="docutils literal notranslate"><span class="pre">dir</span></code>, <code class="docutils literal notranslate"><span class="pre">face</span></code>,
+and/or <code class="docutils literal notranslate"><span class="pre">edge</span></code> as template parameters at compile time, we also
+introduce as needed versions with runtime parameters appending <code class="docutils literal notranslate"><span class="pre">FA</span></code> to
+the function name for “function-arguments.” For example,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FaceAreaFA</span><span class="p">(</span> <span class="n">const</span> <span class="nb">int</span> <span class="nb">dir</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">k</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">j</span><span class="p">,</span> <span class="n">const</span> <span class="nb">int</span> <span class="n">i</span><span class="p">);</span> <span class="o">//</span><span class="n">Face</span> <span class="n">Areas</span>
+</pre></div>
+</div>
+<p>This convention avoids naming conflicts between simplified functions and
+runtime functions. These run-time versions are implemented on an
+as-needed basis.</p>
+<p><em>This page will be expanded with the implementation of spherical and
+cylindrical coordinates.</em></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="constants.html" class="btn btn-neutral float-left" title="Parthenon Built-in Physical Constants" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="development.html" class="btn btn-neutral float-right" title="Parthenon developer guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/add-cg-solver
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/coordinates.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/coordinates.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/coordinates.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/coordinates.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/coordinates.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/coordinates.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/coordinates.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/coordinates.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/coordinates.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/coordinates.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/coordinates.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/coordinates.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/coordinates.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/coordinates.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/coordinates.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/coordinates.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../BenWibking/ubsan-clean-nan/src/coordinates.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../../BenWibking/update-cuda-ci-container/src/coordinates.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/coordinates.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/coordinates.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/coordinates.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/coordinates.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/coordinates.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/coordinates.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/coordinates.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/coordinates.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/coordinates.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/coordinates.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/coordinates.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/coordinates.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/coordinates.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/coordinates.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/coordinates.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/coordinates.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/coordinates.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/coordinates.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/coordinates.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/coordinates.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/coordinates.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/coordinates.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/coordinates.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/coordinates.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/coordinates.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/coordinates.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/coordinates.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/coordinates.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/coordinates.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/coordinates.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/coordinates.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/coordinates.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/coordinates.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/coordinates.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/coordinates.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/coordinates.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/coordinates.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/coordinates.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/coordinates.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/coordinates.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/coordinates.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/coordinates.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/coordinates.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/coordinates.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/coordinates.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/coordinates.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/coordinates.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/coordinates.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/coordinates.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/coordinates.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/coordinates.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/coordinates.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/coordinates.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/coordinates.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/coordinates.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/coordinates.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/coordinates.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/coordinates.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/coordinates.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/coordinates.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/coordinates.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/coordinates.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/coordinates.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/coordinates.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/coordinates.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/coordinates.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/coordinates.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/coordinates.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/coordinates.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/coordinates.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/coordinates.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/coordinates.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/coordinates.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/coordinates.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/coordinates.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/coordinates.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/coordinates.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/coordinates.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/coordinates.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/coordinates.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/coordinates.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/coordinates.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/coordinates.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/coordinates.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/coordinates.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/coordinates.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/coordinates.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/coordinates.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/coordinates.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/coordinates.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/coordinates.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/coordinates.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/coordinates.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/coordinates.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/coordinates.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/coordinates.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/coordinates.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/coordinates.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="coordinates.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../add-combined-buffer-communication/src/coordinates.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../add-fine-field-deallocation/src/coordinates.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../add-fine-variables/src/coordinates.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../add-forest-block-orientation/src/coordinates.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../add-forest-mesh-example/src/coordinates.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../add-forest-of-octrees/src/coordinates.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../add-forest-orientation-2/src/coordinates.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../add-index-range-masking/src/coordinates.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../add-more-careful-container-checking/src/coordinates.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../add-morton-numbers/src/coordinates.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../add-multi-grid/src/coordinates.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../add-negative-levels/src/coordinates.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../add-non-one-copy-fluxes/src/coordinates.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../add-noncell-amr/src/coordinates.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../add-small-riot/src/coordinates.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../add-sparse-vector-wave-test/src/coordinates.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../add-task-graph/src/coordinates.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../add-vector-wave-test/src/coordinates.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/src/coordinates.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../bugfix-sparse-cache/src/coordinates.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../bugfix-symmetrized-coordinates/src/coordinates.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../cleanup-offsets/src/coordinates.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../composable-boundary-conditions/src/coordinates.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../face-boundary-communication/src/coordinates.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../fix-bitshift-of-negative/src/coordinates.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../fix-dealloc-count-bug/src/coordinates.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../fix-divide-by-zero/src/coordinates.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../fix-forest-multigrid/src/coordinates.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../fix-iterative-task-qualifiers/src/coordinates.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../fix-multigrid-mpi/src/coordinates.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../fix-noncc-amr/src/coordinates.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../fix-one-block-minimum-per-rank/src/coordinates.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../fix-restart-state-bug/src/coordinates.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../fix-root-level/src/coordinates.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../fix-solver-relative-residual/src/coordinates.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/src/coordinates.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree-2/src/coordinates.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../fix-static-refinement/src/coordinates.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../generalize-par-dispatch/src/coordinates.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../in-one-zero-memory-amr/src/coordinates.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../local-face-fields/src/coordinates.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../mg-riot-updates/src/coordinates.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../multigrid-example-update/src/coordinates.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../performance-updates/src/coordinates.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../refactor-mesh-constructors/src/coordinates.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../refactor-meshblockdata-initialization/src/coordinates.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../refactor-partitioning/src/coordinates.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../refactor-region-size/src/coordinates.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../refactor-solver-input/src/coordinates.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../rename-cell-variable/src/coordinates.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../reorganize/src/coordinates.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../sparse-pack-update/src/coordinates.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/src/coordinates.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/coordinates.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/coordinates.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/coordinates.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/coordinates.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/coordinates.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/coordinates.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/coordinates.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/coordinates.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/coordinates.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/coordinates.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/coordinates.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/coordinates.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/coordinates.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/coordinates.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/coordinates.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/coordinates.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/coordinates.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/coordinates.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/coordinates.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/coordinates.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/coordinates.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/coordinates.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

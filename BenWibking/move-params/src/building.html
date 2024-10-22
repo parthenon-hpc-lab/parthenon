@@ -1,0 +1,1031 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building Parthenon &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="C++11 Style Concepts Implementation" href="concepts_lite.html" />
+    <link rel="prev" title="Boundary Conditions" href="boundary_conditions.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Building Parthenon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#general-list-of-cmake-options">General list of cmake options:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-parthenon-as-a-subdirectory">Using Parthenon as a Subdirectory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-parthenon">Installing Parthenon</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#building-as-a-static-library">Building as a static library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#building-as-a-shared-library">Building as a shared library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#linking-an-app-with-make">Linking an app with <em>make</em></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#linking-an-app-with-cmake">Linking an app with <em>cmake</em></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#system-specific-instructions">System specific instructions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#default-machine-configurations">Default machine configurations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ubuntu-20-04-lts">Ubuntu 20.04 LTS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#olcf-summit-power9-volta">OLCF Summit (Power9+Volta)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#common-environment">Common environment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#build-code">Build code</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cuda-with-mpi">Cuda with MPI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cuda-without-mpi">Cuda without MPI</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#lanl-darwin-heterogeneous">LANL Darwin (Heterogeneous)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#allocate-node">Allocate Node</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#set-up-environment-optional-but-still-recommended-for-non-cuda-builds">Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#build-the-code">Build the Code</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced">Advanced</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#lanl-snow-cts-1">LANL Snow (CTS-1)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#allocate-node-1">Allocate Node</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#set-up-environment-optional-but-recommended">Set-Up Environment (Optional, but Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#build-the-code-1">Build the Code</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced-1">Advanced</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#lnll-rzansel-homogeneous">LNLL RZAnsel (Homogeneous)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#allocate-node-2">Allocate Node</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#set-up-environment-optional-but-still-recommended-for-non-cuda-builds-1">Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#build-the-code-2">Build the Code</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced-2">Advanced</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#llnl-rzansel-power9-volta">LLNL RZAnsel (Power9+Volta)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#common-environment-1">Common environment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cuda-with-mpi-1">Cuda with MPI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cuda-without-mpi-1">Cuda without MPI</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Building Parthenon</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/building.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="building-parthenon">
+<span id="building"></span><h1>Building Parthenon<a class="headerlink" href="#building-parthenon" title="Link to this heading"></a></h1>
+<p><em>IMPORTANT: We try our best to keep the instructions up-to-date.
+However, Parthenon itself, dependencies, and environments constantly
+changes so that the instruction may not work any more. If you come
+across a disfunctional setup, please report it by open an issue or
+propose an updated description in a pull request</em></p>
+<section id="general-list-of-cmake-options">
+<h2>General list of cmake options:<a class="headerlink" href="#general-list-of-cmake-options" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line">PARTHENON_SINGLE_PRECISION</div>
+<div class="line">PARTHENON_DISABLE_HDF5</div>
+<div class="line">PARTHENON_DISABLE_HDF5_COMPRESSION</div>
+<div class="line">PARTHENON_ENABLE_ASCENT</div>
+<div class="line">PARTHENON_DISABLE_MPI</div>
+<div class="line">PARTHENON_ENABLE_HOST_COMM_BUFFERS</div>
+<div class="line">PARTHENON_DISABLE_SPARSE</div>
+<div class="line">ENABLE_COMPILER_WARNINGS</div>
+<div class="line">TEST_ERROR_CHECKING</div>
+<div class="line">TEST_INTEL_OPTIMIZATION</div>
+<div class="line">CHECK_REGISTRY_PRESSURE</div>
+<div class="line">BUILD_TESTING</div>
+<div class="line">PARTHENON_DISABLE_EXAMPLES</div>
+<div class="line">PARTHENON_ENABLE_TESTING</div>
+<div class="line">PARTHENON_ENABLE_INTEGRATION_TESTS</div>
+<div class="line">PARTHENON_ENABLE_REGRESSION_TESTS</div>
+<div class="line">PARTHENON_ENABLE_UNIT_TESTS</div>
+<div class="line">PARTHENON_PERFORMANCE_TESTS</div>
+<div class="line">NUM_MPI_PROC_TESTING</div>
+<div class="line">NUM_GPU_DEVICES_PER_NODE</div>
+<div class="line">PARTHENON_ENABLE_PYTHON_MODULE_CHECK</div>
+<div class="line">PARTHENON_ENABLE_GPU_MPI_CHECKS</div>
+<div class="line">REGRESSION_GOLD_STANDARD_VER</div>
+<div class="line">REGRESSION_GOLD_STANDARD_HASH</div>
+<div class="line">REGRESSION_GOLD_STANDARD_SYNC</div>
+<div class="line">CODE_COVERAGE</div>
+<div class="line">PARTHENON_LINT_DEFAULT</div>
+<div class="line">PARTHENON_COPYRIGHT_CHECK_DEFAULT</div>
+<div class="line">CMAKE_INSTALL_PREFIX</div>
+<div class="line">Kokkos_ROOT</div>
+<div class="line">PARTHENON_IMPORT_KOKKOS</div>
+<div class="line">BUILD_SHARED_LIBS</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">ON</div>
+<div class="line">OFF</div>
+<div class="line">${BUILD_TESTING}</div>
+<div class="line">${PARTHENON_ENABLE_TESTING}</div>
+<div class="line">${PARTHENON_ENABLE_TESTING}</div>
+<div class="line">${PARTHENON_ENABLE_TESTING}</div>
+<div class="line">${PARTHENON_ENABLE_TESTING}</div>
+<div class="line">4</div>
+<div class="line">1</div>
+<div class="line">${PARTHENON_ENABLE_TESTING}</div>
+<div class="line">ON</div>
+<div class="line">#</div>
+<div class="line">SHA512=…</div>
+<div class="line">ON</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">OFF</div>
+<div class="line">machine specific</div>
+<div class="line">unset</div>
+<div class="line">ON/OFF</div>
+<div class="line">OFF</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">String</div>
+<div class="line">String</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Int</div>
+<div class="line">String</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+<div class="line">String</div>
+<div class="line">String</div>
+<div class="line">Option</div>
+<div class="line">Option</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">Enable single precision mode if requested</div>
+<div class="line">HDF5 is enabled by default if found, set this to True to disable HDF5</div>
+<div class="line">HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files</div>
+<div class="line">Enable Ascent for in situ visualization and analysis</div>
+<div class="line">MPI is enabled by default if found, set this to True to disable MPI</div>
+<div class="line">MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host.</div>
+<div class="line">Disable sparse allocation of sparse variables, i.e., sparse variable still work but are always allocated. See also <a class="reference internal" href="interface/sparse.html#sparse-compile-time"><span class="std std-ref">sparse doc</span></a>.</div>
+<div class="line">Enable compiler warnings</div>
+<div class="line">Enables the error checking unit test. This test will FAIL</div>
+<div class="line">Test intel optimization and vectorization</div>
+<div class="line">Check the registry pressure for Kokkos CUDA kernels</div>
+<div class="line">Enable test (set by CTest itself)</div>
+<div class="line">Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built</div>
+<div class="line">Default value to enable Parthenon tests</div>
+<div class="line">Enable integration tests</div>
+<div class="line">Enable regression tests</div>
+<div class="line">Enable unit tests</div>
+<div class="line">Enable performance tests</div>
+<div class="line">Number of MPI ranks used for MPI-enabled regression tests</div>
+<div class="line">Number of GPUs per node to use if built with <cite>Kokkos_ENABLE_CUDA</cite></div>
+<div class="line">Enable checking if python modules used in regression tests are available</div>
+<div class="line">Enable pre-test gpu-mpi checks</div>
+<div class="line">Version of current gold standard file used in regression tests. Default is set to latest version matching the source.</div>
+<div class="line">Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted.</div>
+<div class="line">Create <cite>gold_standard</cite> target to download gold standard files</div>
+<div class="line">Builds with code coverage flags</div>
+<div class="line">Lint the code as part of the default target (otherwise use the <cite>lint</cite> target)</div>
+<div class="line">Check copyright as part of the default target (otherwise use the <cite>check-copyright</cite> target)</div>
+<div class="line">Optional path for library installation</div>
+<div class="line">Path to a Kokkos source directory (containing CMakeLists.txt)</div>
+<div class="line">If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon</div>
+<div class="line">If installing Parthenon, whether to build as shared rather than static</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>CMake options prefixed with <em>PARTHENON_</em> modify behavior.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>On MPI usage:</strong> By default communication buffers are allocated in the execution device’s
+memory, e.g., directly on the GPU when using Cuda. This requires the MPI
+library to be compiled with support for directly accessing device memory
+(e.g., often referred to as “Cuda-aware MPI”). To force buffer
+allocation in host memory (currently <em>not</em> recommended as it typically
+results in a performance degradation) set
+<code class="docutils literal notranslate"><span class="pre">PARTHENON_ENABLE_HOST_COMM_BUFFERS=ON</span></code>.</p>
+</div>
+</section>
+<section id="using-parthenon-as-a-subdirectory">
+<h2>Using Parthenon as a Subdirectory<a class="headerlink" href="#using-parthenon-as-a-subdirectory" title="Link to this heading"></a></h2>
+<p>For simple applications, Parthenon can be added as a subdirectory to
+your project. For example, you can add parthenon as a git submodule:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">submodule</span> <span class="n">add</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">parthenon</span><span class="o">-</span><span class="n">hpc</span><span class="o">-</span><span class="n">lab</span><span class="o">/</span><span class="n">parthenon</span><span class="o">.</span><span class="n">git</span>
+</pre></div>
+</div>
+<p>And then you can use parthenon in your CMake project by adding it as a
+subdirectory:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/parthenon</span><span class="p">)</span>
+
+<span class="nb">add_executable</span><span class="p">(</span><span class="s">myapp</span><span class="w"> </span><span class="s">...</span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">myapp</span><span class="w"> </span><span class="s">PRIVATE</span><span class="w"> </span><span class="s">Parthenon::parthenon</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="installing-parthenon">
+<h2>Installing Parthenon<a class="headerlink" href="#installing-parthenon" title="Link to this heading"></a></h2>
+<p>An alternative to building Parthenon as a subdirectory is to first build
+Parthenon separately as a library and then link to it when building the
+app. Parthenon can be built as either a static (default) or a shared
+library.</p>
+<p>To build Parthenon as a library, provide a <code class="docutils literal notranslate"><span class="pre">CMAKE_INSTALL_PREFIX</span></code> path
+to the desired install location to the Parthenon cmake call. To build a
+shared rather than a static library, also set <code class="docutils literal notranslate"><span class="pre">BUILD_SHARED_LIBS=ON</span></code>.
+Then build and install (note that <code class="docutils literal notranslate"><span class="pre">--build</span></code> and <code class="docutils literal notranslate"><span class="pre">--install</span></code> require
+CMake 3.15 or greater).</p>
+<section id="building-as-a-static-library">
+<h3>Building as a static library<a class="headerlink" href="#building-as-a-static-library" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-DCMAKE_INSTALL_PREFIX<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$your_install_dir</span><span class="s2">&quot;</span><span class="w"> </span><span class="nv">$parthenon_source_dir</span>
+cmake<span class="w"> </span>--build<span class="w"> </span>.<span class="w"> </span>--parallel
+cmake<span class="w"> </span>--install<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="building-as-a-shared-library">
+<h3>Building as a shared library<a class="headerlink" href="#building-as-a-shared-library" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-DCMAKE_INSTALL_PREFIX<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$your_install_dir</span><span class="s2">&quot;</span><span class="w"> </span>-DBUILD_SHARED_LIBS<span class="o">=</span>ON<span class="w"> </span><span class="nv">$parthenon_source_dir</span>
+cmake<span class="w"> </span>--build<span class="w"> </span>.<span class="w"> </span>--parallel
+cmake<span class="w"> </span>--install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>When building Parthenon, Kokkos will also be built from source if it
+exists in <code class="docutils literal notranslate"><span class="pre">parthenon/external</span></code> or at a provided <code class="docutils literal notranslate"><span class="pre">Kokkos_ROOT</span></code> by
+default. If installing Parthenon, this will also install Kokkos in the
+same directory. If <code class="docutils literal notranslate"><span class="pre">PARTHENON_IMPORT_KOKKOS=ON</span></code> is provided or no
+Kokkos/CMakeLists.txt is found, the build system will attempt to find a
+Kokkos installation in the current PATH.</p>
+<p>A cmake target, <code class="docutils literal notranslate"><span class="pre">lib*/cmake/parthenon/parthenonConfig.cmake</span></code> is
+created during installation. To link to parthenon, one can either
+specify the include files and libraries directly or call
+<code class="docutils literal notranslate"><span class="pre">find_package(parthenon)</span></code> from cmake.</p>
+</section>
+<section id="linking-an-app-with-make">
+<h3>Linking an app with <em>make</em><a class="headerlink" href="#linking-an-app-with-make" title="Link to this heading"></a></h3>
+<p>The below example makefile can be used to compile the <em>calculate_pi</em>
+example by linking to a prior library installation of Parthenon. Note
+that library flags must be appropriate for the Parthenon installation;
+it is not enough to simply provide <em>-lparthenon</em>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PARTHENON_INSTALL</span><span class="o">=</span>/path/to/your/parthenon/install
+<span class="nv">KOKKOS_INSTALL</span><span class="o">=</span>/path/to/your/Kokkos/install
+<span class="nv">CC</span><span class="o">=</span>g++
+<span class="nv">CCFLAGS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>-g<span class="w"> </span>-std<span class="o">=</span>c++14<span class="w"> </span>-L<span class="si">${</span><span class="nv">PARTHENON_INSTALL</span><span class="si">}</span>/lib<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-I<span class="si">${</span><span class="nv">PARTHENON_INSTALL</span><span class="si">}</span>/include/<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-I<span class="si">${</span><span class="nv">KOKKOS_INSTALL</span><span class="si">}</span>/include/<span class="w"> </span>-L<span class="si">${</span><span class="nv">KOKKOS_INSTALL</span><span class="si">}</span>/lib
+<span class="nv">LIB_FLAGS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>-Wl,-rpath,<span class="si">${</span><span class="nv">PARTHENON_INSTALL</span><span class="si">}</span>/lib<span class="w"> </span>-lparthenon<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-Wl,-rpath,<span class="si">${</span><span class="nv">KOKKOS_INSTALL</span><span class="si">}</span>/lib<span class="w"> </span>-lmpi<span class="w"> </span>-lkokkoscore<span class="w"> </span>-lhdf5<span class="w"> </span>-ldl<span class="w"> </span><span class="se">\</span>
+<span class="w"> </span>-lkokkoscontainers<span class="w"> </span>-lz<span class="w"> </span>-lpthread<span class="w"> </span>-lgomp<span class="w"> </span>-lmpi_cxx
+<span class="nv">CC_COMPILE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">$(</span>CC<span class="k">)</span><span class="w"> </span><span class="k">$(</span>CCFLAGS<span class="k">)</span><span class="w"> </span>-c
+<span class="nv">CC_LOAD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">$(</span>CC<span class="k">)</span><span class="w"> </span><span class="k">$(</span>CCFLAGS<span class="k">)</span>
+.cpp.o:
+<span class="w">  </span><span class="k">$(</span>CC_COMPILE<span class="k">)</span><span class="w"> </span><span class="nv">$*</span>.cpp
+<span class="nv">EXE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>pi_example
+all:<span class="w"> </span><span class="k">$(</span>EXE<span class="k">)</span>
+<span class="nv">SRC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>calculate_pi.cpp<span class="w"> </span>pi_driver.cpp
+<span class="nv">OBJ</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>calculate_pi.o<span class="w"> </span>pi_driver.o
+<span class="nv">INC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>calculate_pi.hpp<span class="w"> </span>pi_driver.hpp
+<span class="k">$(</span>OBJ<span class="k">)</span>:<span class="w"> </span><span class="k">$(</span>INC<span class="k">)</span><span class="w"> </span>makefile
+<span class="k">$(</span>EXE<span class="k">)</span>:<span class="w"> </span><span class="k">$(</span>OBJ<span class="k">)</span><span class="w"> </span><span class="k">$(</span>INC<span class="k">)</span><span class="w"> </span>makefile
+<span class="w">  </span><span class="k">$(</span>CC_LOAD<span class="k">)</span><span class="w"> </span><span class="k">$(</span>OBJ<span class="k">)</span><span class="w"> </span><span class="k">$(</span>LIB_FLAGS<span class="k">)</span><span class="w"> </span>-o<span class="w"> </span><span class="k">$(</span>EXE<span class="k">)</span>
+clean:
+<span class="w">  </span><span class="k">$(</span>RM<span class="k">)</span><span class="w"> </span><span class="k">$(</span>OBJ<span class="k">)</span><span class="w"> </span><span class="k">$(</span>EXE<span class="k">)</span>
+</pre></div>
+</div>
+</section>
+<section id="linking-an-app-with-cmake">
+<h3>Linking an app with <em>cmake</em><a class="headerlink" href="#linking-an-app-with-cmake" title="Link to this heading"></a></h3>
+<p>The below example <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> can be used to compile the
+<em>calculate_pi</em> example with a separate Parthenon installation through
+<em>cmake</em>’s <code class="docutils literal notranslate"><span class="pre">find_package()</span></code> routine.</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span><span class="w"> </span><span class="s">3.11</span><span class="p">)</span>
+
+<span class="nb">project</span><span class="p">(</span><span class="s">parthenon_linking_example</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD</span><span class="w"> </span><span class="s">17</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_EXTENSIONS</span><span class="w"> </span><span class="s">OFF</span><span class="p">)</span>
+<span class="nb">find_package</span><span class="p">(</span><span class="s">parthenon</span><span class="w"> </span><span class="s">REQUIRED</span><span class="w"> </span><span class="s">PATHS</span><span class="w"> </span><span class="s2">&quot;/path/to/parthenon/install&quot;</span><span class="p">)</span>
+<span class="nb">add_executable</span><span class="p">(</span>
+<span class="w">  </span><span class="s">pi-example</span>
+<span class="w">  </span><span class="s">pi_driver.cpp</span>
+<span class="w">  </span><span class="s">pi_driver.hpp</span>
+<span class="w">  </span><span class="s">calculate_pi.cpp</span>
+<span class="w">  </span><span class="s">calculate_pi.hpp</span>
+<span class="w">  </span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">pi-example</span><span class="w"> </span><span class="s">PRIVATE</span><span class="w"> </span><span class="s">Parthenon::parthenon</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="system-specific-instructions">
+<h2>System specific instructions<a class="headerlink" href="#system-specific-instructions" title="Link to this heading"></a></h2>
+<p>Common first step: Obtain the Parthenon source including external
+dependencies (mostly Kokkos)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone parthenon, with submodules</span>
+git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/parthenon-hpc-lab/parthenon.git
+<span class="nb">export</span><span class="w"> </span><span class="nv">PARTHENON_ROOT</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/parthenon
+</pre></div>
+</div>
+<p>We set the latter variable for easier reference in out-of-source builds.</p>
+<section id="default-machine-configurations">
+<h3>Default machine configurations<a class="headerlink" href="#default-machine-configurations" title="Link to this heading"></a></h3>
+<p>To make the default configuration on widely used systems easier,
+Parthenon provides machine configuration files that contain default
+options. Defaults options include, but are not limited to setting - the
+compiler (e.g., <code class="docutils literal notranslate"><span class="pre">nvcc_wrapper</span></code> for Cuda builds), or - paths to non
+default package locations (e.g., for a custom HDF5 install), or - custom
+MPI related commands used in the Parthenon test suite (e.g., the launch
+command).</p>
+<p>The machine configurations shipped with Parthenon are located in
+<code class="docutils literal notranslate"><span class="pre">`PARTHENON_ROOT/cmake/machinecfg</span></code> &lt;../cmake/machinecfg&gt;`__ and are
+named by the machine name. In order to use them either - set the
+<code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> environment variable to the appropriate file, or - set
+the <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> CMake variable to the appropriate file. In addition,
+you can set the <code class="docutils literal notranslate"><span class="pre">MACHINE_VARIANT</span></code> CMake variable to pick a specific
+configuration, e.g., one with Cuda and MPI enabled.</p>
+<p>We suggest to inspect the corresponding file for available options on a
+specific machine.</p>
+<p>In general, a typical workflow is expected to create your own machine
+file, e.g., on your develop system. We suggest to start with a copy of a
+machine file that matches closely with your target machine. Custom
+machine files should not be pushed to the main repository.</p>
+</section>
+<section id="ubuntu-20-04-lts">
+<h3>Ubuntu 20.04 LTS<a class="headerlink" href="#ubuntu-20-04-lts" title="Link to this heading"></a></h3>
+<p>The following procedure has been tested for an Ubuntu 20.04 LTS system:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># install dependencies</span>
+<span class="c1"># openmpi is installed implicitly by the hdf5 install</span>
+sudo<span class="w"> </span>apt-get<span class="w"> </span>update
+install<span class="w"> </span>cmake<span class="w"> </span>build-essentials<span class="w"> </span>libhdf5-openmpi-dev
+
+<span class="c1"># make a bin directory</span>
+mkdir<span class="w"> </span>bin
+<span class="nb">cd</span><span class="w"> </span>bin
+<span class="c1"># configure and build</span>
+cmake<span class="w"> </span>..
+cmake<span class="w"> </span>-j<span class="w"> </span>--build<span class="w"> </span>.
+<span class="c1"># run unit and regression tests</span>
+ctest<span class="w"> </span>-LE<span class="w"> </span>performance
+<span class="c1"># run performance tests</span>
+ctest<span class="w"> </span>-L<span class="w"> </span>performance
+</pre></div>
+</div>
+</section>
+<section id="olcf-summit-power9-volta">
+<h3>OLCF Summit (Power9+Volta)<a class="headerlink" href="#olcf-summit-power9-volta" title="Link to this heading"></a></h3>
+<p>Last verified 01 Feb 2021.</p>
+<section id="common-environment">
+<h4>Common environment<a class="headerlink" href="#common-environment" title="Link to this heading"></a></h4>
+<p>Load recommended modules:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># setup environment</span>
+$<span class="w"> </span>module<span class="w"> </span>restore<span class="w"> </span>system
+$<span class="w"> </span>module<span class="w"> </span>load<span class="w"> </span>cuda<span class="w"> </span>gcc<span class="w"> </span>cmake<span class="w"> </span>python<span class="w"> </span>hdf5
+
+<span class="c1"># on 01 Aug 2021 that results the following version</span>
+$<span class="w"> </span>module<span class="w"> </span>list
+
+Currently<span class="w"> </span>Loaded<span class="w"> </span>Modules:
+<span class="w">  </span><span class="m">1</span><span class="o">)</span><span class="w"> </span>hsi/5.0.2.p5<span class="w">    </span><span class="m">4</span><span class="o">)</span><span class="w"> </span>darshan-runtime/3.1.7<span class="w">   </span><span class="m">7</span><span class="o">)</span><span class="w"> </span>gcc/6.4.0<span class="w">                     </span><span class="m">10</span><span class="o">)</span><span class="w"> </span>spectrum-mpi/10.3.1.2-20200121
+<span class="w">  </span><span class="m">2</span><span class="o">)</span><span class="w"> </span>xalt/1.2.1<span class="w">      </span><span class="m">5</span><span class="o">)</span><span class="w"> </span>DefApps<span class="w">                 </span><span class="m">8</span><span class="o">)</span><span class="w"> </span>cmake/3.18.2<span class="w">                  </span><span class="m">11</span><span class="o">)</span><span class="w"> </span>hdf5/1.10.4
+<span class="w">  </span><span class="m">3</span><span class="o">)</span><span class="w"> </span>lsf-tools/2.0<span class="w">   </span><span class="m">6</span><span class="o">)</span><span class="w"> </span>cuda/10.1.243<span class="w">           </span><span class="m">9</span><span class="o">)</span><span class="w"> </span>python/3.6.6-anaconda3-5.3.0
+</pre></div>
+</div>
+<p>Load the recommended default machine configuration:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># assuming PARTHENON_ROOT has been set to the Parthenon folder as mentioned above</span>
+$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">MACHINE_CFG</span><span class="o">=</span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>/cmake/machinecfg/Summit.cmake
+</pre></div>
+</div>
+</section>
+<section id="build-code">
+<h4>Build code<a class="headerlink" href="#build-code" title="Link to this heading"></a></h4>
+</section>
+<section id="cuda-with-mpi">
+<h4>Cuda with MPI<a class="headerlink" href="#cuda-with-mpi" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>build-cuda-mpi<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build-cuda-mpi
+$<span class="w"> </span>cmake<span class="w"> </span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>
+$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="m">8</span>
+
+<span class="c1"># !!!! The following commands are exepected to be run within job (interactive or scheduled), e.g., via</span>
+<span class="c1"># $ bsub -W 0:30 -nnodes 1 -P YOURPROJECTID -Is /bin/bash</span>
+<span class="c1"># and make sure to also load the module above, i.e.,</span>
+<span class="c1"># $ module load cuda gcc cmake/3.18.2 python hdf5</span>
+
+<span class="c1"># run all MPI regression tests (execute from within the build folder)</span>
+$<span class="w"> </span>ctest<span class="w"> </span>-L<span class="w"> </span>regression<span class="w"> </span>-LE<span class="w"> </span>mpi-no
+
+<span class="c1"># Manually run a simulation (here using 1 node with 6 GPUs and 1 MPI processes per GPU for a total of 6 processes (ranks)).</span>
+<span class="c1"># Note the `-M &quot;-gpu&quot;` which is required to enable Cuda aware MPI.</span>
+<span class="c1"># Also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU.</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-a<span class="w"> </span><span class="m">6</span><span class="w"> </span>-g<span class="w"> </span><span class="m">6</span><span class="w"> </span>-c<span class="w"> </span><span class="m">42</span><span class="w"> </span>-r<span class="w"> </span><span class="m">1</span><span class="w"> </span>-d<span class="w"> </span>packed<span class="w"> </span>-b<span class="w"> </span>packed:7<span class="w"> </span>--smpiargs<span class="o">=</span>-gpu<span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>/example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">512</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">512</span><span class="w"> </span>parthenon/mesh/nx3<span class="o">=</span><span class="m">512</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">64</span><span class="w"> </span>--kokkos-num-devices<span class="o">=</span><span class="m">6</span>
+</pre></div>
+</div>
+</section>
+<section id="cuda-without-mpi">
+<h4>Cuda without MPI<a class="headerlink" href="#cuda-without-mpi" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># configure and build</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>build-cuda<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build-cuda
+$<span class="w"> </span>cmake<span class="w"> </span>-DMACHINE_VARIANT<span class="o">=</span>cuda<span class="w"> </span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>
+$<span class="w"> </span>make<span class="w"> </span>-j8
+
+<span class="c1"># Run unit tests (again assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)</span>
+<span class="c1"># - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node</span>
+<span class="c1"># - &quot;off&quot; is required as otherwise the implicit PAMI initialization would fail</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>--smpiargs<span class="o">=</span><span class="s2">&quot;off&quot;</span><span class="w"> </span>ctest<span class="w"> </span>-L<span class="w"> </span>unit
+
+<span class="c1"># run performance regression test test</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>--smpiargs<span class="o">=</span><span class="s2">&quot;off&quot;</span><span class="w"> </span>ctest<span class="w"> </span>-R<span class="w"> </span>regression_test:advection_performance
+</pre></div>
+</div>
+</section>
+</section>
+<section id="lanl-darwin-heterogeneous">
+<h3>LANL Darwin (Heterogeneous)<a class="headerlink" href="#lanl-darwin-heterogeneous" title="Link to this heading"></a></h3>
+<section id="allocate-node">
+<h4>Allocate Node<a class="headerlink" href="#allocate-node" title="Link to this heading"></a></h4>
+<p>Darwin is a heterogeneous cluster, giving LANL developers easy access to
+a wide variety of architectures. Therefore, before you do anything else,
+you should allocate a node in the partition you intend to work in.
+Currently any partition with either Haswell or newer x86-64 nodes
+(e.g. <code class="docutils literal notranslate"><span class="pre">general</span></code>, <code class="docutils literal notranslate"><span class="pre">skylake-gold</span></code>, <code class="docutils literal notranslate"><span class="pre">skylake-platinum</span></code>), or the
+<code class="docutils literal notranslate"><span class="pre">power9</span></code> partition will do.</p>
+<p>E.g.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>salloc<span class="w"> </span>-p<span class="w"> </span>power9
+</pre></div>
+</div>
+</section>
+<section id="set-up-environment-optional-but-still-recommended-for-non-cuda-builds">
+<h4>Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)<a class="headerlink" href="#set-up-environment-optional-but-still-recommended-for-non-cuda-builds" title="Link to this heading"></a></h4>
+<p>You can import all tools you need to start building with by sourcing the
+project <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>/projects/parthenon-int/parthenon-project/.bashrc
+</pre></div>
+</div>
+<p>This .bashrc will set the correct <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file in your
+environment, import an architecture-specific set of recent build tools
+(currently cmake and ninja), and set Ninja as the default CMake
+generator.</p>
+<p>This step is required if you intend to build for CUDA (the default on
+Power9).</p>
+</section>
+<section id="build-the-code">
+<h4>Build the Code<a class="headerlink" href="#build-the-code" title="Link to this heading"></a></h4>
+<p>If you followed the “Set-Up Environment” section, configuration requires
+0 additional arguments:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild
+</pre></div>
+</div>
+<p>If you didn’t follow the “Set-Up Environment” section, you need to
+specify the <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file, as well.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild<span class="w"> </span>-DMACHINE_CFG<span class="o">=</span>cmake/machinecfg/Darwin.cmake
+</pre></div>
+</div>
+<p>The Darwin-specific dependencies, including compilers, system
+dependencies, and python packages, are hard coded in <code class="docutils literal notranslate"><span class="pre">Darwin.cmake</span></code>,
+so you don’t need anything else in your environment.</p>
+<p>Once you’ve configured your build directory, you can build with
+<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">build</span></code>.</p>
+</section>
+<section id="advanced">
+<h4>Advanced<a class="headerlink" href="#advanced" title="Link to this heading"></a></h4>
+<p>LANL Employees - to understand how the project space is built out, see
+<a class="reference external" href="https://re-git.lanl.gov/eap-oss/parthenon-project">https://re-git.lanl.gov/eap-oss/parthenon-project</a></p>
+</section>
+</section>
+<section id="lanl-snow-cts-1">
+<h3>LANL Snow (CTS-1)<a class="headerlink" href="#lanl-snow-cts-1" title="Link to this heading"></a></h3>
+<section id="allocate-node-1">
+<span id="id1"></span><h4>Allocate Node<a class="headerlink" href="#allocate-node-1" title="Link to this heading"></a></h4>
+<p>Snow is a LANL CTS-1 system with dual socket Broadwell Intel CPUs. You
+can log in to <code class="docutils literal notranslate"><span class="pre">sn-fey</span></code>. Nodes are allocated using SLURM.</p>
+<p>E.g.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>salloc<span class="w"> </span>-N1
+</pre></div>
+</div>
+</section>
+<section id="set-up-environment-optional-but-recommended">
+<h4>Set-Up Environment (Optional, but Recommended)<a class="headerlink" href="#set-up-environment-optional-but-recommended" title="Link to this heading"></a></h4>
+<p>You can import all tools you need to start building with by sourcing the
+project <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>/usr/projects/parthenon/parthenon-project/.bashrc
+</pre></div>
+</div>
+<p>This .bashrc will set the correct <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file in your
+environment, import an architecture-specific set of recent build tools
+(currently cmake and ninja), and set Ninja as the default CMake
+generator.</p>
+</section>
+<section id="build-the-code-1">
+<span id="id2"></span><h4>Build the Code<a class="headerlink" href="#build-the-code-1" title="Link to this heading"></a></h4>
+<p>If you followed the “Set-Up Environment” section, configuration requires
+0 additional arguments:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild
+</pre></div>
+</div>
+<p>If you didn’t follow the “Set-Up Environment” section, you need to
+specify the <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file, as well.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild<span class="w"> </span>-DMACHINE_CFG<span class="o">=</span>cmake/machinecfg/Snow.cmake
+</pre></div>
+</div>
+<p>Parthenon is built with the Intel compilers by default on Snow. To build
+with gcc, specify <code class="docutils literal notranslate"><span class="pre">-DSNOW_COMPILER=GCC</span></code>.</p>
+<p>The Snow-specific dependencies, including compilers, system
+dependencies, and python packages, are hard coded in <code class="docutils literal notranslate"><span class="pre">Snow.cmake</span></code>, so
+you don’t need anything else in your environment.</p>
+<p>Once you’ve configured your build directory, you can build with
+<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">build</span></code>.</p>
+</section>
+<section id="advanced-1">
+<span id="id3"></span><h4>Advanced<a class="headerlink" href="#advanced-1" title="Link to this heading"></a></h4>
+<p>LANL Employees - to understand how the project space is built out, see
+<a class="reference external" href="https://re-git.lanl.gov/eap-oss/parthenon-project">https://re-git.lanl.gov/eap-oss/parthenon-project</a></p>
+</section>
+</section>
+<section id="lnll-rzansel-homogeneous">
+<h3>LNLL RZAnsel (Homogeneous)<a class="headerlink" href="#lnll-rzansel-homogeneous" title="Link to this heading"></a></h3>
+<p>Last verified 04 Jan 2021.</p>
+<section id="allocate-node-2">
+<span id="id4"></span><h4>Allocate Node<a class="headerlink" href="#allocate-node-2" title="Link to this heading"></a></h4>
+<p><a class="reference external" href="https://hpc.llnl.gov/hardware/platforms/rzansel">RZAnsel</a> is a
+homogeneous cluster consisting of 2,376 nodes with the IBM Power9
+architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
+allocate an interactive node:</p>
+<p>E.g.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>lalloc<span class="w"> </span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="set-up-environment-optional-but-still-recommended-for-non-cuda-builds-1">
+<span id="id5"></span><h4>Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)<a class="headerlink" href="#set-up-environment-optional-but-still-recommended-for-non-cuda-builds-1" title="Link to this heading"></a></h4>
+<p>You can import all tools you need to start building with by sourcing the
+project <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code>, to be able to access /usr/gapps/parthenon_shared
+you will need to be added to the parthenon group (contact &#64;agaspar):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>/usr/gapps/parthenon_shared/parthenon-project/.bashrc
+</pre></div>
+</div>
+<p>This .bashrc will set the correct <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file in your
+environment, import an architecture-specific set of recent build tools
+(currently cmake and ninja), and set Ninja as the default CMake
+generator.</p>
+<p>This step is required if you intend to build for CUDA (the default on
+Power9).</p>
+</section>
+<section id="build-the-code-2">
+<span id="id6"></span><h4>Build the Code<a class="headerlink" href="#build-the-code-2" title="Link to this heading"></a></h4>
+<p>If you followed the “Set-Up Environment” section, configuration requires
+0 additional arguments:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild
+</pre></div>
+</div>
+<p>By default cmake will build parthenon with cuda and mpi support. Other
+machine variants exist and can be specified by using the
+<code class="docutils literal notranslate"><span class="pre">MACHINE_VARIANT</span></code> flag. The supported machine variants include:</p>
+<ul class="simple">
+<li><p>cuda-mpi</p></li>
+<li><p>mpi</p></li>
+<li><p>cuda</p></li>
+</ul>
+<p>If you didn’t follow the “Set-Up Environment” section, you need to
+specify the <code class="docutils literal notranslate"><span class="pre">MACHINE_CFG</span></code> file, as well.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S.<span class="w"> </span>-Bbuild<span class="w"> </span>-DMACHINE_CFG<span class="o">=</span>cmake/machinecfg/RZAnsel.cmake
+</pre></div>
+</div>
+<p>The RZAnsel-specific dependencies, including compilers, system
+dependencies, and python packages, are hard coded in <code class="docutils literal notranslate"><span class="pre">RZAnsel.cmake</span></code>,
+so you don’t need anything else in your environment.</p>
+<p>Once you’ve configured your build directory, you can build with
+<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">build</span></code>.</p>
+</section>
+<section id="advanced-2">
+<span id="id7"></span><h4>Advanced<a class="headerlink" href="#advanced-2" title="Link to this heading"></a></h4>
+<p>LANL Employees - to understand how the project space is built out, see
+<a class="reference external" href="https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project">https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project</a></p>
+</section>
+</section>
+<section id="llnl-rzansel-power9-volta">
+<h3>LLNL RZAnsel (Power9+Volta)<a class="headerlink" href="#llnl-rzansel-power9-volta" title="Link to this heading"></a></h3>
+<p>Last verified 02 Sept 2020.</p>
+<section id="common-environment-1">
+<span id="id8"></span><h4>Common environment<a class="headerlink" href="#common-environment-1" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># setup environment</span>
+$<span class="w"> </span>module<span class="w"> </span>restore<span class="w"> </span>system
+$<span class="w"> </span>module<span class="w"> </span>load<span class="w"> </span>cuda<span class="w"> </span>gcc/7.3.1
+
+<span class="c1"># on 02 Sept 2020 that results the following version</span>
+$<span class="w"> </span>module<span class="w"> </span>list
+
+Currently<span class="w"> </span>Loaded<span class="w"> </span>Modules:
+<span class="w">  </span><span class="m">1</span><span class="o">)</span><span class="w"> </span>StdEnv<span class="w"> </span><span class="o">(</span>S<span class="o">)</span><span class="w">   </span><span class="m">2</span><span class="o">)</span><span class="w"> </span>cuda/10.1.243<span class="w">   </span><span class="m">3</span><span class="o">)</span><span class="w"> </span>gcc/7.3.1<span class="w">   </span><span class="m">4</span><span class="o">)</span><span class="w"> </span>spectrum-mpi/rolling-release
+
+<span class="w">  </span>Where:
+<span class="w">   </span>S:<span class="w">  </span>Module<span class="w"> </span>is<span class="w"> </span>Sticky,<span class="w"> </span>requires<span class="w"> </span>--force<span class="w"> </span>to<span class="w"> </span>unload<span class="w"> </span>or<span class="w"> </span>purge
+</pre></div>
+</div>
+</section>
+<section id="cuda-with-mpi-1">
+<span id="id9"></span><h4>Cuda with MPI<a class="headerlink" href="#cuda-with-mpi-1" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>build-cuda-mpi<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build-cuda-mpi
+<span class="c1"># note that we do not specify the mpicxx wrapper in the following as cmake automatically extracts the required include and linker options</span>
+$<span class="w"> </span>cmake<span class="w"> </span>-DPARTHENON_DISABLE_HDF5<span class="o">=</span>On<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DKokkos_ENABLE_OPENMP<span class="o">=</span>ON<span class="w"> </span>-DKokkos_ARCH_POWER9<span class="o">=</span>True<span class="w"> </span>-DKokkos_ENABLE_CUDA<span class="o">=</span>True<span class="w"> </span>-DKokkos_ARCH_VOLTA70<span class="o">=</span>True<span class="w"> </span>-DCMAKE_CXX_COMPILER<span class="o">=</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/../external/Kokkos/bin/nvcc_wrapper<span class="w"> </span>..
+$<span class="w"> </span>make<span class="w"> </span>-j
+
+<span class="c1"># The following commands are exepected to be run within job (interactive or scheduled)</span>
+
+<span class="c1"># Make sure that GPUs are assigned round robin to MPI processes</span>
+$<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="nv">KOKKOS_NUM_DEVICES</span><span class="o">=</span><span class="m">4</span>
+
+<span class="c1"># run all MPI regression tests</span>
+$<span class="w"> </span>ctest<span class="w"> </span>-L<span class="w"> </span>regression<span class="w"> </span>-LE<span class="w"> </span>mpi-no
+
+<span class="c1"># manually run a simulation (here using 1 node with 4 GPUs and 1 MPI processes per GPU and a total of 2 processes (ranks))</span>
+<span class="c1"># note the `-M &quot;-gpu&quot;` which is required to enable Cuda aware MPI</span>
+<span class="c1"># also note the `--kokkos-num-devices=1` that ensures that each process on a node uses a different GPU</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-p<span class="w"> </span><span class="m">2</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>-c<span class="w"> </span><span class="m">20</span><span class="w"> </span>-M<span class="w"> </span><span class="s2">&quot;-gpu&quot;</span><span class="w"> </span>./example/advection/advection-example<span class="w"> </span>-i<span class="w"> </span>../example/advection/parthinput.advection<span class="w"> </span>parthenon/time/nlim<span class="o">=</span><span class="m">10</span><span class="w"> </span>parthenon/mesh/nx1<span class="o">=</span><span class="m">128</span><span class="w"> </span>parthenon/mesh/nx2<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/mesh/nx3<span class="o">=</span><span class="m">64</span><span class="w"> </span>parthenon/meshblock/nx1<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx2<span class="o">=</span><span class="m">32</span><span class="w"> </span>parthenon/meshblock/nx3<span class="o">=</span><span class="m">32</span><span class="w"> </span>--kokkos-num-devices<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tee<span class="w"> </span><span class="m">2</span>.out
+</pre></div>
+</div>
+</section>
+<section id="cuda-without-mpi-1">
+<span id="id10"></span><h4>Cuda without MPI<a class="headerlink" href="#cuda-without-mpi-1" title="Link to this heading"></a></h4>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># configure and build</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>build-cuda<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build-cuda
+$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DMACHINE_CFG<span class="o">=</span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>/cmake/machinecfg/Summit.cmake<span class="w"> </span>-DMACHINE_VARIANT<span class="o">=</span>cuda<span class="w"> </span>-DPARTHENON_DISABLE_MPI<span class="o">=</span>On<span class="w"> </span><span class="si">${</span><span class="nv">PARTHENON_ROOT</span><span class="si">}</span>
+$<span class="w"> </span>make<span class="w"> </span>-j10
+
+<span class="c1"># run unit tests (assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)</span>
+<span class="c1"># - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node</span>
+<span class="c1"># - &quot;off&quot; is required as otherwise the implicit PAMI initialization would fail</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>--smpiargs<span class="o">=</span><span class="s2">&quot;off&quot;</span><span class="w"> </span>ctest<span class="w"> </span>-L<span class="w"> </span>unit
+
+<span class="c1"># run convergence test</span>
+$<span class="w"> </span>jsrun<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>-g<span class="w"> </span><span class="m">1</span><span class="w"> </span>--smpiargs<span class="o">=</span><span class="s2">&quot;off&quot;</span><span class="w"> </span>ctest<span class="w"> </span>-R<span class="w"> </span>regression_test:advection_performance
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="boundary_conditions.html" class="btn btn-neutral float-left" title="Boundary Conditions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="concepts_lite.html" class="btn btn-neutral float-right" title="C++11 Style Concepts Implementation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: BenWibking/move-params
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/building.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/building.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/building.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/building.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/building.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/building.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/building.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/building.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/building.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/building.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../v0.8.0/src/building.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/building.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/building.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/building.html">v24.08</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../952-sparse_advection-format-string-incorrect/src/building.html">952-sparse_advection-format-string-incorrect</a></dd>
+      <dd><a href="building.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../ubsan-clean-nan/src/building.html">BenWibking/ubsan-clean-nan</a></dd>
+      <dd><a href="../../update-cuda-ci-container/src/building.html">BenWibking/update-cuda-ci-container</a></dd>
+      <dd><a href="../../../ats5/src/building.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/building.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/building.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/building.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../bprather/backport-bicgstab/src/building.html">bprather/backport-bicgstab</a></dd>
+      <dd><a href="../../../bprather/backport-solvers/src/building.html">bprather/backport-solvers</a></dd>
+      <dd><a href="../../../bprather/driver-overridable/src/building.html">bprather/driver-overridable</a></dd>
+      <dd><a href="../../../bprather/fix-amr-ct/src/building.html">bprather/fix-amr-ct</a></dd>
+      <dd><a href="../../../bprather/fix-line-continuation/src/building.html">bprather/fix-line-continuation</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms/src/building.html">bprather/fix-mpi-comms</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/building.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/fix-output-4GB-per-rank/src/building.html">bprather/fix-output-4GB-per-rank</a></dd>
+      <dd><a href="../../../bprather/flat-set-bounds/src/building.html">bprather/flat-set-bounds</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/building.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../bprather/package-pack-dim/src/building.html">bprather/package-pack-dim</a></dd>
+      <dd><a href="../../../bprather/par-reduce-inner/src/building.html">bprather/par-reduce-inner</a></dd>
+      <dd><a href="../../../bprather/pep1/src/building.html">bprather/pep1</a></dd>
+      <dd><a href="../../../bprather/print-less/src/building.html">bprather/print-less</a></dd>
+      <dd><a href="../../../bprather/register-internal-op/src/building.html">bprather/register-internal-op</a></dd>
+      <dd><a href="../../../bprather/reqs-for-ct/src/building.html">bprather/reqs-for-ct</a></dd>
+      <dd><a href="../../../bprather/te-restart-fix/src/building.html">bprather/te-restart-fix</a></dd>
+      <dd><a href="../../../brryan/fix_neighbor_idx/src/building.html">brryan/fix_neighbor_idx</a></dd>
+      <dd><a href="../../../brryan/fix_particle_array/src/building.html">brryan/fix_particle_array</a></dd>
+      <dd><a href="../../../brryan/fix_swarm_mpi_reqs/src/building.html">brryan/fix_swarm_mpi_reqs</a></dd>
+      <dd><a href="../../../brryan/flux_refinement_ops/src/building.html">brryan/flux_refinement_ops</a></dd>
+      <dd><a href="../../../brryan/h5py_str_fix/src/building.html">brryan/h5py_str_fix</a></dd>
+      <dd><a href="../../../brryan/history++/src/building.html">brryan/history++</a></dd>
+      <dd><a href="../../../brryan/is_restart_soft_equiv/src/building.html">brryan/is_restart_soft_equiv</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/building.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/more_swarm_prefix_sums/src/building.html">brryan/more_swarm_prefix_sums</a></dd>
+      <dd><a href="../../../brryan/no_swarm_dynamic_alloc/src/building.html">brryan/no_swarm_dynamic_alloc</a></dd>
+      <dd><a href="../../../brryan/pack_neighbors/src/building.html">brryan/pack_neighbors</a></dd>
+      <dd><a href="../../../brryan/param_whitespace_sanitize/src/building.html">brryan/param_whitespace_sanitize</a></dd>
+      <dd><a href="../../../brryan/particle_bcs_nordc/src/building.html">brryan/particle_bcs_nordc</a></dd>
+      <dd><a href="../../../brryan/particle_idx_bug/src/building.html">brryan/particle_idx_bug</a></dd>
+      <dd><a href="../../../brryan/particle_io_defrag/src/building.html">brryan/particle_io_defrag</a></dd>
+      <dd><a href="../../../brryan/swarm_comms_prefix/src/building.html">brryan/swarm_comms_prefix</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/building.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_new_bc_comms/src/building.html">brryan/swarm_new_bc_comms</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/building.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../brryan/swarms_smr/src/building.html">brryan/swarms_smr</a></dd>
+      <dd><a href="../../../brryan/userworkrestartoutput/src/building.html">brryan/userworkrestartoutput</a></dd>
+      <dd><a href="../../../bumo-kokkos-42/src/building.html">bumo-kokkos-42</a></dd>
+      <dd><a href="../../../dempsey/bnd_coords/src/building.html">dempsey/bnd_coords</a></dd>
+      <dd><a href="../../../dempsey/dt/src/building.html">dempsey/dt</a></dd>
+      <dd><a href="../../../dempsey/task_demangle/src/building.html">dempsey/task_demangle</a></dd>
+      <dd><a href="../../../dempsey/timeout/src/building.html">dempsey/timeout</a></dd>
+      <dd><a href="../../../develop/src/building.html">develop</a></dd>
+      <dd><a href="../../../forrestglines/4D-outer-parallel-loop/src/building.html">forrestglines/4D-outer-parallel-loop</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/building.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/building.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../forrestglines/fix-deprecated-kokkos-num-devices/src/building.html">forrestglines/fix-deprecated-kokkos-num-devices</a></dd>
+      <dd><a href="../../../jdolence/curvilinear/src/building.html">jdolence/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/force_inline_inner/src/building.html">jdolence/force_inline_inner</a></dd>
+      <dd><a href="../../../jdolence/instrument/src/building.html">jdolence/instrument</a></dd>
+      <dd><a href="../../../jdolence/meshblockdata_add/src/building.html">jdolence/meshblockdata_add</a></dd>
+      <dd><a href="../../../jdolence/move_string_creation/src/building.html">jdolence/move_string_creation</a></dd>
+      <dd><a href="../../../jdolence/new_tasking/src/building.html">jdolence/new_tasking</a></dd>
+      <dd><a href="../../../jdolence/quickfixes/src/building.html">jdolence/quickfixes</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/building.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/building.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/building.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/add-by-uid/src/building.html">jmm/add-by-uid</a></dd>
+      <dd><a href="../../../jmm/custom-coords/src/building.html">jmm/custom-coords</a></dd>
+      <dd><a href="../../../jmm/deprecate-unified-init/src/building.html">jmm/deprecate-unified-init</a></dd>
+      <dd><a href="../../../jmm/dont-init-mpi-twice/src/building.html">jmm/dont-init-mpi-twice</a></dd>
+      <dd><a href="../../../jmm/ensure-tags-work-on-device/src/building.html">jmm/ensure-tags-work-on-device</a></dd>
+      <dd><a href="../../../jmm/fix-bool-vector-params/src/building.html">jmm/fix-bool-vector-params</a></dd>
+      <dd><a href="../../../jmm/fix-noparticle-case/src/building.html">jmm/fix-noparticle-case</a></dd>
+      <dd><a href="../../../jmm/fix-restart/src/building.html">jmm/fix-restart</a></dd>
+      <dd><a href="../../../jmm/fix-split-io/src/building.html">jmm/fix-split-io</a></dd>
+      <dd><a href="../../../jmm/fix-throw-fail/index.html">jmm/fix-throw-fail</a></dd>
+      <dd><a href="../../../jmm/flat-sparse/src/building.html">jmm/flat-sparse</a></dd>
+      <dd><a href="../../../jmm/flatpack-test/src/building.html">jmm/flatpack-test</a></dd>
+      <dd><a href="../../../jmm/get-me-off-this-rollercoaster/src/building.html">jmm/get-me-off-this-rollercoaster</a></dd>
+      <dd><a href="../../../jmm/global-boundaries/src/building.html">jmm/global-boundaries</a></dd>
+      <dd><a href="../../../jmm/global-boundaries-2/src/building.html">jmm/global-boundaries-2</a></dd>
+      <dd><a href="../../../jmm/hotfix-sparse-control-fields/src/building.html">jmm/hotfix-sparse-control-fields</a></dd>
+      <dd><a href="../../../jmm/include-guards/src/building.html">jmm/include-guards</a></dd>
+      <dd><a href="../../../jmm/indexsplit/src/building.html">jmm/indexsplit</a></dd>
+      <dd><a href="../../../jmm/make-get-parent-pointer-consistent/src/building.html">jmm/make-get-parent-pointer-consistent</a></dd>
+      <dd><a href="../../../jmm/metadata-fix/src/building.html">jmm/metadata-fix</a></dd>
+      <dd><a href="../../../jmm/metadataset/src/building.html">jmm/metadataset</a></dd>
+      <dd><a href="../../../jmm/move-to-impl/src/building.html">jmm/move-to-impl</a></dd>
+      <dd><a href="../../../jmm/move-userwork-before-loop-before-io/src/building.html">jmm/move-userwork-before-loop-before-io</a></dd>
+      <dd><a href="../../../jmm/param-hash/src/building.html">jmm/param-hash</a></dd>
+      <dd><a href="../../../jmm/particle-output/src/building.html">jmm/particle-output</a></dd>
+      <dd><a href="../../../jmm/precomms-fill-derived/src/building.html">jmm/precomms-fill-derived</a></dd>
+      <dd><a href="../../../jmm/remove-extraneous-check/src/building.html">jmm/remove-extraneous-check</a></dd>
+      <dd><a href="../../../jmm/sparse-pack-exists/src/building.html">jmm/sparse-pack-exists</a></dd>
+      <dd><a href="../../../jmm/sparsepack-wishlist/src/building.html">jmm/sparsepack-wishlist</a></dd>
+      <dd><a href="../../../jmm/speed-up-compilation/src/building.html">jmm/speed-up-compilation</a></dd>
+      <dd><a href="../../../jmm/threads-hack/src/building.html">jmm/threads-hack</a></dd>
+      <dd><a href="../../../jmm/two-more-pedagogical-examples/src/building.html">jmm/two-more-pedagogical-examples</a></dd>
+      <dd><a href="../../../jmm/use-system-packages/src/building.html">jmm/use-system-packages</a></dd>
+      <dd><a href="../../../jmm/user-work-before-loop/src/building.html">jmm/user-work-before-loop</a></dd>
+      <dd><a href="../../../jmm/yet-more-io-cleanup/src/building.html">jmm/yet-more-io-cleanup</a></dd>
+      <dd><a href="../../../lfroberts36/speedup-buffer-kernel/src/building.html">lfroberts36/speedup-buffer-kernel</a></dd>
+      <dd><a href="../../../lfroberts36/update-solver-convergence-criteria/src/building.html">lfroberts36/update-solver-convergence-criteria</a></dd>
+      <dd><a href="../../../lroberts36/add-cg-solver/src/building.html">lroberts36/add-cg-solver</a></dd>
+      <dd><a href="../../../lroberts36/add-combined-buffer-communication/src/building.html">lroberts36/add-combined-buffer-communication</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-field-deallocation/src/building.html">lroberts36/add-fine-field-deallocation</a></dd>
+      <dd><a href="../../../lroberts36/add-fine-variables/src/building.html">lroberts36/add-fine-variables</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-block-orientation/src/building.html">lroberts36/add-forest-block-orientation</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-mesh-example/src/building.html">lroberts36/add-forest-mesh-example</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-of-octrees/src/building.html">lroberts36/add-forest-of-octrees</a></dd>
+      <dd><a href="../../../lroberts36/add-forest-orientation-2/src/building.html">lroberts36/add-forest-orientation-2</a></dd>
+      <dd><a href="../../../lroberts36/add-index-range-masking/src/building.html">lroberts36/add-index-range-masking</a></dd>
+      <dd><a href="../../../lroberts36/add-more-careful-container-checking/src/building.html">lroberts36/add-more-careful-container-checking</a></dd>
+      <dd><a href="../../../lroberts36/add-morton-numbers/src/building.html">lroberts36/add-morton-numbers</a></dd>
+      <dd><a href="../../../lroberts36/add-multi-grid/src/building.html">lroberts36/add-multi-grid</a></dd>
+      <dd><a href="../../../lroberts36/add-negative-levels/src/building.html">lroberts36/add-negative-levels</a></dd>
+      <dd><a href="../../../lroberts36/add-non-one-copy-fluxes/src/building.html">lroberts36/add-non-one-copy-fluxes</a></dd>
+      <dd><a href="../../../lroberts36/add-noncell-amr/src/building.html">lroberts36/add-noncell-amr</a></dd>
+      <dd><a href="../../../lroberts36/add-small-riot/src/building.html">lroberts36/add-small-riot</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-vector-wave-test/src/building.html">lroberts36/add-sparse-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/add-task-graph/src/building.html">lroberts36/add-task-graph</a></dd>
+      <dd><a href="../../../lroberts36/add-vector-wave-test/src/building.html">lroberts36/add-vector-wave-test</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/building.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-sparse-cache/src/building.html">lroberts36/bugfix-sparse-cache</a></dd>
+      <dd><a href="../../../lroberts36/bugfix-symmetrized-coordinates/src/building.html">lroberts36/bugfix-symmetrized-coordinates</a></dd>
+      <dd><a href="../../../lroberts36/cleanup-offsets/src/building.html">lroberts36/cleanup-offsets</a></dd>
+      <dd><a href="../../../lroberts36/composable-boundary-conditions/src/building.html">lroberts36/composable-boundary-conditions</a></dd>
+      <dd><a href="../../../lroberts36/face-boundary-communication/src/building.html">lroberts36/face-boundary-communication</a></dd>
+      <dd><a href="../../../lroberts36/fix-bitshift-of-negative/src/building.html">lroberts36/fix-bitshift-of-negative</a></dd>
+      <dd><a href="../../../lroberts36/fix-dealloc-count-bug/src/building.html">lroberts36/fix-dealloc-count-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-divide-by-zero/src/building.html">lroberts36/fix-divide-by-zero</a></dd>
+      <dd><a href="../../../lroberts36/fix-forest-multigrid/src/building.html">lroberts36/fix-forest-multigrid</a></dd>
+      <dd><a href="../../../lroberts36/fix-iterative-task-qualifiers/src/building.html">lroberts36/fix-iterative-task-qualifiers</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-mpi/src/building.html">lroberts36/fix-multigrid-mpi</a></dd>
+      <dd><a href="../../../lroberts36/fix-noncc-amr/src/building.html">lroberts36/fix-noncc-amr</a></dd>
+      <dd><a href="../../../lroberts36/fix-one-block-minimum-per-rank/src/building.html">lroberts36/fix-one-block-minimum-per-rank</a></dd>
+      <dd><a href="../../../lroberts36/fix-restart-state-bug/src/building.html">lroberts36/fix-restart-state-bug</a></dd>
+      <dd><a href="../../../lroberts36/fix-root-level/src/building.html">lroberts36/fix-root-level</a></dd>
+      <dd><a href="../../../lroberts36/fix-solver-relative-residual/src/building.html">lroberts36/fix-solver-relative-residual</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/building.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree-2/src/building.html">lroberts36/fix-sptr-cycle-tree-2</a></dd>
+      <dd><a href="../../../lroberts36/fix-static-refinement/src/building.html">lroberts36/fix-static-refinement</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/building.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/in-one-zero-memory-amr/src/building.html">lroberts36/in-one-zero-memory-amr</a></dd>
+      <dd><a href="../../../lroberts36/local-face-fields/src/building.html">lroberts36/local-face-fields</a></dd>
+      <dd><a href="../../../lroberts36/mg-riot-updates/src/building.html">lroberts36/mg-riot-updates</a></dd>
+      <dd><a href="../../../lroberts36/multigrid-example-update/src/building.html">lroberts36/multigrid-example-update</a></dd>
+      <dd><a href="../../../lroberts36/performance-updates/src/building.html">lroberts36/performance-updates</a></dd>
+      <dd><a href="../../../lroberts36/refactor-mesh-constructors/src/building.html">lroberts36/refactor-mesh-constructors</a></dd>
+      <dd><a href="../../../lroberts36/refactor-meshblockdata-initialization/src/building.html">lroberts36/refactor-meshblockdata-initialization</a></dd>
+      <dd><a href="../../../lroberts36/refactor-partitioning/src/building.html">lroberts36/refactor-partitioning</a></dd>
+      <dd><a href="../../../lroberts36/refactor-region-size/src/building.html">lroberts36/refactor-region-size</a></dd>
+      <dd><a href="../../../lroberts36/refactor-solver-input/src/building.html">lroberts36/refactor-solver-input</a></dd>
+      <dd><a href="../../../lroberts36/rename-cell-variable/src/building.html">lroberts36/rename-cell-variable</a></dd>
+      <dd><a href="../../../lroberts36/reorganize/src/building.html">lroberts36/reorganize</a></dd>
+      <dd><a href="../../../lroberts36/sparse-pack-update/src/building.html">lroberts36/sparse-pack-update</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/building.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/building.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/building.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pgrete-patch-1/src/building.html">pgrete-patch-1</a></dd>
+      <dd><a href="../../../pgrete-patch-bound_type/src/building.html">pgrete-patch-bound_type</a></dd>
+      <dd><a href="../../../pgrete/adios2/src/building.html">pgrete/adios2</a></dd>
+      <dd><a href="../../../pgrete/always-chunck/src/building.html">pgrete/always-chunck</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/building.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/fix-ascent-vars/src/building.html">pgrete/fix-ascent-vars</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/building.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/fix-hasghost-restart/src/building.html">pgrete/fix-hasghost-restart</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG/src/building.html">pgrete/histgram-analysis-pre-MG</a></dd>
+      <dd><a href="../../../pgrete/histgram-analysis-pre-MG-winput/src/building.html">pgrete/histgram-analysis-pre-MG-winput</a></dd>
+      <dd><a href="../../../pgrete/histogram-outputs/src/building.html">pgrete/histogram-outputs</a></dd>
+      <dd><a href="../../../pgrete/interpolation/src/building.html">pgrete/interpolation</a></dd>
+      <dd><a href="../../../pgrete/non-atomic-scatter/src/building.html">pgrete/non-atomic-scatter</a></dd>
+      <dd><a href="../../../pgrete/pgrete/pmd-output-wuser/src/building.html">pgrete/pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/pmd-output/src/building.html">pgrete/pmd-output</a></dd>
+      <dd><a href="../../../pgrete/refactor-restart/src/building.html">pgrete/refactor-restart</a></dd>
+      <dd><a href="../../../pgrete/sycl-test/src/building.html">pgrete/sycl-test</a></dd>
+      <dd><a href="../../../pgrete/update-pool-alloc/src/building.html">pgrete/update-pool-alloc</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/building.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../pgrete/user-output-w-pmd/src/building.html">pgrete/user-output-w-pmd</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
