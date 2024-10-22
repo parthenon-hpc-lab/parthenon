@@ -77,6 +77,12 @@ struct CombinedBuffersRank {
   bool TryReceiveAndUnpack(Mesh *pmesh, int partition);
 
   void RepointBuffers(Mesh *pmesh, int partition);
+  
+  bool AllReceived();
+  
+  void StaleAllReceives();
+
+  void CompareReceivedBuffers(int partition);
 };
 
 struct CombinedBuffers {
@@ -132,12 +138,15 @@ struct CombinedBuffers {
   
   void PackAndSend(int partition, BoundaryType b_type) { 
     for (int rank = 0; rank < Globals::nranks; ++rank) {
-      if (combined_send_buffers.count({rank, b_type}))
+      if (combined_send_buffers.count({rank, b_type})) {
+        printf("Sending from partition %i on rank %i\n", partition, Globals::my_rank);
         combined_send_buffers[{rank, b_type}].PackAndSend(partition);
+      }
     }
   }
 
   void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) { 
+    printf("Repointing send buffers\n");
     for (int rank = 0; rank < Globals::nranks; ++rank) {
       if (combined_send_buffers.count({rank, b_type}))
         combined_send_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
@@ -161,11 +170,39 @@ struct CombinedBuffers {
       if (flag) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
+        printf("Trying to receive combined from rank %i partition %i on rank %i\n", rank, partition, Globals::my_rank);
         combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
       }
     } while(flag);
 #endif
   }
+
+  bool AllReceived(BoundaryType b_type) {
+    bool all_received{true};
+    for (auto &[tag, bufs] : combined_recv_buffers) {
+      if (std::get<1>(tag) == b_type) { 
+        all_received = all_received && bufs.AllReceived();
+      }
+    } 
+    return all_received;
+  }
+
+  void StaleAllReceives(BoundaryType b_type) {
+    for (auto &[tag, bufs] : combined_recv_buffers) {
+      if (std::get<1>(tag) == b_type) { 
+        bufs.StaleAllReceives();
+      }
+    } 
+  }
+
+  void CompareReceivedBuffers(BoundaryType b_type) { 
+    for (auto &[tag, bufs] : combined_recv_buffers) {
+      if (std::get<1>(tag) == b_type) { 
+        bufs.CompareReceivedBuffers(0);
+      }
+    } 
+  }
+
 };
 
 } // namespace parthenon
