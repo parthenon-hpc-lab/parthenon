@@ -44,7 +44,7 @@ struct CombinedBuffersRank {
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
   std::map<int, coalesced_message_structure_t> combined_info;
-  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::owner_t>*>> buffers;
+  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *>> buffers;
   std::map<int, ParArray1D<BndId>> combined_info_device;
   std::map<int, CommBuffer<buf_t>> combined_buffers;
   std::map<int, int> current_size;
@@ -77,9 +77,9 @@ struct CombinedBuffersRank {
   bool TryReceiveAndUnpack(Mesh *pmesh, int partition);
 
   void RepointBuffers(Mesh *pmesh, int partition);
-  
+
   bool AllReceived();
-  
+
   void StaleAllReceives();
 
   void CompareReceivedBuffers(int partition);
@@ -135,25 +135,23 @@ struct CombinedBuffers {
         receive_iters < max_it,
         "Too many iterations waiting to receive boundary communication buffers.");
   }
-  
-  void PackAndSend(int partition, BoundaryType b_type) { 
+
+  void PackAndSend(int partition, BoundaryType b_type) {
     for (int rank = 0; rank < Globals::nranks; ++rank) {
       if (combined_send_buffers.count({rank, b_type})) {
-        printf("Sending from partition %i on rank %i\n", partition, Globals::my_rank);
         combined_send_buffers[{rank, b_type}].PackAndSend(partition);
       }
     }
   }
 
-  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) { 
-    printf("Repointing send buffers\n");
+  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
     for (int rank = 0; rank < Globals::nranks; ++rank) {
       if (combined_send_buffers.count({rank, b_type}))
         combined_send_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
     }
   }
-  
-  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type) { 
+
+  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
     for (int rank = 0; rank < Globals::nranks; ++rank) {
       if (combined_recv_buffers.count({rank, b_type}))
         combined_recv_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
@@ -170,39 +168,37 @@ struct CombinedBuffers {
       if (flag) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
-        printf("Trying to receive combined from rank %i partition %i on rank %i\n", rank, partition, Globals::my_rank);
         combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
       }
-    } while(flag);
+    } while (flag);
 #endif
   }
 
   bool AllReceived(BoundaryType b_type) {
     bool all_received{true};
     for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) { 
+      if (std::get<1>(tag) == b_type) {
         all_received = all_received && bufs.AllReceived();
       }
-    } 
+    }
     return all_received;
   }
 
   void StaleAllReceives(BoundaryType b_type) {
     for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) { 
+      if (std::get<1>(tag) == b_type) {
         bufs.StaleAllReceives();
       }
-    } 
+    }
   }
 
-  void CompareReceivedBuffers(BoundaryType b_type) { 
+  void CompareReceivedBuffers(BoundaryType b_type) {
     for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) { 
+      if (std::get<1>(tag) == b_type) {
         bufs.CompareReceivedBuffers(0);
       }
-    } 
+    }
   }
-
 };
 
 } // namespace parthenon

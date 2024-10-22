@@ -149,7 +149,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
 
-  // Send the combined buffers 
+  // Send the combined buffers
   pmesh->pcombined_buffers->PackAndSend(md->partition, bound_type);
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
@@ -211,18 +211,18 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
-  
+
   // Receive any messages that are around
   pmesh->pcombined_buffers->TryReceiveAny(pmesh, bound_type);
 
   bool all_received = true;
   int nreceived = 0;
-  std::for_each(
-      std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received, &nreceived](auto pbuf) { 
-        bool received = pbuf->TryReceiveLocal();
-        nreceived += received;
-        all_received = received && all_received; });
+  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+                [&all_received, &nreceived](auto pbuf) {
+                  bool received = pbuf->TryReceiveLocal();
+                  nreceived += received;
+                  all_received = received && all_received;
+                });
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(

@@ -131,10 +131,10 @@ class CommBuffer {
   bool TryReceive() noexcept;
   bool TryReceiveLocal() noexcept;
   void SetReceived() noexcept {
-   PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
-                     *comm_type_ == BuffCommType::sparse_receiver,
-                     "This doesn't make sense for a non-receiver.");
-   *state_ = BufferState::received;
+    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
+                          *comm_type_ == BuffCommType::sparse_receiver,
+                      "This doesn't make sense for a non-receiver.");
+    *state_ = BufferState::received;
   }
   bool IsSafeToDelete() {
     if (*comm_type_ == BuffCommType::sparse_receiver ||
@@ -182,7 +182,8 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
     : buf_(in.buf_), state_(in.state_), comm_type_(in.comm_type_),
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
-      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_), get_resource_(in.get_resource_) {
+      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_),
+      get_resource_(in.get_resource_) {
   my_rank = Globals::my_rank;
 }
 
@@ -462,7 +463,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  //PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
+  // PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
 
   if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
     PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");

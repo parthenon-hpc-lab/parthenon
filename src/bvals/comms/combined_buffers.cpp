@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <cstdio>
 #include <map>
 #include <memory>
 #include <string>
@@ -65,12 +66,10 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
     // Unpack into per combined buffer information
     int idx{nglobal};
 
-    printf("Expecting to receive %i partitions on rank %i from rank %i\n", npartitions, Globals::my_rank, other_rank);
     for (int p = 0; p < npartitions; ++p) {
       const int partition = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
       const int total_size = mess_buf[idx++];
-      printf("Building receive buffer for partition %i on rank %i\n", partition, Globals::my_rank);
       combined_buffers[partition] =
           CommBuffer<buf_t>(partition, other_rank, Globals::my_rank, comm_);
       combined_buffers[partition].ConstructBuffer("combined recv buffer", total_size);
@@ -129,7 +128,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
       buf_struct.Serialize(&(mess_buf[idx]));
       PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)),
                         "Buffer doesn't exist.");
-      
+
       bufs.push_back(&(pmesh->boundary_comm_map[GetChannelKey(buf_struct)]));
       idx += BndId::NDAT;
     }
@@ -144,26 +143,25 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
     combined_buffers[partition].ConstructBuffer("combined send buffer", size);
   }
 
-  // Point the BndId objects to the combined buffers 
+  // Point the BndId objects to the combined buffers
   for (auto &[partition, buf_struct_vec] : combined_info) {
     for (auto &buf_struct : buf_struct_vec) {
       buf_struct.combined_buf = combined_buffers[partition].buffer();
     }
   }
-  
+
   buffers_built = true;
 }
 
 void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
-  printf("Repointing buffers on partition %i on rank %i to rank %i\n", partition, Globals::my_rank, other_rank);
   if (combined_info.count(partition) == 0) return;
-  // Pull out the buffers and point them to the buf_struct 
+  // Pull out the buffers and point them to the buf_struct
   auto &buf_struct_vec = combined_info[partition];
   for (auto &buf_struct : buf_struct_vec) {
     buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
   }
 
-  // Get the BndId objects on device 
+  // Get the BndId objects on device
   combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_struct_vec.size());
   auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
   for (int i = 0; i < ci_host.size(); ++i)
@@ -172,28 +170,25 @@ void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
 }
 
 void CombinedBuffersRank::PackAndSend(int partition) {
-  PARTHENON_REQUIRE(buffers_built, "Trying to send combined buffers before they have been built");
+  PARTHENON_REQUIRE(buffers_built,
+                    "Trying to send combined buffers before they have been built");
   if (combined_info_device.count(partition) == 0) return; // There is nothing to send here
   auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(), Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(),
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         const int buf_size = comb_info[b].size();
         Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
         Real *buf = &(comb_info[b].buf(0));
-        printf("buf_size = %i (%i) combined_buf_size = %i start = %i\n", buf_size, comb_info[b].buf.size(), comb_info[b].combined_buf.size(), comb_info[b].start_idx());
-        Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, buf_size),
-              [&](const int idx) {
-                com_buf[idx] = buf[idx];
-              });
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                             [&](const int idx) { com_buf[idx] = buf[idx]; });
       });
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
-  printf("Sending combined buffer %i from rank %i with size %i (%i)\n", partition, Globals::my_rank, combined_buffers[partition].buffer().size(), current_size[partition]); 
   combined_buffers[partition].Send();
   // Information in these send buffers is no longer required
   for (auto &buf : buffers[partition])
@@ -204,7 +199,6 @@ bool CombinedBuffersRank::AllReceived() {
   bool all_received{true};
   for (auto &[partition, buf] : combined_buffers) {
     bool received = buf.GetState() == BufferState::received;
-    if (!received) printf("partition %i not received on rank %i\n", partition, Globals::my_rank);
     all_received = all_received && received;
   }
   return all_received;
@@ -217,8 +211,10 @@ void CombinedBuffersRank::StaleAllReceives() {
 }
 
 bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
-  PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built");
-  PARTHENON_REQUIRE(combined_buffers.count(partition) > 0, "Trying to receive on a non-existent combined receive buffer.");
+  PARTHENON_REQUIRE(buffers_built,
+                    "Trying to recv combined buffers before they have been built");
+  PARTHENON_REQUIRE(combined_buffers.count(partition) > 0,
+                    "Trying to receive on a non-existent combined receive buffer.");
   auto received = combined_buffers[partition].TryReceive();
   if (!received) return false;
 
@@ -230,24 +226,21 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
       buf->Allocate();
     }
   }
-  if (!all_allocated) { 
-    printf("Repoint receive\n");
+  if (!all_allocated) {
     RepointBuffers(pmesh, partition);
   }
   auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(), Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(),
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         const int buf_size = comb_info[b].size();
         Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
         Real *buf = &(comb_info[b].buf(0));
-        Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, buf_size),
-              [&](const int idx) {
-                buf[idx] = com_buf[idx];
-              });
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                             [&](const int idx) { buf[idx] = com_buf[idx]; });
       });
   combined_buffers[partition].Stale();
   for (auto &buf : buffers[partition])
@@ -257,27 +250,27 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
 
 void CombinedBuffersRank::CompareReceivedBuffers(int partition) {
   if (Globals::my_rank != 0) return; // don't crush us with output
-  PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built")
+  PARTHENON_REQUIRE(buffers_built,
+                    "Trying to recv combined buffers before they have been built")
   if (combined_info_device.count(partition) == 0) return;
-  printf("Comparing buffers received from partition %i on rank %i to rank %i\n", partition, other_rank, Globals::my_rank); 
   auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(), Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(),
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         const int buf_size = comb_info[b].size();
         Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
         Real *buf = &(comb_info[b].buf(0));
-        printf("Buffer [%i] start = %i size = %i\n", b, comb_info[b].start_idx(), buf_size);
-        Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, buf_size),
-              [&](const int idx) {
-                if (buf[idx] != com_buf[idx])
-                  printf("  [%i] %e %e\n", idx, buf[idx], com_buf[idx]);
-              });
+        printf("Buffer [%i] start = %i size = %i\n", b, comb_info[b].start_idx(),
+               buf_size);
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                             [&](const int idx) {
+                               if (buf[idx] != com_buf[idx])
+                                 printf("  [%i] %e %e\n", idx, buf[idx], com_buf[idx]);
+                             });
       });
 }
-
 
 } // namespace parthenon
