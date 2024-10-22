@@ -109,7 +109,8 @@ class SwarmPackBase {
     // Allocate the views
     int leading_dim = 1;
     pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
-    auto pack_h = Kokkos::create_mirror_view(pack.pack_);
+    auto pack_h = Kokkos::create_mirror_view(
+        Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.pack_);
 
     pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar);
     auto bounds_h = Kokkos::create_mirror_view(pack.bounds_);
@@ -154,7 +155,8 @@ class SwarmPackBase {
     Kokkos::deep_copy(pack.bounds_, bounds_h);
 
     pack.contexts_ = contexts_t("contexts", nblocks);
-    pack.contexts_h_ = Kokkos::create_mirror_view(pack.contexts_);
+    pack.contexts_h_ = Kokkos::create_mirror_view(
+        Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.contexts_);
     pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);
     pack.flat_index_map_ = max_active_indices_t("flat_index_map", nblocks + 1);
     BuildSupplemental(pmd, desc, pack);

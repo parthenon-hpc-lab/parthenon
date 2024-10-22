@@ -221,6 +221,8 @@ class ParArrayGeneric : public State {
     // return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);
   }
 
+  // TODO(PG?) Can we use concepts here to add a
+  // Kokkos::view_alloc(Kokkos::SequentialHostInit) when the original is a ViewOfView?
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, data_);
@@ -333,6 +335,8 @@ inline auto subview(std::index_sequence<I...>,
   return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
 }
 
+// TODO(PG?) Can we use concepts here to add a
+// Kokkos::view_alloc(Kokkos::SequentialHostInit) when the original is a ViewOfView?
 template <class Space, class U, class SU>
 inline auto create_mirror_view_and_copy(Space const &space,
                                         const parthenon::ParArrayGeneric<U, SU> &arr) {

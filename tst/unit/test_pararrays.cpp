@@ -451,8 +451,9 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
   }
 
   GIVEN("An array of ParArrays filled with the values contained in their state") {
-    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
-    auto pack_h = Kokkos::create_mirror_view(pack);
+    Kokkos::View<arr3d_t *> pack(parthenon::ViewOfViewAlloc("test pack"), NS);
+    auto pack_h =
+        Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), pack);
 
     for (int b = 0; b < NS; ++b) {
       state_t state(static_cast<double>(b));
@@ -544,7 +545,8 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
     new (&views[n])
         view_3d_t(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
     auto a_h = arrays(n).GetHostMirror();
-    auto v_h = Kokkos::create_mirror_view(views(n));
+    auto v_h = Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit),
+                                          views(n));
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 0; i < N; i++) {

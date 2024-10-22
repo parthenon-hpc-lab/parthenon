@@ -1035,6 +1035,19 @@ par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, cons
       reduction);
 }
 
+// For ViewOfView we need to call the destructor of the inner views on
+// the host and not on the device (which would happen by default).
+// Thus, we need to pass `SquentialHostInit` as allocator, but only if the ViewOfView is
+// on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
+// passed when calling `create_mirror_view`.
+auto ViewOfViewAlloc(const std::string &label) {
+  if constexpr (std::is_same_v<DevMemSpace, HostMemSpace>) {
+    return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
+  } else {
+    return Kokkos::view_alloc(label);
+  }
+}
+
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
 template <class ExecSpace>

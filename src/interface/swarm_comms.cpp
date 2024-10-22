@@ -157,6 +157,7 @@ void Swarm::SetupPersistentMPI() {
 }
 
 void Swarm::CountParticlesToSend_() {
+  // TODO(PG->BRR) What's going on here? Why is the mask being copied?
   auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();

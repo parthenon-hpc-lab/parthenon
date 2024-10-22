@@ -150,7 +150,8 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
   if (make_new_pack) {
     ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
-    auto packs_host = Kokkos::create_mirror_view(packs);
+    auto packs_host =
+        Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), packs);
 
     for (size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);

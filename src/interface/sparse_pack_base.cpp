@@ -152,7 +152,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     leading_dim += 2;
   }
   pack.pack_ = pack_t("data_ptr", leading_dim, pack.nblocks_, max_size);
-  pack.pack_h_ = Kokkos::create_mirror_view(pack.pack_);
+  pack.pack_h_ = Kokkos::create_mirror_view(
+      Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.pack_);
 
   // For non-flat packs, shape of pack is type x block x var x k x j x i
   // where type here might be a flux.
@@ -168,7 +169,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
-  auto coords_h = Kokkos::create_mirror_view(pack.coords_);
+  auto coords_h = Kokkos::create_mirror_view(
+      Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.coords_);
 
   // Fill the views
   int idx = 0;
