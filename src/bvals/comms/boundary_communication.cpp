@@ -140,15 +140,6 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
         });
       });
-  // 1. Parallel scan per rank to get the starting indices of the buffers
-
-  // 2. Check the size of the buffer (how do you do this without extra DtoH call?) and
-  // possibly allocate more storage
-  //    [Alternatively could just allocate to maximal size initially]
-
-  // 3. Pack the combined buffers
-
-  // 4. Send the combined buffers
 
   // Send buffers
   if (Globals::sparse_config.enabled)
@@ -157,7 +148,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
-  
+
+  // Send the combined buffers 
   pmesh->pcombined_buffers->PackAndSend(md->partition, bound_type);
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
@@ -231,7 +223,6 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
         bool received = pbuf->TryReceiveLocal();
         nreceived += received;
         all_received = received && all_received; });
-  printf("All receive = %i on rank %i (%i received, %i expected)\n", all_received, Globals::my_rank, nreceived, cache.buf_vec.size());
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
