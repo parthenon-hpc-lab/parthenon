@@ -570,10 +570,11 @@ void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
   assert(vsize == sparse_id_out.size());
   assert(vsize == vector_component_out.size());
 
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
-  auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_id_out);
-  auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), allocated_out);
+  auto host_cv =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), cv_out);
+  auto host_sp = Kokkos::create_mirror_view(sparse_id_out);
+  auto host_vc = Kokkos::create_mirror_view(vector_component_out);
+  auto host_al = Kokkos::create_mirror_view(allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
@@ -634,7 +635,8 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
                       ViewOfParArrays1D<T> &cv_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
+  auto host_cv =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), cv_out);
 
   int vindex = 0;
   for (const auto v : vars) {
@@ -675,10 +677,13 @@ void FillFluxViews(const VariableVector<T> &vars, const int ndim,
                    PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1_out);
-  auto host_f2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f2_out);
-  auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), flux_allocated_out);
+  auto host_f1 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f1_out);
+  auto host_f2 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f2_out);
+  auto host_f3 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f3_out);
+  auto host_al = Kokkos::create_mirror_view(flux_allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
