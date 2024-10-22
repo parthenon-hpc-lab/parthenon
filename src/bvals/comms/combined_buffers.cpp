@@ -156,6 +156,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 
 void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
   printf("Repointing buffers on partition %i on rank %i to rank %i\n", partition, Globals::my_rank, other_rank);
+  if (combined_info.count(partition) == 0) return;
   // Pull out the buffers and point them to the buf_struct 
   auto &buf_struct_vec = combined_info[partition];
   for (auto &buf_struct : buf_struct_vec) {
@@ -171,7 +172,8 @@ void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
 }
 
 void CombinedBuffersRank::PackAndSend(int partition) {
-  PARTHENON_REQUIRE(buffers_built, "Trying to send combined buffers before they have been built")
+  PARTHENON_REQUIRE(buffers_built, "Trying to send combined buffers before they have been built");
+  if (combined_info_device.count(partition) == 0) return; // There is nothing to send here
   auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
@@ -215,7 +217,8 @@ void CombinedBuffersRank::StaleAllReceives() {
 }
 
 bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
-  PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built")
+  PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built");
+  PARTHENON_REQUIRE(combined_buffers.count(partition) > 0, "Trying to receive on a non-existent combined receive buffer.");
   auto received = combined_buffers[partition].TryReceive();
   if (!received) return false;
 
@@ -255,6 +258,7 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
 void CombinedBuffersRank::CompareReceivedBuffers(int partition) {
   if (Globals::my_rank != 0) return; // don't crush us with output
   PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built")
+  if (combined_info_device.count(partition) == 0) return;
   printf("Comparing buffers received from partition %i on rank %i to rank %i\n", partition, other_rank, Globals::my_rank); 
   auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
