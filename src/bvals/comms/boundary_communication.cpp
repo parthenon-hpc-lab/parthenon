@@ -219,6 +219,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   std::for_each(
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
