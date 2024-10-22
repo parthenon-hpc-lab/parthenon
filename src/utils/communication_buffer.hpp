@@ -131,7 +131,9 @@ class CommBuffer {
   bool TryReceive() noexcept;
   bool TryReceiveLocal() noexcept;
   void SetReceived() noexcept {
-   PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver, "This doesn't make sense for a non-receiver.");
+   PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
+                     *comm_type_ == BuffCommType::sparse_receiver,
+                     "This doesn't make sense for a non-receiver.");
    *state_ = BufferState::received;
   }
   bool IsSafeToDelete() {
@@ -180,7 +182,7 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
     : buf_(in.buf_), state_(in.state_), comm_type_(in.comm_type_),
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
-      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_) {
+      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_), get_resource_(in.get_resource_) {
   my_rank = Globals::my_rank;
 }
 
@@ -220,6 +222,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   comm_ = in.comm_;
   active_ = in.active_;
   my_rank = Globals::my_rank;
+  get_resource_ = in.get_resource_;
   return *this;
 }
 
@@ -356,6 +359,17 @@ template <class T>
 bool CommBuffer<T>::TryReceiveLocal() noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
+  if (*comm_type_ == BuffCommType::both) {
+    if (*state_ == BufferState::sending) {
+      *state_ = BufferState::received;
+      // Memory should already be available, since both
+      // send and receive rank point at the same memory
+      return true;
+    } else if (*state_ == BufferState::sending_null) {
+      *state_ = BufferState::received_null;
+      return true;
+    }
+  }
   return false;
 }
 

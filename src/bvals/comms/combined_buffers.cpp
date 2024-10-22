@@ -80,7 +80,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
         PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)),
                           "Buffer doesn't exist.");
         buf.buf = pmesh->boundary_comm_map[GetChannelKey(buf)];
-        bufs.push_back(pmesh->boundary_comm_map[GetChannelKey(buf)]);
+        bufs.push_back(&(pmesh->boundary_comm_map[GetChannelKey(buf)]));
         buf.pcombined_buf = &(combined_buffers[partition].buffer());
         idx += BndId::NDAT;
       }
@@ -127,7 +127,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
       PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf_struct)),
                         "Buffer doesn't exist.");
       
-      bufs.push_back(pmesh->boundary_comm_map[GetChannelKey(buf_struct)]);
+      bufs.push_back(&(pmesh->boundary_comm_map[GetChannelKey(buf_struct)]));
       idx += BndId::NDAT;
     }
   }
@@ -152,19 +152,18 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 }
 
 void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
+  printf("Repointing buffers\n");
   // Pull out the buffers and point them to the buf_struct 
   auto &buf_struct_vec = combined_info[partition];
   for (auto &buf_struct : buf_struct_vec) {
     buf_struct.buf = pmesh->boundary_comm_map[GetChannelKey(buf_struct)];
   }
 
-  // Get the BndId objects on device
-  auto &buf_vec = combined_info[partition];
-  
-  combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_vec.size());
+  // Get the BndId objects on device 
+  combined_info_device[partition] = ParArray1D<BndId>("bnd_id", buf_struct_vec.size());
   auto ci_host = Kokkos::create_mirror_view(combined_info_device[partition]);
   for (int i = 0; i < ci_host.size(); ++i)
-    ci_host[i] = buf_vec[i];
+    ci_host[i] = buf_struct_vec[i];
   Kokkos::deep_copy(combined_info_device[partition], ci_host);
 }
 
@@ -191,14 +190,26 @@ void CombinedBuffersRank::PackAndSend(int partition) {
   combined_buffers[partition].Send();
   // Information in these send buffers is no longer required
   for (auto &buf : buffers[partition])
-    buf.Stale();
+    buf->Stale();
 }
 
-bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
   PARTHENON_REQUIRE(buffers_built, "Trying to recv combined buffers before they have been built")
-  auto &comb_info = combined_info_device[partition];
   auto received = combined_buffers[partition].TryReceive();
   if (!received) return false;
+
+  // TODO(LFR): Fix this so it works in the more general case
+  bool all_allocated = true;
+  for (auto &buf : buffers[partition]) {
+    if (!buf->IsActive()) {
+      all_allocated = false;
+      buf->Allocate();
+    }
+  }
+  if (!all_allocated) 
+    RepointBuffers(pmesh, partition);
+
+  auto &comb_info = combined_info_device[partition];
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(), Kokkos::AUTO),
@@ -215,7 +226,7 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(int partition) {
       });
   combined_buffers[partition].Stale();
   for (auto &buf : buffers[partition])
-    buf.SetReceived();
+    buf->SetReceived();
   return true;
 }
 

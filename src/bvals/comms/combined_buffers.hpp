@@ -44,7 +44,7 @@ struct CombinedBuffersRank {
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
   std::map<int, coalesced_message_structure_t> combined_info;
-  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::weak_t>>> buffers;
+  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::owner_t>*>> buffers;
   std::map<int, ParArray1D<BndId>> combined_info_device;
   std::map<int, CommBuffer<buf_t>> combined_buffers;
   std::map<int, int> current_size;
@@ -74,7 +74,7 @@ struct CombinedBuffersRank {
 
   void PackAndSend(int partition);
 
-  bool TryReceiveAndUnpack(int partition);
+  bool TryReceiveAndUnpack(Mesh *pmesh, int partition);
 
   void RepointBuffers(Mesh *pmesh, int partition);
 };
@@ -151,7 +151,7 @@ struct CombinedBuffers {
     }
   }
 
-  void TryReceiveAny(BoundaryType b_type) {
+  void TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
     MPI_Status status;
     int flag;
@@ -161,7 +161,7 @@ struct CombinedBuffers {
       if (flag) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
-        combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(partition);
+        combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
       }
     } while(flag);
 #endif

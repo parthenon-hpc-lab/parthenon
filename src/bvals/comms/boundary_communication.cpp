@@ -221,13 +221,17 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       false);
   
   // Receive any messages that are around
-  pmesh->pcombined_buffers->TryReceiveAny(bound_type);
+  pmesh->pcombined_buffers->TryReceiveAny(pmesh, bound_type);
 
   bool all_received = true;
+  int nreceived = 0;
   std::for_each(
       std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceiveLocal() && all_received; });
-
+      [&all_received, &nreceived](auto pbuf) { 
+        bool received = pbuf->TryReceiveLocal();
+        nreceived += received;
+        all_received = received && all_received; });
+  printf("All receive = %i on rank %i (%i received, %i expected)\n", all_received, Globals::my_rank, nreceived, cache.buf_vec.size());
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
