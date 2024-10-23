@@ -133,6 +133,12 @@ DriverStatus EvolutionDriver::Execute() {
       // check for signals
       signal = SignalHandler::CheckSignalFlags();
 
+      // TODO(bwibking): check for application debug callback
+      // currently hard-coded to check for tiny dt
+      if (tm.dt < 1e-10 * tm.time) {
+	signal = OutputSignal::final;
+      }
+      
       if (signal == OutputSignal::final) {
         break;
       }
