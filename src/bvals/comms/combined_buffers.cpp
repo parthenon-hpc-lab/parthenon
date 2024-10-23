@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -278,17 +279,18 @@ void CombinedBuffersRank::CompareReceivedBuffers(int partition) {
       });
 }
 
-void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
-                   const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type) {
+void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
+                                    const NeighborBlock &nb,
+                                    const std::shared_ptr<Variable<Real>> &var,
+                                    BoundaryType b_type) {
   if (combined_send_buffers.count({nb.rank, b_type}) == 0)
-    combined_send_buffers[{nb.rank, b_type}] =
-        CombinedBuffersRank(nb.rank, b_type, true);
-  combined_send_buffers[{nb.rank, b_type}].AddSendBuffer(partition, pmb, nb, var,
-                                                         b_type);
+    combined_send_buffers[{nb.rank, b_type}] = CombinedBuffersRank(nb.rank, b_type, true);
+  combined_send_buffers[{nb.rank, b_type}].AddSendBuffer(partition, pmb, nb, var, b_type);
 }
 
 void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
-                   const std::shared_ptr<Variable<Real>>, BoundaryType b_type) {
+                                    const std::shared_ptr<Variable<Real>>,
+                                    BoundaryType b_type) {
   // We don't actually know enough here to register this particular buffer, but we do
   // know that it's existence implies that we need to receive a message from the
   // neighbor block rank eventually telling us the details
@@ -322,7 +324,8 @@ bool CombinedBuffers::IsAvailableForWrite(int partition, BoundaryType b_type) {
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
-      available = available && combined_send_buffers[{rank, b_type}].IsAvailableForWrite(partition);
+      available = available &&
+                  combined_send_buffers[{rank, b_type}].IsAvailableForWrite(partition);
     }
   }
   return available;
@@ -336,14 +339,16 @@ void CombinedBuffers::PackAndSend(int partition, BoundaryType b_type) {
   }
 }
 
-void CombinedBuffers::RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
+void CombinedBuffers::RepointSendBuffers(Mesh *pmesh, int partition,
+                                         BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type}))
       combined_send_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
   }
 }
 
-void CombinedBuffers::RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
+void CombinedBuffers::RepointRecvBuffers(Mesh *pmesh, int partition,
+                                         BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_recv_buffers.count({rank, b_type}))
       combined_recv_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
@@ -360,21 +365,22 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
     if (flag) {
       const int rank = status.MPI_SOURCE;
       const int partition = status.MPI_TAG - 913;
-      bool finished = combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
+      bool finished =
+          combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
       if (!finished) processing_messages.insert({rank, partition});
     }
   } while (flag);
 
   // Process in flight messages
-  std::set<std::pair<int, int>> finished_messages; 
-  for (auto &[rank, partition] : processing_messages) { 
-    bool finished = combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
+  std::set<std::pair<int, int>> finished_messages;
+  for (auto &[rank, partition] : processing_messages) {
+    bool finished =
+        combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
     if (finished) finished_messages.insert({rank, partition});
   }
 
   for (auto &m : finished_messages)
     processing_messages.erase(m);
-
 
 #endif
 }

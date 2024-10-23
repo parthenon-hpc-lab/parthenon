@@ -16,6 +16,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -91,7 +92,7 @@ struct CombinedBuffers {
   // Combined buffers for each rank
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
-  
+
   std::set<std::pair<int, int>> processing_messages;
 
   void clear() {
