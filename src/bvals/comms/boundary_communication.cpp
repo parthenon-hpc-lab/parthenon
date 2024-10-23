@@ -271,16 +271,19 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   size_t idxer_max_size = 0;
-  for (int b = 0; b < nbound; b++) {
+  parthenon::par_reduce(
+    DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, parthenon::DevExecSpace(),
+    0, nbound - 1,
+    KOKKOS_LAMBDA(const int b, size_t &local_max_size) {
     for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
       const int Ni = bnd_info(b).idxer[it].template EndIdx<5>() -
                      bnd_info(b).idxer[it].template StartIdx<5>() + 1;
       const size_t idxer_size = bnd_info(b).idxer[it].size() / Ni;
-      if (idxer_size > idxer_max_size) {
-        idxer_max_size = idxer_size;
+      if (idxer_size > local_max_size) {
+        local_max_size = idxer_size;
       }
     }
-  }
+  }, Kokkos::Max<size_t>(idxer_max_size));
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * idxer_max_size, Kokkos::AUTO),
@@ -299,50 +302,41 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
-            // Kokkos::parallel_for(
-            //     Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
-            //     [&](const int idx) {
-                  if (idx > (idxer.size() / Ni)) return;
-                  //Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
-                  Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  // Have to do this because of some weird issue about structure bindings
-                  // being captured
-                  const int tt = t;
-                  const int uu = u;
-                  const int vv = v;
-                  const int kk = k;
-                  const int jj = j;
-                  const int ii = i;
-                  Kokkos::parallel_for(
-                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] =
-                            lcoord_trans.InverseTransform({ii + m, jj, kk});
-                        if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
-                      });
-                // });
+            if (idx >= (idxer.size() / Ni)) return;
+            Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+            const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+            // Have to do this because of some weird issue about structure bindings
+            // being captured
+            const int tt = t;
+            const int uu = u;
+            const int vv = v;
+            const int kk = k;
+            const int jj = j;
+            const int ii = i;
+            Kokkos::parallel_for(
+                Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                  const auto [il, jl, kl] =
+                      lcoord_trans.InverseTransform({ii + m, jj, kk});
+                  if (idxer.IsActive(kl, jl, il))
+                    var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
+                });
           } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
+            if (idx >= (idxer.size() / Ni)) return;
             const Real default_val = bnd_info(b).var.sparse_default_val;
-            // Kokkos::parallel_for(
-            //     Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
-            //     [&](const int idx) {
-                  if (idx > (idxer.size() / Ni)) return;
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  const int tt = t;
-                  const int uu = u;
-                  const int vv = v;
-                  const int kk = k;
-                  const int jj = j;
-                  const int ii = i;
-                  Kokkos::parallel_for(
-                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] =
-                            lcoord_trans.InverseTransform({ii + m, jj, kk});
-                        if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = default_val;
-                      });
-                // });
+            const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+            const int tt = t;
+            const int uu = u;
+            const int vv = v;
+            const int kk = k;
+            const int jj = j;
+            const int ii = i;
+            Kokkos::parallel_for(
+                Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                  const auto [il, jl, kl] =
+                      lcoord_trans.InverseTransform({ii + m, jj, kk});
+                  if (idxer.IsActive(kl, jl, il))
+                    var(iel, tt, uu, vv, kl, jl, il) = default_val;
+                });
           }
           idx_offset += idxer.size();
         }
