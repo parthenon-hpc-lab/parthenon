@@ -56,15 +56,10 @@ struct CombinedBuffersRank {
   using com_buf_t = CommBuffer<std::vector<int>>;
   com_buf_t message;
 
-#ifdef MPI_PARALLEL
-  mpi_comm_t comm_{MPI_COMM_WORLD};
-#else
-  mpi_comm_t comm_{0};
-#endif
+  mpi_comm_t comm_;
 
   bool sender{true};
-  CombinedBuffersRank() = default;
-  CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send);
+  CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send, mpi_comm_t comm);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
@@ -94,6 +89,21 @@ struct CombinedBuffers {
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
 
   std::set<std::pair<int, int>> processing_messages;
+
+  mpi_comm_t comm_;
+  CombinedBuffers() {
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm_));
+#else
+    comm_ = 0;
+#endif
+  }
+
+  ~CombinedBuffers() {
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Comm_free(&comm_));
+#endif
+  }
 
   void clear() {
     // TODO(LFR): Need to be careful here that the asynchronous send buffers are finished
