@@ -83,12 +83,16 @@ struct CombinedBuffersRank {
   void StaleAllReceives();
 
   void CompareReceivedBuffers(int partition);
+
+  bool IsAvailableForWrite(int partition);
 };
 
 struct CombinedBuffers {
   // Combined buffers for each rank
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
+  
+  std::set<std::pair<int, int>> processing_messages;
 
   void clear() {
     // TODO(LFR): Need to be careful here that the asynchronous send buffers are finished
@@ -97,108 +101,30 @@ struct CombinedBuffers {
   }
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
-                     const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type) {
-    if (combined_send_buffers.count({nb.rank, b_type}) == 0)
-      combined_send_buffers[{nb.rank, b_type}] =
-          CombinedBuffersRank(nb.rank, b_type, true);
-    combined_send_buffers[{nb.rank, b_type}].AddSendBuffer(partition, pmb, nb, var,
-                                                           b_type);
-  }
+                     const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
 
   void AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
-                     const std::shared_ptr<Variable<Real>>, BoundaryType b_type) {
-    // We don't actually know enough here to register this particular buffer, but we do
-    // know that it's existence implies that we need to receive a message from the
-    // neighbor block rank eventually telling us the details
-    if (combined_recv_buffers.count({nb.rank, b_type}) == 0)
-      combined_recv_buffers[{nb.rank, b_type}] =
-          CombinedBuffersRank(nb.rank, b_type, false);
-  }
+                     const std::shared_ptr<Variable<Real>>, BoundaryType b_type);
 
-  void ResolveAndSendSendBuffers(Mesh *pmesh) {
-    for (auto &[id, buf] : combined_send_buffers)
-      buf.ResolveSendBuffersAndSendInfo(pmesh);
-  }
+  void ResolveAndSendSendBuffers(Mesh *pmesh);
 
-  void ReceiveBufferInfo(Mesh *pmesh) {
-    constexpr std::int64_t max_it = 1e10;
-    std::vector<bool> received(combined_recv_buffers.size(), false);
-    bool all_received;
-    std::int64_t receive_iters = 0;
-    do {
-      all_received = true;
-      for (auto &[id, buf] : combined_recv_buffers)
-        all_received = buf.TryReceiveBufInfo(pmesh) && all_received;
-      receive_iters++;
-    } while (!all_received && receive_iters < max_it);
-    PARTHENON_REQUIRE(
-        receive_iters < max_it,
-        "Too many iterations waiting to receive boundary communication buffers.");
-  }
+  void ReceiveBufferInfo(Mesh *pmesh);
 
-  void PackAndSend(int partition, BoundaryType b_type) {
-    for (int rank = 0; rank < Globals::nranks; ++rank) {
-      if (combined_send_buffers.count({rank, b_type})) {
-        combined_send_buffers[{rank, b_type}].PackAndSend(partition);
-      }
-    }
-  }
+  void PackAndSend(int partition, BoundaryType b_type);
 
-  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
-    for (int rank = 0; rank < Globals::nranks; ++rank) {
-      if (combined_send_buffers.count({rank, b_type}))
-        combined_send_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
-    }
-  }
+  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type);
 
-  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type) {
-    for (int rank = 0; rank < Globals::nranks; ++rank) {
-      if (combined_recv_buffers.count({rank, b_type}))
-        combined_recv_buffers[{rank, b_type}].RepointBuffers(pmesh, partition);
-    }
-  }
+  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type);
 
-  void TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
-#ifdef MPI_PARALLEL
-    MPI_Status status;
-    int flag;
-    do {
-      // TODO(LFR): Switch to a different communicator for each BoundaryType
-      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-      if (flag) {
-        const int rank = status.MPI_SOURCE;
-        const int partition = status.MPI_TAG;
-        combined_recv_buffers[{rank, b_type}].TryReceiveAndUnpack(pmesh, partition);
-      }
-    } while (flag);
-#endif
-  }
+  void TryReceiveAny(Mesh *pmesh, BoundaryType b_type);
 
-  bool AllReceived(BoundaryType b_type) {
-    bool all_received{true};
-    for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) {
-        all_received = all_received && bufs.AllReceived();
-      }
-    }
-    return all_received;
-  }
+  bool AllReceived(BoundaryType b_type);
 
-  void StaleAllReceives(BoundaryType b_type) {
-    for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) {
-        bufs.StaleAllReceives();
-      }
-    }
-  }
+  void StaleAllReceives(BoundaryType b_type);
 
-  void CompareReceivedBuffers(BoundaryType b_type) {
-    for (auto &[tag, bufs] : combined_recv_buffers) {
-      if (std::get<1>(tag) == b_type) {
-        bufs.CompareReceivedBuffers(0);
-      }
-    }
-  }
+  void CompareReceivedBuffers(BoundaryType b_type);
+
+  bool IsAvailableForWrite(int partition, BoundaryType b_type);
 };
 
 } // namespace parthenon

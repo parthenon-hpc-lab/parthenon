@@ -63,7 +63,9 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (nbound == 0) {
     return TaskStatus::complete;
   }
-  if (other_communication_unfinished) {
+
+  bool can_write_combined = pmesh->pcombined_buffers->IsAvailableForWrite(md->partition, bound_type);
+  if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
 
