@@ -270,20 +270,18 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
+  auto &bnd_info_h = cache.bnd_info_h;
   size_t idxer_max_size = 0;
-  parthenon::par_reduce(
-    DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, parthenon::DevExecSpace(),
-    0, nbound - 1,
-    KOKKOS_LAMBDA(const int b, size_t &local_max_size) {
-    for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
-      const int Ni = bnd_info(b).idxer[it].template EndIdx<5>() -
-                     bnd_info(b).idxer[it].template StartIdx<5>() + 1;
-      const size_t idxer_size = bnd_info(b).idxer[it].size() / Ni;
-      if (idxer_size > local_max_size) {
-        local_max_size = idxer_size;
+  for (int b = 0; b < nbound; b++) {
+    for (int it = 0; it < bnd_info_h(b).ntopological_elements; ++it) {
+      const int Ni = bnd_info_h(b).idxer[it].template EndIdx<5>() -
+                     bnd_info_h(b).idxer[it].template StartIdx<5>() + 1;
+      const size_t idxer_size = bnd_info_h(b).idxer[it].size() / Ni;
+      if (idxer_size > idxer_max_size) {
+        idxer_max_size = idxer_size;
       }
     }
-  }, Kokkos::Max<size_t>(idxer_max_size));
+  }
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * idxer_max_size, Kokkos::AUTO),
