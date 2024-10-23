@@ -282,12 +282,14 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       }
     }
   }
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * idxer_max_size, Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank() / idxer_max_size;
-        const int idx = team_member.league_rank() % idxer_max_size;
+  size_t scratch_size = 0;
+  constexpr int scratch_level = 0;
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
+      scratch_level, 0, nbound * idxer_max_size - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, const int merged_idx) {
+        const int b = merged_idx / idxer_max_size;
+        const int idx = merged_idx % idxer_max_size;
         if (bnd_info(b).same_to_same) return;
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
@@ -311,8 +313,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             const int kk = k;
             const int jj = j;
             const int ii = i;
-            Kokkos::parallel_for(
-                Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, team_member, 0, Ni-1, [=](const int m) {
                   const auto [il, jl, kl] =
                       lcoord_trans.InverseTransform({ii + m, jj, kk});
                   if (idxer.IsActive(kl, jl, il))
@@ -328,8 +330,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             const int kk = k;
             const int jj = j;
             const int ii = i;
-            Kokkos::parallel_for(
-                Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, team_member, 0, Ni-1, [=](const int m) {
                   const auto [il, jl, kl] =
                       lcoord_trans.InverseTransform({ii + m, jj, kk});
                   if (idxer.IsActive(kl, jl, il))
