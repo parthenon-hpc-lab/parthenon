@@ -363,6 +363,17 @@ void CombinedBuffers::RepointRecvBuffers(Mesh *pmesh, int partition,
 
 void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
+  // This was an attempt at another method for receiving, it seemed to work 
+  // but was subject to the same problems as the Iprobe based code
+  //for (int rank = 0; rank < Globals::nranks; ++rank) {
+  //  if (combined_recv_buffers.count({rank, b_type})) {
+  //    auto &comb_bufs = combined_recv_buffers.at({rank, b_type});
+  //    for (auto &[partition, buf] : comb_bufs.buffers) { 
+  //      comb_bufs.TryReceiveAndUnpack(pmesh, partition);
+  //    }
+  //  } 
+  //}
+  
   MPI_Status status;
   int flag;
   do {
