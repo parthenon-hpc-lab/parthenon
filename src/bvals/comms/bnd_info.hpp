@@ -48,12 +48,77 @@ enum class IndexRangeType {
   InteriorRecv
 };
 
+struct BndId {
+  constexpr static std::size_t NDAT = 10;
+  int data[NDAT];
+
+  // Information for identifying the buffer with a communication
+  // channel, variable, and the ranks it is communicated across
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &send_gid() { return data[0]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &recv_gid() { return data[1]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &loc_idx() { return data[2]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &var_id() { return data[3]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &extra_id() { return data[4]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &rank_send() { return data[5]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &rank_recv() { return data[6]; }
+  BoundaryType bound_type;
+
+  // MeshData partition id of the *sender*
+  // not set by constructors and only necessary for coalesced comms
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &partition() { return data[7]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &size() { return data[8]; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int &start_idx() { return data[9]; }
+
+  buf_pool_t<Real>::weak_t buf;  // comm buffer from pool
+  BufArray1D<Real> combined_buf; // Combined buffer
+
+  KOKKOS_DEFAULTED_FUNCTION
+  BndId() = default;
+  KOKKOS_DEFAULTED_FUNCTION
+  BndId(const BndId &) = default;
+
+  explicit BndId(const int *const data_in) {
+    for (int i = 0; i < NDAT; ++i) {
+      data[i] = data_in[i];
+    }
+  }
+
+  void Serialize(int *data_out) {
+    for (int i = 0; i < NDAT; ++i) {
+      data_out[i] = data[i];
+    }
+  }
+
+  static BndId GetSend(MeshBlock *pmb, const NeighborBlock &nb,
+                       std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
+                       int partition, int start_idx);
+};
+
 struct BndInfo {
   int ntopological_elements = 1;
   using TE = TopologicalElement;
   TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
   forest::LogicalCoordinateTransformation lcoord_trans;
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int size() const {
+    int s = 0;
+    for (int n = 0; n < ntopological_elements; ++n) {
+      s += idxer[n].size();
+    }
+    return s;
+  }
 
   CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
@@ -124,7 +189,7 @@ struct ProResInfo {
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1D<BndInfo>;

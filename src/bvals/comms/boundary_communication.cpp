@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <iostream> // debug
 #include <memory>
 #include <random>
@@ -26,6 +27,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
+#include "combined_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -62,7 +64,10 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (nbound == 0) {
     return TaskStatus::complete;
   }
-  if (other_communication_unfinished) {
+
+  bool can_write_combined =
+      pmesh->pcombined_buffers->IsAvailableForWrite(md->partition, bound_type);
+  if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
 
@@ -77,6 +82,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetSend);
     }
+    pmesh->pcombined_buffers->RepointSendBuffers(pmesh, md->partition, bound_type);
   }
   // Restrict
   if (md->NumBlocks() > 0) {
@@ -147,10 +153,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
 
+  // Send the combined buffers
+  pmesh->pcombined_buffers->PackAndSend(md->partition, bound_type);
+
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
-      buf.Send();
+      buf.SendLocal();
     else
       buf.SendNull();
   }
@@ -178,8 +187,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
-  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-                [](auto pbuf) { pbuf->TryStartReceive(); });
+  // std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+  //               [](auto pbuf) { pbuf->TryStartReceive(); });
 
   return TaskStatus::complete;
 }
@@ -201,16 +210,27 @@ template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
+  static int ntotal_prints{0};
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
+  // Receive any messages that are around
+  pmesh->pcombined_buffers->TryReceiveAny(pmesh, bound_type);
+
   bool all_received = true;
-  std::for_each(
-      std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+  int nreceived{0};
+  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+                [&all_received, &nreceived](auto pbuf) {
+                  all_received = pbuf->TryReceiveLocal() && all_received;
+                  nreceived += pbuf->TryReceiveLocal();
+                });
+  // if (ntotal_prints++ < 1000)
+  //   printf("rank = %i partition = %i nreceived = %i (%i)\n", Globals::my_rank,
+  //          md->partition, nreceived, cache.buf_vec.size());
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
@@ -230,7 +250,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           ++ibound;
         });
   }
-  if (all_received) return TaskStatus::complete;
+  if (all_received) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    return TaskStatus::complete;
+  }
   return TaskStatus::incomplete;
 }
 
