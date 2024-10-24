@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <iostream> // debug
 #include <memory>
 #include <random>
@@ -186,8 +187,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
-  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-                [](auto pbuf) { pbuf->TryStartReceive(); });
+  // std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+  //               [](auto pbuf) { pbuf->TryStartReceive(); });
 
   return TaskStatus::complete;
 }
@@ -209,6 +210,8 @@ template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
+  static int ntotal_prints{0};
+
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
@@ -219,10 +222,15 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   pmesh->pcombined_buffers->TryReceiveAny(pmesh, bound_type);
 
   bool all_received = true;
+  int nreceived{0};
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-                [&all_received](auto pbuf) {
+                [&all_received, &nreceived](auto pbuf) {
                   all_received = pbuf->TryReceiveLocal() && all_received;
+                  nreceived += pbuf->TryReceiveLocal();
                 });
+  //if (ntotal_prints++ < 1000)
+  //  printf("rank = %i partition = %i nreceived = %i (%i)\n", Globals::my_rank,
+  //         md->partition, nreceived, cache.buf_vec.size());
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
@@ -242,7 +250,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           ++ibound;
         });
   }
-  if (all_received) return TaskStatus::complete;
+  if (all_received) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    return TaskStatus::complete;
+  }
   return TaskStatus::incomplete;
 }
 
