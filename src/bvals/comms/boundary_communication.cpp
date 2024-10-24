@@ -316,14 +316,20 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                         bnd_info(b).idxer[it].template StartIdx<1>() + 1) *
                         (bnd_info(b).idxer[it].template EndIdx<2>() -
                         bnd_info(b).idxer[it].template StartIdx<2>() + 1);
+          const int Nidx = (bnd_info(b).idxer[it].template EndIdx<3>() -
+                        bnd_info(b).idxer[it].template StartIdx<3>() + 1) *
+                        (bnd_info(b).idxer[it].template EndIdx<4>() -
+                        bnd_info(b).idxer[it].template StartIdx<4>() + 1) *
+                        (bnd_info(b).idxer[it].template EndIdx<5>() -
+                        bnd_info(b).idxer[it].template StartIdx<5>() + 1);
           if (el >= Nel) return;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Nel / Ni),
                 [&](const int idx) {
-                  Real *buf = &bnd_info(b).buf((idx + el) * Ni + idx_offset);
-                  const auto [t, u, v, k, j, i] = idxer((idx + el) * Ni);
+                  Real *buf = &bnd_info(b).buf(el * Nidx + idx * Ni + idx_offset);
+                  const auto [t, u, v, k, j, i] = idxer(el * Nidx + idx * Ni);
                   // Have to do this because of some weird issue about structure bindings
                   // being captured
                   const int tt = t;
@@ -345,7 +351,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Nel / Ni),
                 [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+                  const auto [t, u, v, k, j, i] = idxer(el * Nidx + idx * Ni);
                   const int tt = t;
                   const int uu = u;
                   const int vv = v;
