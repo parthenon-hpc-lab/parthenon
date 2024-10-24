@@ -288,7 +288,7 @@ void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
   if (combined_send_buffers.count({nb.rank, b_type}) == 0)
     combined_send_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
-                       CombinedBuffersRank(nb.rank, b_type, true, comm_)));
+                       CombinedBuffersRank(nb.rank, b_type, true, comms_[GetAssociatedSender(b_type)])));
   combined_send_buffers.at({nb.rank, b_type})
       .AddSendBuffer(partition, pmb, nb, var, b_type);
 }
@@ -302,7 +302,7 @@ void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
   if (combined_recv_buffers.count({nb.rank, b_type}) == 0)
     combined_recv_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
-                       CombinedBuffersRank(nb.rank, b_type, false, comm_)));
+                       CombinedBuffersRank(nb.rank, b_type, false, comms_[GetAssociatedSender(b_type)])));
 }
 
 void CombinedBuffers::ResolveAndSendSendBuffers(Mesh *pmesh) {
@@ -377,8 +377,8 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
   MPI_Status status;
   int flag;
   do {
-    // TODO(LFR): Switch to a different communicator for each BoundaryType
-    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm_, &flag, &status);
+    
+    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag, &status);
     if (flag) {
       const int rank = status.MPI_SOURCE;
       const int partition = status.MPI_TAG;

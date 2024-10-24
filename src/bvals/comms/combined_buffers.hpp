@@ -90,10 +90,15 @@ struct CombinedBuffers {
 
   std::set<std::pair<int, int>> processing_messages;
 
-  mpi_comm_t comm_;
+  std::map<BoundaryType, mpi_comm_t> comms_;
   CombinedBuffers() {
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm_));
+    // TODO(LFR): Switch to a different communicator for each BoundaryType pair
+    for (auto b_type : {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
+                        BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
+      auto &comm = comms_[b_type];
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
+    }
 #else
     comm_ = 0;
 #endif
@@ -101,7 +106,8 @@ struct CombinedBuffers {
 
   ~CombinedBuffers() {
 #ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Comm_free(&comm_));
+    for (auto &[b_type, comm] : comms_)
+      PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
 #endif
   }
 
