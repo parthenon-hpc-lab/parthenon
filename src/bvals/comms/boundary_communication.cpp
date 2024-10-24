@@ -228,9 +228,9 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                   all_received = pbuf->TryReceiveLocal() && all_received;
                   nreceived += pbuf->TryReceiveLocal();
                 });
-  //if (ntotal_prints++ < 1000)
-  //  printf("rank = %i partition = %i nreceived = %i (%i)\n", Globals::my_rank,
-  //         md->partition, nreceived, cache.buf_vec.size());
+  // if (ntotal_prints++ < 1000)
+  //   printf("rank = %i partition = %i nreceived = %i (%i)\n", Globals::my_rank,
+  //          md->partition, nreceived, cache.buf_vec.size());
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {

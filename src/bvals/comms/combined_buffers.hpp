@@ -94,8 +94,9 @@ struct CombinedBuffers {
   CombinedBuffers() {
 #ifdef MPI_PARALLEL
     // TODO(LFR): Switch to a different communicator for each BoundaryType pair
-    for (auto b_type : {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
-                        BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
+    for (auto b_type :
+         {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
+          BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
       auto &comm = comms_[b_type];
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
     }
