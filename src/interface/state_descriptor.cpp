@@ -316,6 +316,7 @@ bool StateDescriptor::AddFieldImpl_(const VarID &vid, const Metadata &m_in,
       AddFieldImpl_(fId, *(m.GetSPtrFluxMetadata()), control_vid);
       m.SetFluxName(fId.label());
     }
+    labelToVidMap_.insert({vid.label(), vid});
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
     allocControllerReverseMap_.insert({vid, control_vid});

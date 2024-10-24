@@ -94,7 +94,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   mesh->mesh_bcs[0] = BoundaryFlag::user;
   meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
-    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+    mesh->mesh_bcs[i] = BoundaryFlag::user;
     meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();

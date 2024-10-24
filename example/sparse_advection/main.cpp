@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProblemGenerator = sparse_advection_example::ProblemGenerator;
   pman.app_input->PostStepDiagnosticsInLoop =
       sparse_advection_example::PostStepDiagnosticsInLoop;
+  pman.app_input->RegisterDefaultReflectingBoundaryConditions();
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

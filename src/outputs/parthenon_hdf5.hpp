@@ -18,6 +18,7 @@
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
 #include "config.hpp"
+#include "defs.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
@@ -121,6 +122,9 @@ void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *dat
 
 // In CPP file
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location);
+void HDF5WriteAttribute(const std::string &name,
+                        const std::array<std::string, BOUNDARY_NFACES> &values,
                         hid_t location);
 
 template <typename T>
