@@ -312,11 +312,11 @@ void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t
   auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
   if (info.where == MetadataFlag({Metadata::None})) {
     kb.s = 0;
-    kb.e = shape[4];
+    kb.e = std::max(0, shape[4] - 1);
     jb.s = 0;
-    jb.e = shape[5];
+    jb.e = std::max(0, shape[5] - 1);
     ib.s = 0;
-    ib.e = shape[6];
+    ib.e = std::max(0, shape[6] - 1);
   }
   for (int topo = 0; topo < shape[0]; ++topo) {
     for (int t = 0; t < shape[1]; ++t) {
