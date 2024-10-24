@@ -223,6 +223,9 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition) {
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_buffers.count(partition) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
+  for (auto &buf : buffers[partition]) {
+    if (buf->GetState() != BufferState::stale) return false;
+  }
   auto received = combined_buffers[partition].TryReceive();
   if (!received) return false;
 
