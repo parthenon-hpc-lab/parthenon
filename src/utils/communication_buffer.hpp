@@ -101,9 +101,11 @@ class CommBuffer {
   T &buffer() { return buf_; }
   const T &buffer() const { return buf_; }
 
-  void Allocate(int size = 0) {
-    buf_ = get_resource_(size);
-    active_ = true;
+  void Allocate(int size = -1) {
+    if (!active_ || (size > 0 && buf_.size() != size)) {
+      buf_ = get_resource_(size);
+      active_ = true;
+    }
   }
 
   template <class... Args>
