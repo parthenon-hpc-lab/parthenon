@@ -296,7 +296,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
           v(2, n) = mu;
           // Project v onto plane normal to sphere
           Real vdN = v(0, n) * x(n) + v(1, n) * y(n) + v(2, n) * z(n);
-          Real inverse_NdN = r * r;
+          Real inverse_NdN = 1. / (r * r);
           v(0, n) = v(0, n) - vdN * inverse_NdN * x(n);
           v(1, n) = v(1, n) - vdN * inverse_NdN * y(n);
           v(2, n) = v(2, n) - vdN * inverse_NdN * z(n);
