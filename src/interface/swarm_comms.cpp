@@ -163,7 +163,6 @@ void Swarm::LoadBuffers_() {
   vbswarm->particle_size = particle_size;
   const int nneighbor = pmb->neighbors.size();
   // Fence to make sure particles aren't currently being transported locally
-  // TODO(BRR) do this operation on device.
   pmb->exec_space.fence();
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
