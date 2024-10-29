@@ -126,8 +126,6 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.nbtotal = GetAttr<int>("Info", "NumMeshBlocks");
   mesh_info.root_level = GetAttr<int>("Info", "RootLevel");
 
-  mesh_info.bound_cond = GetAttrVec<std::string>("Info", "BoundaryConditions");
-
   mesh_info.block_size = GetAttrVec<int>("Info", "MeshBlockSize");
   mesh_info.includes_ghost = GetAttr<int>("Info", "IncludesGhost");
   mesh_info.n_ghost = GetAttr<int>("Info", "NGhost");
