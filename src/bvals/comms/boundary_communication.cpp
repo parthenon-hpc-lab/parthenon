@@ -250,10 +250,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           ++ibound;
         });
   }
-  if (all_received) {
-    MPI_Barrier(MPI_COMM_WORLD);
-    return TaskStatus::complete;
-  }
+  if (all_received) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
