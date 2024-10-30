@@ -384,7 +384,6 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
   } else if (pmesh->receive_type == "iprobe") {
     MPI_Status status;
     int flag;
-    int iters{0};
     do {
       MPI_Message message;
       MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
@@ -398,8 +397,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
       }
-      ++iters;
-    } while (flag || iters < 10);
+    } while (flag);
 
     // Process in-flight messages
     std::vector<std::pair<int, int>> finished_messages;
@@ -416,7 +414,6 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
   } else if (pmesh->receive_type == "improbe") {
     MPI_Status status;
     int flag;
-    int iters{0};
     do {
       MPI_Message message;
       MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
@@ -430,8 +427,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
       }
-      ++iters;
-    } while (flag || iters < 10);
+    } while (flag);
 
     // Process in-flight messages
     std::vector<std::pair<int, int>> finished_messages;
