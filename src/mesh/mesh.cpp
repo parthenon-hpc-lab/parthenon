@@ -87,7 +87,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcombined_buffers(std::make_shared<CombinedBuffers>()) {
+      pcombined_buffers(std::make_shared<CombinedBuffers>()),
+      receive_type{pin->GetOrAddString("parthenon/mesh", "receive_type", "iprobe")} {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;

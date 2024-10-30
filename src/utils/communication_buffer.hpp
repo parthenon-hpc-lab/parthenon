@@ -129,8 +129,8 @@ class CommBuffer {
 
   bool IsAvailableForWrite();
 
-  void TryStartReceive() noexcept;
-  bool TryReceive() noexcept;
+  void TryStartReceive(MPI_Message * message_id = nullptr) noexcept;
+  bool TryReceive(MPI_Message * message_id = nullptr) noexcept;
   bool TryReceiveLocal() noexcept;
   void SetReceived() noexcept {
     PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
@@ -247,7 +247,7 @@ void CommBuffer<T>::Send() noexcept {
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
+    PARTHENON_MPI_CHECK(MPI_Issend(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
                                   my_request_.get()));
 #endif
@@ -319,7 +319,7 @@ bool CommBuffer<T>::IsAvailableForWrite() {
 }
 
 template <class T>
-void CommBuffer<T>::TryStartReceive() noexcept {
+void CommBuffer<T>::TryStartReceive(MPI_Message* message_id) noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver && !*started_irecv_) {
     PARTHENON_REQUIRE(
@@ -328,11 +328,18 @@ void CommBuffer<T>::TryStartReceive() noexcept {
     if (!IsActive())
       Allocate(
           -1); // For early start of Irecv, always need storage space even if not used
-    PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
-                                  my_request_.get()));
+    if (message_id != nullptr) {
+      PARTHENON_MPI_CHECK(MPI_Imrecv(buf_.data(), buf_.size(),
+                                     MPITypeMap<buf_base_t>::type(), message_id,
+                                     my_request_.get()));
+    } else {
+      PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
+                                    MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
+                                    my_request_.get()));
+    }
     *started_irecv_ = true;
   } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
+    PARTHENON_REQUIRE(message_id == nullptr, "Imrecv not yet implemented for sparse buffers.");
     int test;
     MPI_Status status;
     // Check if our message is available so that we can use the correct buffer size
@@ -377,7 +384,7 @@ bool CommBuffer<T>::TryReceiveLocal() noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceive() noexcept {
+bool CommBuffer<T>::TryReceive(MPI_Message* message_id) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
@@ -388,7 +395,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
     PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
                       "MPI probably hanging after 1e8 receive tries.");
 
-    TryStartReceive();
+    TryStartReceive(message_id);
 
     if (*started_irecv_) {
       MPI_Status status;

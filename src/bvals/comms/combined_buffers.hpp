@@ -70,7 +70,7 @@ struct CombinedBuffersRank {
 
   void PackAndSend(int partition);
 
-  bool TryReceiveAndUnpack(Mesh *pmesh, int partition);
+  bool TryReceiveAndUnpack(Mesh *pmesh, int partition, MPI_Message *message);
 
   void RepointBuffers(Mesh *pmesh, int partition);
 
@@ -88,7 +88,7 @@ struct CombinedBuffers {
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
 
-  std::set<std::pair<int, int>> processing_messages;
+  std::map<std::pair<int, int>, MPI_Message> processing_messages;
 
   std::map<BoundaryType, mpi_comm_t> comms_;
   CombinedBuffers() {

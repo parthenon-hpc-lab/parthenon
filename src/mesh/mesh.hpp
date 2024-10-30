@@ -229,7 +229,8 @@ class Mesh {
       std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
-
+ 
+  std::string receive_type; // Defines how to structure the MPI receives for combined buffers
   std::shared_ptr<CombinedBuffers> pcombined_buffers;
 
 #ifdef MPI_PARALLEL
