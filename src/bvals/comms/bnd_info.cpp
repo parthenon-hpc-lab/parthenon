@@ -324,6 +324,12 @@ BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   return out;
 }
 
+void BndId::PrintInfo(const std::string &start) { 
+  printf("%s var %s (%i -> %i) starting at %i with size %i (Total combined buffer size = %i, buffer size = %i) [rank = %i]\n", 
+          start.c_str(), Variable<Real>::GetLabel(var_id()).c_str(), send_gid(), recv_gid(),
+          start_idx(), size(), combined_buf.size(), buf.size(), Globals::my_rank);
+}
+
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {

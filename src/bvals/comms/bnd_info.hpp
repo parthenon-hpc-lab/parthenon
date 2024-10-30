@@ -81,6 +81,8 @@ struct BndId {
 
   buf_pool_t<Real>::weak_t buf;  // comm buffer from pool
   BufArray1D<Real> combined_buf; // Combined buffer
+  
+  void PrintInfo(const std::string &start); 
 
   KOKKOS_DEFAULTED_FUNCTION
   BndId() = default;
