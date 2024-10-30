@@ -177,7 +177,8 @@ void CombinedBuffersRank::PackAndSend(int partition) {
                     "Trying to send combined buffers before they have been built");
   if (combined_info_device.count(partition) == 0) return; // There is nothing to send here
   auto &comb_info = combined_info_device[partition];
-  PARTHENON_REQUIRE(combined_buffers[partition].IsAvailableForWrite(), "Trying to write to a buffer that is in use.");
+  PARTHENON_REQUIRE(combined_buffers[partition].IsAvailableForWrite(),
+                    "Trying to write to a buffer that is in use.");
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(),
@@ -219,7 +220,8 @@ bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
   return combined_buffers[partition].IsAvailableForWrite();
 }
 
-bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition, MPI_Message *message) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
+                                              MPI_Message *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_buffers.count(partition) > 0,
@@ -379,20 +381,22 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
         }
       }
     }
-  } else if (pmesh->receive_type == "iprobe") { 
+  } else if (pmesh->receive_type == "iprobe") {
     MPI_Status status;
     int flag;
     int iters{0};
     do {
       MPI_Message message;
       MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
-                  &status);
+                 &status);
       if (flag) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
-        bool finished =
-            combined_recv_buffers.at({rank, b_type}).TryReceiveAndUnpack(pmesh, partition, nullptr);
-        if (!finished) processing_messages.insert(std::make_pair(std::pair<int, int>{rank, partition}, message));
+        bool finished = combined_recv_buffers.at({rank, b_type})
+                            .TryReceiveAndUnpack(pmesh, partition, nullptr);
+        if (!finished)
+          processing_messages.insert(
+              std::make_pair(std::pair<int, int>{rank, partition}, message));
       }
       ++iters;
     } while (flag || iters < 10);
@@ -402,8 +406,8 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
     for (auto &[p, message] : processing_messages) {
       int rank = p.first;
       int partition = p.second;
-      bool finished =
-          combined_recv_buffers.at({rank, b_type}).TryReceiveAndUnpack(pmesh, partition, nullptr);
+      bool finished = combined_recv_buffers.at({rank, b_type})
+                          .TryReceiveAndUnpack(pmesh, partition, nullptr);
       if (finished) finished_messages.push_back({rank, partition});
     }
 
@@ -420,9 +424,11 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
       if (flag) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
-        bool finished =
-            combined_recv_buffers.at({rank, b_type}).TryReceiveAndUnpack(pmesh, partition, &message);
-        if (!finished) processing_messages.insert(std::make_pair(std::pair<int, int>{rank, partition}, message));
+        bool finished = combined_recv_buffers.at({rank, b_type})
+                            .TryReceiveAndUnpack(pmesh, partition, &message);
+        if (!finished)
+          processing_messages.insert(
+              std::make_pair(std::pair<int, int>{rank, partition}, message));
       }
       ++iters;
     } while (flag || iters < 10);
@@ -432,14 +438,14 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
     for (auto &[p, message] : processing_messages) {
       int rank = p.first;
       int partition = p.second;
-      bool finished =
-          combined_recv_buffers.at({rank, b_type}).TryReceiveAndUnpack(pmesh, partition, &message);
+      bool finished = combined_recv_buffers.at({rank, b_type})
+                          .TryReceiveAndUnpack(pmesh, partition, &message);
       if (finished) finished_messages.push_back({rank, partition});
     }
 
     for (auto &m : finished_messages)
-      processing_messages.erase(m); 
-  } else { 
+      processing_messages.erase(m);
+  } else {
     PARTHENON_FAIL("Unknown receiving strategy.");
   }
 #endif
