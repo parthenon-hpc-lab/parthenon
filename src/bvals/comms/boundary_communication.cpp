@@ -274,20 +274,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   size_t Nel_max = 0;
   for (int b = 0; b < nbound; b++) {
     for (int it = 0; it < bnd_info_h(b).ntopological_elements; ++it) {
-      const int Nt = bnd_info_h(b).idxer[it].template EndIdx<0>() -
-                     bnd_info_h(b).idxer[it].template StartIdx<0>() + 1;
-      const int Nu = bnd_info_h(b).idxer[it].template EndIdx<1>() -
-                     bnd_info_h(b).idxer[it].template StartIdx<1>() + 1;
-      const int Nv = bnd_info_h(b).idxer[it].template EndIdx<2>() -
-                     bnd_info_h(b).idxer[it].template StartIdx<2>() + 1;
-      // const int Nk = bnd_info_h(b).idxer[it].template EndIdx<3>() -
-      //                bnd_info_h(b).idxer[it].template StartIdx<3>() + 1;
-      // const int Nj = bnd_info_h(b).idxer[it].template EndIdx<4>() -
-      //                bnd_info_h(b).idxer[it].template StartIdx<4>() + 1;
-      // const int Ni = bnd_info_h(b).idxer[it].template EndIdx<5>() -
-      //                bnd_info_h(b).idxer[it].template StartIdx<5>() + 1;
-      if (Nt * Nu * Nv > Nel_max) {
-        Nel_max = Nt * Nu * Nv;
+      const int tensor_size = bnd_info_h(b).idxer[it].sizeAtAndBelow(2);
+      if (tensor_size > Nel_max) {
+        Nel_max = tensor_size;
       }
     }
   }
@@ -310,20 +299,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           Real fac = ftemp; // Can't capture structured bindings
           const int iel = static_cast<int>(tel) % 3;
           // Element t, u, v in variable
-          const int Nel = (bnd_info(b).idxer[it].template EndIdx<0>() -
-                           bnd_info(b).idxer[it].template StartIdx<0>() + 1) *
-                          (bnd_info(b).idxer[it].template EndIdx<1>() -
-                           bnd_info(b).idxer[it].template StartIdx<1>() + 1) *
-                          (bnd_info(b).idxer[it].template EndIdx<2>() -
-                           bnd_info(b).idxer[it].template StartIdx<2>() + 1);
-          const int Nidx = (bnd_info(b).idxer[it].template EndIdx<3>() -
-                            bnd_info(b).idxer[it].template StartIdx<3>() + 1) *
-                           (bnd_info(b).idxer[it].template EndIdx<4>() -
-                            bnd_info(b).idxer[it].template StartIdx<4>() + 1) *
-                           (bnd_info(b).idxer[it].template EndIdx<5>() -
-                            bnd_info(b).idxer[it].template StartIdx<5>() + 1);
+          const int Nel = idxer.sizeAtAndBelow(2);
+          const int Nidx = idxer.sizeAtAndAbove(3);
           if (el >= Nel) return;
-          const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
+          const int Ni = idxer.size(5);
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Nel / Ni),

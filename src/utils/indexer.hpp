@@ -91,6 +91,25 @@ struct Indexer {
   std::size_t size() const { return _size; }
 
   KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t size(int dim) const { return end[dim] - start[dim] + 1; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t sizeAtAndAbove(int dim) const {
+    std::size_t out = dim < rank;
+    for (int i = dim; i < rank; ++i)
+      out *= size(i);
+    return out;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t sizeAtAndBelow(int dim) const {
+    std::size_t out = dim >= 0;
+    for (int i = 0; i <= dim; ++i)
+      out *= size(i);
+    return out;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
   std::tuple<Ts...> operator()(int idx) const {
     return GetIndicesImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
   }
