@@ -74,12 +74,6 @@ struct CombinedBuffersRank {
 
   void RepointBuffers(Mesh *pmesh, int partition);
 
-  bool AllReceived();
-
-  void StaleAllReceives();
-
-  void CompareReceivedBuffers(int partition);
-
   bool IsAvailableForWrite(int partition);
 };
 
@@ -136,12 +130,6 @@ struct CombinedBuffers {
   void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type);
 
   void TryReceiveAny(Mesh *pmesh, BoundaryType b_type);
-
-  bool AllReceived(BoundaryType b_type);
-
-  void StaleAllReceives(BoundaryType b_type);
-
-  void CompareReceivedBuffers(BoundaryType b_type);
 
   bool IsAvailableForWrite(int partition, BoundaryType b_type);
 };

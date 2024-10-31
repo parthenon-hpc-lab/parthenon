@@ -200,21 +200,6 @@ void CombinedBuffersRank::PackAndSend(int partition) {
     buf->Stale();
 }
 
-bool CombinedBuffersRank::AllReceived() {
-  bool all_received{true};
-  for (auto &[partition, buf] : combined_buffers) {
-    bool received = buf.GetState() == BufferState::received;
-    all_received = all_received && received;
-  }
-  return all_received;
-}
-
-void CombinedBuffersRank::StaleAllReceives() {
-  for (auto &[partition, buf] : combined_buffers) {
-    buf.Stale();
-  }
-}
-
 bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
   if (combined_buffers.count(partition) == 0) return true;
   return combined_buffers[partition].IsAvailableForWrite();
@@ -260,31 +245,6 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
   for (auto &buf : buffers[partition])
     buf->SetReceived();
   return true;
-}
-
-void CombinedBuffersRank::CompareReceivedBuffers(int partition) {
-  if (Globals::my_rank != 0) return; // don't crush us with output
-  PARTHENON_REQUIRE(buffers_built,
-                    "Trying to recv combined buffers before they have been built")
-  if (combined_info_device.count(partition) == 0) return;
-  auto &comb_info = combined_info_device[partition];
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), combined_info[partition].size(),
-                           Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        const int buf_size = comb_info[b].size();
-        Real *com_buf = &(comb_info[b].combined_buf(comb_info[b].start_idx()));
-        Real *buf = &(comb_info[b].buf(0));
-        printf("Buffer [%i] start = %i size = %i\n", b, comb_info[b].start_idx(),
-               buf_size);
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                             [&](const int idx) {
-                               if (buf[idx] != com_buf[idx])
-                                 printf("  [%i] %e %e\n", idx, buf[idx], com_buf[idx]);
-                             });
-      });
 }
 
 void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
@@ -446,31 +406,4 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
   }
 #endif
 }
-
-bool CombinedBuffers::AllReceived(BoundaryType b_type) {
-  bool all_received{true};
-  for (auto &[tag, bufs] : combined_recv_buffers) {
-    if (std::get<1>(tag) == b_type) {
-      all_received = all_received && bufs.AllReceived();
-    }
-  }
-  return all_received;
-}
-
-void CombinedBuffers::StaleAllReceives(BoundaryType b_type) {
-  for (auto &[tag, bufs] : combined_recv_buffers) {
-    if (std::get<1>(tag) == b_type) {
-      bufs.StaleAllReceives();
-    }
-  }
-}
-
-void CombinedBuffers::CompareReceivedBuffers(BoundaryType b_type) {
-  for (auto &[tag, bufs] : combined_recv_buffers) {
-    if (std::get<1>(tag) == b_type) {
-      bufs.CompareReceivedBuffers(0);
-    }
-  }
-}
-
 } // namespace parthenon
