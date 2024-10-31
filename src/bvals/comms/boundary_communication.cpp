@@ -287,7 +287,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * Nteam, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank() / Nteam;
-        const int el = team_member.league_rank() % Nteam;
+        const int bteam = team_member.league_rank() % Nteam;
         if (bnd_info(b).same_to_same) return;
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
@@ -301,14 +301,14 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           // Element t, u, v in variable
           const int Nel = idxer.sizeAtAndBelow(2);
           const int Nidx = idxer.sizeAtAndAbove(3);
-          if (el >= Nel) return;
+          if (bteam >= Nel) return;
           const int Ni = idxer.size(5);
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Nel / Ni),
                 [&](const int idx) {
-                  Real *buf = &bnd_info(b).buf(el * Nidx + idx * Ni + idx_offset);
-                  const auto [t, u, v, k, j, i] = idxer(el * Nidx + idx * Ni);
+                  Real *buf = &bnd_info(b).buf(bteam * Nidx + idx * Ni + idx_offset);
+                  const auto [t, u, v, k, j, i] = idxer(bteam * Nidx + idx * Ni);
                   // Have to do this because of some weird issue about structure bindings
                   // being captured
                   const int tt = t;
@@ -330,7 +330,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange<>(team_member, idxer.size() / Nel / Ni),
                 [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(el * Nidx + idx * Ni);
+                  const auto [t, u, v, k, j, i] = idxer(bteam * Nidx + idx * Ni);
                   const int tt = t;
                   const int uu = u;
                   const int vv = v;
