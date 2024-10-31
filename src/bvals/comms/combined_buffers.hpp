@@ -113,9 +113,10 @@ struct CombinedBuffers {
   }
 
   void clear() {
-    // TODO(LFR): Need to be careful here that the asynchronous send buffers are finished
+    // TODO(LFR): Need to be more careful here that the asynchronous send buffers are finished
     combined_send_buffers.clear();
     combined_recv_buffers.clear();
+    processing_messages.clear();
   }
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
