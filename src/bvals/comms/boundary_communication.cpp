@@ -270,11 +270,13 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
+  const int nteams_per_buffer = 3;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int team = team_member.league_rank() % nteams_per_buffer; 
         if (bnd_info(b).same_to_same) return;
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
@@ -287,8 +289,11 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
+            const int step = idxer.size() / Ni / nteams_per_buffer;
+            const int start = team * step; 
+            const int end = team == (nteams_per_buffer - 1) ? idxer.size() / Ni : (team + 1) * step;
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
+                Kokkos::TeamThreadRange<>(team_member, start, end),
                 [&](const int idx) {
                   Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
                   const auto [t, u, v, k, j, i] = idxer(idx * Ni);
