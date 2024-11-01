@@ -11,6 +11,7 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR1203]](https://github.com/parthenon-hpc-lab/parthenon/pull/1203) Pin Ubuntu CI image
 - [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 - [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
 - [[Issue 1165]](https://github.com/parthenon-hpc-lab/parthenon/issues/1165) Bump Kokkos submodule to 4.4.1
