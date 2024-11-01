@@ -129,8 +129,8 @@ class CommBuffer {
 
   bool IsAvailableForWrite();
 
-  void TryStartReceive(MPI_Message *message_id = nullptr) noexcept;
-  bool TryReceive(MPI_Message *message_id = nullptr) noexcept;
+  void TryStartReceive(mpi_message_t *message_id = nullptr) noexcept;
+  bool TryReceive(mpi_message_t *message_id = nullptr) noexcept;
   bool TryReceiveLocal() noexcept;
   void SetReceived() noexcept {
     PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
@@ -319,7 +319,7 @@ bool CommBuffer<T>::IsAvailableForWrite() {
 }
 
 template <class T>
-void CommBuffer<T>::TryStartReceive(MPI_Message *message_id) noexcept {
+void CommBuffer<T>::TryStartReceive(mpi_message_t *message_id) noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver && !*started_irecv_) {
     PARTHENON_REQUIRE(
@@ -385,7 +385,7 @@ bool CommBuffer<T>::TryReceiveLocal() noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceive(MPI_Message *message_id) noexcept {
+bool CommBuffer<T>::TryReceive(mpi_message_t *message_id) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 

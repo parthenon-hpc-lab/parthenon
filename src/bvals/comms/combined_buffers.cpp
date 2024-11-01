@@ -97,7 +97,7 @@ void CombinedBuffersRankPartition::PackAndSend() {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRankPartition::TryReceiveAndUnpack(MPI_Message *message) {
+bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message) {
   // Make sure the var-boundary buffers are available to write to
   for (auto &[uid, v] : combined_info_buf) {
     for (auto &[bndid, pvbbuf] : v) {
@@ -299,7 +299,7 @@ bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
 
 //----------------------------------------------------------------------------------------
 bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
-                                              MPI_Message *message) {
+                                              mpi_message_t *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
@@ -407,7 +407,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
     MPI_Status status;
     int flag;
     do {
-      MPI_Message message;
+      mpi_message_t message;
       MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
                  &status);
       if (flag) {
@@ -437,7 +437,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
     MPI_Status status;
     int flag;
     do {
-      MPI_Message message;
+      mpi_message_t message;
       MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
                   &message, &status);
       if (flag) {
