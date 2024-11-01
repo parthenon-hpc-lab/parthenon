@@ -101,22 +101,23 @@ struct CombinedBuffersRank {
   com_buf_t message;
 
   mpi_comm_t comm_;
-
+  Mesh *pmesh;
   bool sender{true};
-  CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send, mpi_comm_t comm);
+
+  CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send, mpi_comm_t comm, Mesh *pmesh);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var);
 
-  bool TryReceiveBufInfo(Mesh *pmesh);
+  bool TryReceiveBufInfo();
 
-  void ResolveSendBuffersAndSendInfo(Mesh *pmesh);
+  void ResolveSendBuffersAndSendInfo();
 
   void PackAndSend(int partition);
 
-  bool TryReceiveAndUnpack(Mesh *pmesh, int partition, mpi_message_t *message);
+  bool TryReceiveAndUnpack(int partition, mpi_message_t *message);
 
-  void RepointBuffers(Mesh *pmesh, int partition);
+  void RepointBuffers(int partition);
 
   bool IsAvailableForWrite(int partition);
 };
@@ -129,7 +130,10 @@ struct CombinedBuffers {
   std::map<std::pair<int, int>, mpi_message_t> processing_messages;
 
   std::map<BoundaryType, mpi_comm_t> comms_;
-  CombinedBuffers() {
+
+  Mesh *pmesh; 
+
+  CombinedBuffers(Mesh *pmesh) : pmesh(pmesh) {
 #ifdef MPI_PARALLEL
     // TODO(LFR): Switch to a different communicator for each BoundaryType pair
     for (auto b_type :
@@ -164,17 +168,17 @@ struct CombinedBuffers {
   void AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>>, BoundaryType b_type);
 
-  void ResolveAndSendSendBuffers(Mesh *pmesh);
+  void ResolveAndSendSendBuffers();
 
-  void ReceiveBufferInfo(Mesh *pmesh);
+  void ReceiveBufferInfo();
 
   void PackAndSend(int partition, BoundaryType b_type);
 
-  void RepointSendBuffers(Mesh *pmesh, int partition, BoundaryType b_type);
+  void RepointSendBuffers(int partition, BoundaryType b_type);
 
-  void RepointRecvBuffers(Mesh *pmesh, int partition, BoundaryType b_type);
+  void RepointRecvBuffers(int partition, BoundaryType b_type);
 
-  void TryReceiveAny(Mesh *pmesh, BoundaryType b_type);
+  void TryReceiveAny(BoundaryType b_type);
 
   bool IsAvailableForWrite(int partition, BoundaryType b_type);
 };

@@ -165,9 +165,9 @@ void CombinedBuffersRankPartition::AddVarBoundary(
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
-                                         mpi_comm_t comm)
+                                         mpi_comm_t comm, Mesh *pmesh)
     : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false),
-      comm_(comm) {
+      comm_(comm), pmesh(pmesh) {
 
   int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
   if (sender) {
@@ -195,7 +195,7 @@ void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
+bool CombinedBuffersRank::TryReceiveBufInfo() {
   PARTHENON_REQUIRE(!sender, "Trying to receive on a combined sender.");
   if (buffers_built) return buffers_built;
 
@@ -237,7 +237,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
+void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
   // First calculate the total size of the message
   int total_buffers{0};
   for (auto &[partition, combined_buf] : combined_bufs)
@@ -274,7 +274,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
+void CombinedBuffersRank::RepointBuffers(int partition) {
   if (combined_bufs.count(partition) == 0) return;
   combined_bufs.at(partition).RebuildBndIdsOnDevice();
   return;
@@ -298,8 +298,7 @@ bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
-                                              mpi_message_t *message) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(int partition, mpi_message_t *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
@@ -317,7 +316,7 @@ void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
   if (combined_send_buffers.count({nb.rank, b_type}) == 0)
     combined_send_buffers.emplace(std::make_pair(
         std::make_pair(nb.rank, b_type),
-        CombinedBuffersRank(nb.rank, b_type, true, comms_[GetAssociatedSender(b_type)])));
+        CombinedBuffersRank(nb.rank, b_type, true, comms_[GetAssociatedSender(b_type)], pmesh)));
   combined_send_buffers.at({nb.rank, b_type}).AddSendBuffer(partition, pmb, nb, var);
 }
 
@@ -331,15 +330,15 @@ void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
     combined_recv_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
                        CombinedBuffersRank(nb.rank, b_type, false,
-                                           comms_[GetAssociatedSender(b_type)])));
+                                           comms_[GetAssociatedSender(b_type)], pmesh)));
 }
 
-void CombinedBuffers::ResolveAndSendSendBuffers(Mesh *pmesh) {
+void CombinedBuffers::ResolveAndSendSendBuffers() {
   for (auto &[id, buf] : combined_send_buffers)
-    buf.ResolveSendBuffersAndSendInfo(pmesh);
+    buf.ResolveSendBuffersAndSendInfo();
 }
 
-void CombinedBuffers::ReceiveBufferInfo(Mesh *pmesh) {
+void CombinedBuffers::ReceiveBufferInfo() {
   constexpr std::int64_t max_it = 1e10;
   std::vector<bool> received(combined_recv_buffers.size(), false);
   bool all_received;
@@ -347,7 +346,7 @@ void CombinedBuffers::ReceiveBufferInfo(Mesh *pmesh) {
   do {
     all_received = true;
     for (auto &[id, buf] : combined_recv_buffers)
-      all_received = buf.TryReceiveBufInfo(pmesh) && all_received;
+      all_received = buf.TryReceiveBufInfo() && all_received;
     receive_iters++;
   } while (!all_received && receive_iters < max_it);
   PARTHENON_REQUIRE(
@@ -374,23 +373,21 @@ void CombinedBuffers::PackAndSend(int partition, BoundaryType b_type) {
   }
 }
 
-void CombinedBuffers::RepointSendBuffers(Mesh *pmesh, int partition,
-                                         BoundaryType b_type) {
+void CombinedBuffers::RepointSendBuffers(int partition, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type}))
-      combined_send_buffers.at({rank, b_type}).RepointBuffers(pmesh, partition);
+      combined_send_buffers.at({rank, b_type}).RepointBuffers(partition);
   }
 }
 
-void CombinedBuffers::RepointRecvBuffers(Mesh *pmesh, int partition,
-                                         BoundaryType b_type) {
+void CombinedBuffers::RepointRecvBuffers(int partition, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_recv_buffers.count({rank, b_type}))
-      combined_recv_buffers.at({rank, b_type}).RepointBuffers(pmesh, partition);
+      combined_recv_buffers.at({rank, b_type}).RepointBuffers(partition);
   }
 }
 
-void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
+void CombinedBuffers::TryReceiveAny(BoundaryType b_type) {
 #ifdef MPI_PARALLEL
   // This was an attempt at another method for receiving, it seemed to work
   // but was subject to the same problems as the Iprobe based code
@@ -414,7 +411,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
         bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(pmesh, partition, nullptr);
+                            .TryReceiveAndUnpack(partition, nullptr);
         if (!finished)
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
@@ -427,7 +424,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
       int rank = p.first;
       int partition = p.second;
       bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(pmesh, partition, nullptr);
+                          .TryReceiveAndUnpack(partition, nullptr);
       if (finished) finished_messages.push_back({rank, partition});
     }
 
@@ -444,7 +441,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
         bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(pmesh, partition, &message);
+                            .TryReceiveAndUnpack(partition, &message);
         if (!finished)
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
@@ -457,7 +454,7 @@ void CombinedBuffers::TryReceiveAny(Mesh *pmesh, BoundaryType b_type) {
       int rank = p.first;
       int partition = p.second;
       bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(pmesh, partition, &message);
+                          .TryReceiveAndUnpack(partition, &message);
       if (finished) finished_messages.push_back({rank, partition});
     }
 

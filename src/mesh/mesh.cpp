@@ -87,7 +87,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcombined_buffers(std::make_shared<CombinedBuffers>()),
+      pcombined_buffers(std::make_shared<CombinedBuffers>(this)),
       receive_type{pin->GetOrAddString("parthenon/mesh", "receive_type", "iprobe")} {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
@@ -647,9 +647,9 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     }
   }
 
-  pcombined_buffers->ResolveAndSendSendBuffers(this);
+  pcombined_buffers->ResolveAndSendSendBuffers();
   // This operation is blocking
-  pcombined_buffers->ReceiveBufferInfo(this);
+  pcombined_buffers->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,

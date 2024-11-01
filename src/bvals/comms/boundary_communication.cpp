@@ -82,7 +82,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetSend);
     }
-    pmesh->pcombined_buffers->RepointSendBuffers(pmesh, md->partition, bound_type);
+    pmesh->pcombined_buffers->RepointSendBuffers(md->partition, bound_type);
   }
   // Restrict
   if (md->NumBlocks() > 0) {
@@ -219,7 +219,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       false);
 
   // Receive any messages that are around
-  pmesh->pcombined_buffers->TryReceiveAny(pmesh, bound_type);
+  pmesh->pcombined_buffers->TryReceiveAny(bound_type);
 
   bool all_received = true;
   int nreceived{0};
