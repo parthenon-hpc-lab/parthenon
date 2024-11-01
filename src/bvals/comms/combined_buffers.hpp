@@ -73,11 +73,11 @@ struct CombinedBuffersRankPartition {
 
   bool IsAvailableForWrite() { return combined_comm_buffer.IsAvailableForWrite(); }
 
-  void RebuildBndIdsOnDevice(const std::set<Uid_t> &vars = {});
+  void RebuildBndIdsOnDevice(const std::set<Uid_t> &vars);
 
-  void PackAndSend(const std::set<Uid_t> &vars = {});
+  void PackAndSend(const std::set<Uid_t> &vars);
 
-  bool TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars = {});
+  bool TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars);
 };
 
 struct CombinedBuffersRank {

@@ -73,6 +73,7 @@ void CombinedBuffersRankPartition::RebuildBndIdsOnDevice(const std::set<Uid_t> &
 void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(combined_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
+  RebuildBndIdsOnDevice(vars);
   auto &bids = bnd_ids_device;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
@@ -122,7 +123,8 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message, c
     }
   }
 
-  if (!all_allocated) RebuildBndIdsOnDevice();
+  //if (!all_allocated) 
+  RebuildBndIdsOnDevice(vars);
 
   auto &bids = bnd_ids_device;
   Kokkos::parallel_for(
@@ -232,7 +234,6 @@ bool CombinedBuffersRank::TryReceiveBufInfo() {
 
     for (auto &[partition, com_buf] : combined_bufs) {
       com_buf.AllocateCombinedBuffer();
-      com_buf.RebuildBndIdsOnDevice();
     }
 
     buffers_built = true;
@@ -396,7 +397,7 @@ void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
       if (combined_recv_buffers.count({rank, b_type})) {
         auto &comb_bufs = combined_recv_buffers.at({rank, b_type});
         for (auto &[partition, comb_buf] : comb_bufs.combined_bufs) {
-          comb_buf.TryReceiveAndUnpack(nullptr);
+          comb_buf.TryReceiveAndUnpack(nullptr, pmd->GetUids());
         }
       }
     }
