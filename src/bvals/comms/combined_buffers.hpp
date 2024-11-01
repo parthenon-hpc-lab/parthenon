@@ -34,13 +34,13 @@ namespace parthenon {
 // Structure containing the information required for sending coalesced
 // messages between ranks
 
-struct CombinedBuffersRankPartition { 
+struct CombinedBuffersRankPartition {
   using buf_t = BufArray1D<Real>;
-  
+
   // Rank that these buffers communicate with
   BoundaryType b_type;
   int other_rank;
-  int partition; 
+  int partition;
   mpi_comm_t comm_;
   Mesh *pmesh;
   bool sender;
@@ -51,26 +51,25 @@ struct CombinedBuffersRankPartition {
   CommBuffer<buf_t> combined_comm_buffer;
   int current_size;
 
-  CombinedBuffersRankPartition(bool sender, int partition, int other_rank, BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh) 
-      : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type), comm_(comm), pmesh(pmesh), current_size(0) {}
+  CombinedBuffersRankPartition(bool sender, int partition, int other_rank,
+                               BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
+      : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
+        comm_(comm), pmesh(pmesh), current_size(0) {}
 
-  int TotalBuffers() const { 
+  int TotalBuffers() const {
     int total_buffers{0};
-    for (const auto&[uid, v] : combined_info_buf)
+    for (const auto &[uid, v] : combined_info_buf)
       total_buffers += v.size();
     return total_buffers;
-  } 
+  }
 
   void AddVarBoundary(BndId &bnd_id);
-  void AddVarBoundary(MeshBlock *pmb,
-                      const NeighborBlock &nb,
+  void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
 
   void AllocateCombinedBuffer();
-  
-  bool IsAvailableForWrite() {
-    return combined_comm_buffer.IsAvailableForWrite();
-  } 
+
+  bool IsAvailableForWrite() { return combined_comm_buffer.IsAvailableForWrite(); }
 
   // TODO(LFR): Functions below should take a list of uids
   void RebuildBndIdsOnDevice();
@@ -151,7 +150,8 @@ struct CombinedBuffers {
   }
 
   void clear() {
-    // TODO(LFR): Need to be more careful here that the asynchronous send buffers are finished
+    // TODO(LFR): Need to be more careful here that the asynchronous send buffers are
+    // finished
     combined_send_buffers.clear();
     combined_recv_buffers.clear();
     processing_messages.clear();
