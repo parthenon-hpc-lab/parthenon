@@ -47,10 +47,152 @@ CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool s
   PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
 }
 
+//----------------------------------------------------------------------------------------
+void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
+  combined_comm_buffer = CommBuffer<buf_t>(partition, Globals::my_rank, other_rank, comm_);
+  combined_comm_buffer.ConstructBuffer("combined send buffer", current_size); // Actually allocate the thing 
+  // Point the BndId objects to the combined buffer
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bnd_id, pvbbuf] : v) {
+      bnd_id.combined_buf = combined_comm_buffer.buffer();
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+void CombinedBuffersRankPartition::RebuildBndIdsOnDevice() {
+  int nbnd_id{0};
+  for (auto &[uid, v] : combined_info_buf)
+    nbnd_id += v.size();
+  bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id); 
+  auto bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
+  
+  int idx{0};
+  int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bnd_id, pvbbuf] : v) {
+      bnd_ids_host[idx] = bnd_id;
+      bnd_ids_host[idx].buf = pvbbuf->buffer();
+      bnd_ids_host[idx].start_idx() = c_buf_idx; 
+      c_buf_idx += bnd_id.size();
+      idx++;
+    }
+  }
+  Kokkos::deep_copy(bnd_ids_device, bnd_ids_host); 
+}
+
+//----------------------------------------------------------------------------------------
+void CombinedBuffersRankPartition::PackAndSend() {
+  PARTHENON_REQUIRE(combined_comm_buffer.IsAvailableForWrite(),
+                    "Trying to write to a buffer that is in use.");
+  auto &bids = bnd_ids_device;
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(),
+                           Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        const int buf_size = bids[b].size();
+        Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
+        Real *buf = &(bids[b].buf(0));
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                             [&](const int idx) { com_buf[idx] = buf[idx]; });
+      });
+#ifdef MPI_PARALLEL
+  Kokkos::fence();
+#endif
+  combined_comm_buffer.Send();
+
+  // Information in these send buffers is no longer required
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bndid, pvbbuf] : v) {
+      pvbbuf->Stale();
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+bool CombinedBuffersRankPartition::TryReceiveAndUnpack(MPI_Message *message) {
+
+  // Make sure the var-boundary buffers are available to write to
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bndid, pvbbuf] : v) {
+      if (pvbbuf->GetState() != BufferState::stale) return false;
+    }
+  }
+
+  auto received = combined_comm_buffer.TryReceive(message);
+  if (!received) return false;
+
+  bool all_allocated = true;
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bndid, pvbbuf] : v) {
+      if (!pvbbuf->IsActive()) {
+        all_allocated = false;
+        pvbbuf->Allocate();
+      }
+    }
+  }
+
+  if (!all_allocated) RebuildBndIdsOnDevice();
+  
+  auto &bids = bnd_ids_device;
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(),
+                           Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        const int buf_size = bids[b].size();
+        Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
+        Real *buf = &(bids[b].buf(0));
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                             [&](const int idx) { buf[idx] = com_buf[idx]; });
+      });
+  combined_comm_buffer.Stale();
+  
+  for (auto &[uid, v] : combined_info_buf) {
+    for (auto &[bndid, pvbbuf] : v) {
+      pvbbuf->SetReceived();
+    }
+  }
+
+  return true;
+}
+
+//----------------------------------------------------------------------------------------
+// Hierarchy of calls for adding send buffers
+void CombinedBuffersRankPartition::AddVarBoundary(BndId& bnd_id) {
+  auto key = GetChannelKey(bnd_id);
+  PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
+  var_buf_t *pbuf = &(pmesh->boundary_comm_map.at(key));
+  combined_info_buf[bnd_id.var_id()].push_back(std::make_pair(bnd_id, pbuf));
+  current_size += bnd_id.size(); // This will be the maximum size of communication since it includes 
+                                 // all variables 
+}
+
+void CombinedBuffersRankPartition::AddVarBoundary(MeshBlock *pmb,
+                                                  const NeighborBlock &nb,
+                                                  const std::shared_ptr<Variable<Real>> &var) {
+  // Store both the variable-boundary buffer information and a pointer to the v-b buffer itself
+  // associated with var ids 
+  BndId bnd_id = BndId::GetSend(pmb, nb, var, b_type, partition, -1);
+  AddVarBoundary(bnd_id); 
+}
+
+//----------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
                                         const NeighborBlock &nb,
-                                        const std::shared_ptr<Variable<Real>> &var,
-                                        BoundaryType b_type) {
+                                        const std::shared_ptr<Variable<Real>> &var) {
+  if (combined_bufs.count(partition) == 0)
+    combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(partition, other_rank, b_type, comm_, pmb->pmy_mesh)));
+
+  auto &comb_buf = combined_bufs.at(partition);
+  comb_buf.AddVarBoundary(pmb, nb, var);
+  
+  // OLD BELOW
   if (current_size.count(partition) == 0) current_size[partition] = 0;
   auto &cur_size = current_size[partition];
   combined_info[partition].push_back(
@@ -58,6 +200,7 @@ void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
   cur_size += combined_info[partition].back().size();
 }
 
+//----------------------------------------------------------------------------------------
 bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
   PARTHENON_REQUIRE(!sender, "Trying to receive on a combined sender.");
   if (buffers_built) return buffers_built;
@@ -73,6 +216,11 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
       const int partition = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
       const int total_size = mess_buf[idx++];
+      
+      // Create the new partition
+      combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(partition, other_rank, b_type, comm_, pmesh)));
+      auto &comb_buf = combined_bufs.at(partition); 
+
       combined_buffers[partition] =
           CommBuffer<buf_t>(partition, other_rank, Globals::my_rank, comm_);
       combined_buffers[partition].ConstructBuffer("combined recv buffer", total_size);
@@ -81,6 +229,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
       for (int b = 0; b < nbuf; ++b) {
         cr_info.emplace_back(&(mess_buf[idx]));
         auto &buf = cr_info.back();
+        comb_buf.AddVarBoundary(buf);
         // Store the buffer
         PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(GetChannelKey(buf)),
                           "Buffer doesn't exist.");
@@ -101,12 +250,18 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
       Kokkos::deep_copy(combined_info_device[partition], ci_host);
     }
 
+    for (auto &[partition, com_buf] : combined_bufs) { 
+      com_buf.AllocateCombinedBuffer();
+      com_buf.RebuildBndIdsOnDevice();
+    }
+
     buffers_built = true;
     return true;
   }
   return false;
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
   // First calculate the total size of the message
   int total_buffers{0};
@@ -153,9 +308,14 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
     }
   }
 
+  for (auto &[partition, com_buf] : combined_bufs)
+    com_buf.AllocateCombinedBuffer();
+
   buffers_built = true;
 }
 
+
+//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
   if (combined_info.count(partition) == 0) return;
   // Pull out the buffers and point them to the buf_struct
@@ -172,6 +332,7 @@ void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
   Kokkos::deep_copy(combined_info_device[partition], ci_host);
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::PackAndSend(int partition) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
@@ -200,11 +361,13 @@ void CombinedBuffersRank::PackAndSend(int partition) {
     buf->Stale();
 }
 
+//----------------------------------------------------------------------------------------
 bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
   if (combined_buffers.count(partition) == 0) return true;
   return combined_buffers[partition].IsAvailableForWrite();
 }
 
+//----------------------------------------------------------------------------------------
 bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
                                               MPI_Message *message) {
   PARTHENON_REQUIRE(buffers_built,
@@ -247,6 +410,9 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
   return true;
 }
 
+//----------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------
 void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
                                     const NeighborBlock &nb,
                                     const std::shared_ptr<Variable<Real>> &var,
@@ -256,7 +422,7 @@ void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
         std::make_pair(nb.rank, b_type),
         CombinedBuffersRank(nb.rank, b_type, true, comms_[GetAssociatedSender(b_type)])));
   combined_send_buffers.at({nb.rank, b_type})
-      .AddSendBuffer(partition, pmb, nb, var, b_type);
+      .AddSendBuffer(partition, pmb, nb, var);
 }
 
 void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,

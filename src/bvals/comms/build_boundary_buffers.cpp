@@ -127,25 +127,27 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
-      // Register this buffer with the combined buffers
-      if (receiver_rank != sender_rank)
-        pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
       auto s_key = SendKey(pmb, nb, v, BTYPE);
       if (buf_map.count(s_key) == 0)
         buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
             tag, sender_rank, receiver_rank, comm, get_resource_method,
             use_sparse_buffers);
+      
+      // Register this buffer with the combined buffers (must happen after CommBuffer is created)
+      if (receiver_rank != sender_rank)
+        pmesh->pcombined_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
     }
 
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
-        pmesh->pcombined_buffers->AddRecvBuffer(pmb, nb, v, BTYPE);
         auto r_key = ReceiveKey(pmb, nb, v, BTYPE);
         if (buf_map.count(r_key) == 0)
           buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, receiver_rank, sender_rank, comm, get_resource_method,
               use_sparse_buffers);
+        // Register this buffer with the combined buffers (must happen after CommBuffer is created)
+        pmesh->pcombined_buffers->AddRecvBuffer(pmb, nb, v, BTYPE);
       }
     }
   });

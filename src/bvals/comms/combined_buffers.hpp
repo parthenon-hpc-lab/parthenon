@@ -33,6 +33,45 @@
 namespace parthenon {
 // Structure containing the information required for sending coalesced
 // messages between ranks
+
+struct CombinedBuffersRankPartition { 
+  using buf_t = BufArray1D<Real>;
+  
+  // Rank that these buffers communicate with
+  BoundaryType b_type;
+  int other_rank;
+  int partition; 
+  mpi_comm_t comm_;
+  Mesh *pmesh;
+
+  using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
+  std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> combined_info_buf;
+  ParArray1D<BndId> bnd_ids_device;
+  CommBuffer<buf_t> combined_comm_buffer;
+  int current_size;
+
+  CombinedBuffersRankPartition(int partition, int other_rank, BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh) 
+      : partition(partition), other_rank(other_rank), b_type(b_type), comm_(comm), pmesh(pmesh), current_size(0) {}
+  
+  void AddVarBoundary(BndId &bnd_id);
+  void AddVarBoundary(MeshBlock *pmb,
+                      const NeighborBlock &nb,
+                      const std::shared_ptr<Variable<Real>> &var);
+
+  void AllocateCombinedBuffer();
+  
+  bool IsAvailableForWrite() {
+    return combined_comm_buffer.IsAvailableForWrite();
+  } 
+
+  // TODO(LFR): Functions below should take a list of uids
+  void RebuildBndIdsOnDevice();
+
+  void PackAndSend();
+
+  bool TryReceiveAndUnpack(MPI_Message *message);
+};
+
 struct CombinedBuffersRank {
   using coalesced_message_structure_t = std::vector<BndId>;
   using buf_t = BufArray1D<Real>;
@@ -50,6 +89,8 @@ struct CombinedBuffersRank {
   std::map<int, CommBuffer<buf_t>> combined_buffers;
   std::map<int, int> current_size;
 
+  std::map<int, CombinedBuffersRankPartition> combined_bufs;
+
   static constexpr int nglobal{1};
   static constexpr int nper_part{3};
 
@@ -62,7 +103,7 @@ struct CombinedBuffersRank {
   CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send, mpi_comm_t comm);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
-                     const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
+                     const std::shared_ptr<Variable<Real>> &var);
 
   bool TryReceiveBufInfo(Mesh *pmesh);
 
