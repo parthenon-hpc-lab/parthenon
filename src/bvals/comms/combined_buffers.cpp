@@ -38,25 +38,26 @@ void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
   combined_comm_buffer.ConstructBuffer("combined send buffer",
                                        current_size); // Actually allocate the thing
   // Point the BndId objects to the combined buffer
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bnd_id, pvbbuf] : v) {
+  for (auto uid : all_vars) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       bnd_id.combined_buf = combined_comm_buffer.buffer();
     }
   }
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRankPartition::RebuildBndIdsOnDevice() {
+void CombinedBuffersRankPartition::RebuildBndIdsOnDevice(const std::set<Uid_t> &vars) {
   int nbnd_id{0};
-  for (auto &[uid, v] : combined_info_buf)
-    nbnd_id += v.size();
+  const auto &var_set = vars.size() == 0 ? all_vars : vars;
+  for (auto uid : var_set)
+    nbnd_id += combined_info_buf.at(uid).size();
   bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
   auto bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
 
   int idx{0};
   int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bnd_id, pvbbuf] : v) {
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       bnd_ids_host[idx] = bnd_id;
       bnd_ids_host[idx].buf = pvbbuf->buffer();
       bnd_ids_host[idx].start_idx() = c_buf_idx;
@@ -68,7 +69,7 @@ void CombinedBuffersRankPartition::RebuildBndIdsOnDevice() {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRankPartition::PackAndSend() {
+void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(combined_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
   auto &bids = bnd_ids_device;
@@ -88,19 +89,21 @@ void CombinedBuffersRankPartition::PackAndSend() {
 #endif
   combined_comm_buffer.Send();
 
+  const auto &var_set = vars.size() == 0 ? all_vars : vars;
   // Information in these send buffers is no longer required
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bndid, pvbbuf] : v) {
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       pvbbuf->Stale();
     }
   }
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message) {
+bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars) {
+  const auto &var_set = vars.size() == 0 ? all_vars : vars;
   // Make sure the var-boundary buffers are available to write to
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bndid, pvbbuf] : v) {
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       if (pvbbuf->GetState() != BufferState::stale) return false;
     }
   }
@@ -109,8 +112,8 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message) {
   if (!received) return false;
 
   bool all_allocated = true;
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bndid, pvbbuf] : v) {
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       if (!pvbbuf->IsActive()) {
         all_allocated = false;
         pvbbuf->Allocate();
@@ -134,8 +137,8 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message) {
       });
   combined_comm_buffer.Stale();
 
-  for (auto &[uid, v] : combined_info_buf) {
-    for (auto &[bndid, pvbbuf] : v) {
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       pvbbuf->SetReceived();
     }
   }
@@ -151,6 +154,7 @@ void CombinedBuffersRankPartition::AddVarBoundary(BndId &bnd_id) {
   combined_info_buf[bnd_id.var_id()].push_back(std::make_pair(bnd_id, pbuf));
   current_size += bnd_id.size(); // This will be the maximum size of communication since
                                  // it includes all variables
+  all_vars.insert(bnd_id.var_id());
 }
 
 void CombinedBuffersRankPartition::AddVarBoundary(

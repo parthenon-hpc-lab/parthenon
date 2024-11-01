@@ -47,6 +47,7 @@ struct CombinedBuffersRankPartition {
 
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> combined_info_buf;
+  std::set<Uid_t> all_vars;
   ParArray1D<BndId> bnd_ids_device;
   CommBuffer<buf_t> combined_comm_buffer;
   int current_size;
@@ -72,12 +73,11 @@ struct CombinedBuffersRankPartition {
 
   bool IsAvailableForWrite() { return combined_comm_buffer.IsAvailableForWrite(); }
 
-  // TODO(LFR): Functions below should take a list of uids
-  void RebuildBndIdsOnDevice();
+  void RebuildBndIdsOnDevice(const std::set<Uid_t> &vars = {});
 
-  void PackAndSend();
+  void PackAndSend(const std::set<Uid_t> &vars = {});
 
-  bool TryReceiveAndUnpack(mpi_message_t *message);
+  bool TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars = {});
 };
 
 struct CombinedBuffersRank {
