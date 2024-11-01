@@ -166,8 +166,8 @@ void CombinedBuffersRankPartition::AddVarBoundary(
 //----------------------------------------------------------------------------------------
 CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
                                          mpi_comm_t comm, Mesh *pmesh)
-    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false),
-      comm_(comm), pmesh(pmesh) {
+    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false), comm_(comm),
+      pmesh(pmesh) {
 
   int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
   if (sender) {
@@ -314,9 +314,10 @@ void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
                                     const std::shared_ptr<Variable<Real>> &var,
                                     BoundaryType b_type) {
   if (combined_send_buffers.count({nb.rank, b_type}) == 0)
-    combined_send_buffers.emplace(std::make_pair(
-        std::make_pair(nb.rank, b_type),
-        CombinedBuffersRank(nb.rank, b_type, true, comms_[GetAssociatedSender(b_type)], pmesh)));
+    combined_send_buffers.emplace(
+        std::make_pair(std::make_pair(nb.rank, b_type),
+                       CombinedBuffersRank(nb.rank, b_type, true,
+                                           comms_[GetAssociatedSender(b_type)], pmesh)));
   combined_send_buffers.at({nb.rank, b_type}).AddSendBuffer(partition, pmb, nb, var);
 }
 

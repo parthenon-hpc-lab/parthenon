@@ -104,7 +104,8 @@ struct CombinedBuffersRank {
   Mesh *pmesh;
   bool sender{true};
 
-  CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send, mpi_comm_t comm, Mesh *pmesh);
+  explicit CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
+                               mpi_comm_t comm, Mesh *pmesh);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var);
@@ -131,9 +132,9 @@ struct CombinedBuffers {
 
   std::map<BoundaryType, mpi_comm_t> comms_;
 
-  Mesh *pmesh; 
+  Mesh *pmesh;
 
-  CombinedBuffers(Mesh *pmesh) : pmesh(pmesh) {
+  explicit CombinedBuffers(Mesh *pmesh) : pmesh(pmesh) {
 #ifdef MPI_PARALLEL
     // TODO(LFR): Switch to a different communicator for each BoundaryType pair
     for (auto b_type :
