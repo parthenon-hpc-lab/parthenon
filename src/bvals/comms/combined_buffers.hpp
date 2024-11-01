@@ -64,6 +64,7 @@ struct CombinedBuffersRankPartition {
   }
 
   void AddVarBoundary(BndId &bnd_id);
+
   void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
 
