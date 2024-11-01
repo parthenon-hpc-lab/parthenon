@@ -281,7 +281,7 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
 //----------------------------------------------------------------------------------------
 void CombinedBuffersRank::RepointBuffers(MeshData<Real> *pmd, int partition) {
   if (combined_bufs.count(partition) == 0) return;
-  combined_bufs.at(partition).RebuildBndIdsOnDevice();
+  combined_bufs.at(partition).RebuildBndIdsOnDevice(pmd->GetUids());
   return;
 }
 
@@ -290,7 +290,7 @@ void CombinedBuffersRank::PackAndSend(MeshData<Real> *pmd) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
   if (combined_bufs.count(pmd->partition)) {
-    combined_bufs.at(pmd->partition).PackAndSend();
+    combined_bufs.at(pmd->partition).PackAndSend(pmd->GetUids());
   }
 
   return;
@@ -309,7 +309,7 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
-  return combined_bufs.at(partition).TryReceiveAndUnpack(message);
+  return combined_bufs.at(partition).TryReceiveAndUnpack(message, pmd->GetUids());
 }
 
 //----------------------------------------------------------------------------------------

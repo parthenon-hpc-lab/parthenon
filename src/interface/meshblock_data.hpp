@@ -562,6 +562,8 @@ class MeshBlockData {
              return this->varUidIn_.count(Variable<Real>::GetUniqueID(v));
            });
   }
+  
+  const auto &GetUids() const {return varUidIn_;}
 
   void SetAllVariablesToInitialized() {
     std::for_each(varVector_.begin(), varVector_.end(),
