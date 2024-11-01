@@ -279,31 +279,32 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRank::RepointBuffers(int partition) {
+void CombinedBuffersRank::RepointBuffers(MeshData<Real> *pmd, int partition) {
   if (combined_bufs.count(partition) == 0) return;
   combined_bufs.at(partition).RebuildBndIdsOnDevice();
   return;
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRank::PackAndSend(int partition) {
+void CombinedBuffersRank::PackAndSend(MeshData<Real> *pmd) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
-  if (combined_bufs.count(partition)) {
-    combined_bufs.at(partition).PackAndSend();
+  if (combined_bufs.count(pmd->partition)) {
+    combined_bufs.at(pmd->partition).PackAndSend();
   }
 
   return;
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
-  if (combined_bufs.count(partition) == 0) return true;
-  return combined_bufs.at(partition).IsAvailableForWrite();
+bool CombinedBuffersRank::IsAvailableForWrite(MeshData<Real> *pmd) {
+  PARTHENON_REQUIRE(sender, "Shouldn't be checking this on non-sender.");
+  if (combined_bufs.count(pmd->partition) == 0) return true;
+  return combined_bufs.at(pmd->partition).IsAvailableForWrite();
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::TryReceiveAndUnpack(int partition, mpi_message_t *message) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition, mpi_message_t *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
@@ -365,7 +366,7 @@ bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_ty
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
       available = available &&
-                  combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd->partition);
+                  combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd);
     }
   }
   return available;
@@ -374,7 +375,7 @@ bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_ty
 void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
-      combined_send_buffers.at({rank, b_type}).PackAndSend(pmd->partition);
+      combined_send_buffers.at({rank, b_type}).PackAndSend(pmd);
     }
   }
 }
@@ -382,14 +383,7 @@ void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
 void CombinedBuffers::RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type}))
-      combined_send_buffers.at({rank, b_type}).RepointBuffers(pmd->partition);
-  }
-}
-
-void CombinedBuffers::RepointRecvBuffers(MeshData<Real> *pmd, BoundaryType b_type) {
-  for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (combined_recv_buffers.count({rank, b_type}))
-      combined_recv_buffers.at({rank, b_type}).RepointBuffers(pmd->partition);
+      combined_send_buffers.at({rank, b_type}).RepointBuffers(pmd, pmd->partition);
   }
 }
 
@@ -417,7 +411,7 @@ void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
         bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(partition, nullptr);
+                            .TryReceiveAndUnpack(pmd, partition, nullptr);
         if (!finished)
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
@@ -430,7 +424,7 @@ void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
       int rank = p.first;
       int partition = p.second;
       bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(partition, nullptr);
+                          .TryReceiveAndUnpack(pmd, partition, nullptr);
       if (finished) finished_messages.push_back({rank, partition});
     }
 
@@ -447,7 +441,7 @@ void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
         const int rank = status.MPI_SOURCE;
         const int partition = status.MPI_TAG;
         bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(partition, &message);
+                            .TryReceiveAndUnpack(pmd, partition, &message);
         if (!finished)
           processing_messages.insert(
               std::make_pair(std::pair<int, int>{rank, partition}, message));
@@ -460,7 +454,7 @@ void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
       int rank = p.first;
       int partition = p.second;
       bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(partition, &message);
+                          .TryReceiveAndUnpack(pmd, partition, &message);
       if (finished) finished_messages.push_back({rank, partition});
     }
 

@@ -114,13 +114,13 @@ struct CombinedBuffersRank {
 
   void ResolveSendBuffersAndSendInfo();
 
-  void PackAndSend(int partition);
+  void PackAndSend(MeshData<Real> *pmd);
 
-  bool TryReceiveAndUnpack(int partition, mpi_message_t *message);
+  bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition, mpi_message_t *message);
 
-  void RepointBuffers(int partition);
+  void RepointBuffers(MeshData<Real> *pmd, int partition);
 
-  bool IsAvailableForWrite(int partition);
+  bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
 
 struct CombinedBuffers {
@@ -176,8 +176,6 @@ struct CombinedBuffers {
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 
   void RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type);
-
-  void RepointRecvBuffers(MeshData<Real> *pmd, BoundaryType b_type);
 
   void TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
