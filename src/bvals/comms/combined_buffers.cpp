@@ -23,6 +23,7 @@
 #include "bvals/comms/combined_buffers.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -359,40 +360,40 @@ void CombinedBuffers::ReceiveBufferInfo() {
       "Too many iterations waiting to receive boundary communication buffers.");
 }
 
-bool CombinedBuffers::IsAvailableForWrite(int partition, BoundaryType b_type) {
+bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
       available = available &&
-                  combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(partition);
+                  combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd->partition);
     }
   }
   return available;
 }
 
-void CombinedBuffers::PackAndSend(int partition, BoundaryType b_type) {
+void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
-      combined_send_buffers.at({rank, b_type}).PackAndSend(partition);
+      combined_send_buffers.at({rank, b_type}).PackAndSend(pmd->partition);
     }
   }
 }
 
-void CombinedBuffers::RepointSendBuffers(int partition, BoundaryType b_type) {
+void CombinedBuffers::RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type}))
-      combined_send_buffers.at({rank, b_type}).RepointBuffers(partition);
+      combined_send_buffers.at({rank, b_type}).RepointBuffers(pmd->partition);
   }
 }
 
-void CombinedBuffers::RepointRecvBuffers(int partition, BoundaryType b_type) {
+void CombinedBuffers::RepointRecvBuffers(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_recv_buffers.count({rank, b_type}))
-      combined_recv_buffers.at({rank, b_type}).RepointBuffers(partition);
+      combined_recv_buffers.at({rank, b_type}).RepointBuffers(pmd->partition);
   }
 }
 
-void CombinedBuffers::TryReceiveAny(BoundaryType b_type) {
+void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
   // This was an attempt at another method for receiving, it seemed to work
   // but was subject to the same problems as the Iprobe based code

@@ -66,7 +66,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   bool can_write_combined =
-      pmesh->pcombined_buffers->IsAvailableForWrite(md->partition, bound_type);
+      pmesh->pcombined_buffers->IsAvailableForWrite(md.get(), bound_type);
   if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
@@ -82,7 +82,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetSend);
     }
-    pmesh->pcombined_buffers->RepointSendBuffers(md->partition, bound_type);
+    pmesh->pcombined_buffers->RepointSendBuffers(md.get(), bound_type);
   }
   // Restrict
   if (md->NumBlocks() > 0) {
@@ -154,7 +154,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 #endif
 
   // Send the combined buffers
-  pmesh->pcombined_buffers->PackAndSend(md->partition, bound_type);
+  pmesh->pcombined_buffers->PackAndSend(md.get(), bound_type);
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
@@ -219,7 +219,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       false);
 
   // Receive any messages that are around
-  pmesh->pcombined_buffers->TryReceiveAny(bound_type);
+  pmesh->pcombined_buffers->TryReceiveAny(md.get(), bound_type);
 
   bool all_received = true;
   int nreceived{0};

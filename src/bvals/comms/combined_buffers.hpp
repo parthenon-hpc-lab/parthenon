@@ -173,15 +173,15 @@ struct CombinedBuffers {
 
   void ReceiveBufferInfo();
 
-  void PackAndSend(int partition, BoundaryType b_type);
+  void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 
-  void RepointSendBuffers(int partition, BoundaryType b_type);
+  void RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type);
 
-  void RepointRecvBuffers(int partition, BoundaryType b_type);
+  void RepointRecvBuffers(MeshData<Real> *pmd, BoundaryType b_type);
 
-  void TryReceiveAny(BoundaryType b_type);
+  void TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
-  bool IsAvailableForWrite(int partition, BoundaryType b_type);
+  bool IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type);
 };
 
 } // namespace parthenon
