@@ -43,6 +43,7 @@ struct CombinedBuffersRankPartition {
   int partition; 
   mpi_comm_t comm_;
   Mesh *pmesh;
+  bool sender;
 
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> combined_info_buf;
@@ -50,8 +51,8 @@ struct CombinedBuffersRankPartition {
   CommBuffer<buf_t> combined_comm_buffer;
   int current_size;
 
-  CombinedBuffersRankPartition(int partition, int other_rank, BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh) 
-      : partition(partition), other_rank(other_rank), b_type(b_type), comm_(comm), pmesh(pmesh), current_size(0) {}
+  CombinedBuffersRankPartition(bool sender, int partition, int other_rank, BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh) 
+      : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type), comm_(comm), pmesh(pmesh), current_size(0) {}
   
   void AddVarBoundary(BndId &bnd_id);
   void AddVarBoundary(MeshBlock *pmb,

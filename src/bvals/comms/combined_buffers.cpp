@@ -30,26 +30,13 @@
 
 namespace parthenon {
 
-CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
-                                         mpi_comm_t comm)
-    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false),
-      comm_(comm) {
 
-  int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
-  if (sender) {
-    message = com_buf_t(tag, Globals::my_rank, other_rank, comm_,
-                        [](int size) { return std::vector<int>(size); });
-  } else {
-    message = com_buf_t(
-        tag, other_rank, Globals::my_rank, comm_,
-        [](int size) { return std::vector<int>(size); }, true);
-  }
-  PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
-}
 
 //----------------------------------------------------------------------------------------
 void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
-  combined_comm_buffer = CommBuffer<buf_t>(partition, Globals::my_rank, other_rank, comm_);
+  int send_rank = sender ? Globals::my_rank : other_rank;
+  int recv_rank = sender ? other_rank : Globals::my_rank;
+  combined_comm_buffer = CommBuffer<buf_t>(partition, send_rank, recv_rank, comm_);
   combined_comm_buffer.ConstructBuffer("combined send buffer", current_size); // Actually allocate the thing 
   // Point the BndId objects to the combined buffer
   for (auto &[uid, v] : combined_info_buf) {
@@ -161,7 +148,6 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(MPI_Message *message) {
 }
 
 //----------------------------------------------------------------------------------------
-// Hierarchy of calls for adding send buffers
 void CombinedBuffersRankPartition::AddVarBoundary(BndId& bnd_id) {
   auto key = GetChannelKey(bnd_id);
   PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
@@ -183,11 +169,29 @@ void CombinedBuffersRankPartition::AddVarBoundary(MeshBlock *pmb,
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
+CombinedBuffersRank::CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
+                                         mpi_comm_t comm)
+    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false),
+      comm_(comm) {
+
+  int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
+  if (sender) {
+    message = com_buf_t(tag, Globals::my_rank, other_rank, comm_,
+                        [](int size) { return std::vector<int>(size); });
+  } else {
+    message = com_buf_t(
+        tag, other_rank, Globals::my_rank, comm_,
+        [](int size) { return std::vector<int>(size); }, true);
+  }
+  PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
+}
+
+//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
                                         const NeighborBlock &nb,
                                         const std::shared_ptr<Variable<Real>> &var) {
   if (combined_bufs.count(partition) == 0)
-    combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(partition, other_rank, b_type, comm_, pmb->pmy_mesh)));
+    combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(true, partition, other_rank, b_type, comm_, pmb->pmy_mesh)));
 
   auto &comb_buf = combined_bufs.at(partition);
   comb_buf.AddVarBoundary(pmb, nb, var);
@@ -218,7 +222,7 @@ bool CombinedBuffersRank::TryReceiveBufInfo(Mesh *pmesh) {
       const int total_size = mess_buf[idx++];
       
       // Create the new partition
-      combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(partition, other_rank, b_type, comm_, pmesh)));
+      combined_bufs.emplace(std::make_pair(partition, CombinedBuffersRankPartition(false, partition, other_rank, b_type, comm_, pmesh)));
       auto &comb_buf = combined_bufs.at(partition); 
 
       combined_buffers[partition] =
@@ -317,6 +321,10 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo(Mesh *pmesh) {
 
 //----------------------------------------------------------------------------------------
 void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
+  if (combined_bufs.count(partition) == 0) return;
+  combined_bufs.at(partition).RebuildBndIdsOnDevice();
+  return;
+
   if (combined_info.count(partition) == 0) return;
   // Pull out the buffers and point them to the buf_struct
   auto &buf_struct_vec = combined_info[partition];
@@ -336,6 +344,12 @@ void CombinedBuffersRank::RepointBuffers(Mesh *pmesh, int partition) {
 void CombinedBuffersRank::PackAndSend(int partition) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
+  if (combined_bufs.count(partition)) { 
+    combined_bufs.at(partition).PackAndSend();
+  }
+
+  return;
+
   if (combined_info_device.count(partition) == 0) return; // There is nothing to send here
   auto &comb_info = combined_info_device[partition];
   PARTHENON_REQUIRE(combined_buffers[partition].IsAvailableForWrite(),
@@ -363,6 +377,9 @@ void CombinedBuffersRank::PackAndSend(int partition) {
 
 //----------------------------------------------------------------------------------------
 bool CombinedBuffersRank::IsAvailableForWrite(int partition) {
+  if (combined_bufs.count(partition) == 0) return true;
+  return combined_bufs.at(partition).IsAvailableForWrite();
+  
   if (combined_buffers.count(partition) == 0) return true;
   return combined_buffers[partition].IsAvailableForWrite();
 }
@@ -372,6 +389,10 @@ bool CombinedBuffersRank::TryReceiveAndUnpack(Mesh *pmesh, int partition,
                                               MPI_Message *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
+  PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
+                    "Trying to receive on a non-existent combined receive buffer.");
+  return combined_bufs.at(partition).TryReceiveAndUnpack(message);
+  
   PARTHENON_REQUIRE(combined_buffers.count(partition) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
   for (auto &buf : buffers[partition]) {
