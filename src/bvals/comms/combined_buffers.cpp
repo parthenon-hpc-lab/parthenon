@@ -101,7 +101,8 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars) {
+bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
+                                                       const std::set<Uid_t> &vars) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   // Make sure the var-boundary buffers are available to write to
   for (auto uid : var_set) {
@@ -123,7 +124,7 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message, c
     }
   }
 
-  //if (!all_allocated) 
+  // if (!all_allocated)
   RebuildBndIdsOnDevice(vars);
 
   auto &bids = bnd_ids_device;
@@ -305,7 +306,8 @@ bool CombinedBuffersRank::IsAvailableForWrite(MeshData<Real> *pmd) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition, mpi_message_t *message) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition,
+                                              mpi_message_t *message) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
@@ -366,8 +368,8 @@ bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_ty
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
-      available = available &&
-                  combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd);
+      available =
+          available && combined_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd);
     }
   }
   return available;
