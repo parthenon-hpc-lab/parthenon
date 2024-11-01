@@ -53,7 +53,14 @@ struct CombinedBuffersRankPartition {
 
   CombinedBuffersRankPartition(bool sender, int partition, int other_rank, BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh) 
       : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type), comm_(comm), pmesh(pmesh), current_size(0) {}
-  
+
+  int TotalBuffers() const { 
+    int total_buffers{0};
+    for (const auto&[uid, v] : combined_info_buf)
+      total_buffers += v.size();
+    return total_buffers;
+  } 
+
   void AddVarBoundary(BndId &bnd_id);
   void AddVarBoundary(MeshBlock *pmb,
                       const NeighborBlock &nb,
@@ -84,11 +91,6 @@ struct CombinedBuffersRank {
   // map from partion id to coalesced message structure for communication
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
-  std::map<int, coalesced_message_structure_t> combined_info;
-  std::map<int, std::vector<CommBuffer<buf_pool_t<Real>::owner_t> *>> buffers;
-  std::map<int, ParArray1D<BndId>> combined_info_device;
-  std::map<int, CommBuffer<buf_t>> combined_buffers;
-  std::map<int, int> current_size;
 
   std::map<int, CombinedBuffersRankPartition> combined_bufs;
 
