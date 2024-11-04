@@ -51,6 +51,7 @@ struct CombinedBuffersRankPartition {
   ParArray1D<BndId> bnd_ids_device;
   ParArray1D<BndId>::host_mirror_type bnd_ids_host;
   CommBuffer<buf_t> combined_comm_buffer;
+  CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
   CombinedBuffersRankPartition(bool sender, int partition, int other_rank,
@@ -72,7 +73,7 @@ struct CombinedBuffersRankPartition {
 
   void AllocateCombinedBuffer();
 
-  bool IsAvailableForWrite() { return combined_comm_buffer.IsAvailableForWrite(); }
+  bool IsAvailableForWrite() { return sparse_status_buffer.IsAvailableForWrite() && combined_comm_buffer.IsAvailableForWrite(); }
 
   ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars);
 

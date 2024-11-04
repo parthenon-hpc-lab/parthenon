@@ -35,9 +35,12 @@ namespace parthenon {
 void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
   int send_rank = sender ? Globals::my_rank : other_rank;
   int recv_rank = sender ? other_rank : Globals::my_rank;
-  combined_comm_buffer = CommBuffer<buf_t>(partition, send_rank, recv_rank, comm_);
+  combined_comm_buffer = CommBuffer<buf_t>(2 * partition, send_rank, recv_rank, comm_);
   combined_comm_buffer.ConstructBuffer("combined send buffer",
-                                       current_size); // Actually allocate the thing
+                                       current_size + 1); // Actually allocate the thing
+  sparse_status_buffer = CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm_); 
+  sparse_status_buffer.ConstructBuffer(current_size + 1); 
+  //PARTHENON_REQUIRE(current_size > 0, "Are we bigger than zero?");
   // Point the BndId objects to the combined buffer
   for (auto uid : all_vars) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
@@ -65,7 +68,10 @@ ParArray1D<BndId> &CombinedBuffersRankPartition::GetBndIdsOnDevice(const std::se
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       auto &bid_h = bnd_ids_host[idx];
-      const bool alloc = pvbbuf->IsActive();
+      auto buf_state = pvbbuf->GetState();
+      PARTHENON_REQUIRE(buf_state != BufferState::stale, "Trying to work with a stale buffer.");
+
+      const bool alloc = (buf_state == BufferState::sending) || (buf_state == BufferState::received);
       // Test if this boundary has changed
       if (!bid_h.SameBVChannel(bnd_id) || 
           (bid_h.buf_allocated != alloc) ||
@@ -96,18 +102,35 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
-        const int buf_size = bids[b].size();
-        Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
-        Real *buf = &(bids[b].buf(0));
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                             [&](const int idx) { com_buf[idx] = buf[idx]; });
+        if (bids[b].buf_allocated) {
+          const int buf_size = bids[b].size();
+          Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
+          Real *buf = &(bids[b].buf(0));
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                               [&](const int idx) { com_buf[idx] = buf[idx]; });
+        }                    
       });
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
   combined_comm_buffer.Send();
 
+  // Send the sparse null info as well
+  if (bids.size() != sparse_status_buffer.buffer().size()) {
+    sparse_status_buffer.ConstructBuffer(bids.size());  
+  }
+  
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
+  auto &stat = sparse_status_buffer.buffer();
+  int idx{0};
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
+      stat[idx] = (pvbbuf->GetState() == BufferState::sending);
+      ++idx;
+    }
+  }
+  sparse_status_buffer.Send();
+
   // Information in these send buffers is no longer required
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
@@ -121,19 +144,39 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
                                                        const std::set<Uid_t> &vars) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   // Make sure the var-boundary buffers are available to write to
+  int nbuf{0};
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       if (pvbbuf->GetState() != BufferState::stale) return false;
+      nbuf++;
     }
   }
 
+  if (nbuf != sparse_status_buffer.buffer().size()) {
+    sparse_status_buffer.ConstructBuffer(nbuf);  
+  }
+  auto received_sparse = sparse_status_buffer.TryReceive();
   auto received = combined_comm_buffer.TryReceive(message);
-  if (!received) return false;
+  if (!received || !received_sparse) return false;
   
-  // TODO(LFR): Update this to allocate based on second received message
+  // Allocate and free buffers as required
+  int idx{0};
+  auto &stat = sparse_status_buffer.buffer();
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      if (!pvbbuf->IsActive()) pvbbuf->Allocate();
+      if (pvbbuf->IsActive()) {
+        if (stat[idx] == 0) 
+          pvbbuf->Free();
+      } else { 
+        if (stat[idx] == 1) 
+          pvbbuf->Allocate();
+      }
+      if (stat[idx]) {
+        pvbbuf->SetReceived();
+      } else {
+       pvbbuf->SetReceivedNull();
+      }
+      idx++;
     }
   }
 
@@ -143,19 +186,16 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
-        const int buf_size = bids[b].size();
-        Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
-        Real *buf = &(bids[b].buf(0));
-        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                             [&](const int idx) { buf[idx] = com_buf[idx]; });
+        if (bids[b].buf_allocated) {
+          const int buf_size = bids[b].size();
+          Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
+          Real *buf = &(bids[b].buf(0));
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                               [&](const int idx) { buf[idx] = com_buf[idx]; });
+        }
       });
   combined_comm_buffer.Stale();
-
-  for (auto uid : var_set) {
-    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      pvbbuf->SetReceived();
-    }
-  }
+  sparse_status_buffer.Stale();
 
   return true;
 }

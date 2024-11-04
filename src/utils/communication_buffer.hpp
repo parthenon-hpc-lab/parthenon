@@ -126,6 +126,7 @@ class CommBuffer {
   void Send() noexcept;
   void SendLocal() noexcept;
   void SendNull() noexcept;
+  void SendNullLocal() noexcept;
 
   bool IsAvailableForWrite();
 
@@ -137,6 +138,12 @@ class CommBuffer {
                           *comm_type_ == BuffCommType::sparse_receiver,
                       "This doesn't make sense for a non-receiver.");
     *state_ = BufferState::received;
+  }
+  void SetReceivedNull() noexcept {
+    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
+                          *comm_type_ == BuffCommType::sparse_receiver,
+                      "This doesn't make sense for a non-receiver.");
+    *state_ = BufferState::received_null;
   }
   bool IsSafeToDelete() {
     if (*comm_type_ == BuffCommType::sparse_receiver ||
@@ -263,10 +270,17 @@ void CommBuffer<T>::SendLocal() noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send from buffer that hasn't been staled.");
   *state_ = BufferState::sending;
-  if (*comm_type_ == BuffCommType::sender) {
-    // This buffer has been sent in some other way
-    *state_ = BufferState::stale;
+  if (*comm_type_ == BuffCommType::receiver) {
+    // This is an error
+    PARTHENON_FAIL("Trying to send from a receiver");
   }
+}
+
+template <class T>
+void CommBuffer<T>::SendNullLocal() noexcept {
+  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
+                          "Trying to send from buffer that hasn't been staled.");
+  *state_ = BufferState::sending_null;
   if (*comm_type_ == BuffCommType::receiver) {
     // This is an error
     PARTHENON_FAIL("Trying to send from a receiver");

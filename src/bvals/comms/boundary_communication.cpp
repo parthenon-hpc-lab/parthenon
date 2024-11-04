@@ -152,16 +152,16 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
 
-  // Send the combined buffers
-  pmesh->pcombined_buffers->PackAndSend(md.get(), bound_type);
-
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.SendLocal();
     else
-      buf.SendNull();
+      buf.SendNullLocal();
   }
+ 
+  // Send the combined buffers
+  pmesh->pcombined_buffers->PackAndSend(md.get(), bound_type);
 
   return TaskStatus::complete;
 }
