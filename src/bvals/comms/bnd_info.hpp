@@ -79,9 +79,10 @@ struct BndId {
   KOKKOS_FORCEINLINE_FUNCTION
   int &start_idx() { return data[9]; }
 
+  bool buf_allocated;
   buf_pool_t<Real>::weak_t buf;  // comm buffer from pool
   BufArray1D<Real> combined_buf; // Combined buffer
-
+  
   void PrintInfo(const std::string &start);
 
   KOKKOS_DEFAULTED_FUNCTION
@@ -99,6 +100,14 @@ struct BndId {
     for (int i = 0; i < NDAT; ++i) {
       data_out[i] = data[i];
     }
+  }
+
+  bool SameBVChannel(const BndId& other) { 
+    // Don't want to compare start_idx, so -1
+    for (int i = 0; i < NDAT - 1; ++i) {
+      if (data[i] != other.data[i]) return false;
+    }
+    return true;
   }
 
   static BndId GetSend(MeshBlock *pmb, const NeighborBlock &nb,

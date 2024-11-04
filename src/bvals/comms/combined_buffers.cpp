@@ -47,34 +47,50 @@ void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRankPartition::RebuildBndIdsOnDevice(const std::set<Uid_t> &vars) {
+ParArray1D<BndId> &CombinedBuffersRankPartition::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
   int nbnd_id{0};
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   for (auto uid : var_set)
     nbnd_id += combined_info_buf.at(uid).size();
-  bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
-  auto bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
+  
+  bool updated = false;
+  if (nbnd_id != bnd_ids_device.size()) {
+    bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
+    bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
+    updated = true;
+  }
 
   int idx{0};
   int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      bnd_ids_host[idx] = bnd_id;
-      bnd_ids_host[idx].buf = pvbbuf->buffer();
-      bnd_ids_host[idx].start_idx() = c_buf_idx;
-      c_buf_idx += bnd_id.size();
+      auto &bid_h = bnd_ids_host[idx];
+      const bool alloc = pvbbuf->IsActive();
+      // Test if this boundary has changed
+      if (!bid_h.SameBVChannel(bnd_id) || 
+          (bid_h.buf_allocated != alloc) ||
+          (bid_h.start_idx() != c_buf_idx) || 
+          !UsingSameResource(bid_h.buf, pvbbuf->buffer())) {
+        updated = true;
+        bid_h = bnd_id;
+        bid_h.buf_allocated = alloc; 
+        bid_h.start_idx() = c_buf_idx; 
+        if (bid_h.buf_allocated)
+          bid_h.buf = pvbbuf->buffer();
+      }
+      if (bid_h.buf_allocated) c_buf_idx += bid_h.size();
       idx++;
     }
   }
-  Kokkos::deep_copy(bnd_ids_device, bnd_ids_host);
+  if (updated) Kokkos::deep_copy(bnd_ids_device, bnd_ids_host);
+  return bnd_ids_device;
 }
 
 //----------------------------------------------------------------------------------------
 void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(combined_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
-  RebuildBndIdsOnDevice(vars);
-  auto &bids = bnd_ids_device;
+  auto &bids = GetBndIdsOnDevice(vars);
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
@@ -113,21 +129,15 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
 
   auto received = combined_comm_buffer.TryReceive(message);
   if (!received) return false;
-
-  bool all_allocated = true;
+  
+  // TODO(LFR): Update this to allocate based on second received message
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      if (!pvbbuf->IsActive()) {
-        all_allocated = false;
-        pvbbuf->Allocate();
-      }
+      if (!pvbbuf->IsActive()) pvbbuf->Allocate();
     }
   }
 
-  // if (!all_allocated)
-  RebuildBndIdsOnDevice(vars);
-
-  auto &bids = bnd_ids_device;
+  auto &bids = GetBndIdsOnDevice(vars);
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
@@ -281,13 +291,6 @@ void CombinedBuffersRank::ResolveSendBuffersAndSendInfo() {
 }
 
 //----------------------------------------------------------------------------------------
-void CombinedBuffersRank::RepointBuffers(MeshData<Real> *pmd, int partition) {
-  if (combined_bufs.count(partition) == 0) return;
-  combined_bufs.at(partition).RebuildBndIdsOnDevice(pmd->GetUids());
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 void CombinedBuffersRank::PackAndSend(MeshData<Real> *pmd) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
@@ -380,13 +383,6 @@ void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
     if (combined_send_buffers.count({rank, b_type})) {
       combined_send_buffers.at({rank, b_type}).PackAndSend(pmd);
     }
-  }
-}
-
-void CombinedBuffers::RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type) {
-  for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (combined_send_buffers.count({rank, b_type}))
-      combined_send_buffers.at({rank, b_type}).RepointBuffers(pmd, pmd->partition);
   }
 }
 

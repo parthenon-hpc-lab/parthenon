@@ -49,6 +49,7 @@ struct CombinedBuffersRankPartition {
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> combined_info_buf;
   std::set<Uid_t> all_vars;
   ParArray1D<BndId> bnd_ids_device;
+  ParArray1D<BndId>::host_mirror_type bnd_ids_host;
   CommBuffer<buf_t> combined_comm_buffer;
   int current_size;
 
@@ -73,7 +74,7 @@ struct CombinedBuffersRankPartition {
 
   bool IsAvailableForWrite() { return combined_comm_buffer.IsAvailableForWrite(); }
 
-  void RebuildBndIdsOnDevice(const std::set<Uid_t> &vars);
+  ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars);
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
@@ -117,8 +118,6 @@ struct CombinedBuffersRank {
   void PackAndSend(MeshData<Real> *pmd);
 
   bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition, mpi_message_t *message);
-
-  void RepointBuffers(MeshData<Real> *pmd, int partition);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
@@ -174,8 +173,6 @@ struct CombinedBuffers {
   void ReceiveBufferInfo();
 
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
-
-  void RepointSendBuffers(MeshData<Real> *pmd, BoundaryType b_type);
 
   void TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
