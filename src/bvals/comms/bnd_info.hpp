@@ -82,7 +82,7 @@ struct BndId {
   bool buf_allocated;
   buf_pool_t<Real>::weak_t buf;  // comm buffer from pool
   BufArray1D<Real> combined_buf; // Combined buffer
-  
+
   void PrintInfo(const std::string &start);
 
   KOKKOS_DEFAULTED_FUNCTION
@@ -102,7 +102,7 @@ struct BndId {
     }
   }
 
-  bool SameBVChannel(const BndId& other) { 
+  bool SameBVChannel(const BndId &other) {
     // Don't want to compare start_idx, so -1
     for (int i = 0; i < NDAT - 1; ++i) {
       if (data[i] != other.data[i]) return false;

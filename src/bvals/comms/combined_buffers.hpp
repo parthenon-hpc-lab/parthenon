@@ -73,7 +73,10 @@ struct CombinedBuffersRankPartition {
 
   void AllocateCombinedBuffer();
 
-  bool IsAvailableForWrite() { return sparse_status_buffer.IsAvailableForWrite() && combined_comm_buffer.IsAvailableForWrite(); }
+  bool IsAvailableForWrite() {
+    return sparse_status_buffer.IsAvailableForWrite() &&
+           combined_comm_buffer.IsAvailableForWrite();
+  }
 
   ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars);
 

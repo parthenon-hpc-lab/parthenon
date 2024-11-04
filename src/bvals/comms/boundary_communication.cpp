@@ -159,17 +159,17 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       else
         buf.SendNullLocal();
     }
- 
+
     // Send the combined buffers
     pmesh->pcombined_buffers->PackAndSend(md.get(), bound_type);
-  } else { 
+  } else {
     for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
       auto &buf = *cache.buf_vec[ibuf];
       if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
         buf.Send();
       else
         buf.SendNull();
-    }  
+    }
   }
   return TaskStatus::complete;
 }
@@ -236,13 +236,13 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                     all_received = pbuf->TryReceiveLocal() && all_received;
                     nreceived += pbuf->TryReceiveLocal();
                   });
-  } else { 
+  } else {
     int nreceived{0};
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [&all_received, &nreceived](auto pbuf) {
                     all_received = pbuf->TryReceive() && all_received;
                     nreceived += pbuf->TryReceive();
-                  }); 
+                  });
   }
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
