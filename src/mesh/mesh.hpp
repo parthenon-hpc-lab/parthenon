@@ -126,6 +126,8 @@ class Mesh {
   int step_since_lb;
   int gflag;
 
+  bool do_combined_comms;
+
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
