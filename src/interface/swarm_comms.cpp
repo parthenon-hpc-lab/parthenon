@@ -178,10 +178,20 @@ void Swarm::LoadBuffers_() {
   auto &y = Get<Real>(swarm_position::y::name()).Get();
   auto &z = Get<Real>(swarm_position::z::name()).Get();
 
-  if (max_active_index_ >= 0) {
-    auto &buffer_sorted = buffer_sorted_;
-    auto &buffer_start = buffer_start_;
+  // use discontinuity check to determine start of a buffer in buffer_sorted array
+  auto &num_particles_to_send = num_particles_to_send_;
+  auto max_active_index = max_active_index_;
+  auto &buffer_sorted = buffer_sorted_;
+  auto &buffer_start = buffer_start_;
 
+  // Zero out number of particles to send before accumulating
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1, KOKKOS_LAMBDA(const int n) {
+        num_particles_to_send[n] = 0;
+        buffer_start[n] = 0;
+      });
+
+  if (max_active_index_ >= 0) {
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
@@ -196,17 +206,6 @@ void Swarm::LoadBuffers_() {
 
     // sort by buffer index
     sort(buffer_sorted, SwarmKeyComparator(), 0, max_active_index_);
-
-    // use discontinuity check to determine start of a buffer in buffer_sorted array
-    auto &num_particles_to_send = num_particles_to_send_;
-    auto max_active_index = max_active_index_;
-
-    // Zero out number of particles to send before accumulating
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1, KOKKOS_LAMBDA(const int n) {
-          num_particles_to_send[n] = 0;
-          buffer_start[n] = 0;
-        });
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
@@ -224,23 +223,25 @@ void Swarm::LoadBuffers_() {
             num_particles_to_send(m) = n + 1;
           }
         });
+  }
 
-    // copy values back to host for buffer sizing
-    auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
-    auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
+  // copy values back to host for buffer sizing
+  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
+  auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
 
-    // Resize send buffers if too small
-    for (int n = 0; n < pmb->neighbors.size(); n++) {
-      num_particles_to_send_h(n) -= buffer_start_h(n);
-      const int bufid = pmb->neighbors[n].bufid;
-      auto sendbuf = vbswarm->bd_var_.send[bufid];
-      if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
-        sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
-        vbswarm->bd_var_.send[bufid] = sendbuf;
-      }
-      vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
+  // Resize send buffers if too small
+  for (int n = 0; n < pmb->neighbors.size(); n++) {
+    num_particles_to_send_h(n) -= buffer_start_h(n);
+    const int bufid = pmb->neighbors[n].bufid;
+    auto sendbuf = vbswarm->bd_var_.send[bufid];
+    if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
+      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
+      vbswarm->bd_var_.send[bufid] = sendbuf;
     }
+    vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
+  }
 
+  if (max_active_index_ >= 0) {
     auto &bdvar = vbswarm->bd_var_;
     auto neighbor_buffer_index = neighbor_buffer_index_;
     // Loop over active particles buffer_sorted, use index n and buffer_start to
