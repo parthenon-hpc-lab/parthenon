@@ -59,3 +59,4 @@ rng_seed = 23487
 const_dt = 0.5
 deposition_method = per_cell
 destroy_particles_frac = 0.1
+defrag_threshold = 0.9

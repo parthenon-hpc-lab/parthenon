@@ -2,26 +2,42 @@
 
 ## Current develop
 
-### Changed (changing behavior/API/variables/...)
+### Added (new features/APIs/variables/...)
+- [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
+- [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
+- [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
+- [[PR 1179]](https://github.com/parthenon-hpc-lab/parthenon/pull/1179) Make a global variable for whether simulation is a restart
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+- [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
+### Changed (changing behavior/API/variables/...)
+- [[PR1203]](https://github.com/parthenon-hpc-lab/parthenon/pull/1203) Pin Ubuntu CI image
+- [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
+- [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
+- [[Issue 1165]](https://github.com/parthenon-hpc-lab/parthenon/issues/1165) Bump Kokkos submodule to 4.4.1
+- [[PR 1171]](https://github.com/parthenon-hpc-lab/parthenon/pull/1171) Add PARTHENON_USE_SYSTEM_PACKAGES build option
+- [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1170]](https://github.com/parthenon-hpc-lab/parthenon/pull/1170) Fixed incorrect initialization of array by a const not constexpr
-
+- [[PR 1189]](https://github.com/parthenon-hpc-lab/parthenon/pull/1189) Address CUDA MPI/ICP issue with Kokkos <=4.4.1
+- [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
+- [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
-
+- [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 
 ## Release 24.08
 Date: 2024-08-30
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1167]](https://github.com/parthenon-hpc-lab/parthenon/pull/1167) Store block gid and neighbor refinement levels in sparse packs
 - [[PR 1151]](https://github.com/parthenon-hpc-lab/parthenon/pull/1151) Add time offset `c` to LowStorageIntegrator
 - [[PR 1147]](https://github.com/parthenon-hpc-lab/parthenon/pull/1147) Add `par_reduce_inner` functions
 - [[PR 1159]](https://github.com/parthenon-hpc-lab/parthenon/pull/1159) Add additional timestep controllers in parthenon/time.

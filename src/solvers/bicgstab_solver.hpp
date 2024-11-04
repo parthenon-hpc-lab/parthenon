@@ -13,6 +13,7 @@
 #ifndef SOLVERS_BICGSTAB_SOLVER_HPP_
 #define SOLVERS_BICGSTAB_SOLVER_HPP_
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -143,19 +144,18 @@ class BiCGSTABSolver {
         this);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol,
-            bool relative_residual) {
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+            Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
-            Real tol =
-                relative_residual
-                    ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
-                    : *res_tol;
+            Real tol = relative_residual
+                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
+                           : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
           }
           return TaskStatus::complete;
         },
-        this, params_.residual_tolerance, params_.relative_residual);
+        this, params_.residual_tolerance, params_.relative_residual, pmesh);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});

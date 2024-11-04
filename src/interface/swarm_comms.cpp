@@ -44,21 +44,6 @@ void Swarm::SetNeighborIndices_() {
     }
   }
 
-  // Indicate which neighbor regions correspond to this meshblock
-  const int kmin = ndim < 3 ? 0 : 1;
-  const int kmax = ndim < 3 ? 3 : 2;
-  const int jmin = ndim < 2 ? 0 : 1;
-  const int jmax = ndim < 2 ? 3 : 2;
-  const int imin = 1;
-  const int imax = 2;
-  for (int k = kmin; k <= kmax; k++) {
-    for (int j = jmin; j <= jmax; j++) {
-      for (int i = imin; i <= imax; i++) {
-        neighbor_indices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
   // Create a point in the center of each ghost halo region at maximum refinement level
   // and then test whether each neighbor block includes that point.
   const auto &bsize = pmb->block_size;
@@ -130,6 +115,21 @@ void Swarm::SetNeighborIndices_() {
     }
   }
 
+  // Indicate which neighbor regions correspond to this meshblock
+  const int kmin = ndim < 3 ? 0 : 1;
+  const int kmax = ndim < 3 ? 3 : 2;
+  const int jmin = ndim < 2 ? 0 : 1;
+  const int jmax = ndim < 2 ? 3 : 2;
+  const int imin = 1;
+  const int imax = 2;
+  for (int k = kmin; k <= kmax; k++) {
+    for (int j = jmin; j <= jmax; j++) {
+      for (int i = imin; i <= imax; i++) {
+        neighbor_indices_h(k, j, i) = this_block_;
+      }
+    }
+  }
+
   neighbor_indices_.DeepCopy(neighbor_indices_h);
 }
 
@@ -156,72 +156,14 @@ void Swarm::SetupPersistentMPI() {
   }
 }
 
-void Swarm::CountParticlesToSend_() {
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-  auto swarm_d = GetDeviceContext();
-  auto pmb = GetBlockPointer();
-  const int nbmax = vbswarm->bd_var_.nbmax;
-
-  // Fence to make sure particles aren't currently being transported locally
-  // TODO(BRR) do this operation on device.
-  pmb->exec_space.fence();
-  const int particle_size = GetParticleDataSize();
-  vbswarm->particle_size = particle_size;
-
-  // TODO(BRR) This kernel launch should be folded into the subsequent logic once we
-  // convert that to kernel-based reductions
-  auto &x = Get<Real>(swarm_position::x::name()).Get();
-  auto &y = Get<Real>(swarm_position::y::name()).Get();
-  auto &z = Get<Real>(swarm_position::z::name()).Get();
-  const int max_active_index = GetMaxActiveIndex();
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-        }
-      });
-
-  // Facilitate lambda captures
-  auto &block_index = block_index_;
-  auto &num_particles_to_send = num_particles_to_send_;
-
-  // Zero out number of particles to send before accumulating
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1,
-      KOKKOS_LAMBDA(const int n) { num_particles_to_send[n] = 0; });
-
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-
-          if (block_index(n) >= 0) {
-            Kokkos::atomic_add(&num_particles_to_send(block_index(n)), 1);
-          }
-        }
-      });
-
-  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
-
-  // Resize send buffers if too small
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    const int bufid = pmb->neighbors[n].bufid;
-    auto sendbuf = vbswarm->bd_var_.send[bufid];
-    if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
-      sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
-      vbswarm->bd_var_.send[bufid] = sendbuf;
-    }
-    vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
-  }
-}
-
 void Swarm::LoadBuffers_() {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
+  vbswarm->particle_size = particle_size;
   const int nneighbor = pmb->neighbors.size();
+  // Fence to make sure particles aren't currently being transported locally
+  pmb->exec_space.fence();
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
@@ -236,42 +178,98 @@ void Swarm::LoadBuffers_() {
   auto &y = Get<Real>(swarm_position::y::name()).Get();
   auto &z = Get<Real>(swarm_position::z::name()).Get();
 
-  // Zero buffer index counters
-  auto &buffer_counters = buffer_counters_;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1,
-      KOKKOS_LAMBDA(const int n) { buffer_counters[n] = 0; });
+  if (max_active_index_ >= 0) {
+    auto &buffer_sorted = buffer_sorted_;
+    auto &buffer_start = buffer_start_;
 
-  auto &bdvar = vbswarm->bd_var_;
-  auto neighbor_buffer_index = neighbor_buffer_index_;
-  // Loop over active particles and use atomic operations to find indices into buffers if
-  // this particle will be sent.
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          bool on_current_mesh_block = true;
-          const int m =
-              swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-          const int bufid = neighbor_buffer_index(m);
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          if (swarm_d.IsActive(n)) {
+            bool on_current_mesh_block = true;
+            const int m =
+                swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+            buffer_sorted(n) = SwarmKey(m, n);
+          } else {
+            buffer_sorted(n) = SwarmKey(this_block_, n);
+          }
+        });
 
-          if (m >= 0) {
-            const int bid = Kokkos::atomic_fetch_add(&buffer_counters(m), 1);
-            int buffer_index = bid * particle_size;
-            swarm_d.MarkParticleForRemoval(n);
-            for (int i = 0; i < realPackDim; i++) {
-              bdvar.send[bufid](buffer_index) = vreal(i, n);
-              buffer_index++;
-            }
-            for (int i = 0; i < intPackDim; i++) {
-              bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, n));
-              buffer_index++;
+    // sort by buffer index
+    sort(buffer_sorted, SwarmKeyComparator(), 0, max_active_index_);
+
+    // use discontinuity check to determine start of a buffer in buffer_sorted array
+    auto &num_particles_to_send = num_particles_to_send_;
+    auto max_active_index = max_active_index_;
+
+    // Zero out number of particles to send before accumulating
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, NMAX_NEIGHBORS - 1, KOKKOS_LAMBDA(const int n) {
+          num_particles_to_send[n] = 0;
+          buffer_start[n] = 0;
+        });
+
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          auto m = buffer_sorted(n).sort_idx_;
+          // start checks (used for index of particle in buffer)
+          if (m >= 0 && n == 0) {
+            buffer_start(m) = 0;
+          } else if (m >= 0 && m != buffer_sorted(n - 1).sort_idx_) {
+            buffer_start(m) = n;
+          }
+          // end checks (used to to size particle buffers)
+          if (m >= 0 && n == max_active_index) {
+            num_particles_to_send(m) = n + 1;
+          } else if (m >= 0 && m != buffer_sorted(n + 1).sort_idx_) {
+            num_particles_to_send(m) = n + 1;
+          }
+        });
+
+    // copy values back to host for buffer sizing
+    auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
+    auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
+
+    // Resize send buffers if too small
+    for (int n = 0; n < pmb->neighbors.size(); n++) {
+      num_particles_to_send_h(n) -= buffer_start_h(n);
+      const int bufid = pmb->neighbors[n].bufid;
+      auto sendbuf = vbswarm->bd_var_.send[bufid];
+      if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
+        sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
+        vbswarm->bd_var_.send[bufid] = sendbuf;
+      }
+      vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
+    }
+
+    auto &bdvar = vbswarm->bd_var_;
+    auto neighbor_buffer_index = neighbor_buffer_index_;
+    // Loop over active particles buffer_sorted, use index n and buffer_start to
+    /// get index in buffer m, pack that particle in buffer
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          auto p_index = buffer_sorted(n).swarm_idx_;
+          if (swarm_d.IsActive(p_index)) {
+            const int m = buffer_sorted(n).sort_idx_;
+            const int bufid = neighbor_buffer_index(m);
+            if (m >= 0) {
+              const int bid = n - buffer_start[m];
+              int buffer_index = bid * particle_size;
+              swarm_d.MarkParticleForRemoval(p_index);
+              for (int i = 0; i < realPackDim; i++) {
+                bdvar.send[bufid](buffer_index) = vreal(i, p_index);
+                buffer_index++;
+              }
+              for (int i = 0; i < intPackDim; i++) {
+                bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
+                buffer_index++;
+              }
             }
           }
-        }
-      });
+        });
 
-  // Remove particles that were loaded to send to another block from this block
-  RemoveMarkedParticles();
+    // Remove particles that were loaded to send to another block from this block
+    RemoveMarkedParticles();
+  }
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
@@ -279,10 +277,8 @@ void Swarm::Send(BoundaryCommSubset phase) {
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
 
-  // Query particles for those to be sent
-  CountParticlesToSend_();
-
-  // Prepare buffers for send operations
+  // Potentially resize buffer, get consistent index from particle array, get ready to
+  // send
   LoadBuffers_();
 
   // Send buffer data
@@ -437,6 +433,9 @@ void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
   pmb->pbswarm->bswarms.push_back(vbswarm);
+
+  // Evaluate neigbor indices
+  SetNeighborIndices_();
 }
 
 } // namespace parthenon

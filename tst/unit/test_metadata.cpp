@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <string>
+#include <vector>
+
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"

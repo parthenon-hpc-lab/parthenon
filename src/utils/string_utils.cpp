@@ -14,6 +14,8 @@
 #include "string_utils.hpp"
 
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "error_checking.hpp"
 

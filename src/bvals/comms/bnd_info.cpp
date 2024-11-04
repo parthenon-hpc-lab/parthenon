@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <iostream> // debug
 #include <memory>
 #include <string>

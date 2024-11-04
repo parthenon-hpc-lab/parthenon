@@ -43,6 +43,9 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+// forward declaration
+class ParameterInput;
+
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
@@ -348,6 +351,7 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm);
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
 
+void CheckParameterInputConsistent(ParameterInput *pin);
 } // namespace OutputUtils
 } // namespace parthenon
 

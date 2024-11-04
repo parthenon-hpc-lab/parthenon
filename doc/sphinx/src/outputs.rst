@@ -609,7 +609,4 @@ For example, the following methods are valid to load data with ``yt``
 
    ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 
-Currently, the ``yt`` frontend for Parthenon is hosted on the
-``parthenon-frontend`` branch of this `yt fork <https://github.com/forrestglines/yt/tree/parthenon-frontend>`_. In
-the future, the Parthenon frontend will be included in the main ``yt``
-repo.
+The ``yt`` frontend for Parthenon is availble in ``yt >= 4.4``.

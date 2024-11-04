@@ -95,6 +95,9 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
+  application_input.cpp
+  application_input.hpp
+
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
@@ -230,6 +233,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_utils.hpp
 
+  tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
 
@@ -244,6 +248,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
+  utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp

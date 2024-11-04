@@ -26,6 +26,7 @@
 
 #include "interface/pack_utils.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/swarm_device_context.hpp"
 #include "interface/variable.hpp"
 #include "utils/utils.hpp"
 

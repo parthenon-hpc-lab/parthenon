@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,13 +24,10 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/domain.hpp"
-#include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
 
 namespace parthenon {
 
 class Mesh;
-// class MeshBlock;
 
 // a separate dims array removes a branch case in `GetDim`
 // TODO(JMM): Using one IndexShape because its the same for all

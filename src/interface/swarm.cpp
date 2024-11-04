@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.block_index_ = block_index_;
   context.neighbor_indices_ = neighbor_indices_;
   context.cell_sorted_ = cell_sorted_;
+  context.buffer_sorted_ = buffer_sorted_;
   context.cell_sorted_begin_ = cell_sorted_begin_;
   context.cell_sorted_number_ = cell_sorted_number_;
 
@@ -72,9 +74,10 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       new_indices_("new_indices_", nmax_pool_), scratch_a_("scratch_a_", nmax_pool_),
       scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
-      buffer_counters_("buffer_counters_", NMAX_NEIGHBORS),
+      buffer_start_("buffer_start_", NMAX_NEIGHBORS),
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
-      cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
+      cell_sorted_("cell_sorted_", nmax_pool_),
+      buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
@@ -206,6 +209,9 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cell_sorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
+
+  Kokkos::resize(buffer_sorted_, nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
   block_index_.Resize(nmax_pool);
@@ -353,15 +359,18 @@ void Swarm::Defrag() {
   auto &mask = mask_;
 
   const int &num_active = num_active_;
+  auto empty_indices = empty_indices_;
   parthenon::par_scan(
-      "Set empty indices prefix sum", 0, nmax_pool_ - num_active_ - 1,
-      KOKKOS_LAMBDA(const int nn, int &update, const bool &final) {
-        const int n = nn + num_active;
+      "Set empty indices prefix sum", num_active, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
         const int val = mask(n);
         if (val) {
           update += 1;
         }
-        if (final) scan_scratch_toread(n) = update;
+        if (final) {
+          scan_scratch_toread(n) = update;
+          empty_indices(n - num_active) = n;
+        }
       });
 
   parthenon::par_for(
@@ -486,35 +495,35 @@ void Swarm::SortParticlesByCell() {
             break;
           }
 
-          if (cell_sorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ == cell_idx_1d) {
             if (start_index == 0) {
               break;
-            } else if (cell_sorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+            } else if (cell_sorted(start_index - 1).sort_idx_ != cell_idx_1d) {
               break;
             } else {
               start_index--;
               continue;
             }
           }
-          if (cell_sorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
-          if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
             start_index++;
             if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ > cell_idx_1d) {
               start_index = -1;
               break;
             }
@@ -528,13 +537,61 @@ void Swarm::SortParticlesByCell() {
           int number = 0;
           int current_index = start_index;
           while (current_index <= max_active_index &&
-                 cell_sorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+                 cell_sorted(current_index).sort_idx_ == cell_idx_1d) {
             current_index++;
             number++;
             cell_sorted_number(k, j, i) = number;
           }
         }
       });
+}
+
+void Swarm::Validate(bool test_comms) const {
+  auto mask = mask_;
+  auto neighbor_indices = neighbor_indices_;
+  auto empty_indices = empty_indices_;
+
+  // Check that number of unmasked particles is number of active particles
+  int nactive = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nact) {
+        if (mask(n)) {
+          nact += 1;
+        }
+      },
+      Kokkos::Sum<int>(nactive));
+  PARTHENON_REQUIRE(nactive == num_active_, "Mask and num_active counter do not agree!");
+
+  // Check that region of neighbor indices corresponding to this block is correct
+  // This is optional because the relevant infrastructure for comms isn't always allocated
+  // in testing.
+  int num_err = 0;
+  if (test_comms) {
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 1, 2,
+        1, 2, 1, 2,
+        KOKKOS_LAMBDA(const int k, const int j, const int i, int &nerr) {
+          if (neighbor_indices(k, j, i) != this_block_) {
+            nerr += 1;
+          }
+        },
+        Kokkos::Sum<int>(num_err));
+    PARTHENON_REQUIRE(num_err == 0,
+                      "This block region of neighbor indices is incorrect!");
+  }
+
+  num_err = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nerr) {
+        if (mask(empty_indices(n)) == true) {
+          nerr += 1;
+        }
+      },
+      Kokkos::Sum<int>(num_err));
+  PARTHENON_REQUIRE(num_err == 0,
+                    "empty_indices_ array pointing to unmasked particle indices!");
 }
 
 } // namespace parthenon

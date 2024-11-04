@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <functional>
 #include <limits>
 #include <map>
@@ -67,19 +68,16 @@ SparsePackBase::GetAllocStatus(T *pmd, const PackDescriptor &desc,
                                const std::vector<bool> &include_block) {
   using mbd_t = MeshBlockData<Real>;
 
-  int nvar = desc.nvar_groups;
-
-  std::vector<int> astat;
+  const int nvar = desc.nvar_groups;
+  const int nblock = pmd->NumBlocks();
+  std::vector<int> astat(nblock * desc.nvar_tot);
+  int idx = 0;
   ForEachBlock(pmd, include_block, [&](int b, mbd_t *pmbd) {
     const auto &uid_map = pmbd->GetUidMap();
     for (int i = 0; i < nvar; ++i) {
       for (const auto &[var_name, uid] : desc.var_groups[i]) {
-        if (uid_map.count(uid) > 0) {
-          const auto pv = uid_map.at(uid);
-          astat.push_back(pv->GetAllocationStatus());
-        } else {
-          astat.push_back(-1);
-        }
+        astat[idx++] =
+            uid_map.count(uid) > 0 ? (uid_map.at(uid))->GetAllocationStatus() : -1;
       }
     }
   });
@@ -165,6 +163,10 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
+  // This array stores refinement levels of current block and all neighboring blocks.
+  pack.block_props_ = block_props_t("block_props", nblocks, 27 + 1);
+  pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
+
   pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
   auto coords_h = Kokkos::create_mirror_view(pack.coords_);
 
@@ -181,6 +183,24 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       // but it would imply unnecessary copies in the case of non-flat
       // packs.
       coords_h(b) = pmbd->GetBlockPointer()->coords_device;
+    }
+
+    // Initialize block refinement levels to current block level to provide default if
+    // neighbors not present
+    for (int n = 0; n < 27; n++) {
+      pack.block_props_h_(blidx, (1 + 3 * (1 + 3 * 1))) =
+          pmbd->GetBlockPointer()->loc.level();
+    }
+    // This block's gid stored in central (1, 1, 1, 1) element
+    pack.block_props_h_(blidx, 27) = pmbd->GetBlockPointer()->gid;
+    for (auto &neighbor : pmbd->GetBlockPointer()->neighbors) {
+      // Multiple refined neighbors may write to the same index but they will always have
+      // the same refinement level.
+      pack.block_props_h_(
+          blidx, (neighbor.offsets[2] + 1) +
+                     3 * ((neighbor.offsets[1] + 1) + 3 * (neighbor.offsets[0] + 1))) =
+          neighbor.loc.level();
+      // Currently not storing neighbor gids
     }
 
     for (int i = 0; i < nvar; ++i) {
@@ -281,6 +301,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   });
   Kokkos::deep_copy(pack.pack_, pack.pack_h_);
   Kokkos::deep_copy(pack.bounds_, pack.bounds_h_);
+  Kokkos::deep_copy(pack.block_props_, pack.block_props_h_);
   Kokkos::deep_copy(pack.coords_, coords_h);
 
   return pack;

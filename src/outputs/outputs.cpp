@@ -67,6 +67,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"

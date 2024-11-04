@@ -28,9 +28,11 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
@@ -71,6 +73,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } else {
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
   }
+
+  // Check that the parameter input is safe to write to HDF5
+  OutputUtils::CheckParameterInputConsistent(pin);
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -185,12 +190,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
 
     // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
-
-    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+    HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
+    HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
   }                                 // Info section
 
@@ -741,6 +742,11 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
 // Utility functions implemented
 namespace HDF5 {
+H5G MakeGroup(hid_t file, const std::string &name) {
+  return H5G::FromHIDCheck(
+      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+}
+
 hid_t GenerateFileAccessProps() {
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */

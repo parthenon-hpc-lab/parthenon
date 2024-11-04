@@ -14,6 +14,7 @@
 #include "interface/update.hpp"
 
 #include <memory>
+#include <vector>
 
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"

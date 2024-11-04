@@ -18,6 +18,7 @@
 
 #include <numeric>
 #include <queue>
+#include <vector>
 
 namespace parthenon {
 namespace AliasMethod {
