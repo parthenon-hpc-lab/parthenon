@@ -38,10 +38,11 @@ void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
   combined_comm_buffer = CommBuffer<buf_t>(2 * partition, send_rank, recv_rank, comm_);
   combined_comm_buffer.ConstructBuffer("combined send buffer",
                                        current_size + 1); // Actually allocate the thing
-  sparse_status_buffer = CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm_); 
-  sparse_status_buffer.ConstructBuffer(current_size + 1); 
-  //PARTHENON_REQUIRE(current_size > 0, "Are we bigger than zero?");
-  // Point the BndId objects to the combined buffer
+  sparse_status_buffer =
+      CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm_);
+  sparse_status_buffer.ConstructBuffer(current_size + 1);
+  // PARTHENON_REQUIRE(current_size > 0, "Are we bigger than zero?");
+  //  Point the BndId objects to the combined buffer
   for (auto uid : all_vars) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       bnd_id.combined_buf = combined_comm_buffer.buffer();
@@ -50,12 +51,13 @@ void CombinedBuffersRankPartition::AllocateCombinedBuffer() {
 }
 
 //----------------------------------------------------------------------------------------
-ParArray1D<BndId> &CombinedBuffersRankPartition::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
+ParArray1D<BndId> &
+CombinedBuffersRankPartition::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
   int nbnd_id{0};
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   for (auto uid : var_set)
     nbnd_id += combined_info_buf.at(uid).size();
-  
+
   bool updated = false;
   if (nbnd_id != bnd_ids_device.size()) {
     bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
@@ -69,20 +71,20 @@ ParArray1D<BndId> &CombinedBuffersRankPartition::GetBndIdsOnDevice(const std::se
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
       auto &bid_h = bnd_ids_host[idx];
       auto buf_state = pvbbuf->GetState();
-      PARTHENON_REQUIRE(buf_state != BufferState::stale, "Trying to work with a stale buffer.");
+      PARTHENON_REQUIRE(buf_state != BufferState::stale,
+                        "Trying to work with a stale buffer.");
 
-      const bool alloc = (buf_state == BufferState::sending) || (buf_state == BufferState::received);
+      const bool alloc =
+          (buf_state == BufferState::sending) || (buf_state == BufferState::received);
       // Test if this boundary has changed
-      if (!bid_h.SameBVChannel(bnd_id) || 
-          (bid_h.buf_allocated != alloc) ||
-          (bid_h.start_idx() != c_buf_idx) || 
+      if (!bid_h.SameBVChannel(bnd_id) || (bid_h.buf_allocated != alloc) ||
+          (bid_h.start_idx() != c_buf_idx) ||
           !UsingSameResource(bid_h.buf, pvbbuf->buffer())) {
         updated = true;
         bid_h = bnd_id;
-        bid_h.buf_allocated = alloc; 
-        bid_h.start_idx() = c_buf_idx; 
-        if (bid_h.buf_allocated)
-          bid_h.buf = pvbbuf->buffer();
+        bid_h.buf_allocated = alloc;
+        bid_h.start_idx() = c_buf_idx;
+        if (bid_h.buf_allocated) bid_h.buf = pvbbuf->buffer();
       }
       if (bid_h.buf_allocated) c_buf_idx += bid_h.size();
       idx++;
@@ -108,7 +110,7 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
           Real *buf = &(bids[b].buf(0));
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
                                [&](const int idx) { com_buf[idx] = buf[idx]; });
-        }                    
+        }
       });
 #ifdef MPI_PARALLEL
   Kokkos::fence();
@@ -117,9 +119,9 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
 
   // Send the sparse null info as well
   if (bids.size() != sparse_status_buffer.buffer().size()) {
-    sparse_status_buffer.ConstructBuffer(bids.size());  
+    sparse_status_buffer.ConstructBuffer(bids.size());
   }
-  
+
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &stat = sparse_status_buffer.buffer();
   int idx{0};
@@ -153,28 +155,23 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
   }
 
   if (nbuf != sparse_status_buffer.buffer().size()) {
-    sparse_status_buffer.ConstructBuffer(nbuf);  
+    sparse_status_buffer.ConstructBuffer(nbuf);
   }
   auto received_sparse = sparse_status_buffer.TryReceive();
   auto received = combined_comm_buffer.TryReceive(message);
   if (!received || !received_sparse) return false;
-  
+
   // Allocate and free buffers as required
   int idx{0};
   auto &stat = sparse_status_buffer.buffer();
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      if (pvbbuf->IsActive()) {
-        if (stat[idx] == 0) 
-          pvbbuf->Free();
-      } else { 
-        if (stat[idx] == 1) 
-          pvbbuf->Allocate();
-      }
-      if (stat[idx]) {
+      if (stat[idx] == 1) {
         pvbbuf->SetReceived();
+        if (!pvbbuf->IsActive()) pvbbuf->Allocate();
       } else {
-       pvbbuf->SetReceivedNull();
+        pvbbuf->SetReceivedNull();
+        if (pvbbuf->IsActive()) pvbbuf->Free();
       }
       idx++;
     }
