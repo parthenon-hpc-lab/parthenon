@@ -159,8 +159,15 @@ struct CombinedBuffers {
   }
 
   void clear() {
-    // TODO(LFR): Need to be more careful here that the asynchronous send buffers are
-    // finished
+    bool can_delete;
+    do {
+      can_delete = true;
+      for (auto &[p, cbr] : combined_send_buffers) {
+        for (auto &[r, cbrp] : cbr.combined_bufs) {
+          can_delete = cbrp.IsAvailableForWrite() && can_delete;
+        }
+      }
+    } while (!can_delete); 
     combined_send_buffers.clear();
     combined_recv_buffers.clear();
     processing_messages.clear();
