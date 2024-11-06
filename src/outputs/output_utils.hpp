@@ -50,7 +50,7 @@ namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
  public:
-  static constexpr int VNDIM = MAX_VARIABLE_DIMENSION;
+  static constexpr const int VNDIM = MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
