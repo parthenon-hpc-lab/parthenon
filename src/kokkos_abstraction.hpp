@@ -1040,8 +1040,9 @@ par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, cons
 // Thus, we need to pass `SquentialHostInit` as allocator, but only if the ViewOfView is
 // on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
 // passed when calling `create_mirror_view`.
+template <typename T = DevMemSpace>
 auto ViewOfViewAlloc(const std::string &label) {
-  if constexpr (std::is_same_v<DevMemSpace, HostMemSpace>) {
+  if constexpr (std::is_same_v<T, HostMemSpace>) {
     return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
   } else {
     return Kokkos::view_alloc(label);
