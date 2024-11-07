@@ -21,7 +21,6 @@
 #include <utility>
 #include <vector>
 
-#include "Kokkos_Core_fwd.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
