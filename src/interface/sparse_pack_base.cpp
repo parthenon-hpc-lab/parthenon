@@ -30,6 +30,7 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "kokkos_abstraction.hpp"
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
@@ -151,7 +152,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   } else if (contains_face_or_edge) {
     leading_dim += 2;
   }
-  pack.pack_ = pack_t("data_ptr", leading_dim, pack.nblocks_, max_size);
+  pack.pack_ = pack_t(ViewOfViewAlloc("data_ptr"), leading_dim, pack.nblocks_, max_size);
   pack.pack_h_ = Kokkos::create_mirror_view(
       Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.pack_);
 
@@ -168,7 +169,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.block_props_ = block_props_t("block_props", nblocks, 27 + 1);
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
-  pack.coords_ = coords_t("coords", desc.flat ? max_size : nblocks);
+  pack.coords_ = coords_t(ViewOfViewAlloc("coords"), desc.flat ? max_size : nblocks);
   auto coords_h = Kokkos::create_mirror_view(
       Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.coords_);
 

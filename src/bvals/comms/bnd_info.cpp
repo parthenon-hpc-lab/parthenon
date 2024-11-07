@@ -40,7 +40,7 @@
 namespace parthenon {
 
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
-  prores_info = ParArray1D<ProResInfo>("prores_info", n_regions);
+  prores_info = ProResInfoArr_t(ViewOfViewAlloc("prores_info"), n_regions);
   prores_info_h = Kokkos::create_mirror_view(
       Kokkos::view_alloc(Kokkos::SequentialHostInit), prores_info);
   int nref_funcs = pkg->NumRefinementFuncs();

@@ -28,6 +28,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm_device_context.hpp"
 #include "interface/variable.hpp"
+#include "kokkos_abstraction.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -43,10 +44,10 @@ class SwarmPackBase {
   SwarmPackBase() = default;
   virtual ~SwarmPackBase() = default;
 
-  using pack_t = ParArray3D<ParArray1D<TYPE>>;
+  using pack_t = Kokkos::View<ParArray1D<TYPE> ***, LayoutWrapper, DevMemSpace>;
   using bounds_t = ParArray3D<int>;
-  using contexts_t = ParArray1D<SwarmDeviceContext>;
-  using contexts_h_t = typename ParArray1D<SwarmDeviceContext>::HostMirror;
+  using contexts_t = Kokkos::View<SwarmDeviceContext *, LayoutWrapper, DevMemSpace>;
+  using contexts_h_t = typename contexts_t::HostMirror;
   using max_active_indices_t = ParArray1D<int>;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
   using idx_map_t = std::unordered_map<std::string, std::size_t>;
@@ -108,7 +109,7 @@ class SwarmPackBase {
 
     // Allocate the views
     int leading_dim = 1;
-    pack.pack_ = pack_t("data_ptr", leading_dim, nblocks, max_size);
+    pack.pack_ = pack_t(ViewOfViewAlloc("data_ptr"), leading_dim, nblocks, max_size);
     auto pack_h = Kokkos::create_mirror_view(
         Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.pack_);
 
@@ -154,7 +155,7 @@ class SwarmPackBase {
     Kokkos::deep_copy(pack.pack_, pack_h);
     Kokkos::deep_copy(pack.bounds_, bounds_h);
 
-    pack.contexts_ = contexts_t("contexts", nblocks);
+    pack.contexts_ = contexts_t(ViewOfViewAlloc("contexts"), nblocks);
     pack.contexts_h_ = Kokkos::create_mirror_view(
         Kokkos::view_alloc(Kokkos::SequentialHostInit), pack.contexts_);
     pack.max_active_indices_ = max_active_indices_t("max_active_indices", nblocks);

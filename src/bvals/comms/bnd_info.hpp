@@ -26,6 +26,7 @@
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/communication_buffer.hpp"
@@ -130,8 +131,8 @@ int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
 using BndInfoArr_t = Kokkos::View<BndInfo *, LayoutWrapper, DevMemSpace>;
 using BndInfoArrHost_t = typename BndInfoArr_t::HostMirror;
 
-using ProResInfoArr_t = ParArray1D<ProResInfo>;
-using ProResInfoArrHost_t = typename ParArray1D<ProResInfo>::HostMirror;
+using ProResInfoArr_t = Kokkos::View<ProResInfo *, LayoutWrapper, DevMemSpace>;
+using ProResInfoArrHost_t = typename ProResInfoArr_t::HostMirror;
 class StateDescriptor;
 struct ProResCache_t {
   ProResInfoArr_t prores_info{};

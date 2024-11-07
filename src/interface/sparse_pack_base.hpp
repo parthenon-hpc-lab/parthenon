@@ -30,6 +30,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_state.hpp"
+#include "kokkos_abstraction.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -55,7 +56,8 @@ class SparsePackBase {
 
   using alloc_t = std::vector<int>;
   using include_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
+  using pack_t =
+      Kokkos::View<ParArray3D<Real, VariableState> ***, LayoutWrapper, DevMemSpace>;
   using pack_h_t = typename pack_t::HostMirror;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename bounds_t::HostMirror;

@@ -528,6 +528,8 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
+  // TODO(PG) depending on the results of the view of view discussion, we should add
+  // destructor or ViewOfViewAlloc with SequentialHostInit
   using view_3d_t =
       Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<parthenon::ParArray6D<Real> *, UVMSpace>;
