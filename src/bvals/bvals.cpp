@@ -100,20 +100,9 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
                         "Trying to create a new send before previous send completes!");
-      // printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
-      printf("[%i] send buf ptr: %p size: %i (extent: %i)\n", Globals::my_rank,
-             bd_var_.send[nb.bufid].data(), send_size[nb.bufid],
-             bd_var_.send[nb.bufid].span());
-      if (send_size[nb.bufid] > 1000) {
-        printf("[%i] send buf ptr: %p size: %i (extent: %i)\n", Globals::my_rank,
-               bd_var_.send[nb.bufid].data(), send_size[nb.bufid],
-               bd_var_.send[nb.bufid].span());
-        PARTHENON_FAIL("help!");
-      }
       PARTHENON_MPI_CHECK(MPI_Isend(bd_var_.send[nb.bufid].data(), send_size[nb.bufid],
                                     MPI_PARTHENON_REAL, nb.rank, send_tag[nb.bufid],
                                     swarm_comm, &(bd_var_.req_send[nb.bufid])));
-      // printf("[%i] %s:%i\n", Globals::my_rank, __FILE__, __LINE__);
 #endif // MPI_PARALLEL
     } else {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.gid);
