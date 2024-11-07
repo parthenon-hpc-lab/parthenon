@@ -146,10 +146,13 @@ void Swarm::SetupPersistentMPI() {
 
   // Build device array mapping neighbor index to neighbor bufid
   if (pmb->neighbors.size() > 0) {
+    // printf("SANITIZING!\n");
     ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->neighbors.size());
     auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
     for (int n = 0; n < pmb->neighbors.size(); n++) {
       neighbor_buffer_index_h(n) = pmb->neighbors[n].bufid;
+      // const int bufid = pmb->neighbors[n].bufid;
+      // vbswarm->bd_var_.send[bufid] = BufArray1D<Real>("Buffer", GetParticleDataSize());
     }
     neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
     neighbor_buffer_index_ = neighbor_buffer_index;
@@ -229,6 +232,8 @@ void Swarm::LoadBuffers_() {
     auto num_particles_to_send_h = num_particles_to_send_.GetHostMirrorAndCopy();
     auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
 
+    Kokkos::fence();
+
     // Resize send buffers if too small
     for (int n = 0; n < pmb->neighbors.size(); n++) {
       num_particles_to_send_h(n) -= buffer_start_h(n);
@@ -237,8 +242,13 @@ void Swarm::LoadBuffers_() {
       if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
         sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
         vbswarm->bd_var_.send[bufid] = sendbuf;
+        printf("[%i] new buf %i! size: %i span: %i\n", Globals::my_rank, bufid,
+               num_particles_to_send_h(n) * particle_size,
+               vbswarm->bd_var_.send[bufid].span());
       }
       vbswarm->send_size[bufid] = num_particles_to_send_h(n) * particle_size;
+      printf("send size: %i (%i %i)\n", vbswarm->send_size[bufid],
+             num_particles_to_send_h(n), particle_size);
     }
 
     auto &bdvar = vbswarm->bd_var_;
@@ -269,6 +279,11 @@ void Swarm::LoadBuffers_() {
 
     // Remove particles that were loaded to send to another block from this block
     RemoveMarkedParticles();
+  } else {
+    for (int n = 0; n < pmb->neighbors.size(); n++) {
+      const int bufid = pmb->neighbors[n].bufid;
+      vbswarm->send_size[bufid] = 0;
+    }
   }
 }
 
