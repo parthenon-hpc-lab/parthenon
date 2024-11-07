@@ -313,6 +313,8 @@ void Swarm::UnloadBuffers_() {
   auto &bdvar = vbswarm->bd_var_;
   const int nbmax = vbswarm->bd_var_.nbmax;
 
+  return; // debug
+
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
@@ -372,6 +374,8 @@ void Swarm::UnloadBuffers_() {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  return true; // Debug
+
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 
