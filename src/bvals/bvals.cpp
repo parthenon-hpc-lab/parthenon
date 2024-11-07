@@ -91,7 +91,6 @@ void BoundarySwarm::SetupPersistentMPI() {
 // Send particle buffers across meshblocks. If different MPI ranks, use MPI, if same rank,
 // do a deep copy on device.
 void BoundarySwarm::Send(BoundaryCommSubset phase) {
-  // printf("%s:%i\n", __FILE__, __LINE__);
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
@@ -162,7 +161,6 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
     }
   }
 #endif
-  // printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 // BoundarySwarms constructor (the first object constructed inside the MeshBlock()

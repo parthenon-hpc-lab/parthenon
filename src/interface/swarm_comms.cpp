@@ -313,8 +313,6 @@ void Swarm::UnloadBuffers_() {
   auto &bdvar = vbswarm->bd_var_;
   const int nbmax = vbswarm->bd_var_.nbmax;
 
-  return; // debug
-
   if (total_received_particles_ > 0) {
     auto newParticlesContext = AddEmptyParticles(total_received_particles_);
 
