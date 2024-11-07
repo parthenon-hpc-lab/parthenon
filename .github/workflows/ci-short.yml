@@ -164,7 +164,7 @@ jobs:
         run: |
           cmake --build build -t particle-leapfrog
           cd build
-          ctest -R regression_mpi_test:particle_leapfrog
+          ctest -R regression_mpi_test:particle_leapfrog -V
 
       - uses: actions/upload-artifact@v3
         with:
