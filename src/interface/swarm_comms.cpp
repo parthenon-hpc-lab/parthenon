@@ -372,8 +372,6 @@ void Swarm::UnloadBuffers_() {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  return true; // Debug
-
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
 
