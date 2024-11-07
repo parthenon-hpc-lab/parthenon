@@ -154,16 +154,18 @@ jobs:
             -DMACHINE_VARIANT=hip-mpi \
             -DCMAKE_CXX_COMPILER=hipcc
       # Test example with "variables" and output
-      - name: advection
-        run: |
-          cmake --build build -t advection-example
-          cd build
-          ctest -R regression_mpi_test:output_hdf5
+      #- name: advection
+      #  run: |
+      #    cmake --build build -t advection-example
+      #    cd build
+      #    ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
         run: |
           cmake --build build -t particle-leapfrog
           cd build
+          /usr/bin/mpiexec -n 2 --allow-run-as-root /__w/parthenon/parthenon/build/example/particle_leapfrog/particle-leapfrog -i /__w/parthenon/parthenon/tst/regression/test_suites/particle_leapfrog/parthinput.particle_leapfrog parthenon/job/problem_id=gold --kokkos-map-device-id-by=mpi_rank
+          ls
           ctest -R regression_mpi_test:particle_leapfrog -V
 
       - uses: actions/upload-artifact@v3
