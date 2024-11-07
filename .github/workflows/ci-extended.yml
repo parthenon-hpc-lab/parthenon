@@ -32,9 +32,9 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-noascent
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
+      options: --user 1001
     steps:
       - uses: actions/checkout@v3
         with:
@@ -91,27 +91,27 @@ jobs:
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
-      # - name: Ascent tests
-      #   if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
-      #   run: |
-      #     cmake -B build-ascent \
-      #       -DCMAKE_BUILD_TYPE=Release \
-      #       -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
-      #       -DPARTHENON_ENABLE_ASCENT=ON \
-      #       -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
-      #     cmake --build build-ascent
-      #     cd example/advection/
-      #     # Pick GPU with most available memory
-      #     export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
-      #     mpirun -np 2 ../../build-ascent/example/advection/advection-example \
-      #       -i parthinput.advection \
-      #       parthenon/output5/dt=0.05 \
-      #       parthenon/time/tlim=0.1
-      #     # check if file exists
-      #     if [ ! -f "ascent_render_57.png" ]; then
-      #       echo "'ascent_render_57.png' does not exist."
-      #       exit 1
-      #     fi
+      - name: Ascent tests
+        if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
+        run: |
+          cmake -B build-ascent \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
+            -DPARTHENON_ENABLE_ASCENT=ON \
+            -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
+          cmake --build build-ascent
+          cd example/advection/
+          # Pick GPU with most available memory
+          export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          mpirun -np 2 ../../build-ascent/example/advection/advection-example \
+            -i parthinput.advection \
+            parthenon/output5/dt=0.05 \
+            parthenon/time/tlim=0.1
+          # check if file exists
+          if [ ! -f "ascent_render_57.png" ]; then
+            echo "'ascent_render_57.png' does not exist."
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v3
         with:
@@ -120,7 +120,7 @@ jobs:
             build/CMakeFiles/CMakeOutput.log
             build/tst/regression/outputs/advection_convergence*/advection-errors.dat
             build/tst/regression/outputs/advection_convergence*/advection-errors.png
-          # example/advection/ascent_render_57.png
+            example/advection/ascent_render_57.png
           retention-days: 3
 
   perf-and-regression-amdgpu:

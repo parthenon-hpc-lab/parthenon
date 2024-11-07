@@ -20,9 +20,9 @@ jobs:
   style:
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-noascent
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
+      options: --user 1001
     steps:
       - uses: actions/checkout@v3
         with:
@@ -45,9 +45,9 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-noascent
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
+      options: --user 1001
     steps:
       - uses: actions/checkout@v3
         with:
@@ -77,9 +77,9 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-noascent
+      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
+      options: --user 1001
     steps:
       - uses: actions/checkout@v3
         with:
