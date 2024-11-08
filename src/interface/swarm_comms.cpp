@@ -269,6 +269,11 @@ void Swarm::LoadBuffers_() {
 
     // Remove particles that were loaded to send to another block from this block
     RemoveMarkedParticles();
+  } else {
+    for (int n = 0; n < pmb->neighbors.size(); n++) {
+      const int bufid = pmb->neighbors[n].bufid;
+      vbswarm->send_size[bufid] = 0;
+    }
   }
 }
 
