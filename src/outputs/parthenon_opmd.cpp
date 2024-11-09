@@ -398,12 +398,15 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                      pm->mesh_size.nx(X3DIR)});
 
     // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
-
-    it.setAttribute("BoundaryConditions", boundary_condition_str);
+    auto arr_to_vec = [](const auto &arr) {
+      std::vector<std::string> vec(BOUNDARY_NFACES);
+      for (int i = 0; i < BOUNDARY_NFACES; i++) {
+        vec[i] = arr.at(i);
+      }
+      return vec;
+    };
+    it.setAttribute("BoundaryConditions", arr_to_vec(pm->mesh_bc_names));
+    it.setAttribute("SwarmBoundaryConditions", arr_to_vec(pm->mesh_swarm_bc_names));
   } // Info section
 
   Kokkos::Profiling::popRegion(); // write Attributes

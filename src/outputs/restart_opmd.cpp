@@ -77,9 +77,6 @@ RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   mesh_info.nbtotal = it->getAttribute("NumMeshBlocks").get<int>();
   mesh_info.root_level = it->getAttribute("RootLevel").get<int>();
 
-  mesh_info.bound_cond =
-      it->getAttribute("BoundaryConditions").get<std::vector<std::string>>();
-
   mesh_info.block_size = it->getAttribute("MeshBlockSize").get<std::vector<int>>();
   mesh_info.includes_ghost = it->getAttribute("IncludesGhost").get<int>();
   mesh_info.n_ghost = it->getAttribute("NGhost").get<int>();
