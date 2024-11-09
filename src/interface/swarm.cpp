@@ -33,6 +33,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.block_index_ = block_index_;
   context.neighbor_indices_ = neighbor_indices_;
   context.cell_sorted_ = cell_sorted_;
+  context.buffer_sorted_ = buffer_sorted_;
   context.cell_sorted_begin_ = cell_sorted_begin_;
   context.cell_sorted_number_ = cell_sorted_number_;
 
@@ -73,9 +74,10 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       new_indices_("new_indices_", nmax_pool_), scratch_a_("scratch_a_", nmax_pool_),
       scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
-      buffer_counters_("buffer_counters_", NMAX_NEIGHBORS),
+      buffer_start_("buffer_start_", NMAX_NEIGHBORS),
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
-      cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
+      cell_sorted_("cell_sorted_", nmax_pool_),
+      buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
@@ -207,6 +209,9 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cell_sorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
+
+  Kokkos::resize(buffer_sorted_, nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
   block_index_.Resize(nmax_pool);
@@ -490,35 +495,35 @@ void Swarm::SortParticlesByCell() {
             break;
           }
 
-          if (cell_sorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ == cell_idx_1d) {
             if (start_index == 0) {
               break;
-            } else if (cell_sorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+            } else if (cell_sorted(start_index - 1).sort_idx_ != cell_idx_1d) {
               break;
             } else {
               start_index--;
               continue;
             }
           }
-          if (cell_sorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
-          if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
             start_index++;
             if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ > cell_idx_1d) {
               start_index = -1;
               break;
             }
@@ -532,7 +537,7 @@ void Swarm::SortParticlesByCell() {
           int number = 0;
           int current_index = start_index;
           while (current_index <= max_active_index &&
-                 cell_sorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+                 cell_sorted(current_index).sort_idx_ == cell_idx_1d) {
             current_index++;
             number++;
             cell_sorted_number(k, j, i) = number;
