@@ -244,10 +244,11 @@ class PackIndexMap {
 };
 
 template <typename T>
-using ViewOfParArrays = ParArray1D<ParArray3D<T, VariableState>>;
+using ViewOfParArrays =
+    Kokkos::View<ParArray3D<T, VariableState> *, LayoutWrapper, DevMemSpace>;
 
 template <typename T>
-using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
+using ViewOfParArrays1D = Kokkos::View<ParArray1D<T> *, LayoutWrapper, DevMemSpace>;
 
 // forward declaration
 template <typename T>
@@ -570,10 +571,11 @@ void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
   assert(vsize == sparse_id_out.size());
   assert(vsize == vector_component_out.size());
 
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
-  auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_id_out);
-  auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), allocated_out);
+  auto host_cv =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), cv_out);
+  auto host_sp = Kokkos::create_mirror_view(sparse_id_out);
+  auto host_vc = Kokkos::create_mirror_view(vector_component_out);
+  auto host_al = Kokkos::create_mirror_view(allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
@@ -634,7 +636,8 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
                       ViewOfParArrays1D<T> &cv_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
+  auto host_cv =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), cv_out);
 
   int vindex = 0;
   for (const auto v : vars) {
@@ -675,10 +678,13 @@ void FillFluxViews(const VariableVector<T> &vars, const int ndim,
                    PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1_out);
-  auto host_f2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f2_out);
-  auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), flux_allocated_out);
+  auto host_f1 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f1_out);
+  auto host_f2 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f2_out);
+  auto host_f3 =
+      Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), f3_out);
+  auto host_al = Kokkos::create_mirror_view(flux_allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
@@ -755,10 +761,11 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize * (extra_components ? 3 : 1));
-  ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
-  ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
-  ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakeFluxPack::cv"),
+                        vsize * (extra_components ? 3 : 1));
+  ViewOfParArrays<T> f1(ViewOfViewAlloc("MakeFluxPack::f1"), fsize);
+  ViewOfParArrays<T> f2(ViewOfViewAlloc("MakeFluxPack::f2"), fsize);
+  ViewOfParArrays<T> f3(ViewOfViewAlloc("MakeFluxPack::f3"), fsize);
   ParArray1D<bool> flux_allocated("MakePack::allocated", fsize);
   ParArray1D<int> sparse_id("MakeFluxPack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakeFluxPack::vector_component", vsize);
@@ -809,7 +816,8 @@ VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakePack::cv", vsize * (extra_components ? 3 : 1));
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakePack::cv"),
+                        vsize * (extra_components ? 3 : 1));
   ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
   ParArray1D<bool> allocated("MakePack::allocated", vsize);
@@ -842,7 +850,7 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
   }
 
   // make the outer view
-  ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
+  ViewOfParArrays1D<T> cv(ViewOfViewAlloc("MakePack::cv"), vsize);
 
   std::array<int, 2> cv_size{0, 0};
   if (vsize > 0) {

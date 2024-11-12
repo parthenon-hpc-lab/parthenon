@@ -62,6 +62,34 @@ parallelism interface that is needed for managing memory cached in
 tightly nested loops. The wrappers are documented
 :ref:`here <nested par for>`.
 
+View of Views
+-------------
+
+Special care needs to be taken when working with a ``View`` of ``View``.
+
+To repeat the Kokkos documenation: `Don't use them <https://kokkos.org/kokkos-core-wiki/ProgrammingGuide/View.html#can-i-make-a-view-of-views>`__
+
+But if you have to (which is the case in some places inside Parthenon)
+then follow this pattern:
+
+.. code:: c++
+
+   Kokkos::View<ParArray1D<Real> *> view_of_pararrays(parthenon::ViewOfViewAlloc("myname"), 10);
+
+The ``ViewOfViewAlloc`` ensures that the ``Kokkos::SequentialHostInit`` property is added,
+which results in the (inner ``View`` ) deallocators being called on the host (rather than on
+the device by default).
+
+Similarly, when you create a host mirror of said ``View`` of ``View`` add the additional
+property for the same reason.
+
+.. code:: c++
+
+   auto view_of_pararrays_h =
+        Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), view_of_pararrays);
+
+Note that the ``SequentialHostInit`` was only added in Kokkos 4.4.1 (which is now the default in Parthenon).
+
 The need for reductions within function handling ``MeshBlock`` data
 -------------------------------------------------------------------
 
