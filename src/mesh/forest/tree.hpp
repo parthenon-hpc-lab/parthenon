@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
@@ -35,6 +34,9 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
+class ApplicationInput;
+class ParameterInput;
+
 namespace forest {
 
 // We don't explicitly allow for periodic boundaries, since we can encode periodicity
@@ -117,10 +119,10 @@ class Tree : public std::enable_shared_from_this<Tree> {
   std::vector<std::shared_ptr<Node>> forest_nodes;
 
   // Boundary Functions
-  void EnrollBndryFncts(
-      ApplicationInput *app_in,
-      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
-      std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in);
+  void EnrollBndryFncts(ApplicationInput *app_in, const BValNames_t &names,
+                        const BValNames_t &swarm_names,
+                        const BValFuncArray_t &UserBoundaryFunctions_in,
+                        const SBValFuncArray_t &UserSwarmBoundaryFunctions_in);
   BValFunc MeshBndryFnctn[BOUNDARY_NFACES];
   SBValFunc SwarmBndryFnctn[BOUNDARY_NFACES];
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;

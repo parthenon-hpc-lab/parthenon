@@ -33,6 +33,7 @@
 #include <tuple>
 #include <vector>
 
+#include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -86,6 +87,16 @@ void HDF5WriteAttribute(const std::string &name, const std::string &value,
 
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
+                        hid_t location) {
+  std::vector<const char *> char_ptrs(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    char_ptrs[i] = values[i].c_str();
+  }
+  HDF5WriteAttribute(name, char_ptrs, location);
+}
+
+void HDF5WriteAttribute(const std::string &name,
+                        const std::array<std::string, BOUNDARY_NFACES> &values,
                         hid_t location) {
   std::vector<const char *> char_ptrs(values.size());
   for (size_t i = 0; i < values.size(); ++i) {

@@ -151,13 +151,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        pin->GetInteger("parthenon/mesh", "nx3")},
       {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
        pin->GetInteger("parthenon/mesh", "nx3") == 1});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
@@ -175,7 +170,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
 
   // SMR / AMR:
@@ -195,13 +191,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
   mesh_size =
       RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
@@ -219,7 +211,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   forest = forest::Forest::Make2D(forest_def);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
   BuildBlockList(pin, app_in, packages, 0);
 }
@@ -1181,6 +1174,46 @@ Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
     logicalLocations.push_back(loc.lx3());
   }
   return std::make_pair(levels, logicalLocations);
+}
+
+void Mesh::SetBCNames_(ParameterInput *pin) {
+  mesh_bc_names = {pin->GetOrAddString("parthenon/mesh", "ix1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow")};
+  // JMM: This is needed because not all BCs are necessarily
+  // implemented for swarms
+  auto maybe = [](const std::string &s) {
+    return ((s == "outflow") || (s == "periodic")) ? s : "outflow";
+  };
+  mesh_swarm_bc_names = {
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", maybe(mesh_bc_names[0])),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", maybe(mesh_bc_names[1])),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", maybe(mesh_bc_names[2])),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", maybe(mesh_bc_names[3])),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", maybe(mesh_bc_names[4])),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", maybe(mesh_bc_names[5]))};
+  // JMM: A consequence of having only one boundary flag array but
+  // multiple boundary function arrays is that swarms *must* be
+  // periodic if the mesh is periodic but otherwise mesh and swarm
+  // boundaries are decoupled.
+  for (int i = 0; i < BOUNDARY_NFACES; ++i) {
+    if (mesh_bc_names[i] == "periodic") {
+      PARTHENON_REQUIRE(mesh_swarm_bc_names[i] == "periodic",
+                        "If the mesh is periodic, swarms must be also.");
+    }
+  }
+}
+
+std::array<BoundaryFlag, BOUNDARY_NFACES>
+Mesh::GetBCsFromNames_(const std::array<std::string, BOUNDARY_NFACES> &names) const {
+  std::array<BoundaryFlag, BOUNDARY_NFACES> out;
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    out[f] = GetBoundaryFlag(names[f]);
+  }
+  return out;
 }
 
 } // namespace parthenon

@@ -95,6 +95,9 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
+  application_input.cpp
+  application_input.hpp
+
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
