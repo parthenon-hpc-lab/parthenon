@@ -225,9 +225,9 @@ TaskStatus FillDerived(MeshData<Real> *md) {
           const int fi = (ndim > 0) ? (i - nghost) * 2 + nghost : i;
           pack(b, Conserved::phi_fine_restricted(), k, j, i) = 0.0;
           Real ntot = 0.0;
-          for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+          for (int koff = 0; koff <= (ndim > 2); ++koff)
             for (int joff = 0; joff <= (ndim > 1); ++joff)
-              for (int koff = 0; koff <= (ndim > 2); ++koff) {
+              for (int ioff = 0; ioff <= (ndim > 0); ++ioff) {
                 ntot += 1.0;
                 pack(b, Conserved::phi_fine_restricted(), k, j, i) +=
                     pack(b, Conserved::phi_fine(), kf + koff, jf + joff, fi + ioff);

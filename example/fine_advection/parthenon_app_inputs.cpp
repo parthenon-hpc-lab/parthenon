@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -119,9 +119,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
             Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                        coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
-            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+            for (int koff = 0; koff <= (ndim > 2); ++koff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
-                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                for (int ioff = 0; ioff <= (ndim > 0); ++ioff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                       1. + amp * exp(-100.0 * rsq);
                 }
@@ -129,16 +129,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
             Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
                        coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
-            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+            for (int koff = 0; koff <= (ndim > 2); ++koff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
-                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                for (int ioff = 0; ioff <= (ndim > 0); ++ioff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) =
                       (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
                 }
           } else {
-            for (int ioff = 0; ioff <= (ndim > 0); ++ioff)
+            for (int koff = 0; koff <= (ndim > 2); ++koff)
               for (int joff = 0; joff <= (ndim > 1); ++joff)
-                for (int koff = 0; koff <= (ndim > 2); ++koff) {
+                for (int ioff = 0; ioff <= (ndim > 0); ++ioff) {
                   pack(b, phi_fine(), kf + koff, jf + joff, fi + ioff) = 0.0;
                 }
           }

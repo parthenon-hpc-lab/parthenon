@@ -80,11 +80,12 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
   IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, FACE);
   IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, FACE);
   IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, FACE);
-  constexpr int scratch_size = 0;
-  constexpr int scratch_level = 1;
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
         parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
         for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
           parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
