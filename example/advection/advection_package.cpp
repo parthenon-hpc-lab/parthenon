@@ -329,14 +329,10 @@ void PreFill(MeshBlockData<Real> *rc) {
     PackIndexMap imap;
     const auto &v = rc->PackVariables(vars, imap);
 
-    const int ivar_lo = imap.get("metadata_none_var").first;
-    const int ivar_hi = imap.get("metadata_none_var").second;
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, 2, 0, nx3, 0, nx2, 0, nx1,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-          v(ivar_lo, n, k, j, i) = n + k * j * i;
-          v(ivar_lo + 1, n, k, j, i) = 1 + n + k * j * i;
-          v(ivar_hi, n, k, j, i) = 2 + n + k * j * i;
+          v(n, k, j, i) = n + k + j + i;
         });
   }
 }
