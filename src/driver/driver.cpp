@@ -94,6 +94,8 @@ DriverStatus EvolutionDriver::Execute() {
   // Defaults must be set across all ranks
   DumpInputParameters();
 
+  DriverStatus driver_status = DriverStatus::complete;
+
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
@@ -135,8 +137,10 @@ DriverStatus EvolutionDriver::Execute() {
 
       // TODO(bwibking): check for application debug callback
       // currently hard-coded to check for tiny dt
-      if (tm.dt < 1e-10 * tm.time) {
-	signal = OutputSignal::final;
+      if (tm.dt < 1e-6 * tm.time) {
+	      signal = OutputSignal::final;
+        driver_status = DriverStatus::failed;
+        // do not return here, since we still want to write an output
       }
       
       if (signal == OutputSignal::final) {
@@ -161,14 +165,16 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
   }
 
-  DriverStatus status = tm.KeepGoing() ? DriverStatus::timeout : DriverStatus::complete;
+  if (driver_status != DriverStatus::failed) {
+    driver_status = tm.KeepGoing() ? DriverStatus::timeout : DriverStatus::complete;
+  }
   // Do *not* write the "final" output, if this is analysis run.
   // The analysis output itself has already been written above before the main loop.
   if (signal != OutputSignal::analysis) {
     pouts->MakeOutputs(pmesh, pinput, &tm, OutputSignal::final);
   }
-  PostExecute(status);
-  return status;
+  PostExecute(driver_status);
+  return driver_status;
 }
 
 void EvolutionDriver::PostExecute(DriverStatus status) {
