@@ -123,28 +123,26 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
-  void Send() noexcept;
-  void SendLocal() noexcept;
-  void SendNull() noexcept;
-  void SendNullLocal() noexcept;
+  void Send(bool local = false) noexcept;
+  void SendNull(bool local = false) noexcept;
 
   bool IsAvailableForWrite();
 
-  void TryStartReceive(mpi_message_t *message_id = nullptr) noexcept;
-  bool TryReceive(mpi_message_t *message_id = nullptr) noexcept;
-  bool TryReceiveLocal() noexcept;
+  void TryStartReceive() noexcept;
+  bool TryReceive(bool local = false) noexcept;
   void SetReceived() noexcept {
     PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
                           *comm_type_ == BuffCommType::sparse_receiver,
                       "This doesn't make sense for a non-receiver.");
     *state_ = BufferState::received;
   }
+
   void SetReceivedNull() noexcept {
-    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
-                          *comm_type_ == BuffCommType::sparse_receiver,
+    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::sparse_receiver,
                       "This doesn't make sense for a non-receiver.");
     *state_ = BufferState::received_null;
   }
+
   bool IsSafeToDelete() {
     if (*comm_type_ == BuffCommType::sparse_receiver ||
         *comm_type_ == BuffCommType::receiver) {
@@ -237,16 +235,16 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
 }
 
 template <class T>
-void CommBuffer<T>::Send() noexcept {
+void CommBuffer<T>::Send(bool local) noexcept {
   if (!active_) {
-    SendNull();
+    SendNull(local);
     return;
   }
 
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send from buffer that hasn't been staled.");
   *state_ = BufferState::sending;
-  if (*comm_type_ == BuffCommType::sender) {
+  if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
@@ -266,33 +264,11 @@ void CommBuffer<T>::Send() noexcept {
 }
 
 template <class T>
-void CommBuffer<T>::SendLocal() noexcept {
-  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
-                          "Trying to send from buffer that hasn't been staled.");
-  *state_ = BufferState::sending;
-  if (*comm_type_ == BuffCommType::receiver) {
-    // This is an error
-    PARTHENON_FAIL("Trying to send from a receiver");
-  }
-}
-
-template <class T>
-void CommBuffer<T>::SendNullLocal() noexcept {
-  PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
-                          "Trying to send from buffer that hasn't been staled.");
-  *state_ = BufferState::sending_null;
-  if (*comm_type_ == BuffCommType::receiver) {
-    // This is an error
-    PARTHENON_FAIL("Trying to send from a receiver");
-  }
-}
-
-template <class T>
-void CommBuffer<T>::SendNull() noexcept {
+void CommBuffer<T>::SendNull(bool local) noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
-  if (*comm_type_ == BuffCommType::sender) {
+  if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
@@ -333,28 +309,19 @@ bool CommBuffer<T>::IsAvailableForWrite() {
 }
 
 template <class T>
-void CommBuffer<T>::TryStartReceive(mpi_message_t *message_id) noexcept {
+void CommBuffer<T>::TryStartReceive() noexcept {
 #ifdef MPI_PARALLEL
   if (*comm_type_ == BuffCommType::receiver && !*started_irecv_) {
     PARTHENON_REQUIRE(
         *my_request_ == MPI_REQUEST_NULL,
         "Cannot have another pending request in a buffer that is starting to receive.");
-    if (!IsActive())
-      Allocate(
-          -1); // For early start of Irecv, always need storage space even if not used
-    if (message_id != nullptr) {
-      PARTHENON_MPI_CHECK(MPI_Imrecv(buf_.data(), buf_.size(),
-                                     MPITypeMap<buf_base_t>::type(), message_id,
-                                     my_request_.get()));
-    } else {
-      PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                    MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
-                                    comm_, my_request_.get()));
-    }
+    // For early start of Irecv, always need storage space even if not used
+    if (!IsActive()) Allocate(-1);
+    PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
+                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
+                                  my_request_.get()));
     *started_irecv_ = true;
   } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
-    PARTHENON_REQUIRE(message_id == nullptr,
-                      "Imrecv not yet implemented for sparse buffers.");
     int test;
     MPI_Status status;
     // Check if our message is available so that we can use the correct buffer size
@@ -381,36 +348,19 @@ void CommBuffer<T>::TryStartReceive(mpi_message_t *message_id) noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceiveLocal() noexcept {
-  if (*state_ == BufferState::received || *state_ == BufferState::received_null)
-    return true;
-  if (*comm_type_ == BuffCommType::both) {
-    if (*state_ == BufferState::sending) {
-      *state_ = BufferState::received;
-      // Memory should already be available, since both
-      // send and receive rank point at the same memory
-      return true;
-    } else if (*state_ == BufferState::sending_null) {
-      *state_ = BufferState::received_null;
-      return true;
-    }
-  }
-  return false;
-}
-
-template <class T>
-bool CommBuffer<T>::TryReceive(mpi_message_t *message_id) noexcept {
+bool CommBuffer<T>::TryReceive(bool local) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
-  if (*comm_type_ == BuffCommType::receiver ||
-      *comm_type_ == BuffCommType::sparse_receiver) {
+  if ((*comm_type_ == BuffCommType::receiver ||
+       *comm_type_ == BuffCommType::sparse_receiver) &&
+      !local) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
     PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
                       "MPI probably hanging after 1e8 receive tries.");
 
-    TryStartReceive(message_id);
+    TryStartReceive();
 
     if (*started_irecv_) {
       MPI_Status status;
@@ -478,7 +428,7 @@ bool CommBuffer<T>::TryReceive(mpi_message_t *message_id) noexcept {
       return true;
     }
     return false;
-  } else {
+  } else if (*comm_type_ == BuffCommType::sender) {
     // This is an error since this is a purely send buffer
     PARTHENON_FAIL("Trying to receive on a sender");
   }

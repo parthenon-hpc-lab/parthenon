@@ -82,7 +82,9 @@ struct CombinedBuffersRankPartition {
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
-  bool TryReceiveAndUnpack(mpi_message_t *message, const std::set<Uid_t> &vars);
+  bool TryReceiveAndUnpack(const std::set<Uid_t> &vars);
+
+  void Compare(const std::set<Uid_t> &vars);
 };
 
 struct CombinedBuffersRank {
@@ -121,7 +123,7 @@ struct CombinedBuffersRank {
 
   void PackAndSend(MeshData<Real> *pmd);
 
-  bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition, mpi_message_t *message);
+  bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
@@ -130,8 +132,6 @@ struct CombinedBuffers {
   // Combined buffers for each rank
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
   std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
-
-  std::map<std::pair<int, int>, mpi_message_t> processing_messages;
 
   std::map<BoundaryType, mpi_comm_t> comms_;
 
@@ -167,10 +167,9 @@ struct CombinedBuffers {
           can_delete = cbrp.IsAvailableForWrite() && can_delete;
         }
       }
-    } while (!can_delete); 
+    } while (!can_delete);
     combined_send_buffers.clear();
     combined_recv_buffers.clear();
-    processing_messages.clear();
   }
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
@@ -185,7 +184,9 @@ struct CombinedBuffers {
 
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 
-  void TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
+  void Compare(MeshData<Real> *pmd, BoundaryType b_type);
+
+  bool TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type);
 };

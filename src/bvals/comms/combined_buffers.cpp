@@ -127,7 +127,12 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
   int idx{0};
   for (auto uid : var_set) {
     for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
-      stat[idx] = (pvbbuf->GetState() == BufferState::sending);
+      const auto state = pvbbuf->GetState();
+      PARTHENON_REQUIRE(state == BufferState::sending ||
+                            state == BufferState::sending_null,
+                        "Bad state.");
+      int send_type = (state == BufferState::sending);
+      stat[idx] = send_type;
       ++idx;
     }
   }
@@ -142,8 +147,11 @@ void CombinedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
-                                                       const std::set<Uid_t> &vars) {
+bool CombinedBuffersRankPartition::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
+  if ((sparse_status_buffer.GetState() == BufferState::received) &&
+      (combined_comm_buffer.GetState() == BufferState::received))
+    return true;
+
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   // Make sure the var-boundary buffers are available to write to
   int nbuf{0};
@@ -158,7 +166,7 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
     sparse_status_buffer.ConstructBuffer(nbuf);
   }
   auto received_sparse = sparse_status_buffer.TryReceive();
-  auto received = combined_comm_buffer.TryReceive(message);
+  auto received = combined_comm_buffer.TryReceive();
   if (!received || !received_sparse) return false;
 
   // Allocate and free buffers as required
@@ -195,6 +203,49 @@ bool CombinedBuffersRankPartition::TryReceiveAndUnpack(mpi_message_t *message,
   sparse_status_buffer.Stale();
 
   return true;
+}
+
+//----------------------------------------------------------------------------------------
+void CombinedBuffersRankPartition::Compare(const std::set<Uid_t> &vars) {
+  PARTHENON_REQUIRE(combined_comm_buffer.GetState() == BufferState::received,
+                    "Combined buffer not in correct state");
+  PARTHENON_REQUIRE(sparse_status_buffer.GetState() == BufferState::received,
+                    "Combined buffer not in correct state");
+  const auto &var_set = vars.size() == 0 ? all_vars : vars;
+  // Allocate and free buffers as required
+  int idx{0};
+  auto &stat = sparse_status_buffer.buffer();
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : combined_info_buf.at(uid)) {
+      if (stat[idx] == 1) {
+        PARTHENON_REQUIRE(pvbbuf->GetState() == BufferState::received,
+                          "State doesn't agree.");
+      } else {
+        PARTHENON_REQUIRE(pvbbuf->GetState() == BufferState::received_null,
+                          "State doesn't agree.");
+      }
+      idx++;
+    }
+  }
+
+  auto &bids = GetBndIdsOnDevice(vars);
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        if (bids[b].buf_allocated) {
+          const int buf_size = bids[b].size();
+          Real *com_buf = &(bids[b].combined_buf(bids[b].start_idx()));
+          Real *buf = &(bids[b].buf(0));
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                               [&](const int idx) {
+                                 PARTHENON_REQUIRE(buf[idx] == com_buf[idx], "Bad value");
+                               });
+        }
+      });
+  combined_comm_buffer.Stale();
+  sparse_status_buffer.Stale();
 }
 
 //----------------------------------------------------------------------------------------
@@ -346,13 +397,12 @@ bool CombinedBuffersRank::IsAvailableForWrite(MeshData<Real> *pmd) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition,
-                                              mpi_message_t *message) {
+bool CombinedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(combined_bufs.count(partition) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
-  return combined_bufs.at(partition).TryReceiveAndUnpack(message, pmd->GetUids());
+  return combined_bufs.at(partition).TryReceiveAndUnpack(pmd->GetUids());
 }
 
 //----------------------------------------------------------------------------------------
@@ -370,6 +420,7 @@ void CombinedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
   combined_send_buffers.at({nb.rank, b_type}).AddSendBuffer(partition, pmb, nb, var);
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
                                     const std::shared_ptr<Variable<Real>>,
                                     BoundaryType b_type) {
@@ -383,11 +434,13 @@ void CombinedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
                                            comms_[GetAssociatedSender(b_type)], pmesh)));
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffers::ResolveAndSendSendBuffers() {
   for (auto &[id, buf] : combined_send_buffers)
     buf.ResolveSendBuffersAndSendInfo();
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffers::ReceiveBufferInfo() {
   constexpr std::int64_t max_it = 1e10;
   std::vector<bool> received(combined_recv_buffers.size(), false);
@@ -404,6 +457,7 @@ void CombinedBuffers::ReceiveBufferInfo() {
       "Too many iterations waiting to receive boundary communication buffers.");
 }
 
+//----------------------------------------------------------------------------------------
 bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
@@ -415,6 +469,7 @@ bool CombinedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_ty
   return available;
 }
 
+//----------------------------------------------------------------------------------------
 void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (combined_send_buffers.count({rank, b_type})) {
@@ -423,82 +478,32 @@ void CombinedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
   }
 }
 
-void CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
-#ifdef MPI_PARALLEL
-  // This was an attempt at another method for receiving, it seemed to work
-  // but was subject to the same problems as the Iprobe based code
-  if (pmesh->receive_type == "old") {
-    for (int rank = 0; rank < Globals::nranks; ++rank) {
-      if (combined_recv_buffers.count({rank, b_type})) {
-        auto &comb_bufs = combined_recv_buffers.at({rank, b_type});
-        for (auto &[partition, comb_buf] : comb_bufs.combined_bufs) {
-          comb_buf.TryReceiveAndUnpack(nullptr, pmd->GetUids());
-        }
+//----------------------------------------------------------------------------------------
+void CombinedBuffers::Compare(MeshData<Real> *pmd, BoundaryType b_type) {
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    if (combined_recv_buffers.count({rank, b_type})) {
+      auto &comb_bufs = combined_recv_buffers.at({rank, b_type});
+      for (auto &[partition, comb_buf] : comb_bufs.combined_bufs) {
+        comb_buf.Compare(pmd->GetUids());
       }
     }
-  } else if (pmesh->receive_type == "iprobe") {
-    MPI_Status status;
-    int flag;
-    do {
-      mpi_message_t message;
-      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
-                 &status);
-      if (flag) {
-        const int rank = status.MPI_SOURCE;
-        const int partition = status.MPI_TAG;
-        bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(pmd, partition, nullptr);
-        if (!finished)
-          processing_messages.insert(
-              std::make_pair(std::pair<int, int>{rank, partition}, message));
-      }
-    } while (flag);
-
-    // Process in-flight messages
-    std::vector<std::pair<int, int>> finished_messages;
-    for (auto &[p, message] : processing_messages) {
-      int rank = p.first;
-      int partition = p.second;
-      bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(pmd, partition, nullptr);
-      if (finished) finished_messages.push_back({rank, partition});
-    }
-
-    for (auto &m : finished_messages)
-      processing_messages.erase(m);
-  } else if (pmesh->receive_type == "improbe") {
-    MPI_Status status;
-    int flag;
-    do {
-      mpi_message_t message;
-      MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, comms_[GetAssociatedSender(b_type)], &flag,
-                  &message, &status);
-      if (flag) {
-        const int rank = status.MPI_SOURCE;
-        const int partition = status.MPI_TAG;
-        bool finished = combined_recv_buffers.at({rank, b_type})
-                            .TryReceiveAndUnpack(pmd, partition, &message);
-        if (!finished)
-          processing_messages.insert(
-              std::make_pair(std::pair<int, int>{rank, partition}, message));
-      }
-    } while (flag);
-
-    // Process in-flight messages
-    std::vector<std::pair<int, int>> finished_messages;
-    for (auto &[p, message] : processing_messages) {
-      int rank = p.first;
-      int partition = p.second;
-      bool finished = combined_recv_buffers.at({rank, b_type})
-                          .TryReceiveAndUnpack(pmd, partition, &message);
-      if (finished) finished_messages.push_back({rank, partition});
-    }
-
-    for (auto &m : finished_messages)
-      processing_messages.erase(m);
-  } else {
-    PARTHENON_FAIL("Unknown receiving strategy.");
   }
+}
+
+//----------------------------------------------------------------------------------------
+bool CombinedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
+#ifdef MPI_PARALLEL
+  bool all_received = true;
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    if (combined_recv_buffers.count({rank, b_type})) {
+      auto &comb_bufs = combined_recv_buffers.at({rank, b_type});
+      for (auto &[partition, comb_buf] : comb_bufs.combined_bufs) {
+        bool received = comb_buf.TryReceiveAndUnpack(pmd->GetUids());
+        all_received = all_received && received;
+      }
+    }
+  }
+  return all_received;
 #endif
 }
 } // namespace parthenon
