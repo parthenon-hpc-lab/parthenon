@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
 - [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185/files) Bugfix to particle defragmentation
 - [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
 - [[PR 1183]](https://github.com/parthenon-hpc-lab/parthenon/pull/1183) Fix particle leapfrog example initialization data
@@ -11,6 +12,8 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1206]](https://github.com/parthenon-hpc-lab/parthenon/pull/1206) Leapfrog fix
+- [[PR1203]](https://github.com/parthenon-hpc-lab/parthenon/pull/1203) Pin Ubuntu CI image
 - [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 - [[PR 1187]](https://github.com/parthenon-hpc-lab/parthenon/pull/1187) Make DataCollection::Add safer and generalize MeshBlockData::Initialize
 - [[Issue 1165]](https://github.com/parthenon-hpc-lab/parthenon/issues/1165) Bump Kokkos submodule to 4.4.1
@@ -19,6 +22,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1188]](https://github.com/parthenon-hpc-lab/parthenon/pull/1188) Fix hdf5 output issue for metadata none variables, update test.
+- [[PR 1170]](https://github.com/parthenon-hpc-lab/parthenon/pull/1170) Fixed incorrect initialization of array by a const not constexpr
 - [[PR 1189]](https://github.com/parthenon-hpc-lab/parthenon/pull/1189) Address CUDA MPI/ICP issue with Kokkos <=4.4.1
 - [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
 - [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.

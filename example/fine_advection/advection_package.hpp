@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <parthenon/package.hpp>
+#include <utils/indexer.hpp>
 #include <utils/robust.hpp>
 
 #define VARIABLE(ns, varname)                                                            \
@@ -79,13 +80,20 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
   IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, FACE);
   IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, FACE);
   IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, FACE);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
-      pack.GetUpperBoundHost(0), // Warning: only works for dense variables
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        // Calculate the flux using upwind donor cell reconstruction
-        pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff);
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack.GetNBlocks() - 1, kb.s, kb.e,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            // Calculate the flux using upwind donor cell reconstruction
+            pack.flux(b, FACE, l, k, j, i) = v * pack(b, l, k + koff, j + joff, i + ioff);
+          });
+        }
       });
   return TaskStatus::complete;
 }
@@ -116,23 +124,33 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   int koff = edge == TE::E3 ? ndim > 2 : 0;
   int joff = edge == TE::E2 ? ndim > 1 : 0;
   int ioff = edge == TE::E1 ? ndim > 0 : 0;
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s - (ndim > 2),
-      kb.e + (ndim > 2), jb.s - (ndim > 1), jb.e + (ndim > 1), ib.s - 1, ib.e + 1,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        // Piecewise linear in the orthogonal directions, could do something better here
-        pack(b, TE::CC, recon(0), k, j, i) =
-            0.5 * (pack(b, fe, flux_var(), k, j, i) +
-                   pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
-        pack(b, TE::CC, recon(1), k, j, i) =
-            0.5 * (pack(b, fe, flux_var(), k, j, i) +
-                   pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
-        pack(b, TE::CC, recon(2), k, j, i) =
-            0.5 * (pack(b, fe, flux_var(), k, j, i) +
-                   pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
-        pack(b, TE::CC, recon(3), k, j, i) =
-            0.5 * (pack(b, fe, flux_var(), k, j, i) +
-                   pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
+  constexpr int scratch_size = 0;
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
+      kb.s - (ndim > 2), kb.e + (ndim > 2),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s - (ndim > 1), jb.e + (ndim > 1)},
+                                   {ib.s - (ndim > 0), ib.e + (ndim > 0)});
+        if (pack.GetLowerBound(b, flux_var()) <= pack.GetUpperBound(b, flux_var())) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            // Piecewise linear in the orthogonal directions, could do something better
+            // here
+            pack(b, TE::CC, recon(0), k, j, i) =
+                0.5 * (pack(b, fe, flux_var(), k, j, i) +
+                       pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
+            pack(b, TE::CC, recon(1), k, j, i) =
+                0.5 * (pack(b, fe, flux_var(), k, j, i) +
+                       pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
+            pack(b, TE::CC, recon(2), k, j, i) =
+                0.5 * (pack(b, fe, flux_var(), k, j, i) +
+                       pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
+            pack(b, TE::CC, recon(3), k, j, i) =
+                0.5 * (pack(b, fe, flux_var(), k, j, i) +
+                       pack(b, fe, flux_var(), k + koff, j + joff, i + ioff));
+          });
+        }
       });
 
   // 2. Calculate the quartant averaged flux
@@ -143,20 +161,26 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   ib = md->GetBoundsI(cl, IndexDomain::interior, edge);
   jb = md->GetBoundsJ(cl, IndexDomain::interior, edge);
   kb = md->GetBoundsK(cl, IndexDomain::interior, edge);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack.flux(b, edge, var(), k, j, i) = 0.0;
-        for (int dk = -koff; dk < 1; ++dk)
-          for (int dj = -joff; dj < 1; ++dj)
-            for (int di = -ioff; di < 1; ++di) {
-              // TODO(LFR): Pick out the correct component of the reconstructed flux,
-              // current version is not an issue for piecewise constant flux though.
-              pack.flux(b, edge, var(), k, j, i) +=
-                  pack(b, TE::CC, recon(0), k + dk, j + dj, i + di);
-            }
-        pack.flux(b, edge, var(), k, j, i) /= npoints;
-        pack.flux(b, edge, var(), k, j, i) *= fac;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            pack.flux(b, edge, var(), k, j, i) = 0.0;
+            for (int dk = -koff; dk < 1; ++dk)
+              for (int dj = -joff; dj < 1; ++dj)
+                for (int di = -ioff; di < 1; ++di) {
+                  // TODO(LFR): Pick out the correct component of the reconstructed flux,
+                  // current version is not an issue for piecewise constant flux though.
+                  pack.flux(b, edge, var(), k, j, i) +=
+                      pack(b, TE::CC, recon(0), k + dk, j + dj, i + di);
+                }
+            pack.flux(b, edge, var(), k, j, i) /= npoints;
+            pack.flux(b, edge, var(), k, j, i) *= fac;
+          });
+        }
       });
 
   // 3. Reconstruct the transverse components of the advected field at the edge
@@ -167,13 +191,21 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
     ib = md->GetBoundsI(cl, IndexDomain::interior, f);
     jb = md->GetBoundsJ(cl, IndexDomain::interior, f);
     kb = md->GetBoundsK(cl, IndexDomain::interior, f);
-    parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s - (ndim > 2),
-        kb.e + (ndim > 2), jb.s - (ndim > 1), jb.e + (ndim > 1), ib.s - 1, ib.e + 1,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          // Piecewise linear in the orthogonal directions, could do something better here
-          pack(b, f, recon_f(0), k, j, i) = pack(b, f, var(), k, j, i);
-          pack(b, f, recon_f(1), k, j, i) = pack(b, f, var(), k, j, i);
+    parthenon::par_for_outer(
+        PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
+        kb.s - (ndim > 2), kb.e + (ndim > 2),
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+          parthenon::Indexer2D idxer({jb.s - (ndim > 1), jb.e + (ndim > 1)},
+                                     {ib.s - (ndim > 0), ib.e + (ndim > 0)});
+          if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
+            parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+              const auto [j, i] = idxer(idx);
+              // Piecewise linear in the orthogonal directions, could do something better
+              // here
+              pack(b, f, recon_f(0), k, j, i) = pack(b, f, var(), k, j, i);
+              pack(b, f, recon_f(1), k, j, i) = pack(b, f, var(), k, j, i);
+            });
+          }
         });
   }
 
@@ -189,15 +221,21 @@ TaskStatus CalculateVectorFluxes(parthenon::TopologicalElement edge,
   d1[static_cast<int>(f1) % 3] = 0;
   d2[static_cast<int>(edge) % 3] = 0;
   d2[static_cast<int>(f2) % 3] = 0;
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack.flux(b, edge, var(), k, j, i) +=
-            0.5 * (pack(b, f1, recon_f(0), k, j, i) -
-                   pack(b, f1, recon_f(1), k - d1[2], j - d1[1], i - d1[0]));
-        pack.flux(b, edge, var(), k, j, i) -=
-            0.5 * (pack(b, f2, recon_f(0), k, j, i) -
-                   pack(b, f2, recon_f(1), k - d2[2], j - d2[1], i - d2[0]));
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, kb.s,
+      kb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
+        parthenon::Indexer2D idxer({jb.s, jb.e}, {ib.s, ib.e});
+        if (pack.GetLowerBound(b, var()) <= pack.GetUpperBound(b, var())) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [j, i] = idxer(idx);
+            pack.flux(b, edge, var(), k, j, i) +=
+                0.5 * (pack(b, f1, recon_f(0), k, j, i) -
+                       pack(b, f1, recon_f(1), k - d1[2], j - d1[1], i - d1[0]));
+            pack.flux(b, edge, var(), k, j, i) -=
+                0.5 * (pack(b, f2, recon_f(0), k, j, i) -
+                       pack(b, f2, recon_f(1), k - d2[2], j - d2[1], i - d2[0]));
+          });
+        }
       });
 
   // Add in the diffusive component

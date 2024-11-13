@@ -31,9 +31,8 @@ std::size_t hash_combine(std::size_t lhs, const T &v, Rest &&...rest) {
   lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
   if constexpr (sizeof...(Rest) > 0) {
     return hash_combine(lhs, std::forward<Rest>(rest)...);
-  } else {
-    return lhs;
   }
+  return lhs;
 }
 
 template <class Tup, std::size_t I = std::tuple_size<Tup>::value - 1>

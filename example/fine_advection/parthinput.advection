@@ -57,6 +57,13 @@ profile = hard_sphere
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
+# Include advection equation for regular resolution CC fields
+do_regular_advection = true
+# Include advection equation for fine resolution CC fields
+do_fine_advection = true
+# Include vector wave equation using CT
+do_CT_advection = true
+
 <parthenon/output1>
 file_type = rst
 dt = 0.05
