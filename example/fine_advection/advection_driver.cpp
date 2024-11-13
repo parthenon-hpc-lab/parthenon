@@ -95,9 +95,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
     auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
-    auto start_send = tl.AddTask(none, parthenon::StartReceiveBoundaryBuffers, mc1);
-    auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-
     // Make a sparse variable pack descriptors that can be used to build packs
     // including some subset of the fields in this example. This will be passed
     // to the Stokes update routines, so that they can internally create variable
@@ -146,9 +143,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
       }
     }
 
-    auto set_flx = parthenon::AddFluxCorrectionTasks(
-        start_flxcor | flx | flx_fine | vf_dep, tl, mc0, pmesh->multilevel);
-
+    //auto set_flx = parthenon::AddFluxCorrectionTasks(
+    //    flx | flx_fine | vf_dep, tl, mc0, pmesh->multilevel);
+    auto set_flx = flx | flx_fine | vf_dep; 
     auto update = set_flx;
     if (do_regular_advection) {
       update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt,
@@ -170,7 +167,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     }
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(
-        update | update_vec | update_fine | start_send, tl, mc1, pmesh->multilevel);
+        update | update_vec | update_fine, tl, mc1, pmesh->multilevel);
 
     auto fill_derived =
         tl.AddTask(boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mc1.get());
