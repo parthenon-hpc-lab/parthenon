@@ -221,7 +221,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     // Receive any messages that are around
     bool all_combined_received =
         pmesh->pcombined_buffers->TryReceiveAny(md.get(), bound_type);
-    //all_received = all_received && all_combined_received;
+    // all_received = all_received && all_combined_received;
   }
   const bool comb_comm = pmesh->do_combined_comms;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),

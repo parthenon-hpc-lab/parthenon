@@ -253,8 +253,8 @@ void CommBuffer<T>::Send(bool local) noexcept {
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
-                                   MPITypeMap<buf_base_t>::type(), recv_rank_, tag_,
-                                   comm_, my_request_.get()));
+                                  MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
+                                  my_request_.get()));
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {
