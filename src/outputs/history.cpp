@@ -18,6 +18,7 @@
 //  \brief writes history output data, volume-averaged quantities that are output
 //         frequently in time to trace their history.
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -93,9 +94,16 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     md_base->Initialize(pm->block_list, pm);
   }
 
-  // Loop over all packages of the application
-  for (const auto &pkg : packages) {
-    const auto &params = pkg.second->AllParams();
+  // Loop over all packages of the application in alphabetical order to ensure consistency
+  // of ordering of data in columns.
+  std::vector<std::string> keys;
+  for (const auto &pair : packages) {
+    keys.push_back(pair.first);
+  }
+  std::sort(keys.begin(), keys.end());
+  for (const auto &key : keys) {
+    const auto &pkg = packages[key];
+    const auto &params = pkg->AllParams();
 
     // Check if the package has enrolled scalar history functions which are stored in the
     // Params under the `hist_param_key` name.

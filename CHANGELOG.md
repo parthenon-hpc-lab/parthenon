@@ -12,6 +12,7 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1209]](https://github.com/parthenon-hpc-lab/parthenon/pull/1209) Ordered history output
 - [[PR 1206]](https://github.com/parthenon-hpc-lab/parthenon/pull/1206) Leapfrog fix
 - [[PR1203]](https://github.com/parthenon-hpc-lab/parthenon/pull/1203) Pin Ubuntu CI image
 - [[PR1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
@@ -21,6 +22,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1188]](https://github.com/parthenon-hpc-lab/parthenon/pull/1188) Fix hdf5 output issue for metadata none variables, update test.
 - [[PR 1170]](https://github.com/parthenon-hpc-lab/parthenon/pull/1170) Fixed incorrect initialization of array by a const not constexpr
 - [[PR 1189]](https://github.com/parthenon-hpc-lab/parthenon/pull/1189) Address CUDA MPI/ICP issue with Kokkos <=4.4.1
 - [[PR 1178]](https://github.com/parthenon-hpc-lab/parthenon/pull/1178) Fix issue with mesh pointer when using relative residual tolerance in BiCGSTAB solver.
