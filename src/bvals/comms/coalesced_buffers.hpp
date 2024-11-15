@@ -120,7 +120,7 @@ struct CoalescedBuffersRank {
 
   bool TryReceiveBufInfo();
 
-  void ResolveAndSendCoalescedBufferInfo();
+  void ResolveAndSendBufInfo();
 
   void PackAndSend(MeshData<Real> *pmd);
 
