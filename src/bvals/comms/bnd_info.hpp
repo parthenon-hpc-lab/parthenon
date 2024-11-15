@@ -55,6 +55,7 @@ struct BndInfo {
   SpatiallyMaskedIndexer6D idxer[3];
   forest::LogicalCoordinateTransformation lcoord_trans;
 
+  // Number of points contained in this boundary region
   KOKKOS_FORCEINLINE_FUNCTION
   int size() const {
     int s = 0;
