@@ -342,7 +342,7 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRank::ResolveSendBuffersAndSendInfo() {
+void CoalescedBuffersRank::ResolveAndSendCoalescedBufferInfo() {
   // First calculate the total size of the message
   int total_buffers{0};
   for (auto &[partition, coalesced_buf] : coalesced_bufs)
@@ -436,7 +436,7 @@ void CoalescedComms::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
 //----------------------------------------------------------------------------------------
 void CoalescedComms::ResolveAndSendSendBuffers() {
   for (auto &[id, buf] : coalesced_send_buffers)
-    buf.ResolveSendBuffersAndSendInfo();
+    buf.ResolveAndSendCoalescedBufferInfo();
 }
 
 //----------------------------------------------------------------------------------------
