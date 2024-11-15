@@ -480,15 +480,15 @@ Coalesced MPI Communication
 ---------------------------
 
 As is described above, a one-dimensional buffer is packed and unpacked for each communicated 
-field on each pair of blocks that share a unique topological element. For codes with larger
-numbers of variables and/or in simulations run with smaller block sizes, this can result in
-a large total number of buffers and importantly a large number of buffers that need to be 
-communicated across MPI ranks. The latter fact can have significant performance implications,
-as each ``CommBuffer<T>::Send()`` call for these non-local buffers corresponds to an
-``MPI_Isend``. Generally, these messages contain a small amount of data which results in
-a small effective MPI bandwith. Additionally, MPI implementations seem to have a hard time
-dealing with the large number of messages required. In some cases, this can result in poor
-scaling behavior for Parthenon. 
+field on each pair of blocks that share a unique topological element (below we refer to this
+as a variable-boundary buffer). For codes with larger numbers of variables and/or in 
+simulations run with smaller block sizes, this can result in a large total number of buffers
+and importantly a large number of buffers that need to be communicated across MPI ranks. The
+latter fact can have significant performance implications, as each ``CommBuffer<T>::Send()``
+call for these non-local buffers corresponds to an ``MPI_Isend``. Generally, these messages
+contain a small amount of data which results in a small effective MPI bandwith. Additionally,
+MPI implementations seem to have a hard time dealing with the large number of messages
+required. In some cases, this can result in poor scaling behavior for Parthenon. 
 
 To get around this, we introduce a second level of buffers for communicating across ranks.
 For each ``MeshData`` object on a given MPI rank, coalesced buffers equal in size to all
