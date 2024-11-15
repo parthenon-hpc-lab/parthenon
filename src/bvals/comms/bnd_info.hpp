@@ -80,8 +80,8 @@ struct BndId {
   int &start_idx() { return data[9]; }
 
   bool buf_allocated;
-  buf_pool_t<Real>::weak_t buf;  // comm buffer from pool
-  BufArray1D<Real> combined_buf; // Combined buffer
+  buf_pool_t<Real>::weak_t buf;   // comm buffer from pool
+  BufArray1D<Real> coalesced_buf; // Combined buffer
 
   void PrintInfo(const std::string &start);
 

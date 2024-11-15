@@ -27,7 +27,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
-#include "combined_buffers.hpp"
+#include "coalesced_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -66,7 +66,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   bool can_write_combined =
-      pmesh->pcombined_buffers->IsAvailableForWrite(md.get(), bound_type);
+      pmesh->pcoalesced_buffers->IsAvailableForWrite(md.get(), bound_type);
   if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
@@ -151,16 +151,16 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
-  const bool comb_comm = pmesh->do_combined_comms;
+  const bool coal_comm = pmesh->do_coalesced_comms;
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
-      buf.Send(comb_comm);
+      buf.Send(coal_comm);
     else
-      buf.SendNull(comb_comm);
+      buf.SendNull(coal_comm);
   }
-  if (pmesh->do_combined_comms)
-    pmesh->pcombined_buffers->PackAndSend(md.get(), bound_type);
+  if (pmesh->do_coalesced_comms)
+    pmesh->pcoalesced_buffers->PackAndSend(md.get(), bound_type);
 
   return TaskStatus::complete;
 }
@@ -217,16 +217,16 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       false);
 
   bool all_received = true;
-  if (pmesh->do_combined_comms) {
+  if (pmesh->do_coalesced_comms) {
     // Receive any messages that are around
-    bool all_combined_received =
-        pmesh->pcombined_buffers->TryReceiveAny(md.get(), bound_type);
-    // all_received = all_received && all_combined_received;
+    bool all_coalesced_received =
+        pmesh->pcoalesced_buffers->TryReceiveAny(md.get(), bound_type);
+    // all_received = all_received && all_coalesced_received;
   }
-  const bool comb_comm = pmesh->do_combined_comms;
+  const bool coal_comm = pmesh->do_coalesced_comms;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-                [&all_received, comb_comm](auto pbuf) {
-                  all_received = pbuf->TryReceive(comb_comm) && all_received;
+                [&all_received, coal_comm](auto pbuf) {
+                  all_received = pbuf->TryReceive(coal_comm) && all_received;
                 });
 
   int ibound = 0;
@@ -271,8 +271,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
-  // if (pmesh->do_combined_comms) {
-  //   pmesh->pcombined_buffers->Compare(md.get(), bound_type);
+  // if (pmesh->do_coalesced_comms) {
+  //   pmesh->pcoalesced_buffers->Compare(md.get(), bound_type);
   // }
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);

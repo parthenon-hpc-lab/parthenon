@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_COMMS_COMBINED_BUFFERS_HPP_
-#define BVALS_COMMS_COMBINED_BUFFERS_HPP_
+#ifndef BVALS_COMMS_COALESCED_BUFFERS_HPP_
+#define BVALS_COMMS_COALESCED_BUFFERS_HPP_
 
 #include <map>
 #include <memory>
@@ -34,7 +34,7 @@ namespace parthenon {
 // Structure containing the information required for sending coalesced
 // messages between ranks
 
-struct CombinedBuffersRankPartition {
+struct CoalescedBuffersRankPartition {
   using buf_t = BufArray1D<Real>;
 
   // Rank that these buffers communicate with
@@ -46,22 +46,22 @@ struct CombinedBuffersRankPartition {
   bool sender;
 
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> combined_info_buf;
+  std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> coalesced_info_buf;
   std::set<Uid_t> all_vars;
   ParArray1D<BndId> bnd_ids_device;
   ParArray1D<BndId>::host_mirror_type bnd_ids_host;
-  CommBuffer<buf_t> combined_comm_buffer;
+  CommBuffer<buf_t> coalesced_comm_buffer;
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
-  CombinedBuffersRankPartition(bool sender, int partition, int other_rank,
-                               BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
+  CoalescedBuffersRankPartition(bool sender, int partition, int other_rank,
+                                BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
       : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
         comm_(comm), pmesh(pmesh), current_size(0) {}
 
   int TotalBuffers() const {
     int total_buffers{0};
-    for (const auto &[uid, v] : combined_info_buf)
+    for (const auto &[uid, v] : coalesced_info_buf)
       total_buffers += v.size();
     return total_buffers;
   }
@@ -71,11 +71,11 @@ struct CombinedBuffersRankPartition {
   void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
 
-  void AllocateCombinedBuffer();
+  void AllocateCoalescedBuffer();
 
   bool IsAvailableForWrite() {
     return sparse_status_buffer.IsAvailableForWrite() &&
-           combined_comm_buffer.IsAvailableForWrite();
+           coalesced_comm_buffer.IsAvailableForWrite();
   }
 
   ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars);
@@ -87,7 +87,7 @@ struct CombinedBuffersRankPartition {
   void Compare(const std::set<Uid_t> &vars);
 };
 
-struct CombinedBuffersRank {
+struct CoalescedBuffersRank {
   using coalesced_message_structure_t = std::vector<BndId>;
   using buf_t = BufArray1D<Real>;
 
@@ -99,7 +99,7 @@ struct CombinedBuffersRank {
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
 
-  std::map<int, CombinedBuffersRankPartition> combined_bufs;
+  std::map<int, CoalescedBuffersRankPartition> coalesced_bufs;
 
   static constexpr int nglobal{1};
   static constexpr int nper_part{3};
@@ -111,8 +111,8 @@ struct CombinedBuffersRank {
   Mesh *pmesh;
   bool sender{true};
 
-  explicit CombinedBuffersRank(int o_rank, BoundaryType b_type, bool send,
-                               mpi_comm_t comm, Mesh *pmesh);
+  explicit CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool send,
+                                mpi_comm_t comm, Mesh *pmesh);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var);
@@ -128,16 +128,16 @@ struct CombinedBuffersRank {
   bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
 
-struct CombinedBuffers {
+struct CoalescedBuffers {
   // Combined buffers for each rank
-  std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_send_buffers;
-  std::map<std::pair<int, BoundaryType>, CombinedBuffersRank> combined_recv_buffers;
+  std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_send_buffers;
+  std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_recv_buffers;
 
   std::map<BoundaryType, mpi_comm_t> comms_;
 
   Mesh *pmesh;
 
-  explicit CombinedBuffers(Mesh *pmesh) : pmesh(pmesh) {
+  explicit CoalescedBuffers(Mesh *pmesh) : pmesh(pmesh) {
     // TODO(LFR): Switch to a different communicator for each BoundaryType pair
     for (auto b_type :
          {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
@@ -151,7 +151,7 @@ struct CombinedBuffers {
     }
   }
 
-  ~CombinedBuffers() {
+  ~CoalescedBuffers() {
 #ifdef MPI_PARALLEL
     for (auto &[b_type, comm] : comms_)
       PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
@@ -162,14 +162,14 @@ struct CombinedBuffers {
     bool can_delete;
     do {
       can_delete = true;
-      for (auto &[p, cbr] : combined_send_buffers) {
-        for (auto &[r, cbrp] : cbr.combined_bufs) {
+      for (auto &[p, cbr] : coalesced_send_buffers) {
+        for (auto &[r, cbrp] : cbr.coalesced_bufs) {
           can_delete = cbrp.IsAvailableForWrite() && can_delete;
         }
       }
     } while (!can_delete);
-    combined_send_buffers.clear();
-    combined_recv_buffers.clear();
+    coalesced_send_buffers.clear();
+    coalesced_recv_buffers.clear();
   }
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
@@ -193,4 +193,4 @@ struct CombinedBuffers {
 
 } // namespace parthenon
 
-#endif // BVALS_COMMS_COMBINED_BUFFERS_HPP_
+#endif // BVALS_COMMS_COALESCED_BUFFERS_HPP_

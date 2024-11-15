@@ -59,7 +59,7 @@ namespace parthenon {
 
 // Forward declarations
 class ApplicationInput;
-class CombinedBuffers;
+class CoalescedBuffers;
 class MeshBlock;
 class MeshRefinement;
 class Packages_t;
@@ -131,7 +131,7 @@ class Mesh {
   int step_since_lb;
   int gflag;
 
-  bool do_combined_comms;
+  bool do_coalesced_comms;
 
   BlockList_t block_list;
   Packages_t packages;
@@ -237,7 +237,7 @@ class Mesh {
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
-  std::shared_ptr<CombinedBuffers> pcombined_buffers;
+  std::shared_ptr<CoalescedBuffers> pcoalesced_buffers;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }

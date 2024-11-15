@@ -42,7 +42,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
-#include "bvals/comms/combined_buffers.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -87,9 +87,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcombined_buffers(std::make_shared<CombinedBuffers>(this)),
-      do_combined_comms{
-          pin->GetOrAddBoolean("parthenon/mesh", "do_combined_comms", false)} {
+      pcoalesced_buffers(std::make_shared<CoalescedBuffers>(this)),
+      do_coalesced_comms{
+          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", false)} {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -623,7 +623,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
-  pcombined_buffers->clear();
+  pcoalesced_buffers->clear();
 
   // Build the boundary buffers for the current mesh
   for (auto &partition : GetDefaultBlockPartitions()) {
@@ -641,9 +641,9 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     }
   }
 
-  pcombined_buffers->ResolveAndSendSendBuffers();
+  pcoalesced_buffers->ResolveAndSendSendBuffers();
   // This operation is blocking
-  pcombined_buffers->ReceiveBufferInfo();
+  pcoalesced_buffers->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,

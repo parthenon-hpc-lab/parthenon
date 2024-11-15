@@ -328,7 +328,7 @@ void BndId::PrintInfo(const std::string &start) {
   printf("%s var %s (%i -> %i) starting at %i with size %i (Total combined buffer size = "
          "%i, buffer size = %i, buf_allocated = %i) [rank = %i]\n",
          start.c_str(), Variable<Real>::GetLabel(var_id()).c_str(), send_gid(),
-         recv_gid(), start_idx(), size(), combined_buf.size(), buf.size(), buf_allocated,
+         recv_gid(), start_idx(), size(), coalesced_buf.size(), buf.size(), buf_allocated,
          Globals::my_rank);
 }
 
