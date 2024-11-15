@@ -306,32 +306,6 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   }
 }
 
-BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
-                     std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
-                     int partition, int start_idx) {
-  auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type);
-  BndId out;
-  out.send_gid() = send_gid;
-  out.recv_gid() = recv_gid;
-  out.loc_idx() = loc;
-  out.var_id() = v->GetUniqueID();
-  out.extra_id() = extra_id;
-  out.rank_send() = Globals::my_rank;
-  out.rank_recv() = nb.rank;
-  out.partition() = partition;
-  out.size() = BndInfo::GetSendBndInfo(pmb, nb, v, nullptr).size();
-  out.start_idx() = start_idx;
-  return out;
-}
-
-void BndId::PrintInfo(const std::string &start) {
-  printf("%s var %s (%i -> %i) starting at %i with size %i (Total combined buffer size = "
-         "%i, buffer size = %i, buf_allocated = %i) [rank = %i]\n",
-         start.c_str(), Variable<Real>::GetLabel(var_id()).c_str(), send_gid(),
-         recv_gid(), start_idx(), size(), coalesced_buf.size(), buf.size(), buf_allocated,
-         Globals::my_rank);
-}
-
 BndInfo BndInfo::GetSendBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
                                 std::shared_ptr<Variable<Real>> v,
                                 CommBuffer<buf_pool_t<Real>::owner_t> *buf) {

@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"

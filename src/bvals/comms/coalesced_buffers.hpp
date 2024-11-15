@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"

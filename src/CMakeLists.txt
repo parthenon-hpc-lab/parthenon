@@ -101,6 +101,8 @@ add_library(parthenon
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_id.cpp
+  bvals/comms/bnd_id.hpp
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
