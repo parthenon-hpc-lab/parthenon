@@ -35,7 +35,7 @@ namespace parthenon {
 // Structure containing the information required for sending coalesced
 // messages between ranks
 
-struct CoalescedBuffersRankPartition {
+struct CoalescedBuffer {
   using buf_t = BufArray1D<Real>;
 
   // Rank that these buffers communicate with
@@ -55,8 +55,8 @@ struct CoalescedBuffersRankPartition {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
-  CoalescedBuffersRankPartition(bool sender, int partition, int other_rank,
-                                BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
+  CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
+                  mpi_comm_t comm, Mesh *pmesh)
       : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
         comm_(comm), pmesh(pmesh), current_size(0) {}
 
@@ -100,7 +100,7 @@ struct CoalescedBuffersRank {
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
 
-  std::map<int, CoalescedBuffersRankPartition> coalesced_bufs;
+  std::map<int, CoalescedBuffer> coalesced_bufs;
 
   static constexpr int nglobal{1};
   static constexpr int nper_part{3};
@@ -129,7 +129,7 @@ struct CoalescedBuffersRank {
   bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
 
-struct CoalescedBuffers {
+struct CoalescedComms {
   // Combined buffers for each rank
   std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_send_buffers;
   std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_recv_buffers;
@@ -138,7 +138,7 @@ struct CoalescedBuffers {
 
   Mesh *pmesh;
 
-  explicit CoalescedBuffers(Mesh *pmesh) : pmesh(pmesh) {
+  explicit CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
     // TODO(LFR): Switch to a different communicator for each BoundaryType pair
     for (auto b_type :
          {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
@@ -152,7 +152,7 @@ struct CoalescedBuffers {
     }
   }
 
-  ~CoalescedBuffers() {
+  ~CoalescedComms() {
 #ifdef MPI_PARALLEL
     for (auto &[b_type, comm] : comms_)
       PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));

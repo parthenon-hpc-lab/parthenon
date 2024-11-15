@@ -66,7 +66,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   bool can_write_combined =
-      pmesh->pcoalesced_buffers->IsAvailableForWrite(md.get(), bound_type);
+      pmesh->pcoalesced_comms->IsAvailableForWrite(md.get(), bound_type);
   if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
@@ -160,7 +160,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       buf.SendNull(coal_comm);
   }
   if (pmesh->do_coalesced_comms)
-    pmesh->pcoalesced_buffers->PackAndSend(md.get(), bound_type);
+    pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
 
   return TaskStatus::complete;
 }
@@ -220,7 +220,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (pmesh->do_coalesced_comms) {
     // Receive any messages that are around
     bool all_coalesced_received =
-        pmesh->pcoalesced_buffers->TryReceiveAny(md.get(), bound_type);
+        pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
     // all_received = all_received && all_coalesced_received;
   }
   const bool coal_comm = pmesh->do_coalesced_comms;
@@ -272,7 +272,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
   // if (pmesh->do_coalesced_comms) {
-  //   pmesh->pcoalesced_buffers->Compare(md.get(), bound_type);
+  //   pmesh->pcoalesced_comms->Compare(md.get(), bound_type);
   // }
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);

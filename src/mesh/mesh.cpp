@@ -87,7 +87,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcoalesced_buffers(std::make_shared<CoalescedBuffers>(this)),
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{
           pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", false)} {
   // Allow for user overrides to default Parthenon functions
@@ -623,7 +623,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
-  pcoalesced_buffers->clear();
+  pcoalesced_comms->clear();
 
   // Build the boundary buffers for the current mesh
   for (auto &partition : GetDefaultBlockPartitions()) {
@@ -641,9 +641,9 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     }
   }
 
-  pcoalesced_buffers->ResolveAndSendSendBuffers();
+  pcoalesced_comms->ResolveAndSendSendBuffers();
   // This operation is blocking
-  pcoalesced_buffers->ReceiveBufferInfo();
+  pcoalesced_comms->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,

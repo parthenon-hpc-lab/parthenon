@@ -136,7 +136,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       // Register this buffer with the combined buffers (must happen after CommBuffer is
       // created)
       if (receiver_rank != sender_rank)
-        pmesh->pcoalesced_buffers->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
+        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
     }
 
     // Also build the non-local receive buffers here
@@ -149,7 +149,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
               use_sparse_buffers);
         // Register this buffer with the combined buffers (must happen after CommBuffer is
         // created)
-        pmesh->pcoalesced_buffers->AddRecvBuffer(pmb, nb, v, BTYPE);
+        pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
       }
     }
   });

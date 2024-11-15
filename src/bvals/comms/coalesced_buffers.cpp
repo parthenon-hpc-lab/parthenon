@@ -33,7 +33,7 @@
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRankPartition::AllocateCoalescedBuffer() {
+void CoalescedBuffer::AllocateCoalescedBuffer() {
   int send_rank = sender ? Globals::my_rank : other_rank;
   int recv_rank = sender ? other_rank : Globals::my_rank;
   coalesced_comm_buffer = CommBuffer<buf_t>(2 * partition, send_rank, recv_rank, comm_);
@@ -52,8 +52,7 @@ void CoalescedBuffersRankPartition::AllocateCoalescedBuffer() {
 }
 
 //----------------------------------------------------------------------------------------
-ParArray1D<BndId> &
-CoalescedBuffersRankPartition::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
+ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
   int nbnd_id{0};
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   for (auto uid : var_set)
@@ -96,7 +95,7 @@ CoalescedBuffersRankPartition::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
+void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(coalesced_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
   auto &bids = GetBndIdsOnDevice(vars);
@@ -148,7 +147,7 @@ void CoalescedBuffersRankPartition::PackAndSend(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffersRankPartition::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
+bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   if ((sparse_status_buffer.GetState() == BufferState::received) &&
       (coalesced_comm_buffer.GetState() == BufferState::received))
     return true;
@@ -207,7 +206,7 @@ bool CoalescedBuffersRankPartition::TryReceiveAndUnpack(const std::set<Uid_t> &v
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRankPartition::Compare(const std::set<Uid_t> &vars) {
+void CoalescedBuffer::Compare(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(coalesced_comm_buffer.GetState() == BufferState::received,
                     "Combined buffer not in correct state");
   PARTHENON_REQUIRE(sparse_status_buffer.GetState() == BufferState::received,
@@ -250,7 +249,7 @@ void CoalescedBuffersRankPartition::Compare(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRankPartition::AddVarBoundary(BndId &bnd_id) {
+void CoalescedBuffer::AddVarBoundary(BndId &bnd_id) {
   auto key = GetChannelKey(bnd_id);
   PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
   var_buf_t *pbuf = &(pmesh->boundary_comm_map.at(key));
@@ -260,8 +259,8 @@ void CoalescedBuffersRankPartition::AddVarBoundary(BndId &bnd_id) {
   all_vars.insert(bnd_id.var_id());
 }
 
-void CoalescedBuffersRankPartition::AddVarBoundary(
-    MeshBlock *pmb, const NeighborBlock &nb, const std::shared_ptr<Variable<Real>> &var) {
+void CoalescedBuffer::AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
+                                     const std::shared_ptr<Variable<Real>> &var) {
   // Store both the variable-boundary buffer information and a pointer to the v-b buffer
   // itself associated with var ids
   BndId bnd_id = BndId::GetSend(pmb, nb, var, b_type, partition, -1);
@@ -293,9 +292,9 @@ void CoalescedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
                                          const NeighborBlock &nb,
                                          const std::shared_ptr<Variable<Real>> &var) {
   if (coalesced_bufs.count(partition) == 0)
-    coalesced_bufs.emplace(std::make_pair(
-        partition, CoalescedBuffersRankPartition(true, partition, other_rank, b_type,
-                                                 comm_, pmb->pmy_mesh)));
+    coalesced_bufs.emplace(
+        std::make_pair(partition, CoalescedBuffer(true, partition, other_rank, b_type,
+                                                  comm_, pmb->pmy_mesh)));
 
   auto &coal_buf = coalesced_bufs.at(partition);
   coal_buf.AddVarBoundary(pmb, nb, var);
@@ -319,9 +318,9 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
       const int total_size = mess_buf[idx++];
 
       // Create the new partition
-      coalesced_bufs.emplace(std::make_pair(
-          partition, CoalescedBuffersRankPartition(false, partition, other_rank, b_type,
-                                                   comm_, pmesh)));
+      coalesced_bufs.emplace(
+          std::make_pair(partition, CoalescedBuffer(false, partition, other_rank, b_type,
+                                                    comm_, pmesh)));
       auto &coal_buf = coalesced_bufs.at(partition);
 
       for (int b = 0; b < nbuf; ++b) {
@@ -409,10 +408,9 @@ bool CoalescedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partitio
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
-                                     const NeighborBlock &nb,
-                                     const std::shared_ptr<Variable<Real>> &var,
-                                     BoundaryType b_type) {
+void CoalescedComms::AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
+                                   const std::shared_ptr<Variable<Real>> &var,
+                                   BoundaryType b_type) {
   if (coalesced_send_buffers.count({nb.rank, b_type}) == 0)
     coalesced_send_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
@@ -422,9 +420,9 @@ void CoalescedBuffers::AddSendBuffer(int partition, MeshBlock *pmb,
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
-                                     const std::shared_ptr<Variable<Real>>,
-                                     BoundaryType b_type) {
+void CoalescedComms::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
+                                   const std::shared_ptr<Variable<Real>>,
+                                   BoundaryType b_type) {
   // We don't actually know enough here to register this particular buffer, but we do
   // know that it's existence implies that we need to receive a message from the
   // neighbor block rank eventually telling us the details
@@ -436,13 +434,13 @@ void CoalescedBuffers::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::ResolveAndSendSendBuffers() {
+void CoalescedComms::ResolveAndSendSendBuffers() {
   for (auto &[id, buf] : coalesced_send_buffers)
     buf.ResolveSendBuffersAndSendInfo();
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::ReceiveBufferInfo() {
+void CoalescedComms::ReceiveBufferInfo() {
   constexpr std::int64_t max_it = 1e10;
   std::vector<bool> received(coalesced_recv_buffers.size(), false);
   bool all_received;
@@ -459,7 +457,7 @@ void CoalescedBuffers::ReceiveBufferInfo() {
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
+bool CoalescedComms::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (coalesced_send_buffers.count({rank, b_type})) {
@@ -471,7 +469,7 @@ bool CoalescedBuffers::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_t
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
+void CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (coalesced_send_buffers.count({rank, b_type})) {
       coalesced_send_buffers.at({rank, b_type}).PackAndSend(pmd);
@@ -480,7 +478,7 @@ void CoalescedBuffers::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffers::Compare(MeshData<Real> *pmd, BoundaryType b_type) {
+void CoalescedComms::Compare(MeshData<Real> *pmd, BoundaryType b_type) {
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (coalesced_recv_buffers.count({rank, b_type})) {
       auto &coal_bufs = coalesced_recv_buffers.at({rank, b_type});
@@ -492,7 +490,7 @@ void CoalescedBuffers::Compare(MeshData<Real> *pmd, BoundaryType b_type) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffers::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
+bool CoalescedComms::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
   bool all_received = true;
   for (int rank = 0; rank < Globals::nranks; ++rank) {
