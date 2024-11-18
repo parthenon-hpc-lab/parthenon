@@ -89,7 +89,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       brdisp(Globals::nranks), bddisp(Globals::nranks),
       pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{
-          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", false)} {
+          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", true)} {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
