@@ -281,7 +281,6 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (combuf != nullptr) buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
-  if (!allocated) return;
 
   if (nb.origin_loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
