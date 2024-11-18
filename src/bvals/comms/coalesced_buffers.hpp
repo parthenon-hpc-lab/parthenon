@@ -55,8 +55,8 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
-  CoalescedBuffer(bool sender, int partition, int other_rank,
-                  BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
+  CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
+                  mpi_comm_t comm, Mesh *pmesh)
       : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
         comm_(comm), pmesh(pmesh), current_size(0) {}
 
