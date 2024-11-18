@@ -35,6 +35,17 @@ namespace parthenon {
 // Structure containing the information required for sending coalesced
 // messages between ranks
 
+struct uid_set_hash {
+  std::size_t operator()(const std::set<Uid_t> &in) const {
+    std::size_t lhs{0};
+    for (const auto &uid : in) {
+      std::size_t rhs = std::hash<Uid_t>()(uid);
+      lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
+    }
+    return lhs;
+  }
+};
+
 struct CoalescedBuffer {
   using buf_t = BufArray1D<Real>;
 
@@ -49,8 +60,9 @@ struct CoalescedBuffer {
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> coalesced_info_buf;
   std::set<Uid_t> all_vars;
-  ParArray1D<BndId> bnd_ids_device;
-  ParArray1D<BndId>::host_mirror_type bnd_ids_host;
+  std::unordered_map<std::set<Uid_t>, ParArray1D<BndId>, uid_set_hash> bnd_ids_device_map;
+  std::unordered_map<std::set<Uid_t>, ParArray1D<BndId>::host_mirror_type, uid_set_hash>
+      bnd_ids_host_map;
   CommBuffer<buf_t> coalesced_comm_buffer;
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;

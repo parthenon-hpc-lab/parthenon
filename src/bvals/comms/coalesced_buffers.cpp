@@ -53,8 +53,11 @@ void CoalescedBuffer::AllocateCoalescedBuffer() {
 
 //----------------------------------------------------------------------------------------
 ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
-  int nbnd_id{0};
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
+  auto &bnd_ids_device = bnd_ids_device_map[var_set];
+  auto &bnd_ids_host = bnd_ids_host_map[var_set];
+
+  int nbnd_id{0};
   for (auto uid : var_set)
     nbnd_id += coalesced_info_buf.at(uid).size();
 
