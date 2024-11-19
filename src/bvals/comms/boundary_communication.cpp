@@ -223,7 +223,6 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     // Receive any messages that are around
     bool all_coalesced_received =
         pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
-    // all_received = all_received && all_coalesced_received;
   }
   const bool coal_comm = pmesh->do_coalesced_comms;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
