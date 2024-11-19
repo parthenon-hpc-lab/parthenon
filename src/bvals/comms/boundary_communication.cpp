@@ -273,10 +273,6 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
-  // if (pmesh->do_coalesced_comms) {
-  //   pmesh->pcoalesced_comms->Compare(md.get(), bound_type);
-  // }
-
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
   if (rebuild) {

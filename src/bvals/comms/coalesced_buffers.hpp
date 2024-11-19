@@ -98,8 +98,6 @@ struct CoalescedBuffer {
   void PackAndSend(const std::set<Uid_t> &vars);
 
   bool TryReceiveAndUnpack(const std::set<Uid_t> &vars);
-
-  void Compare(const std::set<Uid_t> &vars);
 };
 
 struct CoalescedBuffersRank {

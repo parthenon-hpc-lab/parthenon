@@ -223,49 +223,6 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffer::Compare(const std::set<Uid_t> &vars) {
-  PARTHENON_REQUIRE(coalesced_comm_buffer.GetState() == BufferState::received,
-                    "Combined buffer not in correct state");
-  PARTHENON_REQUIRE(sparse_status_buffer.GetState() == BufferState::received,
-                    "Combined buffer not in correct state");
-  const auto &var_set = vars.size() == 0 ? all_vars : vars;
-  // Allocate and free buffers as required
-  int idx{0};
-  auto &stat = sparse_status_buffer.buffer();
-  for (auto uid : var_set) {
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      if (stat[idx] == 1) {
-        PARTHENON_REQUIRE(pvbbuf->GetState() == BufferState::received,
-                          "State doesn't agree.");
-      } else {
-        PARTHENON_REQUIRE(pvbbuf->GetState() == BufferState::received_null,
-                          "State doesn't agree.");
-      }
-      idx++;
-    }
-  }
-
-  auto &bids = GetBndIdsOnDevice(vars);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const int buf_size = bids[b].size();
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) {
-                                 PARTHENON_REQUIRE(buf[idx] == com_buf[idx], "Bad value");
-                               });
-        }
-      });
-  coalesced_comm_buffer.Stale();
-  sparse_status_buffer.Stale();
-}
-
-//----------------------------------------------------------------------------------------
 void CoalescedBuffer::AddVarBoundary(BndId &bnd_id) {
   auto key = GetChannelKey(bnd_id);
   PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
