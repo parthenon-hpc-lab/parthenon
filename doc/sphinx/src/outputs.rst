@@ -194,7 +194,9 @@ block might look like
 
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
-enrolled by specific packages, see :ref:`state history output`.
+enrolled by specific packages, see :ref:`state history output`. Per-package history
+outputs will always be in alphabetical order by package name, which may not match
+the order in which packages were added to a simulation.
 
 Histograms
 ----------

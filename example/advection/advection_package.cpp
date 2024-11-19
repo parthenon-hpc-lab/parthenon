@@ -196,6 +196,20 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
   pkg->AddField("my_derived_var", m);
 
+  // Create a Metadata::None variable for IO testing purposes.
+  // Only load if test_metadata_none is specified in the Advection block
+  auto test_metadata_none =
+      pin->GetOrAddBoolean("Advection", "test_metadata_none", false);
+  pkg->AddParam<bool>("test_metadata_none", test_metadata_none);
+  if (test_metadata_none) {
+    const int nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", 1);
+    const int nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", 1);
+    const int nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", 1);
+    std::vector<int> test_shape = {nx1 + 1, nx2 + 1, nx3 + 1, 3};
+    m = Metadata({Metadata::OneCopy, Metadata::None}, test_shape);
+    pkg->AddField("metadata_none_var", m);
+  }
+
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
   // Now we add a couple of callback functions
@@ -281,6 +295,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
+  const bool test_metadata_none = pkg->Param<bool>("test_metadata_none");
   bool fill_derived = pkg->Param<bool>("fill_derived");
 
   if (fill_derived) {
@@ -300,6 +315,24 @@ void PreFill(MeshBlockData<Real> *rc) {
         PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
+        });
+  }
+
+  // Fill the metadata::None var with index gymnastics.
+  if (test_metadata_none) {
+    const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::interior);
+    const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::interior);
+    const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::interior);
+
+    // packing in principle unnecessary/convoluted here and just done for demonstration
+    std::vector<std::string> vars({"metadata_none_var"});
+    PackIndexMap imap;
+    const auto &v = rc->PackVariables(vars, imap);
+
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, 2, 0, nx3, 0, nx2, 0, nx1,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          v(n, k, j, i) = n + k + j + i;
         });
   }
 }
