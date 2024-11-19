@@ -507,7 +507,7 @@ To use coalesced communication, your input must include:
    
    parthenon/mesh/do_coalesced_comms = true
 
-curently by default this is set to ``false``.
+curently by default this is set to ``true``.
 
 Implementation Details
 ~~~~~~~~~~~~~~~~~~~~~~
