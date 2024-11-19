@@ -185,9 +185,10 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
-
-  // std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-  //               [](auto pbuf) { pbuf->TryStartReceive(); });
+  if (!pmesh->do_coalesced_comms) {
+    std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+                  [](auto pbuf) { pbuf->TryStartReceive(); });
+  }
 
   return TaskStatus::complete;
 }
