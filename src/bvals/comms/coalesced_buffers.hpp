@@ -197,8 +197,6 @@ struct CoalescedComms {
 
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 
-  void Compare(MeshData<Real> *pmd, BoundaryType b_type);
-
   bool TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type);

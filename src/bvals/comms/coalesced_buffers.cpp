@@ -452,18 +452,6 @@ void CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedComms::Compare(MeshData<Real> *pmd, BoundaryType b_type) {
-  for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (coalesced_recv_buffers.count({rank, b_type})) {
-      auto &coal_bufs = coalesced_recv_buffers.at({rank, b_type});
-      for (auto &[partition, coal_buf] : coal_bufs.coalesced_bufs) {
-        coal_buf.Compare(pmd->GetUids());
-      }
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
 bool CoalescedComms::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
   bool all_received = true;
