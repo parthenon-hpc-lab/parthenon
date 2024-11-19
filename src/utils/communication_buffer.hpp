@@ -123,7 +123,7 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
-  void Send(bool local = false) noexcept;
+  void Send(bool local = false, int size = -1) noexcept;
   void SendNull(bool local = false) noexcept;
 
   bool IsAvailableForWrite();
@@ -235,7 +235,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
 }
 
 template <class T>
-void CommBuffer<T>::Send(bool local) noexcept {
+void CommBuffer<T>::Send(bool local, int size) noexcept {
   if (!active_) {
     SendNull(local);
     return;
@@ -251,10 +251,11 @@ void CommBuffer<T>::Send(bool local) noexcept {
     PARTHENON_REQUIRE(
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
+    if (size < 0) size = buf_.size();
+    PARTHENON_REQUIRE(size <= buf_.size(), "Asking to send too much");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
-                                  MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
-                                  my_request_.get()));
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), size, MPITypeMap<buf_base_t>::type(),
+                                  recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {

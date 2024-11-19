@@ -36,32 +36,42 @@ namespace parthenon {
 void CoalescedBuffer::AllocateCoalescedBuffer() {
   int send_rank = sender ? Globals::my_rank : other_rank;
   int recv_rank = sender ? other_rank : Globals::my_rank;
-  coalesced_comm_buffer = CommBuffer<buf_t>(2 * partition, send_rank, recv_rank, comm_);
-  coalesced_comm_buffer.ConstructBuffer("combined send buffer",
-                                        current_size + 1); // Actually allocate the thing
+  coalesced_comm_buffer = CommBuffer<buf_t>(
+      2 * partition, send_rank, recv_rank, comm_,
+      [](int size) { return buf_t("Combined Buffer", 2 * size); }, true);
+
   sparse_status_buffer =
       CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm_);
   sparse_status_buffer.ConstructBuffer(current_size + 1);
-  // PARTHENON_REQUIRE(current_size > 0, "Are we bigger than zero?");
-  //  Point the BndId objects to the combined buffer
-  for (auto uid : all_vars) {
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      bnd_id.coalesced_buf = coalesced_comm_buffer.buffer();
-    }
-  }
 }
 
 //----------------------------------------------------------------------------------------
-ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars) {
+ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
+                                                      int *pcomb_size) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &bnd_ids_device = bnd_ids_device_map[var_set];
   auto &bnd_ids_host = bnd_ids_host_map[var_set];
 
   int nbnd_id{0};
-  for (auto uid : var_set)
+  int comb_size{0};
+  for (auto uid : var_set) {
     nbnd_id += coalesced_info_buf.at(uid).size();
+    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+      auto buf_state = pvbbuf->GetState();
+      if ((buf_state == BufferState::sending) || (buf_state == BufferState::received))
+        comb_size += bnd_id.size();
+    }
+  }
+  if (pcomb_size != nullptr) *pcomb_size = comb_size;
 
   bool updated = false;
+  if (comb_size > coalesced_comm_buffer.buffer().size()) {
+    PARTHENON_REQUIRE(
+        sender, "Something bad is going on if we are doing this on a receiving buffer.");
+    coalesced_comm_buffer.ConstructBuffer("combined send buffer", 2 * comb_size);
+    updated = true;
+  }
+
   if (nbnd_id != bnd_ids_device.size()) {
     bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
     bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
@@ -79,14 +89,17 @@ ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &var
 
       const bool alloc =
           (buf_state == BufferState::sending) || (buf_state == BufferState::received);
+
       // Test if this boundary has changed
       if (!bid_h.SameBVChannel(bnd_id) || (bid_h.buf_allocated != alloc) ||
           (bid_h.start_idx() != c_buf_idx) ||
-          !UsingSameResource(bid_h.buf, pvbbuf->buffer())) {
+          !UsingSameResource(bid_h.buf, pvbbuf->buffer()) ||
+          bid_h.coalesced_buf.data() != coalesced_comm_buffer.buffer().data()) {
         updated = true;
         bid_h = bnd_id;
         bid_h.buf_allocated = alloc;
         bid_h.start_idx() = c_buf_idx;
+        bid_h.coalesced_buf = coalesced_comm_buffer.buffer();
         if (bid_h.buf_allocated) bid_h.buf = pvbbuf->buffer();
       }
       if (bid_h.buf_allocated) c_buf_idx += bid_h.size();
@@ -101,7 +114,8 @@ ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &var
 void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
   PARTHENON_REQUIRE(coalesced_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
-  auto &bids = GetBndIdsOnDevice(vars);
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
@@ -118,7 +132,7 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
-  coalesced_comm_buffer.Send();
+  coalesced_comm_buffer.Send(false, comb_size);
 
   // Send the sparse null info as well
   if (bids.size() != sparse_status_buffer.buffer().size()) {

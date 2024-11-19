@@ -18,6 +18,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -91,7 +92,8 @@ struct CoalescedBuffer {
            coalesced_comm_buffer.IsAvailableForWrite();
   }
 
-  ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars);
+  ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
+                                       int *pcomb_size = nullptr);
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
