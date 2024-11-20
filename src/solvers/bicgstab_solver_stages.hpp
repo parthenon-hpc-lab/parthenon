@@ -58,7 +58,8 @@ class BiCGSTABSolverStages : public SolverBase {
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
-
+ 
+  static inline std::size_t id{0};
  public:
   BiCGSTABSolverStages(const std::string &container_base, const std::string &container_u,
                        const std::string &container_rhs, ParameterInput *pin,
@@ -70,7 +71,7 @@ class BiCGSTABSolverStages : public SolverBase {
         eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
-    std::string solver_id = "bicgstab";
+    std::string solver_id = "bicgstab" + std::to_string(id++);
     container_rhat0 = solver_id + "_rhat0";
     container_v = solver_id + "_v";
     container_h = solver_id + "_h";

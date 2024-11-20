@@ -60,6 +60,7 @@ class CGSolverStages : public SolverBase {
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_x, container_r, container_v, container_p;
 
+  static inline std::size_t id{0};
  public:
   CGSolverStages(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
@@ -71,7 +72,7 @@ class CGSolverStages : public SolverBase {
         eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
-    std::string solver_id = "cg";
+    std::string solver_id = "cg"  + std::to_string(id++);
     container_x = solver_id + "_x";
     container_r = solver_id + "_r";
     container_v = solver_id + "_v";

@@ -52,6 +52,7 @@ namespace solvers {
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
 class MGSolverStages : public SolverBase {
+  static inline std::size_t id{0};
  public:
   using FieldTL = typename equations_t::IndependentVars;
 
@@ -85,7 +86,7 @@ class MGSolverStages : public SolverBase {
         prolongator_(prol_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
-    std::string solver_id = "mg";
+    std::string solver_id = "mg" + std::to_string(id++);
     container_res_err = solver_id + "_res_err";
     container_temp = solver_id + "_temp";
     container_u0 = solver_id + "_u0";
