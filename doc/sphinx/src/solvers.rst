@@ -76,7 +76,8 @@ Some notes:
   operators that are separate from the standard prolongation machinery in Parthenon. This allows 
   for defining boundary aware prolongation operators and having different prolongation operators
   in the ghost cells of blocks from the prolongation operators used in their interiors. Users can 
-  easily define their own prolongation operators. An example of using these interior prolongation 
+  easily define their own prolongation operators. The prolongation functor is passed as a template 
+  argument to the multi-grid solver class. An example of using these interior prolongation
   operators is contained in the ``poisson_gmg`` example.
 
 Some implementation notes about geometric multi-grid can be found in 
