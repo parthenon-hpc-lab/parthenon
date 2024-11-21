@@ -55,6 +55,8 @@ ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &var
   int nbnd_id{0};
   int comb_size{0};
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     nbnd_id += coalesced_info_buf.at(uid).size();
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       auto buf_state = pvbbuf->GetState();
@@ -81,6 +83,8 @@ ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &var
   int idx{0};
   int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       auto &bid_h = bnd_ids_host[idx];
       auto buf_state = pvbbuf->GetState();
@@ -143,6 +147,8 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
   auto &stat = sparse_status_buffer.buffer();
   int idx{0};
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       const auto state = pvbbuf->GetState();
       PARTHENON_REQUIRE(state == BufferState::sending ||
@@ -157,6 +163,8 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 
   // Information in these send buffers is no longer required
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       pvbbuf->Stale();
     }
@@ -173,6 +181,8 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   // Make sure the var-boundary buffers are available to write to
   int nbuf{0};
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       if (pvbbuf->GetState() != BufferState::stale) return false;
       nbuf++;
@@ -190,6 +200,8 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   int idx{0};
   auto &stat = sparse_status_buffer.buffer();
   for (auto uid : var_set) {
+    // Skip this variable if it is not communicated in this BoundaryType
+    if (coalesced_info_buf.count(uid) == 0) continue;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       if (stat[idx] == 1) {
         pvbbuf->SetReceived();
