@@ -190,6 +190,18 @@ class TestCase(utils.test_case.TestCaseAbs):
                 )
                 analyze_status = False
 
+        # check contents of matadata_none_var
+        for dim in [2, 3]:
+            data = phdf.phdf(f"advection_{dim}d.out0.final.phdf")
+            profile = data.Get("metadata_none_var", flatten=False)
+            for index in np.ndindex(profile.shape):
+                ib, j, k, l, m = index
+                expected_value = l + k + j + m
+                actual_value = profile[ib, j, k, l, m]
+                if expected_value != actual_value:
+                    print("metadata_none_var is incorrect")
+                    analyze_status = False
+
         # Checking Parthenon histograms versus numpy ones
         for dim in [2, 3]:
             # 1D histogram with binning of a variable with bins defined by a var
