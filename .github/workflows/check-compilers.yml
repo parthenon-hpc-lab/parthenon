@@ -21,7 +21,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        cxx
+        cxx: ['g++', 'clang++-15']
         cmake_build_type: ['Release', 'DbgNoSym']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
