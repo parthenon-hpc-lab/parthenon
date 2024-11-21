@@ -70,8 +70,8 @@ struct BiCGSTABParams {
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations, class preconditioner_t = MGSolverStages<equations>>
-class BiCGSTABSolverStages : public SolverBase {
+template <class equations, class preconditioner_t = MGSolver<equations>>
+class BiCGSTABSolver : public SolverBase {
   using FieldTL = typename equations::IndependentVars;
 
   std::vector<std::string> sol_fields;
@@ -90,7 +90,7 @@ class BiCGSTABSolverStages : public SolverBase {
  
   static inline std::size_t id{0};
  public:
-  BiCGSTABSolverStages(const std::string &container_base, const std::string &container_u,
+  BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
                        const std::string &container_rhs, ParameterInput *pin,
                        const std::string &input_block, equations eq_in = equations())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
@@ -167,14 +167,14 @@ class BiCGSTABSolverStages : public SolverBase {
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init | get_rhs2,
         "zero factors",
-        [](BiCGSTABSolverStages *solver) {
+        [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
           return TaskStatus::complete;
         },
         this);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolverStages *solver, std::shared_ptr<Real> res_tol,
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol,
             bool relative_residual, Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
             Real tol = relative_residual
@@ -195,7 +195,7 @@ class BiCGSTABSolverStages : public SolverBase {
                             []() { return TaskStatus::complete; });
     auto reset = itl.AddTask(
         TaskQualifier::once_per_region, sync, "update values",
-        [](BiCGSTABSolverStages *solver) {
+        [](BiCGSTABSolver *solver) {
           solver->rhat0r_old = solver->rhat0r.val;
           solver->iter_counter++;
           return TaskStatus::complete;
@@ -226,7 +226,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
         get_rhat0v, "h <- x + alpha u",
-        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_x,
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_x,
            std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_h) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<FieldTL>(md_x, md_u, md_h, 1.0, alpha);
@@ -236,7 +236,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
     auto correct_s = itl.AddTask(
         get_rhat0v, "s <- r - alpha v",
-        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_r,
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_r,
            std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_s) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           return AddFieldsAndStore<FieldTL>(md_r, md_v, md_s, 1.0, -alpha);
@@ -248,7 +248,7 @@ class BiCGSTABSolverStages : public SolverBase {
 
     auto print = itl.AddTask(
         TaskQualifier::once_per_region, get_res,
-        [&](BiCGSTABSolverStages *solver, Mesh *pmesh) {
+        [&](BiCGSTABSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
@@ -281,7 +281,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
         get_tt | get_ts, "x <- h + omega u",
-        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_h,
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_h,
            std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_x) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<FieldTL>(md_h, md_u, md_x, 1.0, omega);
@@ -291,7 +291,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 10. r <- s - omega t
     auto correct_r = itl.AddTask(
         get_tt | get_ts, "r <- s - omega t",
-        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_s,
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_s,
            std::shared_ptr<MeshData<Real>> &md_t, std::shared_ptr<MeshData<Real>> &md_r) {
           Real omega = solver->ts.val / solver->tt.val;
           return AddFieldsAndStore<FieldTL>(md_s, md_t, md_r, 1.0, -omega);
@@ -303,7 +303,7 @@ class BiCGSTABSolverStages : public SolverBase {
 
     get_res2 = itl.AddTask(
         TaskQualifier::once_per_region, get_res2,
-        [&](BiCGSTABSolverStages *solver, Mesh *pmesh) {
+        [&](BiCGSTABSolver *solver, Mesh *pmesh) {
           Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
@@ -318,7 +318,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
         get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
-        [](BiCGSTABSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_p,
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_p,
            std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_r) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;
@@ -332,7 +332,7 @@ class BiCGSTABSolverStages : public SolverBase {
     // 14. rhat0r_old <- rhat0r, zero all reductions
     auto check = itl.AddTask(
         TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
-        [partition](BiCGSTABSolverStages *solver, Mesh *pmesh, int max_iter,
+        [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
                     std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;

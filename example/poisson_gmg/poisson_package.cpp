@@ -88,26 +88,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
 
-  using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
-  PoissEqStages eq(pin, "poisson");
+  using PoissEq = poisson_package::PoissonEquation<u, D>;
+  PoissEq eq(pin, "poisson");
   pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
   using preconditioner_t =
-        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
-  if (solver == "MGStages") {
+        parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  if (solver == "MG") {
     psolver = std::make_shared<
-        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
-  } else if (solver == "CGStages") {
+        parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "CG") {
     psolver = std::make_shared<
-        parthenon::solvers::CGSolverStages<PoissEqStages, preconditioner_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
-  } else if (solver == "BiCGSTABStages") {
+        parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "BiCGSTAB") {
     psolver = std::make_shared<
-        parthenon::solvers::BiCGSTABSolverStages<PoissEqStages, preconditioner_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
+        parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }

@@ -83,9 +83,11 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // known when we solve A.u = rhs
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<exact, u>), md);
+      copy_exact = tl.AddTask(
+        copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md_u, true);
-      auto *eqs = pkg->MutableParam<poisson_package::PoissonEquationStages<u, D>>("poisson_equation");
-      copy_rhs = eqs->Ax(tl, comm, md, md, md_rhs);
+      auto *eqs = pkg->MutableParam<poisson_package::PoissonEquation<u, D>>("poisson_equation");
+      copy_rhs = eqs->Ax(tl, comm, md, md_u, md_rhs);
     }
 
     // Set initial solution guess to zero
@@ -97,7 +99,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
     if (use_exact_rhs) {
-      auto diff = tl.AddTask(solve, TF(solvers::utils::AddFieldsAndStore<exact, u, u>),
+      auto copy_back = tl.AddTask(
+        solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
+      auto diff = tl.AddTask(copy_back, TF(solvers::utils::AddFieldsAndStore<exact, u, u>),
                              md, 1.0, -1.0);
       auto get_err = solvers::utils::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(

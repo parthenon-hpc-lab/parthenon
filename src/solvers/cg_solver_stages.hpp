@@ -61,8 +61,8 @@ struct CGParams {
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations, class preconditioner_t = MGSolverStages<equations>>
-class CGSolverStages : public SolverBase {
+template <class equations, class preconditioner_t = MGSolver<equations>>
+class CGSolver : public SolverBase {
   using FieldTL = typename equations::IndependentVars;
 
   std::vector<std::string> sol_fields;
@@ -80,7 +80,7 @@ class CGSolverStages : public SolverBase {
 
   static inline std::size_t id{0};
  public:
-  CGSolverStages(const std::string &container_base, const std::string &container_u,
+  CGSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
                  const std::string &input_block, const equations &eq_in = equations())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
@@ -136,7 +136,7 @@ class CGSolverStages : public SolverBase {
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         zero_u | zero_v | zero_x | zero_p | copy_r | get_rhs2, "zero factors",
-        [](CGSolverStages *solver) {
+        [](CGSolver *solver) {
           solver->iter_counter = -1;
           solver->ru.val = std::numeric_limits<Real>::max();
           return TaskStatus::complete;
@@ -146,7 +146,7 @@ class CGSolverStages : public SolverBase {
     if (params_.print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
-          [&](CGSolverStages *solver, std::shared_ptr<Real> res_tol,
+          [&](CGSolver *solver, std::shared_ptr<Real> res_tol,
               bool relative_residual, Mesh *pm) {
             Real tol = relative_residual
                            ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
@@ -166,7 +166,7 @@ class CGSolverStages : public SolverBase {
                             []() { return TaskStatus::complete; });
     auto reset = itl.AddTask(
         TaskQualifier::once_per_region, sync, "update values",
-        [](CGSolverStages *solver) {
+        [](CGSolver *solver) {
           solver->ru_old = solver->ru.val;
           solver->iter_counter++;
           return TaskStatus::complete;
@@ -190,7 +190,7 @@ class CGSolverStages : public SolverBase {
     // 3. p <- u + beta p
     auto correct_p = itl.AddTask(
         get_ru, "p <- u + beta p",
-        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_u,
+        [](CGSolver *solver, std::shared_ptr<MeshData<Real>> &md_u,
            std::shared_ptr<MeshData<Real>> &md_p) {
           Real beta = solver->iter_counter > 0 ? solver->ru.val / solver->ru_old : 0.0;
           return AddFieldsAndStore<FieldTL>(md_u, md_p, md_p, 1.0, beta);
@@ -208,7 +208,7 @@ class CGSolverStages : public SolverBase {
     // 6. x <- x + alpha p
     auto correct_x = itl.AddTask(
         get_pAp, "x <- x + alpha p",
-        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_x,
+        [](CGSolver *solver, std::shared_ptr<MeshData<Real>> &md_x,
            std::shared_ptr<MeshData<Real>> &md_p) {
           Real alpha = solver->ru.val / solver->pAp.val;
           return AddFieldsAndStore<FieldTL>(md_x, md_p, md_x, 1.0, alpha);
@@ -218,7 +218,7 @@ class CGSolverStages : public SolverBase {
     // 6. r <- r - alpha A p
     auto correct_r = itl.AddTask(
         get_pAp, "r <- r - alpha A p",
-        [](CGSolverStages *solver, std::shared_ptr<MeshData<Real>> &md_r,
+        [](CGSolver *solver, std::shared_ptr<MeshData<Real>> &md_r,
            std::shared_ptr<MeshData<Real>> &md_v) {
           Real alpha = solver->ru.val / solver->pAp.val;
           return AddFieldsAndStore<FieldTL>(md_r, md_v, md_r, 1.0, -alpha);
@@ -230,7 +230,7 @@ class CGSolverStages : public SolverBase {
 
     auto print = itl.AddTask(
         TaskQualifier::once_per_region, get_res,
-        [&](CGSolverStages *solver, Mesh *pmesh) {
+        [&](CGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter, rms_res);
@@ -240,7 +240,7 @@ class CGSolverStages : public SolverBase {
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res | correct_x, "completion",
-        [](CGSolverStages *solver, Mesh *pmesh, int max_iter,
+        [](CGSolver *solver, Mesh *pmesh, int max_iter,
            std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;

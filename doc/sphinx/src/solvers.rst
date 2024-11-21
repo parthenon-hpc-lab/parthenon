@@ -40,7 +40,7 @@ code along the lines of:
   std::string rhs_cont_name = "rhs";
 
   MySystemOfEquations eqs(....);
-  std::shared_ptr<SolverBase> psolver = std::make_shared<BiCGSTABSolverStages<MySystemOfEquations>>(
+  std::shared_ptr<SolverBase> psolver = std::make_shared<BiCGSTABSolver<MySystemOfEquations>>(
       base_cont_name, u_cont_name, rhs_cont_name, pin, "location/of/solver_params", eqs);
 
   ...

@@ -34,7 +34,7 @@ namespace poisson_package {
 // are internal, but can't be marked private or protected because they launch kernels
 // on device.
 template <class var_t, class D_t>
-class PoissonEquationStages {
+class PoissonEquation {
  public:
   bool do_flux_cor = false;
   bool set_flux_boundary = false;
@@ -42,7 +42,7 @@ class PoissonEquationStages {
 
   using IndependentVars = parthenon::TypeList<var_t>;
 
-  PoissonEquationStages(parthenon::ParameterInput *pin, const std::string &label) {
+  PoissonEquation(parthenon::ParameterInput *pin, const std::string &label) {
     do_flux_cor = pin->GetOrAddBoolean(label, "flux_correct", false);
     set_flux_boundary = pin->GetOrAddBoolean(label, "set_flux_boundary", false);
     include_flux_dx =

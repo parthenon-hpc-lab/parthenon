@@ -75,7 +75,7 @@ struct MGParams {
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
-class MGSolverStages : public SolverBase {
+class MGSolver : public SolverBase {
   static inline std::size_t id{0};
  public:
   using FieldTL = typename equations_t::IndependentVars;
@@ -94,14 +94,14 @@ class MGSolverStages : public SolverBase {
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
 
-  MGSolverStages(const std::string &container_base, const std::string &container_u,
+  MGSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
                  const std::string &input_block, equations_t eq_in = equations_t())
-      : MGSolverStages(container_base, container_u, container_rhs,
+      : MGSolver(container_base, container_u, container_rhs,
                        MGParams(pin, input_block), eq_in,
                        prolongator_t(pin, input_block)) {}
 
-  MGSolverStages(const std::string &container_base, const std::string &container_u,
+  MGSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, MGParams params_in,
                  equations_t eq_in = equations_t(),
                  prolongator_t prol_in = prolongator_t())
@@ -151,7 +151,7 @@ class MGSolverStages : public SolverBase {
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res, "Check residual",
-        [partition](MGSolverStages *solver, Mesh *pmesh) {
+        [partition](MGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && partition == 0)
             printf("%i %e\n", solver->iter_counter, rms_res);
@@ -292,7 +292,7 @@ class MGSolverStages : public SolverBase {
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
-    return tl.AddTask(mat_mult, TF(&MGSolverStages::Jacobi), this, md_rhs, md_out,
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out,
                       md_diag, md_in, md_out, omega);
   }
 
