@@ -29,7 +29,6 @@
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
-#include "poisson_equation.hpp"
 #include "poisson_equation_stages.hpp"
 #include "poisson_package.hpp"
 
@@ -89,11 +88,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
 
-  PoissonEquation eq(pin, "poisson");
+  using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
+  PoissEqStages eq(pin, "poisson");
   pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
-  using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
   using preconditioner_t =
         parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
