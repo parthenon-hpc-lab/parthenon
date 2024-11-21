@@ -96,6 +96,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
+  using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
+  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
+  using preconditioner_t =
+        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
   if (solver == "MG") {
     parthenon::solvers::MGParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
@@ -109,19 +113,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     parthenon::solvers::CGParams params(pin, "poisson/solver_params");
     psolver = std::make_shared<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(
         pkg.get(), params, eq);
+  } else if (solver == "MGStages") {
+    psolver = std::make_shared<
+        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
   } else if (solver == "CGStages") {
-    using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
-    using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
-    using preconditioner_t =
-        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
     psolver = std::make_shared<
         parthenon::solvers::CGSolverStages<PoissEqStages, preconditioner_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
   } else if (solver == "BiCGSTABStages") {
-    using PoissEqStages = poisson_package::PoissonEquationStages<u, D>;
-    using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
-    using preconditioner_t =
-        parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
     psolver = std::make_shared<
         parthenon::solvers::BiCGSTABSolverStages<PoissEqStages, preconditioner_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
@@ -142,7 +142,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent,
                                   Metadata::FillGhost, Metadata::WithFluxes,
                                   Metadata::GMGRestrict};
-  if (solver == "CGStages" || solver == "BiCGSTABStages")
+  if (solver == "CGStages" || solver == "BiCGSTABStages" || solver == "MGStages")
     flags.push_back(Metadata::GMGProlongate);
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
