@@ -23,7 +23,6 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "solvers/mg_solver.hpp"
 #include "solvers/mg_solver_stages.hpp"
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils_stages.hpp"
@@ -33,6 +32,36 @@
 namespace parthenon {
 
 namespace solvers {
+
+enum class Preconditioner { None, Diagonal, Multigrid };
+struct BiCGSTABParams {
+  MGParams mg_params;
+  int max_iters = 1000;
+  std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
+  Preconditioner precondition_type = Preconditioner::Multigrid;
+  bool print_per_step = false;
+  bool relative_residual = false;
+  BiCGSTABParams() = default;
+  BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
+    max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
+    *residual_tolerance =
+        pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
+    bool precondition = pin->GetOrAddBoolean(input_block, "precondition", true);
+    std::string precondition_str =
+        pin->GetOrAddString(input_block, "preconditioner", "Multigrid");
+    if (precondition && precondition_str == "Multigrid") {
+      precondition_type = Preconditioner::Multigrid;
+    } else if (precondition && precondition_str == "Diagonal") {
+      precondition_type = Preconditioner::Diagonal;
+    } else {
+      precondition_type = Preconditioner::None;
+    }
+    print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
+    mg_params = MGParams(pin, input_block);
+    relative_residual =
+        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+  }
+};
 
 // The equations class must include a template method
 //

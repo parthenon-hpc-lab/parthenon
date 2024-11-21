@@ -29,10 +29,10 @@
 #include "poisson_equation_stages.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "solvers/bicgstab_solver.hpp"
-#include "solvers/cg_solver.hpp"
+#include "solvers/bicgstab_solver_stages.hpp"
 #include "solvers/cg_solver_stages.hpp"
-#include "solvers/mg_solver.hpp"
+#include "solvers/mg_solver_stages.hpp"
+#include "solvers/solver_utils.hpp"
 
 using namespace parthenon::driver::prelude;
 

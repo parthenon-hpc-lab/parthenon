@@ -229,12 +229,9 @@ add_library(parthenon
   amr_criteria/refinement_package.cpp
   amr_criteria/refinement_package.hpp
 
-  solvers/bicgstab_solver.hpp
   solvers/bicgstab_solver_stages.hpp
-  solvers/cg_solver.hpp
   solvers/cg_solver_stages.hpp
   solvers/internal_prolongation.hpp
-  solvers/mg_solver.hpp
   solvers/mg_solver_stages.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp

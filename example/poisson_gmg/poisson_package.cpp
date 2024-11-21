@@ -23,11 +23,8 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
-#include <solvers/bicgstab_solver.hpp>
 #include <solvers/bicgstab_solver_stages.hpp>
-#include <solvers/cg_solver.hpp>
 #include <solvers/cg_solver_stages.hpp>
-#include <solvers/mg_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
@@ -100,20 +97,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
   using preconditioner_t =
         parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>;
-  if (solver == "MG") {
-    parthenon::solvers::MGParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::MGSolver<u, rhs, PoissonEquation>>(
-        pkg.get(), params, eq);
-  } else if (solver == "BiCGSTAB") {
-    parthenon::solvers::BiCGSTABParams params(pin, "poisson/solver_params");
-    psolver =
-        std::make_shared<parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation>>(
-            pkg.get(), params, eq);
-  } else if (solver == "CG") {
-    parthenon::solvers::CGParams params(pin, "poisson/solver_params");
-    psolver = std::make_shared<parthenon::solvers::CGSolver<u, rhs, PoissonEquation>>(
-        pkg.get(), params, eq);
-  } else if (solver == "MGStages") {
+  if (solver == "MGStages") {
     psolver = std::make_shared<
         parthenon::solvers::MGSolverStages<PoissEqStages, prolongator_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEqStages(pin, "poisson"));
@@ -141,9 +125,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent,
                                   Metadata::FillGhost, Metadata::WithFluxes,
-                                  Metadata::GMGRestrict};
-  if (solver == "CGStages" || solver == "BiCGSTABStages" || solver == "MGStages")
-    flags.push_back(Metadata::GMGProlongate);
+                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
