@@ -527,6 +527,7 @@ class MGSolver : public SolverBase {
     }
     // The boundaries are not up to date on return
     return last_task;
+#undef BTF
   }
 };
 

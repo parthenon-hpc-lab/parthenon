@@ -330,7 +330,7 @@ class MGSolverStages : public SolverBase {
           tl.AddTask(task_out, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md);
       task_out = tl.AddTask(task_out, TF(SetBounds<BoundaryType::gmg_restrict_recv>), md);
     }
-    task_out = tl.AddTask(task_out, BTF(&equations_t::SetDiagonal), &eqs_, md, md_diag);
+    task_out = tl.AddTask(task_out, TF(&equations_t::SetDiagonal), &eqs_, md, md_diag);
     // If we are finer than the coarsest level:
     if (level > min_level) {
       task_out =
@@ -498,6 +498,7 @@ class MGSolverStages : public SolverBase {
     }
     // The boundaries are not up to date on return
     return last_task;
+#undef BTF
   }
 };
 
