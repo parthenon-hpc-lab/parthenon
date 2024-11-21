@@ -149,7 +149,7 @@ struct Stencil {
 
 namespace utils {
 template <class in_t, class out_t, bool only_fine_on_composite = true>
-TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus CopyDataBetweenFields(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);

@@ -75,16 +75,16 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
     // Move the rhs variable into the rhs stage for stage based solver
-    auto copy_rhs = tl.AddTask(none, TF(solvers::utils::CopyData<rhs, u>), md);
+    auto copy_rhs = tl.AddTask(none, TF(solvers::utils::CopyDataBetweenFields<rhs, u>), md);
     copy_rhs = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>),
                           md, md_rhs);
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     if (use_exact_rhs) {
-      auto copy_exact = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<exact, u>), md);
+      auto copy_exact = tl.AddTask(copy_rhs, TF(solvers::utils::CopyDataBetweenFields<exact, u>), md);
       copy_exact = tl.AddTask(
-          copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
+          copy_exact, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md_u, true);
       auto *eqs =
           pkg->MutableParam<poisson_package::PoissonEquation<u, D>>("poisson_equation");
