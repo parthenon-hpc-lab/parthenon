@@ -38,8 +38,7 @@ class MeshBlockPack {
   using pack_type = T;
 
   MeshBlockPack() = default;
-  MeshBlockPack(const Kokkos::View<T *, LayoutWrapper, DevMemSpace> view,
-                const std::array<int, 5> dims)
+  MeshBlockPack(const ParArray1DRaw<T> view, const std::array<int, 5> dims)
       : v_(view), dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -86,7 +85,7 @@ class MeshBlockPack {
   const Coordinates_t &GetCoords(const int i) const { return v_(i).GetCoords(); }
 
  private:
-  Kokkos::View<T *, LayoutWrapper, DevMemSpace> v_;
+  ParArray1DRaw<T> v_;
   std::array<int, 5> dims_;
   int ndim_;
 };

@@ -56,14 +56,13 @@ class SparsePackBase {
 
   using alloc_t = std::vector<int>;
   using include_t = std::vector<bool>;
-  using pack_t =
-      Kokkos::View<ParArray3D<Real, VariableState> ***, LayoutWrapper, DevMemSpace>;
+  using pack_t = ParArray3DRaw<ParArray3D<Real, VariableState>>;
   using pack_h_t = typename pack_t::HostMirror;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename bounds_t::HostMirror;
   using block_props_t = ParArray2D<int>;
   using block_props_h_t = typename block_props_t::HostMirror;
-  using coords_t = Kokkos::View<ParArray0D<Coordinates_t> *, LayoutWrapper, DevMemSpace>;
+  using coords_t = ParArray1DRaw<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
