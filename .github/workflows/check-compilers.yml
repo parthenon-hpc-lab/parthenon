@@ -13,8 +13,8 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        cxx: ['g++', 'clang++-15']
-        cmake_build_type: ['Release', 'Debug']
+        cxx
+        cmake_build_type: ['Release', 'DbgNoSym']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
         exclude:
@@ -23,7 +23,7 @@ jobs:
           # https://github.com/lanl/parthenon/issues/630
           - cxx: clang++-15
             device: cuda
-            cmake_build_type: Debug
+            cmake_build_type: DbgNoSym
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
@@ -48,7 +48,7 @@ jobs:
     strategy:
       matrix:
         cxx: ['hipcc']
-        cmake_build_type: ['Release', 'Debug']
+        cmake_build_type: ['Release', 'DbgNoSym']
         device: ['hip']
         parallel: ['serial', 'mpi']
     runs-on: ubuntu-latest
