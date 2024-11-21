@@ -26,7 +26,7 @@
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver_stages.hpp"
 #include "solvers/solver_base.hpp"
-#include "solvers/solver_utils_stages.hpp"
+#include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/type_list.hpp"
 
@@ -102,7 +102,7 @@ class CGSolverStages : public SolverBase {
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
     TaskID none;
     auto partitions = pmesh->GetDefaultBlockPartitions();
     // Should contain all fields necessary for applying the matrix to a give state vector,

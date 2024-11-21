@@ -235,7 +235,6 @@ add_library(parthenon
   solvers/mg_solver_stages.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp
-  solvers/solver_utils_stages.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

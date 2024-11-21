@@ -27,7 +27,7 @@
 #include "kokkos_abstraction.hpp"
 #include "solvers/internal_prolongation.hpp"
 #include "solvers/solver_base.hpp"
-#include "solvers/solver_utils_stages.hpp"
+#include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
 #include "utils/type_list.hpp"
@@ -118,7 +118,7 @@ class MGSolverStages : public SolverBase {
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
     iter_counter = -1;
@@ -167,7 +167,7 @@ class MGSolverStages : public SolverBase {
 
   TaskID AddLinearOperatorTasks(TaskList &tl, TaskID dependence, int partition,
                                 Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
     iter_counter = 0;
 
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
@@ -191,7 +191,7 @@ class MGSolverStages : public SolverBase {
   }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
 
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
@@ -281,7 +281,7 @@ class MGSolverStages : public SolverBase {
                             int partition, int level,
                             std::shared_ptr<MeshData<Real>> &md_in,
                             std::shared_ptr<MeshData<Real>> &md_out) {
-    using namespace StageUtils;
+    using namespace utils;
     auto pmesh = md_in->GetMeshPointer();
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
@@ -299,7 +299,7 @@ class MGSolverStages : public SolverBase {
   template <parthenon::BoundaryType comm_boundary, class TL_t>
   TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
                          int partition, int level, Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
 
     const int ndim = pmesh->ndim;
     auto partitions =
@@ -340,7 +340,7 @@ class MGSolverStages : public SolverBase {
   TaskID AddMultiGridSetupPartitionLevel(TL_t &tl, TaskID dependence, int partition,
                                          int level, int min_level, int max_level,
                                          Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
 
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
@@ -368,7 +368,7 @@ class MGSolverStages : public SolverBase {
   TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, int partition,
                                          int level, int min_level, int max_level,
                                          Mesh *pmesh) {
-    using namespace StageUtils;
+    using namespace utils;
     auto smoother = params_.smoother;
     bool do_FAS = params_.do_FAS;
     int pre_stages, post_stages;
