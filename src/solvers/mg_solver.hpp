@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef SOLVERS_MG_SOLVER_STAGES_HPP_
-#define SOLVERS_MG_SOLVER_STAGES_HPP_
+#ifndef SOLVERS_MG_SOLVER_HPP_
+#define SOLVERS_MG_SOLVER_HPP_
 
 #include <algorithm>
 #include <cstdio>
@@ -77,6 +77,7 @@ struct MGParams {
 template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
 class MGSolver : public SolverBase {
   static inline std::size_t id{0};
+
  public:
   using FieldTL = typename equations_t::IndependentVars;
 
@@ -95,16 +96,14 @@ class MGSolver : public SolverBase {
   std::string container_res_err, container_temp, container_u0, container_diag;
 
   MGSolver(const std::string &container_base, const std::string &container_u,
-                 const std::string &container_rhs, ParameterInput *pin,
-                 const std::string &input_block, equations_t eq_in = equations_t())
-      : MGSolver(container_base, container_u, container_rhs,
-                       MGParams(pin, input_block), eq_in,
-                       prolongator_t(pin, input_block)) {}
+           const std::string &container_rhs, ParameterInput *pin,
+           const std::string &input_block, equations_t eq_in = equations_t())
+      : MGSolver(container_base, container_u, container_rhs, MGParams(pin, input_block),
+                 eq_in, prolongator_t(pin, input_block)) {}
 
   MGSolver(const std::string &container_base, const std::string &container_u,
-                 const std::string &container_rhs, MGParams params_in,
-                 equations_t eq_in = equations_t(),
-                 prolongator_t prol_in = prolongator_t())
+           const std::string &container_rhs, MGParams params_in,
+           equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
       : container_base(container_base), container_u(container_u),
         container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in),
         prolongator_(prol_in) {
@@ -292,8 +291,8 @@ class MGSolver : public SolverBase {
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
-    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out,
-                      md_diag, md_in, md_out, omega);
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
+                      md_in, md_out, omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
@@ -530,4 +529,4 @@ class MGSolver : public SolverBase {
 
 } // namespace parthenon
 
-#endif // SOLVERS_MG_SOLVER_STAGES_HPP_
+#endif // SOLVERS_MG_SOLVER_HPP_

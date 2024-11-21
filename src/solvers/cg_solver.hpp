@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef SOLVERS_CG_SOLVER_STAGES_HPP_
-#define SOLVERS_CG_SOLVER_STAGES_HPP_
+#ifndef SOLVERS_CG_SOLVER_HPP_
+#define SOLVERS_CG_SOLVER_HPP_
 
 #include <cstdio>
 #include <limits>
@@ -24,7 +24,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "solvers/mg_solver_stages.hpp"
+#include "solvers/mg_solver.hpp"
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
@@ -79,10 +79,11 @@ class CGSolver : public SolverBase {
   std::string container_x, container_r, container_v, container_p;
 
   static inline std::size_t id{0};
+
  public:
   CGSolver(const std::string &container_base, const std::string &container_u,
-                 const std::string &container_rhs, ParameterInput *pin,
-                 const std::string &input_block, const equations &eq_in = equations())
+           const std::string &container_rhs, ParameterInput *pin,
+           const std::string &input_block, const equations &eq_in = equations())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
         container_base(container_base), container_u(container_u),
@@ -90,7 +91,7 @@ class CGSolver : public SolverBase {
         eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
-    std::string solver_id = "cg"  + std::to_string(id++);
+    std::string solver_id = "cg" + std::to_string(id++);
     container_x = solver_id + "_x";
     container_r = solver_id + "_r";
     container_v = solver_id + "_v";
@@ -146,8 +147,8 @@ class CGSolver : public SolverBase {
     if (params_.print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
-          [&](CGSolver *solver, std::shared_ptr<Real> res_tol,
-              bool relative_residual, Mesh *pm) {
+          [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+              Mesh *pm) {
             Real tol = relative_residual
                            ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
                            : *res_tol;
@@ -240,8 +241,8 @@ class CGSolver : public SolverBase {
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res | correct_x, "completion",
-        [](CGSolver *solver, Mesh *pmesh, int max_iter,
-           std::shared_ptr<Real> res_tol, bool relative_residual) {
+        [](CGSolver *solver, Mesh *pmesh, int max_iter, std::shared_ptr<Real> res_tol,
+           bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
@@ -278,4 +279,4 @@ class CGSolver : public SolverBase {
 } // namespace solvers
 } // namespace parthenon
 
-#endif // SOLVERS_CG_SOLVER_STAGES_HPP_
+#endif // SOLVERS_CG_SOLVER_HPP_

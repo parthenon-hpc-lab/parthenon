@@ -215,7 +215,7 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
-  static auto desc = [&]{
+  static auto desc = [&] {
     if constexpr (isTypeList<TL>::value) {
       return parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
     } else {
@@ -244,7 +244,6 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
       });
   return TaskStatus::complete;
 }
-
 
 template <class a_t, class b_t, class out_t, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,

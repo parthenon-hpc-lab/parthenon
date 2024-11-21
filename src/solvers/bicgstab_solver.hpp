@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef SOLVERS_BICGSTAB_SOLVER_STAGES_HPP_
-#define SOLVERS_BICGSTAB_SOLVER_STAGES_HPP_
+#ifndef SOLVERS_BICGSTAB_SOLVER_HPP_
+#define SOLVERS_BICGSTAB_SOLVER_HPP_
 
 #include <cstdio>
 #include <memory>
@@ -23,7 +23,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
-#include "solvers/mg_solver_stages.hpp"
+#include "solvers/mg_solver.hpp"
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
@@ -87,12 +87,13 @@ class BiCGSTABSolver : public SolverBase {
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
- 
+
   static inline std::size_t id{0};
+
  public:
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
-                       const std::string &container_rhs, ParameterInput *pin,
-                       const std::string &input_block, equations eq_in = equations())
+                 const std::string &container_rhs, ParameterInput *pin,
+                 const std::string &input_block, equations eq_in = equations())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
         container_base(container_base), container_u(container_u),
@@ -174,8 +175,8 @@ class BiCGSTABSolver : public SolverBase {
         this);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol,
-            bool relative_residual, Mesh *pm) {
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+            Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
             Real tol = relative_residual
                            ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
@@ -372,4 +373,4 @@ class BiCGSTABSolver : public SolverBase {
 
 } // namespace parthenon
 
-#endif // SOLVERS_BICGSTAB_SOLVER_STAGES_HPP_
+#endif // SOLVERS_BICGSTAB_SOLVER_HPP_

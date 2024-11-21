@@ -94,12 +94,10 @@ auto GetNames() {
 }
 
 template <class>
-struct isTypeList : public std::false_type
- { };
+struct isTypeList : public std::false_type {};
 
 template <class... Ts>
-struct isTypeList<TypeList<Ts...>> : public std::true_type
- { };
+struct isTypeList<TypeList<Ts...>> : public std::true_type {};
 
 } // namespace parthenon
 

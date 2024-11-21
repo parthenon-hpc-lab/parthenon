@@ -23,13 +23,13 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
-#include <solvers/bicgstab_solver_stages.hpp>
-#include <solvers/cg_solver_stages.hpp>
+#include <solvers/bicgstab_solver.hpp>
+#include <solvers/cg_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
-#include "poisson_equation_stages.hpp"
+#include "poisson_equation.hpp"
 #include "poisson_package.hpp"
 
 using namespace parthenon::package::prelude;
@@ -94,20 +94,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
-  using preconditioner_t =
-        parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
   if (solver == "MG") {
-    psolver = std::make_shared<
-        parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
+    psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
   } else if (solver == "CG") {
-    psolver = std::make_shared<
-        parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
+    psolver = std::make_shared<parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
   } else if (solver == "BiCGSTAB") {
-    psolver = std::make_shared<
-        parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+    psolver =
+        std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
+            "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
@@ -122,8 +119,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
-  std::vector<MetadataFlag> flags{Metadata::Cell, Metadata::Independent,
-                                  Metadata::FillGhost, Metadata::WithFluxes,
+  std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
+                                  Metadata::FillGhost,   Metadata::WithFluxes,
                                   Metadata::GMGRestrict, Metadata::GMGProlongate};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {

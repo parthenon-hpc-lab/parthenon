@@ -25,12 +25,12 @@
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 #include "poisson_driver.hpp"
-#include "poisson_equation_stages.hpp"
+#include "poisson_equation.hpp"
 #include "poisson_package.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "solvers/bicgstab_solver_stages.hpp"
-#include "solvers/cg_solver_stages.hpp"
-#include "solvers/mg_solver_stages.hpp"
+#include "solvers/bicgstab_solver.hpp"
+#include "solvers/cg_solver.hpp"
+#include "solvers/mg_solver.hpp"
 #include "solvers/solver_utils.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -76,17 +76,18 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
 
     // Move the rhs variable into the rhs stage for stage based solver
     auto copy_rhs = tl.AddTask(none, TF(solvers::utils::CopyData<rhs, u>), md);
-    copy_rhs = tl.AddTask(
-        copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_rhs);
-    
+    copy_rhs = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>),
+                          md, md_rhs);
+
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<exact, u>), md);
       copy_exact = tl.AddTask(
-        copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
+          copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md_u, true);
-      auto *eqs = pkg->MutableParam<poisson_package::PoissonEquation<u, D>>("poisson_equation");
+      auto *eqs =
+          pkg->MutableParam<poisson_package::PoissonEquation<u, D>>("poisson_equation");
       copy_rhs = eqs->Ax(tl, comm, md, md_u, md_rhs);
     }
 
@@ -100,9 +101,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     // solution to the exact solution
     if (use_exact_rhs) {
       auto copy_back = tl.AddTask(
-        solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
-      auto diff = tl.AddTask(copy_back, TF(solvers::utils::AddFieldsAndStore<exact, u, u>),
-                             md, 1.0, -1.0);
+          solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
+      auto diff = tl.AddTask(
+          copy_back, TF(solvers::utils::AddFieldsAndStore<exact, u, u>), md, 1.0, -1.0);
       auto get_err = solvers::utils::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(
           get_err,
