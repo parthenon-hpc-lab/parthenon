@@ -69,15 +69,15 @@ jobs:
         with:
           submodules: 'true'
       - name: CMake
+        # Manually chaning the arch for this (debug) build as the
+        # -O0 option causes compiler issue for the navi 1030 GPU at
+        # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
         run: |
           cmake -B builddir \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }} \
-            # Manually chaning the arch for this (debug) build as the
-            # -O0 option causes compiler issue for the navi 1030 GPU at
-            # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
             -DKokkos_ARCH_AMD_GFX90A=ON -DKokkos_ARCH_NAVI1030=OFF
       - name: Build
         run: |
