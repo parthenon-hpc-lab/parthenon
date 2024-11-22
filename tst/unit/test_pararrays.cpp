@@ -451,8 +451,8 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
   }
 
   GIVEN("An array of ParArrays filled with the values contained in their state") {
-    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
-    auto pack_h = Kokkos::create_mirror_view(pack);
+    parthenon::ParArray1DRaw<arr3d_t> pack(parthenon::ViewOfViewAlloc("test pack"), NS);
+    auto pack_h = create_view_of_view_mirror(pack);
 
     for (int b = 0; b < NS; ++b) {
       state_t state(static_cast<double>(b));
@@ -527,6 +527,8 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
+  // TODO(PG) depending on the results of the view of view discussion, we should add
+  // destructor or ViewOfViewAlloc with SequentialHostInit
   using view_3d_t =
       Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
   using arrays_t = Kokkos::View<parthenon::ParArray6D<Real> *, UVMSpace>;
@@ -544,7 +546,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
     new (&views[n])
         view_3d_t(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
     auto a_h = arrays(n).GetHostMirror();
-    auto v_h = Kokkos::create_mirror_view(views(n));
+    auto v_h = parthenon::create_view_of_view_mirror(views(n));
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 0; i < N; i++) {
