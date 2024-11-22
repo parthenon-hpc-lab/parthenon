@@ -19,6 +19,9 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
+set(Kokkos_ENABLE_ROCTHRUST OFF CACHE BOOL "Temporarily disabled as the container needs to be updated to the `-complete` base image.")
+
+set(CMAKE_CXX_FLAGS_DBGNOSYM "-O0" CACHE STRING "Debug build without symbols")
 
 set(MACHINE_CXX_FLAGS "")
 if (${MACHINE_VARIANT} MATCHES "cuda")
