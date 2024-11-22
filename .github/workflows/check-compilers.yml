@@ -61,7 +61,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
     env:
       CMAKE_GENERATOR: Ninja
     steps:
@@ -74,7 +74,11 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
-            -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
+            -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }} \
+            # Manually chaning the arch for this (debug) build as the
+            # -O0 option causes compiler issue for the navi 1030 GPU at
+            # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
+            -DKokkos_ARCH_AMD_GFX90A=ON -DKokkos_ARCH_NAVI1030=OFF
       - name: Build
         run: |
           cmake --build builddir --parallel 2
