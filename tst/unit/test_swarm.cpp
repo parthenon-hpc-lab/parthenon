@@ -60,6 +60,7 @@ void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
 }
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
+  printf("%s:%i\n", __FILE__, __LINE__);
   std::stringstream is;
   is << "<parthenon/mesh>" << endl;
   is << "x1min = -0.5" << endl;
@@ -78,25 +79,38 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "ix3_bc = outflow" << endl;
   is << "ox3_bc = outflow" << endl;
   is << "pack_size = 1" << endl;
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto descrip = std::make_shared<parthenon::StateDescriptor>("test");
+  printf("%s:%i\n", __FILE__, __LINE__);
   descrip->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
   descrip->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  printf("%s:%i\n", __FILE__, __LINE__);
   packages.Add(descrip);
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // loc needs to be set to call bndry condition routines below
+  printf("%s:%i\n", __FILE__, __LINE__);
   meshblock->loc = mesh->GetLocList()[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
   mesh->mesh_bcs[0] = BoundaryFlag::user;
+  printf("%s:%i\n", __FILE__, __LINE__);
   meshblock->boundary_flag[0] = BoundaryFlag::user;
+  printf("%s:%i\n", __FILE__, __LINE__);
   for (int i = 1; i < 6; i++) {
     mesh->mesh_bcs[i] = BoundaryFlag::user;
     meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
@@ -115,6 +129,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       });
   auto failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   REQUIRE(swarm->label() == "test swarm");
   REQUIRE(swarm->info().length() == 0);
@@ -126,6 +141,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   labelVector[1] = "j";
   Metadata m_integer({Metadata::Integer, Metadata::Particle});
   swarm->Add(labelVector, m_integer);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   swarm->AddEmptyParticles(1);
   swarm_d = swarm->GetDeviceContext();
@@ -139,6 +155,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   x_d.DeepCopy(x_h);
   i_d.DeepCopy(i_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   swarm->AddEmptyParticles(11);
   swarm_d = swarm->GetDeviceContext();
@@ -163,6 +180,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   // Check that existing data was successfully copied during pool resize
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(0) == 0.5);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Remove particles 3 and 5
   meshblock->par_for(
@@ -187,6 +205,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Enter some data to be moved during defragment
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
@@ -211,6 +230,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Check for internal index consistency after defragmentation operation
   swarm->Validate();
@@ -221,6 +241,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(x_h(4) == 1.2);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // "Transport" a particle across the IX1 (custom) boundary
   ParArray1D<int> bc_indices("Boundary indices", 1);
@@ -232,6 +253,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   ApplySwarmBoundaryConditions(swarm);
   swarm->RemoveMarkedParticles();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Check that particle that crossed boundary has been removed
   meshblock->par_for(
