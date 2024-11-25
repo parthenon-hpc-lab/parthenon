@@ -554,7 +554,7 @@ Some notes:
   to ``CoalescedBuffer`` objects. 
 - ``CoalescedBuffersRank`` is where the post-remesh initialization routines are actually
   implemented. This can either correspond to the send or receive side.
-- ``CoalescedBuffer`` corresponds to each coalesced buffer and is where the
+- ``CoalescedBuffer`` corresponds to each coalesced buffer and is where 
   the packing, sending, receiving, and unpacking details for coalesced boundary communication 
   are implemented. This object internally owns the ``CommunicationBuffer<BufArray1D<Real>>``
   that is used for sending and receiving the coalesced data (as well as the communication buffer
