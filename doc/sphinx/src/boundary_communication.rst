@@ -551,7 +551,7 @@ Some notes:
   communication, flux correction) to ``CoalescedBuffersRank`` objects for sending and receiving
   rank pairs. These ``CoalescedBuffersRank`` objects in turn contain maps from ``MeshData``
   partition id of the sending ``MeshData`` (which also doubles as the MPI tag for the messages) 
-  to ``CoalescedBuffer`` objects. 
+  to ``CoalescedBuffer`` objects). 
 - ``CoalescedBuffersRank`` is where the post-remesh initialization routines are actually
   implemented. This can either correspond to the send or receive side.
 - ``CoalescedBuffer`` corresponds to each coalesced buffer and is where 
