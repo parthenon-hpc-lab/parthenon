@@ -3,7 +3,6 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1174]](https://github.com/parthenon-hpc-lab/parthenon/pull/1174) Add CG solver and custom solver prolongation operator options
 - [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
 - [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185) Bugfix to particle defragmentation
 - [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
@@ -37,6 +36,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1174]](https://github.com/parthenon-hpc-lab/parthenon/pull/1174) Add CG solver, custom solver prolongation operator options, and switch to stage based solvers
 - [[PR 1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 
 ## Release 24.08
