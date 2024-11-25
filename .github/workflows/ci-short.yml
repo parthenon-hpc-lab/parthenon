@@ -13,6 +13,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
   OMPI_MCA_mpi_common_cuda_event_max: 1000
+  # CUDA IPC within docker repeated seem to cause issue on the CI machine
+  OMPI_MCA_btl_smcuda_use_cuda_ipc: 0
   # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
   OMPI_MCA_btl_vader_single_copy_mechanism: none
 
@@ -22,7 +24,7 @@ jobs:
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
@@ -47,7 +49,7 @@ jobs:
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
@@ -79,7 +81,7 @@ jobs:
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:

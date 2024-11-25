@@ -26,6 +26,7 @@
 #include "interface/sparse_pack_base.hpp"
 #include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -149,8 +150,8 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   }
 
   if (make_new_pack) {
-    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
-    auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
+    auto packs_host = create_view_of_view_mirror(packs);
 
     for (size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
