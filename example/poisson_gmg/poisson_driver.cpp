@@ -75,14 +75,16 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
     // Move the rhs variable into the rhs stage for stage based solver
-    auto copy_rhs = tl.AddTask(none, TF(solvers::utils::CopyDataBetweenFields<rhs, u>), md);
+    auto copy_rhs =
+        tl.AddTask(none, TF(solvers::utils::between_fields::CopyData<rhs, u>), md);
     copy_rhs = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>),
                           md, md_rhs);
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     if (use_exact_rhs) {
-      auto copy_exact = tl.AddTask(copy_rhs, TF(solvers::utils::CopyDataBetweenFields<exact, u>), md);
+      auto copy_exact = tl.AddTask(
+          copy_rhs, TF(solvers::utils::between_fields::CopyData<exact, u>), md);
       copy_exact = tl.AddTask(
           copy_exact, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md_u, true);
@@ -103,8 +105,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       auto copy_back = tl.AddTask(
           solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
       auto diff = tl.AddTask(
-          copy_back, TF(solvers::utils::AddFieldsAndStore<exact, u, u>), md, 1.0, -1.0);
-      auto get_err = solvers::utils::DotProduct<u, u>(diff, tl, &err, md);
+          copy_back, TF(solvers::utils::between_fields::AddFieldsAndStore<exact, u, u>),
+          md, 1.0, -1.0);
+      auto get_err = solvers::utils::between_fields::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(
           get_err,
           [](PoissonDriver *driver, int partition) {

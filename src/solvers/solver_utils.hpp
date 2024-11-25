@@ -148,8 +148,10 @@ struct Stencil {
 };
 
 namespace utils {
+
+namespace between_fields {
 template <class in_t, class out_t, bool only_fine_on_composite = true>
-TaskStatus CopyDataBetweenFields(const std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   IndexRange ib = md->GetBoundsI(IndexDomain::entire, te);
@@ -177,6 +179,7 @@ TaskStatus CopyDataBetweenFields(const std::shared_ptr<MeshData<Real>> &md) {
       });
   return TaskStatus::complete;
 }
+} // namespace between_fields
 
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
@@ -245,6 +248,10 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
+// Utilities functions in the between_fields namespace work on separate fields specified
+// by types. Other utility functions work on the same list of fields across separate
+// MeshData containers.
+namespace between_fields {
 template <class a_t, class b_t, class out_t, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md,
                                            Real wa = 1.0, Real wb = 1.0,
@@ -292,6 +299,7 @@ TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md, Real wa 
   return AddFieldsAndStoreInteriorSelect<a_t, b_t, out, only_fine_on_composite>(
       md, wa, wb, false);
 }
+} // namespace between_fields
 
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md_a,
@@ -347,6 +355,7 @@ TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md_a,
                                                                      wa, wb, false);
 }
 
+namespace between_fields {
 template <class a_t, class b_t, class out_t>
 TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -367,6 +376,7 @@ TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md) {
       });
   return TaskStatus::complete;
 }
+} // namespace between_fields
 
 template <class TL>
 TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
@@ -391,6 +401,7 @@ TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
   return TaskStatus::complete;
 }
 
+namespace between_fields {
 template <class a_t, class b_t>
 TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md,
                            AllReduce<Real> *adotb) {
@@ -439,6 +450,7 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
   return finish_global_adotb;
 }
+} // namespace between_fields
 
 template <class a_t>
 TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
