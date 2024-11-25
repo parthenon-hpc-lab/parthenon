@@ -565,4 +565,13 @@ Some notes:
   in ``GetBndIdsOnDevice``.
 - Currently, there is a ``Compare`` method in ``CoalescedBuffer`` that is just for 
   debugging. It should compare the received coalesced messages to the variable-boundary buffer 
-  messages, but using it requires some hacks in the code to send both types of buffers. 
+  messages, but using it requires some hacks in the code to send both types of buffers.
+- The coalesced buffers are sparse aware and approximately allocate the amount of space required
+  to store the *allocated* fields. This means the size of the buffers can change dynamically 
+  between steps. Currently, we allocate twice as much memory as is required to store the allocated
+  variable-boundary buffers whenever their total size becomes larger than current size of the 
+  coalesced buffer in an attempt to balance the number of allocations and memory consumption. Since
+  the receiving end does not *a priori* know the size of the coalesced messages it is going to
+  receive, we first check the size of the incoming MPI message, reallocate the coalesced receive
+  buffer if necessary, and then actually post the `Irecv`. FWIW, this prevents pre-posting
+  the `Irecv`. 
