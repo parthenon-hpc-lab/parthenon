@@ -61,8 +61,8 @@ struct CoalescedBuffer {
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> coalesced_info_buf;
   std::set<Uid_t> all_vars;
-  std::unordered_map<std::set<Uid_t>, ParArray1D<BndId>, uid_set_hash> bnd_ids_device_map;
-  std::unordered_map<std::set<Uid_t>, ParArray1D<BndId>::host_mirror_type, uid_set_hash>
+  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>, uid_set_hash> bnd_ids_device_map;
+  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>::host_mirror_type, uid_set_hash>
       bnd_ids_host_map;
   CommBuffer<buf_t> coalesced_comm_buffer;
   CommBuffer<std::vector<int>> sparse_status_buffer;
@@ -92,7 +92,7 @@ struct CoalescedBuffer {
            coalesced_comm_buffer.IsAvailableForWrite();
   }
 
-  ParArray1D<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
+  ParArray1DRaw<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
                                        int *pcomb_size = nullptr);
 
   void PackAndSend(const std::set<Uid_t> &vars);
@@ -176,6 +176,7 @@ struct CoalescedComms {
     do {
       can_delete = true;
       for (auto &[p, cbr] : coalesced_send_buffers) {
+        can_delete = cbr.message.IsAvailableForWrite() && can_delete;
         for (auto &[r, cbrp] : cbr.coalesced_bufs) {
           can_delete = cbrp.IsAvailableForWrite() && can_delete;
         }

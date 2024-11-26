@@ -46,7 +46,7 @@ void CoalescedBuffer::AllocateCoalescedBuffer() {
 }
 
 //----------------------------------------------------------------------------------------
-ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
+ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
                                                       int *pcomb_size) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &bnd_ids_device = bnd_ids_device_map[var_set];
@@ -75,8 +75,8 @@ ParArray1D<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &var
   }
 
   if (nbnd_id != bnd_ids_device.size()) {
-    bnd_ids_device = ParArray1D<BndId>("bnd_id", nbnd_id);
-    bnd_ids_host = Kokkos::create_mirror_view(bnd_ids_device);
+    bnd_ids_device = ParArray1DRaw<BndId>(parthenon::ViewOfViewAlloc("bnd_id"), nbnd_id);
+    bnd_ids_host = create_view_of_view_mirror(bnd_ids_device);
     updated = true;
   }
 
