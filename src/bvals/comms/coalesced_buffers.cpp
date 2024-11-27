@@ -37,17 +37,17 @@ void CoalescedBuffer::AllocateCoalescedBuffer() {
   int send_rank = sender ? Globals::my_rank : other_rank;
   int recv_rank = sender ? other_rank : Globals::my_rank;
   coalesced_comm_buffer = CommBuffer<buf_t>(
-      2 * partition, send_rank, recv_rank, comm_,
+      2 * partition, send_rank, recv_rank, comm,
       [](int size) { return buf_t("Combined Buffer", 2 * size); }, true);
 
   sparse_status_buffer =
-      CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm_);
+      CommBuffer<std::vector<int>>(2 * partition + 1, send_rank, recv_rank, comm);
   sparse_status_buffer.ConstructBuffer(current_size + 1);
 }
 
 //----------------------------------------------------------------------------------------
 ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
-                                                      int *pcomb_size) {
+                                                         int *pcomb_size) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &bnd_ids_device = bnd_ids_device_map[var_set];
   auto &bnd_ids_host = bnd_ids_host_map[var_set];
@@ -258,16 +258,16 @@ void CoalescedBuffer::AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
 //----------------------------------------------------------------------------------------
 CoalescedBuffersRank::CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool send,
                                            mpi_comm_t comm, Mesh *pmesh)
-    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false), comm_(comm),
+    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false), comm(comm),
       pmesh(pmesh) {
 
-  int tag = 1234 + static_cast<int>(GetAssociatedSender(b_type));
+  int tag = static_cast<int>(GetAssociatedSender(b_type));
   if (sender) {
-    message = com_buf_t(tag, Globals::my_rank, other_rank, comm_,
+    message = com_buf_t(tag, Globals::my_rank, other_rank, comm,
                         [](int size) { return std::vector<int>(size); });
   } else {
     message = com_buf_t(
-        tag, other_rank, Globals::my_rank, comm_,
+        tag, other_rank, Globals::my_rank, comm,
         [](int size) { return std::vector<int>(size); }, true);
   }
   PARTHENON_REQUIRE(other_rank != Globals::my_rank, "Should only build for other ranks.");
@@ -280,7 +280,7 @@ void CoalescedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
   if (coalesced_bufs.count(partition) == 0)
     coalesced_bufs.emplace(
         std::make_pair(partition, CoalescedBuffer(true, partition, other_rank, b_type,
-                                                  comm_, pmb->pmy_mesh)));
+                                                  comm, pmb->pmy_mesh)));
 
   auto &coal_buf = coalesced_bufs.at(partition);
   coal_buf.AddVarBoundary(pmb, nb, var);
@@ -304,9 +304,8 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
       const int total_size = mess_buf[idx++];
 
       // Create the new partition
-      coalesced_bufs.emplace(
-          std::make_pair(partition, CoalescedBuffer(false, partition, other_rank, b_type,
-                                                    comm_, pmesh)));
+      coalesced_bufs.emplace(std::make_pair(
+          partition, CoalescedBuffer(false, partition, other_rank, b_type, comm, pmesh)));
       auto &coal_buf = coalesced_bufs.at(partition);
 
       for (int b = 0; b < nbuf; ++b) {
@@ -401,7 +400,7 @@ void CoalescedComms::AddSendBuffer(int partition, MeshBlock *pmb, const Neighbor
     coalesced_send_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
                        CoalescedBuffersRank(nb.rank, b_type, true,
-                                            comms_[GetAssociatedSender(b_type)], pmesh)));
+                                            comms[GetAssociatedSender(b_type)], pmesh)));
   coalesced_send_buffers.at({nb.rank, b_type}).AddSendBuffer(partition, pmb, nb, var);
 }
 
@@ -416,7 +415,7 @@ void CoalescedComms::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
     coalesced_recv_buffers.emplace(
         std::make_pair(std::make_pair(nb.rank, b_type),
                        CoalescedBuffersRank(nb.rank, b_type, false,
-                                            comms_[GetAssociatedSender(b_type)], pmesh)));
+                                            comms[GetAssociatedSender(b_type)], pmesh)));
 }
 
 //----------------------------------------------------------------------------------------

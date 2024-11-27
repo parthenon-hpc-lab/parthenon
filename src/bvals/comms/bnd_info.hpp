@@ -58,8 +58,8 @@ struct BndInfo {
 
   // Number of points contained in this boundary region
   KOKKOS_FORCEINLINE_FUNCTION
-  int size() const {
-    int s = 0;
+  std::size_t size() const {
+    std::size_t s = 0;
     for (int n = 0; n < ntopological_elements; ++n) {
       s += idxer[n].size();
     }

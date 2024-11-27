@@ -209,8 +209,6 @@ template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
-  static int ntotal_prints{0};
-
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
@@ -219,9 +217,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   bool all_received = true;
   if (pmesh->do_coalesced_comms) {
-    // Receive any messages that are around
-    bool all_coalesced_received =
-        pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
+    pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
   }
   const bool coal_comm = pmesh->do_coalesced_comms;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),

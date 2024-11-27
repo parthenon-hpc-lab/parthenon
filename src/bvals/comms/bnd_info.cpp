@@ -278,6 +278,10 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
+  // Sometimes we may build a BndInfo object just to get the
+  // size of the index space associated with the boundary. In
+  // that case an associated communication buffer may not exist
+  // and a nullptr will be passed instead.
   if (combuf != nullptr) buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;

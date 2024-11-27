@@ -131,7 +131,7 @@ class Mesh {
   int step_since_lb;
   int gflag;
 
-  bool do_coalesced_comms;
+  const bool do_coalesced_comms;
 
   BlockList_t block_list;
   Packages_t packages;

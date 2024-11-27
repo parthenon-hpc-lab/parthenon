@@ -41,6 +41,7 @@ struct uid_set_hash {
     std::size_t lhs{0};
     for (const auto &uid : in) {
       std::size_t rhs = std::hash<Uid_t>()(uid);
+      // Use the Boost hash function for lack of a better idea
       lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
     }
     return lhs;
@@ -54,15 +55,17 @@ struct CoalescedBuffer {
   BoundaryType b_type;
   int other_rank;
   int partition;
-  mpi_comm_t comm_;
+  mpi_comm_t comm;
   Mesh *pmesh;
   bool sender;
 
   using var_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::map<Uid_t, std::vector<std::pair<BndId, var_buf_t *>>> coalesced_info_buf;
   std::set<Uid_t> all_vars;
-  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>, uid_set_hash> bnd_ids_device_map;
-  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>::host_mirror_type, uid_set_hash>
+  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>, uid_set_hash>
+      bnd_ids_device_map;
+  std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>::host_mirror_type,
+                     uid_set_hash>
       bnd_ids_host_map;
   CommBuffer<buf_t> coalesced_comm_buffer;
   CommBuffer<std::vector<int>> sparse_status_buffer;
@@ -71,7 +74,7 @@ struct CoalescedBuffer {
   CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
                   mpi_comm_t comm, Mesh *pmesh)
       : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
-        comm_(comm), pmesh(pmesh), current_size(0) {}
+        comm(comm), pmesh(pmesh), current_size(0) {}
 
   int TotalBuffers() const {
     int total_buffers{0};
@@ -93,7 +96,7 @@ struct CoalescedBuffer {
   }
 
   ParArray1DRaw<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
-                                       int *pcomb_size = nullptr);
+                                          int *pcomb_size = nullptr);
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
@@ -120,7 +123,7 @@ struct CoalescedBuffersRank {
   using com_buf_t = CommBuffer<std::vector<int>>;
   com_buf_t message;
 
-  mpi_comm_t comm_;
+  mpi_comm_t comm;
   Mesh *pmesh;
   bool sender{true};
 
@@ -146,7 +149,7 @@ struct CoalescedComms {
   std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_send_buffers;
   std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_recv_buffers;
 
-  std::map<BoundaryType, mpi_comm_t> comms_;
+  std::map<BoundaryType, mpi_comm_t> comms;
 
   Mesh *pmesh;
 
@@ -155,7 +158,7 @@ struct CoalescedComms {
     for (auto b_type :
          {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
           BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
-      auto &comm = comms_[b_type];
+      auto &comm = comms[b_type];
 #ifdef MPI_PARALLEL
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
 #else
@@ -166,7 +169,7 @@ struct CoalescedComms {
 
   ~CoalescedComms() {
 #ifdef MPI_PARALLEL
-    for (auto &[b_type, comm] : comms_)
+    for (auto &[b_type, comm] : comms)
       PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
 #endif
   }
