@@ -153,41 +153,11 @@ struct CoalescedComms {
 
   Mesh *pmesh;
 
-  explicit CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
-    // TODO(LFR): Switch to a different communicator for each BoundaryType pair
-    for (auto b_type :
-         {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
-          BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
-      auto &comm = comms[b_type];
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
-#else
-      comm = 0;
-#endif
-    }
-  }
+  explicit CoalescedComms(Mesh *pmesh);
 
-  ~CoalescedComms() {
-#ifdef MPI_PARALLEL
-    for (auto &[b_type, comm] : comms)
-      PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
-#endif
-  }
+  ~CoalescedComms();
 
-  void clear() {
-    bool can_delete;
-    do {
-      can_delete = true;
-      for (auto &[p, cbr] : coalesced_send_buffers) {
-        can_delete = cbr.message.IsAvailableForWrite() && can_delete;
-        for (auto &[r, cbrp] : cbr.coalesced_bufs) {
-          can_delete = cbrp.IsAvailableForWrite() && can_delete;
-        }
-      }
-    } while (!can_delete);
-    coalesced_send_buffers.clear();
-    coalesced_recv_buffers.clear();
-  }
+  void clear();
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
