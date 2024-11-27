@@ -85,17 +85,17 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     if (use_exact_rhs) {
       auto copy_exact = tl.AddTask(
           copy_rhs, TF(solvers::utils::between_fields::CopyData<exact, u>), md);
-      copy_exact = tl.AddTask(
+      auto copy_u_between_stages = tl.AddTask(
           copy_exact, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_exact, tl, md_u, true);
+      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_u_between_stages, tl,
+                                                              md_u, true);
       auto *eqs =
           pkg->MutableParam<poisson_package::PoissonEquation<u, D>>("poisson_equation");
       copy_rhs = eqs->Ax(tl, comm, md, md_u, md_rhs);
     }
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md);
-    zero_u = tl.AddTask(zero_u, TF(solvers::utils::SetToZero<u>), md_u);
+    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md_u);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 

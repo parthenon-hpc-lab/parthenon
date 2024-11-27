@@ -196,7 +196,8 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION bool IsPhysicalBoundary(const int b, const int off3,
                                                  const int off2, const int off1) const {
-    return block_props_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1))) == bnd_flag;
+    return block_props_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1))) ==
+           physical_bnd_flag;
   }
 
   KOKKOS_INLINE_FUNCTION int GetGID(const int b) const { return block_props_(b, 27); }

@@ -219,17 +219,23 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     for (int oxb = -1; oxb <= 1; ++oxb) {
       for (int oxa = -1; oxa <= 1; ++oxa) {
         if (pmb->IsPhysicalBoundary(inner_x1))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, -1)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, -1)) =
+              physical_bnd_flag;
         if (pmb->IsPhysicalBoundary(outer_x1))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, 1)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, oxa, 1)) =
+              physical_bnd_flag;
         if (pmb->IsPhysicalBoundary(inner_x2))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, -1, oxa)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, -1, oxa)) =
+              physical_bnd_flag;
         if (pmb->IsPhysicalBoundary(outer_x2))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, 1, oxa)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(oxb, 1, oxa)) =
+              physical_bnd_flag;
         if (pmb->IsPhysicalBoundary(inner_x3))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(-1, oxb, oxa)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(-1, oxb, oxa)) =
+              physical_bnd_flag;
         if (pmb->IsPhysicalBoundary(outer_x3))
-          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(1, oxb, oxa)) = bnd_flag;
+          pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(1, oxb, oxa)) =
+              physical_bnd_flag;
       }
     }
 
