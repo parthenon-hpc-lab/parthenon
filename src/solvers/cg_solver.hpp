@@ -234,7 +234,7 @@ class CGSolver : public SolverBase {
         [&](CGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
-           printf("\t%i %e\n", solver->iter_counter, rms_res);
+            printf("\t%i %e\n", solver->iter_counter, rms_res);
           return TaskStatus::complete;
         },
         this, pmesh);
