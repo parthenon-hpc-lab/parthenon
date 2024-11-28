@@ -65,8 +65,11 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     return TaskStatus::complete;
   }
 
-  bool can_write_combined =
-      pmesh->pcoalesced_comms->IsAvailableForWrite(md.get(), bound_type);
+  bool can_write_combined{true};
+  if (pmesh->do_coalesced_comms)
+    can_write_combined =
+        pmesh->pcoalesced_comms->IsAvailableForWrite(md.get(), bound_type);
+
   if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
