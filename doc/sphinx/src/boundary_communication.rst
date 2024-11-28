@@ -563,9 +563,6 @@ Some notes:
   ``MetaData::FillGhost`` fields in a simulation, we need to be able to interpret coalesced
   messages that that contain a subset of fields. Most of what is needed for this is implemented 
   in ``GetBndIdsOnDevice``.
-- Currently, there is a ``Compare`` method in ``CoalescedBuffer`` that is just for 
-  debugging. It should compare the received coalesced messages to the variable-boundary buffer 
-  messages, but using it requires some hacks in the code to send both types of buffers.
 - The coalesced buffers are sparse aware and approximately allocate the amount of space required
   to store the *allocated* fields. This means the size of the buffers can change dynamically 
   between steps. Currently, we allocate twice as much memory as is required to store the allocated
