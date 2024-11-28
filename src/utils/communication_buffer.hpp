@@ -78,14 +78,8 @@ class CommBuffer {
   {
   }
 
-  CommBuffer(
-      int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
-      get_resource_func_t get_resource =
-          [](int) {
-            PARTHENON_FAIL("Trying to use an uninitialized get_resource function.");
-            return T();
-          },
-      bool do_sparse_allocation = false);
+  CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
+             get_resource_func_t get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
 
@@ -106,12 +100,6 @@ class CommBuffer {
       buf_ = get_resource_(size);
       active_ = true;
     }
-  }
-
-  template <class... Args>
-  void ConstructBuffer(Args &&...args) {
-    buf_ = T(std::forward<Args>(args)...);
-    active_ = true;
   }
 
   void Free() {

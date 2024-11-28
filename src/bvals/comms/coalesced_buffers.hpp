@@ -72,9 +72,7 @@ struct CoalescedBuffer {
   int current_size;
 
   CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
-                  mpi_comm_t comm, Mesh *pmesh)
-      : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
-        comm(comm), pmesh(pmesh), current_size(0) {}
+                  mpi_comm_t comm, Mesh *pmesh);
 
   int TotalBuffers() const {
     int total_buffers{0};
@@ -87,8 +85,6 @@ struct CoalescedBuffer {
 
   void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
-
-  void AllocateCoalescedBuffer();
 
   bool IsAvailableForWrite() {
     return sparse_status_buffer.IsAvailableForWrite() &&
