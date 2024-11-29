@@ -11,7 +11,7 @@ and can be triggered by either (simulation) time or cycle, i.e.,
 
 - ``dt = 0.1`` means that the output for the block is written every 0.1
   in simulation time.
-- ``dt = 100`` means that the output for the block is written every 100
+- ``dn = 100`` means that the output for the block is written every 100
   cycles.
 
 Note that only one option can be chosen for a given block.
