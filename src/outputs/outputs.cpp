@@ -116,11 +116,16 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.block_number = atoi(outn.c_str());
       op.block_name.assign(pib->block_name);
 
-      Real dt = -1.0;
+      Real dt = 0.0; // default value == 0 means that initial data is written by default
       int dn = -1;
       if (tm != nullptr) {
-        dt = pin->GetOrAddReal(op.block_name, "dt", -1.0);
         dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
+
+        // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
+        // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
+        // written for temporal drivers.
+        const auto tlim = dn >= 0 ? -1 : tm->tlim;
+        dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
       }
       // if this output is "soft-disabled" (negative value) skip processing
       if (dt < 0.0 && dn < 0) {
