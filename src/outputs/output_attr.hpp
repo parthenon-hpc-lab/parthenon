@@ -18,6 +18,8 @@
 #ifndef OUTPUTS_OUTPUT_ATTR_HPP_
 #define OUTPUTS_OUTPUT_ATTR_HPP_
 
+#include <vector>
+
 // JMM: This could probably be done with template magic but I think
 // using a macro is honestly the simplest and cleanest solution here.
 // Template solution would be to define a variatic class to conain the

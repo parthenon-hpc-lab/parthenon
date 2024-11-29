@@ -614,10 +614,10 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
             }
           }
         } // loop over components
-      } // out_var->IsAllocated()
-    } // loop over blocks
+      }   // out_var->IsAllocated()
+    }     // loop over blocks
     it.seriesFlush();
-  } // loop over vars
+  }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // -------------------------------------------------------------------------------- //
@@ -660,11 +660,13 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   series.close();
 #endif // ifndef PARTHENON_ENABLE_OPENPMD
 
-  // advance output parameters
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  // advance output parameters if this is not a triggered (now or final) output
+  if (signal == SignalHandler::OutputSignal::none) {
+    output_params.file_number++;
+    output_params.next_time += output_params.dt;
+    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
 }
 
 } // namespace parthenon

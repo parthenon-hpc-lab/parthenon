@@ -264,9 +264,9 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           auto &in_hostarr2d_v = in_hostarr2d.KokkosView();
           resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "hostarr2d",
                                        in_hostarr2d_v);
-          //  TODO(pgrete) make this work and also add checks for correctness below
+          // TODO(pgrete) make this work and also add checks for correctness below
           // resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "bool1d",
-          //  in_bool1d);
+          // in_bool1d);
         }
         REQUIRE(scalar == in_scalar);
 
