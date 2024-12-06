@@ -277,6 +277,10 @@ InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
   pib->pline = nullptr;         // Terminate the InputLine list
   pib->pnext = nullptr;         // Terminate the InputBlock list
 
+  // Default max lengths to zero (in case of no parameters in this block)
+  pib->max_len_parname = 0;
+  pib->max_len_parvalue = 0;
+
   // if this is the first block in list, save pointer to it in class
   if (pfirst_block == nullptr) {
     pfirst_block = pib;
