@@ -6,10 +6,20 @@ Outputs
 Outputs from Parthenon are controlled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
-To disable an output block without removing it from the input file set
-the block's ``dt < 0.0``.
+The frequency of outputs can be controlled for each block separately
+and can be triggered by either (simulation) time or cycle, i.e.,
 
-In addition to time base outputs, two additional options to trigger
+- ``dt = 0.1`` means that the output for the block is written every 0.1
+  in simulation time.
+- ``dn = 100`` means that the output for the block is written every 100
+  cycles.
+
+Note that only one option can be chosen for a given block.
+To disable an output block without removing it from the input file set
+the block's ``dt < 0.0`` and ``dn < 0`` (which is also happening by default
+if the paramter is not provided in the input file).
+
+In addition to time or cycle based outputs, two additional options to trigger
 outputs (applies to HDF5, restart and histogram outputs) exist.
 
 -  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which

@@ -70,8 +70,8 @@ bool Task::ready() {
   return go;
 }
 
-inline std::ostream &WriteTaskGraph(std::ostream &stream,
-                                    const std::vector<std::shared_ptr<Task>> &tasks) {
+std::ostream &WriteTaskGraph(std::ostream &stream,
+                             const std::vector<std::shared_ptr<Task>> &tasks) {
 #ifndef HAS_CXX_ABI
   std::cout << "Warning: task graph output will not include function"
                "signatures since libcxxabi is unavailable.\n";

@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
 - [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
 - [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185) Bugfix to particle defragmentation
 - [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
@@ -23,6 +24,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1215]](https://github.com/parthenon-hpc-lab/parthenon/pull/1215) Fix issue with uninitialized input parameter block data
+- [[PR 1211]](https://github.com/parthenon-hpc-lab/parthenon/pull/1211) remove inline from WriteTaskGraph
 - [[PR 1188]](https://github.com/parthenon-hpc-lab/parthenon/pull/1188) Fix hdf5 output issue for metadata none variables, update test.
 - [[PR 1170]](https://github.com/parthenon-hpc-lab/parthenon/pull/1170) Fixed incorrect initialization of array by a const not constexpr
 - [[PR 1189]](https://github.com/parthenon-hpc-lab/parthenon/pull/1189) Address CUDA MPI/ICP issue with Kokkos <=4.4.1
