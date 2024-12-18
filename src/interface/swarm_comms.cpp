@@ -245,14 +245,12 @@ void Swarm::LoadBuffers_() {
     auto neighbor_buffer_index = neighbor_buffer_index_;
     // Loop over active particles buffer_sorted, use index n and buffer_start to
     /// get index in buffer m, pack that particle in buffer
-    parthenon::par_for(
-        // pmb->par_for(
+    pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           auto p_index = buffer_sorted(n).swarm_idx_;
           if (swarm_d.IsActive(p_index)) {
             const int m = buffer_sorted(n).sort_idx_;
             if (m >= 0) {
-              printf("m: %i\n", m);
               const int bufid = neighbor_buffer_index(m);
               if (m >= 0) {
                 const int bid = n - buffer_start[m];
