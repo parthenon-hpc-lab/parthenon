@@ -252,18 +252,16 @@ void Swarm::LoadBuffers_() {
             const int m = buffer_sorted(n).sort_idx_;
             if (m >= 0) {
               const int bufid = neighbor_buffer_index(m);
-              if (m >= 0) {
-                const int bid = n - buffer_start[m];
-                int buffer_index = bid * particle_size;
-                swarm_d.MarkParticleForRemoval(p_index);
-                for (int i = 0; i < realPackDim; i++) {
-                  bdvar.send[bufid](buffer_index) = vreal(i, p_index);
-                  buffer_index++;
-                }
-                for (int i = 0; i < intPackDim; i++) {
-                  bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
-                  buffer_index++;
-                }
+              const int bid = n - buffer_start[m];
+              int buffer_index = bid * particle_size;
+              swarm_d.MarkParticleForRemoval(p_index);
+              for (int i = 0; i < realPackDim; i++) {
+                bdvar.send[bufid](buffer_index) = vreal(i, p_index);
+                buffer_index++;
+              }
+              for (int i = 0; i < intPackDim; i++) {
+                bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
+                buffer_index++;
               }
             }
           }
