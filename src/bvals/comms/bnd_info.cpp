@@ -40,8 +40,8 @@
 namespace parthenon {
 
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
-  prores_info = ParArray1D<ProResInfo>("prores_info", n_regions);
-  prores_info_h = Kokkos::create_mirror_view(prores_info);
+  prores_info = ProResInfoArr_t(ViewOfViewAlloc("prores_info"), n_regions);
+  prores_info_h = create_view_of_view_mirror(prores_info);
   int nref_funcs = pkg->NumRefinementFuncs();
   // Note that assignment of Kokkos views resets them, but
   // buffer_subset_sizes is a std::vector. It must be cleared, then

@@ -144,18 +144,6 @@ class HistoryOutput : public OutputType {
 };
 
 //----------------------------------------------------------------------------------------
-//! \class VTKOutput
-//  \brief derived OutputType class for vtk dumps
-
-class VTKOutput : public OutputType {
- public:
-  explicit VTKOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-  void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                       const SignalHandler::OutputSignal signal) override;
-};
-
-//----------------------------------------------------------------------------------------
 //! \class AscentOutput
 //  \brief derived OutputType class for Ascent in situ situ visualization and analysis
 

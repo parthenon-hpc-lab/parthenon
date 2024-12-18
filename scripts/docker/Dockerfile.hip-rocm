@@ -1,4 +1,4 @@
-FROM rocm/dev-ubuntu-20.04:5.4.3
+FROM rocm/dev-ubuntu-24.04:6.2
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev && \
@@ -14,12 +14,10 @@ RUN cd /tmp && \
     cd / && \
     rm -rf /tmp/hdf5-1.10.8*
 
-# "mpic++ --showme" forgets open-pal in Ubuntu 20.04 + OpenMPI 4.0.3
-#   https://bugs.launchpad.net/ubuntu/+source/openmpi/+bug/1941786
-#   https://github.com/open-mpi/ompi/issues/9317
-ENV LDFLAGS="-lopen-pal"
-
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 
-# uid 1000 maps to the one running the container on the CI host
-RUN useradd --create-home --shell /bin/bash -u 1000 -G render ci
+# Latest image has default user with uid 1000 (which maps to the one running the container on the CI host
+# Need to add user to the group that can access the GPU
+RUN usermod -a -G render ubuntu
+
+WORKDIR /home/ubuntu
