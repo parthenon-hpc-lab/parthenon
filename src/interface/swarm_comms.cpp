@@ -31,6 +31,8 @@ namespace parthenon {
 /// GetNeighborBlockIndex()
 ///
 void Swarm::SetNeighborIndices_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;
   auto neighbor_indices_h = neighbor_indices_.GetHostMirror();
@@ -131,9 +133,13 @@ void Swarm::SetNeighborIndices_() {
   }
 
   neighbor_indices_.DeepCopy(neighbor_indices_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
 }
 
 void Swarm::SetupPersistentMPI() {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
   auto pmb = GetBlockPointer();
   vbswarm->SetupPersistentMPI();
 
@@ -154,9 +160,13 @@ void Swarm::SetupPersistentMPI() {
     neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
     neighbor_buffer_index_ = neighbor_buffer_index;
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
 }
 
 void Swarm::LoadBuffers_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
@@ -192,6 +202,8 @@ void Swarm::LoadBuffers_() {
           } else {
             buffer_sorted(n) = SwarmKey(this_block_, n);
           }
+          printf("sort idx (n): %i swarm_idx: %i\n", buffer_sorted(n).sort_idx_,
+                 buffer_sorted(n).swarm_idx_);
         });
 
     // sort by buffer index
@@ -245,23 +257,29 @@ void Swarm::LoadBuffers_() {
     auto neighbor_buffer_index = neighbor_buffer_index_;
     // Loop over active particles buffer_sorted, use index n and buffer_start to
     /// get index in buffer m, pack that particle in buffer
-    pmb->par_for(
+    printf("MAX %i\n", max_active_index_);
+    parthenon::par_for(
+        // pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          printf("n: %i\n", n);
           auto p_index = buffer_sorted(n).swarm_idx_;
           if (swarm_d.IsActive(p_index)) {
             const int m = buffer_sorted(n).sort_idx_;
-            const int bufid = neighbor_buffer_index(m);
             if (m >= 0) {
-              const int bid = n - buffer_start[m];
-              int buffer_index = bid * particle_size;
-              swarm_d.MarkParticleForRemoval(p_index);
-              for (int i = 0; i < realPackDim; i++) {
-                bdvar.send[bufid](buffer_index) = vreal(i, p_index);
-                buffer_index++;
-              }
-              for (int i = 0; i < intPackDim; i++) {
-                bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
-                buffer_index++;
+              printf("m: %i\n", m);
+              const int bufid = neighbor_buffer_index(m);
+              if (m >= 0) {
+                const int bid = n - buffer_start[m];
+                int buffer_index = bid * particle_size;
+                swarm_d.MarkParticleForRemoval(p_index);
+                for (int i = 0; i < realPackDim; i++) {
+                  bdvar.send[bufid](buffer_index) = vreal(i, p_index);
+                  buffer_index++;
+                }
+                for (int i = 0; i < intPackDim; i++) {
+                  bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
+                  buffer_index++;
+                }
               }
             }
           }
@@ -275,9 +293,13 @@ void Swarm::LoadBuffers_() {
       vbswarm->send_size[bufid] = 0;
     }
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
   auto pmb = GetBlockPointer();
   const int nneighbor = pmb->neighbors.size();
   auto swarm_d = GetDeviceContext();
@@ -288,9 +310,13 @@ void Swarm::Send(BoundaryCommSubset phase) {
 
   // Send buffer data
   vbswarm->Send(phase);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
 }
 
 void Swarm::UnloadBuffers_() {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
   auto pmb = GetBlockPointer();
 
   // Count received particles
@@ -369,6 +395,8 @@ void Swarm::UnloadBuffers_() {
           }
         });
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
+  fflush(stdout);
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
