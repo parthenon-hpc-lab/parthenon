@@ -192,8 +192,6 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
@@ -245,14 +243,10 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   for (auto &partition : pm->GetDefaultBlockPartitions()) {
     pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   auto pmb = GetBlockPointer();
 
@@ -287,8 +281,6 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   } else {
     new_indices_max_idx_ = -1;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   // Create and return NewParticlesContext
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
@@ -297,8 +289,6 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 // Updates the empty_indices_ array so the first N elements contain an ascending list of
 // indices into empty elements of the swarm pool, where N is the number of empty indices
 void Swarm::UpdateEmptyIndices() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto &mask = mask_;
   auto &empty_indices = empty_indices_;
 
@@ -326,16 +316,12 @@ void Swarm::UpdateEmptyIndices() {
           empty_indices(empty_indices_scan(n) - 1) = n;
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   int &max_active_index = max_active_index_;
 
   auto &mask = mask_;
@@ -359,16 +345,10 @@ void Swarm::RemoveMarkedParticles() {
   num_active_ -= num_removed;
 
   UpdateEmptyIndices();
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 void Swarm::Defrag() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   if (GetNumActive() == 0) {
-    printf("%s:%i\n", __FILE__, __LINE__);
-    fflush(stdout);
     return;
   }
 
@@ -449,8 +429,6 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 ///
@@ -460,8 +438,6 @@ void Swarm::Defrag() {
 ///  cell_sorted_ cell_sorted_number_: Per-cell array of number of particles in each cell
 ///
 void Swarm::SortParticlesByCell() {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto pmb = GetBlockPointer();
 
   auto &x = Get<Real>(swarm_position::x::name()).Get();
@@ -568,13 +544,9 @@ void Swarm::SortParticlesByCell() {
           }
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 void Swarm::Validate(bool test_comms) const {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto mask = mask_;
   auto neighbor_indices = neighbor_indices_;
   auto empty_indices = empty_indices_;
@@ -620,8 +592,6 @@ void Swarm::Validate(bool test_comms) const {
       Kokkos::Sum<int>(num_err));
   PARTHENON_REQUIRE(num_err == 0,
                     "empty_indices_ array pointing to unmasked particle indices!");
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 } // namespace parthenon

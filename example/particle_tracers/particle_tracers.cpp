@@ -60,8 +60,6 @@ namespace advection_package {
 // *************************************************//
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto pmb = mbd->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
@@ -78,8 +76,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
   min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   return cfl * min_dt;
 }
@@ -122,8 +118,6 @@ namespace particles_package {
 // *************************************************//
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto pmb = mbd->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
 
@@ -139,16 +133,12 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
   Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
   min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
   min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   // No CFL number for particles
   return min_dt;
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
 
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
@@ -162,8 +152,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   return pkg;
 }
@@ -171,8 +159,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 } // namespace particles_package
 
 TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
   auto adv_pkg = pmb->packages.Get("advection_package");
 
@@ -197,15 +183,11 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
           z(n) += vz * dt;
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   return TaskStatus::complete;
 }
 
 TaskStatus DepositTracers(MeshBlock *pmb) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
 
   // Meshblock geometry
@@ -256,15 +238,11 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
           }
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   return TaskStatus::complete;
 }
 
 TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto pmb = mbd->GetBlockPointer();
   auto adv_pkg = pmb->packages.Get("advection_package");
   const auto &vx = adv_pkg->Param<Real>("vx");
@@ -319,8 +297,6 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
           }
         });
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 
   return TaskStatus::complete;
 }
@@ -332,8 +308,6 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 // *************************************************//
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
   auto &adv_pkg = pmb->packages.Get("advection_package");
   auto &tr_pkg = pmb->packages.Get("particles_package");
   auto &mbd = pmb->meshblock_data.Get();
@@ -420,8 +394,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         rng_pool.free_state(rng_gen);
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
-  fflush(stdout);
 }
 
 TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
