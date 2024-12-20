@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
 - [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
 - [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185) Bugfix to particle defragmentation
 - [[PR 1184]](https://github.com/parthenon-hpc-lab/parthenon/pull/1184) Fix swarm block neighbor indexing in 1D, 2D
@@ -12,6 +13,7 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1216]](https://github.com/parthenon-hpc-lab/parthenon/pull/1216) Move to Kokkos 4.5
 - [[PR 1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.4.1
 - [[PR 1209]](https://github.com/parthenon-hpc-lab/parthenon/pull/1209) Ordered history output
 - [[PR 1206]](https://github.com/parthenon-hpc-lab/parthenon/pull/1206) Leapfrog fix
@@ -22,6 +24,8 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1217]](https://github.com/parthenon-hpc-lab/parthenon/pull/1217) Swarm comm debug fix
+- [[PR 1215]](https://github.com/parthenon-hpc-lab/parthenon/pull/1215) Fix issue with uninitialized input parameter block data
 - [[PR 1211]](https://github.com/parthenon-hpc-lab/parthenon/pull/1211) remove inline from WriteTaskGraph
 - [[PR 1188]](https://github.com/parthenon-hpc-lab/parthenon/pull/1188) Fix hdf5 output issue for metadata none variables, update test.
 - [[PR 1170]](https://github.com/parthenon-hpc-lab/parthenon/pull/1170) Fixed incorrect initialization of array by a const not constexpr

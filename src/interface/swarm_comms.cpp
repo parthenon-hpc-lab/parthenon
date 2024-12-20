@@ -250,8 +250,8 @@ void Swarm::LoadBuffers_() {
           auto p_index = buffer_sorted(n).swarm_idx_;
           if (swarm_d.IsActive(p_index)) {
             const int m = buffer_sorted(n).sort_idx_;
-            const int bufid = neighbor_buffer_index(m);
             if (m >= 0) {
+              const int bufid = neighbor_buffer_index(m);
               const int bid = n - buffer_start[m];
               int buffer_index = bid * particle_size;
               swarm_d.MarkParticleForRemoval(p_index);
