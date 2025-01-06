@@ -101,9 +101,6 @@ class BoundarySwarm : public BoundaryCommunication {
   explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label);
   ~BoundarySwarm() = default;
 
-  std::vector<ParArrayND<int>> vars_int;
-  std::vector<ParArrayND<Real>> vars_real;
-
   // (usuallly the std::size_t unsigned integer type)
   std::vector<BoundaryCommunication *>::size_type bswarm_index;
 

@@ -72,30 +72,45 @@ using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 template <typename T>
 using buf_pool_t = ObjectPool<BufArray1D<T>>;
 
+// Raw ParArrays (that directly map a view)
+template <typename T>
+using ParArray0DRaw = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray1DRaw = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray2DRaw = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray3DRaw = Kokkos::View<T ***, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray4DRaw = Kokkos::View<T ****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray5DRaw = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray6DRaw = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray7DRaw = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray8DRaw = Kokkos::View<T ********, LayoutWrapper, DevMemSpace>;
+
+//  Standard ParArrays that wrap a raw view and a Stage
 template <typename T, typename State = empty_state_t>
-using ParArray0D = ParArrayGeneric<Kokkos::View<T, LayoutWrapper, DevMemSpace>, State>;
+using ParArray0D = ParArrayGeneric<ParArray0DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray1D = ParArrayGeneric<Kokkos::View<T *, LayoutWrapper, DevMemSpace>, State>;
+using ParArray1D = ParArrayGeneric<ParArray1DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray2D = ParArrayGeneric<Kokkos::View<T **, LayoutWrapper, DevMemSpace>, State>;
+using ParArray2D = ParArrayGeneric<ParArray2DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray3D =
-    ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>, State>;
+using ParArray3D = ParArrayGeneric<ParArray3DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray4D =
-    ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>, State>;
+using ParArray4D = ParArrayGeneric<ParArray4DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray5D =
-    ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>, State>;
+using ParArray5D = ParArrayGeneric<ParArray5DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray6D =
-    ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>, State>;
+using ParArray6D = ParArrayGeneric<ParArray6DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray7D =
-    ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
+using ParArray7D = ParArrayGeneric<ParArray7DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray8D =
-    ParArrayGeneric<Kokkos::View<T ********, LayoutWrapper, DevMemSpace>, State>;
+using ParArray8D = ParArrayGeneric<ParArray8DRaw<T>, State>;
 
 // Host mirrors
 template <typename T>
@@ -1033,6 +1048,28 @@ par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, cons
         function(i, lreduce);
       },
       reduction);
+}
+
+// For ViewOfView we need to call the destructor of the inner views on
+// the host and not on the device (which would happen by default).
+// Thus, we need to pass `SquentialHostInit` as allocator, but only if the ViewOfView is
+// on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
+// passed when calling `create_mirror_view`, which is automatically handled by the
+// create_view_of_view_mirror() function below.
+template <typename T = DevMemSpace>
+auto ViewOfViewAlloc(const std::string &label) {
+  if constexpr (std::is_same_v<T, HostMemSpace>) {
+    return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
+  } else {
+    return Kokkos::view_alloc(label);
+  }
+}
+
+// Returns a host mirror view with the `SequentialHostInit` property for proper
+// deallocations of inner views in views of views.
+template <typename T>
+auto create_view_of_view_mirror(T view) {
+  return Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), view);
 }
 
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
