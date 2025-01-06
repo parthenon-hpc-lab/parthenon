@@ -34,6 +34,7 @@
 - [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR1218]](https://github.com/parthenon-hpc-lab/parthenon/pull/1219) Add ability to run the tasking without threading
 - [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
