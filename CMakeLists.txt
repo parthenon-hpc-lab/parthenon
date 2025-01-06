@@ -59,6 +59,7 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
+option(PARTHENON_ENABLE_SERIAL_POOL "Disable threaded tasking" OFF)
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)
