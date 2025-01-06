@@ -197,6 +197,7 @@ class SerialPool {
   }
 
   int size() const { return 1; }
+  void wait() {}
 
   TaskStatus check_task_returns() {
     TaskStatus overall = TaskStatus::complete;
@@ -216,7 +217,7 @@ class SerialPool {
 };
 
 #ifdef PARTHENON_USE_SERIAL_POOL
-using Pool_t = SerialPool;
+using Pool_t = SerialPool<TaskStatus>;
 #else
 using Pool_t = ThreadPool;
 #endif
