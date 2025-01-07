@@ -19,6 +19,7 @@ namespace parthenon {
 
 class UniformCartesian : public UniformCoordinates<UniformCartesian> {
  public:
+  using UniformCoordinates<UniformCartesian>::Dxc;
   UniformCartesian() = default;
   UniformCartesian(const RegionSize &rs, ParameterInput *pin) 
     : UniformCoordinates<UniformCartesian>(rs, pin) {}
