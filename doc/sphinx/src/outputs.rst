@@ -6,10 +6,20 @@ Outputs
 Outputs from Parthenon are controlled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
-To disable an output block without removing it from the input file set
-the block's ``dt < 0.0``.
+The frequency of outputs can be controlled for each block separately
+and can be triggered by either (simulation) time or cycle, i.e.,
 
-In addition to time base outputs, two additional options to trigger
+- ``dt = 0.1`` means that the output for the block is written every 0.1
+  in simulation time.
+- ``dn = 100`` means that the output for the block is written every 100
+  cycles.
+
+Note that only one option can be chosen for a given block.
+To disable an output block without removing it from the input file set
+the block's ``dt < 0.0`` and ``dn < 0`` (which is also happening by default
+if the paramter is not provided in the input file).
+
+In addition to time or cycle based outputs, two additional options to trigger
 outputs (applies to HDF5, restart and histogram outputs) exist.
 
 -  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which
@@ -194,7 +204,9 @@ block might look like
 
 This will produce a text file (``.hst``) output file every 1 units of
 simulation time. The content of the file is determined by the functions
-enrolled by specific packages, see :ref:`state history output`.
+enrolled by specific packages, see :ref:`state history output`. Per-package history
+outputs will always be in alphabetical order by package name, which may not match
+the order in which packages were added to a simulation.
 
 Histograms
 ----------
@@ -609,7 +621,4 @@ For example, the following methods are valid to load data with ``yt``
 
    ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 
-Currently, the ``yt`` frontend for Parthenon is hosted on the
-``parthenon-frontend`` branch of this `yt fork <https://github.com/forrestglines/yt/tree/parthenon-frontend>`_. In
-the future, the Parthenon frontend will be included in the main ``yt``
-repo.
+The ``yt`` frontend for Parthenon is availble in ``yt >= 4.4``.

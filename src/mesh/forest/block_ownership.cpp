@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "mesh/forest/block_ownership.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
@@ -39,7 +40,7 @@ namespace parthenon {
 
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
-                   const std::vector<NeighborLocation> &allowed_neighbors,
+                   const std::vector<forest::NeighborLocation> &allowed_neighbors,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 

@@ -26,7 +26,9 @@
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_state.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/indexer.hpp"
 #include "utils/object_pool.hpp"
@@ -49,19 +51,24 @@ enum class IndexRangeType {
 
 struct BndInfo {
   int ntopological_elements = 1;
-  int topo_idx[3]{0, 0, 0};
+  using TE = TopologicalElement;
+  TE topo_idx[3]{TE::CC, TE::CC, TE::CC};
   SpatiallyMaskedIndexer6D idxer[3];
+  forest::LogicalCoordinateTransformation lcoord_trans;
 
   CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
   int alloc_status;
+  bool same_to_same = false;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
 
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo() = default;
+  KOKKOS_DEFAULTED_FUNCTION
   BndInfo(const BndInfo &) = default;
   BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
           CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
@@ -97,8 +104,9 @@ struct ProResInfo {
   Coordinates_t coords, coarse_coords; // coords
 
   ParArrayND<Real, VariableState> fine, coarse;
-
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo() = default;
+  KOKKOS_DEFAULTED_FUNCTION
   ProResInfo(const ProResInfo &) = default;
   ProResInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v);
   // These are are used to generate the BndInfo struct for various
@@ -120,11 +128,11 @@ struct ProResInfo {
 int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
-using BndInfoArr_t = ParArray1D<BndInfo>;
+using BndInfoArr_t = ParArray1DRaw<BndInfo>;
 using BndInfoArrHost_t = typename BndInfoArr_t::HostMirror;
 
-using ProResInfoArr_t = ParArray1D<ProResInfo>;
-using ProResInfoArrHost_t = typename ParArray1D<ProResInfo>::HostMirror;
+using ProResInfoArr_t = ParArray1DRaw<ProResInfo>;
+using ProResInfoArrHost_t = typename ProResInfoArr_t::HostMirror;
 class StateDescriptor;
 struct ProResCache_t {
   ProResInfoArr_t prores_info{};

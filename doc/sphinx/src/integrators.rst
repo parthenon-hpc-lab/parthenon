@@ -32,15 +32,17 @@ described in `Ketchson (2010)`_. These integrators are of the classic
 .. math::
 
    u^{(0)} &= u^n \\
-   u^{(i)} &= \sum_{k=0}^{i-1} (\alpha_{i,k} u^{(k)} + \Delta t \beta_{i, k} F(u^{(k)})\\
+   u^{(i)} &= \sum_{k=0}^{i-1} (\alpha_{i,k} u^{(k)} + \Delta t \beta_{i, k} F(t^n+c_k \Delta t, u^{(k)}))\\
    u^{n+1} &= u^{(m)}
 
 where superscripts in parentheses mean subcycles in a Runge-Kutta
-integration and :math:`F` is the right-hand-side of ODE system. The
+integration and :math:`F` is the right-hand-side of ODE system. Note
+that the time dependence of :math:`F` is explicitly included in the above
+formulation. The
 difference between these low-storage methods and the classic SSPK
 methods is that the low-storage methods typically have sparse
 :math:`\alpha` and :math:`\beta` matrices, which are replaced by
-diagonal termes, named :math:`\gamma_0` and :math:`\gamma_1`
+diagonal terms, named :math:`\gamma_0` and :math:`\gamma_1`
 respectively. 
 
 These methods can be generalized to support more general methods with
@@ -52,11 +54,17 @@ The full update then takes the form:
 .. math::
 
    u^{(1)} &:= u^{(1)} + \delta_s u^{(0)} \\
-   u^{(0)} &:= \gamma_{s0} u^{(0)} + \gamma_{s1} u^{(1)} + \beta_{s,s-1} \Delta t F(u^{(0)})
+   u^{(0)} &:= \gamma_{s0} u^{(0)} + \gamma_{s1} u^{(1)} + \beta_{s,s-1} \Delta t F(t^n+c_s\Delta t, u^{(0)})
 
 where here :math:`u^{(0)}` and :math:`u^{(1)}` are the two storage
 buffers required to compute the update for a given Runge-Kutta stage
-:math:`s`.
+:math:`s`.  While the :math:`\delta`, :math:`\beta`, :math:`\gamma_0` and :math:`\gamma_1`
+associated with a particular scheme are published in the literature, :math:`c` is not.
+Instead, :math:`c` is computed following the procedure outlined in 
+`Ketchson (2010)`_ for obtaining the Butcher coefficients from their low-storage
+counterparts.
+A Mathematica notebook to calculate :math:`c` is provided
+`here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/scripts/mathematica/sparse_integrators.nb>`__.
 
 .. _Ketchson (2010): https://doi.org/10.1016/j.jcp.2009.11.006
 
@@ -65,7 +73,7 @@ buffers required to compute the update for a given Runge-Kutta stage
 .. _Athena++ paper: https://doi.org/10.3847/1538-4365/ab929b
 
 The ``LowStorageIntegrator`` contains arrays for ``delta``, ``beta``,
-``gam0``, and ``gam1``. Available integration methods are:
+``gam0``, ``gam1``, and ``c``. Available integration methods are:
 
 * ``RK1``, which is simply forward Euler.
 

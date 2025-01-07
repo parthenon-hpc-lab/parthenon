@@ -32,7 +32,9 @@ The ``EvolutionDriver`` class derives from ``Driver``, defining the
 
 loop, including periodic outputs. It has a single pure virtual member
 function called ``Step`` which a derived class must define and which
-will be called during each pass of the loop above.
+will be called during each pass of the loop above. The
+``SetGlobalTimeStep`` and ``OutputCycleDiagnostics`` functions have
+default implementations, but can be overridden for flexibility.
 
 MultiStageDriver
 ----------------

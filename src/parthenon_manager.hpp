@@ -14,6 +14,7 @@
 #ifndef PARTHENON_MANAGER_HPP_
 #define PARTHENON_MANAGER_HPP_
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,6 +26,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
@@ -38,7 +40,8 @@ class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
-  void ParthenonInitPackagesAndMesh();
+  void
+  ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
 
   bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }

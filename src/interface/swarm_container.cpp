@@ -11,7 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <cstdlib>
+#include <iostream>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -32,35 +34,6 @@ void SwarmContainer::Initialize(const std::shared_ptr<StateDescriptor> resolved_
     auto &swarm = Get(q.first);
     for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
       swarm->Add(m.first, m.second);
-    }
-  }
-}
-
-void SwarmContainer::InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb) {
-  if (swarmVector_.empty()) {
-    // No Swarms in this container, so no need to initialize boundaries
-    // This allows default reflecting boundary conditions to be used when no
-    // swarms are present in a parthenon calculation.
-    // NOTE SwarmContainer::Initialize must have already been called.
-    return;
-  }
-
-  std::stringstream msg;
-  auto &bcs = pmb->pmy_mesh->mesh_bcs;
-  // Check that, if we are using user BCs, they are actually enrolled, and unsupported BCs
-  // are not being used
-  for (int iFace = 0; iFace < 6; iFace++) {
-    if (bcs[iFace] == BoundaryFlag::user) {
-      if (pmb->pmy_mesh->MeshSwarmBndryFnctn[iFace] == nullptr) {
-        msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1
-            << " user boundary requested but provided function is null!";
-        PARTHENON_FAIL(msg);
-      }
-    } else if (bcs[iFace] != BoundaryFlag::outflow &&
-               bcs[iFace] != BoundaryFlag::periodic) {
-      msg << (iFace % 2 == 0 ? "i" : "o") << "x" << iFace / 2 + 1 << " boundary flag "
-          << static_cast<int>(bcs[iFace]) << " not supported!";
-      PARTHENON_FAIL(msg);
     }
   }
 }
@@ -241,6 +214,24 @@ void SwarmContainer::Print() const {
   for (const auto &s : swarmMap_) {
     std::cout << "  " << s.second->info() << std::endl;
   }
+}
+
+bool SwarmContainer::operator==(const SwarmContainer &cmp) {
+  // Test that labels of swarms are the same
+  std::vector<std::string> my_keys(swarmMap_.size());
+  auto &cmpMap = cmp.GetSwarmMap();
+  std::vector<std::string> cmp_keys(cmpMap.size());
+  size_t i = 0;
+  for (auto &s : swarmMap_) {
+    my_keys[i] = s.first;
+    i++;
+  }
+  i = 0;
+  for (auto &s : cmpMap) {
+    cmp_keys[i] = s.first;
+    i++;
+  }
+  return my_keys == cmp_keys;
 }
 
 } // namespace parthenon

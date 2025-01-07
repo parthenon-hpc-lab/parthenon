@@ -1,0 +1,37 @@
+\begin{tikzpicture}
+\begin{axis}[grid=both,
+             ymin=0,
+             ymax=4.5,
+             xmax=4.5,
+             xmin=0,
+             xticklabel=\empty,
+             yticklabel=\empty,
+             minor tick num=1,
+             axis lines = middle,
+             xlabel=$x_1$,
+             ylabel=$x_2$,
+             label style = {at={(ticklabel cs:1.1)}}, 
+             axis equal=true, width=6cm, height=6cm]
+
+  \coordinate (t1ll) at (1, 1);
+  \pic at (t1ll) {ig_tree={t1, $\Omega_1$}};
+  \pic at (t1ll) {ig_tree_region={{0.8, 0.8}, {1.0, 1.0}, green}};
+
+  \coordinate (t2ll) at (3, 1);
+  \pic at (t2ll) {ig_tree={t2, $\Omega_2$}};
+  \pic at (t2ll) {ig_tree_region={{-0.2, 0.8}, {0.0, 1.0}, green}};
+
+  \coordinate (t3ll) at (3, 3);
+  \pic at (t3ll) {ig_tree={t3, $\Omega_3$}};
+  \pic at (t3ll) {ig_tree_region={{-0.2, -0.2}, {0.0, 0.0}, green}};
+
+  \path[thick, ->] ([shift={(0.9, 0.85)}]t1ll)  edge[bend right] node [below] 
+                   {$\tau_{1 \rightarrow 2}$} ([shift={(-0.15, 0.85)}]t2ll);
+  
+  \path[thick, ->] ([shift={(-0.05, 0.95)}]t2ll)  edge[bend right] node [right] 
+                   {$\tau_{2 \rightarrow 3}$} ([shift={(-0.05, -0.15)}]t3ll);
+  
+  \path[thick, ->] ([shift={(0.9, 0.95)}]t1ll)  edge node [left] 
+                   {$\tau_{1 \rightarrow 3}$} ([shift={(-0.15, -0.05)}]t3ll);
+\end{axis}
+\end{tikzpicture}

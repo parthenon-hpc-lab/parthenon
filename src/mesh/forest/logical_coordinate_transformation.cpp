@@ -26,8 +26,8 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
-#include "mesh/forest/relative_orientation.hpp"
 #include "mesh/forest/tree.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
@@ -35,8 +35,9 @@
 namespace parthenon {
 namespace forest {
 
-LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in,
-                                               std::int64_t destination) const {
+LogicalLocation
+LogicalCoordinateTransformation::Transform(const LogicalLocation &loc_in,
+                                           std::int64_t destination) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
@@ -61,8 +62,9 @@ LogicalLocation RelativeOrientation::Transform(const LogicalLocation &loc_in,
   return LogicalLocation(destination, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
 
-LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in,
-                                                   std::int64_t origin) const {
+LogicalLocation
+LogicalCoordinateTransformation::InverseTransform(const LogicalLocation &loc_in,
+                                                  std::int64_t origin) const {
   std::array<std::int64_t, 3> l_out;
   int nblock = 1LL << std::max(loc_in.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
@@ -88,5 +90,32 @@ LogicalLocation RelativeOrientation::TransformBack(const LogicalLocation &loc_in
   }
   return LogicalLocation(origin, loc_in.level(), l_out[0], l_out[1], l_out[2]);
 }
+
+CellCentOffsets LogicalCoordinateTransformation::Transform(CellCentOffsets in) const {
+  CellCentOffsets out;
+  for (int dir = 0; dir < 3; ++dir) {
+    const int outdir = abs(dir_connection[dir]);
+    out.u[outdir] = dir_flip[dir] ? -in.u[dir] : in.u[dir];
+  }
+  return out;
+}
+
+LogicalCoordinateTransformation
+ComposeTransformations(const LogicalCoordinateTransformation &first,
+                       const LogicalCoordinateTransformation &second) {
+  LogicalCoordinateTransformation out;
+  for (int dir : {0, 1, 2}) {
+    out.dir_connection[dir] = second.dir_connection[first.dir_connection[dir]];
+    out.dir_flip[dir] = second.dir_flip[first.dir_connection[dir]] != first.dir_flip[dir];
+    out.offset[dir] =
+        second.offset[first.dir_connection[dir]] * (first.dir_flip[dir] ? -1 : 1) +
+        first.offset[dir];
+  }
+  for (int dir : {0, 1, 2})
+    out.dir_connection_inverse[out.dir_connection[dir]] = dir;
+  out.use_offset = first.use_offset && second.use_offset;
+  return out;
+}
+
 } // namespace forest
 } // namespace parthenon

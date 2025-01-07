@@ -62,6 +62,8 @@ class ObjectPool {
     std::cout << inuse_.size() << " used objects." << std::endl;
   }
 
+  auto NumBuffersInPool() const { return inuse_.size() + available_.size(); }
+
   std::uint64_t SizeInBytes() const {
     constexpr std::uint64_t datum_size = sizeof(typename base_t::value_type);
     std::uint64_t object_size = 0;
@@ -177,8 +179,9 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
 
   KOKKOS_FUNCTION
   ~owner_t() noexcept {
-    KOKKOS_IF_ON_HOST(
-        if (weak_t::pool_ != nullptr) { (*weak_t::pool_).ReferenceCountedFree(*this); })
+    KOKKOS_IF_ON_HOST(if (weak_t::pool_ != nullptr) {
+      (*weak_t::pool_).ReferenceCountedFree(*this);
+    }) // NOLINT
   }
 
   // Warning, the move constructors are messed up and don't copy over the weak_t

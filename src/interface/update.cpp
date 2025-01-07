@@ -14,6 +14,7 @@
 #include "interface/update.hpp"
 
 #include <memory>
+#include <vector>
 
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
@@ -156,11 +157,6 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   auto packIdx = desc.GetMap();
 
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
-  const int Ni = ib.e + 1 - ib.s;
-  const int Nj = jb.e + 1 - jb.s;
-  const int Nk = kb.e + 1 - kb.s;
-  const int NjNi = Nj * Ni;
-  const int NkNjNi = Nk * NjNi;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),

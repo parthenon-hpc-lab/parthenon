@@ -13,6 +13,8 @@
 #ifndef INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 
+#include <cstdio>
+
 #include "coordinates/coordinates.hpp"
 #include "utils/utils.hpp"
 
@@ -23,16 +25,16 @@ struct SwarmKey {
   SwarmKey() {}
   KOKKOS_INLINE_FUNCTION
   SwarmKey(const int cell_idx_1d, const int swarm_idx_1d)
-      : cell_idx_1d_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
+      : sort_idx_(cell_idx_1d), swarm_idx_(swarm_idx_1d) {}
 
-  int cell_idx_1d_;
+  int sort_idx_;
   int swarm_idx_;
 };
 
 struct SwarmKeyComparator {
   KOKKOS_INLINE_FUNCTION
   bool operator()(const SwarmKey &s1, const SwarmKey &s2) {
-    return s1.cell_idx_1d_ < s2.cell_idx_1d_;
+    return s1.sort_idx_ < s2.sort_idx_;
   }
 };
 
@@ -73,9 +75,9 @@ class SwarmDeviceContext {
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      block_index_(n) = neighbor_indices_(0, 0, i);
+      block_index_(n) = neighbor_indices_(1, 1, i);
     } else if (ndim_ == 2) {
-      block_index_(n) = neighbor_indices_(0, j, i);
+      block_index_(n) = neighbor_indices_(1, j, i);
     } else {
       block_index_(n) = neighbor_indices_(k, j, i);
     }
@@ -137,6 +139,7 @@ class SwarmDeviceContext {
   ParArrayND<int> block_index_;
   ParArrayND<int> neighbor_indices_; // 4x4x4 array of possible block AMR regions
   ParArray1D<SwarmKey> cell_sorted_;
+  ParArray1D<SwarmKey> buffer_sorted_;
   ParArrayND<int> cell_sorted_begin_;
   ParArrayND<int> cell_sorted_number_;
   int ndim_;

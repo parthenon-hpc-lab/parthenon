@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -116,6 +117,22 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
         REQUIRE(state.FieldMetadata("foo").getAssociated() == "foo");
         REQUIRE(state.FieldMetadata("bar").getAssociated() == "foo");
         REQUIRE(state.FieldMetadata("baz").getAssociated() == "baz");
+      }
+    }
+  }
+}
+
+TEST_CASE("Test GetPackDimension in StateDescriptor", "[StateDescriptor]") {
+  GIVEN("Some flags and state descriptors") {
+    StateDescriptor state("state");
+    WHEN("We add some fields with various shapes and total size") {
+      state.AddField("foo", Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4}));
+      state.AddField("bar",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4}));
+      state.AddField("baz",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4, 4}));
+      THEN("The total length is identified correctly") {
+        REQUIRE(state.GetPackDimension(Metadata::GetUserFlag("state")) == 84);
       }
     }
   }

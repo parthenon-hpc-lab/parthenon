@@ -30,6 +30,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_state.hpp"
+#include "kokkos_abstraction.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -55,11 +56,13 @@ class SparsePackBase {
 
   using alloc_t = std::vector<int>;
   using include_t = std::vector<bool>;
-  using pack_t = ParArray3D<ParArray3D<Real, VariableState>>;
+  using pack_t = ParArray3DRaw<ParArray3D<Real, VariableState>>;
   using pack_h_t = typename pack_t::HostMirror;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename bounds_t::HostMirror;
-  using coords_t = ParArray1D<ParArray0D<Coordinates_t>>;
+  using block_props_t = ParArray2D<int>;
+  using block_props_h_t = typename block_props_t::HostMirror;
+  using coords_t = ParArray1DRaw<ParArray0D<Coordinates_t>>;
 
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic
@@ -90,6 +93,8 @@ class SparsePackBase {
   pack_h_t pack_h_;
   bounds_t bounds_;
   bounds_h_t bounds_h_;
+  block_props_t block_props_;
+  block_props_h_t block_props_h_;
   coords_t coords_;
 
   int flx_idx_;
@@ -138,7 +143,7 @@ struct PackDescriptor {
   // default constructor needed for certain use cases
   PackDescriptor()
       : nvar_groups(0), var_group_names({}), var_groups({}), with_fluxes(false),
-        coarse(false), flat(false), identifier("") {}
+        coarse(false), flat(false), identifier(""), nvar_tot(0) {}
 
   template <class GROUP_t, class SELECTOR_t>
   PackDescriptor(StateDescriptor *psd, const std::vector<GROUP_t> &var_groups_in,
@@ -147,7 +152,7 @@ struct PackDescriptor {
         var_groups(BuildUids(var_groups_in.size(), psd, selector)),
         with_fluxes(options.count(PDOpt::WithFluxes)),
         coarse(options.count(PDOpt::Coarse)), flat(options.count(PDOpt::Flatten)),
-        identifier(GetIdentifier()) {
+        identifier(GetIdentifier()), nvar_tot(GetNVarsTotal(var_groups)) {
     PARTHENON_REQUIRE(!(with_fluxes && coarse),
                       "Probably shouldn't be making a coarse pack with fine fluxes.");
   }
@@ -159,8 +164,18 @@ struct PackDescriptor {
   const bool coarse;
   const bool flat;
   const std::string identifier;
+  const std::size_t nvar_tot;
 
  private:
+  static int GetNVarsTotal(const std::vector<VariableGroup_t> &var_groups) {
+    int nvar_tot = 0;
+    for (const auto &group : var_groups) {
+      for (const auto &[a, b] : group) {
+        nvar_tot++;
+      }
+    }
+    return nvar_tot;
+  }
   std::string GetIdentifier() {
     std::string ident("");
     for (const auto &vgroup : var_groups) {

@@ -21,6 +21,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,10 +39,12 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
@@ -78,11 +82,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-      nslist(Globals::nranks), nblist(Globals::nranks), nref(Globals::nranks),
-      nderef(Globals::nranks), rdisp(Globals::nranks), ddisp(Globals::nranks),
-      bnref(Globals::nranks), bnderef(Globals::nranks), brdisp(Globals::nranks),
-      bddisp(Globals::nranks) {
+      lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
+      nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
+      ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
+      brdisp(Globals::nranks), bddisp(Globals::nranks) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -148,13 +151,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        pin->GetInteger("parthenon/mesh", "nx3")},
       {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
        pin->GetInteger("parthenon/mesh", "nx3") == 1});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
@@ -170,10 +168,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Load balancing flag and parameters
-  EnrollBndryFncts_(app_in);
-
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
+
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
@@ -182,10 +182,39 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
 
   // Register user defined boundary conditions
-  UserBoundaryFunctions = resolved_packages->UserBoundaryFunctions;
-  UserSwarmBoundaryFunctions = resolved_packages->UserSwarmBoundaryFunctions;
 
   CheckMeshValidity();
+}
+
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           forest::ForestDefinition &forest_def)
+    : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
+  mesh_size =
+      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
+           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (!base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) =
+          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+    } else {
+      base_block_size.nx(dir) = mesh_size.nx(dir);
+    }
+  }
+  forest_def.SetBlockSize(base_block_size);
+
+  ndim = 2;
+  // Load balancing flag and parameters
+  forest = forest::Forest::Make2D(forest_def);
+  root_level = forest.root_level;
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
+                          resolved_packages->UserSwarmBoundaryFunctions);
+  BuildBlockList(pin, app_in, packages, 0);
 }
 
 //----------------------------------------------------------------------------------------
@@ -294,12 +323,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
+    if (mesh_test != 0) {
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
@@ -324,6 +348,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
+
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -366,9 +391,6 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
       grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
       DefaultPackSize());
-  // Account for possibly empty block_list
-  if (partition_blocklists.size() == 0)
-    partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
@@ -518,73 +540,6 @@ void Mesh::OutputMeshStructure(const int ndim,
 }
 
 //----------------------------------------------------------------------------------------
-//  Enroll user-defined functions for boundary conditions
-void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
-  static const BValFunc outflow[6] = {
-      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
-      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
-      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
-  static const BValFunc reflect[6] = {
-      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
-      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
-      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
-  static const SBValFunc soutflow[6] = {
-      BoundaryFunction::SwarmOutflowInnerX1, BoundaryFunction::SwarmOutflowOuterX1,
-      BoundaryFunction::SwarmOutflowInnerX2, BoundaryFunction::SwarmOutflowOuterX2,
-      BoundaryFunction::SwarmOutflowInnerX3, BoundaryFunction::SwarmOutflowOuterX3};
-  static const SBValFunc speriodic[6] = {
-      BoundaryFunction::SwarmPeriodicInnerX1, BoundaryFunction::SwarmPeriodicOuterX1,
-      BoundaryFunction::SwarmPeriodicInnerX2, BoundaryFunction::SwarmPeriodicOuterX2,
-      BoundaryFunction::SwarmPeriodicInnerX3, BoundaryFunction::SwarmPeriodicOuterX3};
-
-  for (int f = 0; f < BOUNDARY_NFACES; f++) {
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::reflect:
-      MeshBndryFnctn[f] = reflect[f];
-      break;
-    case BoundaryFlag::outflow:
-      MeshBndryFnctn[f] = outflow[f];
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::user:
-      if (app_in->boundary_conditions[f] != nullptr) {
-        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
-      } else {
-        std::stringstream msg;
-        msg << "A user boundary condition for face " << f
-            << " was requested. but no condition was enrolled." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      break;
-    default: // periodic/block BCs handled elsewhere.
-      break;
-    }
-
-    switch (mesh_bcs[f]) {
-    case BoundaryFlag::outflow:
-      MeshSwarmBndryFnctn[f] = soutflow[f];
-      break;
-    case BoundaryFlag::periodic:
-      MeshSwarmBndryFnctn[f] = speriodic[f];
-      break;
-    case BoundaryFlag::reflect:
-      // Default "reflect" boundaries not available for swarms; catch later on if swarms
-      // are present
-      break;
-    case BoundaryFlag::user:
-      if (app_in->swarm_boundary_conditions[f] != nullptr) {
-        // This is checked to be non-null later in Swarm::AllocateBoundaries, in case user
-        // boundaries are requested but no swarms are used.
-        MeshSwarmBndryFnctn[f] = app_in->swarm_boundary_conditions[f];
-      }
-      break;
-    default: // Default BCs handled elsewhere
-      break;
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -682,7 +637,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   }
 }
 
-void Mesh::CommunicateBoundaries(std::string md_name) {
+void Mesh::CommunicateBoundaries(std::string md_name,
+                                 const std::vector<std::string> &fields) {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   constexpr std::int64_t max_it = 1e10;
@@ -694,7 +650,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_sent = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -718,7 +674,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_received = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -734,14 +690,14 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       "Too many iterations waiting to receive boundary communication buffers.");
 
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);
@@ -760,6 +716,8 @@ void Mesh::PreCommFillDerived() {
   }
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
+    PARTHENON_REQUIRE(partition->pmesh == this, "Bad partition mesh pointer");
+    PARTHENON_REQUIRE(md->GetParentPointer() == this, "Bad mesh pointer");
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -882,12 +840,25 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in Mesh Initialize" << std::endl
+        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal
+        << ") < nranks (" << Globals::nranks << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+#endif
+
   // Initialize the "base" MeshData object
   mesh_data.Get()->Initialize(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
+  PARTHENON_REQUIRE(block_list.size() > 0,
+                    "Trying to call FindMeshBlock with empty block list");
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;
@@ -913,24 +884,24 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 
-// TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) *
+         base_block_size.nx(X3DIR);
 }
 
-const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  MeshBlock *pmb = block_list[0].get();
+const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  auto shapes = GetIndexShapes(
+      ndim > 0 ? base_block_size.nx(X1DIR) : 0, ndim > 1 ? base_block_size.nx(X2DIR) : 0,
+      ndim > 2 ? base_block_size.nx(X3DIR) : 0, multilevel, this);
   if (level == CellLevel::same) {
-    return pmb->cellbounds;
+    return shapes[0];
   } else if (level == CellLevel::fine) {
-    return pmb->f_cellbounds;
+    return shapes[1];
   } else { // if (level == CellLevel::coarse) {
-    return pmb->c_cellbounds;
+    return shapes[2];
   }
 }
 
@@ -1203,6 +1174,46 @@ Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
     logicalLocations.push_back(loc.lx3());
   }
   return std::make_pair(levels, logicalLocations);
+}
+
+void Mesh::SetBCNames_(ParameterInput *pin) {
+  mesh_bc_names = {pin->GetOrAddString("parthenon/mesh", "ix1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow")};
+  // JMM: This is needed because not all BCs are necessarily
+  // implemented for swarms
+  auto maybe = [](const std::string &s) {
+    return ((s == "outflow") || (s == "periodic")) ? s : "outflow";
+  };
+  mesh_swarm_bc_names = {
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", maybe(mesh_bc_names[0])),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", maybe(mesh_bc_names[1])),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", maybe(mesh_bc_names[2])),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", maybe(mesh_bc_names[3])),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", maybe(mesh_bc_names[4])),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", maybe(mesh_bc_names[5]))};
+  // JMM: A consequence of having only one boundary flag array but
+  // multiple boundary function arrays is that swarms *must* be
+  // periodic if the mesh is periodic but otherwise mesh and swarm
+  // boundaries are decoupled.
+  for (int i = 0; i < BOUNDARY_NFACES; ++i) {
+    if (mesh_bc_names[i] == "periodic") {
+      PARTHENON_REQUIRE(mesh_swarm_bc_names[i] == "periodic",
+                        "If the mesh is periodic, swarms must be also.");
+    }
+  }
+}
+
+std::array<BoundaryFlag, BOUNDARY_NFACES>
+Mesh::GetBCsFromNames_(const std::array<std::string, BOUNDARY_NFACES> &names) const {
+  std::array<BoundaryFlag, BOUNDARY_NFACES> out;
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    out[f] = GetBoundaryFlag(names[f]);
+  }
+  return out;
 }
 
 } // namespace parthenon

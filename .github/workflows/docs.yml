@@ -12,9 +12,12 @@ on:
 jobs:
     docs:
       name: build and deploy docs
-      runs-on: ubuntu-latest
+      # not using latest due to issues with pip user packages, see
+      # https://github.com/actions/runner-images/issues/10781 and
+      # https://github.com/actions/runner-images/issues/10636
+      runs-on: ubuntu-22.04
 
-      steps:      
+      steps:
         - name: Checkout code
           uses: actions/checkout@v2
           with:

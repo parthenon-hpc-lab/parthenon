@@ -1,0 +1,28 @@
+\begin{tikzpicture}
+\newcommand{\Depth}{2}
+\newcommand{\Height}{2}
+\newcommand{\Width}{2}
+\coordinate (O) at (0,0,0);
+\coordinate (A) at (0,\Width,0);
+\coordinate (B) at (0,\Width,\Height);
+\coordinate (C) at (0,0,\Height);
+\coordinate (D) at (\Depth,0,0);
+\coordinate (E) at (\Depth,\Width,0);
+\coordinate (F) at (\Depth,\Width,\Height);
+\coordinate (G) at (\Depth,0,\Height);
+
+\draw[black] (O) node [left]{2} -- (C) node [left]{0} -- (G) node [right]{1} -- (D) node [right]{3} -- cycle;% Bottom Face
+\draw[black] (O) -- (A) -- (E) -- (D) -- cycle;% Back Face
+\draw[black] (O) -- (A) -- (B) -- (C) -- cycle;% Left Face
+\draw[black] (D) -- (E) -- (F) -- (G) -- cycle;% Right Face
+\draw[black] (C) -- (B) -- (F) -- (G) -- cycle;% Front Face
+\draw[black] (A) node [left]{6} -- (B) node [left]{4} -- (F) node [right]{5}-- (E) node [right]{7} -- cycle;% Top Face
+
+\path[->] ([shift={(0,0,0)}]C) edge node [below] {$x_1$} ([shift={(-1.0, 0, 0)}]G);
+\path[->] ([shift={(0,0,0)}]C) edge node [right] {$x_2$} ([shift={(0, 0, 1.0)}]O);
+\path[->] ([shift={(0,0,0)}]C) edge node [left] {$x_3$} ([shift={(0, -1.0, 0)}]B);
+%\draw[blue, fill=black] (1.0, 2.0, 1.0) circle (0.05) node[above] {$(0, 0, 1)$};
+%\draw[blue, fill=black] (1.0, 0.0, 1.0) circle (0.05) node[below] {$(0, 0, -1)$};
+%\draw[blue, fill=black] (2.0, 1.0, 1.0) circle (0.05) node[right] {$(1, 0, 0)$};
+%\draw[blue, fill=black] (0.0, 1.0, 1.0) circle (0.05) node[left] {$(-1, 0, 0)$};
+\end{tikzpicture}

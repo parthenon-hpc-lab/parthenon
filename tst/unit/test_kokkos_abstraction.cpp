@@ -18,6 +18,7 @@
 //========================================================================================
 
 #include <iostream>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -25,12 +26,14 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "utils/robust.hpp"
 
 using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
+using parthenon::robust::SoftEquiv;
 using Real = double;
 
 template <class T>
@@ -315,7 +318,6 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
-  Real max_rel_err = -1;
   const Real rel_tol = std::numeric_limits<Real>::epsilon();
 
   // compare data on the host
@@ -323,14 +325,15 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
     for (int j = 0; j < N; j++) {
       for (int i = 1; i < N - 1; i++) {
         const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
-        const Real err = host_du(k, j, i - 1) - analytic;
 
-        max_rel_err = fmax(fabs(err / analytic), max_rel_err);
+        if (!SoftEquiv(host_du(k, j, i - 1), analytic, rel_tol)) {
+          return false;
+        }
       }
     }
   }
 
-  return max_rel_err < rel_tol;
+  return true;
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
@@ -384,7 +387,6 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
-  Real max_rel_err = -1;
   const Real rel_tol = std::numeric_limits<Real>::epsilon();
 
   // compare data on the host
@@ -393,15 +395,16 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
       for (int j = 0; j < N; j++) {
         for (int i = 1; i < N - 1; i++) {
           const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
-          const Real err = host_du(n, k, j, i - 1) - analytic;
 
-          max_rel_err = fmax(fabs(err / analytic), max_rel_err);
+          if (!SoftEquiv(host_du(n, k, j, i - 1), analytic, rel_tol)) {
+            return false;
+          }
         }
       }
     }
   }
 
-  return max_rel_err < rel_tol;
+  return true;
 }
 
 TEST_CASE("nested par_for loops", "[wrapper]") {
@@ -500,12 +503,85 @@ bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
   return total == test_tot;
 }
 
+template <class T>
+bool test_wrapper_reduce_3d(T loop_pattern, DevExecSpace exec_space) {
+  constexpr int N = 10;
+  parthenon::ParArray3D<int> buffer("Testing buffer", N, N, N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel reduce array", exec_space, 0, N - 1, 0, N - 1, 0,
+      N - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        buffer(k, j, i) = i + j + k;
+      });
+  int tot = 0;
+  for (int k = 0; k < N; ++k) {
+    for (int j = 0; j < N; ++j) {
+      for (int i = 0; i < N; ++i) {
+        tot += i + j + k;
+      }
+    }
+  }
+  int test_tot = 0;
+  parthenon::par_reduce(
+      loop_pattern, "Sum via par reduce", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
+      KOKKOS_LAMBDA(const int k, const int j, const int i, int &t) { t += i + j + k; },
+      Kokkos::Sum<int>(test_tot));
+  return tot == test_tot;
+}
+
+template <class T>
+bool test_wrapper_reduce_4d(T loop_pattern, DevExecSpace exec_space) {
+  constexpr int N = 10;
+  parthenon::ParArray4D<int> buffer("Testing buffer", N, N, N, N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel reduce array", exec_space, 0, N - 1, 0, N - 1, 0,
+      N - 1, 0, N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        buffer(n, k, j, i) = i + j + k + n;
+      });
+  int tot = 0;
+  for (int n = 0; n < N; ++n) {
+    for (int k = 0; k < N; ++k) {
+      for (int j = 0; j < N; ++j) {
+        for (int i = 0; i < N; ++i) {
+          tot += i + j + k + n;
+        }
+      }
+    }
+  }
+  int test_tot = 0;
+  parthenon::par_reduce(
+      loop_pattern, "Sum via par reduce", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
+      N - 1,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i, int &t) {
+        t += i + j + k + n;
+      },
+      Kokkos::Sum<int>(test_tot));
+  return tot == test_tot;
+}
+
 TEST_CASE("Parallel reduce", "[par_reduce]") {
   auto default_exec_space = DevExecSpace();
-  REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
-                                 default_exec_space) == true);
-  if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) {
-    REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
+  SECTION("1D loops") {
+    REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
+                                   default_exec_space) == true);
+    if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) {
+      REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
+                                     default_exec_space) == true);
+    }
+  }
+
+  SECTION("3D loops") {
+    REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_flatrange_tag,
+                                   default_exec_space) == true);
+    REQUIRE(test_wrapper_reduce_3d(parthenon::loop_pattern_mdrange_tag,
+                                   default_exec_space) == true);
+  }
+
+  SECTION("4D loops") {
+    REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_flatrange_tag,
+                                   default_exec_space) == true);
+    REQUIRE(test_wrapper_reduce_4d(parthenon::loop_pattern_mdrange_tag,
                                    default_exec_space) == true);
   }
 }

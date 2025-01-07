@@ -25,6 +25,7 @@
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
