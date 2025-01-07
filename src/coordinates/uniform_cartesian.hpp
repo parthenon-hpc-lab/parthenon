@@ -208,10 +208,10 @@ class UniformCartesian : public UniformCoordinates<UniformCartesian> {
   //----------------------------------------
   // CellVolume
   //----------------------------------------
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
-    return cell_volume_;
-  }
+  //template <class... Args>
+  //KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(Args... args) const {
+    //return cell_volume_;
+  //}
 
   //----------------------------------------
   // Generalized volume
