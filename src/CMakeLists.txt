@@ -130,6 +130,7 @@ add_library(parthenon
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
   coordinates/uniform_coordinates.hpp
+  coordinates/uniform_cylindrical.hpp
   coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
