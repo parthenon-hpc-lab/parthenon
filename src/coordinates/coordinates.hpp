@@ -22,6 +22,11 @@ namespace parthenon {
 
 using Coordinates_t = COORDINATE_TYPE;
 
+template <typename T>
+constexpr bool IsCoord() {
+  return std::is_same_v<T, Coordinates_t>;
+}
+
 } // namespace parthenon
 
 #endif // COORDINATES_COORDINATES_HPP_
