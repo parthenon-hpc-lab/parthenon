@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include "coordinates/uniform_cartesian.hpp"
+#include "coordinates/uniform_cylindrical.hpp"
 #include "coordinates/uniform_spherical.hpp"
 
 #include "basic_types.hpp"
@@ -28,6 +29,7 @@ using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
 using parthenon::UniformCartesian;
+using parthenon::UniformCylindrical;
 using parthenon::UniformSpherical;
 
 #include <catch2/catch.hpp>
@@ -66,7 +68,6 @@ TEST_CASE("Checking UniformSpherical") {
     const auto istart = c.GetStartIndex();
     Real dr = (xmax[0] - xmin[0]) / nx[0];
     const auto cxmin = c.GetXmin();
-    std::cout << "cxmin = " << cxmin[0] << "  " << "nghost = " << parthenon::Globals::nghost << std::endl;
     REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost*dr)) < 1.e-14);
     int i0 = 6 + istart[0];
     Real r0 = xmin[0] + (i0 - istart[0]) * dr;
@@ -89,6 +90,49 @@ TEST_CASE("Checking UniformSpherical") {
       }
     }
     REQUIRE(std::abs(volume - (4.0 / 3.0 * M_PI * (std::pow(rout,3) - std::pow(rin,3)))) / volume < 1.e-13);
+  }
+  parthenon::Globals::nghost = nghost_save;
+}
+
+TEST_CASE("Checking UniformCylindrical") {
+  std::array<Real, 3> xrat{1.0, 1.0, 1.0};
+  ParameterInput pin;
+  parthenon::Globals::nghost = 2;
+  GIVEN("A coordinate object") {
+    const Real rout  = 3.5;
+    const Real rin = 0.0;
+    const Real zlo = 1.3;
+    const Real zhi = 2.78;
+    std::array<Real, 3> xmin{rin, zlo, 0.0};
+    std::array<Real, 3> xmax{rout, zhi, 2 * M_PI};
+    std::array<int, 3> nx{3, 5, 8};
+    RegionSize rs(xmin, xmax, xrat, nx);
+    UniformCylindrical c(rs, &pin);
+    const auto istart = c.GetStartIndex();
+    Real dr = (xmax[0] - xmin[0]) / nx[0];
+    const auto cxmin = c.GetXmin();
+    REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost*dr)) < 1.e-14);
+    int i0 = 6 + istart[0];
+    Real r0 = xmin[0] + (i0 - istart[0]) * dr;
+    REQUIRE(c.Xf<X1DIR>(i0) == r0);
+
+    Real area = 0.0;
+    for (int j = istart[1]; j < istart[1] + nx[1]; j++) {
+      for (int k = istart[2]; k < istart[2] + nx[2]; k++) {
+        area += c.FaceArea<X1DIR>(k, j, i0);
+      }
+    }
+    REQUIRE(std::abs(area - 2.0 * M_PI * r0 * (zhi - zlo)) / area < 1.e-13);
+
+    Real volume = 0.0;
+    for (int k = istart[2]; k < istart[2] + nx[2]; k++) {
+      for (int j = istart[1]; j < istart[1] + nx[1]; j++) {
+        for (int i = istart[0]; i < istart[0] + nx[0]; i++) {
+          volume += c.CellVolume(k, j, i);
+        }
+      }
+    }
+    REQUIRE(std::abs(volume - M_PI * (rout * rout - rin * rin) * (zhi - zlo)) / volume < 1.e-13);
   }
   parthenon::Globals::nghost = nghost_save;
 }
