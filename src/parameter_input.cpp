@@ -128,9 +128,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
     line_num++;
 
     // remove all \t\f\n\r\v but leave pure spaces
-    line.erase(std::remove_if(line.begin(), line.end(), 
-                           [](char c) { return std::isspace(c) && c != ' '; }), 
-           line.end());
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
 
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
