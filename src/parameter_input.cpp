@@ -126,17 +126,18 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   while (is.good()) {
     std::getline(is, line);
     line_num++;
-    if (line.find('\t') != std::string::npos) {
-      line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
-      // msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-      //     << std::endl << "Tab characters are forbidden in input files";
-      // PARTHENON_FAIL(msg);
-    }
+
+    // remove all \t\f\n\r\v but leave pure spaces
+    line.erase(std::remove_if(line.begin(), line.end(), 
+                           [](char c) { return std::isspace(c) && c != ' '; }), 
+           line.end());
+
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
     if (first_char == std::string::npos) continue;            // line is all white space
     if (line.compare(first_char, 1, "#") == 0) continue;      // skip comments
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
+ 
 
     if (line.compare(first_char, 1, "<") == 0) { // a new block
       if (continuing) {
@@ -199,9 +200,12 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       // Set new state
       continuing = false;
     }
+    
 
     if (!continuing) {
       if (param_name != "") {
+
+
         AddParameter(pib, param_name, param_value, param_comment);
       }
     }
