@@ -100,6 +100,32 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
       REQUIRE_THROWS_AS(in.LoadFromStream(s), std::runtime_error);
     }
   }
+
+ GIVEN("An input deck with hidden characters and weird whitespace") {
+   ParameterInput in;
+   std::stringstream ss;
+   ss << "<block1>" << std::endl
+      << "  var1 = 0   # comment\r" << std::endl
+      << "\tvar2 = 1,  \t& # another comment\n\r" << std::endl
+      << "\t\t       2" << std::endl
+      << "<block2>" << std::endl
+      << " var3 = myval\r" << std::endl;
+
+   std::istringstream s(ss.str());
+   in.LoadFromStream(s);
+
+   WHEN("We read the parameters") {
+     THEN("They should be read correctly") {
+       REQUIRE(in.GetInteger("block1", "var1") == 0); 
+       auto var2 = in.GetVector<int>("block1", "var2");
+       REQUIRE(var2.size() == 2 );
+       if (var2.size() == 2) { // to guard against a segfault
+         REQUIRE( ((var2[0] == 1) && ( var2[1] == 2)));
+       }
+       REQUIRE( in.GetString("block2","var3") == "myval");
+     }
+   }
+ }
 }
 
 TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity checks",
