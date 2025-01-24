@@ -137,7 +137,6 @@ void ParameterInput::LoadFromStream(std::istream &is) {
     if (first_char == std::string::npos) continue;            // line is all white space
     if (line.compare(first_char, 1, "#") == 0) continue;      // skip comments
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
- 
 
     if (line.compare(first_char, 1, "<") == 0) { // a new block
       if (continuing) {
@@ -200,12 +199,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       // Set new state
       continuing = false;
     }
-    
 
     if (!continuing) {
       if (param_name != "") {
-
-
         AddParameter(pib, param_name, param_value, param_comment);
       }
     }
