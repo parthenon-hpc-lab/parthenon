@@ -210,9 +210,15 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // advance output parameters
   output_params.file_number++;
-  output_params.next_time += output_params.dt;
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  if (output_params.dt > 0.0) {
+    output_params.next_time += output_params.dt;
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
+  if (output_params.dn > 0) {
+    output_params.next_n += output_params.dn;
+    pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
+  }
 }
 
 } // namespace parthenon
