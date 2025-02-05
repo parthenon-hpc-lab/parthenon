@@ -67,7 +67,7 @@ jobs:
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -LE 'performance|regression'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-unit-${{ matrix.device }}
           path: build/CMakeFiles/CMakeOutput.log
@@ -126,7 +126,7 @@ jobs:
           if grep HtoD profile.txt; then exit 1; fi
           if grep DtoH profile.txt; then exit 1; fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-${{ matrix.device }}
           path: |
@@ -168,7 +168,7 @@ jobs:
           cd build
           ctest -R regression_mpi_test:particle_leapfrog
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-amdgpu
           path: |
