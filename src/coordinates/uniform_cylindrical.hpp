@@ -21,10 +21,6 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   using base_t = UniformCoordinates<UniformCylindrical>;
 
  public:
-  using base_t::CellWidth;
-  using base_t::Dxc;
-  using base_t::Scale;
-  using base_t::Volume;
   using base_t::Xc;
   UniformCylindrical() = default;
   UniformCylindrical(const RegionSize &rs, ParameterInput *pin)
