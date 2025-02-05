@@ -67,13 +67,9 @@ class IndexSplit {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int get_i(const int idx) const {
-    return idx % (ibe_entire_ + 1);
-  }
+  int get_i(const int idx) const { return idx % (ibe_entire_ + 1); }
   KOKKOS_FORCEINLINE_FUNCTION
-  int get_deltaj(const int idx) const {
-    return idx / (ibe_entire_ + 1);
-  }
+  int get_deltaj(const int idx) const { return idx / (ibe_entire_ + 1); }
 
   KOKKOS_INLINE_FUNCTION
   bool is_i_ghost(const int idx) const {

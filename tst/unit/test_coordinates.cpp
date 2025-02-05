@@ -25,12 +25,12 @@
 using Real = double;
 using parthenon::ParameterInput;
 using parthenon::RegionSize;
-using parthenon::X1DIR;
-using parthenon::X2DIR;
-using parthenon::X3DIR;
 using parthenon::UniformCartesian;
 using parthenon::UniformCylindrical;
 using parthenon::UniformSpherical;
+using parthenon::X1DIR;
+using parthenon::X2DIR;
+using parthenon::X3DIR;
 
 #include <catch2/catch.hpp>
 
@@ -58,7 +58,7 @@ TEST_CASE("Checking UniformSpherical") {
   ParameterInput pin;
   parthenon::Globals::nghost = 2;
   GIVEN("A coordinate object") {
-    const Real rout  = 3.5;
+    const Real rout = 3.5;
     const Real rin = 0.0;
     std::array<Real, 3> xmin{rin, 0.0, 0.0};
     std::array<Real, 3> xmax{rout, M_PI, 2 * M_PI};
@@ -68,7 +68,7 @@ TEST_CASE("Checking UniformSpherical") {
     const auto istart = c.GetStartIndex();
     Real dr = (xmax[0] - xmin[0]) / nx[0];
     const auto cxmin = c.GetXmin();
-    REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost*dr)) < 1.e-14);
+    REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost * dr)) < 1.e-14);
     int i0 = 6 + istart[0];
     Real r0 = xmin[0] + (i0 - istart[0]) * dr;
     REQUIRE(c.Xf<X1DIR>(i0) == r0);
@@ -89,7 +89,10 @@ TEST_CASE("Checking UniformSpherical") {
         }
       }
     }
-    REQUIRE(std::abs(volume - (4.0 / 3.0 * M_PI * (std::pow(rout,3) - std::pow(rin,3)))) / volume < 1.e-13);
+    REQUIRE(
+        std::abs(volume - (4.0 / 3.0 * M_PI * (std::pow(rout, 3) - std::pow(rin, 3)))) /
+            volume <
+        1.e-13);
   }
   parthenon::Globals::nghost = nghost_save;
 }
@@ -99,7 +102,7 @@ TEST_CASE("Checking UniformCylindrical") {
   ParameterInput pin;
   parthenon::Globals::nghost = 2;
   GIVEN("A coordinate object") {
-    const Real rout  = 3.5;
+    const Real rout = 3.5;
     const Real rin = 0.0;
     const Real zlo = 1.3;
     const Real zhi = 2.78;
@@ -111,7 +114,7 @@ TEST_CASE("Checking UniformCylindrical") {
     const auto istart = c.GetStartIndex();
     Real dr = (xmax[0] - xmin[0]) / nx[0];
     const auto cxmin = c.GetXmin();
-    REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost*dr)) < 1.e-14);
+    REQUIRE(std::abs(cxmin[0] - (xmin[0] - parthenon::Globals::nghost * dr)) < 1.e-14);
     int i0 = 6 + istart[0];
     Real r0 = xmin[0] + (i0 - istart[0]) * dr;
     REQUIRE(c.Xf<X1DIR>(i0) == r0);
@@ -132,7 +135,8 @@ TEST_CASE("Checking UniformCylindrical") {
         }
       }
     }
-    REQUIRE(std::abs(volume - M_PI * (rout * rout - rin * rin) * (zhi - zlo)) / volume < 1.e-13);
+    REQUIRE(std::abs(volume - M_PI * (rout * rout - rin * rin) * (zhi - zlo)) / volume <
+            1.e-13);
   }
   parthenon::Globals::nghost = nghost_save;
 }

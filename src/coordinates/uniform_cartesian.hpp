@@ -20,12 +20,13 @@ namespace parthenon {
 class UniformCartesian : public UniformCoordinates<UniformCartesian> {
  public:
   UniformCartesian() = default;
-  UniformCartesian(const RegionSize &rs, ParameterInput *pin) 
-    : UniformCoordinates<UniformCartesian>(rs, pin) {}
+  UniformCartesian(const RegionSize &rs, ParameterInput *pin)
+      : UniformCoordinates<UniformCartesian>(rs, pin) {}
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : UniformCoordinates<UniformCartesian>(src, coarsen) {}
 
   constexpr static const char *name_ = "UniformCartesian";
+
  private:
 };
 

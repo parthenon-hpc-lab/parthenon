@@ -18,16 +18,17 @@
 namespace parthenon {
 
 class UniformSpherical : public UniformCoordinates<UniformSpherical> {
- using base_t = UniformCoordinates<UniformSpherical>;
+  using base_t = UniformCoordinates<UniformSpherical>;
+
  public:
-  using base_t::Dxc;
-  using base_t::Xc;
-  using base_t::Scale;
   using base_t::CellWidth;
+  using base_t::Dxc;
+  using base_t::Scale;
   using base_t::Volume;
+  using base_t::Xc;
   UniformSpherical() = default;
-  UniformSpherical(const RegionSize &rs, ParameterInput *pin) 
-    : UniformCoordinates<UniformSpherical>(rs, pin) {}
+  UniformSpherical(const RegionSize &rs, ParameterInput *pin)
+      : UniformCoordinates<UniformSpherical>(rs, pin) {}
   UniformSpherical(const UniformSpherical &src, int coarsen)
       : UniformCoordinates<UniformSpherical>(src, coarsen) {}
   constexpr static const char *name_ = "UniformSpherical";
@@ -38,7 +39,7 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     static_assert(dir > 0 && dir < 4);
-    return Xc<dir>(idx) - Xc<dir>(idx-1);
+    return Xc<dir>(idx) - Xc<dir>(idx - 1);
   }
 
   //----------------------------------------
@@ -66,14 +67,15 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   }
 
   template <int dir, TopologicalElement el>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Scale(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
     using TE = TopologicalElement;
-    if constexpr (dir == X1DIR) return 1.0;
+    if constexpr (dir == X1DIR)
+      return 1.0;
     else {
       const Real r = X<X1DIR, el>(k, j, i);
-      if constexpr (dir == X2DIR) return r;
+      if constexpr (dir == X2DIR)
+        return r;
       else {
         const Real th = X<X2DIR, el>(k, j, i);
         return r * std::sin(th);
@@ -86,12 +88,16 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   // CellWidth: width of cell through the centroid
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j,
+                                             const int i) const {
     using TE = TopologicalElement;
     static_assert(dir > 0 && dir < 4);
-    if constexpr (dir == X1DIR) return Dx<dir>();
-    else if constexpr (dir == X2DIR) return Xc<X1DIR>(i) * Dx<dir>();
-    else if constexpr (dir == X3DIR) return Xc<X1DIR>(i) * std::sin(Xc<X2DIR>(j)) * Dx<dir>();
+    if constexpr (dir == X1DIR)
+      return Dx<dir>();
+    else if constexpr (dir == X2DIR)
+      return Xc<X1DIR>(i) * Dx<dir>();
+    else if constexpr (dir == X3DIR)
+      return Xc<X1DIR>(i) * std::sin(Xc<X2DIR>(j)) * Dx<dir>();
     return 0.0;
   }
 
@@ -99,7 +105,8 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   // EdgeLength: Length of cell edges
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j,
+                                              const int i) const {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR) {
       // radial direction is trivial
@@ -111,10 +118,13 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     // phi direction
     return Xf<X1DIR>(k, j, i) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<dir>();
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j,
+                                              const int i) const {
     assert(dir > 0 && dir < 4);
-    if (dir == X1DIR) return EdgeLength<X1DIR>(k, j, i);
-    else if (dir == X2DIR) return EdgeLength<X2DIR>(k, j, i);
+    if (dir == X1DIR)
+      return EdgeLength<X1DIR>(k, j, i);
+    else if (dir == X2DIR)
+      return EdgeLength<X2DIR>(k, j, i);
     return EdgeLength<X3DIR>(k, j, i);
   }
 
@@ -125,41 +135,54 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR) {
-      Real dOmega = Dx<X3DIR>() * (std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j+1, i)));
+      Real dOmega =
+          Dx<X3DIR>() * (std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i)));
       Real r = Xf<X1DIR>(k, j, i);
       return r * r * dOmega;
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
-      Real r1 = Xf<X1DIR>(k, j, i+1);
-      return (r1*r1*r1 - r0*r0*r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>() / 3.0;
+      Real r1 = Xf<X1DIR>(k, j, i + 1);
+      return (r1 * r1 * r1 - r0 * r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>() /
+             3.0;
     }
     Real r0 = Xf<X1DIR>(k, j, i);
-    Real r1 = Xf<X1DIR>(k, j, i+1);
-    Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j+1, i));
-    return (r1*r1*r1 - r0*r0*r0) * dcth / 3.0;
+    Real r1 = Xf<X1DIR>(k, j, i + 1);
+    Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i));
+    return (r1 * r1 * r1 - r0 * r0 * r0) * dcth / 3.0;
   }
 
   //----------------------------------------
   // CellVolume
   //----------------------------------------
-  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j,
+                                              const int i) const {
     return FaceArea<X3DIR>(k, j, i) * Dx<X3DIR>();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real Volume(CellLevel cl, TopologicalElement el, const int k, const int j, const int i) {
+  Real Volume(CellLevel cl, TopologicalElement el, const int k, const int j,
+              const int i) {
     using TE = TopologicalElement;
     if (cl == CellLevel::same) {
-      if (el == TE::CC) return CellVolume(k, j, i);
-      else if (el == TE::F1) return FaceArea<X1DIR>(k, j, i);
-      else if (el == TE::F2) return FaceArea<X2DIR>(k, j, i);
-      else if (el == TE::F3) return FaceArea<X3DIR>(k, j, i);
-      else if (el == TE::E1) return EdgeLength<X1DIR>(k, j, i);
-      else if (el == TE::E2) return EdgeLength<X2DIR>(k, j, i);
-      else if (el == TE::E3) return EdgeLength<X3DIR>(k, j, i);
-      else if (el == TE::NN) return 1.0;
+      if (el == TE::CC)
+        return CellVolume(k, j, i);
+      else if (el == TE::F1)
+        return FaceArea<X1DIR>(k, j, i);
+      else if (el == TE::F2)
+        return FaceArea<X2DIR>(k, j, i);
+      else if (el == TE::F3)
+        return FaceArea<X3DIR>(k, j, i);
+      else if (el == TE::E1)
+        return EdgeLength<X1DIR>(k, j, i);
+      else if (el == TE::E2)
+        return EdgeLength<X2DIR>(k, j, i);
+      else if (el == TE::E3)
+        return EdgeLength<X3DIR>(k, j, i);
+      else if (el == TE::NN)
+        return 1.0;
     } else {
-      PARTHENON_FAIL("Have not yet implemented fine fields for UniformSpherical coordinates.");
+      PARTHENON_FAIL(
+          "Have not yet implemented fine fields for UniformSpherical coordinates.");
     }
     PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
                    "TopologicalElement enum.");

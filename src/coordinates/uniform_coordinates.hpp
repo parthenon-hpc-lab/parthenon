@@ -75,17 +75,24 @@ class UniformCoordinates {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
-    if constexpr (dir == X1DIR) return static_cast<const System *>(this)->template Dxc<dir>(i);
-    else if constexpr (dir == X2DIR) return static_cast<const System *>(this)->template Dxc<dir>(j);
-    else if constexpr (dir == X3DIR) return static_cast<const System *>(this)->template Dxc<dir>(k);
+    if constexpr (dir == X1DIR)
+      return static_cast<const System *>(this)->template Dxc<dir>(i);
+    else if constexpr (dir == X2DIR)
+      return static_cast<const System *>(this)->template Dxc<dir>(j);
+    else if constexpr (dir == X3DIR)
+      return static_cast<const System *>(this)->template Dxc<dir>(k);
     PARTHENON_FAIL("Unknown dir.");
     return 0.0;
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int dir, const int k, const int j,
+                                       const int i) const {
     assert(dir > 0 && dir < 4);
-    if (dir == X1DIR) return static_cast<const System *>(this)->template Dxc<X1DIR>(k, j, i);
-    else if (dir == X2DIR) return static_cast<const System *>(this)->template Dxc<X2DIR>(k, j, i);
-    else if (dir == X3DIR) return static_cast<const System *>(this)->template Dxc<X3DIR>(k, j, i);
+    if (dir == X1DIR)
+      return static_cast<const System *>(this)->template Dxc<X1DIR>(k, j, i);
+    else if (dir == X2DIR)
+      return static_cast<const System *>(this)->template Dxc<X2DIR>(k, j, i);
+    else if (dir == X3DIR)
+      return static_cast<const System *>(this)->template Dxc<X3DIR>(k, j, i);
     PARTHENON_FAIL("Unknown dir.");
     return 0.0;
   }
@@ -115,9 +122,12 @@ class UniformCoordinates {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Xc(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
-    if constexpr (dir == X1DIR) return static_cast<const System *>(this)->template Xc<dir>(i);
-    else if constexpr (dir == X2DIR) return static_cast<const System *>(this)->template Xc<dir>(j);
-    else if constexpr (dir == X3DIR) return static_cast<const System *>(this)->template Xc<dir>(k);
+    if constexpr (dir == X1DIR)
+      return static_cast<const System *>(this)->template Xc<dir>(i);
+    else if constexpr (dir == X2DIR)
+      return static_cast<const System *>(this)->template Xc<dir>(j);
+    else if constexpr (dir == X3DIR)
+      return static_cast<const System *>(this)->template Xc<dir>(k);
     return 0; // To appease compiler
   }
 
@@ -171,27 +181,32 @@ class UniformCoordinates {
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real X(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
-    if constexpr (dir == X1DIR) return X<dir, el>(i);
-    else if constexpr (dir == X2DIR) return X<dir, el>(j);
-    else if constexpr (dir == X3DIR) return X<dir, el>(k);
+    if constexpr (dir == X1DIR)
+      return X<dir, el>(i);
+    else if constexpr (dir == X2DIR)
+      return X<dir, el>(j);
+    else if constexpr (dir == X3DIR)
+      return X<dir, el>(k);
     return 0.0;
   }
 
   template <int dir, TopologicalElement el>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Scale(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int k, const int j, const int i) const {
     if constexpr (dir > 0 && dir < 4) return 1.0;
     PARTHENON_FAIL("Unknown dir");
     return 0.0;
   }
 
   template <TopologicalElement el>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Scale(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int dir, const int k, const int j,
+                                         const int i) const {
     assert(dir > 0 && dir < 4);
-    if (dir == X1DIR) return static_cast<const System *>(this)->template Scale<X1DIR, el>(k, j, i);
-    else if (dir == X2DIR) return static_cast<const System *>(this)->template Scale<X2DIR, el>(k, j, i);
-    else if (dir == X3DIR) return static_cast<const System *>(this)->template Scale<X3DIR, el>(k, j, i);
+    if (dir == X1DIR)
+      return static_cast<const System *>(this)->template Scale<X1DIR, el>(k, j, i);
+    else if (dir == X2DIR)
+      return static_cast<const System *>(this)->template Scale<X2DIR, el>(k, j, i);
+    else if (dir == X3DIR)
+      return static_cast<const System *>(this)->template Scale<X3DIR, el>(k, j, i);
     return 0.0;
   }
 
@@ -199,15 +214,20 @@ class UniformCoordinates {
   // CellWidth: Width of cells at cell centers
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j,
+                                             const int i) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int dir, const int k, const int j,
+                                             const int i) const {
     assert(dir > 0 && dir < 4);
-    if (dir == X1DIR) return static_cast<const System *>(this)->template CellWidth<X1DIR>(k, j, i);
-    else if (dir == X2DIR) return static_cast<const System *>(this)->template CellWidth<X2DIR>(k, j, i);
-    else if (dir == X3DIR) return static_cast<const System *>(this)->template CellWidth<X3DIR>(k, j, i);
+    if (dir == X1DIR)
+      return static_cast<const System *>(this)->template CellWidth<X1DIR>(k, j, i);
+    else if (dir == X2DIR)
+      return static_cast<const System *>(this)->template CellWidth<X2DIR>(k, j, i);
+    else if (dir == X3DIR)
+      return static_cast<const System *>(this)->template CellWidth<X3DIR>(k, j, i);
     return 0.0;
   }
 
@@ -215,11 +235,13 @@ class UniformCoordinates {
   // EdgeLength: Length of cell edges
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j,
+                                              const int i) const {
     assert(dir > 0 && dir < 4);
     return CellWidth<dir>(k, j, i);
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j,
+                                              const int i) const {
     return CellWidth(dir, k, j, i);
   }
 
@@ -231,9 +253,10 @@ class UniformCoordinates {
     static_assert(dir > 0 && dir < 4);
     return area_[dir - 1];
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(const int dir, const int k, const int j,
+                                            const int i) const {
     assert(dir > 0 && dir < 4);
-    switch(dir) {
+    switch (dir) {
     case X1DIR:
       return static_cast<const System *>(this)->template FaceArea<X1DIR>(k, j, i);
     case X2DIR:
@@ -249,7 +272,8 @@ class UniformCoordinates {
   //----------------------------------------
   // CellVolume
   //----------------------------------------
-  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j,
+                                              const int i) const {
     return cell_volume_;
   }
 
@@ -330,6 +354,7 @@ class UniformCoordinates {
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
   const char *Name() const { return System::name_; }
+
  private:
   std::array<int, 3> istart_;
   std::array<Real, 3> xmin_, dx_, area_;

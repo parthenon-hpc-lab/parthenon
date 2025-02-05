@@ -18,16 +18,17 @@
 namespace parthenon {
 
 class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
- using base_t = UniformCoordinates<UniformCylindrical>;
+  using base_t = UniformCoordinates<UniformCylindrical>;
+
  public:
-  using base_t::Dxc;
-  using base_t::Xc;
-  using base_t::Scale;
   using base_t::CellWidth;
+  using base_t::Dxc;
+  using base_t::Scale;
   using base_t::Volume;
+  using base_t::Xc;
   UniformCylindrical() = default;
-  UniformCylindrical(const RegionSize &rs, ParameterInput *pin) 
-    : UniformCoordinates<UniformCylindrical>(rs, pin) {}
+  UniformCylindrical(const RegionSize &rs, ParameterInput *pin)
+      : UniformCoordinates<UniformCylindrical>(rs, pin) {}
   UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : UniformCoordinates<UniformCylindrical>(src, coarsen) {}
   constexpr static const char *name_ = "UniformCylindrical";
@@ -38,7 +39,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int idx) const {
     static_assert(dir > 0 && dir < 4);
-    return Xc<dir>(idx) - Xc<dir>(idx-1);
+    return Xc<dir>(idx) - Xc<dir>(idx - 1);
   }
 
   //----------------------------------------
@@ -58,8 +59,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   }
 
   template <int dir, TopologicalElement el>
-  KOKKOS_FORCEINLINE_FUNCTION
-  Real Scale(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
     using TE = TopologicalElement;
     if constexpr (dir == X1DIR || dir == X2DIR) return 1.0;
@@ -71,7 +71,8 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   // CellWidth: width of cell through the centroid
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j,
+                                             const int i) const {
     using TE = TopologicalElement;
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR || dir == X2DIR) return Dx<dir>();
@@ -83,7 +84,8 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   // EdgeLength: Length of cell edges
   //----------------------------------------
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int k, const int j,
+                                              const int i) const {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR || dir == X2DIR) {
       // radial and z directions are trivial
@@ -92,10 +94,13 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
     // phi direction
     return Xf<X1DIR>(k, j, i) * Dx<dir>();
   }
-  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j,
+                                              const int i) const {
     assert(dir > 0 && dir < 4);
-    if (dir == X1DIR) return EdgeLength<X1DIR>(k, j, i);
-    else if (dir == X2DIR) return EdgeLength<X2DIR>(k, j, i);
+    if (dir == X1DIR)
+      return EdgeLength<X1DIR>(k, j, i);
+    else if (dir == X2DIR)
+      return EdgeLength<X2DIR>(k, j, i);
     return EdgeLength<X3DIR>(k, j, i);
   }
 
@@ -109,35 +114,46 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
       return Xf<X1DIR>(k, j, i) * Dx<X2DIR>() * Dx<X3DIR>();
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
-      Real r1 = Xf<X1DIR>(k, j, i+1);
-      return 0.5 * (r1*r1 - r0*r0) * Dx<X3DIR>();
+      Real r1 = Xf<X1DIR>(k, j, i + 1);
+      return 0.5 * (r1 * r1 - r0 * r0) * Dx<X3DIR>();
     }
     Real r0 = Xf<X1DIR>(k, j, i);
-    Real r1 = Xf<X1DIR>(k, j, i+1);
-    return 0.5 * (r1*r1 - r0*r0) * Dx<X2DIR>();
+    Real r1 = Xf<X1DIR>(k, j, i + 1);
+    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>();
   }
 
   //----------------------------------------
   // CellVolume
   //----------------------------------------
-  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j,
+                                              const int i) const {
     return FaceArea<X3DIR>(k, j, i) * Dx<X3DIR>();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real Volume(CellLevel cl, TopologicalElement el, const int k, const int j, const int i) {
+  Real Volume(CellLevel cl, TopologicalElement el, const int k, const int j,
+              const int i) {
     using TE = TopologicalElement;
     if (cl == CellLevel::same) {
-      if (el == TE::CC) return CellVolume(k, j, i);
-      else if (el == TE::F1) return FaceArea<X1DIR>(k, j, i);
-      else if (el == TE::F2) return FaceArea<X2DIR>(k, j, i);
-      else if (el == TE::F3) return FaceArea<X3DIR>(k, j, i);
-      else if (el == TE::E1) return EdgeLength<X1DIR>(k, j, i);
-      else if (el == TE::E2) return EdgeLength<X2DIR>(k, j, i);
-      else if (el == TE::E3) return EdgeLength<X3DIR>(k, j, i);
-      else if (el == TE::NN) return 1.0;
+      if (el == TE::CC)
+        return CellVolume(k, j, i);
+      else if (el == TE::F1)
+        return FaceArea<X1DIR>(k, j, i);
+      else if (el == TE::F2)
+        return FaceArea<X2DIR>(k, j, i);
+      else if (el == TE::F3)
+        return FaceArea<X3DIR>(k, j, i);
+      else if (el == TE::E1)
+        return EdgeLength<X1DIR>(k, j, i);
+      else if (el == TE::E2)
+        return EdgeLength<X2DIR>(k, j, i);
+      else if (el == TE::E3)
+        return EdgeLength<X3DIR>(k, j, i);
+      else if (el == TE::NN)
+        return 1.0;
     } else {
-      PARTHENON_FAIL("Have not yet implemented fine fields for UniformCylindrical coordinates.");
+      PARTHENON_FAIL(
+          "Have not yet implemented fine fields for UniformCylindrical coordinates.");
     }
     PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
                    "TopologicalElement enum.");
