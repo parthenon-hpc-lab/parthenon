@@ -35,7 +35,7 @@ jobs:
         run: |
           cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
           cmake --build build-copyright-check -t check-copyright
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-style
           path: build-copyright-check/CMakeFiles/CMakeOutput.log
