@@ -188,8 +188,6 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
                    "TopologicalElement enum.");
     return 0.0;
   }
-
- private:
 };
 
 } // namespace parthenon

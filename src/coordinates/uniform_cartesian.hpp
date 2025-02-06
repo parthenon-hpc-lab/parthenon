@@ -26,8 +26,6 @@ class UniformCartesian : public UniformCoordinates<UniformCartesian> {
       : UniformCoordinates<UniformCartesian>(src, coarsen) {}
 
   constexpr static const char *name_ = "UniformCartesian";
-
- private:
 };
 
 } // namespace parthenon
