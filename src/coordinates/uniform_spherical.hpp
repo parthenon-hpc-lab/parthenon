@@ -14,8 +14,11 @@
 #define COORDINATES_UNIFORM_SPHERICAL_HPP_
 
 #include "uniform_coordinates.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+// Spherical coordinates with X1->r, X2->theta (polar angle), and X3->phi
 
 class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   using base_t = UniformCoordinates<UniformSpherical>;
@@ -24,7 +27,9 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   using base_t::Xc;
   UniformSpherical() = default;
   UniformSpherical(const RegionSize &rs, ParameterInput *pin)
-      : UniformCoordinates<UniformSpherical>(rs, pin) {}
+      : UniformCoordinates<UniformSpherical>(rs, pin) {
+    PARTHENON_REQUIRE(rs.xmin(X1DIR) >= 0.0, "Min radius must be >= 0.");
+  }
   UniformSpherical(const UniformSpherical &src, int coarsen)
       : UniformCoordinates<UniformSpherical>(src, coarsen) {}
   constexpr static const char *name_ = "UniformSpherical";
@@ -66,13 +71,13 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
     using TE = TopologicalElement;
-    if constexpr (dir == X1DIR)
+    if constexpr (dir == X1DIR) {
       return 1.0;
-    else {
+    } else {
       const Real r = X<X1DIR, el>(k, j, i);
-      if constexpr (dir == X2DIR)
+      if constexpr (dir == X2DIR) {
         return r;
-      else {
+      } else {
         const Real th = X<X2DIR, el>(k, j, i);
         return r * std::sin(th);
       }
@@ -138,13 +143,12 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
       Real r1 = Xf<X1DIR>(k, j, i + 1);
-      return (r1 * r1 * r1 - r0 * r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>() /
-             3.0;
+      return 0.5 * (r1 * r1 - r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>();
     }
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
     Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i));
-    return (r1 * r1 * r1 - r0 * r0 * r0) * dcth / 3.0;
+    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>();
   }
 
   //----------------------------------------

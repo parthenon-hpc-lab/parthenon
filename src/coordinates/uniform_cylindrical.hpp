@@ -14,8 +14,11 @@
 #define COORDINATES_UNIFORM_CYLINDRICAL_HPP_
 
 #include "uniform_coordinates.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+// Cylindrical coordinates with X1->r, X2->z, and X3->phi
 
 class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   using base_t = UniformCoordinates<UniformCylindrical>;
@@ -24,7 +27,9 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   using base_t::Xc;
   UniformCylindrical() = default;
   UniformCylindrical(const RegionSize &rs, ParameterInput *pin)
-      : UniformCoordinates<UniformCylindrical>(rs, pin) {}
+      : UniformCoordinates<UniformCylindrical>(rs, pin) {
+    PARTHENON_REQUIRE(rs.xmin(X1DIR) >= 0.0, "Min radius must be >= 0.");
+  }
   UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : UniformCoordinates<UniformCylindrical>(src, coarsen) {}
   constexpr static const char *name_ = "UniformCylindrical";
@@ -113,9 +118,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
       Real r1 = Xf<X1DIR>(k, j, i + 1);
       return 0.5 * (r1 * r1 - r0 * r0) * Dx<X3DIR>();
     }
-    Real r0 = Xf<X1DIR>(k, j, i);
-    Real r1 = Xf<X1DIR>(k, j, i + 1);
-    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>();
+    return Dx<X1DIR>() * Dx<X2DIR>();
   }
 
   //----------------------------------------
@@ -155,8 +158,6 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
                    "TopologicalElement enum.");
     return 0.0;
   }
-
- private:
 };
 
 } // namespace parthenon

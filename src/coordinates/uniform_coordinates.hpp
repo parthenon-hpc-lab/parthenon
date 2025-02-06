@@ -305,25 +305,24 @@ class UniformCoordinates {
     return 0.0;
   }
 
-  template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Volume(CellLevel cl, TopologicalElement el,
                                           const int k, const int j, const int i) const {
     using TE = TopologicalElement;
     if (cl == CellLevel::same) {
       if (el == TE::CC) {
-        return cell_volume_;
+        return Volume<TE::CC>(k, j, i);
       } else if (el == TE::F1) {
-        return area_[X1DIR - 1];
+        return Volume<TE::F1>(k, j, i);
       } else if (el == TE::F2) {
-        return area_[X2DIR - 1];
+        return Volume<TE::F2>(k, j, i);
       } else if (el == TE::F3) {
-        return area_[X3DIR - 1];
+        return Volume<TE::F3>(k, j, i);
       } else if (el == TE::E1) {
-        return dx_[X1DIR - 1];
+        return Volume<TE::E1>(k, j, i);
       } else if (el == TE::E2) {
-        return dx_[X2DIR - 1];
+        return Volume<TE::E2>(k, j, i);
       } else if (el == TE::E3) {
-        return dx_[X3DIR - 1];
+        return Volume<TE::E3>(k, j, i);
       } else if (el == TE::NN) {
         return 1.0;
       }
