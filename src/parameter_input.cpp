@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -276,6 +276,10 @@ InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
   pib->block_name.assign(name); // store the new block name
   pib->pline = nullptr;         // Terminate the InputLine list
   pib->pnext = nullptr;         // Terminate the InputBlock list
+
+  // Default max lengths to zero (in case of no parameters in this block)
+  pib->max_len_parname = 0;
+  pib->max_len_parvalue = 0;
 
   // if this is the first block in list, save pointer to it in class
   if (pfirst_block == nullptr) {
