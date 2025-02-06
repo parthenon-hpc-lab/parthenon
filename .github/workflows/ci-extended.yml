@@ -115,7 +115,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: log-and-convergence-${{ matrix.device }}-${{ matrix.parallel }}
           path: |
@@ -173,7 +173,7 @@ jobs:
           cd build
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: log-and-convergence-${{ matrix.parallel }}
           path: |
