@@ -147,7 +147,6 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     }
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
-    Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i));
     return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>();
   }
 
@@ -156,7 +155,10 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   //----------------------------------------
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j,
                                               const int i) const {
-    return FaceArea<X3DIR>(k, j, i) * Dx<X3DIR>();
+    Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i));
+    Real r0 = Xf<X1DIR>(k, j, i);
+    Real r1 = Xf<X1DIR>(k, j, i + 1);
+    return (1.0 / 3.0) * (r1 * r1 * r1 - r0 * r0 * r0) * dcth * Dx<X3DIR>();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

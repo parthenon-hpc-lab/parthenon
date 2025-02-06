@@ -126,7 +126,9 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   //----------------------------------------
   KOKKOS_FORCEINLINE_FUNCTION Real CellVolume(const int k, const int j,
                                               const int i) const {
-    return FaceArea<X3DIR>(k, j, i) * Dx<X3DIR>();
+    Real r0 = Xf<X1DIR>(k, j, i);
+    Real r1 = Xf<X1DIR>(k, j, i + 1);
+    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>() * Dx<X3DIR>();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

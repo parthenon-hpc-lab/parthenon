@@ -346,7 +346,7 @@ class UniformCoordinates {
       }
     }
     PARTHENON_FAIL("If you reach this point, someone has added a new value to the the "
-                   "TopologicalElement enum.");
+                   "TopologicalElement or CellLevel enum.");
     return 0.0;
   }
 
