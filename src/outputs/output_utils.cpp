@@ -288,7 +288,7 @@ constexpr void CheckMPISizeT() {
   static_assert(std::is_integral<std::size_t>::value &&
                     !std::is_signed<std::size_t>::value,
                 "size_t is unsigned and integral");
-  static_assert((sizeof(void*) == 4) || (sizeof(void*) == 8),
+  static_assert((sizeof(void *) == 4) || (sizeof(void *) == 8),
                 "We're on a 32 or 64 bit system.");
 #endif
 }
