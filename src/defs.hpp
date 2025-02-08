@@ -49,7 +49,7 @@ namespace parthenon {
 
 constexpr bool ARCHITECTURE_64_BIT = (INTPTR_MAX == INT64_MAX);
 #ifdef MPI_PARALLEL
-constexpr MPI_Datatype MPI_SIZE_T =
+const MPI_Datatype MPI_SIZE_T =
     ARCHITECTURE_64_BIT ? MPI_UNSIGNED_LONG_LONG : MPI_UNSIGNED_LONG;
 #endif
 
