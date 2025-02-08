@@ -22,6 +22,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -47,13 +48,11 @@ namespace parthenon {
 
 #define NMAX_NEIGHBORS 56
 
-// JMM: Many alternative implementations here. For example
-// constexpr bool ARCHITECTURE_64_BIT = (sizeof(void*) == 8);
-// I chose one that seemed reasonable and legible.
-constexpr bool ARCHITECTURE_64_BIT = (INTPTR_MAX == INT64_MAX);
+// JMM: This is shockingly difficult to do robustly at compile
+// time. Rather than rely on pre-processor architecture flags, I gave
+// up and switched this to a runtime check.
+const bool ARCHITECTURE_64_BIT = (sizeof(void *) == 8);
 #ifdef MPI_PARALLEL
-// JMM: clang (and only clang) will not init this as a constexpr
-// expression. I don't know why.
 const MPI_Datatype MPI_SIZE_T = ARCHITECTURE_64_BIT ? MPI_UINT64_T : MPI_UINT32_T;
 #endif
 
