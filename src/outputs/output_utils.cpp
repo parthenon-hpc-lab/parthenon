@@ -292,11 +292,11 @@ constexpr void CheckMPISizeT() {
                     !std::is_signed<std::size_t>::value,
                 "size_t is unsigned and integral");
   if constexpr (parthenon::ARCHITECTURE_64_BIT) {
-    static_assert(sizeof(std::size_t) == sizeof(unsigned long long int), // NOLINT
-                  "MPI_UNSIGNED_LONG_LONG same as size_t");
+    static_assert(sizeof(std::size_t) == sizeof(std::uint64_t), // NOLINT
+                  "MPI_UINT64_T same as size_t");
   } else {
-    static_assert(sizeof(std::size_t) == sizeof(unsigned long int), // NOLINT
-                  "MPI_UNSIGNED_LONG same as size_t");
+    static_assert(sizeof(std::size_t) == sizeof(std::uint32_t), // NOLINT
+                  "MPI_UINT32_T same as size_t");
   }
 #endif
 }
