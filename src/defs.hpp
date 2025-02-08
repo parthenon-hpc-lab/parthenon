@@ -54,8 +54,7 @@ constexpr bool ARCHITECTURE_64_BIT = (INTPTR_MAX == INT64_MAX);
 #ifdef MPI_PARALLEL
 // JMM: clang (and only clang) will not init this as a constexpr
 // expression. I don't know why.
-const MPI_Datatype MPI_SIZE_T =
-    ARCHITECTURE_64_BIT ? MPI_UNSIGNED_LONG_LONG : MPI_UNSIGNED_LONG;
+const MPI_Datatype MPI_SIZE_T = ARCHITECTURE_64_BIT ? MPI_UINT64_T : MPI_UINT32_T;
 #endif
 
 // forward declarations needed for function pointer type aliases
