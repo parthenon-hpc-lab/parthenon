@@ -47,8 +47,13 @@ namespace parthenon {
 
 #define NMAX_NEIGHBORS 56
 
+// JMM: Many alternative implementations here. For example
+// constexpr bool ARCHITECTURE_64_BIT = (sizeof(void*) == 8);
+// I chose one that seemed reasonable and legible.
 constexpr bool ARCHITECTURE_64_BIT = (INTPTR_MAX == INT64_MAX);
 #ifdef MPI_PARALLEL
+// JMM: clang (and only clang) will not init this as a constexpr
+// expression. I don't know why.
 const MPI_Datatype MPI_SIZE_T =
     ARCHITECTURE_64_BIT ? MPI_UNSIGNED_LONG_LONG : MPI_UNSIGNED_LONG;
 #endif
