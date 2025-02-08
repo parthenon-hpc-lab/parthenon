@@ -47,6 +47,12 @@ namespace parthenon {
 
 #define NMAX_NEIGHBORS 56
 
+constexpr bool ARCHITECTURE_64_BIT = (sizeof(void *) == 8);
+#ifdef MPI_PARALLEL
+constexpr MPI_Datatype MPI_SIZE_T =
+    ARCHITECTURE_64_BIT ? MPI_UNSIGNED_LONG_LONG : MPI_UNSIGNED_LONG;
+#endif
+
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
 class ParameterInput;
