@@ -48,12 +48,12 @@ namespace parthenon {
 
 #define NMAX_NEIGHBORS 56
 
-// JMM: This is shockingly difficult to do robustly at compile
-// time. Rather than rely on pre-processor architecture flags, I gave
-// up and switched this to a runtime check.
-const bool ARCHITECTURE_64_BIT = (sizeof(void *) == 8);
+// TODO(JMM): Note this is NOT compile-time. And for whatever reason,
+// the boolean condition can be static_assert checked but cannot be
+// used to set a constexpr var.
 #ifdef MPI_PARALLEL
-const MPI_Datatype MPI_SIZE_T = ARCHITECTURE_64_BIT ? MPI_UINT64_T : MPI_UINT32_T;
+const MPI_Datatype MPI_SIZE_T =
+    (sizeof(std::size_t) == sizeof(std::uint64_t)) ? MPI_UINT64_T : MPI_UINT32_T;
 #endif
 
 // forward declarations needed for function pointer type aliases
