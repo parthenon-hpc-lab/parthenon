@@ -283,7 +283,7 @@ void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &
   }
 }
 
-inline void CheckMPISizeT() {
+constexpr void CheckMPISizeT() {
 #ifdef MPI_PARALLEL
   // Need to use sizeof here because unsigned long long and unsigned
   // long are identical under the hood but registered as different
@@ -291,13 +291,6 @@ inline void CheckMPISizeT() {
   static_assert(std::is_integral<std::size_t>::value &&
                     !std::is_signed<std::size_t>::value,
                 "size_t is unsigned and integral");
-  if (parthenon::ARCHITECTURE_64_BIT) {
-    PARTHENON_REQUIRE_THROWS(sizeof(std::size_t) == sizeof(std::uint64_t),
-                             "MPI_UINT64_T same as size_t");
-  } else {
-    PARTHENON_REQUIRE_THROWS(sizeof(std::size_t) == sizeof(std::uint32_t),
-                             "MPI_UINT32_T same as size_t");
-  }
 #endif
 }
 
