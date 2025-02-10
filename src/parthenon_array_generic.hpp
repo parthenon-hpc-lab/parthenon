@@ -21,6 +21,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <Kokkos_ScatterView.hpp>
+
 #include "utils/concepts_lite.hpp"
 
 namespace parthenon {
@@ -213,6 +215,24 @@ class ParArrayGeneric : public State {
   KOKKOS_INLINE_FUNCTION const auto &KokkosView() const { return data_; }
 
   KOKKOS_INLINE_FUNCTION auto size() const { return data_.size(); }
+
+  // utilities for scatter views
+  template <typename Op = Kokkos::Experimental::ScatterSum>
+  auto ToScatterView() {
+    using view_type = std::remove_cv_t<std::remove_reference_t<Data>>;
+    using data_type = typename view_type::data_type;
+    using exec_space = typename view_type::execution_space;
+    using layout = typename view_type::array_layout;
+    return Kokkos::Experimental::ScatterView<data_type, layout, exec_space, Op>(data_);
+  }
+
+  template <class ScatterView_t>
+  void ContributeScatter(ScatterView_t scatter) {
+    static_assert(
+        is_specialization_of<ScatterView_t, Kokkos::Experimental::ScatterView>::value,
+        "Need to provide a Kokkos::Experimental::ScatterView");
+    Kokkos::Experimental::contribute(data_, scatter);
+  }
 
   // a function to get the total size of the array
   KOKKOS_INLINE_FUNCTION int GetSize() const {
