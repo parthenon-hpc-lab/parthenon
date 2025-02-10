@@ -164,6 +164,7 @@ class UniformCoordinates {
     return Xf<dir, dir>(k, j, i);
   }
 
+  // X should not be overwritten in derived classes
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real X(const int idx) const {
     static_assert(dir > 0 && dir < 4);

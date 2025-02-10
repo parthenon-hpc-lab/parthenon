@@ -29,6 +29,8 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   UniformCylindrical(const RegionSize &rs, ParameterInput *pin)
       : UniformCoordinates<UniformCylindrical>(rs, pin) {
     PARTHENON_REQUIRE(rs.xmin(X1DIR) >= 0.0, "Min radius must be >= 0.");
+    PARTHENON_REQUIRE(rs.xmin(X3DIR) >= 0.0, "Min phi must be >= 0.0.")
+    PARTHENON_REQUIRE(rs.xmax(X3DIR) <= 2.0 * M_PI + 1.e-15)
   }
   UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : UniformCoordinates<UniformCylindrical>(src, coarsen) {}
@@ -65,7 +67,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
     using TE = TopologicalElement;
     if constexpr (dir == X1DIR || dir == X2DIR) return 1.0;
     // phi direction scale factor is r
-    return X<X1DIR, el>(k, j, i);
+    return std::abs(X<X1DIR, el>(k, j, i));
   }
 
   //----------------------------------------
@@ -78,7 +80,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR || dir == X2DIR) return Dx<dir>();
     // phi direction = r * dphi
-    return Xc<X1DIR>(i) * Dx<dir>();
+    return std::abs(Xc<X1DIR>(i) * Dx<dir>());
   }
 
   //----------------------------------------
@@ -93,7 +95,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
       return Dx<dir>();
     }
     // phi direction
-    return Xf<X1DIR>(k, j, i) * Dx<dir>();
+    return std::abs(Xf<X1DIR>(k, j, i) * Dx<dir>());
   }
   KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j,
                                               const int i) const {
@@ -116,7 +118,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
       Real r1 = Xf<X1DIR>(k, j, i + 1);
-      return 0.5 * (r1 * r1 - r0 * r0) * Dx<X3DIR>();
+      return 0.5 * std::abs(r1 * r1 - r0 * r0) * Dx<X3DIR>();
     }
     return Dx<X1DIR>() * Dx<X2DIR>();
   }
@@ -128,7 +130,7 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
                                               const int i) const {
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
-    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>() * Dx<X3DIR>();
+    return 0.5 * std::abs(r1 * r1 - r0 * r0) * Dx<X2DIR>() * Dx<X3DIR>();
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

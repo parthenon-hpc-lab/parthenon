@@ -76,10 +76,10 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     } else {
       const Real r = X<X1DIR, el>(k, j, i);
       if constexpr (dir == X2DIR) {
-        return r;
+        return std::abs(r);
       } else {
         const Real th = X<X2DIR, el>(k, j, i);
-        return r * std::sin(th);
+        return std::abs(r * std::sin(th));
       }
     }
     return 0.0;
@@ -96,9 +96,9 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     if constexpr (dir == X1DIR)
       return Dx<dir>();
     else if constexpr (dir == X2DIR)
-      return Xc<X1DIR>(i) * Dx<dir>();
+      return std::abs(Xc<X1DIR>(i) * Dx<dir>());
     else if constexpr (dir == X3DIR)
-      return Xc<X1DIR>(i) * std::sin(Xc<X2DIR>(j)) * Dx<dir>();
+      return std::abs(Xc<X1DIR>(i) * std::sin(Xc<X2DIR>(j)) * Dx<dir>());
     return 0.0;
   }
 
@@ -114,10 +114,10 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
       return Dx<dir>();
     } else if constexpr (dir == X2DIR) {
       // theta direction
-      return Xf<X1DIR>(k, j, i) * Dx<dir>();
+      return std::abs(Xf<X1DIR>(k, j, i) * Dx<dir>());
     }
     // phi direction
-    return Xf<X1DIR>(k, j, i) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<dir>();
+    return std::abs(Xf<X1DIR>(k, j, i) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<dir>());
   }
   KOKKOS_FORCEINLINE_FUNCTION Real EdgeLength(const int dir, const int k, const int j,
                                               const int i) const {
@@ -137,17 +137,17 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR) {
       Real dOmega =
-          Dx<X3DIR>() * (std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i)));
+          Dx<X3DIR>() * std::abs(std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i)));
       Real r = Xf<X1DIR>(k, j, i);
       return r * r * dOmega;
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
       Real r1 = Xf<X1DIR>(k, j, i + 1);
-      return 0.5 * (r1 * r1 - r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>();
+      return std::abs(0.5 * (r1 * r1 - r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>());
     }
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
-    return 0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>();
+    return std::abs(0.5 * (r1 * r1 - r0 * r0) * Dx<X2DIR>());
   }
 
   //----------------------------------------
@@ -158,7 +158,7 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
     Real dcth = std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i));
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
-    return (1.0 / 3.0) * (r1 * r1 * r1 - r0 * r0 * r0) * dcth * Dx<X3DIR>();
+    return (1.0 / 3.0) * std::abs((r1 * r1 * r1 - r0 * r0 * r0) * dcth * Dx<X3DIR>());
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

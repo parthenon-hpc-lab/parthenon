@@ -90,16 +90,12 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(PARTHENON_COORDINATES "Cartesian" CACHE STRING "Set the coordinate system from {Cartesian, Cylindrical, Spherical} with Cartesian the default")
-
-if (${PARTHENON_COORDINATES} STREQUAL "Cartesian")
-  set(COORDINATE_TYPE UniformCartesian)
-elseif(${PARTHENON_COORDINATES} STREQUAL "Cylindrical")
-  set(COORDINATE_TYPE UniformCylindrical)
-elseif(${PARTHENON_COORDINATES} STREQUAL "Spherical")
-  set(COORDINATE_TYPE UniformSpherical)
+set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical)
+set(PARTHENON_COORDINATES "UniformCartesian" CACHE STRING "Set the coordinate system from \{${COORDINATES_AVAILABLE}\} with UniformCartesian the default")
+if (${PARTHENON_COORDINATES} IN_LIST COORDINATES_AVAILABLE)
+  set(COORDINATE_TYPE ${PARTHENON_COORDINATES})
 else()
-  message(FATAL_ERROR "Invalid setting for COORDINATES")
+  message(FATAL_ERROR "Invalid setting for PARTHENON_COORDINATES. ${PARTHENON_COORDINATES} is not in \{${COORDINATES_AVAILABLE}\}")
 endif()
 message(STATUS "COORDINATE_TYPE = " ${COORDINATE_TYPE})
 
