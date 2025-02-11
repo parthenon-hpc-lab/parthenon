@@ -110,6 +110,8 @@ class Mesh {
   }
   const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
+  ParArray1D<AmrTag> &GetAmrTags();
+
   const forest::Forest &Forest() const { return forest; }
 
   // data
@@ -289,6 +291,8 @@ class Mesh {
   std::vector<int> bnref, bnderef;
   std::vector<int> brdisp, bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
+  // Refinement tags used by MeshData checks
+  ParArray1D<AmrTag> amr_tags;
 
   std::vector<LogicalLocation> loclist;
 
