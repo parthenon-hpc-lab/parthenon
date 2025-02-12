@@ -92,6 +92,13 @@ auto GetNames() {
   TL::IterateTypes([&names](auto t) { names.push_back(decltype(t)::name()); });
   return names;
 }
+
+template <class>
+struct isTypeList : public std::false_type {};
+
+template <class... Ts>
+struct isTypeList<TypeList<Ts...>> : public std::true_type {};
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
