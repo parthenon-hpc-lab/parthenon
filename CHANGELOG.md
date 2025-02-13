@@ -44,6 +44,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1174]](https://github.com/parthenon-hpc-lab/parthenon/pull/1174) Add CG solver, custom solver prolongation operator options, and switch to stage based solvers
 - [[PR 1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 
 ## Release 24.08
