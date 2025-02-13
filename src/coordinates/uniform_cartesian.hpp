@@ -27,7 +27,7 @@ class UniformCartesian : public UniformCoordinates<UniformCartesian> {
       : UniformCoordinates<UniformCartesian>(rs, pin) {}
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : UniformCoordinates<UniformCartesian>(src, coarsen) {}
-      
+
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
     static_assert(dir > 0 && dir < 4);
