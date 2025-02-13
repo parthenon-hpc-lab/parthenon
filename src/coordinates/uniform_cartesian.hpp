@@ -18,13 +18,16 @@
 namespace parthenon {
 
 class UniformCartesian : public UniformCoordinates<UniformCartesian> {
+  using base_t = UniformCoordinates<UniformCartesian>;
+
  public:
+  using base_t::Dxc;
   UniformCartesian() = default;
   UniformCartesian(const RegionSize &rs, ParameterInput *pin)
       : UniformCoordinates<UniformCartesian>(rs, pin) {}
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : UniformCoordinates<UniformCartesian>(src, coarsen) {}
-
+      
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
     static_assert(dir > 0 && dir < 4);
