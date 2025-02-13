@@ -29,8 +29,8 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   UniformCylindrical(const RegionSize &rs, ParameterInput *pin)
       : UniformCoordinates<UniformCylindrical>(rs, pin) {
     PARTHENON_REQUIRE(rs.xmin(X1DIR) >= 0.0, "Min radius must be >= 0.");
-    PARTHENON_REQUIRE(rs.xmin(X3DIR) >= 0.0, "Min phi must be >= 0.0.")
-    PARTHENON_REQUIRE(rs.xmax(X3DIR) <= 2.0 * M_PI + 1.e-15)
+    PARTHENON_REQUIRE(rs.xmin(X3DIR) >= 0.0, "Min phi must be >= 0.0.");
+    PARTHENON_REQUIRE(rs.xmax(X3DIR) <= 2.0 * M_PI + 1.e-15, "Max phi must be <= 2pi");
   }
   UniformCylindrical(const UniformCylindrical &src, int coarsen)
       : UniformCoordinates<UniformCylindrical>(src, coarsen) {}

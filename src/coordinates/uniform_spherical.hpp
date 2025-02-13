@@ -29,6 +29,10 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   UniformSpherical(const RegionSize &rs, ParameterInput *pin)
       : UniformCoordinates<UniformSpherical>(rs, pin) {
     PARTHENON_REQUIRE(rs.xmin(X1DIR) >= 0.0, "Min radius must be >= 0.");
+    PARTHENON_REQUIRE(rs.xmin(X2DIR) >= 0.0, "Min theta must be >= 0.0.");
+    PARTHENON_REQUIRE(rs.xmax(X2DIR) <= M_PI + 1.e-15, "Max theta must be <= pi");
+    PARTHENON_REQUIRE(rs.xmin(X3DIR) >= 0.0, "Min phi must be >= 0.0.");
+    PARTHENON_REQUIRE(rs.xmax(X3DIR) <= 2.0 * M_PI + 1.e-15, "Max phi must be <= 2pi");
   }
   UniformSpherical(const UniformSpherical &src, int coarsen)
       : UniformCoordinates<UniformSpherical>(src, coarsen) {}
@@ -136,14 +140,15 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
   KOKKOS_FORCEINLINE_FUNCTION Real FaceArea(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR) {
-      Real dOmega =
-          Dx<X3DIR>() * std::abs(std::cos(Xf<X2DIR>(k, j, i)) - std::cos(Xf<X2DIR>(k, j + 1, i)));
+      Real dOmega = Dx<X3DIR>() * std::abs(std::cos(Xf<X2DIR>(k, j, i)) -
+                                           std::cos(Xf<X2DIR>(k, j + 1, i)));
       Real r = Xf<X1DIR>(k, j, i);
       return r * r * dOmega;
     } else if constexpr (dir == X2DIR) {
       Real r0 = Xf<X1DIR>(k, j, i);
       Real r1 = Xf<X1DIR>(k, j, i + 1);
-      return std::abs(0.5 * (r1 * r1 - r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) * Dx<X3DIR>());
+      return std::abs(0.5 * (r1 * r1 - r0 * r0) * std::sin(Xf<X2DIR>(k, j, i)) *
+                      Dx<X3DIR>());
     }
     Real r0 = Xf<X1DIR>(k, j, i);
     Real r1 = Xf<X1DIR>(k, j, i + 1);
