@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1137) Add spherical and cylindrical coordinate support
 - [[PR 1182]](https://github.com/parthenon-hpc-lab/parthenon/pull/1182) Add a MeshData variant for refinement tagging 
 - [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
 - [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
