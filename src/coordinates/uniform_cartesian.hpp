@@ -31,11 +31,6 @@ class UniformCartesian : public UniformCoordinates<UniformCartesian> {
     return dx_[dir - 1];
   }
 
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc(const int dir) const {
-    assert(dir > 0 && dir < 4);
-    return dx_[dir - 1];
-  }
-
   constexpr static const char *name_ = "UniformCartesian";
 };
 
