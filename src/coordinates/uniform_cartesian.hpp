@@ -25,6 +25,17 @@ class UniformCartesian : public UniformCoordinates<UniformCartesian> {
   UniformCartesian(const UniformCartesian &src, int coarsen)
       : UniformCoordinates<UniformCartesian>(src, coarsen) {}
 
+  template <int dir>
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
+    static_assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
+    assert(dir > 0 && dir < 4);
+    return dx_[dir - 1];
+  }
+
   constexpr static const char *name_ = "UniformCartesian";
 };
 
