@@ -25,6 +25,11 @@ class UniformSpherical : public UniformCoordinates<UniformSpherical> {
 
  public:
   using base_t::Xc;
+  using base_t::Dxc;
+  using base_t::CellWidth;
+  using base_t::FaceArea;
+  using base_t::Volume;
+  using base_t::Scale;
   UniformSpherical() = default;
   UniformSpherical(const RegionSize &rs, ParameterInput *pin)
       : UniformCoordinates<UniformSpherical>(rs, pin) {
