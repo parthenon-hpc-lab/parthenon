@@ -27,6 +27,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1230]](https://github.com/parthenon-hpc-lab/parthenon/pull/1230) Add missing using statements in curvilinear coordinates classes
 - [[PR 1217]](https://github.com/parthenon-hpc-lab/parthenon/pull/1217) Swarm comm debug fix
 - [[PR 1215]](https://github.com/parthenon-hpc-lab/parthenon/pull/1215) Fix issue with uninitialized input parameter block data
 - [[PR 1211]](https://github.com/parthenon-hpc-lab/parthenon/pull/1211) remove inline from WriteTaskGraph
