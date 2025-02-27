@@ -90,7 +90,14 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical)
+set(PARTHENON_COORDINATES "UniformCartesian" CACHE STRING "Set the coordinate system from \{${COORDINATES_AVAILABLE}\} with UniformCartesian the default")
+if (${PARTHENON_COORDINATES} IN_LIST COORDINATES_AVAILABLE)
+  set(COORDINATE_TYPE ${PARTHENON_COORDINATES})
+else()
+  message(FATAL_ERROR "Invalid setting for PARTHENON_COORDINATES. ${PARTHENON_COORDINATES} is not in \{${COORDINATES_AVAILABLE}\}")
+endif()
+message(STATUS "COORDINATE_TYPE = " ${COORDINATE_TYPE})
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
@@ -122,6 +129,9 @@ add_library(parthenon
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
+  coordinates/uniform_coordinates.hpp
+  coordinates/uniform_cylindrical.hpp
+  coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
   driver/driver.hpp
