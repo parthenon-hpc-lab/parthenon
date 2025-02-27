@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,33 +10,44 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef COORDINATES_UNIFORM_CARTESIAN_HPP_
-#define COORDINATES_UNIFORM_CARTESIAN_HPP_
+#ifndef SOLVERS_SOLVER_BASE_HPP_
+#define SOLVERS_SOLVER_BASE_HPP_
 
-#include "uniform_coordinates.hpp"
+#include <algorithm>
+#include <cstdio>
+#include <limits>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
+#include "tasks/tasks.hpp"
 
 namespace parthenon {
 
-class UniformCartesian : public UniformCoordinates<UniformCartesian> {
-  using base_t = UniformCoordinates<UniformCartesian>;
+namespace solvers {
 
+class SolverBase {
  public:
-  using base_t::Dxc;
-  UniformCartesian() = default;
-  UniformCartesian(const RegionSize &rs, ParameterInput *pin)
-      : UniformCoordinates<UniformCartesian>(rs, pin) {}
-  UniformCartesian(const UniformCartesian &src, int coarsen)
-      : UniformCoordinates<UniformCartesian>(src, coarsen) {}
+  virtual ~SolverBase() {}
 
-  template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real Dxc() const {
-    static_assert(dir > 0 && dir < 4);
-    return Dx<dir>();
-  }
+  virtual TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition,
+                               Mesh *pmesh) = 0;
+  virtual TaskID AddTasks(TaskList &tl, TaskID dependence, int partition,
+                          Mesh *pmesh) = 0;
 
-  constexpr static const char *name_ = "UniformCartesian";
+  Real GetFinalResidual() const { return final_residual; }
+  int GetFinalIterations() const { return final_iteration; }
+
+ protected:
+  Real final_residual;
+  int final_iteration;
 };
+
+} // namespace solvers
 
 } // namespace parthenon
 
-#endif // COORDINATES_UNIFORM_CARTESIAN_HPP_
+#endif // SOLVERS_SOLVER_BASE_HPP_
