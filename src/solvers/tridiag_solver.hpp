@@ -162,8 +162,6 @@ class TridiagSolver : public SolverBase {
             pack_lo(b, 0, k, j, i) = pack_010(b, 0, k, j, i);
             pack_di(b, 0, k, j, i) = pack_001(b, 0, k, j, i);
           }
-          printf("row %i: (%e, %e, %e) \n", i, pack_lo(b, 0, k, j, i),
-                 pack_di(b, 0, k, j, i), pack_up(b, 0, k, j, i));
         });
 
     return TaskStatus::complete;
@@ -199,7 +197,6 @@ class TridiagSolver : public SolverBase {
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, 0,
         KOKKOS_LAMBDA(const int) {
-          printf("\n");
           pack_di(b, 0, k, j, ib.s - 1) = 1.0;
           for (int i = ib.s; i <= ib.e; ++i) {
             pack_di(b, 0, k, j, i) -= pack_lo(b, 0, k, j, i) *
@@ -208,23 +205,15 @@ class TridiagSolver : public SolverBase {
             pack_rhs(b, 0, k, j, i) -= pack_lo(b, 0, k, j, i) *
                                        pack_rhs(b, 0, k, j, i - 1) /
                                        pack_di(b, 0, k, j, i - 1);
-            printf("[%i] (%e %e %e) x = %e\n", i, pack_lo(b, 0, k, j, i),
-                   pack_di(b, 0, k, j, i), pack_up(b, 0, k, j, i),
-                   pack_rhs(b, 0, k, j, i));
           }
-          printf("\n");
           pack_out(b, 0, k, j, ib.e + 1) = 0.0;
           for (int i = ib.e; i >= ib.s; --i) {
             pack_out(b, 0, k, j, i) =
                 (pack_rhs(b, 0, k, j, i) -
                  pack_up(b, 0, k, j, i) * pack_out(b, 0, k, j, i + 1)) /
                 pack_di(b, 0, k, j, i);
-            printf("[%i] (%e %e %e) %e = %e\n", i, pack_lo(b, 0, k, j, i),
-                   pack_di(b, 0, k, j, i), pack_up(b, 0, k, j, i),
-                   pack_out(b, 0, k, j, i), pack_rhs(b, 0, k, j, i));
           }
           pack_out(b, 0, k, j, ib.s - 1) = 0.0;
-          printf("\n");
         });
 
     return TaskStatus::complete;
