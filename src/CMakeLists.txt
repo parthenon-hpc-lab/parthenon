@@ -234,6 +234,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

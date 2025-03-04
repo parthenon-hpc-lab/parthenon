@@ -25,6 +25,7 @@
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
 #include <solvers/cg_solver.hpp>
+#include <solvers/tridiag_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
@@ -104,6 +105,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   } else if (solver == "BiCGSTAB") {
     psolver =
         std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
+            "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "Tridiag") {
+    psolver =
+        std::make_shared<parthenon::solvers::TridiagSolver<PoissEq>>(
             "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
