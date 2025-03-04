@@ -67,7 +67,8 @@ class TridiagSolver : public SolverBase {
                 const std::string &container_rhs, ParameterInput *pin,
                 const std::string &input_block, const equations &eq_in = equations())
       : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), iter_counter(0), eqs_(eq_in) {
+        container_rhs(container_rhs), iter_counter(0), eqs_(eq_in),
+        print_solution_(pin->GetOrAddBoolean(input_block, "print_solution", false)) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     PARTHENON_REQUIRE(sol_fields.size() == 1,
@@ -219,7 +220,9 @@ class TridiagSolver : public SolverBase {
     return TaskStatus::complete;
   }
 
-  static TaskStatus PrintSolution(const std::shared_ptr<MeshData<Real>> &md_r,
+  static TaskStatus PrintSolution(const std::shared_ptr<MeshData<Real>> &md_base,
+                                  const std::shared_ptr<MeshData<Real>> &md_u,
+                                  const std::shared_ptr<MeshData<Real>> &md_r,
                                   const std::shared_ptr<MeshData<Real>> &md_rhs) {
     IndexRange ib = md_r->GetBoundsI(IndexDomain::interior);
     IndexRange jb = md_r->GetBoundsJ(IndexDomain::interior);
@@ -231,14 +234,18 @@ class TridiagSolver : public SolverBase {
     PARTHENON_REQUIRE(kb.s == kb.e, "Must be one dimensional.");
 
     static auto desc = parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_r.get());
+    auto pack_u = desc.GetPack(md_u.get());
+    auto pack_base = desc.GetPack(md_base.get());
     auto pack_r = desc.GetPack(md_r.get());
     auto pack_rhs = desc.GetPack(md_rhs.get());
 
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "SetDiagonalsBasedOnMasks", DevExecSpace(), 0, 0, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
+        DEFAULT_LOOP_PATTERN, "PrintSolution", DevExecSpace(), 0, 0, kb.s, kb.e, jb.s,
+        jb.e, ib.s - 1, ib.e + 1,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          printf("row %i: %e  %e \n", i, pack_r(b, 0, k, j, i), pack_rhs(b, 0, k, j, i));
+          printf("row %i: %e %e %e  %e \n", i, pack_u(b, 0, k, j, i),
+                 pack_base(b, 0, k, j, i), pack_r(b, 0, k, j, i),
+                 pack_rhs(b, 0, k, j, i));
         });
     return TaskStatus::complete;
   }
@@ -287,9 +294,10 @@ class TridiagSolver : public SolverBase {
 
     sol = tl.AddTask(sol, utils::SetToZero<FieldTL>, md_r);
     auto Ax_check = eqs_.Ax(tl, sol, md_base, md_u, md_r);
-    auto print = tl.AddTask(Ax_check, PrintSolution, md_r, md_rhs);
+    if (print_solution_)
+      Ax_check = tl.AddTask(Ax_check, PrintSolution, md_base, md_u, md_r, md_rhs);
 
-    return print;
+    return Ax_check;
   }
 
   Real GetSquaredResidualSum() const { return 0.0; }
@@ -299,6 +307,7 @@ class TridiagSolver : public SolverBase {
   int iter_counter;
   Real ru_old;
   equations eqs_;
+  bool print_solution_;
 };
 
 } // namespace solvers
