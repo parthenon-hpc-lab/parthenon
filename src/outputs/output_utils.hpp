@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -34,6 +34,7 @@
 
 // Parthenon
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
@@ -344,9 +345,6 @@ std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
-// TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
-// however I think it's probably safe to assume we'll be on systems
-// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
