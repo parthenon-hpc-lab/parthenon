@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
-#define EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
+#ifndef EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_
+#define EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -48,4 +48,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace diffusion_example
 
-#endif // EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
+#endif // EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_

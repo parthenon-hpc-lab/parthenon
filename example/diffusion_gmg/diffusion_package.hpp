@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_
-#define EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_
+#ifndef EXAMPLE_DIFFUSION_GMG_DIFFUSION_PACKAGE_HPP_
+#define EXAMPLE_DIFFUSION_GMG_DIFFUSION_PACKAGE_HPP_
 
 #include <memory>
 #include <string>
@@ -50,4 +50,4 @@ Real EstimateTimestep(MeshData<Real> *md);
 
 } // namespace diffusion_package
 
-#endif // EXAMPLE_POISSON_GMG_POISSON_PACKAGE_HPP_
+#endif // EXAMPLE_DIFFUSION_GMG_DIFFUSION_PACKAGE_HPP_
