@@ -50,7 +50,6 @@ TaskListStatus DiffusionDriver::Step() {
 } // Step
 
 TaskCollection DiffusionDriver::MakeTaskCollection() {
-
   using namespace parthenon;
   using namespace diffusion_package;
   TaskCollection tc;

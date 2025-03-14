@@ -266,7 +266,6 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
     int offset_x2 = te == TE::F2 && (ndim > 1) ? 1 : 0;
     int offset_x3 = te == TE::F3 && (ndim > 2) ? 1 : 0;
 
-    // TODO: nonconstant coefficients
     parthenon::par_for(
         "SetDiffusionCoefficient", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
