@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,6 +22,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -46,6 +47,14 @@ namespace parthenon {
 #define CACHELINE_BYTES 64
 
 #define NMAX_NEIGHBORS 56
+
+// TODO(JMM): Note this is NOT compile-time. And for whatever reason,
+// the boolean condition can be static_assert checked but cannot be
+// used to set a constexpr var.
+#ifdef MPI_PARALLEL
+const MPI_Datatype MPI_SIZE_T =
+    (sizeof(std::size_t) == sizeof(std::uint64_t)) ? MPI_UINT64_T : MPI_UINT32_T;
+#endif
 
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
