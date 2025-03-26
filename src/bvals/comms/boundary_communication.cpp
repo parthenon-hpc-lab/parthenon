@@ -366,18 +366,18 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
-  // if (rebuild) {
-  //   if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
-  //     RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-  //                                           ProResInfo::GetInteriorProlongate);
-  //   } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
-  //     RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-  //                                           ProResInfo::GetNull);
-  //   } else {
-  //     RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-  //                                           ProResInfo::GetSet);
-  //   }
-  // }
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
 
   if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
