@@ -504,10 +504,10 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+  const int ndim = md_a->GetMeshPointer()->ndim;
 
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get());
@@ -521,8 +521,23 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
         // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
         //            pull the loop over vars outside of the innermost loop to promote
         //            vectorization.
-        for (int c = 0; c < nvars; ++c)
-          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+
+        for (int c = 0; c < nvars; ++c) {
+          const auto tt = pack_a(b, 0, c).topological_type;
+          const auto nel = GetNumberOfElements(tt);
+          for (std::size_t el = 0; el < nel; ++el) {
+            const auto te =
+                static_cast<TopologicalElement>(static_cast<std::size_t>(tt) + el);
+            const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
+            const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
+            const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
+            const int maski = TopologicalOffsetI(te) ? 1 : (i != ib.e);
+            const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j != jb.e);
+            const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k != kb.e);
+            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) *
+                    pack_a.IsOwned(b, ok, oj, oi) * maski * maskj * maskk;
+          }
+        }
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
