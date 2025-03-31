@@ -184,6 +184,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_finer_neighbors;
   std::vector<NeighborBlock> gmg_leaf_neighbors;
 
+  block_ownership_t ownership;
+
   BoundaryFlag boundary_flag[6];
 
   bool IsPhysicalBoundary(BoundaryFace bf) const {

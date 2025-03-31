@@ -166,7 +166,7 @@ enum class TopologicalElement : std::size_t {
   E3 = 8,
   NN = 9
 };
-enum class TopologicalType { Cell, Face, Edge, Node };
+enum class TopologicalType : std::size_t { Cell = 0, Face = 1, Edge = 4, Node = 7 };
 
 KOKKOS_FORCEINLINE_FUNCTION
 constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
@@ -183,6 +183,13 @@ constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr std::size_t GetNumberOfElements(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Cell || tt == TT::Node) return 1;
+  return 3;
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -195,13 +202,16 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
-inline constexpr int TopologicalOffsetI(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetI(TE el) {
   return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
-inline constexpr int TopologicalOffsetJ(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetJ(TE el) {
   return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
-inline constexpr int TopologicalOffsetK(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 
