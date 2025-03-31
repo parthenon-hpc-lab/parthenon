@@ -158,7 +158,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
 
   // This array stores refinement levels of current block and all neighboring blocks.
   const Indexer3D bp_idxer({-1, 1}, {-1, 1}, {-1, 1});
-  pack.block_props_ = block_props_t("block_props", nblocks, bp_idxer.size() + 1);
+  pack.block_props_ = block_props_t("block_props", nblocks, 2 * bp_idxer.size() + 1);
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
   pack.coords_ = coords_t(ViewOfViewAlloc("coords"), desc.flat ? max_size : nblocks);
@@ -229,6 +229,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
           pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(1, oxb, oxa)) =
               physical_bnd_flag;
       }
+    }
+
+    for (int idx = 0; idx < bp_idxer.size(); ++idx) {
+      const auto [ok, oj, oi] = bp_idxer(idx);
+      pack.block_props_h_(blidx, bp_idxer.size() + idx) = pmb->ownership(oi, oj, ok);
     }
 
     for (int i = 0; i < nvar; ++i) {
