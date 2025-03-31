@@ -504,6 +504,9 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
+  // We iterate over the nodal index range since this encompasses all possible 
+  // active cells for every topological type, then mask out elements that aren't 
+  // owned/required by a given block
   IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
@@ -534,8 +537,11 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
             const int maski = TopologicalOffsetI(te) ? 1 : (i != ib.e);
             const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j != jb.e);
             const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k != kb.e);
-            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) *
-                    pack_a.IsOwned(b, ok, oj, oi) * maski * maskj * maskk;
+
+            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i)
+                    * pack_a.IsOwned(b, ok, oj, oi) 
+                    * (!pack_a.IsPhysicalBoundary(b, ok, oj, oi))
+                    * maski * maskj * maskk;
           }
         }
       },
