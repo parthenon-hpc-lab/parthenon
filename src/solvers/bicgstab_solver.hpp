@@ -219,7 +219,7 @@ class BiCGSTABSolver : public SolverBase {
     // 2. v <- A u
     auto comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) { 
+    if constexpr (has_SetBoundary<equations_t>::value) {
       comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_u);
     }
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
@@ -276,7 +276,7 @@ class BiCGSTABSolver : public SolverBase {
     // 7. t <- A u
     auto pre_t_comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) { 
+    if constexpr (has_SetBoundary<equations_t>::value) {
       pre_t_comm = itl.AddTask(pre_t_comm, TF(equations_t::SetBoundary), md_u);
     }
     auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);

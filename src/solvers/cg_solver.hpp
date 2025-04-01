@@ -202,7 +202,7 @@ class CGSolver : public SolverBase {
     // 4. v <- A p
     auto comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) { 
+    if constexpr (has_SetBoundary<equations_t>::value) {
       comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_p);
     }
     auto get_v = eqs_.Ax(itl, comm, md_base, md_p, md_v);

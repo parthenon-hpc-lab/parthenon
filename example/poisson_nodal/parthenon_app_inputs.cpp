@@ -41,9 +41,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real interior_D = pin->GetOrAddReal("poisson", "interior_D", 1.0);
   Real exterior_D = pin->GetOrAddReal("poisson", "exterior_D", 1.0);
 
-  auto desc =
-      parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::u,
-                                    poisson_package::exact>(md);
+  auto desc = parthenon::MakePackDescriptor<poisson_package::rhs, poisson_package::u,
+                                            poisson_package::exact>(md);
   auto pack = desc.GetPack(md);
 
   using TE = parthenon::TopologicalElement;
@@ -80,7 +79,6 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         // This may be used as the exact solution u to A.u = rhs, by replacing the
         // above rhs with A.exact
         pack(b, te, poisson_package::exact(), k, j, i) = -exp(-10.0 * rad * rad);
-
       });
 }
 

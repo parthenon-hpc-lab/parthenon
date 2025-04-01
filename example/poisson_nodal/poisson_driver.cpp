@@ -54,7 +54,6 @@ parthenon::DriverStatus PoissonDriver::Execute() {
   return DriverStatus::complete;
 }
 
-
 TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
   using namespace poisson_package;
@@ -99,8 +98,9 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md_u);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-    
-    // solve = tl.AddTask(solve, parthenon::PrintFields<parthenon::TypeList<rhs, u>>, md_u);
+
+    // solve = tl.AddTask(solve, parthenon::PrintFields<parthenon::TypeList<rhs, u>>,
+    // md_u);
 
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
