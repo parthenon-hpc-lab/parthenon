@@ -32,7 +32,35 @@
 
 namespace parthenon {
 
+template <class TL_t>
+TaskStatus PrintFields(const std::shared_ptr<MeshData<Real>> &md_a, std::string label) {
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+  
+  printf("%s\n", label.c_str());
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL_t>(md_a.get());
+  auto pack_a = desc.GetPack(md_a.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "print", parthenon::DevExecSpace(), 0, pack_a.GetNBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        printf("[%i](%i, %i, %i) ", b, k, j, i);
+        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
+        for (int c = 0; c < nvars; ++c)
+          printf("%e ", pack_a(b, TE::NN, c, k, j, i));
+        printf("\n");
+      });
+  return TaskStatus::complete;
+}
+
 namespace solvers {
+
+template <typename T, typename = void>
+struct has_SetBoundary : std::false_type {};
+template <typename T>
+struct has_SetBoundary<T, std::void_t<decltype(std::declval<T>().SetBoundary(std::declval<std::shared_ptr<parthenon::MeshData<Real>>&>()))>> : std::true_type {};
 
 struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
@@ -537,7 +565,8 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
             const int maski = TopologicalOffsetI(te) ? 1 : (i != ib.e);
             const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j != jb.e);
             const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k != kb.e);
-
+            //printf("[%i](%i, %i, %i) te = %i offset=(%i, %i, %i) mask=(%i, %i, %i)\n", b, k, j, i, static_cast<int>(te), 
+            //       ok, oj, oi, maskk, maskj, maski);
             lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i)
                     * pack_a.IsOwned(b, ok, oj, oi) 
                     * (!pack_a.IsPhysicalBoundary(b, ok, oj, oi))

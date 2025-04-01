@@ -141,6 +141,9 @@ class MGSolver : public SolverBase {
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, md, sol_fields);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
                                                             pmesh->multilevel);
+    if constexpr (has_SetBoundary<equations_t>::value) { 
+      comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_u);
+    }
     auto calc_pointwise_res = eqs_.Ax(itl, comm, md, md_u, md_res_err);
     calc_pointwise_res =
         itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
@@ -290,6 +293,9 @@ class MGSolver : public SolverBase {
 
     auto comm =
         AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
+    if constexpr (has_SetBoundary<equations_t>::value) { 
+      comm = tl.AddTask(comm, TF(equations_t::SetBoundary), md_in);
+    }
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
     return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
                       md_in, md_out, omega);
@@ -461,7 +467,9 @@ class MGSolver : public SolverBase {
       // 3. Communicate same level boundaries so that u is up to date everywhere
       auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
                                                                      multilevel);
-
+      if constexpr (has_SetBoundary<equations_t>::value) { 
+        comm_u = tl.AddTask(comm_u, TF(equations_t::SetBoundary), md_u);
+      }
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.Ax(tl, comm_u, md, md_u, md_temp);
       residual = tl.AddTask(residual, BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
@@ -511,6 +519,9 @@ class MGSolver : public SolverBase {
         auto calc_err = tl.AddTask(post_smooth, BTF(AddFieldsAndStore<FieldTL, true>),
                                    md_u, md_u0, md_res_err, 1.0, -1.0);
         copy_over = calc_err;
+      }
+      if constexpr (has_SetBoundary<equations_t>::value) { 
+        copy_over = tl.AddTask(copy_over, TF(equations_t::SetBoundary), md_res_err);
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation

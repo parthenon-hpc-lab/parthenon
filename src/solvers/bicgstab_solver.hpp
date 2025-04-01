@@ -63,16 +63,16 @@ struct BiCGSTABParams {
   }
 };
 
-// The equations class must include a template method
+// The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
 //   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations, class preconditioner_t = MGSolver<equations>>
+template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
 class BiCGSTABSolver : public SolverBase {
-  using FieldTL = typename equations::IndependentVars;
+  using FieldTL = typename equations_t::IndependentVars;
 
   std::vector<std::string> sol_fields;
   // Name of user defined container that should contain information required to
@@ -93,7 +93,7 @@ class BiCGSTABSolver : public SolverBase {
  public:
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
-                 const std::string &input_block, equations eq_in = equations())
+                 const std::string &input_block, equations_t eq_in = equations_t())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
         container_base(container_base), container_u(container_u),
@@ -120,7 +120,7 @@ class BiCGSTABSolver : public SolverBase {
       auto partitions = pmesh->GetDefaultBlockPartitions();
       auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
       auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
-      return tl.AddTask(dependence, &equations::SetDiagonal, &eqs_, md, md_diag);
+      return tl.AddTask(dependence, &equations_t::SetDiagonal, &eqs_, md, md_diag);
     } else {
       return dependence;
     }
@@ -219,6 +219,9 @@ class BiCGSTABSolver : public SolverBase {
     // 2. v <- A u
     auto comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
+    if constexpr (has_SetBoundary<equations_t>::value) { 
+      comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_u);
+    }
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
@@ -273,6 +276,9 @@ class BiCGSTABSolver : public SolverBase {
     // 7. t <- A u
     auto pre_t_comm =
         AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
+    if constexpr (has_SetBoundary<equations_t>::value) { 
+      pre_t_comm = itl.AddTask(pre_t_comm, TF(equations_t::SetBoundary), md_u);
+    }
     auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)
@@ -365,7 +371,7 @@ class BiCGSTABSolver : public SolverBase {
   int iter_counter;
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
   Real rhat0r_old;
-  equations eqs_;
+  equations_t eqs_;
   std::string container_;
 };
 
