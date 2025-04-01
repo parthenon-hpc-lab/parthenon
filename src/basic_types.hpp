@@ -166,7 +166,7 @@ enum class TopologicalElement : std::size_t {
   E3 = 8,
   NN = 9
 };
-enum class TopologicalType : std::size_t { Cell = 0, Face = 1, Edge = 4, Node = 7 };
+enum class TopologicalType : std::size_t { Cell = 0, Face = 3, Edge = 6, Node = 9 };
 
 KOKKOS_FORCEINLINE_FUNCTION
 constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
