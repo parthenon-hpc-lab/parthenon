@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
-#define EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
+#ifndef EXAMPLE_POISSON_NODAL_POISSON_DRIVER_HPP_
+#define EXAMPLE_POISSON_NODAL_POISSON_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -47,4 +47,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace poisson_example
 
-#endif // EXAMPLE_POISSON_GMG_POISSON_DRIVER_HPP_
+#endif // EXAMPLE_POISSON_NODAL_POISSON_DRIVER_HPP_

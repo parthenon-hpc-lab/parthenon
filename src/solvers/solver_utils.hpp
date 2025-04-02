@@ -14,6 +14,7 @@
 #define SOLVERS_SOLVER_UTILS_HPP_
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <string>
