@@ -208,6 +208,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       // Currently not storing neighbor gids
     }
 
+    // Include information about whether or not surface elements of this block
+    // are on physical boundaries of the domain
     for (int oxb = -1; oxb <= 1; ++oxb) {
       for (int oxa = -1; oxa <= 1; ++oxa) {
         if (pmb->IsPhysicalBoundary(inner_x1))
@@ -231,6 +233,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
       }
     }
 
+    // Include information about this blocks possible ownership of shared elements
     for (int idx = 0; idx < bp_idxer.size(); ++idx) {
       const auto [ok, oj, oi] = bp_idxer(idx);
       pack.block_props_h_(blidx, bp_idxer.size() + idx) = pmb->ownership(oi, oj, ok);
