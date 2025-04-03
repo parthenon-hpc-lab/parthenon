@@ -3,7 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
+- [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
+- [[PR 1231]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
 - [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1137) Add spherical and cylindrical coordinate support
 - [[PR 1182]](https://github.com/parthenon-hpc-lab/parthenon/pull/1182) Add a MeshData variant for refinement tagging 
 - [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
