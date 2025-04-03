@@ -228,6 +228,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
 parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md) {
   auto pkg = md->GetMeshPointer()->packages.Get("diffusion_package");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
   auto desc = parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::rhs>(
       md.get());
   auto pack = desc.GetPack(md.get());
@@ -241,7 +242,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md) {
       "SetRHS", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         pack(b, te, diffusion_package::rhs(), k, j, i) =
-            -pack(b, te, diffusion_package::u(), k, j, i);
+            -alpha * pack(b, te, diffusion_package::u(), k, j, i);
       });
   return TaskStatus::complete;
 } // SetRHS
