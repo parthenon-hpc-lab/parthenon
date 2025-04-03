@@ -49,37 +49,6 @@ IndexShape GetIndexShape(const ParArray3D<Real, VariableState> &arr, int ng) {
   return IndexShape::GetFromSeparateInts(nx3, nx2, nx1, ng);
 }
 
-using block_selector_func_t = std::function<bool(MeshBlockData<Real> *)>;
-namespace GetBlockSelector {
-inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *md) {
-  const bool tl_comp = (md->grid.type == GridType::two_level_composite);
-  const int level_comp = md->grid.logical_level;
-  return [tl_comp, level_comp](MeshBlockData<Real> *pmbd) {
-    auto pmb = pmbd->GetParentPointer();
-    // Coarser blocks on two-level composite grids can only have same and finer neighbors
-    if (tl_comp && pmb->loc.level() != level_comp) return false;
-    auto *pneighbors = tl_comp ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
-    for (const auto &neighbor : *pneighbors) {
-      if (neighbor.loc.level() < level_comp) return true;
-    }
-    return false;
-  };
-}
-
-inline block_selector_func_t OnPhysicalBoundary(const MeshData<Real> *md,
-                                                BoundaryFace bf) {
-  return [bf](MeshBlockData<Real> *pmbd) {
-    return pmbd->GetParentPointer()->IsPhysicalBoundary(bf);
-  };
-}
-
-inline block_selector_func_t OnPhysicalBoundary(const MeshData<Real> *md) {
-  return [](MeshBlockData<Real> *pmbd) {
-    return pmbd->GetParentPointer()->IsPhysicalBoundary();
-  };
-}
-} // namespace GetBlockSelector
-
 template <class... Ts>
 class SparsePack : public SparsePackBase {
  public:
