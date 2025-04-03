@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -189,7 +189,15 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   BoundaryFlag boundary_flag[6];
 
   bool IsPhysicalBoundary(BoundaryFace bf) const {
+    // TODO(LFR): Should we only return true if this is set to user?
     return boundary_flag[bf] != BoundaryFlag::block;
+  }
+
+  bool IsPhysicalBoundary() const {
+    bool is_bound;
+    for (int bf = 0; bf < 6; ++bf)
+      is_bound = is_bound || IsPhysicalBoundary(static_cast<BoundaryFace>(bf));
+    return is_bound;
   }
 
   // functions
