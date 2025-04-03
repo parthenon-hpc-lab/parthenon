@@ -389,7 +389,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(sparse_pack.GetNBlocks() == NBLOCKS / 2 + 1);
       }
 
-      THEN("Sparse packs built with a subset of blocks are correctly stored in the cache") {
+      THEN("Sparse packs built with a subset of blocks are correctly stored in the "
+           "cache") {
         auto desc =
             parthenon::MakePackDescriptor<parthenon::variable_names::any_nonautoflux>(
                 pkg.get());
@@ -400,8 +401,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
           include_blocks[i] = (i % 2 == 0);
         auto sparse_pack = desc.GetPack(&mesh_data, include_blocks);
 
-        // This should be a new pack in the cache, since it has the 
-        // same descriptor but a different set of blocks 
+        // This should be a new pack in the cache, since it has the
+        // same descriptor but a different set of blocks
         for (int i = 0; i < NBLOCKS; i++)
           include_blocks[i] = (i % 2 == 1);
         auto sparse_pack2 = desc.GetPack(&mesh_data, include_blocks);
@@ -410,18 +411,17 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         // list and pack descriptor), so doesn't result in anything
         // new in the cache. Also provides an example of defining a
         // block selector functor
-        int b = 0; 
-        auto block_selector = [&b](MeshBlockData<Real> *pmbd) { 
+        int b = 0;
+        auto block_selector = [&b](MeshBlockData<Real> *pmbd) {
           bool even = (b % 2 == 0);
           b++;
           return even;
         };
         auto sparse_pack3 = desc.GetPack(&mesh_data, block_selector);
-        
+
         // so there should only be two packs in the cache
         REQUIRE(mesh_data.GetSparsePackCache().size() == 2);
       }
-
     }
   }
 }
