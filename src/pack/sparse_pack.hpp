@@ -438,27 +438,24 @@ inline SparsePack<Ts...> SparsePack<Ts...>::Descriptor::GetPack(
                         (include_block.size() == 0),
                     "Must specify inclusion status for all blocks.");
 
-  // Select blocks for inclusion based on the specified user functor
-  if (block_selector) {
-    if (include_block.size() == 0) include_block.resize(pmd->NumBlocks(), true);
-    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, MeshBlockData<Real> *pmbd) {
-      include_block[b] = include_block[b] && block_selector(pmbd);
-    });
-  }
-
   // LFR: For multi-grid, we want to select only fine blocks on two-level composite
   // grids by default since only the fine grid cells are "active" (the coarse level
-  // blocks just provide necessary boundary information)
+  // blocks just provide necessary boundary information during comms)
+  block_selector_func_t fbc_selector{};
   if constexpr (std::is_same<T, MeshData<Real>>::value) {
-    if (only_fine_two_level_composite_blocks &&
-        pmd->grid.type == GridType::two_level_composite) {
-      if (include_block.size() == 0) include_block.resize(pmd->NumBlocks(), true);
-      const int fine_level = pmd->grid.logical_level;
-      ForEachBlock(pmd, std::vector<bool>{}, [&](int b, MeshBlockData<Real> *pmbd) {
-        include_block[b] =
-            include_block[b] && (fine_level == pmbd->GetBlockPointer()->loc.level());
-      });
-    }
+    if (only_fine_two_level_composite_blocks)
+      fbc_selector = GetBlockSelector::FineOnCompositeGrid(pmd);
+  }
+
+  // Select blocks for inclusion based on the specified user functor and possibly
+  // the two-level composite selector
+  if (block_selector || fbc_selector) {
+    if (include_block.size() == 0) include_block.resize(pmd->NumBlocks(), true);
+    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, MeshBlockData<Real> *pmbd) {
+      const bool bs = block_selector ? block_selector(pmbd) : true;
+      const bool fbcs = fbc_selector ? fbc_selector(pmbd) : true;
+      include_block[b] = include_block[b] && bs && fbcs;
+    });
   }
   return SparsePack<Ts...>(SparsePackBase::GetPack(pmd, *this, include_block));
 }

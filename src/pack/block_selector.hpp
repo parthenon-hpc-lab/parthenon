@@ -45,9 +45,11 @@ using block_selector_func_t = std::function<bool(MeshBlockData<Real> *)>;
 
 // Predefined block selector functions
 namespace GetBlockSelector {
-inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *md) {
-  const bool tl_comp = (md->grid.type == GridType::two_level_composite);
-  const int level_comp = md->grid.logical_level;
+
+// Find blocks that have at least one neighbor that is coarser than they are
+inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *pmd) {
+  const bool tl_comp = (pmd->grid.type == GridType::two_level_composite);
+  const int level_comp = pmd->grid.logical_level;
   return [tl_comp, level_comp](MeshBlockData<Real> *pmbd) {
     auto pmb = pmbd->GetParentPointer();
     // Coarser blocks on two-level composite grids can only have same and finer neighbors
@@ -60,18 +62,28 @@ inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *md) {
   };
 }
 
-inline block_selector_func_t OnPhysicalBoundary(const MeshData<Real> *md,
-                                                BoundaryFace bf) {
+inline block_selector_func_t OnPhysicalBoundary(BoundaryFace bf) {
   return [bf](MeshBlockData<Real> *pmbd) {
     return pmbd->GetParentPointer()->IsPhysicalBoundary(bf);
   };
 }
 
-inline block_selector_func_t OnPhysicalBoundary(const MeshData<Real> *md) {
+inline block_selector_func_t OnPhysicalBoundary() {
   return [](MeshBlockData<Real> *pmbd) {
     return pmbd->GetParentPointer()->IsPhysicalBoundary();
   };
 }
+
+inline block_selector_func_t FineOnCompositeGrid(const MeshData<Real> *pmd) {
+  if (pmd->grid.type == GridType::two_level_composite) {
+    const int fine_level = pmd->grid.logical_level;
+    return [fine_level](MeshBlockData<Real> *pmbd) {
+      return fine_level == pmbd->GetBlockPointer()->loc.level();
+    };
+  }
+  return block_selector_func_t{};
+}
+
 } // namespace GetBlockSelector
 
 } // namespace parthenon
