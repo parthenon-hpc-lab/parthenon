@@ -19,13 +19,13 @@
 
 #include "basic_types.hpp"
 #include "interface/data_collection.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"

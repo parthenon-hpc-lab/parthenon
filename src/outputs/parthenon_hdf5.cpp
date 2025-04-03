@@ -36,7 +36,6 @@
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
@@ -44,6 +43,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {

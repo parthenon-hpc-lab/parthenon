@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SPARSE_PACK_HPP_
-#define INTERFACE_SPARSE_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_HPP_
+#define PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -472,4 +472,4 @@ inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp)
 
 } // namespace parthenon
 
-#endif // INTERFACE_SPARSE_PACK_HPP_
+#endif // PACK_SPARSE_PACK_HPP_
