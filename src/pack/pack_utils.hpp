@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_PACK_UTILS_HPP_
-#define INTERFACE_PACK_UTILS_HPP_
+#ifndef PACK_PACK_UTILS_HPP_
+#define PACK_PACK_UTILS_HPP_
 
 #include <string>
 #include <tuple>
@@ -194,4 +194,4 @@ KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
 
 } // namespace parthenon
 
-#endif // INTERFACE_PACK_UTILS_HPP_
+#endif // PACK_PACK_UTILS_HPP_
