@@ -150,11 +150,11 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers/parthinput.particle_tracers")
   list(APPEND EXTRA_TEST_LABELS "")
 
-  list(APPEND TEST_DIRS diffusion_gmg)
+  list(APPEND TEST_DIRS diffusion)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/diffusion_gmg/diffusion-gmg-example \
-    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/diffusion_gmg/parthinput.diffusion")
-  list(APPEND EXTRA_TEST_LABELS "diffusion_gmg")
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/diffusion/diffusion-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/diffusion/parthinput.diffusion")
+  list(APPEND EXTRA_TEST_LABELS "diffusion")
 
 endif()
 

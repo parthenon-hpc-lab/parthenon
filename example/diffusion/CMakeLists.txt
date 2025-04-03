@@ -12,9 +12,9 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "diffusion-gmg-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+if( "diffusion-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
-      diffusion-gmg-example
+      diffusion-example
           diffusion_driver.cpp
           diffusion_driver.hpp
           diffusion_equation.hpp
@@ -23,6 +23,6 @@ if( "diffusion-gmg-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLE
           main.cpp
           parthenon_app_inputs.cpp
   )
-  target_link_libraries(diffusion-gmg-example PRIVATE Parthenon::parthenon)
-  lint_target(diffusion-gmg-example)
+  target_link_libraries(diffusion-example PRIVATE Parthenon::parthenon)
+  lint_target(diffusion-example)
 endif()
