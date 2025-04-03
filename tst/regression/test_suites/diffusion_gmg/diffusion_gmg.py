@@ -58,15 +58,16 @@ class TestCase(utils.test_case.TestCaseAbs):
         NB = q.shape[0]
         t0 = data_file.Params["diffusion_package/t0"]
         D = 1.0
-        error = 0.0
-        for b in range(NB):
-            n = len(q[b, 0, 0, :])
-            error += (
+        error = (
+            np.sum(
                 np.sum(
-                    np.power(q[b, 0, 0, :] - analytic_solution(x[b, :], t, D, t0), 2.0)
+                    np.power(q[:, 0, 0, :] - analytic_solution(x, t, D, t0), 2.0),
+                    axis=1,
                 )
-                / n
+                / np.array([len(q[b, 0, 0, :]) for b in range(NB)]),
+                axis=0,
             )
-        error /= NB
+            / NB
+        )
         tol = 1.0e-7
         return error < tol
