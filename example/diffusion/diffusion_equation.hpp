@@ -34,10 +34,9 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
   using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   auto pkg = md->GetMeshPointer()->packages.Get("diffusion_package");
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
@@ -55,27 +54,23 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
         Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        pack_out(b, te, var_t(), k, j, i) = -alpha * pack(b, te, var_t(), k, j, i);
-        pack_out(b, te, var_t(), k, j, i) += (1.0) *
-                                             (pack.flux(b, X1DIR, var_t(), k, j, i) -
-                                              pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
-                                             dx1;
+        pack_out(b, var_t(), k, j, i) = -alpha * pack(b, var_t(), k, j, i);
+        pack_out(b, var_t(), k, j, i) += (pack.flux(b, X1DIR, var_t(), k, j, i) -
+                                          pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
+                                         dx1;
 
         if (ndim > 1) {
           Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          pack_out(b, te, var_t(), k, j, i) +=
-              (1.0) *
-              (pack.flux(b, X2DIR, var_t(), k, j, i) -
-               pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
-              dx2;
+          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X2DIR, var_t(), k, j, i) -
+                                            pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
+                                           dx2;
         }
 
         if (ndim > 2) {
           Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          pack_out(b, te, var_t(), k, j, i) +=
-              (pack.flux(b, X3DIR, var_t(), k, j, i) -
-               pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
-              dx3;
+          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X3DIR, var_t(), k, j, i) -
+                                            pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
+                                           dx3;
         }
       });
   return TaskStatus::complete;
