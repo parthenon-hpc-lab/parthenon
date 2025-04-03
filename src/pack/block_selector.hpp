@@ -38,8 +38,8 @@
 
 namespace parthenon {
 
-// A block selector function can be passed SparsePack::Descriptor::GetPack to 
-// select a subset of the blocks contained in a MeshData object based on a 
+// A block selector function can be passed SparsePack::Descriptor::GetPack to
+// select a subset of the blocks contained in a MeshData object based on a
 // chosen criteria
 using block_selector_func_t = std::function<bool(MeshBlockData<Real> *)>;
 
