@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -114,7 +114,13 @@ class SparsePackBase {
 // `PackDescriptor` to `SparsePackBase`
 class SparsePackCache {
  public:
-  std::size_t size() const { return pack_map.size(); }
+  std::size_t size() const {
+    std::size_t size{0};
+    for (const auto &[key, desc_pack_map] : pack_map) {
+      size += desc_pack_map.size();
+    }
+    return size;
+  }
 
   void clear() { pack_map.clear(); }
 
@@ -126,10 +132,14 @@ class SparsePackCache {
   template <class T>
   SparsePackBase &BuildAndAdd(T *pmd, const impl::PackDescriptor &desc,
                               const std::vector<bool> &include_block);
-
-  std::unordered_map<std::string, std::tuple<SparsePackBase, SparsePackBase::alloc_t,
-                                             SparsePackBase::include_t>>
-      pack_map;
+  // For a given pack descriptor, this contains a map from a vector containing the
+  // requested included blocks to a cached pack, along with the allocation status of
+  // varirables in the pack
+  using desc_pack_map_t =
+      std::map<std::vector<bool>, std::tuple<SparsePackBase, SparsePackBase::alloc_t>>;
+  // Map from pack descriptor id to map from included blocks
+  using pack_map_t = std::unordered_map<std::string, desc_pack_map_t>;
+  pack_map_t pack_map;
 
   friend class SparsePackBase;
 };
