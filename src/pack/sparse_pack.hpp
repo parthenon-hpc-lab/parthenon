@@ -30,6 +30,7 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/variable.hpp"
+#include "pack/block_selector.hpp"
 #include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
