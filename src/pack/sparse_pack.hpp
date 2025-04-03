@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SPARSE_PACK_HPP_
-#define INTERFACE_SPARSE_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_HPP_
+#define PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -243,18 +243,13 @@ class SparsePack : public SparsePackBase {
            physical_bnd_flag;
   }
 
-  KOKKOS_INLINE_FUNCTION bool IsOwned(const int b, const int off3, const int off2,
-                                      const int off1) const {
-    return block_props_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1)) + 27) == 1;
-  }
-
-  KOKKOS_INLINE_FUNCTION int GetGID(const int b) const { return block_props_(b, 54); }
+  KOKKOS_INLINE_FUNCTION int GetGID(const int b) const { return block_props_(b, 27); }
 
   int GetLevelHost(const int b, const int off3, const int off2, const int off1) const {
     return block_props_h_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1)));
   }
 
-  int GetGIDHost(const int b) const { return block_props_h_(b, 54); }
+  int GetGIDHost(const int b) const { return block_props_h_(b, 27); }
 
   // Number of components of a variable on a block
   template <typename T>
@@ -320,18 +315,9 @@ class SparsePack : public SparsePackBase {
 
   // operator() overloads
   using TE = TopologicalElement;
-  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int el_idx,
-                                          const int idx) const {
-    PARTHENON_DEBUG_REQUIRE(
-        el_idx < GetNumberOfElements(pack_(0, b, idx).topological_type),
-        "Asking for an element index that doesn't exist for this TT.");
-    return pack_(el_idx, b, idx);
-  }
-
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const int idx) const {
     return pack_(static_cast<int>(el) % 3, b, idx);
   }
-
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const int idx) const {
     PARTHENON_DEBUG_REQUIRE(pack_(0, b, idx).topological_type == TopologicalType::Cell,
                             "Suppressed topological element index assumes that this is a "
@@ -486,4 +472,4 @@ inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp)
 
 } // namespace parthenon
 
-#endif // INTERFACE_SPARSE_PACK_HPP_
+#endif // PACK_SPARSE_PACK_HPP_

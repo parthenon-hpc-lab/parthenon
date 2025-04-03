@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -56,9 +56,10 @@ class PoissonEquation {
                        std::shared_ptr<parthenon::MeshData<Real>> &md_in,
                        std::shared_ptr<parthenon::MeshData<Real>> &md_out) {
     auto flux_res = tl.AddTask(depends_on, CalculateFluxes, md_mat, md_in);
-    if (set_flux_boundary) {
-      flux_res = tl.AddTask(flux_res, SetFluxBoundaries, md_mat, md_in, include_flux_dx);
-    }
+    if (set_flux_boundary)
+      flux_res = tl.AddTask(flux_res, SetFluxBoundaries, md_mat, md_in);
+    if (include_flux_dx)
+      flux_res = tl.AddTask(flux_res, FixFluxRefinementBoundaries, md_in);
     if (do_flux_cor && !(md_mat->grid.type == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md_in);
@@ -183,7 +184,7 @@ class PoissonEquation {
 
   static parthenon::TaskStatus
   SetFluxBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md_mat,
-                    std::shared_ptr<parthenon::MeshData<Real>> &md, bool do_flux_dx) {
+                    std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
     IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -243,10 +244,59 @@ class PoissonEquation {
                         pack(b, var_t(), k + koff, j + joff, i + ioff) / (0.5 * dx);
                   });
             }
+          }
+        });
+    return TaskStatus::complete;
+  }
+
+  static parthenon::TaskStatus
+  FixFluxRefinementBoundaries(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+
+    using TE = parthenon::TopologicalElement;
+
+    int nblocks = md->NumBlocks();
+    std::vector<bool> include_block(nblocks, true);
+
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
+
+    auto pack = desc.GetPack(md.get(), GetBlockSelector::WithCoarserNeighbors(md.get()));
+    const std::size_t scratch_size_in_bytes = 0;
+    const std::size_t scratch_level = 1;
+
+    const parthenon::Indexer3D idxers[6]{
+        parthenon::Indexer3D(kb, jb, {ib.s, ib.s}),
+        parthenon::Indexer3D(kb, jb, {ib.e + 1, ib.e + 1}),
+        parthenon::Indexer3D(kb, {jb.s, jb.s}, ib),
+        parthenon::Indexer3D(kb, {jb.e + 1, jb.e + 1}, ib),
+        parthenon::Indexer3D({kb.s, kb.s}, jb, ib),
+        parthenon::Indexer3D({kb.e + 1, kb.e + 1}, jb, ib)};
+    constexpr int x1off[6]{-1, 1, 0, 0, 0, 0};
+    constexpr int x2off[6]{0, 0, -1, 1, 0, 0};
+    constexpr int x3off[6]{0, 0, 0, 0, -1, 1};
+    constexpr TE tes[6]{TE::F1, TE::F1, TE::F2, TE::F2, TE::F3, TE::F3};
+    constexpr int dirs[6]{X1DIR, X1DIR, X2DIR, X2DIR, X3DIR, X3DIR};
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, "SetFluxBoundaries", DevExecSpace(),
+        scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+          const auto &coords = pack.GetCoordinates(b);
+          const int gid = pack.GetGID(b);
+          const int level = pack.GetLevel(b, 0, 0, 0);
+          const Real dxs[3]{coords.template Dxc<X1DIR>(), coords.template Dxc<X2DIR>(),
+                            coords.template Dxc<X3DIR>()};
+          for (int face = 0; face < ndim * 2; ++face) {
+            const Real dx = dxs[dirs[face] - 1];
+            const auto &idxer = idxers[face];
+            const auto dir = dirs[face];
+            const auto te = tes[face];
             // Correct for size of neighboring zone at fine-coarse boundary when using
             // constant prolongation
-            if (do_flux_dx &&
-                pack.GetLevel(b, x3off[face], x2off[face], x1off[face]) == level - 1) {
+            if (pack.GetLevel(b, x3off[face], x2off[face], x1off[face]) == level - 1) {
               parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
                                        idxer.size() - 1, [&](const int idx) {
                                          const auto [k, j, i] = idxer(idx);
