@@ -23,16 +23,11 @@
 #include <utility>
 #include <vector>
 
-#include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/state_descriptor.hpp"
-#include "interface/variable.hpp"
-#include "kokkos_abstraction.hpp"
 #include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
 #include "pack/sparse_pack_cache.hpp"
-#include "utils/utils.hpp"
 
 namespace parthenon {
 
