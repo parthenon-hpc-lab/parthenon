@@ -13,6 +13,8 @@
 #ifndef PACK_SPARSE_PACK_BASE_HPP_
 #define PACK_SPARSE_PACK_BASE_HPP_
 
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
@@ -49,7 +51,7 @@ class SparsePackBase {
   // from the cache in pmd. The cache itself handles the all of this logic
   template <class T>
   static SparsePackBase GetPack(T *pmd, const impl::PackDescriptor &desc,
-                                const std::vector<bool> &include_block); 
+                                const std::vector<bool> &include_block);
 
   // Return a map from variable names to pack variable indices
   static SparsePackIdxMap GetIdxMap(const impl::PackDescriptor &desc);

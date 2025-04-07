@@ -40,16 +40,15 @@ using namespace impl;
 
 template <class T>
 SparsePackBase SparsePackBase::GetPack(T *pmd, const impl::PackDescriptor &desc,
-                                              const std::vector<bool> &include_block) {
+                                       const std::vector<bool> &include_block) {
   auto &cache = pmd->GetSparsePackCache();
   return cache.Get(pmd, desc, include_block);
 }
-template SparsePackBase SparsePackBase::GetPack<MeshBlockData<Real>>(MeshBlockData<Real>*, 
-                                                                     const impl::PackDescriptor&,
-                                                                     const std::vector<bool>&);
-template SparsePackBase SparsePackBase::GetPack<MeshData<Real>>(MeshData<Real>*, 
-                                                                const impl::PackDescriptor&,
-                                                                const std::vector<bool>&);
+template SparsePackBase SparsePackBase::GetPack<MeshBlockData<Real>>(
+    MeshBlockData<Real> *, const impl::PackDescriptor &, const std::vector<bool> &);
+template SparsePackBase
+SparsePackBase::GetPack<MeshData<Real>>(MeshData<Real> *, const impl::PackDescriptor &,
+                                        const std::vector<bool> &);
 
 SparsePackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
   SparsePackIdxMap map;
