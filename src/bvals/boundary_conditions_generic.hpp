@@ -24,13 +24,13 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/sparse_pack.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
+#include "pack/swarm_default_names.hpp"
 
 namespace parthenon {
 namespace BoundaryFunction {

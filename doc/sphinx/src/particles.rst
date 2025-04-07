@@ -172,7 +172,7 @@ one must specify the data type by template argument:
    auto pack = desc.GetPack(md);
 
 
-For packing via type-based variables (see interface/swarm_default_names.hpp for an
+For packing via type-based variables (see pack/swarm_default_names.hpp for an
 example), the type can be inferred automatically:
 
 .. code:: cpp

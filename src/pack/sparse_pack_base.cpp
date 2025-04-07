@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,11 +26,11 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/pack_utils.hpp"
-#include "interface/sparse_pack_base.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "pack/pack_utils.hpp"
+#include "pack/sparse_pack_base.hpp"
 #include "utils/utils.hpp"
 namespace parthenon {
 namespace impl {
@@ -355,25 +355,21 @@ template <class T>
 SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
                                      const std::vector<bool> &include_block) {
   if (pack_map.count(desc.identifier) > 0) {
-    auto &cache_tuple = pack_map[desc.identifier];
-    auto &pack = std::get<0>(cache_tuple);
-    auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
-    auto &alloc_status = std::get<1>(cache_tuple);
-    if (alloc_status.size() != alloc_status_in.size())
-      return BuildAndAdd(pmd, desc, include_block);
-    for (int i = 0; i < alloc_status_in.size(); ++i) {
-      if (alloc_status[i] != alloc_status_in[i])
+    auto &desc_pack_map = pack_map[desc.identifier];
+    if (desc_pack_map.count(include_block)) {
+      auto &cache_tuple = desc_pack_map[include_block];
+      auto &pack = std::get<0>(cache_tuple);
+      auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
+      auto &alloc_status = std::get<1>(cache_tuple);
+      if (alloc_status.size() != alloc_status_in.size())
         return BuildAndAdd(pmd, desc, include_block);
+      for (int i = 0; i < alloc_status_in.size(); ++i) {
+        if (alloc_status[i] != alloc_status_in[i])
+          return BuildAndAdd(pmd, desc, include_block);
+      }
+      // Cached version is not stale, so just return a reference to it
+      return std::get<0>(cache_tuple);
     }
-    auto &include_status = std::get<2>(cache_tuple);
-    if (include_status.size() != include_block.size())
-      return BuildAndAdd(pmd, desc, include_block);
-    for (int i = 0; i < include_block.size(); ++i) {
-      if (include_status[i] != include_block[i])
-        return BuildAndAdd(pmd, desc, include_block);
-    }
-    // Cached version is not stale, so just return a reference to it
-    return std::get<0>(cache_tuple);
   }
   return BuildAndAdd(pmd, desc, include_block);
 }
@@ -387,11 +383,14 @@ SparsePackCache::Get<MeshBlockData<Real>>(MeshBlockData<Real> *, const PackDescr
 template <class T>
 SparsePackBase &SparsePackCache::BuildAndAdd(T *pmd, const PackDescriptor &desc,
                                              const std::vector<bool> &include_block) {
-  if (pack_map.count(desc.identifier) > 0) pack_map.erase(desc.identifier);
-  pack_map[desc.identifier] = {SparsePackBase::Build(pmd, desc, include_block),
-                               SparsePackBase::GetAllocStatus(pmd, desc, include_block),
-                               include_block};
-  return std::get<0>(pack_map[desc.identifier]);
+  if (pack_map.count(desc.identifier) == 0) pack_map[desc.identifier] = desc_pack_map_t();
+
+  desc_pack_map_t &desc_pack_map = pack_map[desc.identifier];
+  desc_pack_map[include_block] = {
+      SparsePackBase::Build(pmd, desc, include_block),
+      SparsePackBase::GetAllocStatus(pmd, desc, include_block)};
+
+  return std::get<0>(desc_pack_map[include_block]);
 }
 template SparsePackBase &
 SparsePackCache::BuildAndAdd<MeshData<Real>>(MeshData<Real> *, const PackDescriptor &,
