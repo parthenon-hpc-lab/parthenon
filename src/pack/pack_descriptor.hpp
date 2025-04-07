@@ -13,6 +13,8 @@
 #ifndef PACK_PACK_DESCRIPTOR_HPP_
 #define PACK_PACK_DESCRIPTOR_HPP_
 
+#include <algorithm>
+#include <set>
 #include <string>
 #include <vector>
 
