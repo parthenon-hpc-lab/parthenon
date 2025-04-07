@@ -194,8 +194,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   bool IsPhysicalBoundary() const {
-    bool is_bound;
-    for (int bf = 0; bf < 6; ++bf)
+    bool is_bound = IsPhysicalBoundary(static_cast<BoundaryFace>(0));
+    for (int bf = 1; bf < 6; ++bf)
       is_bound = is_bound || IsPhysicalBoundary(static_cast<BoundaryFace>(bf));
     return is_bound;
   }
