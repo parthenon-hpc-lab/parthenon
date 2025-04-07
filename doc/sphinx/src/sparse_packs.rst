@@ -18,7 +18,6 @@ etc. within a kernel.
 Type-based Packing
 ------------------
 
-
 Although it is not necessary, many downstream codes have found it useful to define classes associated with each field that is registered in a ``StateDescriptor``.
 
 

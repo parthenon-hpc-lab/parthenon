@@ -30,6 +30,7 @@
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
 #include "pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack_cache.hpp"
 #include "pack/swarm_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
