@@ -216,6 +216,7 @@ add_library(parthenon
   pack/pack_descriptor.hpp
   pack/pack_utils.hpp
   pack/sparse_pack.hpp
+  pack/sparse_pack.cpp
   pack/sparse_pack_base.cpp
   pack/sparse_pack_base.hpp
   pack/sparse_pack_cache.hpp
