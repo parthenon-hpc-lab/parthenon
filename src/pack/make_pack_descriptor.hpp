@@ -20,6 +20,7 @@
 #include <memory>
 #include <regex>
 #include <set>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -86,19 +87,41 @@ inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::stri
 }
 
 template <class... Ts>
-inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
+inline auto MakePackDescriptor(Mesh *pmesh,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(
-      pmbd->GetBlockPointer()->pmy_mesh->resolved_packages.get(), flags, options);
+  std::stringstream ss;
+  ((ss << Ts::name() << " "), ...);
+  (ss << ... << Ts::regex());
+  ss << "((";
+  for (auto &&flag : flags)
+    ss << flag.Flag() << " ";
+  ss << "))";
+  for (auto &&option : options)
+    ss << static_cast<int>(option) << " ";
+  const auto identifier = ss.str();
+  if (pmesh->pack_map.count(identifier))
+    return typename SparsePack<Ts...>::Descriptor(pmesh->pack_map[identifier]); 
+   
+  printf("making pack descriptor: %s\n", ss.str().c_str());
+  auto desc = MakePackDescriptor<Ts...>(pmesh->resolved_packages.get(), flags,
+                                        options);
+  pmesh->pack_map.emplace(identifier, static_cast<impl::PackDescriptor>(desc)); 
+  return desc;
 }
 
 template <class... Ts>
+inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
+                               const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptor<Ts...>(pmbd->GetBlockPointer()->pmy_mesh, flags, options);
+}
+
+template <class... Ts, class... Args>
 inline auto MakePackDescriptor(MeshData<Real> *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer()->resolved_packages.get(), flags,
-                                   options);
+  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer(), flags, options);
 }
 
 template <class... Ts>
