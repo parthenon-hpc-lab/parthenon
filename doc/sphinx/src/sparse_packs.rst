@@ -62,7 +62,7 @@ Building and Using a ``SparsePack``
      return TaskStatus::complete;
    }
 
-``PackDescriptor``\ *s are somewhat expensive to build and are not currently cached. As a result, it is often beneficial to mark them as ``static`` where possible.*
+``PackDescriptor``\ s can be somewhat expensive to build because they require searching through all fields in simulation. Therefore, they are automatically cached in the ``Mesh`` where possible. Additionally, it is often possible to declare ``PackDesctiptors`` that are created in task functions to be ``static``.  
 
 ``PackDescriptor`` takes a ``std::set`` of ``PDOpt`` options to determine what to include in the pack:
 
