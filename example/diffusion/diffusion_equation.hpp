@@ -92,12 +92,11 @@ class DiffusionEquation {
 
   using IndependentVars = parthenon::TypeList<var_t>;
 
-  DiffusionEquation(parthenon::ParameterInput *pin, const std::string &label) {
-    do_flux_cor = pin->GetOrAddBoolean(label, "flux_correct", false);
-    set_flux_boundary = pin->GetOrAddBoolean(label, "set_flux_boundary", false);
-    include_flux_dx =
-        (pin->GetOrAddString(label, "boundary_prolongation", "Linear") == "Constant");
-  }
+  DiffusionEquation(parthenon::ParameterInput *pin, const std::string &label)
+      : do_flux_cor(pin->GetOrAddBoolean(label, "flux_correct", false)),
+        set_flux_boundary(pin->GetOrAddBoolean(label, "set_flux_boundary", false)),
+        include_flux_dx((pin->GetOrAddString(label, "boundary_prolongation", "Linear") ==
+                         "Constant")) {}
 
   // Add tasks to calculate the result of the matrix A (which is implicitly defined by
   // this class) being applied to x_t and store it in field out_t
@@ -303,7 +302,8 @@ class DiffusionEquation {
               parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
                                        idxer.size() - 1, [&](const int idx) {
                                          const auto [k, j, i] = idxer(idx);
-                                         pack.flux(b, dir, var_t(), k, j, i) *= TWO_THIRDS;
+                                         pack.flux(b, dir, var_t(), k, j, i) *=
+                                             TWO_THIRDS;
                                        });
             }
           }
