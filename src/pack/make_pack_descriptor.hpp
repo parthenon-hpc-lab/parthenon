@@ -18,9 +18,7 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <regex>
 #include <set>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -38,102 +36,79 @@
 
 namespace parthenon {
 
+namespace impl {
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
+                                      const std::vector<std::string> &vars,
+                                      const std::vector<bool> &use_regex,
+                                      const std::vector<MetadataFlag> &flags,
+                                      const std::set<PDOpt> &options);
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
+                                      const std::vector<Uid_t> &var_ids,
+                                      const std::vector<MetadataFlag> &flags,
+                                      const std::set<PDOpt> &options);
+std::string GetDescIdentifierString(const std::vector<std::string> &vars,
+                                    const std::vector<bool> &use_regex,
+                                    const std::vector<MetadataFlag> &flags,
+                                    const std::set<PDOpt> &options);
+std::string GetDescIdentifierString(const std::vector<Uid_t> &var_ids,
+                                    const std::vector<MetadataFlag> &flags,
+                                    const std::set<PDOpt> &options);
+template <class MT>
+void SetMeshAndStateDescriptor(MT *pmd, Mesh *pmesh, StateDescriptor *psd);
+} // namespace impl
+
 inline auto MakeDefaultPackDescriptor() { return typename SparsePack<>::Descriptor(); }
 
-inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
+template <class MT>
+inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                                const std::vector<bool> &use_regex,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  PARTHENON_REQUIRE(vars.size() == use_regex.size(),
-                    "Vargroup names and use_regex need to be the same size.");
-  auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!md.IsSet(flag)) return false;
-      }
-    }
+  const auto identifier = impl::GetDescIdentifierString(vars, use_regex, flags, options);
+  Mesh *pmesh{nullptr};
+  StateDescriptor *psd{nullptr};
+  SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
 
-    if (use_regex[vidx]) {
-      if (std::regex_match(std::string(id.label()), std::regex(vars[vidx]))) return true;
-    } else {
-      if (vars[vidx] == id.label()) return true;
-      if (vars[vidx] == id.base_name && id.sparse_id != InvalidSparseID) return true;
-    }
-    return false;
-  };
+  // Pull the descriptor base out of cache stored in mesh if possible
+  if (pmesh && pmesh->pack_map.count(identifier))
+    return typename SparsePack<>::Descriptor(pmesh->pack_map[identifier]);
 
-  impl::PackDescriptor base_desc(psd, vars, selector, options);
-  return typename SparsePack<>::Descriptor(base_desc);
+  auto desc_base = impl::MakePackDescriptorBase(psd, vars, use_regex, flags, options);
+
+  // Store this in the cache for next time around if possible
+  if (pmesh) pmesh->pack_map.emplace(identifier, desc_base);
+  return typename SparsePack<>::Descriptor(desc_base);
 }
 
-template <class... Ts>
-inline auto MakePackDescriptor(StateDescriptor *psd,
+template <class MT>
+inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
-
-  std::vector<std::string> vars{Ts::name()...};
-  std::vector<bool> use_regex{Ts::regex()...};
-
-  return typename SparsePack<Ts...>::Descriptor(static_cast<impl::PackDescriptor>(
-      MakePackDescriptor(psd, vars, use_regex, flags, options)));
-}
-
-inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<std::string> &vars,
-                               const std::vector<MetadataFlag> &flags = {},
-                               const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor(psd, vars, std::vector<bool>(vars.size(), false), flags,
+  return MakePackDescriptor(pmd, vars, std::vector<bool>(vars.size(), false), flags,
                             options);
 }
 
-template <class... Ts>
-inline auto MakePackDescriptor(Mesh *pmesh,
-                               const std::vector<MetadataFlag> &flags = {},
+template <class... Ts, class MT>
+inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  std::stringstream ss;
-  ((ss << Ts::name() << " "), ...);
-  (ss << ... << Ts::regex());
-  ss << "((";
-  for (auto &&flag : flags)
-    ss << flag.Flag() << " ";
-  ss << "))";
-  for (auto &&option : options)
-    ss << static_cast<int>(option) << " ";
-  const auto identifier = ss.str();
-  if (pmesh->pack_map.count(identifier))
-    return typename SparsePack<Ts...>::Descriptor(pmesh->pack_map[identifier]); 
-   
-  printf("making pack descriptor: %s\n", ss.str().c_str());
-  auto desc = MakePackDescriptor<Ts...>(pmesh->resolved_packages.get(), flags,
-                                        options);
-  pmesh->pack_map.emplace(identifier, static_cast<impl::PackDescriptor>(desc)); 
-  return desc;
+  const std::vector<std::string> vars{Ts::name()...};
+  const std::vector<bool> use_regex{Ts::regex()...};
+  return typename SparsePack<Ts...>::Descriptor(
+      MakePackDescriptor(pmd, vars, use_regex, flags, options));
 }
 
-template <class... Ts>
-inline auto MakePackDescriptor(MeshBlockData<Real> *pmbd,
+template <class... Ts, class MT>
+inline auto MakePackDescriptor(SparsePack<Ts...> pack, MT *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(pmbd->GetBlockPointer()->pmy_mesh, flags, options);
+  return parthenon::MakePackDescriptor<Ts...>(pmd, flags, options);
 }
 
-template <class... Ts, class... Args>
-inline auto MakePackDescriptor(MeshData<Real> *pmd,
-                               const std::vector<MetadataFlag> &flags = {},
-                               const std::set<PDOpt> &options = {}) {
-  return MakePackDescriptor<Ts...>(pmd->GetMeshPointer(), flags, options);
-}
-
-template <class... Ts>
-inline auto MakePackDescriptor(SparsePack<Ts...> pack, StateDescriptor *psd,
-                               const std::vector<MetadataFlag> &flags = {},
-                               const std::set<PDOpt> &options = {}) {
-  return parthenon::MakePackDescriptor<Ts...>(psd, flags, options);
-}
-
-inline auto MakePackDescriptor(
-    StateDescriptor *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
-    const std::vector<MetadataFlag> &flags = {}, const std::set<PDOpt> &options = {}) {
+template <class MT>
+inline auto
+MakePackDescriptor(MT *psd, const std::vector<std::pair<std::string, bool>> &var_regexes,
+                   const std::vector<MetadataFlag> &flags = {},
+                   const std::set<PDOpt> &options = {}) {
   std::vector<std::string> vars;
   std::vector<bool> use_regex;
   for (const auto &[v, r] : var_regexes) {
@@ -143,21 +118,24 @@ inline auto MakePackDescriptor(
   return MakePackDescriptor(psd, vars, use_regex, flags, options);
 }
 
-inline auto MakePackDescriptor(StateDescriptor *psd, const std::vector<Uid_t> &var_ids,
+template <class MT>
+inline auto MakePackDescriptor(MT *pmd, const std::vector<Uid_t> &var_ids,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!md.IsSet(flag)) return false;
-      }
-    }
-    if (Variable<Real>::GetUniqueID(id.label()) == var_ids[vidx]) return true;
-    return false;
-  };
+  const auto identifier = impl::GetDescIdentifierString(var_ids, flags, options);
+  Mesh *pmesh{nullptr};
+  StateDescriptor *psd{nullptr};
+  SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
 
-  impl::PackDescriptor base_desc(psd, var_ids, selector, options);
-  return typename SparsePack<>::Descriptor(base_desc);
+  // Pull the descriptor base out of cache stored in mesh if possible
+  if (pmesh && pmesh->pack_map.count(identifier))
+    return typename SparsePack<>::Descriptor(pmesh->pack_map[identifier]);
+
+  auto desc_base = impl::MakePackDescriptorBase(psd, var_ids, flags, options);
+
+  // Store this in the cache for next time around if possible
+  if (pmesh) pmesh->pack_map.emplace(identifier, desc_base);
+  return typename SparsePack<>::Descriptor(desc_base);
 }
 
 template <template <class...> class TL, class... Types, class... Args>

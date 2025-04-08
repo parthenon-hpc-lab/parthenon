@@ -113,7 +113,7 @@ class Mesh {
   ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
-  
+
   std::unordered_map<std::string, impl::PackDescriptor> pack_map;
 
   // data
