@@ -246,6 +246,8 @@ class DiffusionEquation {
     int nblocks = md->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
 
+    constexpr static int TWO_THIRDS = 2.0 / 3.0;
+
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md.get());
     auto pack = desc.GetPack(md.get(), include_block);
@@ -301,7 +303,7 @@ class DiffusionEquation {
               parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
                                        idxer.size() - 1, [&](const int idx) {
                                          const auto [k, j, i] = idxer(idx);
-                                         pack.flux(b, dir, var_t(), k, j, i) /= 1.5;
+                                         pack.flux(b, dir, var_t(), k, j, i) *= TWO_THIRDS;
                                        });
             }
           }
