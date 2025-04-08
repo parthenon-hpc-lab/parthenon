@@ -69,20 +69,14 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
     // SetDiffusionCoefficient
     auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficient), md, tm.dt);
 
-    // SetRHS
-    auto set_rhs = tl.AddTask(set_d, TF(SetRHS), md);
-
     auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
     auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
-    // Move the rhs variable into the rhs stage for stage based solver
-    auto copy_rhs =
-        tl.AddTask(set_rhs, TF(solvers::utils::between_fields::CopyData<rhs, u>), md);
-    copy_rhs = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>),
-                          md, md_rhs);
+    // SetRHS
+    auto set_rhs = tl.AddTask(set_d, (SetRHS), md, md_rhs);
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md_u);
+    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
     auto copy_back =
