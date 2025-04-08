@@ -164,10 +164,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // by the solver
   pkg->AddField(u::name(), mflux_comm);
 
-  auto m_no_ghost = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  // rhs is the field that contains the desired rhs side
-  pkg->AddField(rhs::name(), m_no_ghost);
-
   // timestep
   pkg->EstimateTimestepMesh = EstimateTimestep;
 
@@ -191,6 +187,8 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
   const int ndim = md->GetMeshPointer()->ndim;
 
+  constexpr static Real ONE_FOURTH = 0.25;
+
   Real min_dt;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
@@ -203,19 +201,16 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
         // average face coefficients and divide by 2
         const Real d1 = (pack(b, TE::F1, diffusion_package::D(), k, j, i + 1) +
-                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) /
-                        (4.0);
-        const Real d2 = (pack(b, TE::F2, diffusion_package::D(), k, j + 1, i) +
-                         pack(b, TE::F2, diffusion_package::D(), k, j, i)) /
-                        (4.0);
-        const Real d3 = (pack(b, TE::F3, diffusion_package::D(), k + 1, j, i) +
-                         pack(b, TE::F3, diffusion_package::D(), k, j, i)) /
-                        (4.0);
+                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
         lmin_dt = std::min(lmin_dt, dx1 * dx1 / d1);
         if (ndim > 1) {
+          const Real d2 = (pack(b, TE::F2, diffusion_package::D(), k, j + 1, i) +
+                           pack(b, TE::F2, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
           lmin_dt = std::min(lmin_dt, dx2 * dx2 / d2);
         }
         if (ndim > 2) {
+          const Real d3 = (pack(b, TE::F3, diffusion_package::D(), k + 1, j, i) +
+                           pack(b, TE::F3, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
           lmin_dt = std::min(lmin_dt, dx3 * dx3 / d3);
         }
       },
@@ -226,12 +221,16 @@ Real EstimateTimestep(MeshData<Real> *md) {
   return new_dt;
 } // EstimateTimestep
 
-parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md) {
+parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
+                             std::shared_ptr<MeshData<Real>> md_rhs) {
   auto pkg = md->GetMeshPointer()->packages.Get("diffusion_package");
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
-  auto desc = parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::rhs>(
-      md.get());
+  auto desc = parthenon::MakePackDescriptor<diffusion_package::u>(md.get());
   auto pack = desc.GetPack(md.get());
+
+  // holds rhs
+  auto desc_rhs = parthenon::MakePackDescriptor<diffusion_package::u>(md_rhs.get());
+  auto pack_rhs = desc_rhs.GetPack(md_rhs.get());
 
   TE te = TE::CC;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -241,7 +240,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md) {
   parthenon::par_for(
       "SetRHS", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack(b, te, diffusion_package::rhs(), k, j, i) =
+        pack_rhs(b, te, diffusion_package::u(), k, j, i) = // rhs
             -alpha * pack(b, te, diffusion_package::u(), k, j, i);
       });
   return TaskStatus::complete;
