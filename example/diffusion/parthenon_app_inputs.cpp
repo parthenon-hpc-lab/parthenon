@@ -76,7 +76,6 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           return std::exp(exponent);
         };
         const Real val = profile(x1, x2, x3);
-        pack(b, te, diffusion_package::rhs(), k, j, i) = val;
         pack(b, te, diffusion_package::u(), k, j, i) = val;
 
         if (constant_coeff) {
