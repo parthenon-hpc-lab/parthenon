@@ -176,11 +176,9 @@ class DiffusionEquation {
                   std::shared_ptr<parthenon::MeshData<Real>> &md) {
     using namespace parthenon;
     const int ndim = md->GetMeshPointer()->ndim;
-    using TE = parthenon::TopologicalElement;
-    TE te = TE::CC;
-    IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
     using TE = parthenon::TopologicalElement;
 
@@ -198,34 +196,32 @@ class DiffusionEquation {
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           pack.flux(b, X1DIR, var_t(), k, j, i) =
               pack_mat(b, TE::F1, D_t(), k, j, i) / dx1 *
-              (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
+              (pack(b, var_t(), k, j, i - 1) - pack(b, var_t(), k, j, i));
           if (i == ib.e)
             pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
                 pack_mat(b, TE::F1, D_t(), k, j, i + 1) / dx1 *
-                (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
+                (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j, i + 1));
 
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
             pack.flux(b, X2DIR, var_t(), k, j, i) =
                 pack_mat(b, TE::F2, D_t(), k, j, i) *
-                (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
+                (pack(b, var_t(), k, j - 1, i) - pack(b, var_t(), k, j, i)) / dx2;
             if (j == jb.e)
               pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
                   pack_mat(b, TE::F2, D_t(), k, j + 1, i) *
-                  (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) /
-                  dx2;
+                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j + 1, i)) / dx2;
           }
 
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
             pack.flux(b, X3DIR, var_t(), k, j, i) =
                 pack_mat(b, TE::F3, D_t(), k, j, i) *
-                (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
+                (pack(b, var_t(), k - 1, j, i) - pack(b, var_t(), k, j, i)) / dx3;
             if (k == kb.e)
               pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
                   pack_mat(b, TE::F3, D_t(), k + 1, j, i) *
-                  (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) /
-                  dx3;
+                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k + 1, j, i)) / dx3;
           }
         });
     return TaskStatus::complete;
