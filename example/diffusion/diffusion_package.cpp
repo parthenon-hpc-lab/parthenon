@@ -201,16 +201,19 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
         // average face coefficients and divide by 2
         const Real d1 = (pack(b, TE::F1, diffusion_package::D(), k, j, i + 1) +
-                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
+                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) *
+                        ONE_FOURTH;
         lmin_dt = std::min(lmin_dt, dx1 * dx1 / d1);
         if (ndim > 1) {
           const Real d2 = (pack(b, TE::F2, diffusion_package::D(), k, j + 1, i) +
-                           pack(b, TE::F2, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
+                           pack(b, TE::F2, diffusion_package::D(), k, j, i)) *
+                          ONE_FOURTH;
           lmin_dt = std::min(lmin_dt, dx2 * dx2 / d2);
         }
         if (ndim > 2) {
           const Real d3 = (pack(b, TE::F3, diffusion_package::D(), k + 1, j, i) +
-                           pack(b, TE::F3, diffusion_package::D(), k, j, i)) * ONE_FOURTH;
+                           pack(b, TE::F3, diffusion_package::D(), k, j, i)) *
+                          ONE_FOURTH;
           lmin_dt = std::min(lmin_dt, dx3 * dx3 / d3);
         }
       },
