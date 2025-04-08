@@ -43,7 +43,8 @@ VARIABLE(diffusion, rhs);
 constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md, std::shared_ptr<MeshData<Real>> md_rhs);
+TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
+                  std::shared_ptr<MeshData<Real>> md_rhs);
 parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md,
                                               const Real dt);
 Real EstimateTimestep(MeshData<Real> *md);
