@@ -104,18 +104,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // packs that operate on only the desired set of variables.
     using namespace advection_package::Conserved;
     auto desc = parthenon::MakePackDescriptor<phi>(
-        pmesh, {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc);
 
     auto desc_fine = parthenon::MakePackDescriptor<phi_fine>(
-        pmesh, {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
     using pack_desc_fine_t = decltype(desc_fine);
 
     auto desc_vec = parthenon::MakePackDescriptor<C, D>(
-        pmesh, {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
 
     using TT = parthenon::TopologicalType;
     using TE = parthenon::TopologicalElement;
