@@ -173,6 +173,7 @@ class MetadataFlag {
 
   std::string const &Name() const;
 
+  int Flag() const { return flag_; }
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
   constexpr int InternalFlagValue() const { return flag_; }

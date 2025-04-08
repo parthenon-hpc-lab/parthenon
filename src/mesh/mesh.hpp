@@ -48,6 +48,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
@@ -112,6 +113,8 @@ class Mesh {
   ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
+  
+  std::unordered_map<std::string, impl::PackDescriptor> pack_map;
 
   // data
   bool modified;
