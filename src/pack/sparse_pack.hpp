@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SPARSE_PACK_HPP_
-#define INTERFACE_SPARSE_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_HPP_
+#define PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -29,9 +29,10 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
-#include "interface/pack_utils.hpp"
-#include "interface/sparse_pack_base.hpp"
 #include "interface/variable.hpp"
+#include "pack/block_selector.hpp"
+#include "pack/pack_utils.hpp"
+#include "pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
@@ -67,46 +68,17 @@ class SparsePack : public SparsePackBase {
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack GetPack(T *pmd, std::vector<bool> &include_block,
-                       bool only_fine_two_level_composite_blocks = true) const {
-      // If this is a composite grid MeshData object and if
-      // only_fine_two_level_composite_blocks is true, only
-      // include blocks on the finer level
-      if constexpr (std::is_same<T, MeshData<Real>>::value) {
-        if (pmd->grid.type == GridType::two_level_composite &&
-            only_fine_two_level_composite_blocks) {
-          PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks(),
-                            "Passed wrong size block include list.");
-          int fine_level = pmd->grid.logical_level;
-          for (int b = 0; b < pmd->NumBlocks(); ++b)
-            include_block[b] =
-                include_block[b] &&
-                (fine_level == pmd->GetBlockData(b)->GetBlockPointer()->loc.level());
-        }
-      }
-      return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
-    }
-
+    SparsePack GetPack(T *pmd, bool only_fine_two_level_composite_blocks = true) const;
     template <class T>
-    SparsePack GetPack(T *pmd, bool only_fine_two_level_composite_blocks = true) const {
-      // If this is a composite grid MeshData object, only include blocks on
-      // the finer level
-      if constexpr (std::is_same<T, MeshData<Real>>::value) {
-        if (pmd->grid.type == GridType::two_level_composite &&
-            only_fine_two_level_composite_blocks) {
-          auto include_block = std::vector<bool>(pmd->NumBlocks(), true);
-          int fine_level = pmd->grid.logical_level;
-          for (int b = 0; b < pmd->NumBlocks(); ++b)
-            include_block[b] =
-                include_block[b] &&
-                (fine_level == pmd->GetBlockData(b)->GetBlockPointer()->loc.level());
-          return SparsePack(SparsePackBase::GetPack(pmd, *this, include_block));
-        } else {
-          return SparsePack(SparsePackBase::GetPack(pmd, *this, std::vector<bool>{}));
-        }
-      }
-      return SparsePack(SparsePackBase::GetPack(pmd, *this, std::vector<bool>{}));
-    }
+    SparsePack GetPack(T *pmd, std::vector<bool> &include_block,
+                       bool only_fine_two_level_composite_blocks = true) const;
+    template <class T>
+    SparsePack GetPack(T *pmd, const block_selector_func_t &block_selector,
+                       bool only_fine_two_level_composite_blocks = true) const;
+    template <class T>
+    SparsePack GetPack(T *pmd, const block_selector_func_t &block_selector,
+                       std::vector<bool> &include_block,
+                       bool only_fine_two_level_composite_blocks = true) const;
 
     SparsePackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
@@ -427,6 +399,67 @@ inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp)
   return os;
 }
 
+// Implementation below
+template <class... Ts>
+template <class T>
+inline SparsePack<Ts...>
+SparsePack<Ts...>::Descriptor::GetPack(T *pmd,
+                                       bool only_fine_two_level_composite_blocks) const {
+  std::vector<bool> include_blocks{};
+  return GetPack(pmd, block_selector_func_t{}, include_blocks,
+                 only_fine_two_level_composite_blocks);
+}
+
+template <class... Ts>
+template <class T>
+inline SparsePack<Ts...>
+SparsePack<Ts...>::Descriptor::GetPack(T *pmd, std::vector<bool> &include_block,
+                                       bool only_fine_two_level_composite_blocks) const {
+  return GetPack(pmd, block_selector_func_t{}, include_block,
+                 only_fine_two_level_composite_blocks);
+}
+template <class... Ts>
+template <class T>
+inline SparsePack<Ts...>
+SparsePack<Ts...>::Descriptor::GetPack(T *pmd,
+                                       const block_selector_func_t &block_selector,
+                                       bool only_fine_two_level_composite_blocks) const {
+  std::vector<bool> include_blocks{};
+  return GetPack(pmd, block_selector, include_blocks,
+                 only_fine_two_level_composite_blocks);
+}
+
+template <class... Ts>
+template <class T>
+inline SparsePack<Ts...> SparsePack<Ts...>::Descriptor::GetPack(
+    T *pmd, const block_selector_func_t &block_selector, std::vector<bool> &include_block,
+    bool only_fine_two_level_composite_blocks) const {
+  PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks() ||
+                        (include_block.size() == 0),
+                    "Must specify inclusion status for all blocks.");
+
+  // LFR: For multi-grid, we want to select only fine blocks on two-level composite
+  // grids by default since only the fine grid cells are "active" (the coarse level
+  // blocks just provide necessary boundary information during comms)
+  block_selector_func_t fbc_selector{};
+  if constexpr (std::is_same<T, MeshData<Real>>::value) {
+    if (only_fine_two_level_composite_blocks)
+      fbc_selector = GetBlockSelector::FineOnCompositeGrid(pmd);
+  }
+
+  // Select blocks for inclusion based on the specified user functor and possibly
+  // the two-level composite selector
+  if (block_selector || fbc_selector) {
+    if (include_block.size() == 0) include_block.resize(pmd->NumBlocks(), true);
+    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, MeshBlockData<Real> *pmbd) {
+      const bool bs = block_selector ? block_selector(pmbd) : true;
+      const bool fbcs = fbc_selector ? fbc_selector(pmbd) : true;
+      include_block[b] = include_block[b] && bs && fbcs;
+    });
+  }
+  return SparsePack<Ts...>(SparsePackBase::GetPack(pmd, *this, include_block));
+}
+
 } // namespace parthenon
 
-#endif // INTERFACE_SPARSE_PACK_HPP_
+#endif // PACK_SPARSE_PACK_HPP_
