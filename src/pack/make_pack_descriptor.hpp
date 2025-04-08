@@ -13,29 +13,18 @@
 #ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
 #define PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
-#include <algorithm>
-#include <functional>
-#include <limits>
-#include <map>
-#include <memory>
 #include <set>
 #include <string>
-#include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
-#include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
-
 namespace impl {
 PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<std::string> &vars,
@@ -54,7 +43,7 @@ std::string GetDescIdentifierString(const std::vector<Uid_t> &var_ids,
                                     const std::vector<MetadataFlag> &flags,
                                     const std::set<PDOpt> &options);
 template <class MT>
-void SetMeshAndStateDescriptor(MT *pmd, Mesh *pmesh, StateDescriptor *psd);
+void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd);
 } // namespace impl
 
 inline auto MakeDefaultPackDescriptor() { return typename SparsePack<>::Descriptor(); }
@@ -93,8 +82,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags =
                                const std::set<PDOpt> &options = {}) {
   const std::vector<std::string> vars{Ts::name()...};
   const std::vector<bool> use_regex{Ts::regex()...};
-  return typename SparsePack<Ts...>::Descriptor(
-      MakePackDescriptor(pmd, vars, use_regex, flags, options));
+  return typename SparsePack<Ts...>::Descriptor(static_cast<impl::PackDescriptor>(
+      MakePackDescriptor(pmd, vars, use_regex, flags, options)));
 }
 
 template <class... Ts, class MT>

@@ -107,7 +107,7 @@ std::string GetDescIdentifierString(const std::vector<Uid_t> &var_ids,
 }
 
 template <class MT>
-void SetMeshAndStateDescriptor(MT *pmd, Mesh *pmesh, StateDescriptor *psd) {
+void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd) {
   psd = nullptr;
   pmesh = nullptr;
   if constexpr (std::is_same_v<MT, MeshData<Real>> ||
@@ -122,16 +122,16 @@ void SetMeshAndStateDescriptor(MT *pmd, Mesh *pmesh, StateDescriptor *psd) {
   }
 }
 
-template void SetMeshAndStateDescriptor<MeshData<Real>>(MeshData<Real> *pmd, Mesh *pmesh,
-                                                        StateDescriptor *psd);
+template void SetMeshAndStateDescriptor<MeshData<Real>>(MeshData<Real> *pmd, Mesh *&pmesh,
+                                                        StateDescriptor *&psd);
 template void SetMeshAndStateDescriptor<MeshBlockData<Real>>(MeshBlockData<Real> *pmd,
-                                                             Mesh *pmesh,
-                                                             StateDescriptor *psd);
-template void SetMeshAndStateDescriptor<Mesh>(Mesh *pmd, Mesh *pmesh,
-                                              StateDescriptor *psd);
+                                                             Mesh *&pmesh,
+                                                             StateDescriptor *&psd);
+template void SetMeshAndStateDescriptor<Mesh>(Mesh *pmd, Mesh *&pmesh,
+                                              StateDescriptor *&psd);
 template void SetMeshAndStateDescriptor<StateDescriptor>(StateDescriptor *pmd,
-                                                         Mesh *pmesh,
-                                                         StateDescriptor *psd);
+                                                         Mesh *&pmesh,
+                                                         StateDescriptor *&psd);
 
 } // namespace impl
 } // namespace parthenon
