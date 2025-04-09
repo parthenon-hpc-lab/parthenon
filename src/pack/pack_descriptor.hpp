@@ -16,11 +16,14 @@
 #include <algorithm>
 #include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <vector>
 
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/var_id.hpp"
+#include "utils/hash.hpp"
 #include "utils/unique_id.hpp"
 
 namespace parthenon {
@@ -131,6 +134,18 @@ struct PackDescriptor {
   }
 };
 } // namespace impl
+
+struct PackDescriptorCache {
+  using key_t = std::tuple<std::vector<std::string>, std::vector<bool>,
+                           std::vector<MetadataFlag>, std::set<PDOpt>>;
+  std::unordered_map<key_t, impl::PackDescriptor> map;
+};
+
+struct PackDescriptorUidCache {
+  using key_t =
+      std::tuple<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
+  std::unordered_map<key_t, impl::PackDescriptor> map;
+};
 
 } // namespace parthenon
 

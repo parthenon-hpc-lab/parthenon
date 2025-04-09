@@ -65,6 +65,8 @@ class MeshRefinement;
 class Packages_t;
 class ParameterInput;
 class RestartReader;
+struct PackDescriptorCache;
+struct PackDescriptorUidCache;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
@@ -114,7 +116,8 @@ class Mesh {
 
   const forest::Forest &Forest() const { return forest; }
 
-  std::unordered_map<std::string, impl::PackDescriptor> pack_map;
+  std::unique_ptr<PackDescriptorCache> pack_desc_cache;
+  std::unique_ptr<PackDescriptorUidCache> pack_desc_uid_cache;
 
   // data
   bool modified;
