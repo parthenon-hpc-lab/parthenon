@@ -168,6 +168,7 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   // static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
   for (auto fine : {false, true}) {
     std::vector<MetadataFlag> flags{Metadata::FillGhost, ttFlag};
+    if (fine) flags.push_back(Metadata::Fine);
     std::set<PDOpt> opts = coarse ? std::set<PDOpt>{PDOpt::Coarse} : std::set<PDOpt>{};
     const auto desc = MakePackDescriptor<var_ts...>(rc.get(), flags, opts);
     auto q = desc.GetPack(rc.get());
