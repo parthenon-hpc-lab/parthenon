@@ -141,8 +141,7 @@ namespace impl {
 using desc_key_t = std::tuple<bool, bool, TopologicalType>;
 template <class... var_ts>
 using map_bc_pack_descriptor_t =
-    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor,
-                       tuple_hash<desc_key_t>>;
+    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor>;
 
 template <class... var_ts>
 map_bc_pack_descriptor_t<var_ts...>
