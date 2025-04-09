@@ -46,12 +46,11 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
                                             diffusion_package::D>(md);
   auto pack = desc.GetPack(md);
 
-  constexpr auto te = diffusion_package::te;
   using TE = parthenon::TopologicalElement;
   auto &cellbounds = pmb->cellbounds;
-  auto ib = cellbounds.GetBoundsI(IndexDomain::entire, te);
-  auto jb = cellbounds.GetBoundsJ(IndexDomain::entire, te);
-  auto kb = cellbounds.GetBoundsK(IndexDomain::entire, te);
+  auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
+  auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
+  auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
   pmb->par_for(
       "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -76,7 +75,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           return std::exp(exponent);
         };
         const Real val = profile(x1, x2, x3);
-        pack(b, te, diffusion_package::u(), k, j, i) = val;
+        pack(b, diffusion_package::u(), k, j, i) = val;
 
         if (constant_coeff) {
           pack(b, TE::F1, diffusion_package::D(), k, j, i) = 1.0 * dt;

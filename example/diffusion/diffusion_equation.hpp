@@ -129,9 +129,9 @@ class DiffusionEquation {
                                     std::shared_ptr<parthenon::MeshData<Real>> &md_diag) {
     using namespace parthenon;
     const int ndim = md_mat->GetMeshPointer()->ndim;
-    IndexRange ib = md_mat->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md_mat->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md_mat->GetBoundsK(IndexDomain::interior, te);
+    IndexRange ib = md_mat->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md_mat->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md_mat->GetBoundsK(IndexDomain::interior);
 
     auto pkg = md_mat->GetMeshPointer()->packages.Get("diffusion_package");
     const auto alpha = pkg->Param<Real>("diagonal_alpha");
@@ -166,7 +166,7 @@ class DiffusionEquation {
                           pack_mat(b, TE::F3, D_t(), k + 1, j, i)) /
                          (dx3 * dx3);
           }
-          pack_diag(b, te, var_t(), k, j, i) = diag_elem;
+          pack_diag(b, var_t(), k, j, i) = diag_elem;
         });
     return TaskStatus::complete;
   }

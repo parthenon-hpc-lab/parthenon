@@ -147,7 +147,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
   // for the standard Diffusion equation.
-  pkg->AddField(D::name(), mD);
+  pkg->AddField<D>(mD);
 
   std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
                                   Metadata::FillGhost,   Metadata::WithFluxes,
@@ -162,7 +162,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   // u is the solution vector that starts with an initial guess and then gets updated
   // by the solver
-  pkg->AddField(u::name(), mflux_comm);
+  pkg->AddField<u>(mflux_comm);
 
   // timestep
   pkg->EstimateTimestepMesh = EstimateTimestep;
@@ -235,16 +235,15 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
   auto desc_rhs = parthenon::MakePackDescriptor<diffusion_package::u>(md_rhs.get());
   auto pack_rhs = desc_rhs.GetPack(md_rhs.get());
 
-  TE te = TE::CC;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   parthenon::par_for(
       "SetRHS", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack_rhs(b, te, diffusion_package::u(), k, j, i) = // rhs
-            -alpha * pack(b, te, diffusion_package::u(), k, j, i);
+        pack_rhs(b, diffusion_package::u(), k, j, i) = // rhs
+            -alpha * pack(b, diffusion_package::u(), k, j, i);
       });
   return TaskStatus::complete;
 } // SetRHS
