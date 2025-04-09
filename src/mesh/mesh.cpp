@@ -53,6 +53,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
@@ -86,7 +87,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pack_desc_cache(std::make_unique<PackDescriptorCache>()),
+      pack_desc_uid_cache(std::make_unique<PackDescriptorUidCache>()) {
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;

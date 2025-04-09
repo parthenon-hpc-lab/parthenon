@@ -21,6 +21,7 @@
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
@@ -35,13 +36,6 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<Uid_t> &var_ids,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options);
-std::string GetDescIdentifierString(const std::vector<std::string> &vars,
-                                    const std::vector<bool> &use_regex,
-                                    const std::vector<MetadataFlag> &flags,
-                                    const std::set<PDOpt> &options);
-std::string GetDescIdentifierString(const std::vector<Uid_t> &var_ids,
-                                    const std::vector<MetadataFlag> &flags,
-                                    const std::set<PDOpt> &options);
 template <class MT>
 void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd);
 } // namespace impl
@@ -53,19 +47,19 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                                const std::vector<bool> &use_regex,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  const auto identifier = impl::GetDescIdentifierString(vars, use_regex, flags, options);
   Mesh *pmesh{nullptr};
   StateDescriptor *psd{nullptr};
   SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
 
   // Pull the descriptor base out of cache stored in mesh if possible
-  if (pmesh && pmesh->pack_map.count(identifier))
-    return typename SparsePack<>::Descriptor(pmesh->pack_map[identifier]);
+  auto key = std::make_tuple(vars, use_regex, flags, options);
+  if (pmesh && pmesh->pack_desc_cache->map.count(key))
+    return typename SparsePack<>::Descriptor(pmesh->pack_desc_cache->map[key]);
 
   auto desc_base = impl::MakePackDescriptorBase(psd, vars, use_regex, flags, options);
 
   // Store this in the cache for next time around if possible
-  if (pmesh) pmesh->pack_map.emplace(identifier, desc_base);
+  if (pmesh) pmesh->pack_desc_cache->map.emplace(key, desc_base);
   return typename SparsePack<>::Descriptor(desc_base);
 }
 
@@ -111,19 +105,19 @@ template <class MT>
 inline auto MakePackDescriptor(MT *pmd, const std::vector<Uid_t> &var_ids,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  const auto identifier = impl::GetDescIdentifierString(var_ids, flags, options);
   Mesh *pmesh{nullptr};
   StateDescriptor *psd{nullptr};
   SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
 
   // Pull the descriptor base out of cache stored in mesh if possible
-  if (pmesh && pmesh->pack_map.count(identifier))
-    return typename SparsePack<>::Descriptor(pmesh->pack_map[identifier]);
+  auto key = std::make_tuple(var_ids, flags, options);
+  if (pmesh && pmesh->pack_desc_uid_cache->map.count(key))
+    return typename SparsePack<>::Descriptor(pmesh->pack_desc_uid_cache->map[key]);
 
   auto desc_base = impl::MakePackDescriptorBase(psd, var_ids, flags, options);
 
   // Store this in the cache for next time around if possible
-  if (pmesh) pmesh->pack_map.emplace(identifier, desc_base);
+  if (pmesh) pmesh->pack_desc_uid_cache->map.emplace(key, desc_base);
   return typename SparsePack<>::Descriptor(desc_base);
 }
 

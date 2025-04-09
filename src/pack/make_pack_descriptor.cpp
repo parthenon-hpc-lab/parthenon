@@ -63,49 +63,6 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   return PackDescriptor(psd, var_ids, selector, options);
 }
 
-std::string GetDescIdentifierString(const std::vector<std::string> &vars,
-                                    const std::vector<bool> &use_regex,
-                                    const std::vector<MetadataFlag> &flags,
-                                    const std::set<PDOpt> &options) {
-  std::string s;
-  for (auto &&var : vars) {
-    s += var;
-    s += " ";
-  }
-  for (auto &&reg : use_regex)
-    s += std::to_string(reg);
-  s += "((";
-  for (auto &&flag : flags) {
-    s += std::to_string(flag.Flag());
-    s += " ";
-  }
-  s += "))";
-  for (auto &&option : options)
-    s += std::to_string(static_cast<int>(option));
-  s += " ";
-  return s;
-}
-
-std::string GetDescIdentifierString(const std::vector<Uid_t> &var_ids,
-                                    const std::vector<MetadataFlag> &flags,
-                                    const std::set<PDOpt> &options) {
-  std::string s{"((UIDPACK)) "};
-  for (auto &&var : var_ids) {
-    s += std::to_string(var);
-    s += " ";
-  }
-  s += "((";
-  for (auto &&flag : flags) {
-    s += std::to_string(flag.Flag());
-    s += " ";
-  }
-  s += "))";
-  for (auto &&option : options)
-    s += std::to_string(static_cast<int>(option));
-  s += " ";
-  return s;
-}
-
 template <class MT>
 void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd) {
   psd = nullptr;
