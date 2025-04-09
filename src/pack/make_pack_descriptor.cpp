@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "mesh/meshblock.hpp"
 #include "pack/make_pack_descriptor.hpp"
 
 namespace parthenon {
@@ -71,6 +72,9 @@ void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd) {
                 std::is_same_v<MT, MeshBlockData<Real>>) {
     pmesh = pmd->GetMeshPointer();
     psd = pmesh->resolved_packages.get();
+  } else if constexpr (std::is_same_v<MT, MeshBlock>) {
+    pmesh = pmd->pmy_mesh;
+    psd = pmesh->resolved_packages.get(); 
   } else if constexpr (std::is_same_v<MT, Mesh>) {
     pmesh = pmd;
     psd = pmesh->resolved_packages.get();
@@ -86,6 +90,8 @@ template void SetMeshAndStateDescriptor<MeshBlockData<Real>>(MeshBlockData<Real>
                                                              StateDescriptor *&psd);
 template void SetMeshAndStateDescriptor<Mesh>(Mesh *pmd, Mesh *&pmesh,
                                               StateDescriptor *&psd);
+template void SetMeshAndStateDescriptor<MeshBlock>(MeshBlock *pmd, Mesh *&pmesh,
+                                                   StateDescriptor *&psd);
 template void SetMeshAndStateDescriptor<StateDescriptor>(StateDescriptor *pmd,
                                                          Mesh *&pmesh,
                                                          StateDescriptor *&psd);
