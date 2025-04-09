@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_DIFFUSION_GMG_DIFFUSION_EQUATION_HPP_
-#define EXAMPLE_DIFFUSION_GMG_DIFFUSION_EQUATION_HPP_
+#ifndef EXAMPLE_DIFFUSION_DIFFUSION_EQUATION_HPP_
+#define EXAMPLE_DIFFUSION_DIFFUSION_EQUATION_HPP_
 
 #include <memory>
 #include <set>
@@ -310,4 +310,4 @@ class DiffusionEquation {
 
 } // namespace diffusion_package
 
-#endif // EXAMPLE_DIFFUSION_GMG_DIFFUSION_EQUATION_HPP_
+#endif // EXAMPLE_DIFFUSION_DIFFUSION_EQUATION_HPP_

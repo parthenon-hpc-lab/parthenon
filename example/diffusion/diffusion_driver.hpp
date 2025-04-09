@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_
-#define EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_
+#ifndef EXAMPLE_DIFFUSION_DIFFUSION_DRIVER_HPP_
+#define EXAMPLE_DIFFUSION_DIFFUSION_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -48,4 +48,4 @@ parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput>
 
 } // namespace diffusion_example
 
-#endif // EXAMPLE_DIFFUSION_GMG_DIFFUSION_DRIVER_HPP_
+#endif // EXAMPLE_DIFFUSION_DIFFUSION_DRIVER_HPP_
