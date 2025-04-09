@@ -42,8 +42,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const bool constant_coeff =
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
-  auto desc = parthenon::MakePackDescriptor<diffusion_package::rhs, diffusion_package::u,
-                                            diffusion_package::D>(md);
+  auto desc =
+      parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
   auto pack = desc.GetPack(md);
 
   using TE = parthenon::TopologicalElement;
@@ -55,9 +55,9 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
       "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
-        Real x1 = coords.X<1, te>(i);
-        Real x2 = coords.X<2, te>(j);
-        Real x3 = coords.X<2, te>(k);
+        Real x1 = coords.Xc<1>(i);
+        Real x2 = coords.Xc<2>(j);
+        Real x3 = coords.Xc<2>(k);
         Real x1f = coords.X<1, TE::F1>(k, j, i);
         Real x2f = coords.X<2, TE::F2>(k, j, i);
         Real x3f = coords.X<2, TE::F3>(k, j, i);
