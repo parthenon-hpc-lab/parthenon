@@ -700,4 +700,11 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
 } // namespace MetadataUtils
 } // namespace parthenon
 
+template <>
+struct std::hash<parthenon::MetadataFlag> {
+  std::size_t operator()(const parthenon::MetadataFlag &flag) const {
+    return flag.Flag();
+  }
+};
+
 #endif // INTERFACE_METADATA_HPP_
