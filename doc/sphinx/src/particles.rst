@@ -151,7 +151,7 @@ Similarly to grid variables, particle swarms support
 This also supports ``FlatIdx`` for indexing; see the
 ``particle_leapfrog`` example for usage.
 
-. _swarm_packs:
+.. _swarm_packs:
 
 ``SwarmPack``\ s
 --------------
