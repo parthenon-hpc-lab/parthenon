@@ -29,6 +29,7 @@
 #include <mesh/meshblock_pack.hpp>
 #include <pack/make_pack_descriptor.hpp>
 #include <pack/make_swarm_pack_descriptor.hpp>
+#include <pack/pack_descriptor.hpp>
 #include <pack/sparse_pack.hpp>
 #include <pack/swarm_pack.hpp>
 #include <parameter_input.hpp>

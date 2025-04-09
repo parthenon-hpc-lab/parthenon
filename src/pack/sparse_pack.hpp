@@ -14,28 +14,14 @@
 #define PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
-#include <functional>
-#include <iostream>
-#include <limits>
-#include <map>
-#include <memory>
-#include <regex>
-#include <set>
-#include <string>
-#include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
-#include "interface/mesh_data.hpp"
-#include "interface/variable.hpp"
 #include "pack/block_selector.hpp"
-#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
-#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -400,6 +386,13 @@ inline std::ostream &operator<<(std::ostream &os, const SparsePack<Vars...> &sp)
 }
 
 // Implementation below
+namespace impl {
+template <class T>
+void GetBlockSelection(T *pmd, const block_selector_func_t &block_selector,
+                       std::vector<bool> &include_block,
+                       bool only_fine_two_level_composite_blocks);
+}
+
 template <class... Ts>
 template <class T>
 inline SparsePack<Ts...>
@@ -434,29 +427,8 @@ template <class T>
 inline SparsePack<Ts...> SparsePack<Ts...>::Descriptor::GetPack(
     T *pmd, const block_selector_func_t &block_selector, std::vector<bool> &include_block,
     bool only_fine_two_level_composite_blocks) const {
-  PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks() ||
-                        (include_block.size() == 0),
-                    "Must specify inclusion status for all blocks.");
-
-  // LFR: For multi-grid, we want to select only fine blocks on two-level composite
-  // grids by default since only the fine grid cells are "active" (the coarse level
-  // blocks just provide necessary boundary information during comms)
-  block_selector_func_t fbc_selector{};
-  if constexpr (std::is_same<T, MeshData<Real>>::value) {
-    if (only_fine_two_level_composite_blocks)
-      fbc_selector = GetBlockSelector::FineOnCompositeGrid(pmd);
-  }
-
-  // Select blocks for inclusion based on the specified user functor and possibly
-  // the two-level composite selector
-  if (block_selector || fbc_selector) {
-    if (include_block.size() == 0) include_block.resize(pmd->NumBlocks(), true);
-    ForEachBlock(pmd, std::vector<bool>{}, [&](int b, MeshBlockData<Real> *pmbd) {
-      const bool bs = block_selector ? block_selector(pmbd) : true;
-      const bool fbcs = fbc_selector ? fbc_selector(pmbd) : true;
-      include_block[b] = include_block[b] && bs && fbcs;
-    });
-  }
+  impl::GetBlockSelection(pmd, block_selector, include_block,
+                          only_fine_two_level_composite_blocks);
   return SparsePack<Ts...>(SparsePackBase::GetPack(pmd, *this, include_block));
 }
 
