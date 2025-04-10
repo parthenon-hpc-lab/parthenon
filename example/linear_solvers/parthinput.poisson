@@ -64,7 +64,7 @@ x2min = -1.0
 x2max = -0.75
 level = 3
 
-<poisson>
+<poisson_nodal>
 solver = BiCGSTAB # or MG
 flux_correct = true
 diagonal_alpha = 0.0
@@ -76,7 +76,7 @@ radius = 0.5
 interior_D = 100.0
 exterior_D = 1.0
 
-<poisson/solver_params>
+<poisson_nodal/solver_params>
 precondition = true
 max_iterations = 15
 residual_tolerance = 1.e-8
