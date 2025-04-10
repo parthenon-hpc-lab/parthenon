@@ -212,10 +212,15 @@ add_library(parthenon
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp
   pack/make_swarm_pack_descriptor.hpp
+  pack/pack_descriptor.cpp
+  pack/pack_descriptor.hpp
   pack/pack_utils.hpp
   pack/sparse_pack.hpp
+  pack/sparse_pack.cpp
   pack/sparse_pack_base.cpp
   pack/sparse_pack_base.hpp
+  pack/sparse_pack_cache.hpp
+  pack/sparse_pack_cache.cpp
   pack/swarm_default_names.hpp
   pack/swarm_pack.hpp
   pack/swarm_pack_base.hpp
