@@ -65,7 +65,6 @@ class MeshRefinement;
 class Packages_t;
 class ParameterInput;
 class RestartReader;
-class PackDescriptorCacheBase;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
@@ -116,9 +115,6 @@ class Mesh {
   ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
-
-  std::unordered_map<std::string, std::shared_ptr<PackDescriptorCacheBase>>
-      pack_desc_cache_map;
 
   // data
   bool modified;
