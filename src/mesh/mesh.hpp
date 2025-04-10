@@ -65,11 +65,14 @@ class MeshRefinement;
 class Packages_t;
 class ParameterInput;
 class RestartReader;
-struct PackDescriptorCache;
-struct PackDescriptorUidCache;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
+// Base class to allow cacheing of different types of PackDescriptors
+struct PackDescriptorCacheBase {
+  virtual ~PackDescriptorCacheBase() = default;
+};
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -116,8 +119,8 @@ class Mesh {
 
   const forest::Forest &Forest() const { return forest; }
 
-  std::unique_ptr<PackDescriptorCache> pack_desc_cache;
-  std::unique_ptr<PackDescriptorUidCache> pack_desc_uid_cache;
+  std::unordered_map<std::string, std::shared_ptr<PackDescriptorCacheBase>>
+      pack_desc_cache_map;
 
   // data
   bool modified;

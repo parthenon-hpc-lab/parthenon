@@ -27,12 +27,12 @@
 
 namespace parthenon {
 namespace impl {
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
                                       const std::vector<std::string> &vars,
                                       const std::vector<bool> &use_regex,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options);
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
                                       const std::vector<Uid_t> &var_ids,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options);
@@ -50,17 +50,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
   Mesh *pmesh{nullptr};
   StateDescriptor *psd{nullptr};
   SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
-
-  // Pull the descriptor base out of cache stored in mesh if possible
-  auto key = std::make_tuple(vars, use_regex, flags, options);
-  if (pmesh && pmesh->pack_desc_cache->map.count(key))
-    return typename SparsePack<>::Descriptor(pmesh->pack_desc_cache->map[key]);
-
-  auto desc_base = impl::MakePackDescriptorBase(psd, vars, use_regex, flags, options);
-
-  // Store this in the cache for next time around if possible
-  if (pmesh) pmesh->pack_desc_cache->map.emplace(key, desc_base);
-  return typename SparsePack<>::Descriptor(desc_base);
+  return typename SparsePack<>::Descriptor(
+      impl::MakePackDescriptorBase(psd, pmesh, vars, use_regex, flags, options));
 }
 
 template <class MT>
@@ -108,17 +99,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<Uid_t> &var_ids,
   Mesh *pmesh{nullptr};
   StateDescriptor *psd{nullptr};
   SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
-
-  // Pull the descriptor base out of cache stored in mesh if possible
-  auto key = std::make_tuple(var_ids, flags, options);
-  if (pmesh && pmesh->pack_desc_uid_cache->map.count(key))
-    return typename SparsePack<>::Descriptor(pmesh->pack_desc_uid_cache->map[key]);
-
-  auto desc_base = impl::MakePackDescriptorBase(psd, var_ids, flags, options);
-
-  // Store this in the cache for next time around if possible
-  if (pmesh) pmesh->pack_desc_uid_cache->map.emplace(key, desc_base);
-  return typename SparsePack<>::Descriptor(desc_base);
+  return typename SparsePack<>::Descriptor(
+      impl::MakePackDescriptorBase(psd, pmesh, var_ids, flags, options));
 }
 
 template <template <class...> class TL, class... Types, class... Args>

@@ -135,18 +135,6 @@ struct PackDescriptor {
 };
 } // namespace impl
 
-struct PackDescriptorCache {
-  using key_t = std::tuple<std::vector<std::string>, std::vector<bool>,
-                           std::vector<MetadataFlag>, std::set<PDOpt>>;
-  std::unordered_map<key_t, impl::PackDescriptor> map;
-};
-
-struct PackDescriptorUidCache {
-  using key_t =
-      std::tuple<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
-  std::unordered_map<key_t, impl::PackDescriptor> map;
-};
-
 } // namespace parthenon
 
 #endif // PACK_PACK_DESCRIPTOR_HPP_
