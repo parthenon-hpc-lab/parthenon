@@ -15,11 +15,14 @@ get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
 if( "poisson-nodal-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
       poisson-nodal-example
-          poisson_driver.cpp
-          poisson_driver.hpp
+          linear_solver_driver.cpp
+          linear_solver_driver.hpp
           poisson_equation.hpp
           poisson_package.cpp
           poisson_package.hpp
+          helmholtz_equation.hpp
+          helmholtz_package.cpp
+          helmholtz_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
   )

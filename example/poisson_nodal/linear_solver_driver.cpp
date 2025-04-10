@@ -18,26 +18,27 @@
 #include <vector>
 
 // Local Includes
-#include "amr_criteria/refinement_package.hpp"
-#include "bvals/comms/bvals_in_one.hpp"
-#include "interface/metadata.hpp"
-#include "interface/update.hpp"
-#include "mesh/meshblock_pack.hpp"
-#include "parthenon/driver.hpp"
-#include "poisson_driver.hpp"
+#include <amr_criteria/refinement_package.hpp>
+#include <bvals/comms/bvals_in_one.hpp>
+#include <interface/metadata.hpp>
+#include <interface/update.hpp>
+#include <mesh/meshblock_pack.hpp>
+#include <parthenon/driver.hpp>
+#include <prolong_restrict/prolong_restrict.hpp>
+#include <solvers/bicgstab_solver.hpp>
+#include <solvers/cg_solver.hpp>
+#include <solvers/mg_solver.hpp>
+#include <solvers/solver_utils.hpp>
+
+#include "linear_solver_driver.hpp"
 #include "poisson_equation.hpp"
 #include "poisson_package.hpp"
-#include "prolong_restrict/prolong_restrict.hpp"
-#include "solvers/bicgstab_solver.hpp"
-#include "solvers/cg_solver.hpp"
-#include "solvers/mg_solver.hpp"
-#include "solvers/solver_utils.hpp"
 
 using namespace parthenon::driver::prelude;
 
-namespace poisson_example {
+namespace linear_solver_example {
 
-parthenon::DriverStatus PoissonDriver::Execute() {
+parthenon::DriverStatus LinearSolverDriver::Execute() {
   using namespace parthenon;
   using namespace poisson_package;
 
@@ -54,7 +55,7 @@ parthenon::DriverStatus PoissonDriver::Execute() {
   return DriverStatus::complete;
 }
 
-TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
+TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
   using namespace poisson_package;
   TaskCollection tc;
@@ -113,7 +114,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       auto get_err = solvers::utils::between_fields::DotProduct<u, u>(diff, tl, &err, md);
       tl.AddTask(
           get_err,
-          [](PoissonDriver *driver, int partition) {
+          [](LinearSolverDriver *driver, int partition) {
             if (partition != 0) return TaskStatus::complete;
             driver->final_rms_error =
                 std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());

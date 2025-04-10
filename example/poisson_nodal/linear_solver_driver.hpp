@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_POISSON_NODAL_POISSON_DRIVER_HPP_
-#define EXAMPLE_POISSON_NODAL_POISSON_DRIVER_HPP_
+#ifndef EXAMPLE_POISSON_NODAL_LINEAR_SOLVER_DRIVER_HPP_
+#define EXAMPLE_POISSON_NODAL_LINEAR_SOLVER_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -21,12 +21,12 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-namespace poisson_example {
+namespace linear_solver_example {
 using namespace parthenon::driver::prelude;
 
-class PoissonDriver : public Driver {
+class LinearSolverDriver : public Driver {
  public:
-  PoissonDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+  LinearSolverDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : Driver(pin, app_in, pm) {
     InitializeOutputs();
   }

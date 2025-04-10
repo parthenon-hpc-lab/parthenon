@@ -13,7 +13,7 @@
 
 #include "parthenon_manager.hpp"
 
-#include "poisson_driver.hpp"
+#include "linear_solver_driver.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = poisson_example::ProcessPackages;
-  pman.app_input->MeshProblemGenerator = poisson_example::ProblemGenerator;
+  pman.app_input->ProcessPackages = linear_solver_example::ProcessPackages;
+  pman.app_input->MeshProblemGenerator = linear_solver_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);
@@ -43,8 +43,9 @@ int main(int argc, char *argv[]) {
   bool success = true;
   {
     // Initialize the driver
-    poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                          pman.pmesh.get());
+    linear_solver_example::LinearSolverDriver driver(pman.pinput.get(),
+                                                     pman.app_input.get(),
+                                                     pman.pmesh.get());
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();

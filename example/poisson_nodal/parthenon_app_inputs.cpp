@@ -19,6 +19,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "poisson_package.hpp"
+#include "helmholtz_package.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -28,7 +29,7 @@ using namespace parthenon;
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
 
-namespace poisson_example {
+namespace linear_solver_example {
 
 void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -84,10 +85,9 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  auto pkg = poisson_package::Initialize(pin.get());
-  packages.Add(pkg);
-
+  packages.Add(poisson_package::Initialize(pin.get()));
+  packages.Add(helmholtz_package::Initialize(pin.get()));
   return packages;
 }
 
-} // namespace poisson_example
+} // namespace linear_solver_example
