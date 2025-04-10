@@ -13,8 +13,11 @@
 #ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
 #define PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
+#include <memory>
 #include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -112,6 +115,50 @@ template <class TL, class... Args>
 inline auto MakePackDescriptorFromTypeList(Args &&...args) {
   return MakePackDescriptorFromTypeList(TL(), std::forward<Args>(args)...);
 }
+
+struct PackDescriptorCacheBase {
+  virtual ~PackDescriptorCacheBase() = default;
+};
+
+template <class... Ts>
+class PackDescCache : public PackDescriptorCacheBase {
+ public:
+  using key_t = std::tuple<Ts...>;
+  std::unordered_map<key_t, impl::PackDescriptor> map;
+
+  static std::optional<impl::PackDescriptor>
+  CheckForKeyInMesh(Mesh *pmesh, const std::string &cache_label, const Ts &...args) {
+    if (pmesh) {
+      if (!pmesh->pack_desc_cache_map.count(cache_label)) {
+        // Create a cache for PackDescriptors created with this particular selector
+        auto pcache = std::make_shared<PackDescCache>();
+        pmesh->pack_desc_cache_map.emplace(
+            cache_label, std::dynamic_pointer_cast<PackDescriptorCacheBase>(pcache));
+      } else {
+        // Check if a PackDescriptor already exists in the cache
+        auto pcache = std::dynamic_pointer_cast<PackDescCache>(
+            pmesh->pack_desc_cache_map[cache_label]);
+        auto key = std::make_tuple(args...);
+        if (pcache->map.count(key))
+          return std::optional<impl::PackDescriptor>{pcache->map[key]};
+      }
+    }
+    return std::nullopt;
+  }
+
+  static void CachePackDescriptorInMesh(Mesh *pmesh, const std::string &cache_label,
+                                        const impl::PackDescriptor &pd,
+                                        const Ts &...args) {
+    if (pmesh) {
+      // Store the newly created PackDescriptor in the cache
+      auto pcache = std::dynamic_pointer_cast<PackDescCache>(
+          pmesh->pack_desc_cache_map[cache_label]);
+      auto key = std::make_tuple(args...);
+      pcache->map.emplace(key, pd);
+    }
+  }
+};
+
 } // namespace parthenon
 
 #endif // PACK_MAKE_PACK_DESCRIPTOR_HPP_
