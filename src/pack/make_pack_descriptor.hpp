@@ -30,17 +30,17 @@
 
 namespace parthenon {
 namespace impl {
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<std::string> &vars,
                                       const std::vector<bool> &use_regex,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options);
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<Uid_t> &var_ids,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options);
 template <class MT>
-void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd);
+StateDescriptor *GetStateDescriptor(MT *pmd);
 } // namespace impl
 
 inline auto MakeDefaultPackDescriptor() { return typename SparsePack<>::Descriptor(); }
@@ -50,11 +50,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                                const std::vector<bool> &use_regex,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  Mesh *pmesh{nullptr};
-  StateDescriptor *psd{nullptr};
-  SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
-  return typename SparsePack<>::Descriptor(
-      impl::MakePackDescriptorBase(psd, pmesh, vars, use_regex, flags, options));
+  return typename SparsePack<>::Descriptor(impl::MakePackDescriptorBase(
+      impl::GetStateDescriptor<MT>(pmd), vars, use_regex, flags, options));
 }
 
 template <class MT>
@@ -99,11 +96,8 @@ template <class MT>
 inline auto MakePackDescriptor(MT *pmd, const std::vector<Uid_t> &var_ids,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
-  Mesh *pmesh{nullptr};
-  StateDescriptor *psd{nullptr};
-  SetMeshAndStateDescriptor<MT>(pmd, pmesh, psd);
-  return typename SparsePack<>::Descriptor(
-      impl::MakePackDescriptorBase(psd, pmesh, var_ids, flags, options));
+  return typename SparsePack<>::Descriptor(impl::MakePackDescriptorBase(
+      impl::GetStateDescriptor<MT>(pmd), var_ids, flags, options));
 }
 
 template <template <class...> class TL, class... Types, class... Args>
@@ -127,17 +121,18 @@ class PackDescCache : public PackDescriptorCacheBase {
   std::unordered_map<key_t, impl::PackDescriptor> map;
 
   static std::optional<impl::PackDescriptor>
-  CheckForKeyInMesh(Mesh *pmesh, const std::string &cache_label, const Ts &...args) {
-    if (pmesh) {
-      if (!pmesh->pack_desc_cache_map.count(cache_label)) {
+  CheckForKeyInMesh(StateDescriptor *pdesc, const std::string &cache_label,
+                    const Ts &...args) {
+    if (pdesc) {
+      if (!pdesc->pack_desc_cache_map.count(cache_label)) {
         // Create a cache for PackDescriptors created with this particular selector
         auto pcache = std::make_shared<PackDescCache>();
-        pmesh->pack_desc_cache_map.emplace(
+        pdesc->pack_desc_cache_map.emplace(
             cache_label, std::dynamic_pointer_cast<PackDescriptorCacheBase>(pcache));
       } else {
         // Check if a PackDescriptor already exists in the cache
         auto pcache = std::dynamic_pointer_cast<PackDescCache>(
-            pmesh->pack_desc_cache_map[cache_label]);
+            pdesc->pack_desc_cache_map[cache_label]);
         auto key = std::make_tuple(args...);
         if (pcache->map.count(key))
           return std::optional<impl::PackDescriptor>{pcache->map[key]};
@@ -146,13 +141,14 @@ class PackDescCache : public PackDescriptorCacheBase {
     return std::nullopt;
   }
 
-  static void CachePackDescriptorInMesh(Mesh *pmesh, const std::string &cache_label,
+  static void CachePackDescriptorInMesh(StateDescriptor *pdesc,
+                                        const std::string &cache_label,
                                         const impl::PackDescriptor &pd,
                                         const Ts &...args) {
-    if (pmesh) {
+    if (pdesc) {
       // Store the newly created PackDescriptor in the cache
       auto pcache = std::dynamic_pointer_cast<PackDescCache>(
-          pmesh->pack_desc_cache_map[cache_label]);
+          pdesc->pack_desc_cache_map[cache_label]);
       auto key = std::make_tuple(args...);
       pcache->map.emplace(key, pd);
     }

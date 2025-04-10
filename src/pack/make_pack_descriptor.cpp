@@ -25,7 +25,7 @@
 namespace parthenon {
 namespace impl {
 
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<std::string> &vars,
                                       const std::vector<bool> &use_regex,
                                       const std::vector<MetadataFlag> &flags,
@@ -34,7 +34,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   using PDCache = PackDescCache<std::vector<std::string>, std::vector<bool>,
                                 std::vector<MetadataFlag>, std::set<PDOpt>>;
   auto optional_pd =
-      PDCache::CheckForKeyInMesh(pmesh, cache_label, vars, use_regex, flags, options);
+      PDCache::CheckForKeyInMesh(psd, cache_label, vars, use_regex, flags, options);
   if (optional_pd) return *optional_pd;
 
   PARTHENON_REQUIRE(vars.size() == use_regex.size(),
@@ -56,19 +56,12 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   };
 
   auto pd = PackDescriptor(psd, vars, selector, options);
-  PDCache::CachePackDescriptorInMesh(pmesh, cache_label, pd, vars, use_regex, flags,
+  PDCache::CachePackDescriptorInMesh(psd, cache_label, pd, vars, use_regex, flags,
                                      options);
   return pd;
 }
 
-class PackDescUidCache : public PackDescriptorCacheBase {
- public:
-  using key_t =
-      std::tuple<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
-  std::unordered_map<key_t, impl::PackDescriptor> map;
-};
-
-PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
+PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
                                       const std::vector<Uid_t> &var_ids,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options) {
@@ -76,7 +69,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   using PDCache =
       PackDescCache<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
   auto optional_pd =
-      PDCache::CheckForKeyInMesh(pmesh, cache_label, var_ids, flags, options);
+      PDCache::CheckForKeyInMesh(psd, cache_label, var_ids, flags, options);
   if (optional_pd) return *optional_pd;
 
   auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
@@ -90,41 +83,30 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   };
 
   auto pd = PackDescriptor(psd, var_ids, selector, options);
-  PDCache::CachePackDescriptorInMesh(pmesh, cache_label, pd, var_ids, flags, options);
+  PDCache::CachePackDescriptorInMesh(psd, cache_label, pd, var_ids, flags, options);
   return PackDescriptor(psd, var_ids, selector, options);
 }
 
 template <class MT>
-void SetMeshAndStateDescriptor(MT *pmd, Mesh *&pmesh, StateDescriptor *&psd) {
-  psd = nullptr;
-  pmesh = nullptr;
+StateDescriptor *GetStateDescriptor(MT *pmd) {
   if constexpr (std::is_same_v<MT, MeshData<Real>> ||
                 std::is_same_v<MT, MeshBlockData<Real>>) {
-    pmesh = pmd->GetMeshPointer();
-    psd = pmesh->resolved_packages.get();
+    return pmd->GetMeshPointer()->resolved_packages.get();
   } else if constexpr (std::is_same_v<MT, MeshBlock>) {
-    pmesh = pmd->pmy_mesh;
-    psd = pmesh->resolved_packages.get();
+    return pmd->pmy_mesh->resolved_packages.get();
   } else if constexpr (std::is_same_v<MT, Mesh>) {
-    pmesh = pmd;
-    psd = pmesh->resolved_packages.get();
+    return pmd->resolved_packages.get();
   } else if constexpr (std::is_same_v<MT, StateDescriptor>) {
-    psd = pmd;
+    return pmd;
   }
 }
 
-template void SetMeshAndStateDescriptor<MeshData<Real>>(MeshData<Real> *pmd, Mesh *&pmesh,
-                                                        StateDescriptor *&psd);
-template void SetMeshAndStateDescriptor<MeshBlockData<Real>>(MeshBlockData<Real> *pmd,
-                                                             Mesh *&pmesh,
-                                                             StateDescriptor *&psd);
-template void SetMeshAndStateDescriptor<Mesh>(Mesh *pmd, Mesh *&pmesh,
-                                              StateDescriptor *&psd);
-template void SetMeshAndStateDescriptor<MeshBlock>(MeshBlock *pmd, Mesh *&pmesh,
-                                                   StateDescriptor *&psd);
-template void SetMeshAndStateDescriptor<StateDescriptor>(StateDescriptor *pmd,
-                                                         Mesh *&pmesh,
-                                                         StateDescriptor *&psd);
+template StateDescriptor *GetStateDescriptor<MeshData<Real>>(MeshData<Real> *pmd);
+template StateDescriptor *
+GetStateDescriptor<MeshBlockData<Real>>(MeshBlockData<Real> *pmd);
+template StateDescriptor *GetStateDescriptor<Mesh>(Mesh *pmd);
+template StateDescriptor *GetStateDescriptor<MeshBlock>(MeshBlock *pmd);
+template StateDescriptor *GetStateDescriptor<StateDescriptor>(StateDescriptor *pmd);
 
 } // namespace impl
 } // namespace parthenon

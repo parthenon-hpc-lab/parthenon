@@ -43,6 +43,7 @@ template <typename T>
 class MeshData;
 class AMRCriteria;
 class Packages_t;
+class PackDescriptorCacheBase;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -402,6 +403,10 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
   std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
+
+  // Caches for PackDescriptors associated with this StateDescriptor
+  std::unordered_map<std::string, std::shared_ptr<PackDescriptorCacheBase>>
+      pack_desc_cache_map;
 
  protected:
   // internal function to add dense/sparse fields. Private because outside classes must
