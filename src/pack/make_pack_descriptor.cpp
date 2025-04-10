@@ -24,12 +24,6 @@
 
 namespace parthenon {
 namespace impl {
-class PackDescCache : public PackDescriptorCacheBase {
- public:
-  using key_t = std::tuple<std::vector<std::string>, std::vector<bool>,
-                           std::vector<MetadataFlag>, std::set<PDOpt>>;
-  std::unordered_map<key_t, impl::PackDescriptor> map;
-};
 
 PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
                                       const std::vector<std::string> &vars,
@@ -37,20 +31,11 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options) {
   const std::string cache_label{"normal"};
-  if (pmesh) {
-    if (!pmesh->pack_desc_cache_map.count(cache_label)) {
-      // Create a cache for PackDescriptors created with this particular selector
-      auto pcache = std::make_shared<PackDescCache>();
-      pmesh->pack_desc_cache_map.emplace(
-          cache_label, std::dynamic_pointer_cast<PackDescriptorCacheBase>(pcache));
-    } else {
-      // Check if a PackDescriptor already exists in the cache
-      auto pcache = std::dynamic_pointer_cast<PackDescCache>(
-          pmesh->pack_desc_cache_map[cache_label]);
-      auto key = std::make_tuple(vars, use_regex, flags, options);
-      if (pcache->map.count(key)) return pcache->map[key];
-    }
-  }
+  using PDCache = PackDescCache<std::vector<std::string>, std::vector<bool>,
+                                std::vector<MetadataFlag>, std::set<PDOpt>>;
+  auto optional_pd =
+      PDCache::CheckForKeyInMesh(pmesh, cache_label, vars, use_regex, flags, options);
+  if (optional_pd) return *optional_pd;
 
   PARTHENON_REQUIRE(vars.size() == use_regex.size(),
                     "Vargroup names and use_regex need to be the same size.");
@@ -71,14 +56,8 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   };
 
   auto pd = PackDescriptor(psd, vars, selector, options);
-
-  if (pmesh) {
-    // Store the newly created PackDescriptor in the cache
-    auto pcache =
-        std::dynamic_pointer_cast<PackDescCache>(pmesh->pack_desc_cache_map[cache_label]);
-    auto key = std::make_tuple(vars, use_regex, flags, options);
-    pcache->map.emplace(key, pd);
-  }
+  PDCache::CachePackDescriptorInMesh(pmesh, cache_label, pd, vars, use_regex, flags,
+                                     options);
   return pd;
 }
 
@@ -94,17 +73,11 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
                                       const std::vector<MetadataFlag> &flags,
                                       const std::set<PDOpt> &options) {
   const std::string cache_label{"uid"};
-  if (pmesh) {
-    if (!pmesh->pack_desc_cache_map.count(cache_label)) {
-      auto pcache = std::make_shared<PackDescUidCache>();
-      pmesh->pack_desc_cache_map.emplace(
-          cache_label, std::dynamic_pointer_cast<PackDescriptorCacheBase>(pcache));
-    }
-    auto pcache = std::dynamic_pointer_cast<PackDescUidCache>(
-        pmesh->pack_desc_cache_map[cache_label]);
-    auto key = std::make_tuple(var_ids, flags, options);
-    if (pcache->map.count(key)) return pcache->map[key];
-  }
+  using PDCache =
+      PackDescCache<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
+  auto optional_pd =
+      PDCache::CheckForKeyInMesh(pmesh, cache_label, var_ids, flags, options);
+  if (optional_pd) return *optional_pd;
 
   auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
     if (flags.size() > 0) {
@@ -117,13 +90,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd, Mesh *pmesh,
   };
 
   auto pd = PackDescriptor(psd, var_ids, selector, options);
-  if (pmesh) {
-    auto pcache = std::dynamic_pointer_cast<PackDescUidCache>(
-        pmesh->pack_desc_cache_map[cache_label]);
-    auto key = std::make_tuple(var_ids, flags, options);
-    pcache->map.emplace(key, pd);
-  }
-
+  PDCache::CachePackDescriptorInMesh(pmesh, cache_label, pd, var_ids, flags, options);
   return PackDescriptor(psd, var_ids, selector, options);
 }
 
