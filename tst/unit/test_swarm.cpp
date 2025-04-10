@@ -19,8 +19,10 @@
 
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -28,9 +30,9 @@
 #include "bvals/boundary_conditions_generic.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "interface/swarm.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/swarm_default_names.hpp"
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -92,7 +94,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   mesh->mesh_bcs[0] = BoundaryFlag::user;
   meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
-    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+    mesh->mesh_bcs[i] = BoundaryFlag::user;
     meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();
@@ -209,6 +211,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+
+  // Check for internal index consistency after defragmentation operation
+  swarm->Validate();
 
   // Check that data was moved during defrag
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();

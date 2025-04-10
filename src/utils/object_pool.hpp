@@ -179,8 +179,9 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
 
   KOKKOS_FUNCTION
   ~owner_t() noexcept {
-    KOKKOS_IF_ON_HOST(
-        if (weak_t::pool_ != nullptr) { (*weak_t::pool_).ReferenceCountedFree(*this); })
+    KOKKOS_IF_ON_HOST(if (weak_t::pool_ != nullptr) {
+      (*weak_t::pool_).ReferenceCountedFree(*this);
+    }) // NOLINT
   }
 
   // Warning, the move constructors are messed up and don't copy over the weak_t

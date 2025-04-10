@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023-2024 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,12 +15,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#include "defs.hpp"
 #include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/swarm.hpp"
@@ -30,6 +33,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
@@ -279,6 +283,16 @@ void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &
   }
 }
 
+constexpr void CheckMPISizeT() {
+#ifdef MPI_PARALLEL
+  static_assert(std::is_integral<std::size_t>::value &&
+                    !std::is_signed<std::size_t>::value,
+                "size_t is unsigned and integral");
+  static_assert((sizeof(void *) == 4) || (sizeof(void *) == 8),
+                "We're on a 32 or 64 bit system.");
+#endif
+}
+
 // TODO(JMM): may need to generalize this
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   std::size_t out = 0;
@@ -287,14 +301,9 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   // Need to use sizeof here because unsigned long long and unsigned
   // long are identical under the hood but registered as different
   // types
-  static_assert(std::is_integral<std::size_t>::value &&
-                    !std::is_signed<std::size_t>::value,
-                "size_t is unsigned and integral");
-  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
-                "MPI_UNSIGNED_LONG_LONG same as size_t");
+  CheckMPISizeT();
   std::vector<std::size_t> buffer(Globals::nranks);
-  MPI_Allgather(&local, 1, MPI_UNSIGNED_LONG_LONG, buffer.data(), 1,
-                MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+  MPI_Allgather(&local, 1, MPI_SIZE_T, buffer.data(), 1, MPI_SIZE_T, MPI_COMM_WORLD);
   for (int i = 0; i < Globals::my_rank; ++i) {
     out += buffer[i];
   }
@@ -306,21 +315,32 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
 #endif // MPI_PARALLEL
   return out;
 }
+
 std::size_t MPISum(std::size_t val) {
 #ifdef MPI_PARALLEL
-  // Need to use sizeof here because unsigned long long and unsigned
-  // long are identical under the hood but registered as different
-  // types
-  static_assert(std::is_integral<std::size_t>::value &&
-                    !std::is_signed<std::size_t>::value,
-                "size_t is unsigned and integral");
-  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
-                "MPI_UNSIGNED_LONG_LONG same as size_t");
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_UNSIGNED_LONG_LONG,
-                                    MPI_SUM, MPI_COMM_WORLD));
+  CheckMPISizeT();
+  PARTHENON_MPI_CHECK(
+      MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
 }
 
+void CheckParameterInputConsistent(ParameterInput *pin) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
+
+  std::size_t pin_hash = std::hash<ParameterInput>()(*pin);
+  std::size_t pin_hash_root = pin_hash;
+  PARTHENON_MPI_CHECK(MPI_Bcast(&pin_hash_root, 1, MPI_SIZE_T, 0, MPI_COMM_WORLD));
+  PARTHENON_REQUIRE_THROWS(
+      pin_hash == pin_hash_root,
+      "Parameter input object must be the same on every rank, otherwise I/O may "
+      "be\n\t\t"
+      "unable to write it safely. If you reached this error message, look to make "
+      "sure\n\t\t"
+      "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
+      "exactly the same way on every MPI rank.");
+#endif // MPI_PARALLEL
+}
 } // namespace OutputUtils
 } // namespace parthenon

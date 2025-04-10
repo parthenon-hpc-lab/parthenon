@@ -23,12 +23,14 @@
 #include <vector>
 
 #include "bvals/comms/bnd_info.hpp"
-#include "interface/sparse_pack_base.hpp"
-#include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack_base.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
@@ -149,8 +151,8 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   }
 
   if (make_new_pack) {
-    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
-    auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
+    auto packs_host = create_view_of_view_mirror(packs);
 
     for (size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
@@ -474,6 +476,14 @@ class MeshData {
   bool ContainsExactly(const Vars_t &vars) const noexcept {
     return std::all_of(block_data_.begin(), block_data_.end(),
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
+  }
+
+  // Checks that the same set of variables was requested to create this container
+  // (which may be different than the set of variables in the container because of fluxes)
+  template <typename Vars_t>
+  bool CreatedFrom(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->CreatedFrom(vars); });
   }
 
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {

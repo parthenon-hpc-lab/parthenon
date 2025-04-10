@@ -14,6 +14,7 @@
 #ifndef ARGUMENT_PARSER_HPP_
 #define ARGUMENT_PARSER_HPP_
 
+#include <cstdio>
 #include <iostream>
 #include <string>
 

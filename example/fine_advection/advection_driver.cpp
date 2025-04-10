@@ -21,6 +21,7 @@
 #include "amr_criteria/refinement_package.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
@@ -72,6 +73,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskCollection tc;
   TaskID none(0);
 
+  std::shared_ptr<parthenon::StateDescriptor> pkg =
+      pmesh->packages.Get("advection_package");
+  const auto do_regular_advection = pkg->Param<bool>("do_regular_advection");
+  const auto do_fine_advection = pkg->Param<bool>("do_fine_advection");
+  const auto do_CT_advection = pkg->Param<bool>("do_CT_advection");
+
   // Build MeshBlockData containers that will be included in MeshData containers. It is
   // gross that this has to be done by hand.
   const auto &stage_name = integrator->stage_name;
@@ -118,35 +125,49 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto flx = none;
     auto flx_fine = none;
     for (auto face : faces) {
-      flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>, desc,
-                             face, parthenon::CellLevel::same, mc0.get());
-      flx_fine = flx_fine |
-                 tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_fine_t>,
-                            desc_fine, face, parthenon::CellLevel::fine, mc0.get());
+      if (do_regular_advection) {
+        flx = flx | tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_t>,
+                               desc, face, parthenon::CellLevel::same, mc0.get());
+      }
+      if (do_fine_advection) {
+        flx_fine = flx_fine |
+                   tl.AddTask(none, advection_package::CalculateFluxes<pack_desc_fine_t>,
+                              desc_fine, face, parthenon::CellLevel::fine, mc0.get());
+      }
     }
 
     auto vf_dep = none;
-    for (auto edge : std::vector<TE>{TE::E1, TE::E2, TE::E3}) {
-      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<C, D>, edge,
-                          parthenon::CellLevel::same, 1.0, mc0.get());
-      vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<D, C>, edge,
-                          parthenon::CellLevel::same, -1.0, mc0.get());
+    if (do_CT_advection) {
+      for (auto edge : std::vector<TE>{TE::E1, TE::E2, TE::E3}) {
+        vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<C, D>, edge,
+                            parthenon::CellLevel::same, 1.0, mc0.get());
+        vf_dep = tl.AddTask(vf_dep, advection_package::CalculateVectorFluxes<D, C>, edge,
+                            parthenon::CellLevel::same, -1.0, mc0.get());
+      }
     }
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(
         start_flxcor | flx | flx_fine | vf_dep, tl, mc0, pmesh->multilevel);
 
-    auto update =
-        AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt, desc,
-                       mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    auto update = set_flx;
+    if (do_regular_advection) {
+      update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt,
+                              desc, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    }
 
-    auto update_fine =
-        AddUpdateTasks(set_flx, tl, parthenon::CellLevel::fine, TT::Cell, beta, dt,
-                       desc_fine, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    auto update_fine = set_flx;
+    if (do_fine_advection) {
+      update_fine =
+          AddUpdateTasks(set_flx, tl, parthenon::CellLevel::fine, TT::Cell, beta, dt,
+                         desc_fine, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    }
 
-    auto update_vec =
-        AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Face, beta, dt,
-                       desc_vec, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    auto update_vec = set_flx;
+    if (do_CT_advection) {
+      update_vec =
+          AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Face, beta, dt,
+                         desc_vec, mbase.get(), mc0.get(), mdudt.get(), mc1.get());
+    }
 
     auto boundaries = parthenon::AddBoundaryExchangeTasks(
         update | update_vec | update_fine | start_send, tl, mc1, pmesh->multilevel);
@@ -155,7 +176,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mc1.get());
 
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(fill_derived, EstimateTimestep<MeshData<Real>>, mc1.get());
+      auto dealloc = tl.AddTask(fill_derived, SparseDealloc, mc1.get());
+      auto new_dt = tl.AddTask(dealloc, EstimateTimestep<MeshData<Real>>, mc1.get());
       if (pmesh->adaptive) {
         auto tag_refine =
             tl.AddTask(new_dt, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());

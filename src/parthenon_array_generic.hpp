@@ -21,6 +21,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <Kokkos_ScatterView.hpp>
+
 #include "utils/concepts_lite.hpp"
 
 namespace parthenon {
@@ -214,6 +216,24 @@ class ParArrayGeneric : public State {
 
   KOKKOS_INLINE_FUNCTION auto size() const { return data_.size(); }
 
+  // utilities for scatter views
+  template <typename Op = Kokkos::Experimental::ScatterSum>
+  auto ToScatterView() {
+    using view_type = std::remove_cv_t<std::remove_reference_t<Data>>;
+    using data_type = typename view_type::data_type;
+    using exec_space = typename view_type::execution_space;
+    using layout = typename view_type::array_layout;
+    return Kokkos::Experimental::ScatterView<data_type, layout, exec_space, Op>(data_);
+  }
+
+  template <class ScatterView_t>
+  void ContributeScatter(ScatterView_t scatter) {
+    static_assert(
+        is_specialization_of<ScatterView_t, Kokkos::Experimental::ScatterView>::value,
+        "Need to provide a Kokkos::Experimental::ScatterView");
+    Kokkos::Experimental::contribute(data_, scatter);
+  }
+
   // a function to get the total size of the array
   KOKKOS_INLINE_FUNCTION int GetSize() const {
     return data_.size();
@@ -221,6 +241,8 @@ class ParArrayGeneric : public State {
     // return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);
   }
 
+  // TODO(PG?) Can we use concepts here to add a
+  // Kokkos::view_alloc(Kokkos::SequentialHostInit) when the original is a ViewOfView?
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, data_);
@@ -333,6 +355,8 @@ inline auto subview(std::index_sequence<I...>,
   return parthenon::ParArrayGeneric<decltype(v), SU>(v, arr);
 }
 
+// TODO(PG?) Can we use concepts here to add a
+// Kokkos::view_alloc(Kokkos::SequentialHostInit) when the original is a ViewOfView?
 template <class Space, class U, class SU>
 inline auto create_mirror_view_and_copy(Space const &space,
                                         const parthenon::ParArrayGeneric<U, SU> &arr) {

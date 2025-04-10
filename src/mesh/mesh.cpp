@@ -21,6 +21,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,10 +39,13 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "amr_criteria/refinement_package.hpp"
+#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
@@ -147,13 +152,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        pin->GetInteger("parthenon/mesh", "nx3")},
       {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
        pin->GetInteger("parthenon/mesh", "nx3") == 1});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
@@ -171,7 +171,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
 
   // SMR / AMR:
@@ -191,13 +192,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
   mesh_size =
       RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
+
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
@@ -215,7 +212,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // Load balancing flag and parameters
   forest = forest::Forest::Make2D(forest_def);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
   BuildBlockList(pin, app_in, packages, 0);
 }
@@ -640,7 +638,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   }
 }
 
-void Mesh::CommunicateBoundaries(std::string md_name) {
+void Mesh::CommunicateBoundaries(std::string md_name,
+                                 const std::vector<std::string> &fields) {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   constexpr std::int64_t max_it = 1e10;
@@ -652,7 +651,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_sent = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -676,7 +675,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_received = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -692,14 +691,14 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       "Too many iterations waiting to receive boundary communication buffers.");
 
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);
@@ -816,8 +815,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     FillDerived();
 
     if (init_problem && adaptive) {
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->pmr->CheckRefinementCondition();
+      for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        auto &md = mesh_data.Add("base", partition);
+        Refinement::Tag(md.get());
       }
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
@@ -905,6 +905,18 @@ const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   } else { // if (level == CellLevel::coarse) {
     return shapes[2];
   }
+}
+
+ParArray1D<AmrTag> &Mesh::GetAmrTags() {
+  const int nblocks = GetNumMeshBlocksThisRank();
+  if (!amr_tags.KokkosView().is_allocated()) {
+    amr_tags.KokkosView() = Kokkos::View<AmrTag *>(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks);
+  }
+  if (amr_tags.KokkosView().size() != nblocks) {
+    Kokkos::realloc(amr_tags.KokkosView(), nblocks);
+  }
+  return amr_tags;
 }
 
 // Functionality re-used in mesh constructor
@@ -1176,6 +1188,46 @@ Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
     logicalLocations.push_back(loc.lx3());
   }
   return std::make_pair(levels, logicalLocations);
+}
+
+void Mesh::SetBCNames_(ParameterInput *pin) {
+  mesh_bc_names = {pin->GetOrAddString("parthenon/mesh", "ix1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox1_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox2_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow"),
+                   pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow")};
+  // JMM: This is needed because not all BCs are necessarily
+  // implemented for swarms
+  auto maybe = [](const std::string &s) {
+    return ((s == "outflow") || (s == "periodic")) ? s : "outflow";
+  };
+  mesh_swarm_bc_names = {
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", maybe(mesh_bc_names[0])),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", maybe(mesh_bc_names[1])),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", maybe(mesh_bc_names[2])),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", maybe(mesh_bc_names[3])),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", maybe(mesh_bc_names[4])),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", maybe(mesh_bc_names[5]))};
+  // JMM: A consequence of having only one boundary flag array but
+  // multiple boundary function arrays is that swarms *must* be
+  // periodic if the mesh is periodic but otherwise mesh and swarm
+  // boundaries are decoupled.
+  for (int i = 0; i < BOUNDARY_NFACES; ++i) {
+    if (mesh_bc_names[i] == "periodic") {
+      PARTHENON_REQUIRE(mesh_swarm_bc_names[i] == "periodic",
+                        "If the mesh is periodic, swarms must be also.");
+    }
+  }
+}
+
+std::array<BoundaryFlag, BOUNDARY_NFACES>
+Mesh::GetBCsFromNames_(const std::array<std::string, BOUNDARY_NFACES> &names) const {
+  std::array<BoundaryFlag, BOUNDARY_NFACES> out;
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    out[f] = GetBoundaryFlag(names[f]);
+  }
+  return out;
 }
 
 } // namespace parthenon

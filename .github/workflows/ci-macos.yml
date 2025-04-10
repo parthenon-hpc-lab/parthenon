@@ -43,7 +43,7 @@ jobs:
         cd build
         ctest -LE mpi
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: configure-log-unit-macos
         path: build/CMakeFiles/CMakeOutput.log

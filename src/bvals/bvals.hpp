@@ -50,7 +50,6 @@ struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa
 BoundaryFlag GetBoundaryFlag(const std::string &input_string);
-std::string GetBoundaryString(BoundaryFlag input_flag);
 // + confirming that the MeshBlock's boundaries are all valid selections
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
 
@@ -101,9 +100,6 @@ class BoundarySwarm : public BoundaryCommunication {
  public:
   explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb, const std::string &label);
   ~BoundarySwarm() = default;
-
-  std::vector<ParArrayND<int>> vars_int;
-  std::vector<ParArrayND<Real>> vars_real;
 
   // (usuallly the std::size_t unsigned integer type)
   std::vector<BoundaryCommunication *>::size_type bswarm_index;

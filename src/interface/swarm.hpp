@@ -240,6 +240,10 @@ class Swarm {
     return std::get<getType<T>()>(vectors_);
   }
 
+  // Check for internal consistency among member variables and arrays, mainly for
+  // debugging
+  void Validate(bool test_comms = false) const;
+
   static constexpr int inactive_max_active_index = -1;
 
  private:
@@ -285,7 +289,7 @@ class Swarm {
   constexpr static int unset_index_ = -1;
 
   ParArray1D<int> num_particles_to_send_;
-  ParArray1D<int> buffer_counters_;
+  ParArray1D<int> buffer_start_;
   ParArray1D<int> neighbor_received_particles_;
   int total_received_particles_;
 
@@ -293,6 +297,9 @@ class Swarm {
 
   ParArray1D<SwarmKey>
       cell_sorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArray1D<SwarmKey>
+      buffer_sorted_; // 1D per-buffer sorted array of key-value swarm memory indices
 
   ParArrayND<int>
       cell_sorted_begin_; // Per-cell array of starting indices in cell_sorted_
