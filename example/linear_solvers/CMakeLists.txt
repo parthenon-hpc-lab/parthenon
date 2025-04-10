@@ -12,9 +12,9 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "poisson-nodal-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+if( "linear-solvers-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
-      poisson-nodal-example
+      linear-solvers-example
           linear_solver_driver.cpp
           linear_solver_driver.hpp
           poisson_equation.hpp
@@ -26,6 +26,6 @@ if( "poisson-nodal-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLE
           main.cpp
           parthenon_app_inputs.cpp
   )
-  target_link_libraries(poisson-nodal-example PRIVATE Parthenon::parthenon)
-  lint_target(poisson-nodal-example)
+  target_link_libraries(linear-solvers-example PRIVATE Parthenon::parthenon)
+  lint_target(linear-solvers-example)
 endif()
