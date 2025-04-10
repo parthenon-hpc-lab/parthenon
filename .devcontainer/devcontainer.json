@@ -1,7 +1,7 @@
 // devcontainer.json
     {
       "name": "parthenon-dev",
-      "image": "ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent",
+      "image": "ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent",
       "hostRequirements": {
         "cpus": 4
       },
