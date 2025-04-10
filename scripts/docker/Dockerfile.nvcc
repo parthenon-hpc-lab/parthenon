@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-devel-ubuntu24.04
 
 RUN apt-get clean && apt-get update -y && \
     DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 emacs nvi sphinx-doc python3-sphinx-rtd-theme python3-sphinxcontrib.bibtex python3-sphinx-copybutton && \
@@ -7,23 +7,23 @@ RUN apt-get clean && apt-get update -y && \
 
 RUN g++ --version
 
-RUN pip3 install unyt
+RUN pip3 install unyt --break-system-packages
 
-RUN pip3 install blosc2
+RUN pip3 install blosc2 --break-system-packages
 
 # for Codespaces/VSCode Sphinx support
-RUN pip3 install esbonio
+RUN pip3 install esbonio --break-system-packages
 
 # h5py from the repo is incompatible with the default numpy 2.1.0
 # Downgrading is not the cleanest solution, but it works...
 # see https://stackoverflow.com/questions/78634235/numpy-dtype-size-changed-may-indicate-binary-incompatibility-expected-96-from
-RUN pip3 install numpy==1.26.4
+RUN pip3 install numpy==1.26.4 --break-system-packages
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
-    echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" > /etc/apt/sources.list.d/llvm.list
+    echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" > /etc/apt/sources.list.d/llvm.list
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-19 llvm-19 libomp-19-dev clangd-19 && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-20 llvm-20 libomp-20-dev clangd-20 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
@@ -75,12 +75,10 @@ COPY ascent_build.patch /tmp/build-ascent
 
 ## NOTE: with enable_cuda=ON, you need a Docker VM with a LARGE amount of RAM (at least 15 GB RAM, 4 GB swap)
 
-# commit version is dev branch on 2024-08-30
+# commit version is dev branch on 2025-04-10
 RUN cd /tmp/build-ascent && \
-    wget https://github.com/Alpine-DAV/ascent/archive/dc2ec9c.tar.gz && \
-    tar xzf dc2ec9c.tar.gz -C . --strip-components=1 && \
-    wget https://github.com/LLNL/blt/archive/9ff7734.tar.gz && \
-    tar xzf 9ff7734.tar.gz -C ./src/blt --strip-components=1 && \
+    wget https://github.com/Alpine-DAV/ascent/archive/4da1379.tar.gz && \
+    tar xzf 4da1379.tar.gz -C . --strip-components=1 && \
     cd ./scripts/build_ascent && \
     patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
     env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
