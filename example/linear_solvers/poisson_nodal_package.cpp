@@ -29,12 +29,12 @@
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
-#include "poisson_equation.hpp"
-#include "poisson_package.hpp"
+#include "poisson_nodal_equation.hpp"
+#include "poisson_nodal_package.hpp"
 
 using namespace parthenon::package::prelude;
 using parthenon::HostArray1D;
-namespace poisson_package {
+namespace poisson_nodal_package {
 
 using namespace parthenon;
 using namespace parthenon::BoundaryFunction;
@@ -46,14 +46,14 @@ using namespace parthenon::BoundaryFunction;
 // value results in poor MG convergence because the effective BC at the face
 // changes with MG level.
 
-// Build type that selects only variables within the poisson namespace. Internal solver
+// Build type that selects only variables within the poisson_nodal namespace. Internal solver
 // variables have the namespace of input variables prepended, so they will also be
 // selected by this type.
-struct any_poisson : public parthenon::variable_names::base_t<true> {
+struct any_poisson_nodal : public parthenon::variable_names::base_t<true> {
   template <class... Ts>
-  KOKKOS_INLINE_FUNCTION any_poisson(Ts &&...args)
+  KOKKOS_INLINE_FUNCTION any_poisson_nodal(Ts &&...args)
       : base_t<true>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "poisson[.].*"; }
+  static std::string name() { return "poisson_nodal[.].*"; }
 };
 
 template <CoordinateDirection DIR, BCSide SIDE>
@@ -61,12 +61,12 @@ auto GetBC() {
   return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
-    GenericBC<DIR, SIDE, BCType::FixedFace, any_poisson>(rc, coarse, 0.0);
+    GenericBC<DIR, SIDE, BCType::FixedFace, any_poisson_nodal>(rc, coarse, 0.0);
   };
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("poisson_package");
+  auto pkg = std::make_shared<StateDescriptor>("poisson_nodal_package");
 
   // Set boundary conditions for Poisson variables
   using BF = parthenon::BoundaryFace;
@@ -77,34 +77,34 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
   pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
 
-  Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
+  Real diagonal_alpha = pin->GetOrAddReal("poisson_nodal", "diagonal_alpha", 0.0);
   pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
 
-  std::string solver = pin->GetOrAddString("poisson", "solver", "MG");
+  std::string solver = pin->GetOrAddString("poisson_nodal", "solver", "MG");
   pkg->AddParam<>("solver", solver);
 
-  bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
+  bool use_exact_rhs = pin->GetOrAddBoolean("poisson_nodal", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
 
-  std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
+  std::string prolong = pin->GetOrAddString("poisson_nodal", "boundary_prolongation", "Linear");
 
-  using PoissEq = poisson_package::PoissonEquation<u>;
-  PoissEq eq(pin, "poisson");
-  pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
+  using PoissEq = poisson_nodal_package::PoissonEquation<u>;
+  PoissEq eq(pin, "poisson_nodal");
+  pkg->AddParam<>("poisson_nodal_equation", eq, parthenon::Params::Mutability::Mutable);
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
   using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+        "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
   } else if (solver == "CG") {
     psolver = std::make_shared<parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
-        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+        "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
   } else if (solver == "BiCGSTAB") {
     psolver =
         std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
-            "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+            "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
@@ -136,4 +136,4 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   return pkg;
 }
-} // namespace poisson_package
+} // namespace poisson_nodal_package

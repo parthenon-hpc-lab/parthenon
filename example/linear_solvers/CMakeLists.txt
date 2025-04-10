@@ -17,9 +17,12 @@ if( "linear-solvers-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPL
       linear-solvers-example
           linear_solver_driver.cpp
           linear_solver_driver.hpp
-          poisson_equation.hpp
-          poisson_package.cpp
-          poisson_package.hpp
+          poisson_cell_equation.hpp
+          poisson_cell_package.cpp
+          poisson_cell_package.hpp
+          poisson_nodal_equation.hpp
+          poisson_nodal_package.cpp
+          poisson_nodal_package.hpp
           helmholtz_equation.hpp
           helmholtz_package.cpp
           helmholtz_package.hpp

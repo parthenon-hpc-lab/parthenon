@@ -31,8 +31,10 @@
 #include <solvers/solver_utils.hpp>
 
 #include "linear_solver_driver.hpp"
-#include "poisson_equation.hpp"
-#include "poisson_package.hpp"
+#include "poisson_nodal_equation.hpp"
+#include "poisson_nodal_package.hpp"
+#include "helmholtz_equation.hpp"
+#include "helmholtz_package.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -40,14 +42,14 @@ namespace linear_solver_example {
 
 parthenon::DriverStatus LinearSolverDriver::Execute() {
   using namespace parthenon;
-  using namespace poisson_package;
+  using namespace poisson_nodal_package;
 
   pouts->MakeOutputs(pmesh, pinput);
   ConstructAndExecuteTaskLists<>(this);
   pouts->MakeOutputs(pmesh, pinput);
 
   // After running, retrieve the final residual for checking in tests
-  auto pkg = pmesh->packages.Get("poisson_package");
+  auto pkg = pmesh->packages.Get("poisson_nodal_package");
   auto psolver =
       pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
   final_rms_residual = psolver->GetFinalResidual();
@@ -57,11 +59,11 @@ parthenon::DriverStatus LinearSolverDriver::Execute() {
 
 TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
-  using namespace poisson_package;
+  using namespace poisson_nodal_package;
   TaskCollection tc;
   TaskID none(0);
 
-  auto pkg = pmesh->packages.Get("poisson_package");
+  auto pkg = pmesh->packages.Get("poisson_nodal_package");
   auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
   auto psolver =
       pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
@@ -91,7 +93,7 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
       auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_u_between_stages, tl,
                                                               md_u, true);
       auto *eqs =
-          pkg->MutableParam<poisson_package::PoissonEquation<u>>("poisson_equation");
+          pkg->MutableParam<poisson_nodal_package::PoissonEquation<u>>("poisson_nodal_equation");
       copy_rhs = eqs->Ax(tl, comm, md, md_u, md_rhs);
     }
 
@@ -128,4 +130,4 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   return tc;
 }
 
-} // namespace poisson_example
+} // namespace linear_solver_example

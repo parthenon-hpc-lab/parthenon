@@ -22,9 +22,9 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
-#include "poisson_package.hpp"
+#include "poisson_nodal_package.hpp"
 
-namespace poisson_package {
+namespace poisson_nodal_package {
 
 // This class implement methods for calculating A.x = y and returning the diagonal of A,
 // where A is the the matrix representing the discretized Poisson equation on the grid.
@@ -51,7 +51,7 @@ class PoissonEquation {
   AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
          std::shared_ptr<parthenon::MeshData<Real>> &md_out) {
     using namespace parthenon;
-    auto pkg = md_in->GetMeshPointer()->packages.Get("poisson_package");
+    auto pkg = md_in->GetMeshPointer()->packages.Get("poisson_nodal_package");
     const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
     constexpr auto te = TopologicalElement::NN;
@@ -128,7 +128,7 @@ class PoissonEquation {
     IndexRange jb = md_diag->GetBoundsJ(IndexDomain::interior, te);
     IndexRange kb = md_diag->GetBoundsK(IndexDomain::interior, te);
 
-    auto pkg = md_diag->GetMeshPointer()->packages.Get("poisson_package");
+    auto pkg = md_diag->GetMeshPointer()->packages.Get("poisson_nodal_package");
     const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
     auto desc = parthenon::MakePackDescriptor<var_t>(md_diag.get());
@@ -149,6 +149,6 @@ class PoissonEquation {
   }
 };
 
-} // namespace poisson_package
+} // namespace poisson_nodal_package
 
 #endif // EXAMPLE_LINEAR_SOLVERS_POISSON_EQUATION_HPP_
