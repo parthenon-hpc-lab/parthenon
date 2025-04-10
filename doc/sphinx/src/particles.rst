@@ -154,7 +154,7 @@ This also supports ``FlatIdx`` for indexing; see the
 .. _swarm_packs:
 
 ``SwarmPack``\ s
---------------
+----------------
 
 Similar to grid variables, swarms can be packed over ``MeshBlock``\ s via ``SwarmPack``\ s.
 ``SwarmPack``\ s are the particle analog to ``SparsePack``\ s for field variables.  A single
