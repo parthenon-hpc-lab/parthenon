@@ -30,11 +30,11 @@
 #include <solvers/mg_solver.hpp>
 #include <solvers/solver_utils.hpp>
 
+#include "helmholtz_equation.hpp"
+#include "helmholtz_package.hpp"
 #include "linear_solver_driver.hpp"
 #include "poisson_nodal_equation.hpp"
 #include "poisson_nodal_package.hpp"
-#include "helmholtz_equation.hpp"
-#include "helmholtz_package.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -76,44 +76,34 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto &md = pmesh->mesh_data.Add("base", partitions[i]);
     auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
     auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
+    auto &md_exact = pmesh->mesh_data.Add("exact", md, {u::name()});
 
-    // Move the rhs variable into the rhs stage for stage based solver
-    auto copy_rhs =
-        tl.AddTask(none, TF(solvers::utils::between_fields::CopyData<rhs, u>), md);
-    copy_rhs = tl.AddTask(copy_rhs, TF(solvers::utils::CopyData<parthenon::TypeList<u>>),
-                          md, md_rhs);
+    // set the rhs
+    auto set_rhs = tl.AddTask(none, SetVector, pinput, false, md_rhs);
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs
     if (use_exact_rhs) {
-      auto copy_exact = tl.AddTask(
-          copy_rhs, TF(solvers::utils::between_fields::CopyData<exact, u>), md);
-      auto copy_u_between_stages = tl.AddTask(
-          copy_exact, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md, md_u);
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_u_between_stages, tl,
-                                                              md_u, true);
-      auto *eqs =
-          pkg->MutableParam<poisson_nodal_package::PoissonEquation<u>>("poisson_nodal_equation");
-      copy_rhs = eqs->Ax(tl, comm, md, md_u, md_rhs);
+      auto set_exact = tl.AddTask(set_rhs, SetVector, pinput, true, md_exact);
+      auto comm =
+          AddBoundaryExchangeTasks<BoundaryType::any>(set_exact, tl, md_exact, true);
+      auto *eqs = pkg->MutableParam<poisson_nodal_package::PoissonEquation<u>>(
+          "poisson_nodal_equation");
+      set_rhs = eqs->Ax(tl, comm, md, md_exact, md_rhs);
     }
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(copy_rhs, TF(solvers::utils::SetToZero<u>), md_u);
+    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-
-    // solve = tl.AddTask(solve, parthenon::PrintFields<parthenon::TypeList<rhs, u>>,
-    // md_u);
 
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
     if (use_exact_rhs) {
-      auto copy_back = tl.AddTask(
-          solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
-      auto diff = tl.AddTask(
-          copy_back, TF(solvers::utils::between_fields::AddFieldsAndStore<exact, u, u>),
-          md, 1.0, -1.0);
-      auto get_err = solvers::utils::between_fields::DotProduct<u, u>(diff, tl, &err, md);
+      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<TypeList<u>>,
+                             md_exact, md_u, md_exact, 1.0, -1.0);
+      auto get_err =
+          solvers::utils::DotProduct<TypeList<u>>(diff, tl, &err, md_exact, md_exact);
       tl.AddTask(
           get_err,
           [](LinearSolverDriver *driver, int partition) {

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_LINEAR_SOLVERS_POISSON_EQUATION_HPP_
-#define EXAMPLE_LINEAR_SOLVERS_POISSON_EQUATION_HPP_
+#ifndef EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_EQUATION_HPP_
+#define EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_EQUATION_HPP_
 
 #include <memory>
 #include <set>
@@ -151,4 +151,4 @@ class PoissonEquation {
 
 } // namespace poisson_nodal_package
 
-#endif // EXAMPLE_LINEAR_SOLVERS_POISSON_EQUATION_HPP_
+#endif // EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_EQUATION_HPP_

@@ -28,9 +28,9 @@
 #include <solvers/solver_utils.hpp>
 
 #include "defs.hpp"
-#include "kokkos_abstraction.hpp"
 #include "helmholtz_equation.hpp"
 #include "helmholtz_package.hpp"
+#include "kokkos_abstraction.hpp"
 
 using namespace parthenon::package::prelude;
 using parthenon::HostArray1D;
@@ -86,7 +86,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool use_exact_rhs = pin->GetOrAddBoolean("helmholtz", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
 
-  std::string prolong = pin->GetOrAddString("helmholtz", "boundary_prolongation", "Linear");
+  std::string prolong =
+      pin->GetOrAddString("helmholtz", "boundary_prolongation", "Linear");
 
   using PoissEq = helmholtz_package::HelmholtzEquation<u, F>;
   PoissEq eq(pin, "helmholtz");
@@ -104,7 +105,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   } else if (solver == "BiCGSTAB") {
     psolver =
         std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
-            "base", "u", "rhs", pin, "helmholtz/solver_params", PoissEq(pin, "helmholtz"));
+            "base", "u", "rhs", pin, "helmholtz/solver_params",
+            PoissEq(pin, "helmholtz"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
@@ -112,12 +114,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   using namespace parthenon::refinement_ops;
 
-  std::vector<MetadataFlag> flags_cc{Metadata::Cell,        Metadata::Independent,
-                                     Metadata::FillGhost,
-                                     Metadata::GMGRestrict, Metadata::GMGProlongate};
-  std::vector<MetadataFlag> flags_fc{Metadata::Face,        Metadata::Independent,
-                                     Metadata::FillGhost,
-                                     Metadata::GMGRestrict, Metadata::GMGProlongate};
+  std::vector<MetadataFlag> flags_cc{Metadata::Cell, Metadata::Independent,
+                                     Metadata::FillGhost, Metadata::GMGRestrict,
+                                     Metadata::GMGProlongate};
+  std::vector<MetadataFlag> flags_fc{Metadata::Face, Metadata::Independent,
+                                     Metadata::FillGhost, Metadata::GMGRestrict,
+                                     Metadata::GMGProlongate};
   auto mflux_comm_cc = Metadata(flags_cc);
   auto mflux_comm_fc = Metadata(flags_fc);
   if (prolong == "Linear") {

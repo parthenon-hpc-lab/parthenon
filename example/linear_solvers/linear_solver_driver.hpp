@@ -45,6 +45,6 @@ class LinearSolverDriver : public Driver {
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
-} // namespace poisson_example
+} // namespace linear_solver_example
 
-#endif // EXAMPLE_LINEAR_SOLVERS_POISSON_DRIVER_HPP_
+#endif // EXAMPLE_LINEAR_SOLVERS_LINEAR_SOLVER_DRIVER_HPP_

@@ -46,8 +46,8 @@ using namespace parthenon::BoundaryFunction;
 // value results in poor MG convergence because the effective BC at the face
 // changes with MG level.
 
-// Build type that selects only variables within the poisson_nodal namespace. Internal solver
-// variables have the namespace of input variables prepended, so they will also be
+// Build type that selects only variables within the poisson_nodal namespace. Internal
+// solver variables have the namespace of input variables prepended, so they will also be
 // selected by this type.
 struct any_poisson_nodal : public parthenon::variable_names::base_t<true> {
   template <class... Ts>
@@ -86,7 +86,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson_nodal", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
 
-  std::string prolong = pin->GetOrAddString("poisson_nodal", "boundary_prolongation", "Linear");
+  std::string prolong =
+      pin->GetOrAddString("poisson_nodal", "boundary_prolongation", "Linear");
 
   using PoissEq = poisson_nodal_package::PoissonEquation<u>;
   PoissEq eq(pin, "poisson_nodal");
@@ -97,14 +98,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
-        "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
+        "base", "u", "rhs", pin, "poisson_nodal/solver_params",
+        PoissEq(pin, "poisson_nodal"));
   } else if (solver == "CG") {
     psolver = std::make_shared<parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
-        "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
+        "base", "u", "rhs", pin, "poisson_nodal/solver_params",
+        PoissEq(pin, "poisson_nodal"));
   } else if (solver == "BiCGSTAB") {
     psolver =
         std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
-            "base", "u", "rhs", pin, "poisson_nodal/solver_params", PoissEq(pin, "poisson_nodal"));
+            "base", "u", "rhs", pin, "poisson_nodal/solver_params",
+            PoissEq(pin, "poisson_nodal"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
   }
@@ -136,4 +140,41 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   return pkg;
 }
+
+parthenon::TaskStatus
+SetVector(parthenon::ParameterInput *pin, bool use_exponential,
+          std::shared_ptr<parthenon::MeshData<parthenon::Real>> md) {
+  using namespace parthenon;
+  Real x0 = pin->GetOrAddReal("poisson_nodal", "x0", 0.0);
+  Real y0 = pin->GetOrAddReal("poisson_nodal", "y0", 0.0);
+  Real z0 = pin->GetOrAddReal("poisson_nodal", "z0", 0.0);
+  Real radius0 = pin->GetOrAddReal("poisson_nodal", "radius", 0.1);
+  const int ndim = md->GetMeshPointer()->ndim;
+
+  auto desc = MakePackDescriptor<u>(md.get());
+  auto pack = desc.GetPack(md.get());
+
+  using TE = parthenon::TopologicalElement;
+  auto ib = md->GetBoundsI(IndexDomain::entire, TE::NN);
+  auto jb = md->GetBoundsJ(IndexDomain::entire, TE::NN);
+  auto kb = md->GetBoundsK(IndexDomain::entire, TE::NN);
+
+  parthenon::par_for(
+      "PoissonNodal::Ax", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real x1 = coords.X<1, TE::NN>(i);
+        Real x2 = coords.X<2, TE::NN>(j);
+        Real x3 = coords.X<2, TE::NN>(k);
+        Real rad = (x1 - x0) * (x1 - x0);
+        if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
+        if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
+        rad = std::sqrt(rad);
+
+        pack(b, TE::NN, u(), k, j, i) = rad < radius0 ? 1.0 : 0.0;
+        if (use_exponential) pack(b, TE::NN, u(), k, j, i) = -exp(-10.0 * rad * rad);
+      });
+  return TaskStatus::complete;
+}
+
 } // namespace poisson_nodal_package

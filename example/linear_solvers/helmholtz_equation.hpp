@@ -67,8 +67,8 @@ class HelmholtzEquation {
     const int joff = ndim > 1;
     const int koff = ndim > 2;
     parthenon::par_for(
-        "HelmholtzEquation::Ax", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        "HelmholtzEquation::Ax", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack_in.GetCoordinates(b);
           const Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           const Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
@@ -97,8 +97,8 @@ class HelmholtzEquation {
       const int joff = TopologicalOffsetJ(te);
       const int koff = TopologicalOffsetK(te);
       parthenon::par_for(
-          "HelmholtzEquation::Ax", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-          ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          "HelmholtzEquation::Ax", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+          ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             const auto &coords = pack_in.GetCoordinates(b);
             const Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
             const Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
@@ -145,9 +145,9 @@ class HelmholtzEquation {
     return TaskStatus::complete;
   }
 
-  parthenon::TaskStatus SetDiagonal(
-      std::shared_ptr<parthenon::MeshData<Real>> & /*md_mat*/,
-      std::shared_ptr<parthenon::MeshData<Real>> & md_diag) {
+  parthenon::TaskStatus
+  SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> & /*md_mat*/,
+              std::shared_ptr<parthenon::MeshData<Real>> &md_diag) {
     using namespace parthenon;
     using TE = TopologicalElement;
     auto pkg = md_diag->GetMeshPointer()->packages.Get("poisson_package");
@@ -158,13 +158,12 @@ class HelmholtzEquation {
     IndexRange jb = md_diag->GetBoundsJ(IndexDomain::interior);
     IndexRange kb = md_diag->GetBoundsK(IndexDomain::interior);
 
-    auto desc =
-        parthenon::MakePackDescriptorFromTypeList<IndependentVars>(md_diag.get());
+    auto desc = parthenon::MakePackDescriptorFromTypeList<IndependentVars>(md_diag.get());
     auto pack_diag = desc.GetPack(md_diag.get());
 
     parthenon::par_for(
-        "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-        ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+        ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           pack_diag(b, TE::CC, vcc_t(), k, j, i) = alpha;
         });
 
@@ -176,8 +175,8 @@ class HelmholtzEquation {
       IndexRange jb = md_diag->GetBoundsJ(IndexDomain::interior, te);
       IndexRange kb = md_diag->GetBoundsK(IndexDomain::interior, te);
       parthenon::par_for(
-          "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-          ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+          ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
             pack_diag(b, te, vfc_t(), k, j, i) = 1.0;
           });
     }

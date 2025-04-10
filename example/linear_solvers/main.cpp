@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
 
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = linear_solver_example::ProcessPackages;
-  pman.app_input->MeshProblemGenerator = linear_solver_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);
@@ -43,9 +42,8 @@ int main(int argc, char *argv[]) {
   bool success = true;
   {
     // Initialize the driver
-    linear_solver_example::LinearSolverDriver driver(pman.pinput.get(),
-                                                     pman.app_input.get(),
-                                                     pman.pmesh.get());
+    linear_solver_example::LinearSolverDriver driver(
+        pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();

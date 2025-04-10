@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_LINEAR_SOLVERS_POISSON_PACKAGE_HPP_
-#define EXAMPLE_LINEAR_SOLVERS_POISSON_PACKAGE_HPP_
+#ifndef EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_PACKAGE_HPP_
+#define EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_PACKAGE_HPP_
 
 #include <memory>
 #include <string>
@@ -37,7 +37,8 @@ VARIABLE(poisson_nodal, rhs);
 VARIABLE(poisson_nodal, exact);
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-
+parthenon::TaskStatus SetVector(parthenon::ParameterInput *pin, bool use_exponential,
+                                std::shared_ptr<parthenon::MeshData<parthenon::Real>> md);
 } // namespace poisson_nodal_package
 
-#endif // EXAMPLE_LINEAR_SOLVERS_POISSON_PACKAGE_HPP_
+#endif // EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_PACKAGE_HPP_
