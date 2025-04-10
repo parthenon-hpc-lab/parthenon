@@ -121,8 +121,7 @@ class PackDescCache : public PackDescriptorCacheBase {
   std::unordered_map<key_t, impl::PackDescriptor> map;
 
   static std::optional<impl::PackDescriptor>
-  CheckForKeyInMesh(StateDescriptor *pdesc, const std::string &cache_label,
-                    const Ts &...args) {
+  CheckForKey(StateDescriptor *pdesc, const std::string &cache_label, const Ts &...args) {
     if (pdesc) {
       if (!pdesc->pack_desc_cache_map.count(cache_label)) {
         // Create a cache for PackDescriptors created with this particular selector
@@ -141,10 +140,8 @@ class PackDescCache : public PackDescriptorCacheBase {
     return std::nullopt;
   }
 
-  static void CachePackDescriptorInMesh(StateDescriptor *pdesc,
-                                        const std::string &cache_label,
-                                        const impl::PackDescriptor &pd,
-                                        const Ts &...args) {
+  static void CachePackDescriptor(StateDescriptor *pdesc, const std::string &cache_label,
+                                  const impl::PackDescriptor &pd, const Ts &...args) {
     if (pdesc) {
       // Store the newly created PackDescriptor in the cache
       auto pcache = std::dynamic_pointer_cast<PackDescCache>(

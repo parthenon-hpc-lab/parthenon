@@ -34,7 +34,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   using PDCache = PackDescCache<std::vector<std::string>, std::vector<bool>,
                                 std::vector<MetadataFlag>, std::set<PDOpt>>;
   auto optional_pd =
-      PDCache::CheckForKeyInMesh(psd, cache_label, vars, use_regex, flags, options);
+      PDCache::CheckForKey(psd, cache_label, vars, use_regex, flags, options);
   if (optional_pd) return *optional_pd;
 
   PARTHENON_REQUIRE(vars.size() == use_regex.size(),
@@ -56,8 +56,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   };
 
   auto pd = PackDescriptor(psd, vars, selector, options);
-  PDCache::CachePackDescriptorInMesh(psd, cache_label, pd, vars, use_regex, flags,
-                                     options);
+  PDCache::CachePackDescriptor(psd, cache_label, pd, vars, use_regex, flags, options);
   return pd;
 }
 
@@ -68,8 +67,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   const std::string cache_label{"uid"};
   using PDCache =
       PackDescCache<std::vector<Uid_t>, std::vector<MetadataFlag>, std::set<PDOpt>>;
-  auto optional_pd =
-      PDCache::CheckForKeyInMesh(psd, cache_label, var_ids, flags, options);
+  auto optional_pd = PDCache::CheckForKey(psd, cache_label, var_ids, flags, options);
   if (optional_pd) return *optional_pd;
 
   auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
@@ -83,7 +81,7 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   };
 
   auto pd = PackDescriptor(psd, var_ids, selector, options);
-  PDCache::CachePackDescriptorInMesh(psd, cache_label, pd, var_ids, flags, options);
+  PDCache::CachePackDescriptor(psd, cache_label, pd, var_ids, flags, options);
   return PackDescriptor(psd, var_ids, selector, options);
 }
 
