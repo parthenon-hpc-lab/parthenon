@@ -87,9 +87,9 @@ RUN cd /tmp/build-ascent && \
     cd / && \
     rm -rf /tmp/ascent_build
 
-# uid 1000 maps to the one running the container on the CI host
+# create new user
 RUN groupadd -g 109 render
-RUN useradd --create-home --shell /bin/bash -u 1000 -G render,sudo ci
+RUN useradd --create-home --shell /bin/bash -G render,sudo ci
 
 USER ci
 
