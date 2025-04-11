@@ -74,6 +74,11 @@ enum class IndexDomain {
   inner_x3,
   outer_x3
 };
+KOKKOS_FORCEINLINE_FUNCTION
+bool DomainTouchesOuterGhosts(const IndexDomain domain) {
+  return (domain == IndexDomain::entire) || (domain == IndexDomain::outer_x1) ||
+         (domain == IndexDomain::outer_x2) || (domain == IndexDomain::outer_x3);
+}
 
 //! \class IndexVolume
 //  \brief Defines the dimensions of a shape of indices

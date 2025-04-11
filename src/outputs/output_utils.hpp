@@ -57,6 +57,7 @@ struct VarInfo {
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
+  bool is_mem_aligned; // true if Metada::CellMemAligned is set.
   bool is_sparse;
   bool is_vector;
   bool is_coordinate_field;
@@ -135,6 +136,8 @@ struct VarInfo {
           bool is_vector, const IndexShape &cellbounds)
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
+                       metadata.IsSet(Metadata::Flux)),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
         ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
