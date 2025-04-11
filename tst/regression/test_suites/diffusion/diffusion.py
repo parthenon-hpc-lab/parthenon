@@ -17,6 +17,7 @@
 
 # Modules
 import sys
+from typing import Union  # python < 3.10
 import utils.test_case
 
 import numpy as np
@@ -26,7 +27,7 @@ sys.dont_write_bytecode = True
 
 
 def analytic_solution(
-    x: np.ndarray, t: float, D: float | np.ndarray, t0: float
+    x: np.ndarray, t: float, D: Union[float, np.ndarray], t0: float
 ) -> np.ndarray:
     """analytic solution for the diffusion of a constant coefficient Gaussian"""
     xc = 0.0
