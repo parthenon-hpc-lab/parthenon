@@ -80,7 +80,7 @@ RUN cd /tmp/build-ascent && \
     wget https://github.com/Alpine-DAV/ascent/archive/4da1379.tar.gz && \
     tar xzf 4da1379.tar.gz -C . --strip-components=1 && \
     wget https://github.com/LLNL/blt/archive/refs/tags/v0.6.2.tar.gz && \
-    tar xvf v0.6.2.tar.gz -C . --strip-components=1 && \
+    tar xzf v0.6.2.tar.gz -C ./src/blt --strip-components=1 && \
     cd ./scripts/build_ascent && \
     patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
     env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
