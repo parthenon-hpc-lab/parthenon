@@ -47,11 +47,14 @@ int main(int argc, char *argv[]) {
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();
-    if (driver_status != parthenon::DriverStatus::complete ||
-        driver.final_rms_residual > 1.e-10 || driver.final_rms_error > 1.e-12)
-      success = false;
-    if (driver.final_rms_residual != driver.final_rms_residual) success = false;
-    if (driver.final_rms_error != driver.final_rms_error) success = false;
+    if (driver_status != parthenon::DriverStatus::complete) success = false;
+    // Go through all the solutions that registered a solution quality and
+    // make sure they are all doing better than some thresholds
+    for (auto &[label, err] : driver.final_rms_error) {
+      auto res = driver.final_rms_residual[label];
+      if (res > 1.e-10 || res != res) success = false;
+      if (err > 1.e-12 || err != err) success = false;
+    }
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

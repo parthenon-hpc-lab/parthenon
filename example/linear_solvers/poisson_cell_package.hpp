@@ -21,13 +21,8 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
-#define VARIABLE(ns, varname)                                                            \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return #ns "." #varname; }                               \
-  }
+#include "linear_solver_driver.hpp"
+#include "variable_type.hpp"
 
 namespace poisson_cell_package {
 using namespace parthenon::package::prelude;
@@ -37,6 +32,11 @@ VARIABLE(poisson, u);
 VARIABLE(poisson, rhs);
 VARIABLE(poisson, exact);
 
+// Meshdata container labels
+inline const std::string u_label = "cell_u";
+inline const std::string rhs_label = "cell_rhs";
+inline const std::string exact_label = "cell_exact";
+
 // This just provides a convenient short hand for TE::CC and will make it
 // easier for testing solves with different topological elements in the
 // future (although other types of fields require significantly different
@@ -44,9 +44,10 @@ VARIABLE(poisson, exact);
 constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-parthenon::TaskStatus SetVector(parthenon::ParameterInput *pin,
+parthenon::TaskStatus SetVector(parthenon::ParameterInput *pin, bool use_exponential,
                                 std::shared_ptr<parthenon::MeshData<parthenon::Real>> md);
-
+void AddTaskRegion(parthenon::TaskCollection &tc,
+                   linear_solver_example::LinearSolverDriver *driver);
 } // namespace poisson_cell_package
 
 #endif // EXAMPLE_LINEAR_SOLVERS_POISSON_CELL_PACKAGE_HPP_

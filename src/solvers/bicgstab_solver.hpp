@@ -74,16 +74,6 @@ template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
 class BiCGSTABSolver : public SolverBase {
   using FieldTL = typename equations_t::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
@@ -96,9 +86,8 @@ class BiCGSTABSolver : public SolverBase {
                  const std::string &input_block, equations_t eq_in = equations_t())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
-        container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(pin, input_block), iter_counter(0),
-        eqs_(eq_in) {
+        SolverBase(container_base, container_u, container_rhs), params_(pin, input_block),
+        iter_counter(0), eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "bicgstab" + std::to_string(id++);

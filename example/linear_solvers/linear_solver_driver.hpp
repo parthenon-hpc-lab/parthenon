@@ -14,7 +14,9 @@
 #ifndef EXAMPLE_LINEAR_SOLVERS_LINEAR_SOLVER_DRIVER_HPP_
 #define EXAMPLE_LINEAR_SOLVERS_LINEAR_SOLVER_DRIVER_HPP_
 
+#include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <kokkos_abstraction.hpp>
@@ -35,9 +37,8 @@ class LinearSolverDriver : public Driver {
 
   DriverStatus Execute() override;
 
-  Real final_rms_error, final_rms_residual;
+  std::map<std::string, Real> final_rms_error, final_rms_residual;
 
- private:
   // Necessary reductions for checking error from exact solution
   AllReduce<Real> err;
 };

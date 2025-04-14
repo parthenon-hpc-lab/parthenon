@@ -81,17 +81,6 @@ class MGSolver : public SolverBase {
  public:
   using FieldTL = typename equations_t::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
 
@@ -104,9 +93,8 @@ class MGSolver : public SolverBase {
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, MGParams params_in,
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
-      : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in),
-        prolongator_(prol_in) {
+      : SolverBase(container_base, container_u, container_rhs), params_(params_in),
+        iter_counter(0), eqs_(eq_in), prolongator_(prol_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);

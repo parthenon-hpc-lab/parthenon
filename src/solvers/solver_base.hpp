@@ -31,6 +31,11 @@ namespace solvers {
 
 class SolverBase {
  public:
+  SolverBase(const std::string &container_base, const std::string &container_u,
+             const std::string &container_rhs)
+      : container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs) {}
+
   virtual ~SolverBase() {}
 
   virtual TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition,
@@ -41,7 +46,25 @@ class SolverBase {
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
 
+  const std::string &GetBaseContainerLabel() const { return container_base; }
+  const std::string &GetRHSContainerLabel() const { return container_rhs; }
+  const std::string &GetSolutionContainerLabel() const { return container_u; }
+
+  const std::vector<std::string> &GetFieldLabels() const { return sol_fields; }
+
  protected:
+  // Labels of all fields included in the vector
+  std::vector<std::string> sol_fields;
+  // Name of user defined container that should contain information required to
+  // calculate the matrix part of the matrix vector product
+  std::string container_base;
+  // User defined container in which the solution will reside, only needs to contain
+  // sol_fields
+  // TODO(LFR): Also allow for an initial guess to come in here
+  std::string container_u;
+  // User defined container containing the rhs vector, only needs to contain sol_fields
+  std::string container_rhs;
+
   Real final_residual;
   int final_iteration;
 };
