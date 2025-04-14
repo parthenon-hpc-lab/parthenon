@@ -23,14 +23,6 @@
 
 #include "kokkos_abstraction.hpp"
 
-#define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return base::name() + "." #varname; }                    \
-  }
-
 namespace parthenon {
 
 template <class TL_t>
