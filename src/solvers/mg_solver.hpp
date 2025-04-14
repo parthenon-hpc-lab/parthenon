@@ -103,6 +103,13 @@ class MGSolver : public SolverBase {
     container_u0 = solver_id + "_u0";
     container_diag = solver_id + "_diag";
   }
+  
+  TaskID Ax(TaskList &tl, TaskID dependence,
+                    std::shared_ptr<MeshData<Real>> &md_mat,
+                    std::shared_ptr<MeshData<Real>> &md_in,
+                    std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
+  }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace utils;

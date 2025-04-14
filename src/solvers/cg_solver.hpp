@@ -87,6 +87,13 @@ class CGSolver : public SolverBase {
     container_v = solver_id + "_v";
     container_p = solver_id + "_p";
   }
+  
+  TaskID Ax(TaskList &tl, TaskID dependence,
+                    std::shared_ptr<MeshData<Real>> &md_mat,
+                    std::shared_ptr<MeshData<Real>> &md_in,
+                    std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
+  }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);

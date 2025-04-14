@@ -101,6 +101,13 @@ class BiCGSTABSolver : public SolverBase {
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
   }
+  
+  TaskID Ax(TaskList &tl, TaskID dependence,
+                    std::shared_ptr<MeshData<Real>> &md_mat,
+                    std::shared_ptr<MeshData<Real>> &md_in,
+                    std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
+  }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     if (params_.precondition_type == Preconditioner::Multigrid) {

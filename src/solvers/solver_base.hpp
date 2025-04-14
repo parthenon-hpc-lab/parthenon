@@ -43,6 +43,12 @@ class SolverBase {
   virtual TaskID AddTasks(TaskList &tl, TaskID dependence, int partition,
                           Mesh *pmesh) = 0;
 
+  // Provide access to the underlying matrix operator for convenience
+  virtual TaskID Ax(TaskList &tl, TaskID dependence,
+                    std::shared_ptr<MeshData<Real>> &md_mat,
+                    std::shared_ptr<MeshData<Real>> &md_in,
+                    std::shared_ptr<MeshData<Real>> &md_out) = 0;
+
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
 
