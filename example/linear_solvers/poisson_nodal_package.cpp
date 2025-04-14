@@ -217,8 +217,7 @@ void AddTaskRegion(parthenon::TaskCollection &tc,
       auto set_exact = tl.AddTask(set_rhs, SetVector, pinput, true, md_exact);
       auto comm =
           AddBoundaryExchangeTasks<BoundaryType::any>(set_exact, tl, md_exact, true);
-      auto *eqs = pkg->MutableParam<PoissonEquation<u>>("poisson_nodal_equation");
-      set_rhs = eqs->Ax(tl, comm, md, md_exact, md_rhs);
+      set_rhs = psolver->Ax(tl, comm, md, md_exact, md_rhs);
     }
 
     // Set initial solution guess to zero
