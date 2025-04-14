@@ -47,6 +47,7 @@ class LinearSolverDriver : public Driver {
   template <class solver_TypeList>
   void AddSolverTaskRegion(parthenon::TaskCollection &tc,
                            std::string pacakge_label,
+                           initialize_vector_func_t Initialize,
                            initialize_vector_func_t SetRHS,
                            initialize_vector_func_t SetExact);
 };

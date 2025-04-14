@@ -56,16 +56,17 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   
   {
     using namespace poisson_nodal_package;
+    initialize_vector_func_t Initialize = [](ParameterInput *, std::shared_ptr<MeshData<Real>>){return TaskStatus::complete;};
     auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
     auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
-    AddSolverTaskRegion<PoissonEquation<u>::IndependentVars>(tc, "poisson_nodal_package", SetRHS, SetExact);
+    AddSolverTaskRegion<PoissonEquation<u>::IndependentVars>(tc, "poisson_nodal_package", Initialize, SetRHS, SetExact);
   }
 
   {
     using namespace poisson_cell_package;
     auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
     auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
-    AddSolverTaskRegion<PoissonEquation<u, D>::IndependentVars>(tc, "poisson_cell_package", SetRHS, SetExact);
+    AddSolverTaskRegion<PoissonEquation<u, D>::IndependentVars>(tc, "poisson_cell_package", SetD, SetRHS, SetExact);
   }
 
   return tc;
@@ -74,6 +75,7 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
 template <class solver_TL>
 void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
                    std::string package_label,
+                   initialize_vector_func_t Initialize,
                    initialize_vector_func_t SetRHS,
                    initialize_vector_func_t SetExact) {
   using namespace parthenon;
@@ -97,8 +99,9 @@ void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
         pmesh->mesh_data.Add(psolver->GetRHSContainerLabel(), md, field_labels);
     auto &md_exact = pmesh->mesh_data.Add("exact_" + package_label, md, field_labels);
 
+    auto initialize = tl.AddTask(none, Initialize, pinput, md);
     // set the rhs
-    auto set_rhs = tl.AddTask(none, SetRHS, pinput, md_rhs);
+    auto set_rhs = tl.AddTask(initialize, SetRHS, pinput, md_rhs);
 
     // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
     // known when we solve A.u = rhs

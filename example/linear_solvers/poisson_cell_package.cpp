@@ -185,83 +185,50 @@ SetVector(parthenon::ParameterInput *pin, bool use_exponential,
   return TaskStatus::complete;
 }
 
-void AddTaskRegion(parthenon::TaskCollection &tc,
-                   linear_solver_example::LinearSolverDriver *driver) {
+KOKKOS_FUNCTION
+bool InsideLRegion(int ndim, Real x, Real y, Real z) {
+  bool inside1 = (x < -0.25) && (x > -0.75);
+  if (ndim > 1) inside1 = inside1 && (y < 0.5) && (y > -0.5);
+  if (ndim > 2) inside1 = inside1 && (z < 0.25) && (z > -0.25);
+
+  bool inside2 = (x < 0.5) && (x > -0.75);
+  if (ndim > 1) inside2 = inside2 && (y < -0.25) && (y > -0.75);
+  if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25);
+
+  return inside1 || inside2;
+};
+
+parthenon::TaskStatus
+SetD(parthenon::ParameterInput *pin,
+     std::shared_ptr<parthenon::MeshData<parthenon::Real>> md) {
   using namespace parthenon;
-  using namespace poisson_cell_package;
-  auto pmesh = driver->pmesh;
-  auto pinput = driver->pinput;
-  TaskID none(0);
+  Real interior_D = pin->GetOrAddReal("poisson_cell", "interior_D", 1.0);
+  Real exterior_D = pin->GetOrAddReal("poisson_cell", "exterior_D", 1.0);
+  const int ndim = md->GetMeshPointer()->ndim;
 
-  auto pkg = pmesh->packages.Get("poisson_cell_package");
-  auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
-  auto psolver =
-      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+  auto desc = MakePackDescriptor<D>(md.get());
+  auto pack = desc.GetPack(md.get());
 
-  auto partitions = pmesh->GetDefaultBlockPartitions();
-  const int num_partitions = partitions.size();
-  TaskRegion &region = tc.AddRegion(num_partitions);
-  for (int i = 0; i < num_partitions; ++i) {
-    TaskList &tl = region[i];
-    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-    auto &md_u = pmesh->mesh_data.Add(u_label, md, {u::name()});
-    auto &md_rhs = pmesh->mesh_data.Add(rhs_label, md, {u::name()});
-    auto &md_exact = pmesh->mesh_data.Add(exact_label, md, {u::name()});
+  using TE = parthenon::TopologicalElement;
+  for (auto te : {TE::F1, TE::F2, TE::F3}) {
+    auto ib = md->GetBoundsI(IndexDomain::entire, te);
+    auto jb = md->GetBoundsJ(IndexDomain::entire, te);
+    auto kb = md->GetBoundsK(IndexDomain::entire, te);
 
-    // set the rhs
-    auto set_rhs = tl.AddTask(none, SetVector, pinput, false, md_rhs);
-
-    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
-    // known when we solve A.u = rhs
-    if (use_exact_rhs) {
-      auto set_exact = tl.AddTask(set_rhs, SetVector, pinput, true, md_exact);
-      auto comm =
-          AddBoundaryExchangeTasks<BoundaryType::any>(set_exact, tl, md_exact, true);
-      auto *eqs = pkg->MutableParam<PoissonEquation<u, D>>("poisson_cell_equation");
-      set_rhs = eqs->Ax(tl, comm, md, md_exact, md_rhs);
-    }
-
-    // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
-    auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
-    auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-
-    // If we are using a rhs to which we know the exact solution, compare our computed
-    // solution to the exact solution
-    if (use_exact_rhs) {
-      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<TypeList<u>>,
-                             md_exact, md_u, md_exact, 1.0, -1.0);
-      auto get_err = solvers::utils::DotProduct<TypeList<u>>(diff, tl, &(driver->err),
-                                                             md_exact, md_exact);
-      tl.AddTask(
-          get_err,
-          [](linear_solver_example::LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
-            if (partition != 0) return TaskStatus::complete;
-            driver->final_rms_error["cell_poisson"] =
-                std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
-            driver->final_rms_residual["cell_poisson"] = psolver->GetFinalResidual();
-            if (Globals::my_rank == 0)
-              printf("Final residual: %e\n", driver->final_rms_residual["cell_poisson"]);
-            printf("Final rms error: %e\n", driver->final_rms_error["cell_poisson"]);
-            return TaskStatus::complete;
-          },
-          driver, i, psolver);
-    } else {
-      tl.AddTask(
-          solve,
-          [](linear_solver_example::LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
-            if (partition != 0) return TaskStatus::complete;
-            driver->final_rms_error["cell_poisson"] = 0.0;
-            driver->final_rms_residual["cell_poisson"] = psolver->GetFinalResidual();
-            if (Globals::my_rank == 0)
-              printf("Final residual: %e\n", driver->final_rms_residual["cell_poisson"]);
-            return TaskStatus::complete;
-          },
-          driver, i, psolver);
-    }
+    parthenon::par_for(
+        "PoissonCell::Ax", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const auto &coords = pack.GetCoordinates(b);
+          Real x1 = coords.X<1>(te, k, j, i);
+          Real x2 = coords.X<2>(te, k, j, i);
+          Real x3 = coords.X<3>(te, k, j, i);
+          
+          pack(b, te, D(), k, j, i) = InsideLRegion(ndim, x1, x2, x3) ? interior_D : exterior_D;
+        });
   }
+  return TaskStatus::complete;
 }
+
+
 
 } // namespace poisson_cell_package

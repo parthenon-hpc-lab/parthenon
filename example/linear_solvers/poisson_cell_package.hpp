@@ -46,6 +46,8 @@ constexpr parthenon::TopologicalElement te = parthenon::TopologicalElement::CC;
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 parthenon::TaskStatus SetVector(parthenon::ParameterInput *pin, bool use_exponential,
                                 std::shared_ptr<parthenon::MeshData<parthenon::Real>> md);
+parthenon::TaskStatus SetD(parthenon::ParameterInput *pin,
+                           std::shared_ptr<parthenon::MeshData<parthenon::Real>> md);
 void AddTaskRegion(parthenon::TaskCollection &tc,
                    linear_solver_example::LinearSolverDriver *driver);
 } // namespace poisson_cell_package
