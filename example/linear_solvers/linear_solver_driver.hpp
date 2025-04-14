@@ -41,6 +41,14 @@ class LinearSolverDriver : public Driver {
 
   // Necessary reductions for checking error from exact solution
   AllReduce<Real> err;
+ private:
+
+  using initialize_vector_func_t = std::function<parthenon::TaskStatus(parthenon::ParameterInput*, std::shared_ptr<parthenon::MeshData<parthenon::Real>>)>;
+  template <class solver_TypeList>
+  void AddSolverTaskRegion(parthenon::TaskCollection &tc,
+                           std::string pacakge_label,
+                           initialize_vector_func_t SetRHS,
+                           initialize_vector_func_t SetExact);
 };
 
 void ProblemGenerator(Mesh *pm, parthenon::ParameterInput *pin, MeshData<Real> *md);

@@ -22,10 +22,8 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
-#include "poisson_nodal_package.hpp"
-
 namespace poisson_nodal_package {
-
+using namespace parthenon::package::prelude;
 // This class implement methods for calculating A.x = y and returning the diagonal of A,
 // where A is the the matrix representing the discretized Poisson equation on the grid.
 // Here we implement the Laplace operator in terms of a flux divergence to (potentially)

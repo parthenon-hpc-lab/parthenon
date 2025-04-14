@@ -60,6 +60,10 @@ struct MGParams {
   }
 };
 
+
+struct MGSolverCounter { 
+  static inline std::size_t id{0};
+};
 // The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -75,9 +79,7 @@ struct MGParams {
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
-class MGSolver : public SolverBase {
-  static inline std::size_t id{0};
-
+class MGSolver : public SolverBase, MGSolverCounter {
  public:
   using FieldTL = typename equations_t::IndependentVars;
 

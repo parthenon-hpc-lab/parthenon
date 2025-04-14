@@ -21,7 +21,6 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
-#include "linear_solver_driver.hpp"
 #include "variable_type.hpp"
 
 namespace poisson_nodal_package {
@@ -34,8 +33,6 @@ VARIABLE(poisson_nodal, exact);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 parthenon::TaskStatus SetVector(parthenon::ParameterInput *pin, bool use_exponential,
                                 std::shared_ptr<parthenon::MeshData<parthenon::Real>> md);
-void AddTaskRegion(parthenon::TaskCollection &tc,
-                   linear_solver_example::LinearSolverDriver *driver);
 } // namespace poisson_nodal_package
 
 #endif // EXAMPLE_LINEAR_SOLVERS_POISSON_NODAL_PACKAGE_HPP_

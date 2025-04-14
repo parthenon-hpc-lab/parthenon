@@ -63,6 +63,10 @@ struct BiCGSTABParams {
   }
 };
 
+struct BiCGSTABSolverCounter { 
+  static inline std::size_t id{0};
+};
+
 // The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -71,14 +75,12 @@ struct BiCGSTABParams {
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
 template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
-class BiCGSTABSolver : public SolverBase {
+class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   using FieldTL = typename equations_t::IndependentVars;
 
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
-
-  static inline std::size_t id{0};
 
  public:
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,

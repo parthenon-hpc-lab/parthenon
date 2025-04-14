@@ -30,6 +30,7 @@
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
+#include "linear_solver_driver.hpp"
 #include "poisson_nodal_equation.hpp"
 #include "poisson_nodal_package.hpp"
 
@@ -180,87 +181,6 @@ SetVector(parthenon::ParameterInput *pin, bool use_exponential,
         if (use_exponential) pack(b, TE::NN, u(), k, j, i) = -exp(-10.0 * rad * rad);
       });
   return TaskStatus::complete;
-}
-
-void AddTaskRegion(parthenon::TaskCollection &tc,
-                   linear_solver_example::LinearSolverDriver *driver) {
-  using namespace parthenon;
-  using namespace poisson_nodal_package;
-  auto pmesh = driver->pmesh;
-  auto pinput = driver->pinput;
-  TaskID none(0);
-
-  auto pkg = pmesh->packages.Get("poisson_nodal_package");
-  auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
-  auto psolver =
-      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
-
-  auto partitions = pmesh->GetDefaultBlockPartitions();
-  const int num_partitions = partitions.size();
-  TaskRegion &region = tc.AddRegion(num_partitions);
-  for (int i = 0; i < num_partitions; ++i) {
-    TaskList &tl = region[i];
-    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-    auto &field_labels = psolver->GetFieldLabels();
-    auto &md_u =
-        pmesh->mesh_data.Add(psolver->GetSolutionContainerLabel(), md, field_labels);
-    auto &md_rhs =
-        pmesh->mesh_data.Add(psolver->GetRHSContainerLabel(), md, field_labels);
-    auto &md_exact = pmesh->mesh_data.Add("exact_nodal", md, field_labels);
-
-    // set the rhs
-    auto set_rhs = tl.AddTask(none, SetVector, pinput, false, md_rhs);
-
-    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
-    // known when we solve A.u = rhs
-    if (use_exact_rhs) {
-      auto set_exact = tl.AddTask(set_rhs, SetVector, pinput, true, md_exact);
-      auto comm =
-          AddBoundaryExchangeTasks<BoundaryType::any>(set_exact, tl, md_exact, true);
-      set_rhs = psolver->Ax(tl, comm, md, md_exact, md_rhs);
-    }
-
-    // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
-    auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
-    auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-
-    // If we are using a rhs to which we know the exact solution, compare our computed
-    // solution to the exact solution
-    if (use_exact_rhs) {
-      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<TypeList<u>>,
-                             md_exact, md_u, md_exact, 1.0, -1.0);
-      auto get_err = solvers::utils::DotProduct<TypeList<u>>(diff, tl, &(driver->err),
-                                                             md_exact, md_exact);
-      tl.AddTask(
-          get_err,
-          [](linear_solver_example::LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
-            if (partition != 0) return TaskStatus::complete;
-            driver->final_rms_error["nodal_poisson"] =
-                std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
-            driver->final_rms_residual["nodal_poisson"] = psolver->GetFinalResidual();
-            if (Globals::my_rank == 0)
-              printf("Final residual: %e\n", driver->final_rms_residual["nodal_poisson"]);
-            printf("Final rms error: %e\n", driver->final_rms_error["nodal_poisson"]);
-            return TaskStatus::complete;
-          },
-          driver, i, psolver);
-    } else {
-      tl.AddTask(
-          solve,
-          [](linear_solver_example::LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
-            if (partition != 0) return TaskStatus::complete;
-            driver->final_rms_error["nodal_poisson"] = 0.0;
-            driver->final_rms_residual["nodal_poisson"] = psolver->GetFinalResidual();
-            if (Globals::my_rank == 0)
-              printf("Final residual: %e\n", driver->final_rms_residual["nodal_poisson"]);
-            return TaskStatus::complete;
-          },
-          driver, i, psolver);
-    }
-  }
 }
 
 } // namespace poisson_nodal_package

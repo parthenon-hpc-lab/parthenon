@@ -55,6 +55,10 @@ struct CGParams {
   }
 };
 
+struct CGSolverCounter { 
+  static inline std::size_t id{0};
+};
+
 // The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -63,13 +67,11 @@ struct CGParams {
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
 template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
-class CGSolver : public SolverBase {
+class CGSolver : public SolverBase, CGSolverCounter {
   using FieldTL = typename equations_t::IndependentVars;
 
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_x, container_r, container_v, container_p;
-
-  static inline std::size_t id{0};
 
  public:
   CGSolver(const std::string &container_base, const std::string &container_u,

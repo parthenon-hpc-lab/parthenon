@@ -22,8 +22,6 @@
 #include <vector>
 
 #include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
-#include "tasks/tasks.hpp"
 
 namespace parthenon {
 

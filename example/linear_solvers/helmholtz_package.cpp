@@ -96,16 +96,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
   using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  const std::string base_label = "base";
+  const std::string u_label = "helmholtz_u";
+  const std::string rhs_label = "helmholtz_rhs";
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
-        "base", "u", "rhs", pin, "helmholtz/solver_params", PoissEq(pin, "helmholtz"));
+        base_label, u_label, rhs_label, pin, "helmholtz/solver_params", PoissEq(pin, "helmholtz"));
   } else if (solver == "CG") {
     psolver = std::make_shared<parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
-        "base", "u", "rhs", pin, "helmholtz/solver_params", PoissEq(pin, "helmholtz"));
+        base_label, u_label, rhs_label, pin, "helmholtz/solver_params", PoissEq(pin, "helmholtz"));
   } else if (solver == "BiCGSTAB") {
     psolver =
         std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
-            "base", "u", "rhs", pin, "helmholtz/solver_params",
+            base_label, u_label, rhs_label, pin, "helmholtz/solver_params",
             PoissEq(pin, "helmholtz"));
   } else {
     PARTHENON_FAIL("Unknown solver type.");
@@ -138,4 +141,53 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   return pkg;
 }
+
+parthenon::TaskStatus
+SetVector(parthenon::ParameterInput *pin, bool use_exponential,
+          std::shared_ptr<parthenon::MeshData<parthenon::Real>> md) {
+  using namespace parthenon;
+  Real x0 = pin->GetOrAddReal("poisson_nodal", "x0", 0.0);
+  Real y0 = pin->GetOrAddReal("poisson_nodal", "y0", 0.0);
+  Real z0 = pin->GetOrAddReal("poisson_nodal", "z0", 0.0);
+  Real radius0 = pin->GetOrAddReal("poisson_nodal", "radius", 0.1);
+  const int ndim = md->GetMeshPointer()->ndim;
+
+  auto desc = MakePackDescriptor<u, F>(md.get());
+  auto pack = desc.GetPack(md.get());
+
+  using TE = parthenon::TopologicalElement;
+  auto ib = md->GetBoundsI(IndexDomain::entire, TE::CC);
+  auto jb = md->GetBoundsJ(IndexDomain::entire, TE::CC);
+  auto kb = md->GetBoundsK(IndexDomain::entire, TE::CC);
+
+  parthenon::par_for(
+      "Helmholtz::rhs_u", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack.GetCoordinates(b);
+        Real x1 = coords.X<1, TE::CC>(i);
+        Real x2 = coords.X<2, TE::CC>(j);
+        Real x3 = coords.X<2, TE::CC>(k);
+        Real rad = (x1 - x0) * (x1 - x0);
+        if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
+        if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
+        rad = std::sqrt(rad);
+
+        pack(b, TE::CC, u(), k, j, i) = rad < radius0 ? 1.0 : 0.0;
+        if (use_exponential) pack(b, TE::CC, u(), k, j, i) = -exp(-10.0 * rad * rad);
+      });
+
+  for (auto te : {TE::F1, TE::F2, TE::F3}) { 
+    auto ib = md->GetBoundsI(IndexDomain::entire, te);
+    auto jb = md->GetBoundsJ(IndexDomain::entire, te);
+    auto kb = md->GetBoundsK(IndexDomain::entire, te);
+    parthenon::par_for(
+      "Helmholtz::rhs_F", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        pack(b, te, F(), k, j, i) = 0.0;
+      });    
+  }
+  
+  return TaskStatus::complete;
+}
+
 } // namespace helmholtz_package

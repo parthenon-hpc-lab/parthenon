@@ -25,14 +25,15 @@
 #include <mesh/meshblock_pack.hpp>
 #include <parthenon/driver.hpp>
 #include <prolong_restrict/prolong_restrict.hpp>
-#include <solvers/bicgstab_solver.hpp>
-#include <solvers/cg_solver.hpp>
-#include <solvers/mg_solver.hpp>
+#include <solvers/solver_base.hpp>
 #include <solvers/solver_utils.hpp>
 
+#include "helmholtz_equation.hpp"
 #include "helmholtz_package.hpp"
 #include "linear_solver_driver.hpp"
+#include "poisson_cell_equation.hpp"
 #include "poisson_cell_package.hpp"
+#include "poisson_nodal_equation.hpp"
 #include "poisson_nodal_package.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -52,11 +53,103 @@ parthenon::DriverStatus LinearSolverDriver::Execute() {
 TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
   TaskCollection tc;
+  
+  {
+    using namespace poisson_nodal_package;
+    auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
+    auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
+    AddSolverTaskRegion<PoissonEquation<u>::IndependentVars>(tc, "poisson_nodal_package", SetRHS, SetExact);
+  }
 
-  poisson_nodal_package::AddTaskRegion(tc, this);
-  // poisson_cell_package::AddTaskRegion(tc, this);
+  {
+    using namespace poisson_cell_package;
+    auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
+    auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
+    AddSolverTaskRegion<PoissonEquation<u, D>::IndependentVars>(tc, "poisson_cell_package", SetRHS, SetExact);
+  }
 
   return tc;
+}
+
+template <class solver_TL>
+void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
+                   std::string package_label,
+                   initialize_vector_func_t SetRHS,
+                   initialize_vector_func_t SetExact) {
+  using namespace parthenon;
+  TaskID none(0);
+  
+  auto pkg = pmesh->packages.Get(package_label);
+  auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
+  auto psolver =
+      pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; ++i) {
+    TaskList &tl = region[i];
+    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &field_labels = psolver->GetFieldLabels();
+    auto &md_u =
+        pmesh->mesh_data.Add(psolver->GetSolutionContainerLabel(), md, field_labels);
+    auto &md_rhs =
+        pmesh->mesh_data.Add(psolver->GetRHSContainerLabel(), md, field_labels);
+    auto &md_exact = pmesh->mesh_data.Add("exact_" + package_label, md, field_labels);
+
+    // set the rhs
+    auto set_rhs = tl.AddTask(none, SetRHS, pinput, md_rhs);
+
+    // Possibly set rhs <- A.u_exact for a given u_exact so that the exact solution is
+    // known when we solve A.u = rhs
+    if (use_exact_rhs) {
+      auto set_exact = tl.AddTask(set_rhs, SetExact, pinput, md_exact);
+      auto comm =
+          AddBoundaryExchangeTasks<BoundaryType::any>(set_exact, tl, md_exact, true);
+      set_rhs = psolver->Ax(tl, comm, md, md_exact, md_rhs);
+    }
+
+    // Set initial solution guess to zero
+    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<solver_TL>), md_u);
+    auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
+    auto solve = psolver->AddTasks(tl, setup, i, pmesh);
+
+    // If we are using a rhs to which we know the exact solution, compare our computed
+    // solution to the exact solution
+    if (use_exact_rhs) {
+      auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<solver_TL>,
+                             md_exact, md_u, md_exact, 1.0, -1.0);
+      auto get_err = solvers::utils::DotProduct<solver_TL>(diff, tl, &err,
+                                                             md_exact, md_exact);
+      tl.AddTask(
+          get_err,
+          [package_label](LinearSolverDriver *driver, int partition,
+             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
+            if (partition != 0) return TaskStatus::complete;
+            driver->final_rms_error[package_label] =
+                std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
+            driver->final_rms_residual[package_label] = psolver->GetFinalResidual();
+            if (Globals::my_rank == 0)
+              printf("Final residual: %e\n", driver->final_rms_residual[package_label]);
+            printf("Final rms error: %e\n", driver->final_rms_error[package_label]);
+            return TaskStatus::complete;
+          },
+          this, i, psolver);
+    } else {
+      tl.AddTask(
+          solve,
+          [package_label](LinearSolverDriver *driver, int partition,
+             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
+            if (partition != 0) return TaskStatus::complete;
+            driver->final_rms_error[package_label] = 0.0;
+            driver->final_rms_residual[package_label] = psolver->GetFinalResidual();
+            if (Globals::my_rank == 0)
+              printf("Final residual: %e\n", driver->final_rms_residual[package_label]);
+            return TaskStatus::complete;
+          },
+          this, i, psolver);
+    }
+  }
 }
 
 } // namespace linear_solver_example
