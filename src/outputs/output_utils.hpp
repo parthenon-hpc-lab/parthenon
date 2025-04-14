@@ -137,7 +137,7 @@ struct VarInfo {
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
-                       metadata.IsSet(Metadata::Flux)),
+                       !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
         ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
