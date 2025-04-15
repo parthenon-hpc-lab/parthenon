@@ -21,13 +21,7 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/package.hpp>
 
-#define VARIABLE(ns, varname)                                                            \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return #ns "." #varname; }                               \
-  }
+#include "variable_type.hpp"
 
 namespace helmholtz_package {
 using namespace parthenon::package::prelude;
@@ -36,7 +30,8 @@ VARIABLE(helmholtz, u);
 VARIABLE(helmholtz, F);
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-
+TaskStatus SetVector(ParameterInput *pin, bool use_exponential,
+                     std::shared_ptr<MeshData<Real>> md);
 } // namespace helmholtz_package
 
 #endif // EXAMPLE_LINEAR_SOLVERS_HELMHOLTZ_PACKAGE_HPP_

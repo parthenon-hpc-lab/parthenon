@@ -55,7 +55,7 @@ struct CGParams {
   }
 };
 
-struct CGSolverCounter { 
+struct CGSolverCounter {
   static inline std::size_t id{0};
 };
 
@@ -89,11 +89,10 @@ class CGSolver : public SolverBase, CGSolverCounter {
     container_v = solver_id + "_v";
     container_p = solver_id + "_p";
   }
-  
-  TaskID Ax(TaskList &tl, TaskID dependence,
-                    std::shared_ptr<MeshData<Real>> &md_mat,
-                    std::shared_ptr<MeshData<Real>> &md_in,
-                    std::shared_ptr<MeshData<Real>> &md_out) {
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
     return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 

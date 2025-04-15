@@ -53,20 +53,37 @@ parthenon::DriverStatus LinearSolverDriver::Execute() {
 TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
   using namespace parthenon;
   TaskCollection tc;
-  
+
   {
     using namespace poisson_nodal_package;
-    initialize_vector_func_t Initialize = [](ParameterInput *, std::shared_ptr<MeshData<Real>>){return TaskStatus::complete;};
-    auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
-    auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
-    AddSolverTaskRegion<PoissonEquation<u>::IndependentVars>(tc, "poisson_nodal_package", Initialize, SetRHS, SetExact);
+    initialize_vector_func_t Initialize = [](ParameterInput *,
+                                             std::shared_ptr<MeshData<Real>>) {
+      return TaskStatus::complete;
+    };
+    auto SetRHS = [](auto *pinput, auto pmd) { return SetVector(pinput, false, pmd); };
+    auto SetExact = [](auto *pinput, auto pmd) { return SetVector(pinput, true, pmd); };
+    AddSolverTaskRegion<PoissonEquation<u>::IndependentVars>(
+        tc, "poisson_nodal_package", Initialize, SetRHS, SetExact);
   }
 
   {
     using namespace poisson_cell_package;
-    auto SetRHS = [](auto *pinput, auto pmd){return SetVector(pinput, false, pmd);};
-    auto SetExact = [](auto *pinput, auto pmd){return SetVector(pinput, true, pmd);};
-    AddSolverTaskRegion<PoissonEquation<u, D>::IndependentVars>(tc, "poisson_cell_package", SetD, SetRHS, SetExact);
+    auto SetRHS = [](auto *pinput, auto pmd) { return SetVector(pinput, false, pmd); };
+    auto SetExact = [](auto *pinput, auto pmd) { return SetVector(pinput, true, pmd); };
+    AddSolverTaskRegion<PoissonEquation<u, D>::IndependentVars>(
+        tc, "poisson_cell_package", SetD, SetRHS, SetExact);
+  }
+
+  {
+    using namespace helmholtz_package;
+    initialize_vector_func_t Initialize = [](ParameterInput *,
+                                             std::shared_ptr<MeshData<Real>>) {
+      return TaskStatus::complete;
+    };
+    auto SetRHS = [](auto *pinput, auto pmd) { return SetVector(pinput, false, pmd); };
+    auto SetExact = [](auto *pinput, auto pmd) { return SetVector(pinput, true, pmd); };
+    AddSolverTaskRegion<HelmholtzEquation::IndependentVars>(tc, "helmholtz_package",
+                                                            Initialize, SetRHS, SetExact);
   }
 
   return tc;
@@ -74,13 +91,13 @@ TaskCollection LinearSolverDriver::MakeTaskCollection(BlockList_t &blocks) {
 
 template <class solver_TL>
 void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
-                   std::string package_label,
-                   initialize_vector_func_t Initialize,
-                   initialize_vector_func_t SetRHS,
-                   initialize_vector_func_t SetExact) {
+                                             std::string package_label,
+                                             initialize_vector_func_t Initialize,
+                                             initialize_vector_func_t SetRHS,
+                                             initialize_vector_func_t SetExact) {
   using namespace parthenon;
   TaskID none(0);
-  
+
   auto pkg = pmesh->packages.Get(package_label);
   auto use_exact_rhs = pkg->Param<bool>("use_exact_rhs");
   auto psolver =
@@ -122,12 +139,12 @@ void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
     if (use_exact_rhs) {
       auto diff = tl.AddTask(solve, solvers::utils::AddFieldsAndStore<solver_TL>,
                              md_exact, md_u, md_exact, 1.0, -1.0);
-      auto get_err = solvers::utils::DotProduct<solver_TL>(diff, tl, &err,
-                                                             md_exact, md_exact);
+      auto get_err =
+          solvers::utils::DotProduct<solver_TL>(diff, tl, &err, md_exact, md_exact);
       tl.AddTask(
           get_err,
           [package_label](LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
+                          std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
             if (partition != 0) return TaskStatus::complete;
             driver->final_rms_error[package_label] =
                 std::sqrt(driver->err.val / driver->pmesh->GetTotalCells());
@@ -142,7 +159,7 @@ void LinearSolverDriver::AddSolverTaskRegion(parthenon::TaskCollection &tc,
       tl.AddTask(
           solve,
           [package_label](LinearSolverDriver *driver, int partition,
-             std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
+                          std::shared_ptr<parthenon::solvers::SolverBase> psolver) {
             if (partition != 0) return TaskStatus::complete;
             driver->final_rms_error[package_label] = 0.0;
             driver->final_rms_residual[package_label] = psolver->GetFinalResidual();

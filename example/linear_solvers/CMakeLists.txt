@@ -23,6 +23,7 @@ if( "linear-solvers-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPL
           poisson_nodal_equation.hpp
           poisson_nodal_package.cpp
           poisson_nodal_package.hpp
+          helmholtz_equation.cpp
           helmholtz_equation.hpp
           helmholtz_package.cpp
           helmholtz_package.hpp

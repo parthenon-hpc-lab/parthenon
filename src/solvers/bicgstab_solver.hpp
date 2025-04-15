@@ -63,7 +63,7 @@ struct BiCGSTABParams {
   }
 };
 
-struct BiCGSTABSolverCounter { 
+struct BiCGSTABSolverCounter {
   static inline std::size_t id{0};
 };
 
@@ -103,11 +103,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
   }
-  
-  TaskID Ax(TaskList &tl, TaskID dependence,
-                    std::shared_ptr<MeshData<Real>> &md_mat,
-                    std::shared_ptr<MeshData<Real>> &md_in,
-                    std::shared_ptr<MeshData<Real>> &md_out) {
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
     return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 

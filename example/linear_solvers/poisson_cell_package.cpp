@@ -196,11 +196,10 @@ bool InsideLRegion(int ndim, Real x, Real y, Real z) {
   if (ndim > 2) inside2 = inside2 && (z < 0.25) && (z > -0.25);
 
   return inside1 || inside2;
-};
+}
 
-parthenon::TaskStatus
-SetD(parthenon::ParameterInput *pin,
-     std::shared_ptr<parthenon::MeshData<parthenon::Real>> md) {
+parthenon::TaskStatus SetD(parthenon::ParameterInput *pin,
+                           std::shared_ptr<parthenon::MeshData<parthenon::Real>> md) {
   using namespace parthenon;
   Real interior_D = pin->GetOrAddReal("poisson_cell", "interior_D", 1.0);
   Real exterior_D = pin->GetOrAddReal("poisson_cell", "exterior_D", 1.0);
@@ -222,13 +221,12 @@ SetD(parthenon::ParameterInput *pin,
           Real x1 = coords.X<1>(te, k, j, i);
           Real x2 = coords.X<2>(te, k, j, i);
           Real x3 = coords.X<3>(te, k, j, i);
-          
-          pack(b, te, D(), k, j, i) = InsideLRegion(ndim, x1, x2, x3) ? interior_D : exterior_D;
+
+          pack(b, te, D(), k, j, i) =
+              InsideLRegion(ndim, x1, x2, x3) ? interior_D : exterior_D;
         });
   }
   return TaskStatus::complete;
 }
-
-
 
 } // namespace poisson_cell_package

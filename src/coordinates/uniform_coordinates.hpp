@@ -190,9 +190,10 @@ class UniformCoordinates {
       return X<dir, el>(k);
     return 0.0;
   }
-  
+
   template <int dir>
-  KOKKOS_FORCEINLINE_FUNCTION Real X(TopologicalElement el, const int k, const int j, const int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION Real X(TopologicalElement el, const int k, const int j,
+                                     const int i) const {
     static_assert(dir > 0 && dir < 4);
     using TE = TopologicalElement;
     if (el == TE::CC)
