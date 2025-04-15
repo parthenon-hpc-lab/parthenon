@@ -23,6 +23,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "config.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -200,9 +201,11 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalElement GetTopologicalElement(TopologicalType tt, int idx) {
+TopologicalElement GetTopologicalElement(TopologicalType tt, std::size_t idx) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
+  PARTHENON_DEBUG_REQUIRE(idx < GetNumberOfElements(tt),
+                          "Asking for topological element that doesn't exist.");
   return static_cast<TE>(static_cast<std::size_t>(tt) + idx);
 }
 

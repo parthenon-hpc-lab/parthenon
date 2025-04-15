@@ -83,7 +83,7 @@ HelmholtzEquation::AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
           const Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
 
           Real Ax = pack_in(b, te, vfc_t(), k, j, i);
-          Ax -= (pack_in(b, TE::CC, vcc_t(), k, j, i) -
+          Ax += (pack_in(b, TE::CC, vcc_t(), k, j, i) -
                  pack_in(b, TE::CC, vcc_t(), k - koff, j - joff, i - ioff)) /
                 dx1;
           pack_out(b, te, vfc_t(), k, j, i) = Ax;

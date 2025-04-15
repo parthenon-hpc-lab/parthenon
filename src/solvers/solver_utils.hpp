@@ -560,7 +560,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
 
         for (int c = 0; c < nvars; ++c) {
           const auto tt = pack_a.GetTopologicalType(b, c);
-          const auto nel = GetNumberOfElements(tt);
+          const auto nel = std::min(static_cast<int>(GetNumberOfElements(tt)), ndim);
           for (std::size_t el = 0; el < nel; ++el) {
             const auto te = GetTopologicalElement(tt, el);
             const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
