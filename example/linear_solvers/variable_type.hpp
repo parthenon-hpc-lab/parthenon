@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
 #ifndef EXAMPLE_LINEAR_SOLVERS_VARIABLE_TYPE_HPP_
 #define EXAMPLE_LINEAR_SOLVERS_VARIABLE_TYPE_HPP_
+
+#include <string>
+#include <utility>
 
 #define VARIABLE(ns, varname)                                                            \
   struct varname : public parthenon::variable_names::base_t<false> {                     \

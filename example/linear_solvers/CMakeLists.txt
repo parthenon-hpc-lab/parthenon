@@ -29,6 +29,7 @@ if( "linear-solvers-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPL
           helmholtz_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
+          variable_type.hpp
   )
   target_link_libraries(linear-solvers-example PRIVATE Parthenon::parthenon)
   lint_target(linear-solvers-example)
