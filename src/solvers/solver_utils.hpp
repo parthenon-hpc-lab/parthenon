@@ -536,28 +536,21 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
       pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
         //            pull the loop over vars outside of the innermost loop to promote
         //            vectorization.
-
-        for (int c = 0; c < nvars; ++c) {
-          const auto tt = pack_a.GetTopologicalType(b, c);
-          const auto nel = std::min(static_cast<int>(GetNumberOfElements(tt)), ndim);
-          for (std::size_t el = 0; el < nel; ++el) {
-            const auto te = GetTopologicalElement(tt, el);
-            const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
-            const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
-            const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
-            // Mask cell centered directions in upper ghost
-            const int maski = (TopologicalOffsetI(te) || ndim < 1) ? 1 : (i < ib.e);
-            const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j < jb.e);
-            const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k < kb.e);
-            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) *
-                    pack_a.IsOwned(b, ok, oj, oi) *
-                    (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk;
-          }
-        }
+        LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c){
+          const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
+          const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
+          const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
+          // Mask cell centered directions if loop bounds take them into ghosts
+          const int maski = (TopologicalOffsetI(te) || ndim < 1) ? 1 : (i < ib.e);
+          const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j < jb.e);
+          const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k < kb.e);
+          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) *
+                  pack_a.IsOwned(b, ok, oj, oi) *
+                  (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk;
+        });
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
