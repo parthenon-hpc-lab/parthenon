@@ -3,7 +3,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
+- [[PR 1233]](https://github.com/parthenon-hpc-lab/parthenon/pull/1233) Add implicit diffusion example
+- [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
+- [[PR 1231]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
 - [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1137) Add spherical and cylindrical coordinate support
 - [[PR 1182]](https://github.com/parthenon-hpc-lab/parthenon/pull/1182) Add a MeshData variant for refinement tagging 
 - [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
@@ -40,13 +42,15 @@
 - [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR1218]](https://github.com/parthenon-hpc-lab/parthenon/pull/1219) Add ability to run the tasking without threading
+- [[PR 1238]](https://github.com/parthenon-hpc-lab/parthenon/pull/1238) Refactor pack related files and add SparsePack docs
+- [[PR 1218]](https://github.com/parthenon-hpc-lab/parthenon/pull/1219) Add ability to run the tasking without threading
 - [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
 ### Removed (removing behavior/API/varaibles/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
 - [[PR 1174]](https://github.com/parthenon-hpc-lab/parthenon/pull/1174) Add CG solver, custom solver prolongation operator options, and switch to stage based solvers
 - [[PR 1177]](https://github.com/parthenon-hpc-lab/parthenon/pull/1177) Make mesh-level boundary conditions usable without the "user" flag
 

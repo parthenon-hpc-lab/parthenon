@@ -20,7 +20,6 @@
 #include <utility>
 
 #include "amr_criteria/amr_criteria.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -28,6 +27,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "utils/instrument.hpp"
 
