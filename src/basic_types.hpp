@@ -199,6 +199,13 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
   return {TE::CC};
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElement(TopologicalType tt, int idx) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  return static_cast<TE>(static_cast<std::size_t>(tt) + idx);
+}
+
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise

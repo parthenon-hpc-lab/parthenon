@@ -228,6 +228,10 @@ class SparsePack : public SparsePackBase {
     return (... && ContainsHost(b, Args()));
   }
 
+  KOKKOS_INLINE_FUNCTION auto &GetTopologicalType(const int b, const int idx) const {
+    return pack_(0, b, idx).topological_type;
+  }
+
   // Informational
   auto LabelHost(int b, int idx) const { return pack_h_(0, b, idx).label(); }
   template <typename... Vars>

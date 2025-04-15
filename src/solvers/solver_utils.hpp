@@ -331,12 +331,6 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
                                            const std::shared_ptr<MeshData<Real>> &md_out,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior_blocks = false) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::entire, te);
-
   int nblocks = md_a->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   if (only_interior_blocks) {
@@ -352,6 +346,14 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   const int scratch_size = 0;
   const int scratch_level = 0;
   // Warning: This inner loop strategy only works because we are using IndexDomain::entire
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::entire, TE::CC);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::entire, TE::CC);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::entire, TE::CC);
+  const int npoints_inner_cc = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
+  ib = md_a->GetBoundsI(IndexDomain::entire, TE::NN);
+  jb = md_a->GetBoundsJ(IndexDomain::entire, TE::NN);
+  kb = md_a->GetBoundsK(IndexDomain::entire, TE::NN);
   const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size,
@@ -359,12 +361,19 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c) {
-          Real *avar = &pack_a(b, te, c, kb.s, jb.s, ib.s);
-          Real *bvar = &pack_b(b, te, c, kb.s, jb.s, ib.s);
-          Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
-          parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints_inner - 1,
-              [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
+          const auto tt = pack_a.GetTopologicalType(b, c);
+          const auto nel = GetNumberOfElements(tt);
+          int npts = npoints_inner;
+          if (tt == TopologicalType::Cell) npts = npoints_inner_cc;
+          for (int el = 0; el < nel; ++el) {
+            const auto te = GetTopologicalElement(tt, el);
+            Real *avar = &pack_a(b, te, c, kb.s, jb.s, ib.s);
+            Real *bvar = &pack_b(b, te, c, kb.s, jb.s, ib.s);
+            Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, member, 0, npts - 1,
+                [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
+          }
         }
       });
   return TaskStatus::complete;
@@ -550,20 +559,16 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
         //            vectorization.
 
         for (int c = 0; c < nvars; ++c) {
-          const auto tt = pack_a(b, 0, c).topological_type;
+          const auto tt = pack_a.GetTopologicalType(b, c);
           const auto nel = GetNumberOfElements(tt);
           for (std::size_t el = 0; el < nel; ++el) {
-            const auto te =
-                static_cast<TopologicalElement>(static_cast<std::size_t>(tt) + el);
+            const auto te = GetTopologicalElement(tt, el);
             const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
             const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
             const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
             const int maski = TopologicalOffsetI(te) ? 1 : (i != ib.e);
             const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j != jb.e);
             const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k != kb.e);
-            // printf("[%i](%i, %i, %i) te = %i offset=(%i, %i, %i) mask=(%i, %i, %i)\n",
-            // b, k, j, i, static_cast<int>(te),
-            //        ok, oj, oi, maskk, maskj, maski);
             lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) *
                     pack_a.IsOwned(b, ok, oj, oi) *
                     (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk;
