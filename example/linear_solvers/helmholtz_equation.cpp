@@ -52,16 +52,17 @@ HelmholtzEquation::AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
         const Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
         const Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
 
-        Real Ax = alpha * pack_in(b, TE::CC, vcc_t(), k, j, i);
-        Ax += (pack_in(b, TE::F1, vfc_t(), k, j, i + ioff) -
+        Real Ax = -alpha * pack_in(b, TE::CC, vcc_t(), k, j, i);
+        Ax -= (pack_in(b, TE::F1, vfc_t(), k, j, i + ioff) -
                pack_in(b, TE::F1, vfc_t(), k, j, i)) /
               dx1;
-        Ax += (pack_in(b, TE::F2, vfc_t(), k, j + joff, i) -
+        Ax -= (pack_in(b, TE::F2, vfc_t(), k, j + joff, i) -
                pack_in(b, TE::F2, vfc_t(), k, j, i)) /
               dx2;
-        Ax += (pack_in(b, TE::F3, vfc_t(), k + koff, j, i) -
+        Ax -= (pack_in(b, TE::F3, vfc_t(), k + koff, j, i) -
                pack_in(b, TE::F3, vfc_t(), k, j, i)) /
               dx3;
+
         pack_out(b, TE::CC, vcc_t(), k, j, i) = Ax;
       });
   std::vector<TE> tes{TE::F1};
@@ -71,9 +72,9 @@ HelmholtzEquation::AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
     IndexRange ib = md_in->GetBoundsI(IndexDomain::interior, te);
     IndexRange jb = md_in->GetBoundsJ(IndexDomain::interior, te);
     IndexRange kb = md_in->GetBoundsK(IndexDomain::interior, te);
-    const int ioff = TopologicalOffsetI(te);
-    const int joff = TopologicalOffsetJ(te);
-    const int koff = TopologicalOffsetK(te);
+    const int ioff = TopologicalOffsetI(te) * (ndim > 0);
+    const int joff = TopologicalOffsetJ(te) * (ndim > 1);
+    const int koff = TopologicalOffsetK(te) * (ndim > 2);
     parthenon::par_for(
         "HelmholtzEquation::Ax", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
         ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -82,7 +83,7 @@ HelmholtzEquation::AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
           const Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
           const Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
 
-          Real Ax = pack_in(b, te, vfc_t(), k, j, i);
+          Real Ax = alpha * pack_in(b, te, vfc_t(), k, j, i);
           Ax += (pack_in(b, TE::CC, vcc_t(), k, j, i) -
                  pack_in(b, TE::CC, vcc_t(), k - koff, j - joff, i - ioff)) /
                 dx1;
@@ -141,7 +142,7 @@ HelmholtzEquation::SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> & /*md
   parthenon::par_for(
       "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        pack_diag(b, TE::CC, vcc_t(), k, j, i) = alpha;
+        pack_diag(b, TE::CC, vcc_t(), k, j, i) = -alpha;
       });
 
   std::vector<TE> tes{TE::F1};
@@ -154,7 +155,7 @@ HelmholtzEquation::SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> & /*md
     parthenon::par_for(
         "HelmholtzEquation::Ax", 0, pack_diag.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
         ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          pack_diag(b, te, vfc_t(), k, j, i) = 1.0;
+          pack_diag(b, te, vfc_t(), k, j, i) = alpha;
         });
   }
   return TaskStatus::complete;
