@@ -100,7 +100,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
             -DPARTHENON_ENABLE_ASCENT=ON \
-            -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
+            -DAscent_DIR=/usr/local/ascent-checkout/lib/cmake/ascent
           cmake --build build-ascent
           cd example/advection/
           # Pick GPU with most available memory
