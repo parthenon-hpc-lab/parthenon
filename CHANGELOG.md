@@ -18,6 +18,7 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6 (for AMD APU support)
 - [[PR 1223]](https://github.com/parthenon-hpc-lab/parthenon/pull/1223) Update to v4 artifacts
 - [[PR 1216]](https://github.com/parthenon-hpc-lab/parthenon/pull/1216) Move to Kokkos 4.5
 - [[PR 1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.4.1
