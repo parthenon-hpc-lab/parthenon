@@ -14,6 +14,7 @@
 #ifndef TASKS_THREAD_POOL_HPP_
 #define TASKS_THREAD_POOL_HPP_
 
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -66,17 +67,21 @@ class ThreadQueue {
     complete = true;
     cv.notify_all();
   }
-  void wait_for_complete() {
-    std::unique_lock<std::mutex> lock(mutex);
-    waiting = true;
-    if (queue.empty() && nwaiting == nworkers) {
+  void wait_for_complete(std::chrono::seconds max_time) {
+    bool timeout{false};
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      waiting = true;
+      if (queue.empty() && nwaiting == nworkers) {
+        complete = false;
+        waiting = false;
+        return;
+      }
+      bool timeout = !complete_cv.wait_for(lock, max_time, [this]() { return complete; });
       complete = false;
       waiting = false;
-      return;
     }
-    complete_cv.wait(lock, [this]() { return complete; });
-    complete = false;
-    waiting = false;
+    if (!timeout) signal_kill();
   }
 
  private:
@@ -145,7 +150,9 @@ class ThreadPool {
     }
   }
 
-  void wait() { queue.wait_for_complete(); }
+  void wait(std::size_t timeout_secs = std::numeric_limits<std::size_t>::max()) { 
+    queue.wait_for_complete(std::chrono::seconds(timeout_secs)); 
+  }
 
   void kill() { queue.signal_kill(); }
 
@@ -165,7 +172,7 @@ class ThreadPool {
   // but we can check returns too.
   // Would need changes for >1 failure mode
   TaskStatus check_task_returns() {
-    queue.wait_for_complete();
+    queue.wait_for_complete(std::chrono::seconds(10));
     TaskStatus overall = TaskStatus::complete;
     for (auto &task : run_tasks) {
       TaskStatus task_return = task->get_future().get();
