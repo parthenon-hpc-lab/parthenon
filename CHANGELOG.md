@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1233]](https://github.com/parthenon-hpc-lab/parthenon/pull/1233) Add implicit diffusion example
 - [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
 - [[PR 1231]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
 - [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1137) Add spherical and cylindrical coordinate support
@@ -30,6 +31,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1241]](https://github.com/parthenon-hpc-lab/parthenon/pull/1241) Emit an error message when using uninitialized multigrid blocks
+- [[PR 1240]](https://github.com/parthenon-hpc-lab/parthenon/pull/1240) Fix I/O for CellMemAligned variables
 - [[PR 1229]](https://github.com/parthenon-hpc-lab/parthenon/pull/1229) Ensure builds function on 32 bit architectures
 - [[PR 1230]](https://github.com/parthenon-hpc-lab/parthenon/pull/1230) Add missing using statements in curvilinear coordinates classes
 - [[PR 1217]](https://github.com/parthenon-hpc-lab/parthenon/pull/1217) Swarm comm debug fix
