@@ -224,11 +224,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
                     std::shared_ptr<MeshData<Real>> &md_xnew, double weight) {
     using namespace parthenon;
     const int ndim = md_rhs->GetMeshPointer()->ndim;
-    using TE = parthenon::TopologicalElement;
-    TE te = TE::CC;
-    IndexRange ib = md_rhs->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md_rhs->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md_rhs->GetBoundsK(IndexDomain::interior, te);
 
     int nblocks = md_rhs->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
@@ -249,18 +244,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
     const int scratch_level = 0;
     parthenon::par_for_outer(
         DEFAULT_OUTER_LOOP_PATTERN, "Jacobi", DevExecSpace(), scratch_size, scratch_level,
-        0, pack_rhs.GetNBlocks() - 1, kb.s, kb.e,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int k) {
-          const int nvars = pack_rhs.GetUpperBound(b) - pack_rhs.GetLowerBound(b) + 1;
-          for (int c = 0; c < nvars; ++c) {
-            Real *Ax = &pack_Ax(b, te, c, k, jb.s, ib.s);
-            Real *diag = &pack_diag(b, te, c, k, jb.s, ib.s);
-            Real *prhs = &pack_rhs(b, te, c, k, jb.s, ib.s);
-            Real *xo = &pack_xold(b, te, c, k, jb.s, ib.s);
-            Real *xn = &pack_xnew(b, te, c, k, jb.s, ib.s);
-            // Use ptr arithmetic to get the number of points we need to go over
-            // (including ghost zones) to get from (k, jb.s, ib.s) to (k, jb.e, ib.e)
-            const int npoints = &pack_Ax(b, te, c, k, jb.e, ib.e) - Ax + 1;
+        0, pack_rhs.GetNBlocks() - 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+          LoopOverBlockVarsAndTEs(b, pack_rhs, [&](TopologicalElement te, int c) {
+            Real *Ax = pack_Ax(b, te, c).data();
+            Real *diag = pack_diag(b, te, c).data();
+            Real *prhs = pack_rhs(b, te, c).data();
+            Real *xo = pack_xold(b, te, c).data();
+            Real *xn = pack_xnew(b, te, c).data();
+            const int npoints = pack_Ax(b, te, c).size();
             parthenon::par_for_inner(
                 DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints - 1, [&](const int idx) {
                   const Real off_diag = Ax[idx] - diag[idx] * xo[idx];
@@ -268,7 +260,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                   xn[idx] =
                       weight * robust::ratio(val, diag[idx]) + (1.0 - weight) * xo[idx];
                 });
-          }
+          });
         });
     return TaskStatus::complete;
   }
