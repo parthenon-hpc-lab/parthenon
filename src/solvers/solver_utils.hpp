@@ -609,9 +609,13 @@ TaskStatus ConstantBC(std::shared_ptr<MeshData<Real>> &md, bool coarse, Real val
             const auto ib = cellbounds.GetBoundsI(idomains[oi + 1], te);
             const auto jb = cellbounds.GetBoundsJ(idomains[oj + 1], te);
             const auto kb = cellbounds.GetBoundsK(idomains[ok + 1], te);
+            Indexer3D idxer({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e});
             parthenon::par_for_inner(
-                DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-                [&](int k, int j, int i) { pack(b, te, c, k, j, i) = val; });
+                DEFAULT_INNER_LOOP_PATTERN, member, 0, idxer.size() - 1,
+                [&](int idx) { 
+                  const auto [k, j, i] = idxer(idx);
+                  pack(b, te, c, k, j, i) = val; 
+                });
           });
         }
       });
