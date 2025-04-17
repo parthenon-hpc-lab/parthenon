@@ -20,6 +20,7 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <tuple>

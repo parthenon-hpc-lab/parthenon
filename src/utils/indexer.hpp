@@ -163,7 +163,7 @@ struct Indexer {
         ...);
     return indices;
   }
-  
+
   template <std::size_t... Is>
   KOKKOS_FORCEINLINE_FUNCTION std::size_t
   GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
