@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
 
@@ -79,11 +80,6 @@ static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::flxcor_recv>(md);
 }
 
-// Adds all relevant boundary communication to a single task list
-template <BoundaryType bounds = BoundaryType::any>
-TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
-                                std::shared_ptr<MeshData<Real>> &md, bool multilevel);
-
 // Adds all relevant flux correction tasks to a single task list
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel);
@@ -91,6 +87,28 @@ TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
+
+bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md);
+
+template <BoundaryType bounds = BoundaryType::any>
+TaskID AddBoundaryExchangeTasks(
+    TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+    BValOnMDFunc_t ApplyBCs = ApplyBoundaryConditionsOnCoarseOrFineMD) {
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
+
+  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
+  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
+  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
+
+  auto pro = set;
+  if (IsMeshMultilevel(md)) {
+    auto cbound = tl.AddTask(set, TF(ApplyBCs), md, true);
+    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+  }
+  auto fbound = tl.AddTask(pro, TF(ApplyBCs), md, false);
+
+  return fbound;
+}
 
 } // namespace parthenon
 
