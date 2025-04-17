@@ -600,7 +600,10 @@ TaskStatus ConstantBC(std::shared_ptr<MeshData<Real>> &md, bool coarse, Real val
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int oidx) {
         IndexDomain idomains[3]{IndexDomain::inner, IndexDomain::unshared_interior,
                                 IndexDomain::outer};
-        auto [ok, oj, oi] = offset_idxer(oidx);
+        const auto offset_tup = offset_idxer(oidx);
+        const int ok = std::get<0>(offset_tup);
+        const int oj = std::get<1>(offset_tup);
+        const int oi = std::get<2>(offset_tup);
         if (pack.IsPhysicalBoundary(b, ok, oj, oi)) {
           LoopOverBlockVarsAndTEs(b, pack, [&](TopologicalElement te, int c) {
             const auto ib = cellbounds.GetBoundsI(idomains[oi + 1], te);
