@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/boundary_conditions.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -84,6 +85,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
+  BValOnMDFunc_t BCFunc;
 
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
@@ -103,6 +105,11 @@ class MGSolver : public SolverBase, MGSolverCounter {
     container_temp = solver_id + "_temp";
     container_u0 = solver_id + "_u0";
     container_diag = solver_id + "_diag";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
   }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
@@ -135,10 +142,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, md, sol_fields);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, md, sol_fields);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
-                                                            pmesh->multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) {
-      comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_u);
-    }
+                                                            pmesh->multilevel, BCFunc);
+
     auto calc_pointwise_res = eqs_.Ax(itl, comm, md, md_u, md_res_err);
     calc_pointwise_res =
         itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
@@ -278,11 +283,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, md_base, sol_fields);
 
-    auto comm =
-        AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) {
-      comm = tl.AddTask(comm, TF(equations_t::SetBoundary), md_in);
-    }
+    auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel,
+                                                        BCFunc);
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
     return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
                       md_in, md_out, omega);
@@ -453,10 +455,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
       auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
-                                                                     multilevel);
-      if constexpr (has_SetBoundary<equations_t>::value) {
-        comm_u = tl.AddTask(comm_u, TF(equations_t::SetBoundary), md_u);
-      }
+                                                                     multilevel, BCFunc);
+
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.Ax(tl, comm_u, md, md_u, md_temp);
       residual = tl.AddTask(residual, BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
@@ -507,11 +507,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
                                    md_u, md_u0, md_res_err, 1.0, -1.0);
         copy_over = calc_err;
       }
-      if constexpr (has_SetBoundary<equations_t>::value) {
-        copy_over = tl.AddTask(copy_over, TF(equations_t::SetBoundary), md_res_err);
-      }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
+      //TODO(LFR): Determine what to actually do here
+      auto set_bc = [](std::shared_ptr<MeshData<Real>> &md, bool coarse) {
+        return utils::ConstantBC<FieldTL>(md, coarse, 0.0);
+      };
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
           copy_over, tl, md_res_err, multilevel);
       last_task = tl.AddTask(

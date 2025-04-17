@@ -92,8 +92,8 @@ class PoissonEquation {
     return TaskStatus::complete;
   }
 
-  static parthenon::TaskStatus
-  SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+  static parthenon::TaskStatus SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                                           bool coarse) {
     using namespace parthenon;
 
     constexpr auto te = TopologicalElement::NN;
@@ -102,8 +102,10 @@ class PoissonEquation {
     IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
     IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-    auto desc = parthenon::MakePackDescriptor<var_t>(md.get());
-    auto pack = desc.GetPack(md.get());
+    std::set<PDOpt> opts{};
+    if (coarse) opts.emplace(PDOpt::Coarse);
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, opts);
+    auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
 
     parthenon::par_for(
         "PoissonNodal::SetBoundary", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,

@@ -94,13 +94,16 @@ HelmholtzEquation::AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
 }
 
 parthenon::TaskStatus
-HelmholtzEquation::SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+HelmholtzEquation::SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                               bool coarse) {
   using namespace parthenon;
 
   using TE = TopologicalElement;
   const int ndim = md->GetMeshPointer()->ndim;
 
-  auto desc = parthenon::MakePackDescriptor<vfc_t>(md.get());
+  std::set<PDOpt> opts{};
+  if (coarse) opts.emplace(PDOpt::Coarse);
+  auto desc = parthenon::MakePackDescriptor<vfc_t>(md.get(), {}, opts);
   auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
 
   std::vector<TE> tes{TE::F1};

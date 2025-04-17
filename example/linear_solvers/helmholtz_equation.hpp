@@ -52,8 +52,8 @@ class HelmholtzEquation {
   static parthenon::TaskStatus AxImpl(std::shared_ptr<parthenon::MeshData<Real>> &md_in,
                                       std::shared_ptr<parthenon::MeshData<Real>> &md_out);
 
-  static parthenon::TaskStatus
-  SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md);
+  static parthenon::TaskStatus SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                                           bool coarse);
 
   parthenon::TaskStatus
   SetDiagonal(std::shared_ptr<parthenon::MeshData<Real>> & /*md_mat*/,

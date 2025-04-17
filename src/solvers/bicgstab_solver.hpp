@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/boundary_conditions.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -81,6 +82,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
+  BValOnMDFunc_t BCFunc;
 
  public:
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
@@ -102,6 +104,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     container_p = solver_id + "_p";
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
   }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
@@ -214,11 +221,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     }
 
     // 2. v <- A u
-    auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) {
-      comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_u);
-    }
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u,
+                                                            multilevel, BCFunc);
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
@@ -271,11 +275,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     }
 
     // 7. t <- A u
-    auto pre_t_comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) {
-      pre_t_comm = itl.AddTask(pre_t_comm, TF(equations_t::SetBoundary), md_u);
-    }
+    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u,
+                                                                  multilevel, BCFunc);
     auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)

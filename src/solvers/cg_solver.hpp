@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/boundary_conditions.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -72,6 +73,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
 
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_x, container_r, container_v, container_p;
+  BValOnMDFunc_t BCFunc;
 
  public:
   CGSolver(const std::string &container_base, const std::string &container_u,
@@ -88,6 +90,11 @@ class CGSolver : public SolverBase, CGSolverCounter {
     container_r = solver_id + "_r";
     container_v = solver_id + "_v";
     container_p = solver_id + "_p";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
   }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
@@ -197,11 +204,8 @@ class CGSolver : public SolverBase, CGSolverCounter {
         this, md_u, md_p);
 
     // 4. v <- A p
-    auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p, multilevel);
-    if constexpr (has_SetBoundary<equations_t>::value) {
-      comm = itl.AddTask(comm, TF(equations_t::SetBoundary), md_p);
-    }
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p,
+                                                            multilevel, BCFunc);
     auto get_v = eqs_.Ax(itl, comm, md_base, md_p, md_v);
 
     // 5. alpha <- r dot u / p dot v (calculate denominator)
