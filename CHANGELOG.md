@@ -19,6 +19,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
+- [[PR 1243]](https://github.com/parthenon-hpc-lab/parthenon/pull/1243) Increase MPI timeout counter by 10x
 - [[PR 1223]](https://github.com/parthenon-hpc-lab/parthenon/pull/1223) Update to v4 artifacts
 - [[PR 1216]](https://github.com/parthenon-hpc-lab/parthenon/pull/1216) Move to Kokkos 4.5
 - [[PR 1191]](https://github.com/parthenon-hpc-lab/parthenon/pull/1191) Update Kokkos version to 4.4.1
@@ -31,6 +32,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1240]](https://github.com/parthenon-hpc-lab/parthenon/pull/1240) Fix I/O for CellMemAligned variables
 - [[PR 1229]](https://github.com/parthenon-hpc-lab/parthenon/pull/1229) Ensure builds function on 32 bit architectures
 - [[PR 1230]](https://github.com/parthenon-hpc-lab/parthenon/pull/1230) Add missing using statements in curvilinear coordinates classes
 - [[PR 1217]](https://github.com/parthenon-hpc-lab/parthenon/pull/1217) Swarm comm debug fix
