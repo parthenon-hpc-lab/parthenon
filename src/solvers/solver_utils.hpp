@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -575,6 +576,41 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
   return finish_global_adotb;
+}
+
+template <class TL>
+TaskStatus ConstantBC(std::shared_ptr<MeshData<Real>> &md, bool coarse, Real val) {
+  using TE = TopologicalElement;
+  const int ndim = md->GetMeshPointer()->ndim;
+
+  std::set<PDOpt> opts{};
+  if (coarse) opts.emplace(PDOpt::Coarse);
+  auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get(), std::vector<MetadataFlag>{}, opts);
+  auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
+  const auto cellbounds = md->GetCellBounds(coarse ? CellLevel::coarse : CellLevel::same);
+
+  const int scratch_size = 0;
+  const int scratch_level = 0;
+  Indexer3D offset_idxer({-ndim > 2, ndim > 2}, {-ndim > 1, ndim > 1}, {-ndim > 0, ndim > 0});
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "DoBCs", DevExecSpace(), scratch_size, scratch_level, 0,
+      pack.GetNBlocks() - 1, 0, offset_idxer.size() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int oidx) {
+        IndexDomain idomains[3]{IndexDomain::inner, IndexDomain::unshared_interior, IndexDomain::outer};
+        auto [ok, oj, oi] = offset_idxer(oidx);
+        if (pack.IsPhysicalBoundary(b, ok, oj, oi)) {
+          LoopOverBlockVarsAndTEs(b, pack, [&](TopologicalElement te, int c) {
+            const auto ib = cellbounds.GetBoundsI(idomains[oi + 1], te);
+            const auto jb = cellbounds.GetBoundsJ(idomains[oj + 1], te);
+            const auto kb = cellbounds.GetBoundsK(idomains[ok + 1], te);
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+                [&](int k, int j, int i) { pack(b, te, c, k, j, i) = val; });
+          });
+        }
+      });
+
+  return TaskStatus::complete;
 }
 
 } // namespace utils

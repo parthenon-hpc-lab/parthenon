@@ -225,6 +225,17 @@ constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffset(CoordinateDirection dir, TE el) {
+  if (X1DIR == dir)
+    return TopologicalOffsetI(el);
+  else if (X2DIR == dir)
+    return TopologicalOffsetJ(el);
+  else if (X3DIR == dir)
+    return TopologicalOffsetK(el);
+  return 0;
+}
+
 // Returns wether or not topological element containee is a boundary of
 // topological element container
 inline constexpr bool IsSubmanifold(TopologicalElement containee,

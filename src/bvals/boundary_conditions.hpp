@@ -37,6 +37,8 @@ using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
 using BValFuncArray_t = std::array<std::vector<BValFunc>, BOUNDARY_NFACES>;
 using SBValFuncArray_t = std::array<std::vector<SBValFunc>, BOUNDARY_NFACES>;
 
+using BValOnMDFunc_t = std::function<TaskStatus(std::shared_ptr<MeshData<Real>> &, bool)>;
+
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
 
