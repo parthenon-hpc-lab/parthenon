@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
@@ -59,8 +58,10 @@
 namespace parthenon {
 
 // Forward declarations
+class ApplicationInput;
 class MeshBlock;
 class MeshRefinement;
+class Packages_t;
 class ParameterInput;
 class RestartReader;
 
@@ -106,7 +107,9 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const {
     return forest.GetBlockDomain(loc);
   }
-  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+  const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+
+  ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
 
@@ -115,6 +118,11 @@ class Mesh {
   bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
+
+  BValNames_t mesh_bc_names;
+  BValNames_t mesh_swarm_bc_names;
+
+  // these are flags not boundary functions
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
@@ -143,7 +151,8 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+    return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                  : default_pack_size_;
   }
   int DefaultNumPartitions() {
     return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
@@ -274,6 +283,8 @@ class Mesh {
   std::vector<int> bnref, bnderef;
   std::vector<int> brdisp, bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
+  // Refinement tags used by MeshData checks
+  ParArray1D<AmrTag> amr_tags;
 
   std::vector<LogicalLocation> loclist;
 
@@ -294,6 +305,10 @@ class Mesh {
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
 #endif
+
+  void SetBCNames_(ParameterInput *pin);
+  std::array<BoundaryFlag, BOUNDARY_NFACES>
+  GetBCsFromNames_(const BValNames_t &names) const;
 
   // functions
   void CheckMeshValidity() const;
@@ -327,7 +342,8 @@ class Mesh {
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
-  void CommunicateBoundaries(std::string md_name = "base");
+  void CommunicateBoundaries(std::string md_name = "base",
+                             const std::vector<std::string> &fields = {});
   void PreCommFillDerived();
   void FillDerived();
 

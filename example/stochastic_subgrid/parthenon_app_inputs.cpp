@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <cstdio>
+#include <memory>
 #include <sstream>
 #include <string>
 

@@ -20,11 +20,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <unordered_set>
+#include <vector>
 
 #include "parthenon_mpi.hpp"
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -90,18 +90,18 @@ inline int NumberOfBinaryTrailingZeros(std::uint64_t val) {
 
 inline int MaximumPowerOf2Divisor(int in) { return in & (~(in - 1)); }
 
-inline uint IntegerLog2Ceil(uint in) {
-  uint log2 = 0;
-  uint in_temp = in;
+inline unsigned int IntegerLog2Ceil(unsigned int in) {
+  unsigned int log2 = 0;
+  unsigned int in_temp = in;
   while (in_temp >>= 1) {
     log2++;
   }
-  uint pow = 1U << log2;
+  unsigned int pow = 1U << log2;
   return log2 + (pow != in);
 }
 
-inline uint IntegerLog2Floor(uint in) {
-  uint log2 = 0;
+inline unsigned int IntegerLog2Floor(unsigned int in) {
+  unsigned int log2 = 0;
   while (in >>= 1) {
     log2++;
   }

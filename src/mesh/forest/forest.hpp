@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_topology.hpp"
@@ -33,6 +32,8 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
+class ApplicationInput;
+
 namespace forest {
 
 template <class ELEMENT>
@@ -61,7 +62,8 @@ class ForestDefinition {
     face_sizes.emplace_back(xmin, xmax, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1});
   }
 
-  void AddBC(Edge edge, BoundaryFlag bf, std::optional<Edge> periodic_connection = {}) {
+  void AddBC(Edge edge, BoundaryFlag bf = BoundaryFlag::user,
+             std::optional<Edge> periodic_connection = {}) {
     if (bf == BoundaryFlag::periodic)
       PARTHENON_REQUIRE(periodic_connection,
                         "Must specify another edge for periodic boundary conditions.");
@@ -133,12 +135,12 @@ class Forest {
     return trees.at(loc.tree())->GetBlockBCs(loc);
   }
 
-  void EnrollBndryFncts(
-      ApplicationInput *app_in,
-      std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions_in,
-      std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions_in) {
+  void EnrollBndryFncts(ApplicationInput *app_in, const BValNames_t &names,
+                        const BValNames_t &swarm_names,
+                        const BValFuncArray_t &UserBoundaryFunctions_in,
+                        const SBValFuncArray_t &UserSwarmBoundaryFunctions_in) {
     for (auto &[id, ptree] : trees)
-      ptree->EnrollBndryFncts(app_in, UserBoundaryFunctions_in,
+      ptree->EnrollBndryFncts(app_in, names, swarm_names, UserBoundaryFunctions_in,
                               UserSwarmBoundaryFunctions_in);
   }
 
@@ -161,36 +163,10 @@ class Forest {
 
   // TODO(LFR): Probably eventually remove this. This is only meaningful for simply
   // oriented grids
-  LogicalLocation GetLegacyTreeLocation(const LogicalLocation &loc) const {
-    if (loc.tree() < 0)
-      return loc; // This is already presumed to be an Athena++ tree location
-    auto parent_loc = trees.at(loc.tree())->athena_forest_loc;
-    int composite_level = parent_loc.level() + loc.level();
-    int lx1 = (parent_loc.lx1() << loc.level()) + loc.lx1();
-    int lx2 = (parent_loc.lx2() << loc.level()) + loc.lx2();
-    int lx3 = (parent_loc.lx3() << loc.level()) + loc.lx3();
-    return LogicalLocation(composite_level, lx1, lx2, lx3);
-  }
+  LogicalLocation GetLegacyTreeLocation(const LogicalLocation &loc) const;
 
   LogicalLocation
-  GetForestLocationFromLegacyTreeLocation(const LogicalLocation &loc) const {
-    if (loc.tree() >= 0)
-      return loc; // This location is already associated with a tree in the Parthenon
-                  // forest
-    int macro_level = (*trees.begin()).second->athena_forest_loc.level();
-    auto forest_loc = loc.GetParent(loc.level() - macro_level);
-    for (auto &[id, t] : trees) {
-      if (t->athena_forest_loc == forest_loc) {
-        return LogicalLocation(
-            t->GetId(), loc.level() - macro_level,
-            loc.lx1() - (forest_loc.lx1() << (loc.level() - macro_level)),
-            loc.lx2() - (forest_loc.lx2() << (loc.level() - macro_level)),
-            loc.lx3() - (forest_loc.lx3() << (loc.level() - macro_level)));
-      }
-    }
-    PARTHENON_FAIL("Somehow didn't find a tree.");
-    return LogicalLocation();
-  }
+  GetForestLocationFromLegacyTreeLocation(const LogicalLocation &loc) const;
 
   std::size_t CountTrees() const { return trees.size(); }
 

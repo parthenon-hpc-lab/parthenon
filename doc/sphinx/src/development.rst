@@ -21,7 +21,10 @@ Kokkos wrappers/abstractions
 -  ``par_for`` wrappers use inclusive bounds, i.e., the loop will
    include the last index given
 -  ``ParArrayND`` arrays by default allocate on the *device* using
-   default precision configured
+   default precision configured and come with a `State` that can
+   be used to store additional metadata.
+- ``ParArray#DRaw`` directly map to Kokkos ``Views`` that are allocated
+   on *device* using default precision.
 -  To create an array on the host with identical layout to the device
    array either use
 
@@ -61,6 +64,42 @@ The wrappers ``par_for_outer`` and ``par_for_inner`` provide a nested
 parallelism interface that is needed for managing memory cached in
 tightly nested loops. The wrappers are documented
 :ref:`here <nested par for>`.
+
+View of Views
+-------------
+
+Special care needs to be taken when working with a ``View`` of ``Views``.
+
+To repeat the Kokkos documenation: `Don't use them <https://kokkos.org/kokkos-core-wiki/ProgrammingGuide/View.html#can-i-make-a-view-of-views>`__
+
+But if you have to (which is the case in some places inside Parthenon)
+then follow this pattern:
+
+.. code:: c++
+
+   ParArray1DRaw<ParArray1D<Real>> view_of_pararrays(parthenon::ViewOfViewAlloc("myname"), 10);
+
+The ``ViewOfViewAlloc`` ensures that the ``Kokkos::SequentialHostInit`` property is added,
+which results in the (inner ``View`` ) deallocators being called on the host (rather than on
+the device by default).
+Also note the use of the "raw" ``ParArray1DRaw``, which directly maps to a Kokkos ``View``
+(that is required to process the allocation property as this interface is not exposed
+in the more generic ``ParArrayND``).
+
+Similarly, when you create a host mirror of said ``View`` of ``View`` add the additional
+property for the same reason.
+
+.. code:: c++
+
+   // explicit theoretical example -- don't use this
+   auto view_of_pararrays_h =
+        Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), view_of_pararrays);
+
+   // but instead use this interface provided by Parthenon:
+   auto view_of_pararrays_h = create_view_of_view_mirror(view_of_pararrays);
+
+
+Note that the ``SequentialHostInit`` was only added in Kokkos 4.4.1 (which is now the default in Parthenon).
 
 The need for reductions within function handling ``MeshBlock`` data
 -------------------------------------------------------------------

@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -115,6 +115,7 @@ static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 static hid_t getHDF5Type(const char *) { return H5T_NATIVE_CHAR; }
+static hid_t getHDF5Type(const uint8_t *) { return H5T_NATIVE_B8; }
 
 // On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
 // Thus, size_t is not captured by the overload above and needs to selectively enabled.

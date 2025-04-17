@@ -28,13 +28,14 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
@@ -42,6 +43,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -71,6 +73,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   } else {
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
   }
+
+  // Check that the parameter input is safe to write to HDF5
+  OutputUtils::CheckParameterInputConsistent(pin);
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -185,12 +190,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
 
     // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
-
-    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+    HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
+    HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
   }                                 // Info section
 
@@ -596,9 +597,15 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     // Only applies to default time-based data dumps, so that writing "now" and "final"
     // outputs does not change the desired output numbering.
     output_params.file_number++;
-    output_params.next_time += output_params.dt;
     pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+    if (output_params.dt > 0.0) {
+      output_params.next_time += output_params.dt;
+      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+    }
+    if (output_params.dn > 0) {
+      output_params.next_n += output_params.dn;
+      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
+    }
   }
   return filename;
 }
@@ -741,6 +748,11 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
 // Utility functions implemented
 namespace HDF5 {
+H5G MakeGroup(hid_t file, const std::string &name) {
+  return H5G::FromHIDCheck(
+      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+}
+
 hid_t GenerateFileAccessProps() {
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */

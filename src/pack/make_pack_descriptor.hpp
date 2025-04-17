@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_MAKE_PACK_DESCRIPTOR_HPP_
-#define INTERFACE_MAKE_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#define PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -29,10 +29,10 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -148,4 +148,4 @@ inline auto MakePackDescriptorFromTypeList(Args &&...args) {
 }
 } // namespace parthenon
 
-#endif // INTERFACE_MAKE_PACK_DESCRIPTOR_HPP_
+#endif // PACK_MAKE_PACK_DESCRIPTOR_HPP_

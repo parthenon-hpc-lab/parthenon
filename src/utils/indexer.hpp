@@ -97,6 +97,11 @@ struct Indexer {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t GetFlatIdx(Ts... ts) const {
+    return GetFlatIndexImpl(ts..., std::make_index_sequence<sizeof...(Ts)>());
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
   auto GetIdxArray(int idx) const {
     return GetIndicesArrayImpl(idx, std::make_index_sequence<sizeof...(Ts)>());
   }
@@ -157,6 +162,19 @@ struct Indexer {
         }(),
         ...);
     return indices;
+  }
+  
+  template <std::size_t... Is>
+  KOKKOS_FORCEINLINE_FUNCTION std::size_t
+  GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
+    std::size_t out{0};
+    (
+        [&] {
+          idxs -= start[Is];
+          out += idxs * N[Is];
+        }(),
+        ...);
+    return out;
   }
 
   template <std::size_t... Is>

@@ -14,17 +14,18 @@
 #include "interface/update.hpp"
 
 #include <memory>
+#include <vector>
 
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock_pack.hpp"

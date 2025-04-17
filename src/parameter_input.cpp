@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -57,6 +57,7 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "globals.hpp"
@@ -125,12 +126,12 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   while (is.good()) {
     std::getline(is, line);
     line_num++;
-    if (line.find('\t') != std::string::npos) {
-      line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
-      // msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-      //     << std::endl << "Tab characters are forbidden in input files";
-      // PARTHENON_FAIL(msg);
-    }
+
+    // remove all \t\f\n\r\v but leave pure spaces
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
+
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
     if (first_char == std::string::npos) continue;            // line is all white space
@@ -275,6 +276,10 @@ InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
   pib->block_name.assign(name); // store the new block name
   pib->pline = nullptr;         // Terminate the InputLine list
   pib->pnext = nullptr;         // Terminate the InputBlock list
+
+  // Default max lengths to zero (in case of no parameters in this block)
+  pib->max_len_parname = 0;
+  pib->max_len_parvalue = 0;
 
   // if this is the first block in list, save pointer to it in class
   if (pfirst_block == nullptr) {

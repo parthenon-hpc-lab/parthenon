@@ -64,55 +64,16 @@ struct CellCentOffsets {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
   }
 
-  BoundaryFace Face() const {
-    if (!IsFace()) return BoundaryFace::undef;
-    for (int dir = 0; dir < 3; ++dir) {
-      if (static_cast<int>(u[dir]))
-        return static_cast<BoundaryFace>((1 + static_cast<int>(u[dir])) / 2 + 2 * dir);
-    }
-    PARTHENON_FAIL("Shouldn't get here.");
-    return BoundaryFace::undef;
-  }
+  BoundaryFace Face() const;
 
   // Get the logical directions that are tangent to this element
   // (in cyclic order, XY, YZ, ZX, XYZ)
-  std::vector<CoordinateDirection> GetTangentDirections() const {
-    std::vector<CoordinateDirection> dirs;
-    CoordinateDirection missed;
-    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-      uint dir_idx = static_cast<uint>(dir);
-      if (!static_cast<int>(u[dir_idx - 1])) { // This direction has no offset, so must be
-                                               // tangent direction
-        dirs.push_back(dir);
-      } else {
-        missed = dir;
-      }
-    }
-    if (dirs.size() == 2 && missed == X2DIR) {
-      dirs = {X3DIR, X1DIR}; // Make sure we are in cyclic order
-    }
-    return dirs;
-  }
+  std::vector<CoordinateDirection> GetTangentDirections() const;
 
   // Get the logical directions that are normal to this element
   // (in cyclic order, XY, YZ, ZX, XYZ) along with the offset of the
   // element in that direction from the cell center.
-  std::vector<std::pair<CoordinateDirection, Offset>> GetNormals() const {
-    std::vector<std::pair<CoordinateDirection, Offset>> dirs;
-    CoordinateDirection missed;
-    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-      uint dir_idx = dir - 1;
-      if (static_cast<int>(u[dir_idx])) {
-        dirs.push_back({dir, u[dir_idx]});
-      } else {
-        missed = dir;
-      }
-    }
-    if (dirs.size() == 2 && missed == X2DIR) {
-      dirs = {dirs[1], dirs[0]}; // Make sure we are in cyclic order
-    }
-    return dirs;
-  }
+  std::vector<std::pair<CoordinateDirection, Offset>> GetNormals() const;
 
   bool IsNode() const {
     return 3 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +

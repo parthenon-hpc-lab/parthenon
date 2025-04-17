@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -34,6 +34,7 @@
 
 // Parthenon
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
@@ -43,16 +44,20 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+// forward declaration
+class ParameterInput;
+
 namespace OutputUtils {
 // Helper struct containing some information about a variable
 struct VarInfo {
  public:
-  static constexpr int VNDIM = MAX_VARIABLE_DIMENSION;
+  static constexpr const int VNDIM = MAX_VARIABLE_DIMENSION;
   std::string label;
   int num_components;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
+  bool is_mem_aligned; // true if Metada::CellMemAligned is set.
   bool is_sparse;
   bool is_vector;
   bool is_coordinate_field;
@@ -131,6 +136,8 @@ struct VarInfo {
           bool is_vector, const IndexShape &cellbounds)
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
+                       !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
         ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
@@ -309,11 +316,11 @@ void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t
   auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
   if (info.where == MetadataFlag({Metadata::None})) {
     kb.s = 0;
-    kb.e = shape[4];
+    kb.e = std::max(0, shape[4] - 1);
     jb.s = 0;
-    jb.e = shape[5];
+    jb.e = std::max(0, shape[5] - 1);
     ib.s = 0;
-    ib.e = shape[6];
+    ib.e = std::max(0, shape[6] - 1);
   }
   for (int topo = 0; topo < shape[0]; ++topo) {
     for (int t = 0; t < shape[1]; ++t) {
@@ -341,13 +348,11 @@ std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
-// TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
-// however I think it's probably safe to assume we'll be on systems
-// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
 
+void CheckParameterInputConsistent(ParameterInput *pin);
 } // namespace OutputUtils
 } // namespace parthenon
 

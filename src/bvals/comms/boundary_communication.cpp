@@ -79,10 +79,12 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
   // Restrict
-  auto pmb = md->GetBlockData(0)->GetBlockPointer();
-  StateDescriptor *resolved_packages = pmb->resolved_packages.get();
-  refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
-                       pmb->c_cellbounds);
+  if (md->NumBlocks() > 0) {
+    auto pmb = md->GetBlockData(0)->GetBlockPointer();
+    StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+    refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                         pmb->c_cellbounds);
+  }
 
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
@@ -211,7 +213,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
       [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
 
   int ibound = 0;
-  if (Globals::sparse_config.enabled) {
+  if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
         md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
@@ -335,7 +337,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 #endif
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->Stale(); });
-  if (nbound > 0 && pmesh->multilevel) {
+  if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     // Restrict
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
@@ -377,7 +379,7 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  if (nbound > 0 && pmesh->multilevel) {
+  if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
 

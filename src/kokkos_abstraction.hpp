@@ -472,6 +472,87 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(team_mbr_t team_member, Args &&..
   par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, std::forward<Args>(args)...);
 }
 
+// Inner reduction loops
+template <typename Function, typename T>
+KOKKOS_FORCEINLINE_FUNCTION void
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int kl, const int ku,
+                 const int jl, const int ju, const int il, const int iu,
+                 const Function &function, T reduction) {
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_reduce(
+      Kokkos::TeamThreadRange(team_member, NkNjNi),
+      [&](const int &idx, typename T::value_type &lreduce) {
+        int k = idx / NjNi;
+        int j = (idx - k * NjNi) / Ni;
+        int i = idx - k * NjNi - j * Ni;
+        k += kl;
+        j += jl;
+        i += il;
+        function(k, j, i, lreduce);
+      },
+      reduction);
+}
+
+template <typename Function, typename T>
+KOKKOS_FORCEINLINE_FUNCTION void
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int jl, const int ju,
+                 const int il, const int iu, const Function &function, T reduction) {
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_reduce(
+      Kokkos::TeamThreadRange(team_member, NjNi),
+      [&](const int &idx, typename T::value_type &lreduce) {
+        int j = idx / Ni;
+        int i = idx - j * Ni;
+        j += jl;
+        i += il;
+        function(j, i, lreduce);
+      },
+      reduction);
+}
+
+template <typename Function, typename T>
+KOKKOS_FORCEINLINE_FUNCTION void
+par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, const int iu,
+                 const Function &function, T reduction) {
+  const int Ni = iu - il + 1;
+  Kokkos::parallel_reduce(
+      Kokkos::TeamThreadRange(team_member, Ni),
+      [&](const int &idx, typename T::value_type &lreduce) {
+        int i = idx;
+        i += il;
+        function(i, lreduce);
+      },
+      reduction);
+}
+
+// For ViewOfView we need to call the destructor of the inner views on
+// the host and not on the device (which would happen by default).
+// Thus, we need to pass `SquentialHostInit` as allocator, but only if the ViewOfView is
+// on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
+// passed when calling `create_mirror_view`, which is automatically handled by the
+// create_view_of_view_mirror() function below.
+template <typename T = DevMemSpace>
+auto ViewOfViewAlloc(const std::string &label) {
+  if constexpr (std::is_same_v<T, HostMemSpace>) {
+    return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
+  } else {
+    return Kokkos::view_alloc(label);
+  }
+}
+
+// Returns a host mirror view with the `SequentialHostInit` property for proper
+// deallocations of inner views in views of views.
+template <typename T>
+auto create_view_of_view_mirror(T view) {
+  return Kokkos::create_mirror_view(Kokkos::view_alloc(Kokkos::SequentialHostInit), view);
+}
+
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
 template <class ExecSpace>

@@ -71,30 +71,45 @@ using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 template <typename T>
 using buf_pool_t = ObjectPool<BufArray1D<T>>;
 
+// Raw ParArrays (that directly map a view)
+template <typename T>
+using ParArray0DRaw = Kokkos::View<T, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray1DRaw = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray2DRaw = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray3DRaw = Kokkos::View<T ***, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray4DRaw = Kokkos::View<T ****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray5DRaw = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray6DRaw = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray7DRaw = Kokkos::View<T *******, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray8DRaw = Kokkos::View<T ********, LayoutWrapper, DevMemSpace>;
+
+//  Standard ParArrays that wrap a raw view and a Stage
 template <typename T, typename State = empty_state_t>
-using ParArray0D = ParArrayGeneric<Kokkos::View<T, LayoutWrapper, DevMemSpace>, State>;
+using ParArray0D = ParArrayGeneric<ParArray0DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray1D = ParArrayGeneric<Kokkos::View<T *, LayoutWrapper, DevMemSpace>, State>;
+using ParArray1D = ParArrayGeneric<ParArray1DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray2D = ParArrayGeneric<Kokkos::View<T **, LayoutWrapper, DevMemSpace>, State>;
+using ParArray2D = ParArrayGeneric<ParArray2DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray3D =
-    ParArrayGeneric<Kokkos::View<T ***, LayoutWrapper, DevMemSpace>, State>;
+using ParArray3D = ParArrayGeneric<ParArray3DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray4D =
-    ParArrayGeneric<Kokkos::View<T ****, LayoutWrapper, DevMemSpace>, State>;
+using ParArray4D = ParArrayGeneric<ParArray4DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray5D =
-    ParArrayGeneric<Kokkos::View<T *****, LayoutWrapper, DevMemSpace>, State>;
+using ParArray5D = ParArrayGeneric<ParArray5DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray6D =
-    ParArrayGeneric<Kokkos::View<T ******, LayoutWrapper, DevMemSpace>, State>;
+using ParArray6D = ParArrayGeneric<ParArray6DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray7D =
-    ParArrayGeneric<Kokkos::View<T *******, LayoutWrapper, DevMemSpace>, State>;
+using ParArray7D = ParArrayGeneric<ParArray7DRaw<T>, State>;
 template <typename T, typename State = empty_state_t>
-using ParArray8D =
-    ParArrayGeneric<Kokkos::View<T ********, LayoutWrapper, DevMemSpace>, State>;
+using ParArray8D = ParArrayGeneric<ParArray8DRaw<T>, State>;
 
 // Host mirrors
 template <typename T>
