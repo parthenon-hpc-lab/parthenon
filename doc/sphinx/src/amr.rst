@@ -19,7 +19,7 @@ ranges in ``X`` and a refinement level. For example:
 
 .. code::
 
-  <parthenon/static_Refinement1>
+  <parthenon/static_refinement1>
   x1min = 0.25
   x1max = 0.5
   x2min = -0.1
