@@ -1,5 +1,41 @@
 .. _amr:
 
+Static Mesh Refinement
+=======================
+
+Static mesh refinement in Parthenon may be controlled via a set of
+input blocks. First you must enable mesh refinement by adding the
+following lines to the ``<parthenon/mesh>`` block of your input file:
+
+.. code::
+
+  refinement = static # Enable static mesh refinement
+  numlevel = 5 # maximum number of refined levels allowed
+
+Then you may add any number of blocks named
+``<parthenon/static_refinement*>``, where ``*`` is a number. Each
+block specifies a region parthenon will refine. You must specify the
+ranges in ``X`` and a refinement level. For example:
+
+.. code::
+
+  <parthenon/static_Refinement1>
+  x1min = 0.25
+  x1max = 0.5
+  x2min = -0.1
+  x2max = 0.1
+  level = 3
+
+This specifies the ragion for x1 between 0.25 and 0.5 and x2 between
+-0.1 and 0.1 will be :math:`2^3` more fine than the base
+mesh. Parthenon will refine adjacent blocks to enforce this
+constraint, such that well nesting--that is, adjacent blocks are no
+more than a factor of 2 different in resolution--is
+satisfied. ``x1min`` and ``x1max`` are always required. Bounds for
+``x2`` and ``x3`` are assumed to be the whole domain unless you
+specify them. (Which is the desired behavior for 2D or 1D
+simulations.)
+
 Adaptive Mesh Refinement
 ========================
 
