@@ -166,8 +166,7 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
-                           bool is_restart,
-                           const std::string &meshdata_name) {
+                           bool is_restart, const std::string &meshdata_name) {
   for (auto &pmb : block_list) {
     const auto &swarm_container = pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
