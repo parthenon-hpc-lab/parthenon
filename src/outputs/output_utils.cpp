@@ -168,7 +168,10 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
                            bool is_restart, const std::string &meshdata_name) {
   for (auto &pmb : block_list) {
-    const auto &swarm_container = pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    // TODO(JMM): Swap these out when swarms are allowed to exist in
+    // multiple meshdata registers
+    //const auto &swarm_container = pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;
