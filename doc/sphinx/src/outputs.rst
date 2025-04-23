@@ -83,6 +83,8 @@ look like
    # Optionally, you may specify a MeshData name to output from.
    # This is unique per output block. The default is "base"
    # which is usually what you want.
+   # Note that SWARMS only exist in the base MeshData register
+   # and so this has no effect on swarm data.
    meshdata_name = base
 
 This will produce an hdf5 (``.phdf``) output file every 1 units of
