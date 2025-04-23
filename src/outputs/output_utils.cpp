@@ -170,7 +170,8 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
   for (auto &pmb : block_list) {
     // TODO(JMM): Swap these out when swarms are allowed to exist in
     // multiple meshdata registers
-    //const auto &swarm_container = pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    // const auto &swarm_container =
+    // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
     const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
