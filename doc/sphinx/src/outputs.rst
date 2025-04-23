@@ -80,6 +80,11 @@ look like
    # separate. This flag turns this functionality on.
    sparse_seed_nans = false # default false
 
+   # Optionally, you may specify a MeshData name to output from.
+   # This is unique per output block. The default is "base"
+   # which is usually what you want.
+   meshdata_name = base
+
 This will produce an hdf5 (``.phdf``) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
 cell. The files will be identified by a 6-digit ID, and the output file
