@@ -54,21 +54,21 @@ namespace parthenon {
 // tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
 //       + physics(5 bits)
 
-int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
+int CreateAMRMPITag(int lid, std::optional<LogicalLocation> loc = {}) {
   // the trailing zero is used as "id" to indicate an AMR related tag
-  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
+  int tag = lid << 8;
+  if (loc) {
+    auto offsets = (*loc).GetLocationInParent();
+    tag = tag | (offsets[0] << 7) | (offsets[1] << 6) | (offsets[2] << 5) | 0;
+  }
+  return tag;
 }
 
 MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
                                   dest_rank, tag, comm, &req));
@@ -83,14 +83,10 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
   int test = 1;
 #ifdef MPI_PARALLEL
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
 #endif
@@ -154,12 +150,7 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
                                   MPI_PARTHENON_REAL, dest_rank, tag, comm, &req));
@@ -175,14 +166,10 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
   const int ndim = pmb->pmy_mesh->ndim;
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
   int test = 1;
 #ifdef MPI_PARALLEL
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
 #endif
@@ -252,7 +239,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
                            MeshBlock *pmb, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
+  int tag = CreateAMRMPITag(lid_recv);
   if (var->IsAllocated()) {
     // Metadata about this field also needs to be copied from this rank to the
     // receiving rank (namely the dereference count and the dealloc_count). Not
@@ -286,8 +273,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
 bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlock *pmb,
                        Mesh *pmesh) {
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
-
+  int tag = CreateAMRMPITag(lid_recv);
   int test;
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
@@ -574,8 +560,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     int lk = !mesh_size.symmetry(X3DIR);
     int lj = !mesh_size.symmetry(X2DIR);
     for (int n = 0; n < tnderef; n++) {
-      if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
-          (lderef[n].lx3() & 1LL) == 0LL) {
+      if (lderef[n].IsLowerLeftCornerOfParent()) {
         int r = n, rr = 0;
         // offsets from "bottom left" corner of parent block
         for (std::int64_t ok = 0; ok <= lk; ok++) {
