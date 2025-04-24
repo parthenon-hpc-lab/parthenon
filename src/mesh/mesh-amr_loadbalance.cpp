@@ -502,8 +502,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 
   // collect refinement flags from all the meshblocks
   // count the number of the blocks to be (de)refined
-  nref[Globals::my_rank] = 0;
-  nderef[Globals::my_rank] = 0;
+  nref[Globals::my_rank] = 0;   // n to refine. Local per rank.
+  nderef[Globals::my_rank] = 0; // n to derefine. Local per rank.
   for (auto const &pmb : block_list) {
     if (pmb->pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
     if (pmb->pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
@@ -516,7 +516,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 #endif
 
   // count the number of the blocks to be (de)refined and displacement
-  int tnref = 0, tnderef = 0;
+  int tnref = 0, tnderef = 0; // totals to refine/de-refine. Not local per rank.
   for (int n = 0; n < Globals::nranks; n++) {
     tnref += nref[n];
     tnderef += nderef[n];
@@ -542,11 +542,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
 
   // allocate memory for the location arrays
-  LogicalLocation *lref{}, *lderef{}, *clderef{};
-  if (tnref > 0) lref = new LogicalLocation[tnref];
+  std::vector<LogicalLocation> lref, lderef, clderef;
+  if (tnref > 0) lref.resize(tnref);
   if (tnderef >= nleaf) {
-    lderef = new LogicalLocation[tnderef];
-    clderef = new LogicalLocation[tnderef / nleaf];
+    lderef.resize(tnderef);
+    clderef.resize(tnderef / nleaf);
   }
 
   // collect the locations and costs
@@ -558,35 +558,33 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
     PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE,
-                                       lref, bnref.data(), brdisp.data(), MPI_BYTE,
+                                       lref.data(), bnref.data(), brdisp.data(), MPI_BYTE,
                                        MPI_COMM_WORLD));
   }
   if (tnderef >= nleaf) {
     PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE,
-                                       lderef, bnderef.data(), bddisp.data(), MPI_BYTE,
-                                       MPI_COMM_WORLD));
+                                       lderef.data(), bnderef.data(), bddisp.data(),
+                                       MPI_BYTE, MPI_COMM_WORLD));
   }
 #endif
 
   // calculate the list of the newly derefined blocks
   int ctnd = 0;
   if (tnderef >= nleaf) {
-    int lk = 0, lj = 0;
-    if (!mesh_size.symmetry(X2DIR)) lj = 1;
-    if (!mesh_size.symmetry(X3DIR)) lk = 1;
+    int lk = !mesh_size.symmetry(X3DIR);
+    int lj = !mesh_size.symmetry(X2DIR);
     for (int n = 0; n < tnderef; n++) {
       if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
           (lderef[n].lx3() & 1LL) == 0LL) {
         int r = n, rr = 0;
-        for (std::int64_t k = 0; k <= lk; k++) {
-          for (std::int64_t j = 0; j <= lj; j++) {
-            for (std::int64_t i = 0; i <= 1; i++) {
+        // offsets from "bottom left" corner of parent block
+        for (std::int64_t ok = 0; ok <= lk; ok++) {
+          for (std::int64_t oj = 0; oj <= lj; oj++) {
+            for (std::int64_t oi = 0; oi <= 1; oi++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1() + i) == lderef[r].lx1() &&
-                    (lderef[n].lx2() + j) == lderef[r].lx2() &&
-                    (lderef[n].lx3() + k) == lderef[r].lx3() &&
-                    lderef[n].level() == lderef[r].level())
+                if (lderef[n].GetSameLevelNeighbor(oi, oj, ok) == lderef[r]) {
                   rr++;
+                }
                 r++;
               }
             }
@@ -601,12 +599,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
   // sort the lists by level
   if (ctnd > 1) {
-    std::sort(clderef, &(clderef[ctnd - 1]),
+    std::sort(&(clderef[0]), &(clderef[ctnd - 1]),
               [](const LogicalLocation &left, const LogicalLocation &right) {
                 return left.level() > right.level();
               });
   }
-  if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
   // Start tree manipulation
@@ -614,14 +611,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < tnref; n++) {
     nnew += forest.Refine(lref[n]);
   }
-  if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
     ndel += forest.Derefine(clderef[n]);
   }
-
-  if (tnderef >= nleaf) delete[] clderef;
 }
 
 //----------------------------------------------------------------------------------------
