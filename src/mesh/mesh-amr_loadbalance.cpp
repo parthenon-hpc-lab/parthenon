@@ -120,6 +120,7 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
         IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb_int = cellbounds.GetBoundsK(IndexDomain::interior, te);
 
+        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
         const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
         const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
         const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
@@ -203,6 +204,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         // space if fine block is on the left side of a direction. I think this
         // should work fine even if the ownership model is changed elsewhere, since
         // the fine blocks should be consistent in their shared elements at this point
+        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
         if (ox3 == 0 && ndim > 2) kb.e -= TopologicalOffsetK(te);
         if (ox2 == 0 && ndim > 1) jb.e -= TopologicalOffsetJ(te);
         if (ox1 == 0) ib.e -= TopologicalOffsetI(te);

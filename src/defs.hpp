@@ -181,7 +181,7 @@ inline std::array<int, 3> GetOffsetsFromBoundaryFace(BoundaryFace face) {
     return {0, 0, -1};
   case BoundaryFace::outer_x3:
     return {0, 0, 1};
-  case default:
+  default:
     PARTHENON_FAIL("Asking for offsets for an invalid BoundaryFace.");
   }
   return {0, 0, 0};
