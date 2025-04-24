@@ -123,18 +123,18 @@ class LogicalLocation { // aggregate and POD type
     return {(lx1() & 1LL) == 1LL, (lx2() & 1LL) == 1LL, (lx3() & 1LL) == 1LL};
   }
 
-  bool IsOnTreeBoundary(int ox1, int ox2, int ox3) {
-    const int nup = 1 << std::max(level(), 0) - 1;
+  bool IsOnTreeBoundary(int ox1, int ox2, int ox3) const {
+    const int nup = (1 << std::max(level(), 0)) - 1;
     const bool bound1 =
-        (ox1 == 0) || (ox1 == -1 && loc.lx1() == 0) || (ox1 == 1 && loc.lx1() == nup);
+        (ox1 == 0) || ((ox1 == -1) && (lx1() == 0)) || ((ox1 == 1) && (lx1() == nup));
     const bool bound2 =
-        (ox2 == 0) || (ox2 == -1 && loc.lx2() == 0) || (ox2 == 1 && loc.lx2() == nup);
+        (ox2 == 0) || ((ox2 == -1) && (lx2() == 0)) || ((ox2 == 1) && (lx2() == nup));
     const bool bound3 =
-        (ox3 == 0) || (ox3 == -1 && loc.lx3() == 0) || (ox3 == 1 && loc.lx3() == nup);
+        (ox3 == 0) || ((ox3 == -1) && (lx3() == 0)) || ((ox3 == 1) && (lx3() == nup));
     return bound1 && bound2 && bound3;
   }
 
-  bool IsOnTreeBoundary(BoundaryFace face) {
+  bool IsOnTreeBoundary(BoundaryFace face) const {
     const auto [ox1, ox2, ox3] = GetOffsetsFromBoundaryFace(face);
     return IsOnTreeBoundary(ox1, ox2, ox3);
   }
