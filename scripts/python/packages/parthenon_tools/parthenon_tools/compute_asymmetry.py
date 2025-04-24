@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+# ========================================================================================
+#  (C) (or copyright) 2025. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+import sys
+import numpy as np
+import h5py
+from argparse import ArgumentParser
+
+
+def compute_asymmetry(f, varname):
+    "Computes the asymmetry of var with varname in hdf5 output file object f"
+    xlocs = f["Locations/x"][:]
+    ylocs = f["Locations/y"][:]
+    iylocs = -np.flip(f["Locations/y"][:], axis=1)
+    matches = np.zeros((ylocs.shape[0]), dtype=int)
+    for b in range(ylocs.shape[0]):
+        for bb in range(ylocs.shape[0]):
+            if np.all(np.abs(ylocs[b] - iylocs[bb]) <= 1e-10) and np.all(
+                np.abs(xlocs[b] - xlocs[bb]) <= 1e-10
+            ):
+                matches[b] = bb
+
+    var = f[varname][:]
+    var_diff = np.zeros_like(var)
+    for b in range(ylocs.shape[0]):
+        bb = matches[b]
+        if np.any(ylocs[b] >= 0):
+            var_diff[b] = var[b] - np.flip(var[bb], axis=-2)
+            var_diff[bb] = var[bb] - np.flip(var[b], axis=-2)
+
+    if np.any(np.abs(var_diff) > 1):
+        print("var_diff > 1e-8!", np.where(np.abs(var_diff) > 1))
+
+    return var_diff
+
+
+parser = ArgumentParser(
+    prog="compute_asymmetry.py",
+    description="compute asymmetry in X2 of a field and save it to the output file. Assumes mesh is symmetric about 0 in X2.",
+)
+parser.add_argument("field", type=str, help="Variable to compute")
+parser.add_argument("files", type=str, nargs="+", help="Files to compute")
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    for i, fname in enumerate(args.files):
+        with h5py.File(fname, "a") as f:
+            print(f"Computing asymmetry for {args.field} in {fname}...")
+            var_diff = compute_asymmetry(f, args.field)
+            savename = f"{args.field}_asymmetry"
+            try:
+                f.create_dataset(savename, data=var_diff)
+            except ValueError:
+                f[savename][:] = var_diff
