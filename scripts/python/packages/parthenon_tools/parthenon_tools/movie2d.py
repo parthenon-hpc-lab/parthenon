@@ -296,7 +296,7 @@ def plot_dump(
     if swarmx is not None and swarmy is not None:
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
     if colorbar is not None:
-        plt.colorbar(pm, fraction=0.02, pad=0.04, ax=p)
+        plt.colorbar(pm, label=colorbar, fraction=0.02, pad=0.04, ax=p)
 
     fig.savefig(output_file, dpi=300)
     plt.close(fig=fig)
