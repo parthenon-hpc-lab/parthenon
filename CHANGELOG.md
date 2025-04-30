@@ -32,6 +32,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1248]](https://github.com/parthenon-hpc-lab/parthenon/pull/1248) Fix edge case regarding AMR de-refinement logic
 - [[PR 1240]](https://github.com/parthenon-hpc-lab/parthenon/pull/1240) Fix I/O for CellMemAligned variables
 - [[PR 1229]](https://github.com/parthenon-hpc-lab/parthenon/pull/1229) Ensure builds function on 32 bit architectures
 - [[PR 1230]](https://github.com/parthenon-hpc-lab/parthenon/pull/1230) Add missing using statements in curvilinear coordinates classes

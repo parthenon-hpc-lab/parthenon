@@ -167,6 +167,19 @@ immediately prior to restart files being written with the optional
 callbacks (if provided) will be called in that order before restart files are
 written.
 
+Changing output cadence from command line when restarting from file
+--------------------------------------------------------------------
+
+When restarting from a restart file, you can change any parameter
+input argument. To change the output cadence in this way, however,
+special care is required, as the code stores a ``next_time`` and a
+``next_n`` for the next time to output and next iteration to
+output. Fortunately, these can be overwritten on the command line in
+the usual way. To set the next time to output when restarting, run
+with ``parthenon/output*/next_time=some_number``.
+Note that this is independent of updating ``parthenon/output*/dt=some_number``.
+In other words, to change the cadence and apply the change immediately both ``dt`` (or ``dn``) and ``next_time`` (or ``next_n`` need to be updated simultaneously.
+
 Postprocessing/native analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
