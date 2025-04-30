@@ -177,6 +177,8 @@ special care is required, as the code stores a ``next_time`` and a
 output. Fortunately, these can be overwritten on the command line in
 the usual way. To set the next time to output when restarting, run
 with ``parthenon/output*/next_time=some_number``.
+Note that this is independent of updating ``parthenon/output*/dt=some_number``.
+In other words, to change the cadence and apply the change immediately both ``dt`` (or ``dn``) and ``next_time`` (or ``next_n`` need to be updated simultaneously.
 
 Postprocessing/native analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
