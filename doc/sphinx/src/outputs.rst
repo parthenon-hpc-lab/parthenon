@@ -170,7 +170,7 @@ written.
 Changing output cadence from command line when restarting from file
 --------------------------------------------------------------------
 
-When restarting from a restart file, you can change any paremeter
+When restarting from a restart file, you can change any parameter
 input argument. To change the output cadence in this way, however,
 special care is required, as the code stores a ``next_time`` and a
 ``next_n`` for the next time to output and next iteration to
