@@ -36,18 +36,19 @@ def compute_asymmetry(f, varname):
     for b in range(ylocs.shape[0]):
         bb = matches[b]
         if np.any(ylocs[b] >= 0):
-            var_diff[b] = var[b] - np.flip(var[bb], axis=-2)
-            var_diff[bb] = var[bb] - np.flip(var[b], axis=-2)
-
-    if np.any(np.abs(var_diff) > 1):
-        print("var_diff > 1e-8!", np.where(np.abs(var_diff) > 1))
+            for d in range(var_diff.shape[1]):
+                sign = -1 if (var.shape[1] == 3) and d == 1 else 1
+                var_diff[b, d] = var[b, d] - sign * np.flip(var[bb, d], axis=-2)
+                var_diff[bb, d] = var[bb, d] - sign * np.flip(var[b, d], axis=-2)
 
     return var_diff
 
 
 parser = ArgumentParser(
     prog="compute_asymmetry.py",
-    description="compute asymmetry in X2 of a field and save it to the output file. Assumes mesh is symmetric about 0 in X2.",
+    description="compute asymmetry in X2 of a field and save it to the output file. "
+    + "Assumes mesh is symmetric about 0 in X2. "
+    + "Only works for cell- and node-centered data.",
 )
 parser.add_argument("field", type=str, help="Variable to compute")
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
