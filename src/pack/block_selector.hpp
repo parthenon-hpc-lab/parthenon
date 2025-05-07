@@ -32,6 +32,7 @@
 #include "interface/variable.hpp"
 #include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
+#include "utils/cell_center_offsets.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
@@ -74,9 +75,11 @@ inline block_selector_func_t OnPhysicalBoundary() {
   };
 }
 
-inline block_selector_func_t OnTree(std::size_t tree_id) {
-  return [tree_id](MeshBlockData<Real> *pmbd) {
-    return pmbd->GetBlockPointer()->loc.tree() == tree_id;
+inline block_selector_func_t OnTree(std::size_t tree_id,
+                                    CellCentOffsets offset = CellCentOffsets(0, 0, 0)) {
+  return [tree_id, offset](MeshBlockData<Real> *pmbd) {
+    const auto &loc = pmbd->GetBlockPointer()->loc;
+    return (loc.tree() == tree_id) && loc.IsOnTreeBoundary(offset);
   };
 }
 
