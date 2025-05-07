@@ -74,6 +74,12 @@ inline block_selector_func_t OnPhysicalBoundary() {
   };
 }
 
+inline block_selector_func_t OnTree(std::size_t tree_id) {
+  return [tree_id](MeshBlockData<Real> *pmbd) {
+    return pmbd->GetBlockPointer()->loc.tree() == tree_id;
+  };
+}
+
 inline block_selector_func_t FineOnCompositeGrid(const MeshData<Real> *pmd) {
   if (pmd->grid.type == GridType::two_level_composite) {
     const int fine_level = pmd->grid.logical_level;
