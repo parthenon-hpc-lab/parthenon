@@ -167,25 +167,43 @@ TaskStatus SetCoordinates(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
-TaskStatus FixTrivalentNodes(MeshData<Real> *md) {
+TaskStatus FixTrivalentNodes2D(MeshData<Real> *md) {
   using TE = parthenon::TopologicalElement;
   auto pmesh = md->GetMeshPointer();
   auto desc = parthenon::MakePackDescriptor<position>(md);
 
   IndexRange ib_in = md->GetBoundsI(IndexDomain::interior, TE::NN);
   IndexRange jb_in = md->GetBoundsJ(IndexDomain::interior, TE::NN);
-  IndexRange kb_in = md->GetBoundsK(IndexDomain::interior, TE::NN);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior, TE::NN);
 
   for (auto &ptree : pmesh->forest.GetTrees()) {
     auto tree_id = ptree->GetId();
-    auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId()));
+    
     printf("Tree: %i\n", ptree->GetId());
     int pos{0};
     for (auto &pnode : ptree->forest_nodes) {
       bool trivalent =
           (pnode->associated_faces.size() == 3) && !pnode->on_physical_boundary;
       if (trivalent) {
-        printf("  Node %i is trivalent.\n");
+        parthenon::CellCentOffsets offset(2 * (pos % 2) - 1, 2 * (pos / 2) - 1, 0);
+        auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId(), offset));
+        printf("  Node %i is trivalent and we picked out %i blocks.\n", pos, pack.GetNBlocks());
+        
+        const int icorner = (offset(X1DIR) == parthenon::Offset::Low) ? ib_in.s : ib_in.e;
+        const int jcorner = (offset(X2DIR) == parthenon::Offset::Low) ? jb_in.s : jb_in.e;
+        IndexRange ib = offset(X1DIR) == parthenon::Offset::Low ? IndexRange{0, ib_in.s - 1} : IndexRange{ib_in.e + 1, ib_in.e + parthenon::Globals::nghost};
+        IndexRange jb = offset(X2DIR) == parthenon::Offset::Low ? IndexRange{0, jb_in.s - 1} : IndexRange{jb_in.e + 1, ib_in.e + parthenon::Globals::nghost};
+        parthenon::par_for(
+            parthenon::loop_pattern_mdrange_tag, "SetPosition", DevExecSpace(), 0,
+            pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+              const int enclosed_area = std::abs((i - icorner) * (j - jcorner)); 
+              int ioff{1};
+              while (ioff * ioff < enclosed_area) ioff++;
+              ioff *= offset(X1DIR);
+              pack(b, TE::NN, position(0), k, j, i) = pack(b, TE::NN, position(0), k, jcorner, icorner + ioff); // x-position
+              pack(b, TE::NN, position(1), k, j, i) = pack(b, TE::NN, position(1), k, jcorner, icorner + ioff); // y-position
+            });
       }
       pos++;
     }

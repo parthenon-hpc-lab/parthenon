@@ -86,11 +86,12 @@ parthenon::forest::ForestDefinition n_blocks(int nblocks) {
   using namespace parthenon::forest;
   std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
   ForestDefinition forest_def;
-  parthenon::Real xoffset = 0.0;
+  parthenon::Real xoffset = 0.1;
+  parthenon::Real yoffset = 0.1;
 
   for (int point = 0; point < 2 * nblocks; ++point) {
     nodes[point] = Node::create(point, {std::sin(point * M_PI / nblocks) + xoffset,
-                                        std::cos(point * M_PI / nblocks)});
+                                        std::cos(point * M_PI / nblocks) + yoffset});
   }
 
   using edge_t = parthenon::forest::Edge;
@@ -99,11 +100,17 @@ parthenon::forest::ForestDefinition n_blocks(int nblocks) {
         edge_t({nodes[point % (2 * nblocks)], nodes[(point + 1) % (2 * nblocks)]}));
   }
 
-  nodes[2 * nblocks] = Node::create(2 * nblocks, {0.0 + xoffset, 0.0});
+  nodes[2 * nblocks] = Node::create(2 * nblocks, {xoffset, yoffset});
   auto &n = nodes;
   for (int t = 0; t < nblocks; ++t)
     forest_def.AddFace(
         t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]});
+  
+  int level = 1;
+  printf("loc: %i\n", (1 << level) - 1);
+  forest_def.AddInitialRefinement(parthenon::LogicalLocation(0, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(parthenon::LogicalLocation(1, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(parthenon::LogicalLocation(2, level, (1 << level) - 1, (1 << level) - 1, 0));
 
   return forest_def;
 }
@@ -183,7 +190,7 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
       auto set_coords = tl.AddTask(none, SetCoordinates, md.get());
       auto bound = AddBoundaryExchangeTasks(fill | set_coords, tl, md, true);
-      auto fix = tl.AddTask(bound, FixTrivalentNodes, md.get());
+      auto fix = tl.AddTask(bound, FixTrivalentNodes2D, md.get());
     }
   }
 
