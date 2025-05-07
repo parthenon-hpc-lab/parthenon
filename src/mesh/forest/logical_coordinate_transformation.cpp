@@ -100,6 +100,41 @@ CellCentOffsets LogicalCoordinateTransformation::Transform(CellCentOffsets in) c
   return out;
 }
 
+CellCentOffsets LogicalCoordinateTransformation::InverseTransform(CellCentOffsets in) const {
+  CellCentOffsets out;
+  for (int dir = 0; dir < 3; ++dir) {
+    const int indir = abs(dir_connection[dir]);
+    out.u[dir] = dir_flip[dir] ? -in.u[indir] : in.u[indir];
+  }
+  return out;
+}
+
+block_ownership_t LogicalCoordinateTransformation::Transform(const block_ownership_t &in) const {
+  block_ownership_t out; 
+  for (int ox3 : {-1 , 0, 1}) { 
+    for (int ox2 : {-1 , 0, 1}) { 
+      for (int ox1 : {-1 , 0, 1}) { 
+        auto offset = CellCentOffsets(ox1, ox2, ox3);
+        out(Transform(offset)) = in(offset);
+      }
+    }
+  }
+  return out;
+}
+
+block_ownership_t LogicalCoordinateTransformation::InverseTransform(const block_ownership_t &in) const {
+  block_ownership_t out; 
+  for (int ox3 : {-1 , 0, 1}) { 
+    for (int ox2 : {-1 , 0, 1}) { 
+      for (int ox1 : {-1 , 0, 1}) { 
+        auto offset = CellCentOffsets(ox1, ox2, ox3);
+        out(offset) = in(InverseTransform(offset));
+      }
+    }
+  }
+  return out;
+}
+
 LogicalCoordinateTransformation
 ComposeTransformations(const LogicalCoordinateTransformation &first,
                        const LogicalCoordinateTransformation &second) {
