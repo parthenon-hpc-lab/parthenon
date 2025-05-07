@@ -12,6 +12,7 @@
 //========================================================================================
 
 // Standard Includes
+#include <cstdio>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -101,6 +102,97 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
+struct ParameterizedLine {
+  const Real x1, y1;
+  const Real x2, y2;
+
+  using node = parthenon::forest::Node;
+  ParameterizedLine(std::shared_ptr<node> start, std::shared_ptr<node> end)
+      : x1{start->x[0]}, y1{start->x[1]}, x2{end->x[0]}, y2{end->x[1]} {}
+
+  KOKKOS_INLINE_FUNCTION
+  Real GetX(Real u) const { return x1 * (1.0 - u) + x2 * u; }
+
+  KOKKOS_INLINE_FUNCTION
+  Real GetY(Real u) const { return y1 * (1.0 - u) + y2 * u; }
+};
+
+TaskStatus SetCoordinates(MeshData<Real> *md) {
+  using TE = parthenon::TopologicalElement;
+  auto pmesh = md->GetMeshPointer();
+  auto desc = parthenon::MakePackDescriptor<position>(md);
+
+  for (auto &ptree : pmesh->forest.GetTrees()) {
+    auto tree_id = ptree->GetId();
+    auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId()));
+    printf("Tree: %i\n", ptree->GetId());
+    int i{0};
+    Real posx[4], posy[4];
+    for (auto &pnode : ptree->forest_nodes) {
+      posx[i] = pnode->x[0];
+      posy[i] = pnode->x[1];
+      printf("  Node %i:(%e, %e)\n", i++, pnode->x[0], pnode->x[1]);
+    }
+
+    auto &pnodes = ptree->forest_nodes;
+    ParameterizedLine c1(pnodes[0], pnodes[1]);
+    ParameterizedLine c3(pnodes[2], pnodes[3]);
+    ParameterizedLine c2(pnodes[0], pnodes[2]);
+    ParameterizedLine c4(pnodes[1], pnodes[3]);
+
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior, TE::NN);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior, TE::NN);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior, TE::NN);
+
+    parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "SetPosition", DevExecSpace(), 0,
+        pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          auto &coords = pack.GetCoordinates(b);
+          const Real u = coords.X<X1DIR, TE::NN>(k, j, i);
+          const Real v = coords.X<X2DIR, TE::NN>(k, j, i);
+          const Real mu = 1.0 - u;
+          const Real mv = 1.0 - v;
+
+          Real x = mv * c1.GetX(u) + v * c3.GetX(u) + mu * c2.GetX(v) + u * c4.GetX(v) -
+                   (mu * mv * c1.GetX(0.0) + u * mv * c1.GetX(1.0) +
+                    mu * v * c2.GetX(1.0) + u * v * c3.GetX(1.0));
+          Real y = mv * c1.GetY(u) + v * c3.GetY(u) + mu * c2.GetY(v) + u * c4.GetY(v) -
+                   (mu * mv * c1.GetY(0.0) + u * mv * c1.GetY(1.0) +
+                    mu * v * c2.GetY(1.0) + u * v * c3.GetY(1.0));
+          pack(b, TE::NN, position(0), k, j, i) = x; // x-position
+          pack(b, TE::NN, position(1), k, j, i) = y; // y-position
+        });
+  }
+  return TaskStatus::complete;
+}
+
+TaskStatus FixTrivalentNodes(MeshData<Real> *md) {
+  using TE = parthenon::TopologicalElement;
+  auto pmesh = md->GetMeshPointer();
+  auto desc = parthenon::MakePackDescriptor<position>(md);
+
+  IndexRange ib_in = md->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb_in = md->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb_in = md->GetBoundsK(IndexDomain::interior, TE::NN);
+
+  for (auto &ptree : pmesh->forest.GetTrees()) {
+    auto tree_id = ptree->GetId();
+    auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId()));
+    printf("Tree: %i\n", ptree->GetId());
+    int pos{0};
+    for (auto &pnode : ptree->forest_nodes) {
+      bool trivalent =
+          (pnode->associated_faces.size() == 3) && !pnode->on_physical_boundary;
+      if (trivalent) {
+        printf("  Node %i is trivalent.\n");
+      }
+      pos++;
+    }
+  }
+  return TaskStatus::complete;
+}
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("boundary_exchange");
   Params &params = package->AllParams();
@@ -109,8 +201,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
              std::vector<int>{8});
   m.RegisterRefinementOps<parthenon::refinement_ops::ProlongatePiecewiseConstant,
                           parthenon::refinement_ops::RestrictAverage>();
-  package->AddField(neighbor_info::name(), m);
+  package->AddField<neighbor_info>(m);
 
+  Metadata m_node({Metadata::Node, Metadata::Independent, Metadata::FillGhost},
+                  std::vector<int>{2});
+  package->AddField<position>(m_node);
   return package;
 }
 

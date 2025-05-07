@@ -34,7 +34,16 @@ struct neighbor_info : public parthenon::variable_names::base_t<false, 4> {
   static std::string name() { return "neighbor_info"; }
 };
 
+struct position : public parthenon::variable_names::base_t<false, 4> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION position(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 4>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "position"; }
+};
+
 TaskStatus SetBlockValues(MeshData<Real> *rc);
+TaskStatus SetCoordinates(MeshData<Real> *rc);
+TaskStatus FixTrivalentNodes(MeshData<Real> *rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 } // namespace boundary_exchange
