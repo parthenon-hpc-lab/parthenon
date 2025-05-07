@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "utils/cell_center_offsets.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
@@ -33,6 +34,14 @@ struct block_ownership_t {
   KOKKOS_FORCEINLINE_FUNCTION
   bool &operator()(int ox1, int ox2, int ox3) {
     return ownership[ox1 + 1][ox2 + 1][ox3 + 1];
+  }
+  KOKKOS_FORCEINLINE_FUNCTION 
+  bool &operator()(const CellCentOffsets &offset) { 
+    return ownership[offset[0]+1][offset[1]+1][offset[2]+1];
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  const bool &operator()(const CellCentOffsets &offset) const { 
+    return ownership[offset[0]+1][offset[1]+1][offset[2]+1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

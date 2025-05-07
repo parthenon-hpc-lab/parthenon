@@ -26,7 +26,6 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "utils/bit_hacks.hpp"
-#include "utils/indexer.hpp"
 
 namespace parthenon {
 // CellCentOffsets defines the position of a topological element
@@ -39,7 +38,7 @@ namespace parthenon {
 
 // TODO(LFR): Consider switching this to C-style enum within a namespace to avoid
 // static_cast
-enum class Offset : int { Low = -1, Middle = 0, Up = 1 };
+enum Offset : int { Low = -1, Middle = 0, Up = 1 };
 inline int operator+(Offset a, int b) { return static_cast<int>(a) + b; }
 inline int operator+(int b, Offset a) { return static_cast<int>(a) + b; }
 inline Offset operator-(Offset in) { return static_cast<Offset>(-static_cast<int>(in)); }
@@ -58,7 +57,7 @@ struct CellCentOffsets {
 
   Offset &operator[](int idx) { return u[idx]; }
   const Offset &operator[](int idx) const { return u[idx]; }
-  int operator()(CoordinateDirection dir) const { return static_cast<int>(u[dir - 1]); }
+  Offset operator()(CoordinateDirection dir) const { return u[dir - 1]; }
 
   operator std::array<int, 3>() const {
     return {static_cast<int>(u[0]), static_cast<int>(u[1]), static_cast<int>(u[2])};
