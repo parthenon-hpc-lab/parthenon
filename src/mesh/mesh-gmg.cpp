@@ -81,7 +81,7 @@ void Mesh::SetMeshBlockNeighbors(
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
       nb.ownership =
-          DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
+          nloc.lcoord_trans.InverseTransform(DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined));
       nb.ownership.initialized = true;
 
       // Set logical coordinate transformation from this block to the neighbor
