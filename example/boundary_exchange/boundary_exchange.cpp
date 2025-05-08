@@ -150,13 +150,11 @@ TaskStatus SetCoordinates(MeshData<Real> *md) {
   for (auto &ptree : pmesh->forest.GetTrees()) {
     auto tree_id = ptree->GetId();
     auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId()));
-    printf("Tree: %i\n", ptree->GetId());
     int i{0};
     Real posx[4], posy[4];
     for (auto &pnode : ptree->forest_nodes) {
       posx[i] = pnode->x[0];
       posy[i] = pnode->x[1];
-      printf("  Node %i:(%e, %e)\n", i++, pnode->x[0], pnode->x[1]);
     }
 
     auto &pnodes = ptree->forest_nodes;
@@ -203,8 +201,6 @@ TaskStatus FixTrivalentNodes2D(MeshData<Real> *md) {
 
   for (auto &ptree : pmesh->forest.GetTrees()) {
     auto tree_id = ptree->GetId();
-    
-    printf("Tree: %i\n", ptree->GetId());
     int pos{0};
     for (auto &pnode : ptree->forest_nodes) {
       bool trivalent =
@@ -212,22 +208,53 @@ TaskStatus FixTrivalentNodes2D(MeshData<Real> *md) {
       if (trivalent) {
         parthenon::CellCentOffsets offset(2 * (pos % 2) - 1, 2 * (pos / 2) - 1, 0);
         auto pack = desc.GetPack(md, parthenon::GetBlockSelector::OnTree(ptree->GetId(), offset));
-        printf("  Node %i is trivalent and we picked out %i blocks.\n", pos, pack.GetNBlocks());
+        if (pack.GetNBlocks() == 0) return TaskStatus::complete;
+        // Copy shared boundary data 
         
+        // This pack has to have only one block  
+        auto gid = pack.GetGIDHost(0);
+        parthenon::MeshBlock *pmb; 
+        for (auto &pmbd : md->GetAllBlockData())
+          if (pmbd->GetParentPointer()->gid == gid) pmb = pmbd->GetParentPointer(); 
+        
+        // Now check which row of corner shared elements has been set by an owning block
+        parthenon::CellCentOffsets offsetX1(2 * (pos % 2) - 1, 0, 0);
+        parthenon::CellCentOffsets offsetX2(0, 2 * (pos / 2) - 1, 0);
+        int dir = X2DIR;
+        for (auto &neighbor : pmb->neighbors) {
+          if (neighbor.offsets == offsetX1 && neighbor.origin_ownership(offsetX2))
+            dir = X1DIR;
+          if (neighbor.offsets == offsetX2 && neighbor.origin_ownership(offsetX1))
+            dir = X2DIR;
+        }
+
+        // Select the reference location on the node shared by all three blocks
         const int icorner = (offset(X1DIR) == parthenon::Offset::Low) ? ib_in.s : ib_in.e;
         const int jcorner = (offset(X2DIR) == parthenon::Offset::Low) ? jb_in.s : jb_in.e;
-        IndexRange ib = offset(X1DIR) == parthenon::Offset::Low ? IndexRange{0, ib_in.s - 1} : IndexRange{ib_in.e + 1, ib_in.e + parthenon::Globals::nghost};
-        IndexRange jb = offset(X2DIR) == parthenon::Offset::Low ? IndexRange{0, jb_in.s - 1} : IndexRange{jb_in.e + 1, ib_in.e + parthenon::Globals::nghost};
+        // Select the index space of elements that need to get overwritten
+        IndexRange ib = offset(X1DIR) == parthenon::Offset::Low ? IndexRange{0, ib_in.s - (dir == X2DIR)} : IndexRange{ib_in.e + (dir == X2DIR), ib_in.e + parthenon::Globals::nghost};
+        IndexRange jb = offset(X2DIR) == parthenon::Offset::Low ? IndexRange{0, jb_in.s - (dir == X1DIR)} : IndexRange{jb_in.e + (dir == X1DIR), ib_in.e + parthenon::Globals::nghost};
         parthenon::par_for(
             parthenon::loop_pattern_mdrange_tag, "SetPosition", DevExecSpace(), 0,
             pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
             KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
               const int enclosed_area = std::abs((i - icorner) * (j - jcorner)); 
-              int ioff{1};
-              while (ioff * ioff < enclosed_area) ioff++;
-              ioff *= offset(X1DIR);
-              pack(b, TE::NN, position(0), k, j, i) = pack(b, TE::NN, position(0), k, jcorner, icorner + ioff); // x-position
-              pack(b, TE::NN, position(1), k, j, i) = pack(b, TE::NN, position(1), k, jcorner, icorner + ioff); // y-position
+              int ioff{0};
+              int joff{0};
+              // This is an element shared by both of the neighbors, but only one communicated it, so copy it to the other side of the corner
+              if (enclosed_area == 0) { 
+                joff = std::abs(icorner - i) * offset(X2DIR); 
+                ioff = std::abs(jcorner - j) * offset(X1DIR);
+              } 
+              // These are non-existent elements that we fill with data copied from their nearest neighbors
+              else {
+                int off = 1; 
+                while (off * off < enclosed_area) off++;
+                ioff = offset(X1DIR) * off * (dir == X1DIR);
+                joff = offset(X2DIR) * off * (dir == X2DIR);
+              }
+              pack(b, TE::NN, position(0), k, j, i) = pack(b, TE::NN, position(0), k, jcorner + joff, icorner + ioff); // x-position
+              pack(b, TE::NN, position(1), k, j, i) = pack(b, TE::NN, position(1), k, jcorner + joff, icorner + ioff); // y-position
             });
       }
       pos++;
