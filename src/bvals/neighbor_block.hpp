@@ -63,7 +63,10 @@ struct NeighborBlock {
   // Offset of the neighbor block relative to origin block
   CellCentOffsets offsets;
   // Ownership of neighbor block of different topological elements
+  // (in the frame of the neighbor block)
   block_ownership_t ownership;
+  // (in the frame of the origin block)
+  block_ownership_t origin_ownership;
   // Logical coordinate transformation from the main block to this neighbor
   forest::LogicalCoordinateTransformation lcoord_trans;
 
