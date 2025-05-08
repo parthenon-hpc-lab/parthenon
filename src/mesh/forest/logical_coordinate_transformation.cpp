@@ -100,7 +100,8 @@ CellCentOffsets LogicalCoordinateTransformation::Transform(CellCentOffsets in) c
   return out;
 }
 
-CellCentOffsets LogicalCoordinateTransformation::InverseTransform(CellCentOffsets in) const {
+CellCentOffsets
+LogicalCoordinateTransformation::InverseTransform(CellCentOffsets in) const {
   CellCentOffsets out;
   for (int dir = 0; dir < 3; ++dir) {
     const int indir = abs(dir_connection[dir]);
@@ -109,11 +110,12 @@ CellCentOffsets LogicalCoordinateTransformation::InverseTransform(CellCentOffset
   return out;
 }
 
-block_ownership_t LogicalCoordinateTransformation::Transform(const block_ownership_t &in) const {
-  block_ownership_t out; 
-  for (int ox3 : {-1 , 0, 1}) { 
-    for (int ox2 : {-1 , 0, 1}) { 
-      for (int ox1 : {-1 , 0, 1}) { 
+block_ownership_t
+LogicalCoordinateTransformation::Transform(const block_ownership_t &in) const {
+  block_ownership_t out;
+  for (int ox3 : {-1, 0, 1}) {
+    for (int ox2 : {-1, 0, 1}) {
+      for (int ox1 : {-1, 0, 1}) {
         auto offset = CellCentOffsets(ox1, ox2, ox3);
         out(Transform(offset)) = in(offset);
       }
@@ -122,11 +124,12 @@ block_ownership_t LogicalCoordinateTransformation::Transform(const block_ownersh
   return out;
 }
 
-block_ownership_t LogicalCoordinateTransformation::InverseTransform(const block_ownership_t &in) const {
-  block_ownership_t out; 
-  for (int ox3 : {-1 , 0, 1}) { 
-    for (int ox2 : {-1 , 0, 1}) { 
-      for (int ox1 : {-1 , 0, 1}) { 
+block_ownership_t
+LogicalCoordinateTransformation::InverseTransform(const block_ownership_t &in) const {
+  block_ownership_t out;
+  for (int ox3 : {-1, 0, 1}) {
+    for (int ox2 : {-1, 0, 1}) {
+      for (int ox1 : {-1, 0, 1}) {
         auto offset = CellCentOffsets(ox1, ox2, ox3);
         out(offset) = in(Transform(offset));
       }

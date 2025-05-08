@@ -73,10 +73,8 @@ struct CellCentOffsets {
   // (in cyclic order, XY, YZ, ZX, XYZ) along with the offset of the
   // element in that direction from the cell center.
   std::vector<std::pair<CoordinateDirection, Offset>> GetNormals() const;
-  
-  bool operator==(const CellCentOffsets& other) const {
-        return u == other.u;
-  }
+
+  bool operator==(const CellCentOffsets &other) const { return u == other.u; }
 
   bool IsNode() const {
     return 3 == abs(static_cast<int>(u[0])) + abs(static_cast<int>(u[1])) +

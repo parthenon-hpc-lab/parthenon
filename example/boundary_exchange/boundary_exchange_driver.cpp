@@ -105,23 +105,25 @@ parthenon::forest::ForestDefinition n_blocks(int nblocks) {
   for (int t = 0; t < nblocks; ++t)
     forest_def.AddFace(
         t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]});
-  
+
   int level = 1;
-  printf("loc: %i\n", (1 << level) - 1);
-  forest_def.AddInitialRefinement(parthenon::LogicalLocation(0, level, (1 << level) - 1, (1 << level) - 1, 0));
-  forest_def.AddInitialRefinement(parthenon::LogicalLocation(1, level, (1 << level) - 1, (1 << level) - 1, 0));
-  forest_def.AddInitialRefinement(parthenon::LogicalLocation(2, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(0, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(1, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(2, level, (1 << level) - 1, (1 << level) - 1, 0));
 
   return forest_def;
 }
 
-parthenon::forest::ForestDefinition cubed_circle(std::vector<double> radii) { 
+parthenon::forest::ForestDefinition cubed_circle(std::vector<double> radii) {
   using namespace parthenon::forest;
-  std::vector<std::shared_ptr<Node>> nodes_x, nodes_y, nodes_c; 
+  std::vector<std::shared_ptr<Node>> nodes_x, nodes_y, nodes_c;
   std::size_t node_idx{0};
   std::shared_ptr<Node> origin = Node::create(node_idx++, {0.0, 0.0});
   double fac = 1.0 / sqrt(2.0);
-  for (auto rad : radii) { 
+  for (auto rad : radii) {
     nodes_x.push_back(Node::create(node_idx++, {rad, 0.0}));
     nodes_c.push_back(Node::create(node_idx++, {rad * fac, rad * fac}));
     nodes_y.push_back(Node::create(node_idx++, {0.0, rad}));
@@ -133,15 +135,17 @@ parthenon::forest::ForestDefinition cubed_circle(std::vector<double> radii) {
   forest_def.AddBC(Edge({origin, nodes_x[0]}));
   forest_def.AddBC(Edge({origin, nodes_y[0]}));
   for (int i = 0; i < nodes_x.size() - 1; ++i) {
-    forest_def.AddFace(face_idx++, {nodes_x[i], nodes_x[i + 1], nodes_c[i], nodes_c[i + 1]});
-    forest_def.AddFace(face_idx++, {nodes_c[i], nodes_c[i + 1], nodes_y[i], nodes_y[i + 1]});
-    forest_def.AddBC(Edge({nodes_x[i], nodes_x[i + 1]})); 
-    forest_def.AddBC(Edge({nodes_y[i], nodes_y[i + 1]})); 
-  } 
+    forest_def.AddFace(face_idx++,
+                       {nodes_x[i], nodes_x[i + 1], nodes_c[i], nodes_c[i + 1]});
+    forest_def.AddFace(face_idx++,
+                       {nodes_c[i], nodes_c[i + 1], nodes_y[i], nodes_y[i + 1]});
+    forest_def.AddBC(Edge({nodes_x[i], nodes_x[i + 1]}));
+    forest_def.AddBC(Edge({nodes_y[i], nodes_y[i + 1]}));
+  }
   forest_def.AddBC(Edge({nodes_x.back(), nodes_c.back()}));
   forest_def.AddBC(Edge({nodes_c.back(), nodes_y.back()}));
-  
-  return forest_def; 
+
+  return forest_def;
 }
 
 int main(int argc, char *argv[]) {
@@ -163,7 +167,7 @@ int main(int argc, char *argv[]) {
   }
 
   pman.ParthenonInitPackagesAndMesh(cubed_circle({1.0, 2.0, 3.0}));
-  //pman.ParthenonInitPackagesAndMesh(n_blocks(3));
+  // pman.ParthenonInitPackagesAndMesh(n_blocks(3));
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {

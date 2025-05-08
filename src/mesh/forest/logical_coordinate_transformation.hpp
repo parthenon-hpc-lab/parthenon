@@ -117,10 +117,10 @@ struct NeighborLocation {
       : global_loc(g), origin_loc(o), lcoord_trans(lcoord_trans) {}
   // Global location of neighboring block
   LogicalLocation global_loc;
-  // Logical location of neighboring block in index space of origin block 
+  // Logical location of neighboring block in index space of origin block
   LogicalLocation origin_loc;
-  // Coordinate transform to coords of neighbor tree from origin tree 
-  // (i.e. global_loc = lcoord_trans.Transform(origin_loc)) 
+  // Coordinate transform to coords of neighbor tree from origin tree
+  // (i.e. global_loc = lcoord_trans.Transform(origin_loc))
   LogicalCoordinateTransformation lcoord_trans;
 };
 
