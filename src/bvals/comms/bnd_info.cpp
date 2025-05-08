@@ -244,7 +244,11 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       if (sox2 == 0) sox2 = loc.l(1) % 2 == 1 ? 1 : -1;
       if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
-    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
+    // We are working in the frame of the origin block (i.e. the receiving block),
+    // so we use the ownership array in that frame to get the masking initially.
+    // This mask must then be transformed to the frame of the neighbor block (i.e. 
+    // sending block) since the index range we are masking is defined in that frame.
+    owns = lcoord_trans.Transform(GetIndexRangeMaskFromOwnership(el, nb.origin_ownership, sox1, sox2, sox3));
   }
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},

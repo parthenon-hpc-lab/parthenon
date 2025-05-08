@@ -128,7 +128,7 @@ block_ownership_t LogicalCoordinateTransformation::InverseTransform(const block_
     for (int ox2 : {-1 , 0, 1}) { 
       for (int ox1 : {-1 , 0, 1}) { 
         auto offset = CellCentOffsets(ox1, ox2, ox3);
-        out(offset) = in(InverseTransform(offset));
+        out(offset) = in(Transform(offset));
       }
     }
   }
