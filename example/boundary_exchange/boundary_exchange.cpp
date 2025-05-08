@@ -103,18 +103,43 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
 }
 
 struct ParameterizedLine {
+  enum class ltype {straight, arc};
+
   const Real x1, y1;
   const Real x2, y2;
-
+  Real r, delta, phi;
+  ltype type;
+  
   using node = parthenon::forest::Node;
   ParameterizedLine(std::shared_ptr<node> start, std::shared_ptr<node> end)
-      : x1{start->x[0]}, y1{start->x[1]}, x2{end->x[0]}, y2{end->x[1]} {}
+      : x1{start->x[0]}, y1{start->x[1]}, x2{end->x[0]}, y2{end->x[1]}, type{ltype::straight} {
+    Real d1 = std::sqrt(x1 * x1 + y1 * y1);
+    Real d2 = std::sqrt(x2 * x2 + y2 * y2); 
+    if (std::abs(d1 - d2) < 1.e-8 && d1 > 1.1) { 
+      type = ltype::arc;
+      r = d1; 
+      delta = M_PI / 4.0; 
+      phi = 0.0;
+      if (y1 > 1.e-5) phi = delta;
+    }
+  }
 
   KOKKOS_INLINE_FUNCTION
-  Real GetX(Real u) const { return x1 * (1.0 - u) + x2 * u; }
+  Real GetX(Real u) const { 
+    if (type == ltype::straight)
+      return x1 * (1.0 - u) + x2 * u; 
+    else 
+      return r * cos(delta * u + phi);
+  }
+
 
   KOKKOS_INLINE_FUNCTION
-  Real GetY(Real u) const { return y1 * (1.0 - u) + y2 * u; }
+  Real GetY(Real u) const { 
+    if (type == ltype::straight)
+      return y1 * (1.0 - u) + y2 * u; 
+    else 
+      return r * sin(delta * u + phi);
+  }
 };
 
 TaskStatus SetCoordinates(MeshData<Real> *md) {
