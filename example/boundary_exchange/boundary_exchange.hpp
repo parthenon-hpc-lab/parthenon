@@ -43,7 +43,7 @@ struct position : public parthenon::variable_names::base_t<false, 4> {
 
 TaskStatus SetBlockValues(MeshData<Real> *rc);
 TaskStatus SetCoordinates(MeshData<Real> *rc);
-TaskStatus FixTrivalentNodes2D(MeshData<Real> *rc);
+TaskStatus FixTrivalentNodes2D(MeshData<Real> *rc, bool coarse);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 } // namespace boundary_exchange

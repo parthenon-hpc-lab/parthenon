@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -190,14 +191,19 @@ TaskStatus SetCoordinates(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
-TaskStatus FixTrivalentNodes2D(MeshData<Real> *md) {
+TaskStatus FixTrivalentNodes2D(MeshData<Real> *md, bool coarse) {
   using TE = parthenon::TopologicalElement;
   auto pmesh = md->GetMeshPointer();
-  auto desc = parthenon::MakePackDescriptor<position>(md);
+  std::set<parthenon::PDOpt> opts{};
+  if (coarse) opts.insert(parthenon::PDOpt::Coarse);
 
-  IndexRange ib_in = md->GetBoundsI(IndexDomain::interior, TE::NN);
-  IndexRange jb_in = md->GetBoundsJ(IndexDomain::interior, TE::NN);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, TE::NN);
+  auto desc = parthenon::MakePackDescriptor<position>(md, {}, opts);
+
+  const parthenon::CellLevel clevel =
+      coarse ? parthenon::CellLevel::coarse : parthenon::CellLevel::same;
+  IndexRange ib_in = md->GetBoundsI(clevel, IndexDomain::interior, TE::NN);
+  IndexRange jb_in = md->GetBoundsJ(clevel, IndexDomain::interior, TE::NN);
+  IndexRange kb = md->GetBoundsK(clevel, IndexDomain::interior, TE::NN);
 
   for (auto &ptree : pmesh->forest.GetTrees()) {
     auto tree_id = ptree->GetId();

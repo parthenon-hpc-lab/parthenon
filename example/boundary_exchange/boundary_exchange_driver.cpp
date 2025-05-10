@@ -145,6 +145,10 @@ parthenon::forest::ForestDefinition cubed_circle(std::vector<double> radii) {
   forest_def.AddBC(Edge({nodes_x.back(), nodes_c.back()}));
   forest_def.AddBC(Edge({nodes_c.back(), nodes_y.back()}));
 
+  int level = 2;
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(1, level, 0, (1 << level) - 1, 0));
+
   return forest_def;
 }
 
@@ -223,8 +227,13 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
       TaskID none(0);
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
       auto set_coords = tl.AddTask(none, SetCoordinates, md.get());
-      auto bound = AddBoundaryExchangeTasks(fill | set_coords, tl, md, true);
-      auto fix = tl.AddTask(bound, FixTrivalentNodes2D, md.get());
+      auto bound = AddBoundaryExchangeTasks(
+          fill | set_coords, tl, md, true,
+          [](TaskID depend, TaskList *ptl, std::shared_ptr<MeshData<Real>> md,
+             bool coarse) {
+            return ptl->AddTask(depend, FixTrivalentNodes2D, md.get(), coarse);
+          });
+      // auto fix = tl.AddTask(bound, FixTrivalentNodes2D, md.get(), false);
     }
   }
 
