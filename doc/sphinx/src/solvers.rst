@@ -10,7 +10,9 @@ of the latter two solvers.
 Solvers are templated on a type defining the system of equations they are solving. 
 The type defining the system of equations must provide two methods and a ``TypeList`` 
 of all of the fields that make up the vector space:
+
 .. code:: c++
+
   class MySystemOfEquations {
     using IndependentVars = parthenon::TypeList<var1_t, var2_t>;
 
@@ -34,7 +36,9 @@ since it is only used in preconditioners/smoothers.
 
 With such a class defining a linear system of equations, one can then define and use a solver with 
 code along the lines of:
+
 .. code:: c++ 
+
   std::string base_cont_name = "base";
   std::string u_cont_name = "u";
   std::string rhs_cont_name = "rhs";
@@ -66,6 +70,7 @@ code along the lines of:
   }
 
 Some notes: 
+
 - All solvers inherit from ``SolverBase``, so the best practice is to stash a shared pointer to a 
   ``SolverBase`` object in params during initialization and pull this solver out while building a 
   task list. This should make switching between solvers trivial.
@@ -81,7 +86,7 @@ Some notes:
   operators is contained in the ``poisson_gmg`` example.
 
 Some implementation notes about geometric multi-grid can be found in 
-:ref:`these notes <doc/latex/main.pdf>`.
+`these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.
 
 Stencil
 -------
