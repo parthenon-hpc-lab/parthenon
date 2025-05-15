@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1247]](https://github.com/parthenon-hpc-lab/parthenon/pull/1247) Add ability to output to HDF5 non-standard MeshData object
 - [[PR 1233]](https://github.com/parthenon-hpc-lab/parthenon/pull/1233) Add implicit diffusion example
 - [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
 - [[PR 1231]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
@@ -32,6 +33,7 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1248]](https://github.com/parthenon-hpc-lab/parthenon/pull/1248) Fix edge case regarding AMR de-refinement logic
 - [[PR 1240]](https://github.com/parthenon-hpc-lab/parthenon/pull/1240) Fix I/O for CellMemAligned variables
 - [[PR 1229]](https://github.com/parthenon-hpc-lab/parthenon/pull/1229) Ensure builds function on 32 bit architectures
 - [[PR 1230]](https://github.com/parthenon-hpc-lab/parthenon/pull/1230) Add missing using statements in curvilinear coordinates classes
@@ -45,6 +47,7 @@
 - [[PR 1173]](https://github.com/parthenon-hpc-lab/parthenon/pull/1173) Make debugging easier by making parthenon throw an error if ParameterInput is different on multiple MPI ranks.
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1246]](https://github.com/parthenon-hpc-lab/parthenon/pull/1246) Added documentation on SMR
 - [[PR 1238]](https://github.com/parthenon-hpc-lab/parthenon/pull/1238) Refactor pack related files and add SparsePack docs
 - [[PR 1218]](https://github.com/parthenon-hpc-lab/parthenon/pull/1219) Add ability to run the tasking without threading
 - [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
