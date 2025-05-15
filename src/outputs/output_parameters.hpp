@@ -42,6 +42,7 @@ struct OutputParameters {
   std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
+  std::string meshdata_name;
   std::vector<std::string> packages;
   Real next_time, dt;
   int next_n, dn;

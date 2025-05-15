@@ -288,7 +288,7 @@ struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
   AllSwarmInfo(BlockList_t &block_list,
                const std::map<std::string, std::set<std::string>> &swarmnames,
-               bool is_restart);
+               bool is_restart, const std::string &meshdata_name = "base");
 };
 
 template <typename T, typename Function_t>
