@@ -47,6 +47,11 @@ Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
     nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
     nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
   }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    nx1 -= 1;
+    if (nx2 > 1) nx2 -= 1;
+    if (nx3 > 1) nx3 -= 1;
+  }
   return std::make_tuple(nx3, nx2, nx1);
 }
 
@@ -64,6 +69,11 @@ Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const
     ke = std::max(ke, kb.e);
     je = std::max(je, jb.e);
     ie = std::max(ie, ib.e);
+  }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    ie -= 1;
+    if (je > 0) je -= 1;
+    if (ke > 0) ke -= 1;
   }
   IndexRange kb{ks, ke}, jb{js, je}, ib{is, ie};
   return std::make_tuple(kb, jb, ib);
@@ -156,9 +166,13 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
-                           bool is_restart) {
+                           bool is_restart, const std::string &meshdata_name) {
   for (auto &pmb : block_list) {
-    const auto &swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
+    // TODO(JMM): Swap these out when swarms are allowed to exist in
+    // multiple meshdata registers
+    // const auto &swarm_container =
+    // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
     if (is_restart) {
       using FC = parthenon::Metadata::FlagCollection;

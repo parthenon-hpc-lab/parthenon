@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -74,6 +74,11 @@ enum class IndexDomain {
   inner_x3,
   outer_x3
 };
+KOKKOS_FORCEINLINE_FUNCTION
+bool DomainTouchesOuterGhosts(const IndexDomain domain) {
+  return (domain == IndexDomain::entire) || (domain == IndexDomain::outer_x1) ||
+         (domain == IndexDomain::outer_x2) || (domain == IndexDomain::outer_x3);
+}
 
 //! \class IndexVolume
 //  \brief Defines the dimensions of a shape of indices
