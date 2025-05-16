@@ -247,6 +247,9 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
+  PARTHENON_REQUIRE_THROWS(global_max_particle_id_ == 0 || num_to_add == num_annouced_,
+                           "After initial particle have been added the number to add and "
+                           "already announced need to match.");
 
   auto pmb = GetBlockPointer();
 

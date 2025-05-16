@@ -188,8 +188,23 @@ class Swarm {
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
+  // Tell the infrastructure to plan for num_to_add new particles.
+  // Required because we have to ensure globally unique ids
+  void AnnounceNewParticles(const int num_to_add) { num_annouced_ = num_to_add; }
+
+  // Must be called after new particles have been announced
+  TaskStatus SetParticleIdOffsets();
+
   /// Open up memory for new empty particles, return a mask to these particles
+  // Should be called only after SetParticleIdOffsets
+  // TODO(pgrete) Should we make the argument optional to differentiate between adding
+  // particles on startup versus adding announced particles?
   NewParticlesContext AddEmptyParticles(const int num_to_add);
+
+  // After AddEmptyParticles has been called and ids have been initialized
+  // TODO(pgrete) Should we remove the this extra call and directly add it to
+  // `AddEmptyParticles`?
+  void ResetAnnouncedCounter() { num_annouced_ = 0; }
 
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
@@ -264,6 +279,8 @@ class Swarm {
   inline static UniqueIDGenerator<std::string> get_uid_;
   int max_active_index_ = inactive_max_active_index;
   int num_active_ = 0;
+  int global_max_particle_id_ = 0; // TODO(pgrete) should be size_t
+  int num_annouced_ = 0; // number of particles announced to be added to the pool
   std::string label_;
   Metadata m_;
   int nmax_pool_;
