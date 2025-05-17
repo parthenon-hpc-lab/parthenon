@@ -137,4 +137,4 @@ Parthenon implements AMR via a forest of octrees type approach.
   Even for some hyper-rectangular base meshes, this can result in forests that contain 
   multiple trees. 
 
-  Some implementation notes about our forest can be found in :ref:`these notes <doc/latex/main.pdf>`. 
+  Some implementation notes about our forest can be found in `these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.
