@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -84,6 +85,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
+  Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
@@ -118,7 +120,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
   //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
   if (std::get<getType<int>()>(maps_).count(label) > 0 ||
-      std::get<getType<Real>()>(maps_).count(label) > 0) {
+      std::get<getType<Real>()>(maps_).count(label) > 0 ||
+      std::get<getType<std::uint64_t>()>(maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
@@ -128,6 +131,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 
   if (newm.Type() == Metadata::Integer) {
     Add_<int>(label, newm);
+  } else if (newm.Type() == Metadata::UInt64) {
+    Add_<std::uint64_t>(label, newm);
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
@@ -145,6 +150,8 @@ void Swarm::Remove(const std::string &label) {
 
   auto &int_map = std::get<getType<int>()>(maps_);
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_map = std::get<getType<std::uint64_t>()>(maps_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_map = std::get<getType<Real>()>(maps_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
@@ -157,7 +164,7 @@ void Swarm::Remove(const std::string &label) {
     }
     idx++;
   }
-  if (found == true) {
+  if (found) {
     // first delete the variable
     int_vector[idx].reset();
 
@@ -167,28 +174,44 @@ void Swarm::Remove(const std::string &label) {
 
     // Also remove variable from map
     int_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    idx = 0;
-    for (const auto &v : real_vector) {
-      if (label == v->label()) {
-        found = true;
-        break;
-      }
-      idx++;
+  // search next variable type (real)
+  idx = 0;
+  for (const auto &v : real_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
     }
+    idx++;
   }
-  if (found == true) {
+  if (found) {
     real_vector[idx].reset();
     if (real_vector.size() > 1) real_vector[idx] = std::move(real_vector.back());
     real_vector.pop_back();
     real_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    throw std::invalid_argument("swarm variable not found in Remove()");
+  // search next variable type (uint64_t)
+  idx = 0;
+  for (const auto &v : uint64_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
+    }
+    idx++;
   }
+  if (found) {
+    uint64_vector[idx].reset();
+    if (uint64_vector.size() > 1) uint64_vector[idx] = std::move(uint64_vector.back());
+    uint64_vector.pop_back();
+    uint64_map.erase(label);
+    return;
+  }
+
+  throw std::invalid_argument("swarm variable not found in Remove()");
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
@@ -218,12 +241,19 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   pmb->LogMemUsage(n_new * sizeof(int));
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
   for (auto &d : int_vector) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
     pmb->LogMemUsage(n_new * sizeof(int));
+  }
+
+  for (auto &d : uint64_vector) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(std::uint64_t));
   }
 
   for (auto &d : real_vector) {
@@ -399,17 +429,23 @@ void Swarm::Defrag() {
 
   // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
+  PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
+  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
   int real_vars_size = real_vector.size();
   int int_vars_size = int_vector.size();
+  int uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
+  auto uint64_map = uint64_imap.Map();
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
+  const int uint64PackDim = vuint64.GetDim(2);
 
   // Loop over only the active number of particles, and if mask is empty, copy in particle
   // using address from prefix sum
@@ -422,6 +458,9 @@ void Swarm::Defrag() {
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
             vint(vidx, n) = vint(vidx, nread);
+          }
+          for (int vidx = 0; vidx < uint64PackDim; vidx++) {
+            vuint64(vidx, n) = vuint64(vidx, nread);
           }
           mask(n) = true;
         }

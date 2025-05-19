@@ -80,6 +80,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** uint64-t-valued quantity */                                                        \
+  PARTHENON_INTERNAL_FOR_FLAG(UInt64)                                                    \
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
@@ -448,6 +450,8 @@ class Metadata {
       return Boolean;
     } else if (IsSet(Integer)) {
       return Integer;
+    } else if (IsSet(UInt64)) {
+      return UInt64;
     } else if (IsSet(Real)) {
       return Real;
     }

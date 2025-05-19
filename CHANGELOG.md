@@ -19,6 +19,7 @@
 - [[PR 1161]](https://github.com/parthenon-hpc-lab/parthenon/pull/1161) Make flux field Metadata accessible, add Metadata::CellMemAligned flag, small perfomance upgrades
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and enforce id
 - [[PR 1243]](https://github.com/parthenon-hpc-lab/parthenon/pull/1243) Increase MPI timeout counter by 10x
 - [[PR 1223]](https://github.com/parthenon-hpc-lab/parthenon/pull/1223) Update to v4 artifacts
 - [[PR 1216]](https://github.com/parthenon-hpc-lab/parthenon/pull/1216) Move to Kokkos 4.5

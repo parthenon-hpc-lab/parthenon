@@ -249,10 +249,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
         ParticleVariableRef(pxdmf, varname, varinfo, swmname, hdfFile,
                             swminfo.global_count);
       }
-      if (swminfo.var_info.count("id") == 0) {
-        auto swid = SwarmVarInfo(1, 1, 1, 1, 1, 0, "Int", false);
-        ParticleVariableRef(pxdmf, "id", swid, swmname, hdfFile, swminfo.global_count);
-      }
       pxdmf << "    </Grid>" << std::endl;
     }
 
@@ -391,7 +387,8 @@ static std::string ParticlePositionRef(const std::string &prefix,
                                        const std::string &hdffile,
                                        const std::string &datatype,
                                        const std::string &extradims, int particle_count) {
-  std::string precision_string = (datatype == "Float") ? " Precision=\"8\"" : "";
+  std::string precision_string =
+      (datatype == "Float" || datatype == "UInt") ? " Precision=\"8\"" : "";
   auto part =
       StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d 3\" Name=\"%s\" "
                    "NumberType=\"%s\"%s>\n"
@@ -408,7 +405,8 @@ static std::string ParticleDatasetRef(const std::string &prefix,
                                       const std::string &hdffile,
                                       const std::string &datatype,
                                       const std::string &extradims, int particle_count) {
-  std::string precision_string = (datatype == "Float") ? " Precision=\"8\"" : "";
+  std::string precision_string =
+      (datatype == "Float" || datatype == "UInt") ? " Precision=\"8\"" : "";
   auto part =
       StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d\" Name=\"%s\" "
                    "NumberType=\"%s\"%s>\n"

@@ -166,13 +166,17 @@ void Swarm::LoadBuffers_() {
   pmb->exec_space.fence();
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
+  PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
+  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
+  const int uint64PackDim = vuint64.GetDim(2);
 
   auto &x = Get<Real>(swarm_position::x::name()).Get();
   auto &y = Get<Real>(swarm_position::y::name()).Get();
@@ -263,6 +267,10 @@ void Swarm::LoadBuffers_() {
                 bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
                 buffer_index++;
               }
+              for (int i = 0; i < uint64PackDim; i++) {
+                bdvar.send[bufid](buffer_index) = static_cast<Real>(vuint64(i, p_index));
+                buffer_index++;
+              }
             }
           }
         });
@@ -319,13 +327,17 @@ void Swarm::UnloadBuffers_() {
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
     auto &int_vector = std::get<getType<int>()>(vectors_);
+    auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
     auto &real_vector = std::get<getType<Real>()>(vectors_);
     PackIndexMap real_imap;
     PackIndexMap int_imap;
+    PackIndexMap uint64_imap;
     auto vreal = PackAllVariables_<Real>(real_imap);
     auto vint = PackAllVariables_<int>(int_imap);
-    int realPackDim = vreal.GetDim(2);
-    int intPackDim = vint.GetDim(2);
+    auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
+    const int realPackDim = vreal.GetDim(2);
+    const int intPackDim = vint.GetDim(2);
+    const int uint64PackDim = vuint64.GetDim(2);
 
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
@@ -339,10 +351,6 @@ void Swarm::UnloadBuffers_() {
       val_prev += val_curr;
     }
     neighbor_received_particles.DeepCopy(neighbor_received_particles_h);
-
-    auto &x = Get<Real>(swarm_position::x::name()).Get();
-    auto &y = Get<Real>(swarm_position::y::name()).Get();
-    auto &z = Get<Real>(swarm_position::z::name()).Get();
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
@@ -365,6 +373,10 @@ void Swarm::UnloadBuffers_() {
           }
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+            bid++;
+          }
+          for (int i = 0; i < uint64PackDim; i++) {
+            vuint64(i, sid) = static_cast<std::uint64_t>(bdvar.recv[nbid](bid));
             bid++;
           }
         });
