@@ -21,8 +21,12 @@ should also contain the ``Metadata::Particle`` flag. By default,
 to 2D data per particle is currently supported, by passing
 ``std::vector<int>{N1, N2}`` as the second argument to the
 ``ParticleVariable`` ``Metadata``. All ``Swarm``\ s by default contain
-``x``, ``y``, and ``z`` ``ParticleVariable``\ s; additional fields can
-be added as:
+positional ``x``, ``y``, and ``z`` ``ParticleVariable``\ s and a ``uint64`` particle
+``id`` that is persistent and unique for a given simulation.
+The latter field can be disabled (e.g., because it is not required for a method
+that constant creates and destroys anonymous particles) by providing the
+``Metadata::NoPersistentParticleIds`` flag;
+additional fields can be added as:
 
 .. code:: cpp
 
@@ -256,17 +260,14 @@ per-swarm list will be output for that swarm.
    Some visualization tools, like Visit and Paraview, prefer to have
    access to an ``id`` field for each particle, however it's not clear
    that a unique ID is required for each particle in
-   general. Therefore, swarms do not automatically contain an ID swarm
-   variable. However, when Parthenon outputs a swarm, it automatically
-   generates an ID variable even if one is not present or
-   requested. If a variable named ``id'' is available **and** the user
-   requests it be output, Parthenon will use it. Otherwise, Parthenon
-   will generate an ``id`` variable just for output and write it to
-   file.
+   general. Therefore, if swarms do not automatically contain a unique ID swarm
+   variable (because the ``Metadata::NoPersistentParticleIds`` has been passed when
+   creating the swarm), Parthenon will generate an ``id`` variable just for output
+   (i.e., it is still not available within the simulation itself) and write it to file.
 
 .. warning::
 
-   The automatically generted ``id`` is unique for a snapshot in time,
+   The automatically generated ``id`` is unique for a snapshot in time,
    but not guaranteed to be time invariant. Indeed it is likely
    **not** the same between dumps.
 
@@ -280,11 +281,7 @@ Putting it all together, you might have an output block that looks like this:
    swarms = swarm1, swarm2
    swarm_variables = shared_var
    swarm1_variables = per_swarm_var
-   swarm2_variables = id
 
 The result would be that both ``swarm1`` and ``swarm2`` output the
-variables ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
-outputs ``per_swarm_var``. Both ``swarm1`` and ``swarm2`` will output
-an ``id`` field. But the ``id`` field for ``swarm1`` will be
-automatically generated, but the ``id`` field for ``swarm2`` will use
-the user-initialized value if such a quantity is available.
+variables ``id``, ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
+outputs ``per_swarm_var``.

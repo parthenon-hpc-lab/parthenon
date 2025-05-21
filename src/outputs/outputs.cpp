@@ -257,6 +257,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
               op.swarms[swname].insert(varnames.begin(), varnames.end());
             }
             // Always output id, x, y, and z for swarms so that they work with vis tools.
+            // Note, it's fine to add the id by default (even though it might not actually
+            // exist) because only variables that do exists are actually being written.
             std::vector<std::string> coords = {
                 swarm_position::id::name(), swarm_position::x::name(),
                 swarm_position::y::name(), swarm_position::z::name()};

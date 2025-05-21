@@ -125,6 +125,8 @@
   /** Align memory of fields to cell centered memory                                     \
       (Field will be missing one layer of ghosts if it is not cell centered) **/         \
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
+  /** Particles in a Swarm will not contain a persistent, unique id field **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \

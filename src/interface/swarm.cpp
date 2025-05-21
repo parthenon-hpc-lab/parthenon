@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "pack/swarm_default_names.hpp"
 #include "swarm.hpp"
@@ -85,7 +86,9 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
-  Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
+  if (!metadata.IsSet(Metadata::NoPersistentParticleIds)) {
+    Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
+  }
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
