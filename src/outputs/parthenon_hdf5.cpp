@@ -548,6 +548,18 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, "swarm_positions", swarm_positions.data(), 2, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
+
+    // If swarm does not contain the default id object, generate a sequential
+    // one for vis called "id" (to differentiate between the default one)
+    if (swinfo.var_info.count(swarm_position::id::name()) == 0) {
+      std::vector<int> ids(swinfo.global_count);
+      std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
+      local_offset[0] = swinfo.global_offset;
+      local_count[0] = swinfo.count_on_rank;
+      global_count[0] = swinfo.global_count;
+      HDF5Write1D(g_var, "id", ids.data(), local_offset, local_count, global_count,
+                  pl_xfer);
+    }
   }
   Kokkos::Profiling::popRegion(); // write particle data
 
