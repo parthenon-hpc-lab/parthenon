@@ -1,6 +1,27 @@
 # Changelog
 
 ## Current develop
+### Added (new features/APIs/variables/...)
+
+
+### Changed (changing behavior/API/variables/...)
+
+
+### Fixed (not changing behavior/API/variables/...)
+
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+
+## Release 25.05
+Date: 2025-05-19
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1247]](https://github.com/parthenon-hpc-lab/parthenon/pull/1247) Add ability to output to HDF5 non-standard MeshData object
