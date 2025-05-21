@@ -1,6 +1,8 @@
 # Changelog
 
 ## Current develop
+### Added (new features/APIs/variables/...)
+
 
 ### Changed (changing behavior/API/variables/...)
 
