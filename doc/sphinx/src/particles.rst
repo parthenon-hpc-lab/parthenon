@@ -14,7 +14,7 @@ species. It owns a set of ``ParticleVariable``\ s, one for each value of
 each particle. For example, the spatial positions ``x``, ``y``, and
 ``z`` of the particles in a swarm are three separate
 ``ParticleVariable``\ s. ``ParticleVariable``\ s can be either ``Real``-,
- ``uint64_t``-, or ``int``-valued, which is specified by the metadata values
+``uint64_t``-, or ``int``-valued, which is specified by the metadata values
 ``Metadata::Real``, ``MetaData::UInt64``, and ``Metadata::Integer``. ``ParticleVariable``\ s
 should also contain the ``Metadata::Particle`` flag. By default,
 ``ParticleVariable``\ s provide one scalar quantity per particle, but up
