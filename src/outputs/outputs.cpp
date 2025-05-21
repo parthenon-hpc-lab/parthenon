@@ -294,11 +294,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
 #ifdef ENABLE_HDF5
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
-        // TODO(reviewers) Why are do we forcibly disallow writing particle xdmf for
-        // restarts?
         op.write_swarm_xdmf =
-            (restart) ? false
-                      : pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+            pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
