@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
 #include "outputs/restart.hpp"
+#include "pack/swarm_default_names.hpp"
 
 #include "mesh/domain.hpp"
 
