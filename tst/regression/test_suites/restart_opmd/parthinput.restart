@@ -58,3 +58,7 @@ fill_derived = false # whether to fill one-copy test vars
 file_type = openpmd
 dt = 0.050
 
+<parthenon/output2>
+file_type = rst
+dt = 0.050
+

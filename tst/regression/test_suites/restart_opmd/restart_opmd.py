@@ -14,6 +14,13 @@ import numpy as np
 sys.dont_write_bytecode = True
 
 
+# The test case uses an AMR simulation (with blocks being created and destroyed) as basline.
+# The initial run will run to completion (writing hdf5 rst and opmd output with the same cadence).
+# Then the simulation is restarted from the first, non-initial condition opmd output and again run to completion.
+# Finally, the simulation is restarted again but using the hdf5 output generated from the previous restart.
+# For testing all resulting pmd snapshots are compared against each other at the same simulation time.
+# If they agree, restarting from opmd works and also the info contained in the opmd restart matches
+# the info in the hdf5 rst files (and vice versa).
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
         # enable coverage testing on pass where restart
@@ -23,13 +30,20 @@ class TestCase(utils.test_case.TestCaseAbs):
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        # restart from an early snapshot
+        # restart from an early openpmd snapshot
         elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out1.00002.bp",
+                "gold.out1.00001.bp",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput_override.restart",
+            ]
+        # restart from an hdf5 snapshot produced from the restarted opmd one
+        elif step == 3:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "silver.out2.00002.rhdf",
+                "parthenon/job/problem_id=bronze",
             ]
 
         return parameters
@@ -128,10 +142,10 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             return all_equal
 
-        def compare_files(idx_it):
+        def compare_files(idx_it, name_a, name_b):
             all_good = True
-            series_gold = opmd.Series("gold.out1.%T.bp/", opmd.Access.read_only)
-            series_silver = opmd.Series("silver.out1.%T.bp/", opmd.Access.read_only)
+            series_gold = opmd.Series(f"{name_a}.out1.%T.bp/", opmd.Access.read_only)
+            series_silver = opmd.Series(f"{name_b}.out1.%T.bp/", opmd.Access.read_only)
 
             # PG: yes, this is inefficient but keeps the logic simple
             all_good &= compare_attributes(series_gold, series_silver)
@@ -148,9 +162,12 @@ class TestCase(utils.test_case.TestCaseAbs):
             return all_good
 
         # comapre a few files throughout the simulations
-        success &= compare_files(2)
-        success &= compare_files(3)
-        success &= compare_files(4)
+        success &= compare_files(2, "gold", "silver")
+        # bronze outputs only exists from dump 3 on
+        success &= compare_files(3, "gold", "silver")
+        success &= compare_files(3, "silver", "bronze")
+        success &= compare_files(4, "gold", "silver")
+        success &= compare_files(4, "silver", "bronze")
         # success &= compare_files("final")
 
         return success
