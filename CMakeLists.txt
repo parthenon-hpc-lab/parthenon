@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2024 The Parthenon collaboration
+# Copyright(C) 2020-2025 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 24.08 LANGUAGES C CXX)
+project(parthenon VERSION 25.05 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -60,6 +60,7 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
+option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)
@@ -76,9 +77,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 25 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 26 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=314dc8312366d81ba33d1fde25812e9a7697b2f529de29e22662df0d458f1c4bc5b5bb4e649888170f66ffec0df1be20a9cf401944531c1c1ad835e26eaad28f"
+  "SHA512=4c61a0b78a0d68c3175e506d9fc5bc46ec6e91009413125c358801e230f4d882daf0c4cff6a3017f134d7289471a93f677956c2865dd3253264a15ae96b664b6"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 

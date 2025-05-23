@@ -18,6 +18,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_concepts_lite.cpp
+    test_coordinates.cpp
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp

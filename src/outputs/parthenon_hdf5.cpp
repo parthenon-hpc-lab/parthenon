@@ -36,7 +36,6 @@
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
@@ -44,6 +43,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -242,7 +242,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    const VariableVector<Real> &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+    const VariableVector<Real> &var_vec =
+        pmb->meshblock_data.Get(output_params.meshdata_name)->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
     PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
@@ -453,7 +454,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_,
+                          output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data
@@ -596,9 +598,15 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     // Only applies to default time-based data dumps, so that writing "now" and "final"
     // outputs does not change the desired output numbering.
     output_params.file_number++;
-    output_params.next_time += output_params.dt;
     pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+    if (output_params.dt > 0.0) {
+      output_params.next_time += output_params.dt;
+      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+    }
+    if (output_params.dn > 0) {
+      output_params.next_n += output_params.dn;
+      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
+    }
   }
   return filename;
 }

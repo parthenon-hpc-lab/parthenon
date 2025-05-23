@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -90,6 +90,7 @@ void Params::WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) c
   WriteToHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
   WriteToHDF5AllParamsOfTypeOrVec<float>(prefix, group);
   WriteToHDF5AllParamsOfTypeOrVec<double>(prefix, group);
+  WriteToHDF5AllParamsOfTypeOrVec<uint8_t>(prefix, group);
 
   // strings
   WriteToHDF5AllParamsOfType<std::string>(prefix, group);
@@ -106,6 +107,7 @@ void Params::ReadFromRestart(const std::string &prefix, const HDF5::H5G &group) 
   ReadFromHDF5AllParamsOfTypeOrVec<uint64_t>(prefix, group);
   ReadFromHDF5AllParamsOfTypeOrVec<float>(prefix, group);
   ReadFromHDF5AllParamsOfTypeOrVec<double>(prefix, group);
+  ReadFromHDF5AllParamsOfTypeOrVec<uint8_t>(prefix, group);
 
   // strings
   ReadFromHDF5AllParamsOfType<std::string>(prefix, group);

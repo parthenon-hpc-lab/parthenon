@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -34,6 +34,7 @@
 
 // Parthenon
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
@@ -56,6 +57,7 @@ struct VarInfo {
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
+  bool is_mem_aligned; // true if Metada::CellMemAligned is set.
   bool is_sparse;
   bool is_vector;
   bool is_coordinate_field;
@@ -134,6 +136,8 @@ struct VarInfo {
           bool is_vector, const IndexShape &cellbounds)
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
+                       !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
         ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
@@ -285,7 +289,7 @@ struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
   AllSwarmInfo(BlockList_t &block_list,
                const std::map<std::string, std::set<std::string>> &swarmnames,
-               bool is_restart);
+               bool is_restart, const std::string &meshdata_name = "base");
 };
 
 template <typename T, typename Function_t>
@@ -350,9 +354,6 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm);
 template <typename T>
 std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
 
-// TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
-// however I think it's probably safe to assume we'll be on systems
-// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);

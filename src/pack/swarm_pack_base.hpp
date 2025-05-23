@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SWARM_PACK_BASE_HPP_
-#define INTERFACE_SWARM_PACK_BASE_HPP_
+#ifndef PACK_SWARM_PACK_BASE_HPP_
+#define PACK_SWARM_PACK_BASE_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -24,11 +24,11 @@
 #include <utility>
 #include <vector>
 
-#include "interface/pack_utils.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm_device_context.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "pack/pack_utils.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -251,4 +251,4 @@ class SwarmPackCache {
 
 } // namespace parthenon
 
-#endif // INTERFACE_SWARM_PACK_BASE_HPP_
+#endif // PACK_SWARM_PACK_BASE_HPP_

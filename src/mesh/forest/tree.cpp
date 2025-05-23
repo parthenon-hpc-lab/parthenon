@@ -112,22 +112,21 @@ int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
 
   if (enforce_proper_nesting) {
     LogicalLocation parent = ref_loc.GetParent();
-    int ox1 = ref_loc.lx1() - (parent.lx1() << 1);
-    int ox2 = ref_loc.lx2() - (parent.lx2() << 1);
-    int ox3 = ref_loc.lx3() - (parent.lx3() << 1);
-
-    for (int k = 0; k < (ndim > 2 ? 2 : 1); ++k) {
-      for (int j = 0; j < (ndim > 1 ? 2 : 1); ++j) {
-        for (int i = 0; i < (ndim > 0 ? 2 : 1); ++i) {
-          LogicalLocation neigh = parent.GetSameLevelNeighbor(
-              i + ox1 - 1, j + ox2 - (ndim > 1), k + ox3 - (ndim > 2));
+    const auto [ox1, ox2, ox3] = ref_loc.GetLocationInParent();
+    // Iterate over the 2^ndim possible blocks on level ref_loc.level() - 1 that could
+    // abut the newly created blocks on level ref_loc.level() + 1 and refine them
+    // if necessary
+    for (int k = -(ndim > 2); k < 1; ++k) {
+      for (int j = -(ndim > 1); j < 1; ++j) {
+        for (int i = -1; i < 1; ++i) {
+          LogicalLocation neigh = parent.GetSameLevelNeighbor(i + ox1, j + ox2, k + ox3);
           // Need to communicate this refinement action to possible neighboring tree(s)
           // and trigger refinement there
           int n_idx =
               neigh.NeighborTreeIndex(); // Note that this can point you back to this tree
           for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
             nadded += neighbor_tree->Refine(
-                lcoord_trans.Transform(neigh, neighbor_tree->GetId()));
+                lcoord_trans.Transform(neigh, neighbor_tree->GetId()), true);
           }
         }
       }
@@ -322,14 +321,15 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
 std::array<BoundaryFlag, BOUNDARY_NFACES>
 Tree::GetBlockBCs(const LogicalLocation &loc) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
-  std::array<BoundaryFlag, BOUNDARY_NFACES> block_bcs = boundary_conditions;
-  const int nblock = 1 << std::max(loc.level(), 0);
-  if (loc.lx1() != 0) block_bcs[BoundaryFace::inner_x1] = BoundaryFlag::block;
-  if (loc.lx1() != nblock - 1) block_bcs[BoundaryFace::outer_x1] = BoundaryFlag::block;
-  if (loc.lx2() != 0) block_bcs[BoundaryFace::inner_x2] = BoundaryFlag::block;
-  if (loc.lx2() != nblock - 1) block_bcs[BoundaryFace::outer_x2] = BoundaryFlag::block;
-  if (loc.lx3() != 0) block_bcs[BoundaryFace::inner_x3] = BoundaryFlag::block;
-  if (loc.lx3() != nblock - 1) block_bcs[BoundaryFace::outer_x3] = BoundaryFlag::block;
+  std::array<BoundaryFlag, BOUNDARY_NFACES> block_bcs;
+  for (auto face :
+       {BoundaryFace::inner_x1, BoundaryFace::outer_x1, BoundaryFace::inner_x2,
+        BoundaryFace::outer_x2, BoundaryFace::inner_x3, BoundaryFace::outer_x3}) {
+    if (loc.IsOnTreeBoundary(face))
+      block_bcs[face] = boundary_conditions[face];
+    else
+      block_bcs[face] = BoundaryFlag::block;
+  }
   return block_bcs;
 }
 

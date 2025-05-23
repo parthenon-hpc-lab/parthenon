@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SWARM_PACK_HPP_
-#define INTERFACE_SWARM_PACK_HPP_
+#ifndef PACK_SWARM_PACK_HPP_
+#define PACK_SWARM_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -27,10 +27,10 @@
 
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/pack_utils.hpp"
 #include "interface/swarm.hpp"
-#include "interface/swarm_pack_base.hpp"
 #include "interface/variable.hpp"
+#include "pack/pack_utils.hpp"
+#include "pack/swarm_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
@@ -156,4 +156,4 @@ class SwarmPack : public SwarmPackBase<TYPE> {
 
 } // namespace parthenon
 
-#endif // INTERFACE_SWARM_PACK_HPP_
+#endif // PACK_SWARM_PACK_HPP_

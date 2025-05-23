@@ -57,10 +57,13 @@ MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
                           const MetadataFlag *vector_tensor,
                           const std::vector<std::string> &component_labels) {
   // copy shared metadata
+  auto flx_metadata = in->IsSet(Metadata::WithFluxes) ? in->GetSPtrFluxMetadata()
+                                                      : std::make_shared<Metadata>();
   auto this_metadata = std::make_shared<Metadata>(
-      in->Flags(), shape.size() > 0 ? shape : in->Shape(),
+      in->Flags(), flx_metadata->Flags(), shape.size() > 0 ? shape : in->Shape(),
       component_labels.size() > 0 ? component_labels : in->getComponentLabels(),
-      in->getAssociated(), in->GetRefinementFunctions());
+      in->getAssociated(), in->GetRefinementFunctions(),
+      flx_metadata->GetRefinementFunctions());
 
   this_metadata->SetSparseThresholds(in->GetAllocationThreshold(),
                                      in->GetDeallocationThreshold(),

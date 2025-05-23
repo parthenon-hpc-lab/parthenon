@@ -65,8 +65,8 @@ KOKKOS_INLINE_FUNCTION void GetWeights(const Real x, const int nx,
   PARTHENON_DEBUG_REQUIRE(
       typeid(Coordinates_t) == typeid(UniformCartesian),
       "Interpolation routines currently only work for UniformCartesian");
-  const Real min = coords.Xc<DIR>(0); // assume uniform Cartesian
-  const Real dx = coords.CellWidthFA(DIR);
+  const Real min = coords.Xc<DIR>(0);             // assume uniform Cartesian
+  const Real dx = coords.CellWidth<DIR>(0, 0, 0); // assume uniform Cartesian
   ix = std::min(std::max(0, static_cast<int>(robust::ratio(x - min, dx))), nx - 2);
   const Real floor = min + ix * dx;
   w[1] = robust::ratio(x - floor, dx);

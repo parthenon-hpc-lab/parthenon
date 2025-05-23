@@ -62,7 +62,7 @@ Multi-grid Grids Stored in ``Mesh``
 If the parameter ``parthenon/mesh/multigrid`` is set to ``true``, the ``Mesh``
 constructor and AMR routines populate both 
 ``std::vector<LogicalLocMap_t> Mesh::gmg_grid_locs`` and 
-``std::vector<BlockList_t> gmg_block_lists``, where each entry into the vectors 
+``std::vector<BlockList_t> gmg_block_lists_``, where each entry into the vectors 
 describes one level of the of the geometric multi-grid (GMG) mesh. For refined 
 meshes, each GMG level only includes blocks that are at a given logical level 
 (starting from the finest logical level on the grid and including both internal 
@@ -137,4 +137,4 @@ Parthenon implements AMR via a forest of octrees type approach.
   Even for some hyper-rectangular base meshes, this can result in forests that contain 
   multiple trees. 
 
-  Some implementation notes about our forest can be found in :ref:`these notes <doc/latex/main.pdf>`. 
+  Some implementation notes about our forest can be found in `these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.

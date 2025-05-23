@@ -24,11 +24,11 @@
 #include <vector>
 
 #include "defs.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
-#include "interface/sparse_pack.hpp"
 #include "interface/state_descriptor.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
 #include "time_integration/staged_integrator.hpp"
 
 #include "kokkos_abstraction.hpp"

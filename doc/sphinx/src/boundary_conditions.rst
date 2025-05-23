@@ -113,7 +113,7 @@ are available `here <https://github.com/parthenon-hpc-lab/parthenon/blob/develop
 
 
 Per package user-defined boundary conditions.
----------------------------------
+---------------------------------------------
 
 In addition to user defined *global* boundary conditions, Parthenon also supports 
 registration of boundary conditions at the *per package* level. These per package 

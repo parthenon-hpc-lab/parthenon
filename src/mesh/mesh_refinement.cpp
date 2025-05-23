@@ -68,17 +68,6 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::CheckRefinementCondition()
-//  \brief Check refinement criteria
-
-void MeshRefinement::CheckRefinementCondition() {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  auto &rc = pmb->meshblock_data.Get();
-  AmrTag ret = Refinement::CheckAllRefinement(rc.get());
-  SetRefinement(ret);
-}
-
 void MeshRefinement::SetRefinement(AmrTag flag) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int aret = std::max(-1, static_cast<int>(flag));
