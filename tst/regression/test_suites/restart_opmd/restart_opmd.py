@@ -25,13 +25,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
         # restart from an early snapshot
         elif step == 2:
-            # TODO(pgrete or someone else) ideally we want to restart from a later snapshot
-            # BUT results are not bitwise identical for AMR runs. PG thinks this is
-            # related to not storing the deref counter (and similar) and also thinks
-            # it's worth fixing.
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out1.00000.bp",
+                "gold.out1.00002.bp",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput_override.restart",
             ]
@@ -99,7 +95,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                     # Given that the shapes are guaranteed to match (follow the check above)
                     # we can load chunks from both files.
                     # Note that we have to go over chunks as data might be sparse on disk so
-                    # loading the entire record will contain gargabe in sparse places.
+                    # loading the entire record will contain garbage in sparse places.
                     data_a = np.empty(comp_a.shape)
                     data_a[:] = np.nan
                     data_b = np.copy(data_a)
@@ -152,7 +148,6 @@ class TestCase(utils.test_case.TestCaseAbs):
             return all_good
 
         # comapre a few files throughout the simulations
-        success &= compare_files(1)
         success &= compare_files(2)
         success &= compare_files(3)
         success &= compare_files(4)
