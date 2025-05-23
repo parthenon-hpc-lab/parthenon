@@ -242,7 +242,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    const VariableVector<Real> &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+    const VariableVector<Real> &var_vec =
+        pmb->meshblock_data.Get(output_params.meshdata_name)->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
     PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
@@ -454,7 +455,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_,
+                          output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data
