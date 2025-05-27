@@ -154,8 +154,8 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     c[1] = 1.0;
 
     delta[2] = 0.0;
-    beta[2] = 1./6.;
-    gam0[2] = 1.0/3.0;
+    beta[2] = 1. / 6.;
+    gam0[2] = 1.0 / 3.0;
     gam1[2] = 2.0 / 3.0;
     c[2] = 0.5;
 
