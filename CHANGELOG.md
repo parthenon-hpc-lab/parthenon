@@ -8,6 +8,7 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
+- Fix task failure handling
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
