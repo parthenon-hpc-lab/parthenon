@@ -130,6 +130,40 @@ LowStorageIntegrator::LowStorageIntegrator(const std::string &name)
     gam0[2] = 2.0 / 3.0;
     gam1[2] = 1.0 / 3.0;
     c[2] = 0.5;
+  } else if (name_ == "rk34") {
+    // SSP 4-stage RK3 Spiteri & Ruuth 2002, SIAM Journal on Numerical
+    // Analysis, 40(2):469–491, CFL <= 2
+    nstages = 4;
+    nbuffers = 2;
+    delta.resize(nstages);
+    beta.resize(nstages);
+    gam0.resize(nstages);
+    gam1.resize(nstages);
+    c.resize(nstages);
+
+    delta[0] = 1.0;
+    beta[0] = 0.5;
+    gam0[0] = 0.0;
+    gam1[0] = 1.0;
+    c[0] = 0.0;
+
+    delta[1] = 0.0;
+    beta[1] = 0.5;
+    gam0[1] = 1.0;
+    gam1[1] = 0.0;
+    c[1] = 1.0;
+
+    delta[2] = 0.0;
+    beta[2] = 1./6.;
+    gam0[2] = 1.0/3.0;
+    gam1[2] = 2.0 / 3.0;
+    c[2] = 0.5;
+
+    delta[3] = 0.0;
+    beta[3] = 0.5;
+    gam0[3] = 1.0;
+    gam1[3] = 0.0;
+    c[3] = 0.5;
   } else if (name_ == "rk4") {
     // Classic 5-stage SSPRK(5)4 in low-storage form
     // ceff = 0.377

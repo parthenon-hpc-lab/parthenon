@@ -2,7 +2,8 @@
 
 ## Current develop
 ### Added (new features/APIs/variables/...)
-
+- RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri
+  & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 
 ### Changed (changing behavior/API/variables/...)
 
