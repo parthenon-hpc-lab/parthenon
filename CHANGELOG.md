@@ -8,7 +8,7 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
-- Fix task failure handling
+- [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
