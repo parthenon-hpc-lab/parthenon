@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -263,12 +264,17 @@ void Swarm::LoadBuffers_() {
                 bdvar.send[bufid](buffer_index) = vreal(i, p_index);
                 buffer_index++;
               }
+              // Making sure we catch/update this, when allowing Real = float again
+              static_assert(sizeof(Real) == 2 * sizeof(int));
               for (int i = 0; i < intPackDim; i++) {
                 bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
                 buffer_index++;
               }
+              // Should eventually be a bit_cast once we're on C++20
+              static_assert(sizeof(Real) == sizeof(std::uint64_t));
               for (int i = 0; i < uint64PackDim; i++) {
-                bdvar.send[bufid](buffer_index) = static_cast<Real>(vuint64(i, p_index));
+                std::memcpy(&bdvar.send[bufid](buffer_index), &vuint64(i, p_index),
+                            sizeof(std::uint64_t));
                 buffer_index++;
               }
             }
@@ -371,12 +377,16 @@ void Swarm::UnloadBuffers_() {
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
           }
+          // Making sure we catch/update this, when allowing Real = float again
+          static_assert(sizeof(Real) == 2 * sizeof(int));
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
+          // Should eventually be a bit_cast once we're on C++20
+          static_assert(sizeof(Real) == sizeof(std::uint64_t));
           for (int i = 0; i < uint64PackDim; i++) {
-            vuint64(i, sid) = static_cast<std::uint64_t>(bdvar.recv[nbid](bid));
+            std::memcpy(&vuint64(i, sid), &bdvar.recv[nbid](bid), sizeof(std::uint64_t));
             bid++;
           }
         });
