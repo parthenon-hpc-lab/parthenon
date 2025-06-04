@@ -171,6 +171,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
             pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
         op.sparse_seed_nans =
             pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
+        op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base");
       } else {
         op.single_precision_output = false;
         op.sparse_seed_nans = false;

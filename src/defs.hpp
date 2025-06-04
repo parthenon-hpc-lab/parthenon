@@ -28,7 +28,6 @@
 
 #include "basic_types.hpp"
 #include "config.hpp"
-#include "mesh/forest/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -166,6 +165,26 @@ inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
     return BoundaryFace::outer_x3;
   }
   return BoundaryFace::undef;
+}
+
+inline std::array<int, 3> GetOffsetsFromBoundaryFace(BoundaryFace face) {
+  switch (face) {
+  case BoundaryFace::inner_x1:
+    return {-1, 0, 0};
+  case BoundaryFace::outer_x1:
+    return {1, 0, 0};
+  case BoundaryFace::inner_x2:
+    return {0, -1, 0};
+  case BoundaryFace::outer_x2:
+    return {0, 1, 0};
+  case BoundaryFace::inner_x3:
+    return {0, 0, -1};
+  case BoundaryFace::outer_x3:
+    return {0, 0, 1};
+  default:
+    PARTHENON_FAIL("Asking for offsets for an invalid BoundaryFace.");
+  }
+  return {0, 0, 0};
 }
 
 //------------------

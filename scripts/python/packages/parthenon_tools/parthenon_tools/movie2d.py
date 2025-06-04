@@ -1,5 +1,6 @@
+#!/usr/bin/env python
 # =========================================================================================
-# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -65,6 +66,10 @@ parser.add_argument(
     default=None,
     help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
 )
+parser.add_argument(
+    "--colorbar", type=str, default=None, help="Add a colorbar with the specified label"
+)
+parser.add_argument("--colormap", type=str, default="plasma", help="Colormap to use")
 parser.add_argument(
     "--swarm",
     type=str,
@@ -195,6 +200,8 @@ def plot_dump(
     q,
     time_title,
     output_file: Path,
+    colormap="viridis",
+    colorbar=None,
     with_mesh=False,
     block_ids=[],
     xi=None,
@@ -247,7 +254,9 @@ def plot_dump(
     for i in range(n_blocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true/false
         # but obviously no ghost data will be shown if ghost_zones = false
-        p.pcolormesh(xf[i, :], yf[i, :], q[i, :, :], vmin=qmin, vmax=qmax)
+        pm = p.pcolormesh(
+            xf[i, :], yf[i, :], q[i, :, :], cmap=colormap, vmin=qmin, vmax=qmax
+        )
 
         # Print the block gid in the center of the block
         if len(block_ids) > 0:
@@ -286,6 +295,8 @@ def plot_dump(
                 p.add_patch(rect)
     if swarmx is not None and swarmy is not None:
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
+    if colorbar is not None:
+        plt.colorbar(pm, label=colorbar, fraction=0.02, pad=0.04, ax=p)
 
     fig.savefig(output_file, dpi=300)
     plt.close(fig=fig)
@@ -331,7 +342,6 @@ if __name__ == "__main__":
                 ERROR_FLAG = True
                 break
             q = data.Get(args.field, False, not args.debug_plot)
-
             if do_swarm:
                 if args.swarm not in data.Variables:
                     report_find_fail(args.swarm, file_name, data.Variables, logger)
@@ -399,6 +409,8 @@ if __name__ == "__main__":
                         q,
                         current_time,
                         output_file,
+                        args.colormap,
+                        args.colorbar,
                         True,
                         data.gid,
                         data.xig,
@@ -421,6 +433,8 @@ if __name__ == "__main__":
                         q,
                         current_time,
                         output_file,
+                        args.colormap,
+                        args.colorbar,
                         True,
                         components=components,
                         swarmx=swarmx,
