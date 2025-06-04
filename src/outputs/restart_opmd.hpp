@@ -85,6 +85,7 @@ class RestartReaderOPMD : public RestartReader {
       } else if (varname == swarm_position::z::name()) {
         particle_record = "position";
         particle_record_component = "z";
+        // TODO(pgrete) before merge add default id field
       } else {
         particle_record = varname;
         particle_record_component =

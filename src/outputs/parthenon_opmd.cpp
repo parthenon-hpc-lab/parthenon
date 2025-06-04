@@ -307,9 +307,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // TODO(pgrete) Units?
 
-  // TODO(pgrete) We probably want this for params!
-  series.setAttribute("bla", true);
-
   // In line with existing outputs, we write one file per iteration/snapshot
   series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
 
