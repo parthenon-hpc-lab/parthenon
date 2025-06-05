@@ -153,7 +153,7 @@ classes may be allocated. The behaviours are the following:
    shared between all instances of a variable in all ``Containers`` in a
    ``DataCollection``.
 
--  If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
+- If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
   correct topological type for a flux in the generalized Stokes theorem 
   sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
   set the new variable will have ``Metadata::Face``) will be created in
