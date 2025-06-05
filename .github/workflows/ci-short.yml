@@ -17,9 +17,6 @@ env:
   OMPI_MCA_btl_smcuda_use_cuda_ipc: 0
   # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
   OMPI_MCA_btl_vader_single_copy_mechanism: none
-  # not great, but does the job for now
-  # (openpmd_api is installed here rather than in dist-packages)
-  PYTHONPATH: /usr/local/lib/python3.12/site-packages
 
 jobs:
   style:
@@ -141,7 +138,7 @@ jobs:
   integration-amdgpu:
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -165,6 +162,7 @@ jobs:
           cmake --build build -t advection-example
           cd build
           ctest -R regression_mpi_test:output_hdf5
+          ctest -R regression_mpi_test:restart_opmd
       # Test example with swarms
       - name: particle-leapfrog
         run: |
