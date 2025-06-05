@@ -85,7 +85,10 @@ RUN cd /tmp/build-ascent && \
     patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
     env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
     cd / && \
-    rm -rf /tmp/ascent_build
+    rm -rf /tmp/build-ascent
+
+# Technically not necessary (as we installed the api above) but makes it easier for package discovery
+RUN env openPMD_USE_MPI=ON python3 -m pip install openpmd-api --no-binary openpmd-api --break-system-packages
 
 # create new user
 RUN groupadd -g 109 render

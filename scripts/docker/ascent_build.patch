@@ -9,14 +9,6 @@
  # shared options
  enable_cuda="${enable_cuda:=OFF}"
  enable_hip="${enable_hip:=OFF}"
-@@ -31,7 +33,7 @@
- enable_find_mpi="${enable_find_mpi:=ON}"
- enable_tests="${enable_tests:=OFF}"
- enable_verbose="${enable_verbose:=ON}"
--build_jobs="${build_jobs:=6}"
-+build_jobs=`nproc`
- build_config="${build_config:=Release}"
- build_shared_libs="${build_shared_libs:=ON}"
  
 @@ -126,8 +128,8 @@
  root_dir=$(ospath ${root_dir})
@@ -43,7 +35,7 @@
  hdf5_src_dir=$(ospath ${source_dir}/hdf5-${hdf5_version})
  hdf5_build_dir=$(ospath ${build_dir}/hdf5-${hdf5_version}/)
 -hdf5_install_dir=$(ospath ${install_dir}/hdf5-${hdf5_version}/)
-+hdf5_install_dir=/usr/local/hdf5/serial
++hdf5_install_dir=/usr/local/hdf5/parallel
  hdf5_tarball=$(ospath ${source_dir}/hdf5-${hdf5_version}.tar.gz)
  
  # build only if install doesn't exist
