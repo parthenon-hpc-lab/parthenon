@@ -160,8 +160,8 @@ endif()
 
 if (PARTHENON_ENABLE_OPENPMD)
 
-  # h5py is needed for restart and hdf5 test
-  list(APPEND REQUIRED_PYTHON_MODULES openpmd_api)
+  # h5py is also needed for the current test
+  list(APPEND REQUIRED_PYTHON_MODULES openpmd_api h5py)
 
   # Restart
   list(APPEND TEST_DIRS restart_opmd)

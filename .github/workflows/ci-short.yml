@@ -17,6 +17,9 @@ env:
   OMPI_MCA_btl_smcuda_use_cuda_ipc: 0
   # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
   OMPI_MCA_btl_vader_single_copy_mechanism: none
+  # not great, but does the job for now
+  # (openpmd_api is installed here rather than in dist-packages)
+  PYTHONPATH: /usr/local/lib/python3.12/site-packages
 
 jobs:
   style:
