@@ -147,7 +147,10 @@ void WriteAllParams(const Params &params, const std::string &pkg_name,
   WriteAllParams<uint64_t>(params, prefix, it);
   WriteAllParams<float>(params, prefix, it);
   WriteAllParams<double>(params, prefix, it);
-  WriteAllParams<std::string>(params, prefix, it);
+
+  // strings
+  WriteAllParamsOfType<std::string>(params, prefix, it);
+  WriteAllParamsOfType<std::vector<std::string>>(params, prefix, it);
 }
 
 template <typename T>

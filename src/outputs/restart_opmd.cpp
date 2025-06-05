@@ -174,9 +174,10 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
   ReadAllParams<uint64_t>(prefix, p);
   ReadAllParams<float>(prefix, p);
   ReadAllParams<double>(prefix, p);
-  // TODO(pgrete) figure out why std::string does not work on hip/device (sth is calling a
-  // dtor on device) ReadAllParams<std::string>(prefix, p);
+
+  // strings (not supported in Kokkos Views)
   ReadAllParamsOfType<std::string>(prefix, p);
+  ReadAllParamsOfType<std::vector<std::string>>(prefix, p);
   // TODO(pgrete) same as for the writing. fix vec of bool
   ReadAllParamsOfType<bool>(prefix, p);
 }
