@@ -13,6 +13,7 @@
 #ifndef PACK_SWARM_DEFAULT_NAMES_HPP_
 #define PACK_SWARM_DEFAULT_NAMES_HPP_
 
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -28,6 +29,9 @@
 
 namespace swarm_position {
 
+// TODO(review) technically not a position, but it feels overkill to add a separate
+// namespace
+SWARM_VARIABLE(std::uint64_t, swarm, id);
 SWARM_VARIABLE(parthenon::Real, swarm, x);
 SWARM_VARIABLE(parthenon::Real, swarm, y);
 SWARM_VARIABLE(parthenon::Real, swarm, z);

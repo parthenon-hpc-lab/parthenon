@@ -1,11 +1,13 @@
 # Changelog
 
 ## Current develop
+
 ### Added (new features/APIs/variables/...)
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 
 ### Fixed (not changing behavior/API/variables/...)
@@ -19,6 +21,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 
 
