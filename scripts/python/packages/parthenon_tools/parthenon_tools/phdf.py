@@ -58,6 +58,10 @@ class Swarm:
             return None
 
     @property
+    def id(self):
+        return self.Get("swarm.id")
+
+    @property
     def x(self):
         return self.Get("swarm.x")
 
