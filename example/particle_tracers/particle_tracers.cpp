@@ -148,6 +148,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
+  // `NoPersistentParticleIds` is just passed to test this aspect in the regression tests.
+  // For typical tracers, persistent ids are pretty important.
   Metadata swarm_metadata(
       {Metadata::Provides, Metadata::None, Metadata::NoPersistentParticleIds});
   pkg->AddSwarm(swarm_name, swarm_metadata);

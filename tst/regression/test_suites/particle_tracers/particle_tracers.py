@@ -41,6 +41,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         )
         from phdf import phdf
 
+        success = True
+
         data = phdf("particle_tracers.out0.final.phdf")
         swarm = data.GetSwarm("tracers")
         inds = np.argsort(swarm.Get("id"))
@@ -65,5 +67,16 @@ class TestCase(utils.test_case.TestCaseAbs):
         )
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
-            return False
-        return (np.abs(final_data - ref_data) <= 1e-8).all()
+            success = False
+        if not (np.abs(final_data - ref_data) <= 1e-8).all():
+            print(
+                "Disagreement between reference and actual data:", ref_data, final_data
+            )
+            print(
+                f"Important: If the numbers match but not the rows, then this is "
+                f"likely related to a mismatch in the autogereated ids, which are implicitly tested here. "
+                f"In this case the test here should be updated by ordering particles positions first "
+                f"and then compare."
+            )
+            success = False
+        return success
