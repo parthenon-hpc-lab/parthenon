@@ -153,7 +153,7 @@ classes may be allocated. The behaviours are the following:
    shared between all instances of a variable in all ``Containers`` in a
    ``DataCollection``.
 
--  If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
+- If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
   correct topological type for a flux in the generalized Stokes theorem 
   sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
   set the new variable will have ``Metadata::Face``) will be created in
@@ -217,6 +217,14 @@ the flux variable **associated** with the variable
 requested. ``FluxRequest::Any`` does not modify search parameters. You
 will get flux or non-flux variables, and variable associations will be
 ignored.
+
+``Swarm``
+---------
+By default all partices in a ``Swarm`` contain a persistent, unique identifier
+field. If this behavior is not desired (e.g., because anonymous particles are
+constantly created and destroyed in a given numerical method),
+the ``Metadata::NoPersistentParticleIds`` flag prevent the standard allocation
+(and communication of a ``swarm.id`` field).
 
 Application Metadata Flags
 ---------------------------

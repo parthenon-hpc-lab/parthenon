@@ -56,7 +56,7 @@ cfl = 0.3
 file_type = hdf5
 dt = 2.0
 swarms = my_particles
-swarm_variables = id, v, vv
+swarm_variables = v, vv
 
 <parthenon/output1>
 file_type = rst
