@@ -1,10 +1,12 @@
 # Changelog
 
 ## Current develop
+
 ### Added (new features/APIs/variables/...)
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 
 ### Fixed (not changing behavior/API/variables/...)
@@ -17,6 +19,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 
 

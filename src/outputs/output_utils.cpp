@@ -187,6 +187,10 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           const auto &varname = var->label();
           info.Add(varname, var);
         }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
           info.Add(varname, var);
@@ -201,6 +205,9 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           for (const auto &varname : varnames) {
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
+              info.Add(varname, var);
+            } else if (swarm->Contains<std::uint64_t>(varname)) {
+              auto var = swarm->GetP<std::uint64_t>(varname);
               info.Add(varname, var);
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);

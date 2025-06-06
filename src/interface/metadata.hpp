@@ -80,6 +80,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** uint64-t-valued quantity */                                                        \
+  PARTHENON_INTERNAL_FOR_FLAG(UInt64)                                                    \
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
@@ -123,6 +125,8 @@
   /** Align memory of fields to cell centered memory                                     \
       (Field will be missing one layer of ghosts if it is not cell centered) **/         \
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
+  /** Particles in a Swarm will not contain a persistent, unique id field **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -448,6 +452,8 @@ class Metadata {
       return Boolean;
     } else if (IsSet(Integer)) {
       return Integer;
+    } else if (IsSet(UInt64)) {
+      return UInt64;
     } else if (IsSet(Real)) {
       return Real;
     }
