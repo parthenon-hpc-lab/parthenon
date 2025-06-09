@@ -1,0 +1,50 @@
+--- build_ascent.sh	2024-08-29 21:00:24.000000000 +0000
++++ build_ascent_parthenon.sh	2024-08-30 09:55:58.976365723 +0000
+@@ -21,6 +21,8 @@
+ # Build Options
+ ##############################################################################
+ 
++export MAKEFLAGS="--output-sync=target"
++
+ # shared options
+ enable_cuda="${enable_cuda:=OFF}"
+ enable_hip="${enable_hip:=OFF}"
+ 
+@@ -126,8 +128,8 @@
+ root_dir=$(ospath ${root_dir})
+ root_dir=$(abs_path ${root_dir})
+ script_dir=$(abs_path "$(dirname "${BASH_SOURCE[0]}")")
+-build_dir=$(ospath ${root_dir}/build)
+-source_dir=$(ospath ${root_dir}/source)
++build_dir=$(ospath build)
++source_dir=$(ospath source)
+ 
+ 
+ # root_dir is where we will build and install
+@@ -140,7 +142,7 @@
+ 
+ # install_dir is where we will install
+ # override with `prefix` env var
+-install_dir="${install_dir:=$root_dir/install}"
++install_dir=/usr/local
+ 
+ echo "*** prefix:       ${root_dir}" 
+ echo "*** build root:   ${build_dir}"
+@@ -231,7 +233,7 @@
+ hdf5_short_version=1.14
+ hdf5_src_dir=$(ospath ${source_dir}/hdf5-${hdf5_version})
+ hdf5_build_dir=$(ospath ${build_dir}/hdf5-${hdf5_version}/)
+-hdf5_install_dir=$(ospath ${install_dir}/hdf5-${hdf5_version}/)
++hdf5_install_dir=/usr/local/hdf5/parallel
+ hdf5_tarball=$(ospath ${source_dir}/hdf5-${hdf5_version}.tar.gz)
+ 
+ # build only if install doesn't exist
+@@ -650,7 +650,7 @@ fi # if enable_hip || enable_sycl
+ ################
+ # VTK-m
+ ################
+-vtkm_version=v2.2.0
++vtkm_version=v2.3.0
+ vtkm_src_dir=$(ospath ${source_dir}/vtk-m-${vtkm_version})
+ vtkm_build_dir=$(ospath ${build_dir}/vtk-m-${vtkm_version})
+ vtkm_install_dir=$(ospath ${install_dir}/vtk-m-${vtkm_version}/)
