@@ -220,6 +220,11 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     }
   }
 
+  if (arg.mesh_flag) {
+    ParthenonFinalize();
+    exit(0);
+  }
+
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
