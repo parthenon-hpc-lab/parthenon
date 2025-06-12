@@ -38,6 +38,7 @@
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
@@ -250,11 +251,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                             "There can be at most one coordinates vector");
 
     VariableVector<Real> out;
-    if (restart_) {
+    if (mode_ == DumpOutputMode::RESTART) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else {
+    } else if (mode_ == DumpOutputMode::CORE) {
+      out = var_vec; // copy assignment
+    } else {         // (mode_ == DUMP)
       out = GetAnyVariables(var_vec, output_params.variables);
     }
     auto coords_loc = std::find_if(out.begin(), out.end(), [](const auto &v) {
@@ -455,7 +458,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_,
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, mode_,
                           output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
@@ -599,7 +602,7 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                 << output_params.file_number;
     filename.append(file_number.str());
   }
-  filename.append(restart_ ? ".rhdf" : ".phdf");
+  filename.append(FilePostfix_());
 
   if (signal == SignalHandler::OutputSignal::none) {
     // After file has been opened with the current number, already advance output

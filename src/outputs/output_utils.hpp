@@ -41,6 +41,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -296,7 +297,7 @@ struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
   AllSwarmInfo(BlockList_t &block_list,
                const std::map<std::string, std::set<std::string>> &swarmnames,
-               bool is_restart, const std::string &meshdata_name = "base");
+               DumpOutputMode mode, const std::string &meshdata_name = "base");
 };
 
 template <typename T, typename Function_t>
