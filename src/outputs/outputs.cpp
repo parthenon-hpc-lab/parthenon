@@ -104,7 +104,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   InputBlock *pib = pin->pfirst_block;
   OutputType *pnew_type;
   OutputType *plast = pfirst_type_;
-  int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
+  // We should only have at most one each of these output types. Count
+  // them so we can raise an error.
+  int num_rst_outputs = 0;
+  int num_core_outputs = 0;
 
   // loop over input block names.  Find those that start with "parthenon/output", read
   // parameters, and construct singly linked list of OutputTypes.
@@ -276,7 +279,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // NEW_OUTPUT_TYPES: Add block to construct new types here
       if (op.file_type == "hst") {
         pnew_type = new HistoryOutput(op);
-        num_hst_outputs++;
       } else if (op.file_type == "ascent") {
         pnew_type = new AscentOutput(op);
       } else if (op.file_type == "histogram") {
@@ -295,6 +297,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         const bool coredump = (op.file_type == "corehdf");
         if (restart) {
           num_rst_outputs++;
+        }
+        if (coredump) {
+          num_core_outputs++;
         }
 #ifdef ENABLE_HDF5
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
@@ -333,6 +338,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
         << "More than one restart output block detected in input file" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+  if (num_core_outputs > 1) {
+    msg << "### FATAL ERROR in Outputs constructor\n"
+        << "More than one corehdf output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
