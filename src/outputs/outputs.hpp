@@ -196,7 +196,7 @@ class PHDF5Output : public OutputType {
     } else if (mode_ == DumpOutputMode::RESTART) {
       return ".rhdf";
     } else if (mode_ == DumpOutputMode::CORE) {
-      return ".corehdf";
+      return ".chdf";
     } else {
       PARTHENON_FAIL("Unknown dump output mode");
       return "";
