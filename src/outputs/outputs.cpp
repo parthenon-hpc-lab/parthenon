@@ -169,7 +169,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // read single precision output option
       const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
-                                  (op.file_type == "corehdf");
+                                  (op.file_type == "corehdf5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
@@ -231,7 +231,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
-          (op.file_type != "corehdf") && (op.file_type != "ascent") &&
+          (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
           (op.file_type != "histogram")) {
         op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
                                                         std::vector<std::string>());
@@ -294,7 +294,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #endif // ifdef ENABLE_HDF5
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
-        const bool coredump = (op.file_type == "corehdf");
+        const bool coredump = (op.file_type == "corehdf5");
         if (restart) {
           num_rst_outputs++;
         }
@@ -342,7 +342,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   }
   if (num_core_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor\n"
-        << "More than one corehdf output block detected in input file" << std::endl;
+        << "More than one corehdf5 output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
