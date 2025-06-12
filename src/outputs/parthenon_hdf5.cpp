@@ -243,8 +243,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    const VariableVector<Real> &var_vec =
-        pmb->meshblock_data.Get(output_params.meshdata_name)->GetVariableVector();
+    const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
+    const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
     PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
@@ -256,8 +256,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
     } else if (mode_ == DumpOutputMode::CORE) {
-      out = var_vec; // copy assignment
-    } else {         // (mode_ == DUMP)
+      // JMM: The VariableVector does not include flux vars. To
+      // include these, we must instead call `GetAllVariables` with
+      // `FluxRequest::Any`.
+      out = data->GetAllVariables({}, FluxRequest::Any).vars();
+    } else { // (mode_ == DUMP)
       out = GetAnyVariables(var_vec, output_params.variables);
     }
     auto coords_loc = std::find_if(out.begin(), out.end(), [](const auto &v) {
