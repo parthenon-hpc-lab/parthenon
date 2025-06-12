@@ -86,6 +86,10 @@ look like
    # Note that SWARMS only exist in the base MeshData register
    # and so this has no effect on swarm data.
    meshdata_name = base
+   
+   # You can choose to optionally output ghost zones if you'd like to
+   # inspect them. Default is false.
+   ghost_zones = false
 
 This will produce an hdf5 (``.phdf``) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
