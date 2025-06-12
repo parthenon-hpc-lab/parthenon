@@ -308,7 +308,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 
         // surprisingly, this seems to be almost free
         if (num_iter > 0) {
-          Kokkos::atomic_increment(&hist(num_iter - N_min));
+          Kokkos::atomic_inc(&hist(num_iter - N_min));
         }
 
         for (int r = 0; r < num_iter; ++r) {
