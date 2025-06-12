@@ -74,6 +74,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "pack/swarm_default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -164,7 +165,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
 
       // read single precision output option
-      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
+      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
+                                  (op.file_type == "corehdf");
 
       if (is_hdf5_output) {
         op.single_precision_output =
@@ -226,7 +228,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
-          (op.file_type != "ascent") && (op.file_type != "histogram")) {
+          (op.file_type != "corehdf") && (op.file_type != "ascent") &&
+          (op.file_type != "histogram")) {
         op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
                                                         std::vector<std::string>());
         // JMM: If the requested var isn't present for a given swarm,
@@ -289,6 +292,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #endif // ifdef ENABLE_HDF5
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
+        const bool coredump = (op.file_type == "corehdf");
         if (restart) {
           num_rst_outputs++;
         }
@@ -296,7 +300,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
         op.write_swarm_xdmf =
             pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-        pnew_type = new PHDF5Output(op, restart);
+        pnew_type = new PHDF5Output(
+            op, restart ? DumpOutputMode::RESTART
+                        : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "

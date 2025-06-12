@@ -25,6 +25,11 @@
 
 namespace parthenon {
 
+// JMM: I designed this for HDF5 but in pinciple this switching could
+// also work for other output types... Any output type that is capable
+// of outputting a full dump can do this.
+enum class DumpOutputMode { DUMP, RESTART, CORE };
+
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
 //  \brief  container for parameters read from <output> block in the input file
