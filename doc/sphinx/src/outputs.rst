@@ -126,11 +126,11 @@ environment variables. Available environment variables are:
 || MPI_cb_buffer_size       || N/A          || int       || Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, usually a multiple of cb_block_size. Default is 4 MiB.                                                                                                                                                                                                                                                                                              |
 +---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Corehdf
+Corehdf5
 -------------------------------------------------------------------
 
 Sometimes, usually for debugging purposes, you may wish to dump every
-variable that parthenon is aware of. To do so, request a ``corehdf``
+variable that parthenon is aware of. To do so, request a ``corehdf5``
 file. These files are identical to ``hdf5`` output files, but
 parthenon automatically selects every variable and swarm variable it
 is aware of for output. A relevant output block might look like:
@@ -138,7 +138,7 @@ is aware of for output. A relevant output block might look like:
 ::
 
   <parthenon/output3>
-  file_type = corehdf
+  file_type = corehdf5
   dt = 1.0
   write_xdmf = false
 
@@ -148,8 +148,8 @@ contains everything.
 
 .. warning::
 
-  It is unwise to output corehdf files routinely as they might be very
-  large. These should be used only strategically.
+  It is unwise to output ``corehdf5`` files routinely as they might be
+  very large. These should be used only strategically.
 
 Restart Files
 -------------
