@@ -79,7 +79,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                     : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
-      default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
@@ -87,6 +86,22 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks) {
+  // pack size
+  bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
+  bool num_partitions_exists =
+      pin->DoesParameterExist("parthenon/mesh", "partitions_per_rank");
+  if (pack_size_exists && num_partitions_exists) {
+    PARTHENON_THROW("Both pack_size and partitions_per_rank set! Set only one");
+  }
+  if (pack_size_exists) {
+    use_pack_size_ = true;
+    default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size");
+  } else {
+    use_pack_size_ = false;
+    default_num_partitions_ =
+        std::max(1, pin->GetOrAddInteger("parthenon/mesh", "partitions_per_rank", 1));
+  }
+
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
