@@ -8,6 +8,7 @@
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "basic_types.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
+#include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
 
@@ -85,7 +87,9 @@ class RestartReaderOPMD : public RestartReader {
       } else if (varname == swarm_position::z::name()) {
         particle_record = "position";
         particle_record_component = "z";
-        // TODO(pgrete) before merge add default id field
+      } else if (varname == swarm_position::id::name()) {
+        particle_record = "id";
+        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
       } else {
         particle_record = varname;
         particle_record_component =
@@ -108,6 +112,11 @@ class RestartReaderOPMD : public RestartReader {
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<int> &dataVec) override {
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<uint64_t> &dataVec) override {
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };
 

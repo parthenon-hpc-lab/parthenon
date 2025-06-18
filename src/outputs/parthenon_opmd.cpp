@@ -178,6 +178,9 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
       } else if (vname == swarm_position::z::name()) {
         particle_record = "position";
         particle_record_component = "z";
+      } else if (vname == swarm_position::id::name()) {
+        particle_record = "id";
+        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
       } else {
         particle_record = vname;
         particle_record_component = openPMD::MeshRecordComponent::SCALAR;
@@ -626,7 +629,8 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   Kokkos::Profiling::pushRegion("write particle data");
   // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
-  AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms, true);
+  AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
+                              DumpOutputMode::RESTART);
   for (auto &[swname, swinfo] : all_swarm_info.all_info) {
     openPMD::ParticleSpecies swm = it.particles[swname];
     // These indicate particles/meshblock and location in global index
@@ -641,6 +645,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
 
     OpenPMDUtils::WriteSwarmVar<int>(swinfo, swm, it);
+    OpenPMDUtils::WriteSwarmVar<uint64_t>(swinfo, swm, it);
     OpenPMDUtils::WriteSwarmVar<Real>(swinfo, swm, it);
 
     // From the HDF5 output:
@@ -648,7 +653,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // one for vis.
     // BUT PG: this may break things in unpredicable ways
     // I'm in favor of enforcing a global id somehow. We shold discuss.
-    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count("id") != 0,
+    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count(swarm_position::id::name()) != 0,
                              "Particles should always carry a unique, persistent id!");
   }
   Kokkos::Profiling::popRegion(); // write particle data
