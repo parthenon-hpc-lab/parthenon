@@ -129,8 +129,9 @@ class ThreadVector {
 
 class ThreadPool {
  public:
-  explicit ThreadPool(const int numthreads = std::thread::hardware_concurrency())
-      : nthreads(numthreads), queue(nthreads) {
+  explicit ThreadPool(const std::size_t timeout_in_seconds,
+                      const int numthreads = std::thread::hardware_concurrency())
+      : nthreads(numthreads), queue(nthreads), timeout_duration(timeout_in_seconds) {
     for (int i = 0; i < nthreads; i++) {
       auto worker = [&]() {
         while (true) {
@@ -150,8 +151,8 @@ class ThreadPool {
     }
   }
 
-  void wait(std::size_t timeout_secs = std::numeric_limits<std::size_t>::max()) { 
-    queue.wait_for_complete(std::chrono::seconds(timeout_secs)); 
+  void wait(std::size_t timeout_secs = std::numeric_limits<std::size_t>::max()) {
+    queue.wait_for_complete(timeout_duration);
   }
 
   void kill() { queue.signal_kill(); }
@@ -172,7 +173,7 @@ class ThreadPool {
   // but we can check returns too.
   // Would need changes for >1 failure mode
   TaskStatus check_task_returns() {
-    queue.wait_for_complete(std::chrono::seconds(10));
+    queue.wait_for_complete(timeout_duration);
     TaskStatus overall = TaskStatus::complete;
     for (auto &task : run_tasks) {
       TaskStatus task_return = task->get_future().get();
@@ -188,12 +189,15 @@ class ThreadPool {
   std::vector<std::thread> threads;
   ThreadQueue<std::function<void()>> queue;
   ThreadVector<std::shared_ptr<std::packaged_task<TaskStatus()>>> run_tasks;
+  std::chrono::seconds timeout_duration;
 };
 
 template <typename return_t = TaskStatus>
 class SerialPool {
  public:
-  explicit SerialPool([[maybe_unused]] const int numthreads = 1) {}
+  explicit SerialPool(const std::size_t timeout_in_seconds,
+                      [[maybe_unused]] const int numthreads = 1)
+      : timeout_duration(timeout_in_seconds) {}
 
   template <typename F, class... Args>
   void enqueue(F &&f, Args &&...args) {
@@ -208,7 +212,16 @@ class SerialPool {
 
   TaskStatus check_task_returns() {
     TaskStatus overall = TaskStatus::complete;
-    while (!queue.empty()) {
+
+    const auto start_time = std::chrono::high_resolution_clock::now();
+    auto timeout_check = [start_time, timeout_duration = timeout_duration]() {
+      const auto end_time = std::chrono::high_resolution_clock::now();
+      const auto duration =
+          std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+      return duration > timeout_duration;
+    };
+
+    while (!queue.empty() && !timeout_check()) {
       auto f = queue.front();
       auto ret = f();
       if constexpr (std::is_same<return_t, TaskStatus>::value) {
@@ -221,6 +234,7 @@ class SerialPool {
 
  private:
   std::queue<std::function<return_t()>> queue;
+  std::chrono::seconds timeout_duration;
 };
 
 #ifdef PARTHENON_USE_SERIAL_POOL
