@@ -151,9 +151,7 @@ class ThreadPool {
     }
   }
 
-  void wait(std::size_t timeout_secs = std::numeric_limits<std::size_t>::max()) {
-    queue.wait_for_complete(timeout_duration);
-  }
+  void wait() { queue.wait_for_complete(timeout_duration); }
 
   void kill() { queue.signal_kill(); }
 
