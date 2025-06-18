@@ -394,7 +394,7 @@ Mesh::~Mesh() {
 
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
-      grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
+      grid.type == GridType::leaf ? block_list : gmg_block_lists_[grid.logical_level],
       DefaultPackSize());
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;

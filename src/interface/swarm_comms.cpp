@@ -14,12 +14,13 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "mesh/mesh.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "swarm.hpp"
-#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -166,13 +167,17 @@ void Swarm::LoadBuffers_() {
   pmb->exec_space.fence();
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
+  PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
+  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
+  const int uint64PackDim = vuint64.GetDim(2);
 
   auto &x = Get<Real>(swarm_position::x::name()).Get();
   auto &y = Get<Real>(swarm_position::y::name()).Get();
@@ -259,8 +264,17 @@ void Swarm::LoadBuffers_() {
                 bdvar.send[bufid](buffer_index) = vreal(i, p_index);
                 buffer_index++;
               }
+              // Making sure we catch/update this, when allowing Real = float again
+              static_assert(sizeof(Real) == 2 * sizeof(int));
               for (int i = 0; i < intPackDim; i++) {
                 bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
+                buffer_index++;
+              }
+              // Should eventually be a bit_cast once we're on C++20
+              static_assert(sizeof(Real) == sizeof(std::uint64_t));
+              for (int i = 0; i < uint64PackDim; i++) {
+                std::memcpy(&bdvar.send[bufid](buffer_index), &vuint64(i, p_index),
+                            sizeof(std::uint64_t));
                 buffer_index++;
               }
             }
@@ -319,13 +333,17 @@ void Swarm::UnloadBuffers_() {
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
     auto &int_vector = std::get<getType<int>()>(vectors_);
+    auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
     auto &real_vector = std::get<getType<Real>()>(vectors_);
     PackIndexMap real_imap;
     PackIndexMap int_imap;
+    PackIndexMap uint64_imap;
     auto vreal = PackAllVariables_<Real>(real_imap);
     auto vint = PackAllVariables_<int>(int_imap);
-    int realPackDim = vreal.GetDim(2);
-    int intPackDim = vint.GetDim(2);
+    auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
+    const int realPackDim = vreal.GetDim(2);
+    const int intPackDim = vint.GetDim(2);
+    const int uint64PackDim = vuint64.GetDim(2);
 
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
@@ -339,10 +357,6 @@ void Swarm::UnloadBuffers_() {
       val_prev += val_curr;
     }
     neighbor_received_particles.DeepCopy(neighbor_received_particles_h);
-
-    auto &x = Get<Real>(swarm_position::x::name()).Get();
-    auto &y = Get<Real>(swarm_position::y::name()).Get();
-    auto &z = Get<Real>(swarm_position::z::name()).Get();
 
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
@@ -363,8 +377,16 @@ void Swarm::UnloadBuffers_() {
             vreal(i, sid) = bdvar.recv[nbid](bid);
             bid++;
           }
+          // Making sure we catch/update this, when allowing Real = float again
+          static_assert(sizeof(Real) == 2 * sizeof(int));
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
+            bid++;
+          }
+          // Should eventually be a bit_cast once we're on C++20
+          static_assert(sizeof(Real) == sizeof(std::uint64_t));
+          for (int i = 0; i < uint64PackDim; i++) {
+            std::memcpy(&vuint64(i, sid), &bdvar.recv[nbid](bid), sizeof(std::uint64_t));
             bid++;
           }
         });

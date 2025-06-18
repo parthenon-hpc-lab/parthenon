@@ -220,6 +220,11 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     }
   }
 
+  if (arg.mesh_flag) {
+    ParthenonFinalize();
+    exit(0);
+  }
+
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
@@ -397,6 +402,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       block_index++;
     }
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 

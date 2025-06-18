@@ -21,20 +21,13 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        cxx: ['g++', 'clang++-15']
+        cxx: ['g++', 'clang++-20']
         cmake_build_type: ['Release', 'DbgNoSym']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
-        exclude:
-          # Debug cuda clang build fail for the unit test.
-          # Exclude for now until we figure out what's going on.
-          # https://github.com/lanl/parthenon/issues/630
-          - cxx: clang++-15
-            device: cuda
-            cmake_build_type: DbgNoSym
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
     env:
       CMAKE_GENERATOR: Ninja
     steps:

@@ -346,8 +346,8 @@ bool CommBuffer<T>::TryReceive(bool local) noexcept {
       !local) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
-                      "MPI probably hanging after 1e8 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e9,
+                      "MPI probably hanging after 1e9 receive tries.");
 
     TryStartReceive();
 

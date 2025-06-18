@@ -59,7 +59,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         data = phdf("particles.out0.final.phdf")
         swarm = data.GetSwarm("my_particles")
-        inds = np.argsort(swarm["id"])
+        inds = np.argsort(swarm.id)
         final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm["v"]))
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0
@@ -84,7 +84,11 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [0.0, 0.0, 0.0, -1.0, -1.0, -1.0],
             ]
         )
+        success = True
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
-            return False
-        return (np.abs(final_data - ref_data) <= 1e-10).all()
+            success = False
+        if not (np.abs(final_data - ref_data) <= 1e-10).all():
+            print("TEST FAIL: Mismatch between actual and reference data shape.")
+            success = False
+        return success

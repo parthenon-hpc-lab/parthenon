@@ -140,8 +140,6 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
-  interface/make_pack_descriptor.hpp
-  interface/make_swarm_pack_descriptor.hpp
   interface/mesh_data.cpp
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
@@ -149,12 +147,8 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
-  interface/pack_utils.hpp
   interface/params.cpp
   interface/params.hpp
-  interface/sparse_pack.hpp
-  interface/sparse_pack_base.cpp
-  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
@@ -163,10 +157,7 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_comms.cpp
   interface/swarm_container.cpp
-  interface/swarm_default_names.hpp
   interface/swarm_device_context.hpp
-  interface/swarm_pack.hpp
-  interface/swarm_pack_base.hpp
   interface/update.cpp
   interface/update.hpp
   interface/var_id.hpp
@@ -222,6 +213,22 @@ add_library(parthenon
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
 
+  pack/block_selector.hpp
+  pack/make_pack_descriptor.hpp
+  pack/make_swarm_pack_descriptor.hpp
+  pack/pack_descriptor.cpp
+  pack/pack_descriptor.hpp
+  pack/pack_utils.hpp
+  pack/sparse_pack.hpp
+  pack/sparse_pack.cpp
+  pack/sparse_pack_base.cpp
+  pack/sparse_pack_base.hpp
+  pack/sparse_pack_cache.hpp
+  pack/sparse_pack_cache.cpp
+  pack/swarm_default_names.hpp
+  pack/swarm_pack.hpp
+  pack/swarm_pack_base.hpp
+  
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp
@@ -248,6 +255,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

@@ -23,13 +23,14 @@
 #include <vector>
 
 #include "bvals/comms/bnd_info.hpp"
-#include "interface/sparse_pack_base.hpp"
-#include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack_base.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
