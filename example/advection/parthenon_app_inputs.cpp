@@ -21,6 +21,7 @@
 
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
+#include "test_package.hpp"
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
@@ -275,6 +276,8 @@ void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
+  packages.Add(pkg);
+  pkg = test_package::Initialize(pin.get());
   packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");

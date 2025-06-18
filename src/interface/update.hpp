@@ -269,8 +269,13 @@ template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
+  int num_pkg = rc->GetParentPointer()->packages.AllPackages().size();
+  const auto pmb = rc->GetParentPointer();
   for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
+    pmb->SetBlockTimestepPerPackage(pkg.second->label(), dt);
+   
+    printf("PACKAGE: %20s %23.15e\n", pkg.second->label().c_str(), dt);
     dt_min = std::min(dt_min, dt);
   }
   rc->SetAllowedDt(dt_min);

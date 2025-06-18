@@ -19,6 +19,8 @@ if( "advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           advection_driver.hpp
           advection_package.cpp
           advection_package.hpp
+          test_package.cpp
+          test_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
   )

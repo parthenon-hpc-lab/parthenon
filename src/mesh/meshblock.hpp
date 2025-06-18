@@ -315,6 +315,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
+  void SetBlockTimestepPerPackage(const std::string package_label, const Real dt) {
+    block_min_dt_per_package_[package_label] = dt;
+  }
+  std::map<std::string, Real> GetBlockTimestepPerPackage() {
+    return block_min_dt_per_package_;
+  }
+
   // It would be nice for these par_dispatch_ functions to be private, but they can't be
   // 1D default loop pattern
   template <typename Tag, typename Function, class... Args>
@@ -437,6 +444,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
       new_block_dt_user_;
+  std::map<std::string, Real> block_min_dt_per_package_;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor
