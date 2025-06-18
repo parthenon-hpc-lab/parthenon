@@ -3,6 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 
 ### Changed (changing behavior/API/variables/...)
@@ -10,9 +12,10 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
-
+- [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
 
 
 ### Removed (removing behavior/API/varaibles/...)

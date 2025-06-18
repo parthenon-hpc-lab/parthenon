@@ -86,6 +86,10 @@ look like
    # Note that SWARMS only exist in the base MeshData register
    # and so this has no effect on swarm data.
    meshdata_name = base
+   
+   # You can choose to optionally output ghost zones if you'd like to
+   # inspect them. Default is false.
+   ghost_zones = false
 
 This will produce an hdf5 (``.phdf``) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
@@ -125,6 +129,31 @@ environment variables. Available environment variables are:
 || MPI_cb_block_size        || N/A          || int       || Sets the block size, in bytes, to be used for collective buffering file access. Default is 1 MiB.                                                                                                                                                                                                                                                                                                                                                         |
 || MPI_cb_buffer_size       || N/A          || int       || Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, usually a multiple of cb_block_size. Default is 4 MiB.                                                                                                                                                                                                                                                                                              |
 +---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Corehdf5
+-------------------------------------------------------------------
+
+Sometimes, usually for debugging purposes, you may wish to dump every
+variable that parthenon is aware of. To do so, request a ``corehdf5``
+file. These files are identical to ``hdf5`` output files, but
+parthenon automatically selects every variable and swarm variable it
+is aware of for output. A relevant output block might look like:
+
+::
+
+  <parthenon/output3>
+  file_type = corehdf5
+  dt = 1.0
+  write_xdmf = false
+
+this will produce an hdf5 (``.chdf``) output file every 1 unit of
+simulation time that can be read with standard visualization tools but
+contains everything.
+
+.. warning::
+
+  It is unwise to output ``corehdf5`` files routinely as they might be
+  very large. These should be used only strategically.
 
 Restart Files
 -------------
