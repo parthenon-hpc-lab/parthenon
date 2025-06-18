@@ -116,6 +116,9 @@ class RestartReader {
                             const Metadata &m, std::vector<Real> &dataVec) = 0;
   virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                             const std::size_t count, const std::size_t offset,
+                            const Metadata &m, std::vector<std::uint64_t> &dataVec) = 0;
+  virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                            const std::size_t count, const std::size_t offset,
                             const Metadata &m, std::vector<int> &dataVec) = 0;
 
   // Gets the counts and offsets for MPI ranks for the meshblocks set

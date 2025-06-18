@@ -148,7 +148,7 @@ void WriteAllParams(const Params &params, const std::string &pkg_name,
   WriteAllParams<float>(params, prefix, it);
   WriteAllParams<double>(params, prefix, it);
 
-  // strings
+  // strings (not supported in Kokkos Views)
   WriteAllParamsOfType<std::string>(params, prefix, it);
   WriteAllParamsOfType<std::vector<std::string>>(params, prefix, it);
 }
