@@ -263,6 +263,7 @@ if (NOT TARGET Kokkos::kokkos)
     endif()
   endif()
 endif()
+include_directories("external/tomlplusplus")
 
 # After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
 # is also availalbe when imported.
@@ -383,6 +384,7 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
   include(Catch)
   add_subdirectory(tst)
 endif()
+
 
 if (PARTHENON_ENABLE_ASCENT)
   if (PARTHENON_USE_SYSTEM_PACKAGES)

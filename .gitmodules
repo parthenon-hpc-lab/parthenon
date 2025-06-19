@@ -4,3 +4,6 @@
 [submodule "external/kokkos"]
 	path = external/Kokkos
 	url = https://github.com/kokkos/kokkos.git
+[submodule "external/tomlplusplus"]
+	path = external/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git
