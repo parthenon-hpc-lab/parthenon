@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
+#include <utility> // for std::forward
 #include <vector>
 
 #include "config.hpp"
@@ -118,8 +119,35 @@ class ParameterInput {
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
 
-  template <typename T>
-  std::vector<T> GetVector(const std::string &block, const std::string &name) {
+  template <typename T, typename... Args>
+  T GetOrAdd(const std::string &block, const std::string &name, const T &value,
+             Args &&...args) {
+    if constexpr (std::is_same_v<T, int>) {
+      return GetOrAddInteger(block, name, value, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return GetOrAddReal(block, name, value, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return GetOrAddBoolean(block, name, value, std::forward<Args>(args)...);
+    } else {
+      PARTHENON_THROW("Unknown type\n");
+    }
+  }
+  template <typename T, typename... Args>
+  T Get(const std::string &block, const std::string &name, Args &&...args) {
+    if constexpr (std::is_same_v<T, int>) {
+      return GetInteger(block, name, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return GetReal(block, name, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return GetOrAddBoolean(block, name, std::forward<Args>(args)...);
+    } else {
+      PARTHENON_THROW("Unknown type\n");
+    }
+  }
+
+  template <typename T, typename... Args>
+  std::vector<T> GetVector(const std::string &block, const std::string &name,
+                           Args &&...args) {
     std::vector<std::string> fields = GetVector_(block, name);
     if constexpr (std::is_same<T, std::string>::value) return fields;
 

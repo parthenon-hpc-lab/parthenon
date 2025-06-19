@@ -157,7 +157,7 @@ TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity che
 
       AND_WHEN("We modify both parameter inputs in the same way") {
         in1.GetOrAddReal("block3", "var5", 2.0);
-        in2.GetOrAddReal("block3", "var5", 2.0);
+        in2.GetOrAdd<parthenon::Real>("block3", "var5", 2.0);
         THEN("The hashes agree") {
           std::size_t hash1 = hasher(in1);
           std::size_t hash2 = hasher(in2);
