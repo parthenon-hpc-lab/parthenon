@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -116,10 +116,10 @@ std::ostream &WriteTaskGraph(std::ostream &stream,
   return stream;
 }
 
-TaskListStatus TaskRegion::Execute(ThreadPool &pool) {
+TaskListStatus TaskRegion::Execute(Pool_t &pool) {
   // for now, require a pool with one thread
   PARTHENON_REQUIRE_THROWS(pool.size() == 1,
-                           "ThreadPool size != 1 is not currently supported.")
+                           "Pool_t size != 1 is not currently supported.")
 
   // first, if needed, finish building the graph
   if (!graph_built) BuildGraph();

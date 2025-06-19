@@ -126,12 +126,12 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   while (is.good()) {
     std::getline(is, line);
     line_num++;
-    if (line.find('\t') != std::string::npos) {
-      line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
-      // msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-      //     << std::endl << "Tab characters are forbidden in input files";
-      // PARTHENON_FAIL(msg);
-    }
+
+    // remove all \t\f\n\r\v but leave pure spaces
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
+
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
     if (first_char == std::string::npos) continue;            // line is all white space
@@ -846,87 +846,6 @@ std::string ParameterInput::SetString(const std::string &block, const std::strin
   pb = FindOrAddBlock(block);
   AddParameter(pb, name, value, "# Updated during run time");
   return value;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::RollbackNextTime()
-//  \brief rollback next_time by dt for each output block
-
-void ParameterInput::RollbackNextTime() {
-  InputBlock *pb = pfirst_block;
-  InputLine *pl;
-  std::stringstream msg;
-  Real next_time;
-
-  while (pb != nullptr) {
-    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
-      pl = pb->GetPtrToLine("next_time");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl
-            << "Parameter name 'next_time' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      next_time = static_cast<Real>(atof(pl->param_value.c_str()));
-      pl = pb->GetPtrToLine("dt");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl
-            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      next_time -= static_cast<Real>(atof(pl->param_value.c_str()));
-      msg << next_time;
-      // AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
-      SetReal(pb->block_name, "next_time", next_time);
-    }
-    pb = pb->pnext;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::ForwardNextTime()
-//  \brief add dt to next_time until next_time >  mesh_time - dt for each output block
-
-void ParameterInput::ForwardNextTime(Real mesh_time) {
-  InputBlock *pb = pfirst_block;
-  InputLine *pl;
-  Real next_time;
-  Real dt0, dt;
-  bool fresh = false;
-
-  while (pb != nullptr) {
-    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::stringstream msg;
-      pl = pb->GetPtrToLine("next_time");
-      if (pl == nullptr) {
-        next_time = mesh_time;
-        // This is a freshly added output
-        fresh = true;
-      } else {
-        next_time = static_cast<Real>(atof(pl->param_value.c_str()));
-      }
-      pl = pb->GetPtrToLine("dt");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::ForwardNextTime]"
-            << std::endl
-            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      dt0 = static_cast<Real>(atof(pl->param_value.c_str()));
-      dt = dt0 * static_cast<int>((mesh_time - next_time) / dt0) + dt0;
-      if (dt > 0) {
-        next_time += dt;
-        // If the user has added a new/fresh output round to multiple of dt0,
-        // and make sure that mesh_time - dt0 < next_time < mesh_time,
-        // to ensure immediate writing
-        if (fresh) next_time -= std::fmod(next_time, dt0) + dt0;
-      }
-      msg << next_time;
-      AddParameter(pb, "next_time", msg.str(), "# Updated during run time");
-    }
-    pb = pb->pnext;
-  }
 }
 
 void ParameterInput::CheckRequired(const std::string &block, const std::string &name) {

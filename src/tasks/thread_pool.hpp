@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -182,6 +182,45 @@ class ThreadPool {
   ThreadQueue<std::function<void()>> queue;
   ThreadVector<std::shared_ptr<std::packaged_task<TaskStatus()>>> run_tasks;
 };
+
+template <typename return_t = TaskStatus>
+class SerialPool {
+ public:
+  explicit SerialPool([[maybe_unused]] const int numthreads = 1) {}
+
+  template <typename F, class... Args>
+  void enqueue(F &&f, Args &&...args) {
+    auto task = [=, func = std::forward<F>(f)] {
+      return func(std::forward<Args>(args)...);
+    };
+    queue.push(task);
+  }
+
+  int size() const { return 1; }
+  void wait() {}
+
+  TaskStatus check_task_returns() {
+    TaskStatus overall = TaskStatus::complete;
+    while (!queue.empty()) {
+      auto f = queue.front();
+      auto ret = f();
+      if constexpr (std::is_same<return_t, TaskStatus>::value) {
+        if (ret == TaskStatus::fail) overall = TaskStatus::fail;
+      }
+      queue.pop();
+    }
+    return overall;
+  }
+
+ private:
+  std::queue<std::function<return_t()>> queue;
+};
+
+#ifdef PARTHENON_USE_SERIAL_POOL
+using Pool_t = SerialPool<TaskStatus>;
+#else
+using Pool_t = ThreadPool;
+#endif
 
 } // namespace parthenon
 

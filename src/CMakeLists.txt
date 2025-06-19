@@ -90,7 +90,14 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical)
+set(PARTHENON_COORDINATES "UniformCartesian" CACHE STRING "Set the coordinate system from \{${COORDINATES_AVAILABLE}\} with UniformCartesian the default")
+if (${PARTHENON_COORDINATES} IN_LIST COORDINATES_AVAILABLE)
+  set(COORDINATE_TYPE ${PARTHENON_COORDINATES})
+else()
+  message(FATAL_ERROR "Invalid setting for PARTHENON_COORDINATES. ${PARTHENON_COORDINATES} is not in \{${COORDINATES_AVAILABLE}\}")
+endif()
+message(STATUS "COORDINATE_TYPE = " ${COORDINATE_TYPE})
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
@@ -118,6 +125,9 @@ add_library(parthenon
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
+  coordinates/uniform_coordinates.hpp
+  coordinates/uniform_cylindrical.hpp
+  coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
   driver/driver.hpp
@@ -126,8 +136,6 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
-  interface/make_pack_descriptor.hpp
-  interface/make_swarm_pack_descriptor.hpp
   interface/mesh_data.cpp
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
@@ -135,12 +143,8 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
-  interface/pack_utils.hpp
   interface/params.cpp
   interface/params.hpp
-  interface/sparse_pack.hpp
-  interface/sparse_pack_base.cpp
-  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
@@ -149,10 +153,7 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_comms.cpp
   interface/swarm_container.cpp
-  interface/swarm_default_names.hpp
   interface/swarm_device_context.hpp
-  interface/swarm_pack.hpp
-  interface/swarm_pack_base.hpp
   interface/update.cpp
   interface/update.hpp
   interface/var_id.hpp
@@ -208,6 +209,22 @@ add_library(parthenon
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
 
+  pack/block_selector.hpp
+  pack/make_pack_descriptor.hpp
+  pack/make_swarm_pack_descriptor.hpp
+  pack/pack_descriptor.cpp
+  pack/pack_descriptor.hpp
+  pack/pack_utils.hpp
+  pack/sparse_pack.hpp
+  pack/sparse_pack.cpp
+  pack/sparse_pack_base.cpp
+  pack/sparse_pack_base.hpp
+  pack/sparse_pack_cache.hpp
+  pack/sparse_pack_cache.cpp
+  pack/swarm_default_names.hpp
+  pack/swarm_pack.hpp
+  pack/swarm_pack_base.hpp
+  
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp
@@ -229,8 +246,12 @@ add_library(parthenon
   amr_criteria/refinement_package.hpp
 
   solvers/bicgstab_solver.hpp
+  solvers/cg_solver.hpp
+  solvers/internal_prolongation.hpp
   solvers/mg_solver.hpp
+  solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

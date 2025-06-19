@@ -125,6 +125,7 @@ auto GetNames() {
   return names;
 }
 
+//<<<<<<< HEAD
 namespace impl {
 template <class N, class T>
 struct ListOfType {
@@ -146,6 +147,14 @@ struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
 template <size_t N, class T>
 using list_of_type_t =
     typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
+//=======
+template <class>
+struct isTypeList : public std::false_type {};
+
+template <class... Ts>
+struct isTypeList<TypeList<Ts...>> : public std::true_type {};
+
+//>>>>>>> develop
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
