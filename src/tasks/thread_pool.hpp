@@ -67,7 +67,7 @@ class ThreadQueue {
     complete = true;
     cv.notify_all();
   }
-  void wait_for_complete(std::chrono::seconds max_time) {
+  bool wait_for_complete(std::chrono::seconds max_time) {
     bool timeout{false};
     {
       std::unique_lock<std::mutex> lock(mutex);
@@ -75,13 +75,14 @@ class ThreadQueue {
       if (queue.empty() && nwaiting == nworkers) {
         complete = false;
         waiting = false;
-        return;
+        return timeout;
       }
-      bool timeout = !complete_cv.wait_for(lock, max_time, [this]() { return complete; });
+      timeout = !complete_cv.wait_for(lock, max_time, [this]() { return complete; });
       complete = false;
       waiting = false;
     }
     if (!timeout) signal_kill();
+    return timeout;
   }
 
  private:
@@ -151,8 +152,6 @@ class ThreadPool {
     }
   }
 
-  void wait() { queue.wait_for_complete(timeout_duration); }
-
   void kill() { queue.signal_kill(); }
 
   template <typename F, class... Args>
@@ -170,8 +169,8 @@ class ThreadPool {
   // Mostly this exists to throw any exceptions,
   // but we can check returns too.
   // Would need changes for >1 failure mode
-  TaskStatus check_task_returns() {
-    queue.wait_for_complete(timeout_duration);
+  TaskStatus wait() {
+    const bool timeout = queue.wait_for_complete(timeout_duration);
     TaskStatus overall = TaskStatus::complete;
     for (auto &task : run_tasks) {
       TaskStatus task_return = task->get_future().get();
@@ -179,7 +178,7 @@ class ThreadPool {
     }
     run_tasks.clear();
 
-    return overall;
+    return timeout ? TaskStatus::fail : overall;
   }
 
  private:
@@ -206,9 +205,8 @@ class SerialPool {
   }
 
   int size() const { return 1; }
-  void wait() {}
 
-  TaskStatus check_task_returns() {
+  TaskStatus wait() {
     TaskStatus overall = TaskStatus::complete;
 
     const auto start_time = std::chrono::high_resolution_clock::now();
@@ -216,16 +214,17 @@ class SerialPool {
       const auto end_time = std::chrono::high_resolution_clock::now();
       const auto duration =
           std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
-      return duration > timeout_duration;
+      return duration >= timeout_duration;
     };
 
-    while (!queue.empty() && !timeout_check()) {
+    while (!queue.empty()) {
       auto f = queue.front();
       auto ret = f();
       if constexpr (std::is_same<return_t, TaskStatus>::value) {
         if (ret == TaskStatus::fail) overall = TaskStatus::fail;
       }
       queue.pop();
+      if (timeout_check()) return TaskStatus::fail;
     }
     return overall;
   }

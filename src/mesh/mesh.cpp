@@ -80,6 +80,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
       default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
+      task_collection_timeout_in_seconds(pin->GetOrAddInteger("parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 60 * 24 * 365)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),

@@ -143,13 +143,11 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
     pool.enqueue([t, &ProcessTask]() { return ProcessTask(t); });
   }
 
-  // then wait until everything is done
-  pool.wait();
-
-  // Check the results, so as to fire any exceptions from threads
-  // Return failure if a task failed
-  return (pool.check_task_returns() == TaskStatus::complete) ? TaskListStatus::complete
-                                                             : TaskListStatus::fail;
+  // Wait until everything is done then
+  // check the results, so as to fire any exceptions from threads
+  // Return failure if a task failed or if a timeout occurred
+  return (pool.wait() == TaskStatus::complete) ? TaskListStatus::complete
+                                               : TaskListStatus::fail;
 }
 
 void TaskRegion::AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
