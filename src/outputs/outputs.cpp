@@ -63,6 +63,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -120,6 +121,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     OutputParameters op; // define temporary OutputParameters struct
     op.block_name = block_names[iinput];
     op.block_number = block_numbers[iinput];
+    op.contiguous_block_index = iinput;
 
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
@@ -145,14 +147,26 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                              "is not supported. Please set at most one value >= 0.");
     // set time of last output, time between outputs
     if (tm != nullptr) {
-      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
       op.dt = dt;
-      op.next_n = pin->GetOrAddInteger(op.block_name, "next_n", tm->ncycle);
       op.dn = dn;
+
+      op.last_time = (*plast_times)[iinput];
+      op.last_n = (*plast_ns)[iinput];
+      // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+      if (op.last_time > std::numeric_limits<Real>::lowest()) {
+        op.next_time = op.last_time + op.dt;
+      } else {
+        op.next_time = tm->time;
+      }
+      if (op.last_n > std::numeric_limits<int>::lowest()) {
+        op.next_n = op.last_n + op.dn;
+      } else {
+        op.next_n = tm->ncycle;
+      }
     }
 
     // set file number, basename, id, and format
-    op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+    op.file_number = std::max((*pfile_numbers)[iinput], 0);
     op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
     op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
     op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
@@ -499,6 +513,25 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
+  }
+}
+
+void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
+  output_params.file_number++;
+  auto pkg = pm->packages.Get("Outputs");
+  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
+  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
+  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
+  (*pfile_numbers)[output_params.contiguous_block_index] = output_params.file_number;
+  if (tm != nullptr) {
+    if (output_params.dt > 0.0) {
+      (*plast_times)[output_params.contiguous_block_index] = tm->time;
+      output_params.next_time += output_params.dt;
+    }
+    if (output_params.dn > 0) {
+      (*plast_ns)[output_params.contiguous_block_index] = tm->ncycle;
+      output_params.next_n += output_params.dn;
+    }
   }
 }
 

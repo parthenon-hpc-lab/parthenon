@@ -19,6 +19,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,9 +56,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
       // These will be updated later or restarted from
       active.push_back(false);
-      file_numbers.push_back(-1);
-      last_times.push_back(-1);
-      last_ns.push_back(-1);
+      file_numbers.push_back(0);
+      // JMM: Limits to indicate these haven't been set yet
+      last_times.push_back(std::numeric_limits<Real>::lowest());
+      last_ns.push_back(std::numeric_limits<int>::lowest());
     }
   }
   pkg->AddParam("block_names", block_names);
