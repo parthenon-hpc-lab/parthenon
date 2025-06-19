@@ -201,7 +201,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
         for (int v = 0; v < Nv; ++v) {
           // Get the correct record
           const auto [record_name, comp_name] =
-              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, comp_idx, level);
+              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, TopologicalElement::CC,
+                                                           comp_idx, level);
 
           PARTHENON_REQUIRE_THROWS(it->meshes.contains(record_name),
                                    "Missing mesh record '" + record_name +
@@ -214,7 +215,7 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
           auto mesh_comp = mesh_record[comp_name];
 
           const auto [chunk_offset, chunk_extent] =
-              OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb);
+              OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, TopologicalElement::CC);
           mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
           // TODO(pgrete) check if output utils machinery can be used for non-cell
           // centered fields, which might not be that straightforward as a global mesh

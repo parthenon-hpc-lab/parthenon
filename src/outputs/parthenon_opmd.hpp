@@ -12,6 +12,7 @@
 #include <string>
 #include <tuple>
 
+#include "basic_types.hpp"
 #include "mesh/meshblock.hpp"
 #include "openPMD/Dataset.hpp"
 #include "openPMD/Iteration.hpp"
@@ -33,18 +34,21 @@ void WriteAllParams(const Params &params, const std::string &prefix,
 inline static const std::string delim = "~";
 
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
+// - te is the TopologicalElement (which is used as part of the variable name record)
 // - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 // - level is the current effective level of the Mesh record
 std::tuple<std::string, std::string>
-GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo, const int comp_idx,
+GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
+                               const TopologicalElement te, const int comp_idx,
                                const int level);
 
 // Calculate logical location on effective mesh (i.e., a mesh with size that matches full
 // coverage at given resolution on a particular level)
 // TODO(pgrete) needs to be updated to properly work with Forests
 std::tuple<openPMD::Offset, openPMD::Extent>
-GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb);
+GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
+                        const TopologicalElement te);
 
 } // namespace OpenPMDUtils
 } // namespace parthenon

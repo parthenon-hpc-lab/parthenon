@@ -40,6 +40,8 @@
 namespace parthenon {
 namespace OutputUtils {
 
+// This function returns the max dimensions over all topological elements of the given
+// variable, i.e., it returns nx1+1, nx2+1, nx3+1 for a face centered variable.
 Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
   int nx3 = 1, nx2 = 1, nx1 = 1;
   // TODO(JMM): I know that this could be done by hand, but I'd rather

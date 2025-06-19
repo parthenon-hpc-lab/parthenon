@@ -215,9 +215,9 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
     it.seriesFlush();
   }
 }
-std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(const VarInfo &vinfo,
-                                                                    const int comp_idx,
-                                                                    const int level) {
+std::tuple<std::string, std::string>
+GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te,
+                               const int comp_idx, const int level) {
   std::string comp_name;
   if (vinfo.is_vector) {
     if (comp_idx == 0) {
@@ -234,16 +234,39 @@ std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(const VarInf
   } else {
     comp_name = openPMD::MeshRecordComponent::SCALAR;
   }
+
+  // Default for cell centered fields is an empty string
+  // to maintain backwards compatiblity with first iteration of
+  // OpenPMD outputs.
+  std::string te_str = "";
+  if (te == TopologicalElement::F1) {
+    te_str = "F1_";
+  } else if (te == TopologicalElement::F2) {
+    te_str = "F2_";
+  } else if (te == TopologicalElement::F3) {
+    te_str = "F3_";
+  } else if (te == TopologicalElement::E1) {
+    te_str = "E1_";
+  } else if (te == TopologicalElement::E2) {
+    te_str = "E2_";
+  } else if (te == TopologicalElement::E3) {
+    te_str = "E3_";
+  } else if (te == TopologicalElement::NN) {
+    te_str = "NN_";
+  } else {
+    PARTHENON_REQUIRE_THROWS(te == TopologicalElement::CC,
+                             "Outputs for this type of TE not implemented.")
+  }
   // TODO(pgrete) need to make sure that var names are allowed within standard
-  const std::string &mesh_record_name = vinfo.label + "_" +
+  const std::string &mesh_record_name = vinfo.label + "_" + te_str +
                                         vinfo.component_labels[comp_idx] + "_lvl" +
                                         std::to_string(level);
-  // return std::make_tuple(mesh_record_name, comp_name);
   return {mesh_record_name, comp_name};
 }
 
 std::tuple<openPMD::Offset, openPMD::Extent>
-GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
+GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
+                        const TopologicalElement te) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -251,9 +274,10 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb) {
     chunk_offset = {loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
                     loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                     loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-    chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                    static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+    chunk_extent = {
+        static_cast<uint64_t>(pmb->block_size.nx(X3DIR) + TopologicalOffsetK(te)),
+        static_cast<uint64_t>(pmb->block_size.nx(X2DIR) + TopologicalOffsetJ(te)),
+        static_cast<uint64_t>(pmb->block_size.nx(X1DIR) + TopologicalOffsetI(te))};
   } else if (pm->ndim == 2) {
     chunk_offset = {loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                     loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
@@ -467,10 +491,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       Real; // typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
   std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
 
-  // TODO(pgrete) This needs to be in the loop for non-cell-centered vars
-  auto ib = bounds.GetBoundsI(IndexDomain::interior);
-  auto jb = bounds.GetBoundsJ(IndexDomain::interior);
-  auto kb = bounds.GetBoundsK(IndexDomain::interior);
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
     PARTHENON_INSTRUMENT_REGION("Write variable loop")
@@ -490,88 +510,92 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     for (auto &pmb : pm->block_list) {
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
+      for (const auto &te : vinfo.topological_elements) {
+        for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
+          const auto [record_name, comp_name] =
+              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
 
-      for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
-        const auto [record_name, comp_name] =
-            OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, comp_idx, level);
+          // Create the mesh_record for this variable at the given level (if it doesn't
+          // exist yet)
+          if (!it.meshes.contains(record_name)) {
+            auto mesh_record = it.meshes[record_name];
 
-        // Create the mesh_record for this variable at the given level (if it doesn't
-        // exist yet)
-        if (!it.meshes.contains(record_name)) {
-          auto mesh_record = it.meshes[record_name];
+            // These following attributes are shared across all components of the record.
 
-          // These following attributes are shared across all components of the record.
+            PARTHENON_REQUIRE_THROWS(
+                typeid(Coordinates_t) == typeid(UniformCartesian),
+                "OpenPMD in Parthenon currently only supports Cartesian coordinates.");
+            mesh_record.setGeometry(openPMD::Mesh::Geometry::cartesian);
+            auto &coords = pmb->coords;
+            // For uniform Cartesian, all dxN are const across the block so we just pick
+            // the first index.
+            Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
+            Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
+            Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
 
-          PARTHENON_REQUIRE_THROWS(
-              typeid(Coordinates_t) == typeid(UniformCartesian),
-              "OpenPMD in Parthenon currently only supports Cartesian coordinates.");
-          mesh_record.setGeometry(openPMD::Mesh::Geometry::cartesian);
-          auto &coords = pmb->coords;
-          // For uniform Cartesian, all dxN are const across the block so we just pick the
-          // first index.
-          Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
-          Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
-          Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
+            // TODO(pgrete) check if this should be tied to the MemoryLayout
+            mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
-          // TODO(pgrete) check if this should be tied to the MemoryLayout
-          mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
+            auto mesh_comp = mesh_record[comp_name];
+            // TODO(pgrete) This feels wrong for deep hierachies... Check with OPMD people
+            auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
+            openPMD::Extent global_extent;
+            if (pm->ndim == 3) {
+              mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
+              mesh_record.setAxisLabels({"z", "y", "x"});
+              mesh_record.setGridGlobalOffset({
+                  pm->mesh_size.xmin(X3DIR),
+                  pm->mesh_size.xmin(X2DIR),
+                  pm->mesh_size.xmin(X1DIR),
+              });
+              mesh_comp.setPosition(std::vector<Real>{
+                  0.5 - 0.5 * TopologicalOffsetK(te), 0.5 - 0.5 * TopologicalOffsetJ(te),
+                  0.5 - 0.5 * TopologicalOffsetI(te)});
+              global_extent = {
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR)) * effective_nx +
+                      TopologicalOffsetK(te),
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx +
+                      TopologicalOffsetJ(te),
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx +
+                      TopologicalOffsetI(te),
+              };
+            } else if (pm->ndim == 2) {
+              mesh_record.setGridSpacing(std::vector<Real>{dx2, dx1});
+              mesh_record.setAxisLabels({"y", "x"});
+              mesh_record.setGridGlobalOffset({
+                  pm->mesh_size.xmin(X2DIR),
+                  pm->mesh_size.xmin(X1DIR),
+              });
 
-          auto mesh_comp = mesh_record[comp_name];
-          // TODO(pgrete) needs to be updated for face and edges etc
-          // Also this feels wrong for deep hierachies...
-          auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
-          openPMD::Extent global_extent;
-          if (pm->ndim == 3) {
-            mesh_record.setGridSpacing(std::vector<Real>{dx3, dx2, dx1});
-            mesh_record.setAxisLabels({"z", "y", "x"});
-            mesh_record.setGridGlobalOffset({
-                pm->mesh_size.xmin(X3DIR),
-                pm->mesh_size.xmin(X2DIR),
-                pm->mesh_size.xmin(X1DIR),
-            });
-            // TODO(pgrete) needs to be updated for face and edges etc
-            mesh_comp.setPosition(std::vector<Real>{0.5, 0.5, 0.5});
-            global_extent = {
-                static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR)) * effective_nx,
-                static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx,
-                static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx,
-            };
-          } else if (pm->ndim == 2) {
-            mesh_record.setGridSpacing(std::vector<Real>{dx2, dx1});
-            mesh_record.setAxisLabels({"y", "x"});
-            mesh_record.setGridGlobalOffset({
-                pm->mesh_size.xmin(X2DIR),
-                pm->mesh_size.xmin(X1DIR),
-            });
+              mesh_comp.setPosition(
+                  std::vector<Real>{0.5 - 0.5 * TopologicalOffsetJ(te),
+                                    0.5 - 0.5 * TopologicalOffsetI(te)});
+              global_extent = {
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx +
+                      TopologicalOffsetJ(te),
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx +
+                      TopologicalOffsetI(te),
+              };
 
-            // TODO(pgrete) needs to be updated for face and edges etc
-            mesh_comp.setPosition(std::vector<Real>{0.5, 0.5});
-            global_extent = {
-                static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx,
-                static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx,
-            };
+            } else {
+              PARTHENON_THROW("1D output for openpmd not yet supported.");
+            }
+            // Handling this here to now re-reset dataset later when iterating through the
+            // blocks
+            auto const dataset =
+                openPMD::Dataset(openPMD::determineDatatype<OutT>(), global_extent);
+            // TODO(pgrete) check whether this should/need to be a collective so that the
+            // mesh generation should be done across all ranks prior to writing data,
+            // rather than in-situ for the local blocks only
+            mesh_comp.resetDataset(dataset);
 
-          } else {
-            PARTHENON_THROW("1D output for openpmd not yet supported.");
+            // TODO(pgrete) need unitDimension and timeOffset for this record?
           }
-          // Handling this here to now re-reset dataset later when iterating through the
-          // blocks
-          auto const dataset =
-              openPMD::Dataset(openPMD::determineDatatype<OutT>(), global_extent);
-          // TODO(pgrete) check whether this should/need to be a collective so that the
-          // mesh generation should be done across all ranks prior to writing data, rather
-          // than in-situ for the local blocks only
-          mesh_comp.resetDataset(dataset);
-
-          // TODO(pgrete) need unitDimension and timeOffset for this record?
         }
       }
 
       // Now that the mesh record exists, actually write the data
       auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
-      PARTHENON_REQUIRE_THROWS(out_var->metadata().Where() ==
-                                   MetadataFlag(Metadata::Cell),
-                               "Currently only cell centered vars are supported.");
 
       if (out_var->IsAllocated()) {
         // TODO(pgrete) check if we can work with a direct copy from a subview to not
@@ -589,36 +613,44 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         Kokkos::deep_copy(component_buffer_view, data);
 #endif
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
-        int comp_idx = 0;
-        const auto &Nt = out_var->GetDim(6);
-        const auto &Nu = out_var->GetDim(5);
-        const auto &Nv = out_var->GetDim(4);
-        // loop over all components
-        for (int t = 0; t < Nt; ++t) {
-          for (int u = 0; u < Nu; ++u) {
-            for (int v = 0; v < Nv; ++v) {
-              const auto [record_name, comp_name] =
-                  OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, comp_idx, level);
-              auto mesh_comp = it.meshes[record_name][comp_name];
+        for (const auto &te : vinfo.topological_elements) {
+          auto ib = bounds.GetBoundsI(IndexDomain::interior, te);
+          auto jb = bounds.GetBoundsJ(IndexDomain::interior, te);
+          auto kb = bounds.GetBoundsK(IndexDomain::interior, te);
+          int comp_idx = 0;
+          const auto &Nt = out_var->GetDim(6);
+          const auto &Nu = out_var->GetDim(5);
+          const auto &Nv = out_var->GetDim(4);
+          // loop over all components
+          for (int t = 0; t < Nt; ++t) {
+            for (int u = 0; u < Nu; ++u) {
+              for (int v = 0; v < Nv; ++v) {
+                const auto [record_name, comp_name] =
+                    OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx,
+                                                                 level);
+                auto mesh_comp = it.meshes[record_name][comp_name];
 
-              const auto comp_offset = tmp_offset;
-              for (int k = kb.s; k <= kb.e; ++k) {
-                for (int j = jb.s; j <= jb.e; ++j) {
-                  for (int i = ib.s; i <= ib.e; ++i) {
-                    tmp_data[tmp_offset] = static_cast<OutT>(out_var_h(t, u, v, k, j, i));
-                    tmp_offset++;
+                const auto comp_offset = tmp_offset;
+                for (int k = kb.s; k <= kb.e; ++k) {
+                  for (int j = jb.s; j <= jb.e; ++j) {
+                    for (int i = ib.s; i <= ib.e; ++i) {
+                      tmp_data[tmp_offset] = static_cast<OutT>(
+                          out_var_h(static_cast<int>(te) % 3, t, u, v, k, j, i));
+                      tmp_offset++;
+                    }
                   }
                 }
+                const auto [chunk_offset, chunk_extent] =
+                    OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te);
+                mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
+                                        chunk_extent);
+                comp_idx += 1;
               }
-              const auto [chunk_offset, chunk_extent] =
-                  OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb);
-              mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset, chunk_extent);
-              comp_idx += 1;
             }
-          }
-        } // loop over components
-      }   // out_var->IsAllocated()
-    }     // loop over blocks
+          } // loop over components
+        }   // loop over topological elements
+      }     // out_var->IsAllocated()
+    }       // loop over blocks
     it.seriesFlush();
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
