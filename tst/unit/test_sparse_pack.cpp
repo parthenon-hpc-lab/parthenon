@@ -300,12 +300,16 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               KOKKOS_LAMBDA(int b, int k, int j, int &ltot) {
                 int lo = sparse_pack.GetLowerBound(b, v3());
                 int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v =
+                    parthenon::SubPack<Axis::I>(sparse_pack, b, v3(vc), k, j, ic);
                 auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
 
                 for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
                   for (int c = 0; c <= hi - lo; ++c) {
                     Real n = i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                     if (n != sub_pack(v3(c), i)) ltot += 1;
+                    if (n != sub_pack_v(i) && c == vc) ltot += 1;
                   }
                 }
               },
@@ -324,6 +328,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               KOKKOS_LAMBDA(int b, int k, int &ltot) {
                 int lo = sparse_pack.GetLowerBound(b, v3());
                 int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b,
+                                                                       v3(vc), k, jc, ic);
                 auto sub_pack =
                     parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b, k, jc, ic);
 
@@ -333,6 +340,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                       Real n =
                           i + ic + 1e1 * (j + jc) + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                       if (n != sub_pack(v3(c), i, j)) ltot += 1;
+                      if (n != sub_pack_v(i, j) && c == vc) ltot += 1;
                     }
                   }
                 }
@@ -354,6 +362,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               KOKKOS_LAMBDA(int b, int &ltot) {
                 int lo = sparse_pack.GetLowerBound(b, v3());
                 int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
+                    sparse_pack, b, v3(vc), kc, jc, ic);
                 auto sub_pack = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
                     sparse_pack, b, kc, jc, ic);
 
@@ -364,6 +375,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                         Real n = i + ic + 1e1 * (j + jc) + 1e2 * (k + kc) + 1e4 * c +
                                  1e5 * v + 1e3 * b;
                         if (n != sub_pack(v3(c), i, j, k)) ltot += 1;
+                        if (n != sub_pack_v(i, j, k) && c == vc) ltot += 1;
                       }
                     }
                   }
