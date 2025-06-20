@@ -91,38 +91,45 @@ struct TypeListArray<PackType<Ts...>> {
   const type &pack;
 };
 
-template <typename, typename>
+template <typename, typename, typename>
 struct ScratchPack_impl {};
 
-template <typename ScratchPad, template <typename...> typename PackType, typename... Ts>
-struct ScratchPack_impl<ScratchPad, PackType<Ts...>> {
+template <typename ScratchPad, template <typename...> typename PackType, typename... Ts,
+          int... Is>
+struct ScratchPack_impl<ScratchPad, PackType<Ts...>, std::integer_sequence<int, Is...>> {
   using type = PackType<Ts...>;
-  KOKKOS_INLINE_FUNCTION
-  ScratchPack_impl(const type pack_, ScratchPad scratch_, const int &i_)
-      : pack(pack_), scratch(scratch_), i(i_) {}
+
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION ScratchPack_impl(const type pack_, ScratchPad scratch_,
+                                          Args &&...idxs)
+      : pack(pack_), scratch(scratch_), kji({idxs...}) {}
 
   template <typename V, REQUIRES(IncludesType<V, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION Real &operator()(const V &var) const {
-    return scratch(pack.GetIndex(var), i);
+    return scratch(pack.GetIndex(var), kji[Is]...);
   }
 
-  template <typename V, REQUIRES(IncludesType<V, Ts...>::value)>
-  KOKKOS_INLINE_FUNCTION Real &operator()(const V &var, const int &idx) const {
-    return scratch(pack.GetIndex(var), i + idx);
+  template <typename V, typename... Args, REQUIRES(IncludesType<V, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const V &var, Args &&...idxs) const {
+    static_assert(sizeof...(Is) == sizeof...(Args),
+                  "Must provide number of indices equal to dimension of the underlying "
+                  "ScratchPad.");
+    return scratch(pack.GetIndex(var), kji[Is] + idxs...);
   }
 
-  KOKKOS_INLINE_FUNCTION Real &operator()(const int &var, const int &idx) const {
-    return scratch(var, i + idx);
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION Real &operator()(const int &var, Args &&...idxs) const {
+    return scratch(var, kji[Is] + idxs...);
   }
 
   KOKKOS_INLINE_FUNCTION Real &operator()(const int &var) const {
-    return scratch(var, i);
+    return scratch(var, kji[Is]...);
   }
 
  private:
   const type pack;
   ScratchPad scratch;
-  const int i;
+  const Kokkos::Array<int, sizeof...(Is)> kji;
 };
 
 // TypeList containers that can be used to index into an integer array need
@@ -148,10 +155,12 @@ KOKKOS_INLINE_FUNCTION auto TypeListArray(const PackType<Ts...> &pack, Args &&..
 }
 
 template <typename ScratchPad, template <typename...> typename PackType, typename... Ts,
-          REQUIRES(implements<PackLike<Ts...>(PackType<Ts...>)>::value)>
+          typename... Args, REQUIRES(implements<PackLike<Ts...>(PackType<Ts...>)>::value)>
 KOKKOS_INLINE_FUNCTION auto ScratchPack(const PackType<Ts...> &pack, ScratchPad &scratch,
-                                        const int &i) {
-  return ScratchPack_impl<ScratchPad, PackType<Ts...>>(pack, scratch, i);
+                                        Args &&...args) {
+  return ScratchPack_impl<ScratchPad, PackType<Ts...>,
+                          std::make_integer_sequence<int, sizeof...(Args)>>(
+      pack, scratch, std::forward<Args>(args)...);
 }
 
 template <typename ScratchPad, typename... Ts>
