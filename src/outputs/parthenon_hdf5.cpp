@@ -104,6 +104,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // open HDF5 file
   // Define output filename
   auto filename = GenerateFilename_(pin, tm, signal);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 
   // set file access property list
   H5P const acc_file = H5P::FromHIDCheck(HDF5::GenerateFileAccessProps());
@@ -606,23 +613,6 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     filename.append(file_number.str());
   }
   filename.append(FilePostfix_());
-
-  if (signal == SignalHandler::OutputSignal::none) {
-    // After file has been opened with the current number, already advance output
-    // parameters so that for restarts the file is not immediatly overwritten again.
-    // Only applies to default time-based data dumps, so that writing "now" and "final"
-    // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
-      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-    }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
-      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
-    }
-  }
   return filename;
 }
 

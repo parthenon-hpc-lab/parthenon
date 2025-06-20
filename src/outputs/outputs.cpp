@@ -63,6 +63,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -101,7 +102,6 @@ OutputType::OutputType(OutputParameters oparams)
 Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   pfirst_type_ = nullptr;
   std::stringstream msg;
-  InputBlock *pib = pin->pfirst_block;
   OutputType *pnew_type;
   OutputType *plast = pfirst_type_;
   // We should only have at most one each of these output types. Count
@@ -109,229 +109,244 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   int num_rst_outputs = 0;
   int num_core_outputs = 0;
 
-  // loop over input block names.  Find those that start with "parthenon/output", read
-  // parameters, and construct singly linked list of OutputTypes.
-  while (pib != nullptr) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      OutputParameters op; // define temporary OutputParameters struct
+  // loop over "parthenon/output" blocks located in params
+  auto pkg = pm->packages.Get("Outputs");
+  const auto &block_names = pkg->Param<std::vector<std::string>>("block_names");
+  const auto &block_numbers = pkg->Param<std::vector<int>>("block_numbers");
+  auto *pactive = pkg->MutableParam<std::vector<bool>>("active");
+  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
+  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
+  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
+  for (int iinput = 0; iinput < block_names.size(); ++iinput) {
+    OutputParameters op; // define temporary OutputParameters struct
+    op.block_name = block_names[iinput];
+    op.block_number = block_numbers[iinput];
+    op.contiguous_block_index = iinput;
 
-      // extract integer number of output block.  Save name and number
-      std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
-      op.block_number = atoi(outn.c_str());
-      op.block_name.assign(pib->block_name);
+    Real dt = 0.0; // default value == 0 means that initial data is written by default
+    int dn = -1;
+    if (tm != nullptr) {
+      dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
 
-      Real dt = 0.0; // default value == 0 means that initial data is written by default
-      int dn = -1;
-      if (tm != nullptr) {
-        dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
-
-        // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
-        // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
-        // written for temporal drivers.
-        const auto tlim = dn >= 0 ? -1 : tm->tlim;
-        dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
-      }
-      // if this output is "soft-disabled" (negative value) skip processing
-      if (dt < 0.0 && dn < 0) {
-        pib = pib->pnext; // move to next input block name
-        continue;
-      }
-
-      PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
-                               "dt and dn are enabled for the same output block, which "
-                               "is not supported. Please set at most one value >= 0.");
-      // set time of last output, time between outputs
-      if (tm != nullptr) {
-        op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
-        op.dt = dt;
-        op.next_n = pin->GetOrAddInteger(op.block_name, "next_n", tm->ncycle);
-        op.dn = dn;
-      }
-
-      // set file number, basename, id, and format
-      op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-      op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
-      op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
-      op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
-      char define_id[10];
-      std::snprintf(define_id, sizeof(define_id), "out%d",
-                    op.block_number); // default id="outN"
-      op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-      op.file_type = pin->GetString(op.block_name, "file_type");
-
-      // read ghost cell option
-      op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
-
-      // read cartesian mapping option
-      op.cartesian_vector = false;
-
-      op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
-
-      // read single precision output option
-      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
-                                  (op.file_type == "corehdf5");
-
-      if (is_hdf5_output) {
-        op.single_precision_output =
-            pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
-        op.sparse_seed_nans =
-            pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
-        op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base");
-      } else {
-        op.single_precision_output = false;
-        op.sparse_seed_nans = false;
-
-        if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-          std::stringstream warn;
-          warn << "Output option single_precision_output only applies to "
-                  "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'";
-          PARTHENON_WARN(warn);
-        }
-      }
-
-      if (is_hdf5_output) {
-        int default_compression_level = 5;
-#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
-        default_compression_level = 0;
-#endif
-
-        op.hdf5_compression_level = pin->GetOrAddInteger(
-            op.block_name, "hdf5_compression_level", default_compression_level);
-
-#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
-        if (op.hdf5_compression_level != 0) {
-          std::stringstream err;
-          err << "HDF5 compression requested for output block '" << op.block_name
-              << "', but HDF5 compression is disabled";
-          PARTHENON_THROW(err)
-        }
-#endif
-      } else {
-        op.hdf5_compression_level = 0;
-
-        if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
-          std::stringstream warn;
-          warn << "Output option hdf5_compression_level only applies to "
-                  "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'";
-          PARTHENON_WARN(warn);
-        }
-      }
-
-      if (op.file_type == "hst") {
-        // Do not use GetOrAddVector because it will pollute the input parameters for
-        // restarts
-        if (pin->DoesParameterExist(pib->block_name, "packages")) {
-          op.packages = pin->GetVector<std::string>(pib->block_name, "packages");
-        } else {
-          op.packages = std::vector<std::string>();
-        }
-      }
-
-      // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst") &&
-          (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
-          (op.file_type != "histogram")) {
-        op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
-                                                        std::vector<std::string>());
-        // JMM: If the requested var isn't present for a given swarm,
-        // it is simply not output.
-        op.swarms.clear(); // Not sure this is needed
-        if (pin->DoesParameterExist(pib->block_name, "swarms")) {
-          std::vector<std::string> swarmnames =
-              pin->GetVector<std::string>(pib->block_name, "swarms");
-          std::size_t nswarms = swarmnames.size();
-          if ((pin->DoesParameterExist(pib->block_name, "swarm_variables")) &&
-              (nswarms > 1)) {
-            std::stringstream msg;
-            msg << "The swarm_variables field is set in the block '" << pib->block_name
-                << "' however, there are " << nswarms << " swarms."
-                << " All swarms will be assumed to request the vars listed in "
-                   "swarm_variables.";
-            PARTHENON_WARN(msg);
-          }
-          for (const auto &swname : swarmnames) {
-            if (pin->DoesParameterExist(pib->block_name, "swarm_variables")) {
-              auto varnames =
-                  pin->GetVector<std::string>(pib->block_name, "swarm_variables");
-              op.swarms[swname].insert(varnames.begin(), varnames.end());
-            }
-            if (pin->DoesParameterExist(pib->block_name, swname + "_variables")) {
-              auto varnames =
-                  pin->GetVector<std::string>(pib->block_name, swname + "_variables");
-              op.swarms[swname].insert(varnames.begin(), varnames.end());
-            }
-            // Always output id, x, y, and z for swarms so that they work with vis tools.
-            // Note, it's fine to add the id by default (even though it might not actually
-            // exist) because only variables that do exists are actually being written.
-            std::vector<std::string> coords = {
-                swarm_position::id::name(), swarm_position::x::name(),
-                swarm_position::y::name(), swarm_position::z::name()};
-            op.swarms[swname].insert(coords.begin(), coords.end());
-          }
-        }
-      }
-      op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
-      op.data_format.insert(0, " "); // prepend with blank to separate columns
-
-      // Construct new OutputType according to file format
-      // NEW_OUTPUT_TYPES: Add block to construct new types here
-      if (op.file_type == "hst") {
-        pnew_type = new HistoryOutput(op);
-      } else if (op.file_type == "ascent") {
-        pnew_type = new AscentOutput(op);
-      } else if (op.file_type == "histogram") {
-#ifdef ENABLE_HDF5
-        pnew_type = new HistogramOutput(op, pin);
-#else
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output/restart block '" << op.block_name << "'. "
-            << "You can disable this block without deleting it by setting a dt < 0."
-            << std::endl;
-        PARTHENON_FAIL(msg);
-#endif // ifdef ENABLE_HDF5
-      } else if (is_hdf5_output) {
-        const bool restart = (op.file_type == "rst");
-        const bool coredump = (op.file_type == "corehdf5");
-        if (restart) {
-          num_rst_outputs++;
-        }
-        if (coredump) {
-          num_core_outputs++;
-        }
-#ifdef ENABLE_HDF5
-        op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
-        op.write_swarm_xdmf =
-            pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-        pnew_type = new PHDF5Output(
-            op, restart ? DumpOutputMode::RESTART
-                        : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
-#else
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output/restart block '" << op.block_name << "'. "
-            << "You can disable this block without deleting it by setting a dt < 0."
-            << std::endl;
-        PARTHENON_FAIL(msg);
-#endif // ifdef ENABLE_HDF5
-      } else {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Unrecognized file format = '" << op.file_type << "' in output block '"
-            << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      // Append type as tail node in singly linked list
-      if (pfirst_type_ == nullptr) {
-        pfirst_type_ = pnew_type;
-      } else {
-        plast->pnext_type = pnew_type;
-      }
-      plast = pnew_type;
+      // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
+      // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
+      // written for temporal drivers.
+      const auto tlim = dn >= 0 ? -1 : tm->tlim;
+      dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
     }
-    pib = pib->pnext; // move to next input block name
+    // if this output is "soft-disabled" (negative value) skip processing
+    if (dt < 0.0 && dn < 0) {
+      (*pactive)[iinput] = false;
+      continue;
+    } else {
+      (*pactive)[iinput] = true;
+    }
+
+    PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
+                             "dt and dn are enabled for the same output block, which "
+                             "is not supported. Please set at most one value >= 0.");
+    // set time of last output, time between outputs
+    if (tm != nullptr) {
+      op.dt = dt;
+      op.dn = dn;
+
+      op.last_time = (*plast_times)[iinput];
+      op.last_n = (*plast_ns)[iinput];
+      // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+      if (op.last_time > std::numeric_limits<Real>::lowest()) {
+        op.next_time = op.last_time + op.dt;
+      } else {
+        op.next_time = tm->time;
+      }
+      if (op.last_n > std::numeric_limits<int>::lowest()) {
+        op.next_n = op.last_n + op.dn;
+      } else {
+        op.next_n = tm->ncycle;
+      }
+    }
+
+    // set file number, basename, id, and format
+    op.file_number = std::max((*pfile_numbers)[iinput], 0);
+    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+    op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
+    op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
+    char define_id[10];
+    std::snprintf(define_id, sizeof(define_id), "out%d",
+                  op.block_number); // default id="outN"
+    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+    op.file_type = pin->GetString(op.block_name, "file_type");
+
+    // read ghost cell option
+    op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+
+    // read cartesian mapping option
+    op.cartesian_vector = false;
+
+    op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+
+    // read single precision output option
+    const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
+                                (op.file_type == "corehdf5");
+
+    if (is_hdf5_output) {
+      op.single_precision_output =
+          pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+      op.sparse_seed_nans =
+          pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
+      op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base");
+    } else {
+      op.single_precision_output = false;
+      op.sparse_seed_nans = false;
+
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        PARTHENON_WARN(warn);
+      }
+    }
+
+    if (is_hdf5_output) {
+      int default_compression_level = 5;
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+      default_compression_level = 0;
+#endif
+
+      op.hdf5_compression_level = pin->GetOrAddInteger(
+          op.block_name, "hdf5_compression_level", default_compression_level);
+
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (op.hdf5_compression_level != 0) {
+        std::stringstream err;
+        err << "HDF5 compression requested for output block '" << op.block_name
+            << "', but HDF5 compression is disabled";
+        PARTHENON_THROW(err)
+      }
+#endif
+    } else {
+      op.hdf5_compression_level = 0;
+
+      if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
+        std::stringstream warn;
+        warn << "Output option hdf5_compression_level only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        PARTHENON_WARN(warn);
+      }
+    }
+
+    if (op.file_type == "hst") {
+      // Do not use GetOrAddVector because it will pollute the input parameters for
+      // restarts
+      if (pin->DoesParameterExist(block_names[iinput], "packages")) {
+        op.packages = pin->GetVector<std::string>(block_names[iinput], "packages");
+      } else {
+        op.packages = std::vector<std::string>();
+      }
+    }
+
+    // set output variable and optional data format string used in formatted writes
+    if ((op.file_type != "hst") && (op.file_type != "rst") &&
+        (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
+        (op.file_type != "histogram")) {
+      op.variables = pin->GetOrAddVector<std::string>(block_names[iinput], "variables",
+                                                      std::vector<std::string>());
+      // JMM: If the requested var isn't present for a given swarm,
+      // it is simply not output.
+      op.swarms.clear(); // Not sure this is needed
+      if (pin->DoesParameterExist(block_names[iinput], "swarms")) {
+        std::vector<std::string> swarmnames =
+            pin->GetVector<std::string>(block_names[iinput], "swarms");
+        std::size_t nswarms = swarmnames.size();
+        if ((pin->DoesParameterExist(block_names[iinput], "swarm_variables")) &&
+            (nswarms > 1)) {
+          std::stringstream msg;
+          msg << "The swarm_variables field is set in the block '" << block_names[iinput]
+              << "' however, there are " << nswarms << " swarms."
+              << " All swarms will be assumed to request the vars listed in "
+                 "swarm_variables.";
+          PARTHENON_WARN(msg);
+        }
+        for (const auto &swname : swarmnames) {
+          if (pin->DoesParameterExist(block_names[iinput], "swarm_variables")) {
+            auto varnames =
+                pin->GetVector<std::string>(block_names[iinput], "swarm_variables");
+            op.swarms[swname].insert(varnames.begin(), varnames.end());
+          }
+          if (pin->DoesParameterExist(block_names[iinput], swname + "_variables")) {
+            auto varnames =
+                pin->GetVector<std::string>(block_names[iinput], swname + "_variables");
+            op.swarms[swname].insert(varnames.begin(), varnames.end());
+          }
+          // Always output id, x, y, and z for swarms so that they work with vis tools.
+          // Note, it's fine to add the id by default (even though it might not actually
+          // exist) because only variables that do exists are actually being written.
+          std::vector<std::string> coords = {
+              swarm_position::id::name(), swarm_position::x::name(),
+              swarm_position::y::name(), swarm_position::z::name()};
+          op.swarms[swname].insert(coords.begin(), coords.end());
+        }
+      }
+    }
+    op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
+    op.data_format.insert(0, " "); // prepend with blank to separate columns
+
+    // Construct new OutputType according to file format
+    // NEW_OUTPUT_TYPES: Add block to construct new types here
+    if (op.file_type == "hst") {
+      pnew_type = new HistoryOutput(op);
+    } else if (op.file_type == "ascent") {
+      pnew_type = new AscentOutput(op);
+    } else if (op.file_type == "histogram") {
+#ifdef ENABLE_HDF5
+      pnew_type = new HistogramOutput(op, pin);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for HDF5 outputs, but HDF5 file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef ENABLE_HDF5
+    } else if (is_hdf5_output) {
+      const bool restart = (op.file_type == "rst");
+      const bool coredump = (op.file_type == "corehdf5");
+      if (restart) {
+        num_rst_outputs++;
+      }
+      if (coredump) {
+        num_core_outputs++;
+      }
+#ifdef ENABLE_HDF5
+      op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
+      op.write_swarm_xdmf =
+          pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+      pnew_type = new PHDF5Output(
+          op, restart ? DumpOutputMode::RESTART
+                      : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for HDF5 outputs, but HDF5 file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef ENABLE_HDF5
+    } else {
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Unrecognized file format = '" << op.file_type << "' in output block '"
+          << op.block_name << "'" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    // Append type as tail node in singly linked list
+    if (pfirst_type_ == nullptr) {
+      pfirst_type_ = pnew_type;
+    } else {
+      plast->pnext_type = pnew_type;
+    }
+    plast = pnew_type;
   }
 
   // check there were no more than one restart file requested
@@ -377,7 +392,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pot->pnext_type = prst;
   }
   // if found == 2, do nothing; it's already at the tail node/end of the list
-} // namespace parthenon
+}
 
 // destructor - iterates through singly linked list of OutputTypes and deletes nodes
 
@@ -498,6 +513,25 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
+  }
+}
+
+void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
+  output_params.file_number++;
+  auto pkg = pm->packages.Get("Outputs");
+  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
+  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
+  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
+  (*pfile_numbers)[output_params.contiguous_block_index] = output_params.file_number;
+  if (tm != nullptr) {
+    if (output_params.dt > 0.0) {
+      (*plast_times)[output_params.contiguous_block_index] = tm->time;
+      output_params.next_time += output_params.dt;
+    }
+    if (output_params.dn > 0) {
+      (*plast_ns)[output_params.contiguous_block_index] = tm->ncycle;
+      output_params.next_n += output_params.dn;
+    }
   }
 }
 

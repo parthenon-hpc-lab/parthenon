@@ -25,6 +25,7 @@
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "parameter_input.hpp"
 
 using parthenon::Params;
 using parthenon::Real;

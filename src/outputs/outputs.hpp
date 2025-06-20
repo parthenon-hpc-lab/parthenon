@@ -102,6 +102,9 @@ class OutputType {
   // nested doubly linked list of OutputData nodes (of the same OutputType):
   OutputData *pfirst_data_; // ptr to head OutputData node in doubly linked list
   OutputData *plast_data_;  // ptr to tail OutputData node in doubly linked list
+
+  // Update book-keeping such as next output time to next output
+  void UpdateNextOutput_(Mesh *pm, SimTime *tm);
 };
 
 //----------------------------------------------------------------------------------------

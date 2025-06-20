@@ -18,60 +18,22 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef OUTPUTS_OUTPUTS_PACKAGE_HPP_
+#define OUTPUTS_OUTPUTS_PACKAGE_HPP_
 
-#ifndef OUTPUTS_OUTPUT_PARAMETERS_HPP_
-#define OUTPUTS_OUTPUT_PARAMETERS_HPP_
-
-#include <map>
-#include <set>
+#include <memory>
 #include <string>
-#include <vector>
 
 namespace parthenon {
 
-// JMM: I designed this for HDF5 but in pinciple this switching could
-// also work for other output types... Any output type that is capable
-// of outputting a full dump can do this.
-enum class DumpOutputMode { DUMP, RESTART, CORE };
+class ParameterInput;
+class StateDescriptor;
 
-//----------------------------------------------------------------------------------------
-//! \struct OutputParameters
-//  \brief  container for parameters read from <output> block in the input file
-struct OutputParameters {
-  OutputParameters() = default;
+namespace OutputsPackage {
 
-  int block_number = 0;
-  int contiguous_block_index;
-  std::string block_name;
-  std::string file_basename;
-  int file_number_width;
-  bool file_label_final;
-  bool analysis_flag; // write this output for analysis/postprocessing restarts
-  std::string file_id;
-  std::vector<std::string> variables;
-  std::vector<std::string> component_labels;
-  std::map<std::string, std::set<std::string>> swarms;
-  std::vector<std::string> swarm_vars;
-  std::string file_type;
-  std::string data_format;
-  std::string meshdata_name;
-  std::vector<std::string> packages;
-  Real last_time;
-  Real next_time = 0.0;
-  Real dt = 1.0;
-  int last_n;
-  int next_n = 0;
-  int dn = -1;
-  int file_number = 0;
-  bool include_ghost_zones = false;
-  bool cartesian_vector = false;
-  bool single_precision_output = false;
-  bool sparse_seed_nans = false;
-  int hdf5_compression_level = 5;
-  bool write_xdmf = false;
-  bool write_swarm_xdmf = false;
-};
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
+} // namespace OutputsPackage
 } // namespace parthenon
 
-#endif // OUTPUTS_OUTPUT_PARAMETERS_HPP_
+#endif // OUTPUTS_OUTPUTS_PACKAGE_HPP_
