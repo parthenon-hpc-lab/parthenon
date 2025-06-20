@@ -14,6 +14,8 @@ struct SparsePackList {};
 template <typename... Ts>
 struct SparsePackList<SparsePack<Ts...>> {
   using type = SparsePack<Ts...>;
+  // this doesn't actually reflect the size of the types packed, as
+  // that can not be guaranteed at runtime
   static constexpr std::size_t ncomp = sizeof...(Ts);
 
   KOKKOS_INLINE_FUNCTION SparsePackList(const type &pack_in, const int &b_in)
