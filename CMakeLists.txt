@@ -75,6 +75,10 @@ endif()
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
+# Provenance / build information
+include("cmake/Provenance.cmake")
+CheckGitSetup()
+
 # regression test reference data
 set(REGRESSION_GOLD_STANDARD_VER 26 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH

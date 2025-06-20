@@ -134,6 +134,9 @@ add_library(parthenon
   driver/multistage.cpp
   driver/multistage.hpp
 
+  generated/provenance.cpp
+  generated/provenance.hpp
+
   interface/data_collection.cpp
   interface/data_collection.hpp
   interface/mesh_data.cpp

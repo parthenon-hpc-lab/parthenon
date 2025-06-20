@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "driver/driver.hpp"
+#include "generated/provenance.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -136,7 +137,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
     Kokkos::Profiling::popRegion(); // write input
-  }                                 // Input section
+  } // Input section
 
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
@@ -148,6 +149,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
+
+      // Writing build and provenance information
+      HDF5WriteAttribute("parthenon_git_hash", provenance::PARTHENON_GIT_HASH,
+                         info_group);
+      HDF5WriteAttribute("parthenon_git_branch", provenance::PARTHENON_GIT_BRANCH,
+                         info_group);
+      HDF5WriteAttribute("parthenon_compiler", provenance::PARTHENON_COMPILER,
+                         info_group);
+      HDF5WriteAttribute("parthenon_build_timestamp",
+                         provenance::PARTHENON_BUILD_TIMESTAMP, info_group);
+      HDF5WriteAttribute("parthenon_build_arch", provenance::PARTHENON_ARCH, info_group);
+      HDF5WriteAttribute("parthenon_build_optlevel", provenance::PARTHENON_OPTIMIZATION,
+                         info_group);
+
+      // Pull out Kokkos config which can contain GPU information
+      std::ostringstream kokkos_config;
+      Kokkos::print_configuration(kokkos_config);
+      HDF5WriteAttribute("kokkos_config", kokkos_config.str(), info_group);
     }
 
     HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
@@ -194,7 +213,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
     HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
-  }                                 // Info section
+  } // Info section
 
   // write Params
   {
@@ -207,8 +226,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
     Kokkos::Profiling::popRegion(); // behold: write Params
-  }                                 // Params section
-  Kokkos::Profiling::popRegion();   // write Attributes
+  } // Params section
+  Kokkos::Profiling::popRegion(); // write Attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
