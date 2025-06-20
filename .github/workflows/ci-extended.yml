@@ -21,6 +21,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
   OMPI_MCA_mpi_common_cuda_event_max: 1000
+  # CUDA IPC within docker repeated seem to cause issue on the CI machine
+  OMPI_MCA_btl_smcuda_use_cuda_ipc: 0
   # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
   OMPI_MCA_btl_vader_single_copy_mechanism: none
 
@@ -32,9 +34,9 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
@@ -98,7 +100,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
             -DPARTHENON_ENABLE_ASCENT=ON \
-            -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
+            -DCMAKE_CUDA_HOST_COMPILER=g++ \
+            -DAscent_DIR=/usr/local/ascent-checkout/lib/cmake/ascent
           cmake --build build-ascent
           cd example/advection/
           # Pick GPU with most available memory
@@ -113,7 +116,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: log-and-convergence-${{ matrix.device }}-${{ matrix.parallel }}
           path: |
@@ -129,7 +132,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -171,7 +174,7 @@ jobs:
           cd build
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: log-and-convergence-${{ matrix.parallel }}
           path: |

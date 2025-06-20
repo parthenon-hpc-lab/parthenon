@@ -1,13 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -72,9 +72,10 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -103,7 +104,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   InputBlock *pib = pin->pfirst_block;
   OutputType *pnew_type;
   OutputType *plast = pfirst_type_;
-  int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
+  // We should only have at most one each of these output types. Count
+  // them so we can raise an error.
+  int num_rst_outputs = 0;
+  int num_core_outputs = 0;
 
   // loop over input block names.  Find those that start with "parthenon/output", read
   // parameters, and construct singly linked list of OutputTypes.
@@ -117,19 +121,31 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.block_name.assign(pib->block_name);
 
       Real dt = 0.0; // default value == 0 means that initial data is written by default
-      // for temporal drivers, setting dt to tlim ensures a final output is also written
+      int dn = -1;
       if (tm != nullptr) {
-        dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+        dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
+
+        // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
+        // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
+        // written for temporal drivers.
+        const auto tlim = dn >= 0 ? -1 : tm->tlim;
+        dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
       }
       // if this output is "soft-disabled" (negative value) skip processing
-      if (dt < 0.0) {
+      if (dt < 0.0 && dn < 0) {
         pib = pib->pnext; // move to next input block name
         continue;
       }
+
+      PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
+                               "dt and dn are enabled for the same output block, which "
+                               "is not supported. Please set at most one value >= 0.");
       // set time of last output, time between outputs
       if (tm != nullptr) {
         op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
         op.dt = dt;
+        op.next_n = pin->GetOrAddInteger(op.block_name, "next_n", tm->ncycle);
+        op.dn = dn;
       }
 
       // set file number, basename, id, and format
@@ -152,13 +168,15 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
 
       // read single precision output option
-      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5");
+      const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
+                                  (op.file_type == "corehdf5");
 
       if (is_hdf5_output) {
         op.single_precision_output =
             pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
         op.sparse_seed_nans =
             pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
+        op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base");
       } else {
         op.single_precision_output = false;
         op.sparse_seed_nans = false;
@@ -213,7 +231,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // set output variable and optional data format string used in formatted writes
       if ((op.file_type != "hst") && (op.file_type != "rst") &&
-          (op.file_type != "ascent") && (op.file_type != "histogram")) {
+          (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
+          (op.file_type != "histogram")) {
         op.variables = pin->GetOrAddVector<std::string>(pib->block_name, "variables",
                                                         std::vector<std::string>());
         // JMM: If the requested var isn't present for a given swarm,
@@ -243,10 +262,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                   pin->GetVector<std::string>(pib->block_name, swname + "_variables");
               op.swarms[swname].insert(varnames.begin(), varnames.end());
             }
-            // Always output x, y, and z for swarms so that they work with vis tools.
-            std::vector<std::string> coords = {swarm_position::x::name(),
-                                               swarm_position::y::name(),
-                                               swarm_position::z::name()};
+            // Always output id, x, y, and z for swarms so that they work with vis tools.
+            // Note, it's fine to add the id by default (even though it might not actually
+            // exist) because only variables that do exists are actually being written.
+            std::vector<std::string> coords = {
+                swarm_position::id::name(), swarm_position::x::name(),
+                swarm_position::y::name(), swarm_position::z::name()};
             op.swarms[swname].insert(coords.begin(), coords.end());
           }
         }
@@ -258,9 +279,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // NEW_OUTPUT_TYPES: Add block to construct new types here
       if (op.file_type == "hst") {
         pnew_type = new HistoryOutput(op);
-        num_hst_outputs++;
-      } else if (op.file_type == "vtk") {
-        pnew_type = new VTKOutput(op);
       } else if (op.file_type == "ascent") {
         pnew_type = new AscentOutput(op);
       } else if (op.file_type == "histogram") {
@@ -276,15 +294,20 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #endif // ifdef ENABLE_HDF5
       } else if (is_hdf5_output) {
         const bool restart = (op.file_type == "rst");
+        const bool coredump = (op.file_type == "corehdf5");
         if (restart) {
           num_rst_outputs++;
+        }
+        if (coredump) {
+          num_core_outputs++;
         }
 #ifdef ENABLE_HDF5
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
         op.write_swarm_xdmf =
-            (restart) ? false
-                      : pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-        pnew_type = new PHDF5Output(op, restart);
+            pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+        pnew_type = new PHDF5Output(
+            op, restart ? DumpOutputMode::RESTART
+                        : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -315,6 +338,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
         << "More than one restart output block detected in input file" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+  if (num_core_outputs > 1) {
+    msg << "### FATAL ERROR in Outputs constructor\n"
+        << "More than one corehdf5 output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
@@ -438,9 +466,19 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
     if ((tm == nullptr) ||
-        ((ptype->output_params.dt >= 0.0) &&
-         ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
-          (tm->time >= tm->tlim) || (signal == SignalHandler::OutputSignal::now) ||
+        // output is not soft disabled and
+        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0)) &&
+         // either dump initial data
+         ((tm->ncycle == 0) ||
+          //  or by triggering time or cycle based conditions
+          ((ptype->output_params.dt >= 0.0) &&
+           ((tm->time >= ptype->output_params.next_time) ||
+            (tm->tlim > 0.0 && tm->time >= tm->tlim))) ||
+          ((ptype->output_params.dn >= 0) &&
+           ((tm->ncycle >= ptype->output_params.next_n) ||
+            (tm->nlim > 0 && tm->ncycle >= tm->nlim))) ||
+          // or by manual triggers
+          (signal == SignalHandler::OutputSignal::now) ||
           (signal == SignalHandler::OutputSignal::final) ||
           (signal == SignalHandler::OutputSignal::analysis &&
            ptype->output_params.analysis_flag)))) {

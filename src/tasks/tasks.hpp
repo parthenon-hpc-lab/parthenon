@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -466,7 +466,7 @@ class TaskRegion {
       task_lists[i].SetID(i);
   }
 
-  TaskListStatus Execute(ThreadPool &pool);
+  TaskListStatus Execute(Pool_t &pool);
   TaskList &operator[](const int i) { return task_lists[i]; }
   size_t size() const { return task_lists.size(); }
 
@@ -494,10 +494,10 @@ class TaskCollection {
     return regions.back();
   }
   TaskListStatus Execute() {
-    static ThreadPool pool(1);
+    static Pool_t pool(1);
     return Execute(pool);
   }
-  TaskListStatus Execute(ThreadPool &pool) {
+  TaskListStatus Execute(Pool_t &pool) {
     TaskListStatus status;
     for (auto &region : regions) {
       status = region.Execute(pool);

@@ -13,6 +13,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 5 # num threads for build
   MACHINE_CFG: cmake/machinecfg/CI.cmake
   OMPI_MCA_mpi_common_cuda_event_max: 1000
+  # CUDA IPC within docker repeated seem to cause issue on the CI machine
+  OMPI_MCA_btl_smcuda_use_cuda_ipc: 0
   # https://github.com/open-mpi/ompi/issues/4948#issuecomment-395468231
   OMPI_MCA_btl_vader_single_copy_mechanism: none
 
@@ -20,20 +22,20 @@ jobs:
   style:
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: 'true'
       - name: cpplint
-        run: python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+        run: python3 ./tst/style/cpplint.py --counting=detailed --recursive src example tst
       - name: copyright
         run: |
           cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
           cmake --build build-copyright-check -t check-copyright
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-style
           path: build-copyright-check/CMakeFiles/CMakeOutput.log
@@ -45,9 +47,9 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
@@ -65,7 +67,7 @@ jobs:
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
           ctest -LE 'performance|regression'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-unit-${{ matrix.device }}
           path: build/CMakeFiles/CMakeOutput.log
@@ -77,9 +79,9 @@ jobs:
         device: ['cuda', 'host']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
-      options: --user 1001
+      options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
       - uses: actions/checkout@v3
         with:
@@ -124,7 +126,7 @@ jobs:
           if grep HtoD profile.txt; then exit 1; fi
           if grep DtoH profile.txt; then exit 1; fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-${{ matrix.device }}
           path: |
@@ -135,7 +137,7 @@ jobs:
   integration-amdgpu:
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -166,7 +168,7 @@ jobs:
           cd build
           ctest -R regression_mpi_test:particle_leapfrog
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: configure-log-integration-amdgpu
           path: |

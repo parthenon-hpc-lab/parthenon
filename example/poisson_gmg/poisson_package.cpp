@@ -24,8 +24,9 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
-#include <solvers/mg_solver.hpp>
+#include <solvers/cg_solver.hpp>
 #include <solvers/solver_utils.hpp>
+#include <solvers/tridiag_solver.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -77,49 +78,62 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
   pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
 
-  int max_poisson_iterations = pin->GetOrAddInteger("poisson", "max_iterations", 10000);
-  pkg->AddParam<>("max_iterations", max_poisson_iterations);
-
   Real diagonal_alpha = pin->GetOrAddReal("poisson", "diagonal_alpha", 0.0);
   pkg->AddParam<>("diagonal_alpha", diagonal_alpha);
 
   std::string solver = pin->GetOrAddString("poisson", "solver", "MG");
   pkg->AddParam<>("solver", solver);
 
-  bool flux_correct = pin->GetOrAddBoolean("poisson", "flux_correct", false);
-  pkg->AddParam<>("flux_correct", flux_correct);
-
-  Real err_tol = pin->GetOrAddReal("poisson", "error_tolerance", 1.e-8);
-  pkg->AddParam<>("error_tolerance", err_tol);
-
   bool use_exact_rhs = pin->GetOrAddBoolean("poisson", "use_exact_rhs", false);
   pkg->AddParam<>("use_exact_rhs", use_exact_rhs);
 
-  PoissonEquation eq;
-  eq.do_flux_cor = flux_correct;
+  std::string prolong = pin->GetOrAddString("poisson", "boundary_prolongation", "Linear");
 
-  parthenon::solvers::MGParams mg_params(pin, "poisson/solver_params");
-  parthenon::solvers::MGSolver<u, rhs, PoissonEquation> mg_solver(pkg.get(), mg_params,
-                                                                  eq);
-  pkg->AddParam<>("MGsolver", mg_solver, parthenon::Params::Mutability::Mutable);
+  using PoissEq = poisson_package::PoissonEquation<u, D>;
+  PoissEq eq(pin, "poisson");
+  pkg->AddParam<>("poisson_equation", eq, parthenon::Params::Mutability::Mutable);
 
-  parthenon::solvers::BiCGSTABParams bicgstab_params(pin, "poisson/solver_params");
-  parthenon::solvers::BiCGSTABSolver<u, rhs, PoissonEquation> bicg_solver(
-      pkg.get(), bicgstab_params, eq);
-  pkg->AddParam<>("MGBiCGSTABsolver", bicg_solver,
-                  parthenon::Params::Mutability::Mutable);
+  std::shared_ptr<parthenon::solvers::SolverBase> psolver;
+  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
+  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  if (solver == "MG") {
+    psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "CG") {
+    psolver = std::make_shared<parthenon::solvers::CGSolver<PoissEq, preconditioner_t>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "BiCGSTAB") {
+    psolver =
+        std::make_shared<parthenon::solvers::BiCGSTABSolver<PoissEq, preconditioner_t>>(
+            "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else if (solver == "Tridiag") {
+    psolver = std::make_shared<parthenon::solvers::TridiagSolver<PoissEq>>(
+        "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
+  } else {
+    PARTHENON_FAIL("Unknown solver type " + solver + ".");
+  }
+  pkg->AddParam<>("solver_pointer", psolver);
 
   using namespace parthenon::refinement_ops;
   auto mD = Metadata(
       {Metadata::Independent, Metadata::OneCopy, Metadata::Face, Metadata::GMGRestrict});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
-  auto mflux_comm = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost,
-                              Metadata::WithFluxes, Metadata::GMGRestrict});
-  mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
+                                  Metadata::FillGhost,   Metadata::WithFluxes,
+                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
+  auto mflux_comm = Metadata(flags);
+  if (prolong == "Linear") {
+    mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
+  } else if (prolong == "Constant") {
+    mflux_comm.RegisterRefinementOps<ProlongatePiecewiseConstant, RestrictAverage>();
+  } else {
+    PARTHENON_FAIL("Unknown prolongation method for Poisson boundaries.");
+  }
   // u is the solution vector that starts with an initial guess and then gets updated
   // by the solver
   pkg->AddField(u::name(), mflux_comm);

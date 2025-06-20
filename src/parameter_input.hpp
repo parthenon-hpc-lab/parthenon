@@ -115,8 +115,6 @@ class ParameterInput {
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value,
                              const std::vector<std::string> &allowed_values);
-  void RollbackNextTime();
-  void ForwardNextTime(Real time);
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
 

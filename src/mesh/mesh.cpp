@@ -39,6 +39,7 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "amr_criteria/refinement_package.hpp"
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
@@ -389,7 +390,7 @@ Mesh::~Mesh() {
 
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
-      grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
+      grid.type == GridType::leaf ? block_list : gmg_block_lists_[grid.logical_level],
       DefaultPackSize());
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
@@ -814,8 +815,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     FillDerived();
 
     if (init_problem && adaptive) {
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->pmr->CheckRefinementCondition();
+      for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        auto &md = mesh_data.Add("base", partition);
+        Refinement::Tag(md.get());
       }
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
@@ -903,6 +905,18 @@ const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
   } else { // if (level == CellLevel::coarse) {
     return shapes[2];
   }
+}
+
+ParArray1D<AmrTag> &Mesh::GetAmrTags() {
+  const int nblocks = GetNumMeshBlocksThisRank();
+  if (!amr_tags.KokkosView().is_allocated()) {
+    amr_tags.KokkosView() = Kokkos::View<AmrTag *>(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks);
+  }
+  if (amr_tags.KokkosView().size() != nblocks) {
+    Kokkos::realloc(amr_tags.KokkosView(), nblocks);
+  }
+  return amr_tags;
 }
 
 // Functionality re-used in mesh constructor

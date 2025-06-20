@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -18,9 +19,10 @@
 #include <utility>
 #include <vector>
 
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "swarm.hpp"
-#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -33,6 +35,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.block_index_ = block_index_;
   context.neighbor_indices_ = neighbor_indices_;
   context.cell_sorted_ = cell_sorted_;
+  context.buffer_sorted_ = buffer_sorted_;
   context.cell_sorted_begin_ = cell_sorted_begin_;
   context.cell_sorted_number_ = cell_sorted_number_;
 
@@ -73,15 +76,19 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       new_indices_("new_indices_", nmax_pool_), scratch_a_("scratch_a_", nmax_pool_),
       scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
-      buffer_counters_("buffer_counters_", NMAX_NEIGHBORS),
+      buffer_start_("buffer_start_", NMAX_NEIGHBORS),
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
-      cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
+      cell_sorted_("cell_sorted_", nmax_pool_),
+      buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
+  if (!metadata.IsSet(Metadata::NoPersistentParticleIds)) {
+    Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
+  }
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
@@ -116,7 +123,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
   //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
   if (std::get<getType<int>()>(maps_).count(label) > 0 ||
-      std::get<getType<Real>()>(maps_).count(label) > 0) {
+      std::get<getType<Real>()>(maps_).count(label) > 0 ||
+      std::get<getType<std::uint64_t>()>(maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
@@ -126,6 +134,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 
   if (newm.Type() == Metadata::Integer) {
     Add_<int>(label, newm);
+  } else if (newm.Type() == Metadata::UInt64) {
+    Add_<std::uint64_t>(label, newm);
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
@@ -143,6 +153,8 @@ void Swarm::Remove(const std::string &label) {
 
   auto &int_map = std::get<getType<int>()>(maps_);
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_map = std::get<getType<std::uint64_t>()>(maps_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_map = std::get<getType<Real>()>(maps_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
@@ -155,7 +167,7 @@ void Swarm::Remove(const std::string &label) {
     }
     idx++;
   }
-  if (found == true) {
+  if (found) {
     // first delete the variable
     int_vector[idx].reset();
 
@@ -165,28 +177,44 @@ void Swarm::Remove(const std::string &label) {
 
     // Also remove variable from map
     int_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    idx = 0;
-    for (const auto &v : real_vector) {
-      if (label == v->label()) {
-        found = true;
-        break;
-      }
-      idx++;
+  // search next variable type (real)
+  idx = 0;
+  for (const auto &v : real_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
     }
+    idx++;
   }
-  if (found == true) {
+  if (found) {
     real_vector[idx].reset();
     if (real_vector.size() > 1) real_vector[idx] = std::move(real_vector.back());
     real_vector.pop_back();
     real_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    throw std::invalid_argument("swarm variable not found in Remove()");
+  // search next variable type (uint64_t)
+  idx = 0;
+  for (const auto &v : uint64_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
+    }
+    idx++;
   }
+  if (found) {
+    uint64_vector[idx].reset();
+    if (uint64_vector.size() > 1) uint64_vector[idx] = std::move(uint64_vector.back());
+    uint64_vector.pop_back();
+    uint64_map.erase(label);
+    return;
+  }
+
+  throw std::invalid_argument("swarm variable not found in Remove()");
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
@@ -209,16 +237,26 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   Kokkos::resize(cell_sorted_, nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
+  Kokkos::resize(buffer_sorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
+
   block_index_.Resize(nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(int));
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
   for (auto &d : int_vector) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
     pmb->LogMemUsage(n_new * sizeof(int));
+  }
+
+  for (auto &d : uint64_vector) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(std::uint64_t));
   }
 
   for (auto &d : real_vector) {
@@ -394,17 +432,23 @@ void Swarm::Defrag() {
 
   // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
+  PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
+  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
   int real_vars_size = real_vector.size();
   int int_vars_size = int_vector.size();
+  int uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
+  auto uint64_map = uint64_imap.Map();
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
+  const int uint64PackDim = vuint64.GetDim(2);
 
   // Loop over only the active number of particles, and if mask is empty, copy in particle
   // using address from prefix sum
@@ -417,6 +461,9 @@ void Swarm::Defrag() {
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
             vint(vidx, n) = vint(vidx, nread);
+          }
+          for (int vidx = 0; vidx < uint64PackDim; vidx++) {
+            vuint64(vidx, n) = vuint64(vidx, nread);
           }
           mask(n) = true;
         }
@@ -490,35 +537,35 @@ void Swarm::SortParticlesByCell() {
             break;
           }
 
-          if (cell_sorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ == cell_idx_1d) {
             if (start_index == 0) {
               break;
-            } else if (cell_sorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+            } else if (cell_sorted(start_index - 1).sort_idx_ != cell_idx_1d) {
               break;
             } else {
               start_index--;
               continue;
             }
           }
-          if (cell_sorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
-          if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
             start_index++;
             if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ > cell_idx_1d) {
               start_index = -1;
               break;
             }
@@ -532,7 +579,7 @@ void Swarm::SortParticlesByCell() {
           int number = 0;
           int current_index = start_index;
           while (current_index <= max_active_index &&
-                 cell_sorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+                 cell_sorted(current_index).sort_idx_ == cell_idx_1d) {
             current_index++;
             number++;
             cell_sorted_number(k, j, i) = number;

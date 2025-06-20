@@ -79,11 +79,14 @@ class Swarm {
  private:
   static const int IntVec = 0;
   static const int RealVec = 1;
+  static const int UInt64Vec = 2;
 
   template <class T>
   static constexpr int getType() {
     if (std::is_same<T, int>::value) {
       return IntVec;
+    } else if (std::is_same<T, std::uint64_t>::value) {
+      return UInt64Vec;
     }
     return RealVec;
   }
@@ -214,6 +217,9 @@ class Swarm {
     for (auto &v : std::get<1>(vectors_)) {
       size += v->NumComponents();
     }
+    for (auto &v : std::get<2>(vectors_)) {
+      size += v->NumComponents();
+    }
 
     return size;
   }
@@ -268,9 +274,11 @@ class Swarm {
   Metadata m_;
   int nmax_pool_;
   std::string info_;
-  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>> vectors_;
+  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>,
+             ParticleVariableVector<std::uint64_t>>
+      vectors_;
 
-  std::tuple<MapToParticle<int>, MapToParticle<Real>> maps_;
+  std::tuple<MapToParticle<int>, MapToParticle<Real>, MapToParticle<uint64_t>> maps_;
 
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
@@ -289,7 +297,7 @@ class Swarm {
   constexpr static int unset_index_ = -1;
 
   ParArray1D<int> num_particles_to_send_;
-  ParArray1D<int> buffer_counters_;
+  ParArray1D<int> buffer_start_;
   ParArray1D<int> neighbor_received_particles_;
   int total_received_particles_;
 
@@ -297,6 +305,9 @@ class Swarm {
 
   ParArray1D<SwarmKey>
       cell_sorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArray1D<SwarmKey>
+      buffer_sorted_; // 1D per-buffer sorted array of key-value swarm memory indices
 
   ParArrayND<int>
       cell_sorted_begin_; // Per-cell array of starting indices in cell_sorted_

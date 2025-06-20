@@ -18,6 +18,7 @@
 //  \brief writes history output data, volume-averaged quantities that are output
 //         frequently in time to trace their history.
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -93,9 +94,16 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     md_base->Initialize(pm->block_list, pm);
   }
 
-  // Loop over all packages of the application
-  for (const auto &pkg : packages) {
-    const auto &params = pkg.second->AllParams();
+  // Loop over all packages of the application in alphabetical order to ensure consistency
+  // of ordering of data in columns.
+  std::vector<std::string> keys;
+  for (const auto &pair : packages) {
+    keys.push_back(pair.first);
+  }
+  std::sort(keys.begin(), keys.end());
+  for (const auto &key : keys) {
+    const auto &pkg = packages[key];
+    const auto &params = pkg->AllParams();
 
     // Check if the package has enrolled scalar history functions which are stored in the
     // Params under the `hist_param_key` name.
@@ -203,9 +211,15 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // advance output parameters
   output_params.file_number++;
-  output_params.next_time += output_params.dt;
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  if (output_params.dt > 0.0) {
+    output_params.next_time += output_params.dt;
+    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  }
+  if (output_params.dn > 0) {
+    output_params.next_n += output_params.dn;
+    pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
+  }
 }
 
 } // namespace parthenon
