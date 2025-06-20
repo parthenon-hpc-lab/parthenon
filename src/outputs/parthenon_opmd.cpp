@@ -281,8 +281,9 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
   } else if (pm->ndim == 2) {
     chunk_offset = {loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
                     loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-    chunk_extent = {static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
+    chunk_extent = {
+        static_cast<uint64_t>(pmb->block_size.nx(X2DIR) + TopologicalOffsetJ(te)),
+        static_cast<uint64_t>(pmb->block_size.nx(X1DIR) + TopologicalOffsetI(te))};
   } else {
     PARTHENON_THROW("1D output for openpmd not yet supported.");
   }
