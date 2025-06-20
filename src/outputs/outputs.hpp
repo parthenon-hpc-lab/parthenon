@@ -1,9 +1,13 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -167,8 +171,8 @@ class AscentOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  PHDF5Output(const OutputParameters &oparams, bool restart)
-      : OutputType(oparams), restart_(restart) {}
+  PHDF5Output(const OutputParameters &oparams, DumpOutputMode mode)
+      : OutputType(oparams), mode_(mode) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -190,7 +194,19 @@ class PHDF5Output : public OutputType {
                         const std::vector<std::string> &sparse_names, hsize_t num_sparse,
                         hid_t file, const HDF5::H5P &pl, size_t offset,
                         hsize_t max_blocks_global) const;
-  const bool restart_; // true if we write a restart file, false for regular output files
+  std::string FilePostfix_() const {
+    if (mode_ == DumpOutputMode::DUMP) {
+      return ".phdf";
+    } else if (mode_ == DumpOutputMode::RESTART) {
+      return ".rhdf";
+    } else if (mode_ == DumpOutputMode::CORE) {
+      return ".chdf";
+    } else {
+      PARTHENON_FAIL("Unknown dump output mode");
+      return "";
+    }
+  }
+  const DumpOutputMode mode_;
 };
 
 //----------------------------------------------------------------------------------------
