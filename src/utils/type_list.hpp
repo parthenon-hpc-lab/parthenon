@@ -33,6 +33,7 @@ struct TypeList {
   using types = std::tuple<Args...>;
 
   static constexpr std::size_t n_types{sizeof...(Args)};
+  static constexpr std::size_t ncomp{n_types};
 
   template <std::size_t I>
   using type = typename std::tuple_element<I, types>::type;

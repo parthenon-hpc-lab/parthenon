@@ -14,7 +14,7 @@ struct SparsePackList {};
 template <typename... Ts>
 struct SparsePackList<SparsePack<Ts...>> {
   using type = SparsePack<Ts...>;
-  static constexpr std::size_t n_types = sizeof...(Ts);
+  static constexpr std::size_t ncomp = sizeof...(Ts);
 
   KOKKOS_INLINE_FUNCTION SparsePackList(const type &pack_in, const int &b_in)
       : pack(pack_in), b(b_in) {}
@@ -29,6 +29,35 @@ struct SparsePackList<SparsePack<Ts...>> {
   const int b;
 };
 
+template <typename... Vars>
+struct VarList {
+  template <typename... Ts>
+  using TypeList = parthenon::TypeList<Ts...>;
+
+  static constexpr std::size_t GetSize() {
+    std::size_t size = 0;
+    ([&] { size += Vars::ncomp; }(), ...);
+    return size;
+  }
+
+  static constexpr std::size_t ncomp = GetSize();
+  template <typename V>
+  KOKKOS_INLINE_FUNCTION std::size_t GetIndex(const V &var) const {
+    return GetIndex_(TypeList<Vars...>(), var);
+  }
+
+ private:
+  template <typename V, typename... Vs>
+  KOKKOS_INLINE_FUNCTION std::size_t GetIndex_(TypeList<V, Vs...>, const V &var) const {
+    return var.idx;
+  }
+
+  template <typename V, typename U, typename... Us>
+  KOKKOS_INLINE_FUNCTION std::size_t GetIndex_(TypeList<U, Us...>, const V &var) const {
+    return U::ncomp + GetIndex_(TypeList<Us...>(), var);
+  }
+};
+
 namespace impl {
 template <typename>
 struct TypeListArray {};
@@ -36,12 +65,12 @@ struct TypeListArray {};
 template <template <typename...> typename PackType, typename... Ts>
 struct TypeListArray<PackType<Ts...>> {
   using type = PackType<Ts...>;
-  using Arr_t = Kokkos::Array<Real, type::n_types>;
+  using Arr_t = Kokkos::Array<Real, type::ncomp>;
 
   KOKKOS_INLINE_FUNCTION TypeListArray(const type &pack_in) : pack(pack_in) {}
   KOKKOS_INLINE_FUNCTION TypeListArray(const type &pack_in, const Real &value)
       : TypeListArray(pack_in) {
-    for (int idx = 0; idx < type::n_types; idx++) {
+    for (int idx = 0; idx < type::ncomp; idx++) {
       data[idx] = value;
     }
   }
@@ -90,20 +119,28 @@ struct ScratchPack_impl<ScratchPad, PackType<Ts...>> {
 
  private:
   const type pack;
-  ScratchPad &scratch;
+  ScratchPad scratch;
   const int i;
 };
 
+// TypeList containers that can be used to index into an integer array need
+// to provide
+//    * a static constexpr std::size_t ncomp
+//       that declares the size of the array to index into
+//       note that this is not used by the ScratchPack, as it assumes
+//       that the scratch memory is already allocated
+//    * and an int GetIndex() method templated on the types in the list
 template <typename... Ts>
 struct PackLike {
-  template <typename T, REQUIRES(implements<integral(decltype(T::n_types))>::value)>
-  auto requires_(T) -> void_t<decltype(T::n_types), decltype(T().GetIndex(Ts()))...>;
+  template <typename T, REQUIRES(implements<integral(decltype(T::ncomp))>::value)>
+  auto requires_(T) -> void_t<decltype(T::ncomp), decltype(T().GetIndex(Ts()))...>;
 };
 
 } // namespace impl
 
 template <template <typename...> typename PackType, typename... Ts, typename... Args,
-          REQUIRES(implements<PackLike<Ts...>(PackType<Ts...>)>::value)>
+          REQUIRES(implements<PackLike<Ts...>(PackType<Ts...>)>::value &&
+                   !is_specialization_of<PackType<Ts...>, SparsePackList>::value)>
 KOKKOS_INLINE_FUNCTION auto TypeListArray(const PackType<Ts...> &pack, Args &&...args) {
   return impl::TypeListArray<PackType<Ts...>>(pack, std::forward<Args>(args)...);
 }
@@ -112,7 +149,7 @@ template <typename ScratchPad, template <typename...> typename PackType, typenam
           REQUIRES(implements<PackLike<Ts...>(PackType<Ts...>)>::value)>
 KOKKOS_INLINE_FUNCTION auto ScratchPack(const PackType<Ts...> &pack, ScratchPad &scratch,
                                         const int &i) {
-  return ScratchPack_impl<ScratchPad, Ts...>(pack, scratch, i);
+  return ScratchPack_impl<ScratchPad, PackType<Ts...>>(pack, scratch, i);
 }
 
 template <typename ScratchPad, typename... Ts>

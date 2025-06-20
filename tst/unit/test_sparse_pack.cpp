@@ -27,9 +27,11 @@
 #include "pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack.hpp"
 #include "pack/subpack.hpp"
+#include "utils/type_arrays.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
+#include "utils/type_list.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
@@ -63,6 +65,7 @@ struct v1 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
+  static constexpr std::size_t ncomp = 1;
 };
 
 struct v3 : public parthenon::variable_names::base_t<false, 3> {
@@ -70,6 +73,7 @@ struct v3 : public parthenon::variable_names::base_t<false, 3> {
   KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
+  static constexpr std::size_t ncomp = 3;
 };
 
 struct v5 : public parthenon::variable_names::base_t<false> {
@@ -77,6 +81,7 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
+  static constexpr std::size_t ncomp = 1;
 };
 
 using parthenon::variable_names::ANYDIM;
@@ -382,6 +387,57 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 }
               },
               nwrong);
+          REQUIRE(nwrong == 0);
+        }
+
+        AND_THEN("Check that ScratchPacks can correctly index by type.") {
+          using VL = parthenon::VarList<v1, v3, v5>;
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          const int scratch_level = 1;
+          std::size_t scratch_size_in_bytes =
+              parthenon::ScratchPad2D<Real>::shmem_size(VL::ncomp, ni);
+          parthenon::par_for_outer(
+              parthenon::outer_loop_pattern_teams_tag, "check vector", DevExecSpace(),
+              scratch_size_in_bytes, scratch_level, 0, sparse_pack.GetNBlocks() - 1, kb.s,
+              kb.e, jb.s, jb.e,
+              KOKKOS_LAMBDA(parthenon::team_mbr_t team_member, int b, int k, int j) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
+                parthenon::ScratchPad2D<Real> scratch(
+                    team_member.team_scratch(scratch_level), VL::ncomp, ni);
+                auto scratch_pack = parthenon::ScratchPack(VL(), scratch, ic);
+
+                parthenon::par_for_inner(
+                    team_member, ib.s - ni / 2, ib.e - ni / 2, [&](const int i) {
+                      for (int c = 0; c <= hi - lo; ++c) {
+                        scratch_pack(v3(c), i) =
+                            i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                        sparse_pack(b, v5(), k, j, i + ic) = 0.;
+                      }
+                    });
+                team_member.team_barrier();
+                parthenon::par_for_inner(
+                    team_member, ib.s - ni / 2, ib.e - ni / 2, [&](const int i) {
+                      for (int c = 0; c <= hi - lo; ++c) {
+                        if (scratch_pack(v3(c), i) != sub_pack(v3(c), i))
+                          sparse_pack(b, v5(), k, j, i + ic) = 1.;
+                      }
+                    });
+              });
+          par_reduce(
+              loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+              sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+              KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                for (int c = 0; c <= hi - lo; ++c) {
+                  if (sparse_pack(b, v5(), k, j, i) != 0.0) ltot += 1;
+                }
+              },
+              nwrong);
+          // int ltot = 0;
           REQUIRE(nwrong == 0);
         }
       }
