@@ -21,6 +21,7 @@
 
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,22 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
       std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
       std::string block_name = pib->block_name;
+
+      if (pin->DoesParameterExist(block_name, "next_time")) {
+        std::stringstream msg;
+        msg << "You have used the next_time parameter in the " << block_name
+            << " output block. This parameter is deprecated. Instead change"
+            << " the output cadence with dt." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+      if (pin->DoesParameterExist(block_name, "next_n")) {
+        std::stringstream msg;
+        msg << "You have used the next_n parameter in the " << block_name
+            << " output block. This parameter is deprecated. Instead change"
+            << " the output cadence with dn." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+
       // these are used for book-keeping
       block_names.push_back(block_name);
       block_numbers.push_back(atoi(outn.c_str()));
