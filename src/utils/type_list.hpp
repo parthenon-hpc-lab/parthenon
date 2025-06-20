@@ -14,6 +14,7 @@
 #ifndef UTILS_TYPE_LIST_HPP_
 #define UTILS_TYPE_LIST_HPP_
 
+#include "Kokkos_Macros.hpp"
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -47,6 +48,11 @@ struct TypeList {
     } else {
       return GetIdx<T, I + 1>();
     }
+  }
+
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION std::size_t GetIndex(const T &t) const {
+    return GetIdx<T>();
   }
 
   template <class F>
