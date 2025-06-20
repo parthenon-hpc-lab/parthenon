@@ -14,12 +14,13 @@
 #ifndef UTILS_TYPE_LIST_HPP_
 #define UTILS_TYPE_LIST_HPP_
 
-#include "Kokkos_Macros.hpp"
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <Kokkos_Macros.hpp>
 
 namespace parthenon {
 

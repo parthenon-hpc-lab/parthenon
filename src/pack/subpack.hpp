@@ -5,9 +5,6 @@
 #include "utils/concepts_lite.hpp"
 
 namespace parthenon {
-// this is added in another PR, just here for convenience
-template <typename T>
-using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
 
 namespace impl {
 enum class Axis { K = 0, J = 1, I = 2 };
