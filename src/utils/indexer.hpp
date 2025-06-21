@@ -148,7 +148,6 @@ struct Indexer {
   }
 
   template <std::size_t... Is>
-//<<<<<<< HEAD
   KOKKOS_FORCEINLINE_FUNCTION Kokkos::Array<int, sizeof...(Ts)>
   GetIndicesKArrayImpl(int idx, std::index_sequence<Is...>) const {
     Kokkos::Array<int, sizeof...(Ts)> indices;
@@ -162,11 +161,6 @@ struct Indexer {
     return indices;
   }
 
-//  template <std::size_t... Is>
-//  KOKKOS_FORCEINLINE_FUNCTION static Kokkos::Array<int, sizeof...(Ts)>
-//  GetFactors(Kokkos::Array<int, sizeof...(Ts)> Nt, std::index_sequence<Is...>) {
-//    Kokkos::Array<int, sizeof...(Ts)> N;
-//=======
   template <std::size_t... Is>
   KOKKOS_FORCEINLINE_FUNCTION std::size_t
   GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
@@ -174,7 +168,7 @@ struct Indexer {
     (
         [&] {
           idxs -= start[Is];
-          out += idxs * N[Is];
+          out += idxs * GetN<Is>();
         }(),
         ...);
     return out;
@@ -182,7 +176,7 @@ struct Indexer {
 
   template <std::size_t... Is>
   KOKKOS_FORCEINLINE_FUNCTION static Kokkos::Array<int, sizeof...(Ts)>
-  GetFactors(Kokkos::Array<int, sizeof...(Ts)> Nt,std::index_sequence<Is...>) {
+  GetFactors(Kokkos::Array<int, sizeof...(Ts)> Nt, std::index_sequence<Is...>) {
     Kokkos::Array<int, sizeof...(Ts)> N;
     std::size_t cur = 1;
     (
