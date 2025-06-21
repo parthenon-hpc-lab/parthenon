@@ -8,8 +8,8 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
-
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
