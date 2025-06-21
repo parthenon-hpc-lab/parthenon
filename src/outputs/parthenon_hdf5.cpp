@@ -165,7 +165,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // Pull out Kokkos config which can contain GPU information
     std::ostringstream kokkos_config;
     Kokkos::print_configuration(kokkos_config);
-    HDF5WriteAttribute("kokkos_config", kokkos_config.str(), info_group);
+    HDF5WriteAttribute("KokkosConfig", kokkos_config.str(), info_group);
 
     HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
     HDF5WriteAttribute("NumDims", pm->ndim, info_group);
