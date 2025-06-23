@@ -1,5 +1,5 @@
-``TypeList``s
-=============
+``TypeList``\ s
+===============
 
 Provides a wrapper class around a variadic pack of types to simplify
 performing compile time operations on the pack. There are templated 
@@ -13,10 +13,10 @@ would be nice to have the capability to make a unique type list from
 another type list (i.e. the unique one only a single instance of each type
 in the original type list)*
 
-``TypeList``s have many applications and are commonly found in many 
+``TypeList``\ s have many applications and are commonly found in many 
 codebases, but in Parthenon one of the main use cases is for storing 
 lists of types associated with field variables that are used in type 
-based ``SparsePack``s.  
+based ``SparsePack``\ s.  
 
 Robust
 ======

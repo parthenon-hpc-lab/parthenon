@@ -3,6 +3,33 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
+
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
+
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
+
+
+
+## Release 25.05
+Date: 2025-05-19
+
+### Added (new features/APIs/variables/...)
 - [[PR 1247]](https://github.com/parthenon-hpc-lab/parthenon/pull/1247) Add ability to output to HDF5 non-standard MeshData object
 - [[PR 1233]](https://github.com/parthenon-hpc-lab/parthenon/pull/1233) Add implicit diffusion example
 - [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
@@ -32,6 +59,9 @@
 - [[PR 1172]](https://github.com/parthenon-hpc-lab/parthenon/pull/1172) Make parthenon manager robust against external MPI init and finalize calls
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1251]](https://github.com/parthenon-hpc-lab/parthenon/pull/1251) Fix leftover reference to old coords interface
+- [[PR 1249]](https://github.com/parthenon-hpc-lab/parthenon/pull/1249) Fix flux metadata propagation in sparse pools
+- [[PR 1241]](https://github.com/parthenon-hpc-lab/parthenon/pull/1241) Emit an error message when using uninitialized multigrid blocks
 - [[PR 1248]](https://github.com/parthenon-hpc-lab/parthenon/pull/1248) Fix edge case regarding AMR de-refinement logic
 - [[PR 1240]](https://github.com/parthenon-hpc-lab/parthenon/pull/1240) Fix I/O for CellMemAligned variables
 - [[PR 1229]](https://github.com/parthenon-hpc-lab/parthenon/pull/1229) Ensure builds function on 32 bit architectures
