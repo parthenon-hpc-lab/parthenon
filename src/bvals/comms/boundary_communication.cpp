@@ -42,6 +42,35 @@
 
 namespace parthenon {
 
+class SplitIndexRangeAmongTeams {
+ public:
+  SplitIndexRangeAmongTeams(int nteams, int work_chunk_size, int total_work)
+      : nteams(nteams),
+        work_chunk_size(work_chunk_size),
+        total_work(total_work) {
+    n_work_units_tot = total_work / work_chunk_size + ((total_work % work_chunk_size) > 0);
+    n_work_per_team = n_work_units_tot / nteams;
+    n_extra_work_tot = n_work_units_tot % nteams;
+  }
+
+  auto GetIdxRange(int team) {
+    int start = (team * n_work_per_team + std::min(team, n_extra_work_tot)) *
+                      work_chunk_size;
+    int end = ((team + 1) * n_work_per_team + std::min(team + 1, n_extra_work_tot)) *
+                      work_chunk_size;
+
+    return std::make_pair(std::min(start, total_work), std::min(end, total_work));
+  }
+
+ private:
+  int nteams;
+  int work_chunk_size;
+  int total_work;
+  int n_work_units_tot;
+  int n_work_per_team;
+  int n_extra_work_tot;
+};
+
 using namespace loops;
 using namespace loops::shorthands;
 
@@ -110,6 +139,14 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           auto &idxer = bnd_info(b).idxer[it];
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
+          const int n_units = idxer.size() / Ni;
+          SplitIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size, n_units);
+          const auto [start, end] = split.GetIdxRange(bteam);
+          if (start >= end) {
+            idx_offset += idxer.size();
+            continue;
+          }
+          // TODO(LFR): Finish threading index splitting through reductions
           Kokkos::parallel_reduce(
               Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
               [&](const int idx, bool &lnon_zero) {
@@ -272,6 +309,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &bnd_info = cache.bnd_info;
   const int nteams_per_buffer = 3;
   const int work_chunk_size = 32;
+
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
@@ -292,21 +330,12 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).allocated) {
             const int n_units = idxer.size() / Ni;
-            const int n_work_units_tot =
-                n_units / work_chunk_size + ((n_units % work_chunk_size) > 0);
-            const int n_work_per_team = n_work_units_tot / nteams_per_buffer;
-            const int n_extra_work_tot = n_work_units_tot % nteams_per_buffer;
-            int start = (bteam * n_work_per_team + std::min(bteam, n_extra_work_tot)) *
-                        work_chunk_size;
-            int end =
-                ((bteam + 1) * n_work_per_team + std::min(bteam + 1, n_extra_work_tot)) *
-                work_chunk_size;
-
+            SplitIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size, n_units);
+            const auto [start, end] = split.GetIdxRange(bteam);
             if (start >= end) {
               idx_offset += idxer.size();
               continue;
             }
-            end = std::min(end, n_units);
 
             if (bnd_info(b).buf_allocated) {
               Kokkos::parallel_for(
