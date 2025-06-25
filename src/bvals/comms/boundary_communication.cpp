@@ -218,11 +218,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
-  bool all_received = true;
-  if (pmesh->do_coalesced_comms) {
-    pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
-  }
   const bool coal_comm = pmesh->do_coalesced_comms;
+  if (coal_comm)
+    pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
+  bool all_received = true;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [&all_received, coal_comm](auto pbuf) {
                   all_received = pbuf->TryReceive(coal_comm) && all_received;
