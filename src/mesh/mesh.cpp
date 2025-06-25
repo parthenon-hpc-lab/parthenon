@@ -401,6 +401,8 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
+  if (grid.type == GridType::leaf) 
+    base_block_partition_ = std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -863,7 +865,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 #endif
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Initialize(block_list, this);
+  mesh_data.Add("base", GetBasePartition());
 }
 
 /// Finds location of a block with ID `tgid`.
