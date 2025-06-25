@@ -101,8 +101,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
                      const int &idx, ParArray1D<AmrTag> &amr_tags,
                      const Real refine_criteria_, const Real derefine_criteria_,
                      const int max_level_) {
-  const auto desc =
-      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  const auto desc = MakePackDescriptor(md, {field});
   auto pack = desc.GetPack(md);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
@@ -156,8 +155,7 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int &idx, ParArray1D<AmrTag> &amr_tags,
                       const Real refine_criteria_, const Real derefine_criteria_,
                       const int max_level_) {
-  const auto desc =
-      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  const auto desc = MakePackDescriptor(md, {field});
   auto pack = desc.GetPack(md);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
