@@ -77,6 +77,20 @@ class CommBuffer {
 #endif
   {
   }
+  
+  void Print() const {
+    std::string label = "sender";
+    if (*comm_type_ == BuffCommType::receiver) label = "receiver"; 
+    if (*comm_type_ == BuffCommType::both) label = "both"; 
+    if (*comm_type_ == BuffCommType::sparse_receiver) label = "sparse_receiver"; 
+
+    std::string status = "stale"; 
+    if (*state_ == BufferState::sending) status = "sending";
+    if (*state_ == BufferState::sending_null) status = "sending_null";
+    if (*state_ == BufferState::received) status = "received";
+    if (*state_ == BufferState::received_null) status = "received_null";
+    printf("[%s buffer] state: %s rank: %i -> %i tag: %i comm: %i\n", label.c_str(), status.c_str(), send_rank_, recv_rank_, tag_, comm_);
+  }
 
   CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
              get_resource_func_t get_resource, bool do_sparse_allocation = false);
