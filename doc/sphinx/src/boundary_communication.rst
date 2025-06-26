@@ -523,13 +523,13 @@ variable-boundary buffer is registered with ``pcoalesced_comms``. Once all these
 registered, ``CoalescedComms::ResolveAndSendSendBuffers()`` is called, which determines all
 the coalesced buffers that are going to be sent from a given rank to every other rank, packs
 information about each of the coalesced buffers into MPI messages, and sends them to the other
-ranks so that the receiving ranks know how to interpret the messages they receive from a given
-rank. ``CoalescedComms::ReceiveBufferInfo()`` is then called to receive this information from
-other ranks. This process basically just packs ``BndId`` objects, which contain the information
-necessary to identify a variable-boundary communication channel and the amount of data that 
-is communicated across that channel, and then unpacks them on the receiving end and finds the
-correct variable-boundary buffers. These routines are called once per rank (rather than per
-``MeshData``). 
+ranks so that the receiving ranks know how to interpret the subsequent messages they receive
+from a given rank. ``CoalescedComms::ReceiveBufferInfo()`` is then called to receive this
+information from other ranks. This process basically just packs ``BndId`` objects, which contain
+the information necessary to identify a variable-boundary communication channel and the amount
+of data that is communicated across that channel, and then unpacks them on the receiving end and
+finds the correct variable-boundary buffers. These routines are called once per rank (rather than
+per ``MeshData``). 
 
 For the second piece, variable-boundary buffers are first filled as normal in ``SendBoundBufs``
 but the states of the ``CommBuffer``s are updated without actually calling the associated
