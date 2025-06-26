@@ -18,6 +18,8 @@
 #include <string>
 #define CATCH_CONFIG_RUNNER
 
+#include <iostream>
+
 #ifdef CATCH2_MPI_PARALLEL
 #include <mpi.h>
 #endif // CATCH2_MPI_PARALLEL
