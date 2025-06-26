@@ -244,6 +244,8 @@ class Mesh {
       std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+  int nteams_per_boundary_buffer;
+  int boundary_buffer_work_chunk_size;
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }

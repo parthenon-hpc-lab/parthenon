@@ -89,8 +89,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
-  const int nteams_per_buffer = 3;
-  const int work_chunk_size = 32;
+  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   if (bnd_info.size() != nbound * nteams_per_buffer) {
     cache.sending_non_zero_flags =
         ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
@@ -300,8 +300,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
-  const int nteams_per_buffer = 3;
-  const int work_chunk_size = 32;
+  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
