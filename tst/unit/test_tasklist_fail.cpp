@@ -21,11 +21,11 @@
 #include "basic_types.hpp"
 #include "tasks/tasks.hpp"
 
+using parthenon::TaskCollection;
 using parthenon::TaskID;
 using parthenon::TaskList;
-using parthenon::TaskStatus;
 using parthenon::TaskListStatus;
-using parthenon::TaskCollection;
+using parthenon::TaskStatus;
 
 TEST_CASE("Task failure handling", "[TaskList][AddTask]") {
   GIVEN("A TaskList") {
@@ -34,8 +34,8 @@ TEST_CASE("Task failure handling", "[TaskList][AddTask]") {
     // create task region and add a task that returns TaskStatus::fail
     auto &region = tc.AddRegion(1);
     auto &tl = region[0];
-    TaskID task0 = tl.AddTask(TaskID{}, []{ return TaskStatus::fail; });
-    TaskID task1 = tl.AddTask(task0, []{ return TaskStatus::complete; });
+    TaskID task0 = tl.AddTask(TaskID{}, [] { return TaskStatus::fail; });
+    TaskID task1 = tl.AddTask(task0, [] { return TaskStatus::complete; });
 
     // Execute the task collection
     TaskListStatus status = tc.Execute();
