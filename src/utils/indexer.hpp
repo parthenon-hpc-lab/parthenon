@@ -13,6 +13,7 @@
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <tuple>
@@ -206,6 +207,34 @@ using Indexer7D = Indexer<int, int, int, int, int, int, int>;
 using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
+
+class SplitFlatIndexRangeAmongTeams {
+ public:
+  SplitFlatIndexRangeAmongTeams(int nteams, int work_chunk_size, int total_work)
+      : nteams(nteams), work_chunk_size(work_chunk_size), total_work(total_work) {
+    n_work_units_tot =
+        total_work / work_chunk_size + ((total_work % work_chunk_size) > 0);
+    n_work_per_team = n_work_units_tot / nteams;
+    n_extra_work_tot = n_work_units_tot % nteams;
+  }
+
+  auto GetIdxRange(int team) {
+    int start =
+        (team * n_work_per_team + std::min(team, n_extra_work_tot)) * work_chunk_size;
+    int end = ((team + 1) * n_work_per_team + std::min(team + 1, n_extra_work_tot)) *
+              work_chunk_size;
+
+    return std::make_pair(std::min(start, total_work), std::min(end, total_work));
+  }
+
+ private:
+  int nteams;
+  int work_chunk_size;
+  int total_work;
+  int n_work_units_tot;
+  int n_work_per_team;
+  int n_extra_work_tot;
+};
 
 } // namespace parthenon
 #endif // UTILS_INDEXER_HPP_

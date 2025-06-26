@@ -38,38 +38,10 @@
 
 #include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/indexer.hpp"
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
-
-class SplitIndexRangeAmongTeams {
- public:
-  SplitIndexRangeAmongTeams(int nteams, int work_chunk_size, int total_work)
-      : nteams(nteams),
-        work_chunk_size(work_chunk_size),
-        total_work(total_work) {
-    n_work_units_tot = total_work / work_chunk_size + ((total_work % work_chunk_size) > 0);
-    n_work_per_team = n_work_units_tot / nteams;
-    n_extra_work_tot = n_work_units_tot % nteams;
-  }
-
-  auto GetIdxRange(int team) {
-    int start = (team * n_work_per_team + std::min(team, n_extra_work_tot)) *
-                      work_chunk_size;
-    int end = ((team + 1) * n_work_per_team + std::min(team + 1, n_extra_work_tot)) *
-                      work_chunk_size;
-
-    return std::make_pair(std::min(start, total_work), std::min(end, total_work));
-  }
-
- private:
-  int nteams;
-  int work_chunk_size;
-  int total_work;
-  int n_work_units_tot;
-  int n_work_per_team;
-  int n_extra_work_tot;
-};
 
 using namespace loops;
 using namespace loops::shorthands;
@@ -82,8 +54,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
-                                      true);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
@@ -118,18 +89,29 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
+  const int nteams_per_buffer = 3;
+  const int work_chunk_size = 32;
+  if (bnd_info.size() != nbound * nteams_per_buffer) {
+    cache.sending_non_zero_flags =
+        ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
+    cache.sending_non_zero_flags_h =
+        Kokkos::create_mirror_view(cache.sending_non_zero_flags);
+  }
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
+        const int iflag = team_member.league_rank();
 
         if (!bnd_info(b).allocated || bnd_info(b).same_to_same) {
           Kokkos::single(Kokkos::PerTeam(team_member),
-                         [&]() { sending_nonzero_flags(b) = false; });
+                         [&]() { sending_nonzero_flags(iflag) = false; });
           return;
         }
         Real threshold = bnd_info(b).var.allocation_threshold;
@@ -140,7 +122,8 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           const int n_units = idxer.size() / Ni;
-          SplitIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size, n_units);
+          SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                              n_units);
           const auto [start, end] = split.GetIdxRange(bteam);
           if (start >= end) {
             idx_offset += idxer.size();
@@ -148,7 +131,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           }
           // TODO(LFR): Finish threading index splitting through reductions
           Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
+              Kokkos::TeamThreadRange<>(team_member, start, end),
               [&](const int idx, bool &lnon_zero) {
                 const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                 Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
@@ -172,7 +155,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           idx_offset += idxer.size();
         }
         Kokkos::single(Kokkos::PerTeam(team_member), [&]() {
-          sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
+          sending_nonzero_flags(iflag) = non_zero[0] || non_zero[1] || non_zero[2];
         });
       });
 
@@ -186,10 +169,20 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
-    if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+    if (!Globals::sparse_config.enabled) {
       buf.Send();
-    else
-      buf.SendNull();
+    } else {
+      // Reduce flags over all of the teams that contributed to filling a given buffer
+      bool sending_nonz{false};
+      for (int i = ibuf * nteams_per_buffer; i < (ibuf + 1) * nteams_per_buffer; ++i)
+        sending_nonz = sending_nonz || sending_nonzero_flags_h(i);
+
+      if (sending_nonz) {
+        buf.Send();
+      } else {
+        buf.SendNull();
+      }
+    }
   }
 
   return TaskStatus::complete;
@@ -212,8 +205,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
-                                      false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
 
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -241,8 +234,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
-                                      false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
 
   bool all_received = true;
   std::for_each(
@@ -330,7 +323,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).allocated) {
             const int n_units = idxer.size() / Ni;
-            SplitIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size, n_units);
+            SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                n_units);
             const auto [start, end] = split.GetIdxRange(bteam);
             if (start >= end) {
               idx_offset += idxer.size();
