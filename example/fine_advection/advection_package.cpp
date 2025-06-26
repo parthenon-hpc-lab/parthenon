@@ -130,7 +130,7 @@ void CheckRefinementMesh(MeshData<Real> *md, parthenon::ParArray1D<AmrTag> &amr_
   auto do_regular_advection = pkg->Param<bool>("do_regular_advection");
   if (do_regular_advection) {
     // refine on advected, for example.  could also be a derived quantity
-    static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
+    auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
     auto pack = desc.GetPack(md);
 
     const auto &refine_tol = pkg->Param<Real>("refine_tol");
@@ -179,7 +179,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  static auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
+  auto desc = parthenon::MakePackDescriptor<Conserved::phi>(md);
   auto pack = desc.GetPack(md);
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
@@ -206,7 +206,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
 }
 
 TaskStatus FillDerived(MeshData<Real> *md) {
-  static auto desc =
+  auto desc =
       parthenon::MakePackDescriptor<Conserved::phi_fine, Conserved::phi_fine_restricted,
                                     Conserved::C, Conserved::C_cc, Conserved::D,
                                     Conserved::D_cc, Conserved::divC, Conserved::divD>(

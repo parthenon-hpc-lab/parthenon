@@ -48,6 +48,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
@@ -68,6 +69,8 @@ class RestartReader;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
+// Base class to allow cacheing of different types of PackDescriptors
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -246,8 +249,7 @@ class Mesh {
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t =
-      std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
+  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 

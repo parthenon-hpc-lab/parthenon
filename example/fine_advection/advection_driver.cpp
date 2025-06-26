@@ -100,19 +100,16 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // to the Stokes update routines, so that they can internally create variable
     // packs that operate on only the desired set of variables.
     using namespace advection_package::Conserved;
-    static auto desc = parthenon::MakePackDescriptor<phi>(
-        pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+    auto desc = parthenon::MakePackDescriptor<phi>(
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
     using pack_desc_t = decltype(desc);
 
-    static auto desc_fine = parthenon::MakePackDescriptor<phi_fine>(
-        pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+    auto desc_fine = parthenon::MakePackDescriptor<phi_fine>(
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
     using pack_desc_fine_t = decltype(desc_fine);
 
-    static auto desc_vec = parthenon::MakePackDescriptor<C, D>(
-        pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes},
-        {parthenon::PDOpt::WithFluxes});
+    auto desc_vec = parthenon::MakePackDescriptor<C, D>(
+        pmesh, {parthenon::Metadata::WithFluxes}, {parthenon::PDOpt::WithFluxes});
 
     using TT = parthenon::TopologicalType;
     using TE = parthenon::TopologicalElement;
