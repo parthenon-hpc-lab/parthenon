@@ -87,20 +87,11 @@ class DataCollection {
 
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
-  
+
   template <class SRC_t>
-  const std::shared_ptr<T> &Get(const std::string &name, const std::shared_ptr<SRC_t> &src) const {
-    const auto key = GetKey(name, src); 
-    const auto it = containers_.find(key);
-    if (it == containers_.end()) {
-      throw std::runtime_error("Container " + key + " does not exist in collection.");
-    }
-    return it->second;
-  }
-  
-  template <class SRC_t>
-  std::shared_ptr<T> &Get(const std::string &name, const std::shared_ptr<SRC_t> &src) {
-    const auto key = GetKey(name, src); 
+  const std::shared_ptr<T> &Get(const std::string &name,
+                                const std::shared_ptr<SRC_t> &src) const {
+    const auto key = GetKey(name, src);
     const auto it = containers_.find(key);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + key + " does not exist in collection.");
@@ -108,8 +99,18 @@ class DataCollection {
     return it->second;
   }
 
-  std::shared_ptr<T> &Get(const std::string &name = "base"); 
-  const std::shared_ptr<T> &Get(const std::string &name = "base") const; 
+  template <class SRC_t>
+  std::shared_ptr<T> &Get(const std::string &name, const std::shared_ptr<SRC_t> &src) {
+    const auto key = GetKey(name, src);
+    const auto it = containers_.find(key);
+    if (it == containers_.end()) {
+      throw std::runtime_error("Container " + key + " does not exist in collection.");
+    }
+    return it->second;
+  }
+
+  std::shared_ptr<T> &Get(const std::string &name = "base");
+  const std::shared_ptr<T> &Get(const std::string &name = "base") const;
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
 
@@ -118,9 +119,7 @@ class DataCollection {
   std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
                                const int &partition_id);
 
-  void clear() {
-    containers_.clear();
-  }
+  void clear() { containers_.clear(); }
 
  private:
   std::string GetKey(const std::string &stage_label,

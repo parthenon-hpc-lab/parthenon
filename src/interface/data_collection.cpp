@@ -24,8 +24,9 @@
 namespace parthenon {
 
 template <typename T>
-std::string DataCollection<T>::GetKey(const std::string &stage_label,
-                                      const std::shared_ptr<BlockListPartition> &in) const {
+std::string
+DataCollection<T>::GetKey(const std::string &stage_label,
+                          const std::shared_ptr<BlockListPartition> &in) const {
   auto key = stage_label;
   if (in->grid.type == GridType::two_level_composite)
     key = key + "_gmg-" + std::to_string(in->grid.logical_level);

@@ -374,7 +374,8 @@ class Mesh {
   std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
       block_partitions_;
   std::shared_ptr<BlockListPartition> base_block_partition_;
- public: 
+
+ public:
   auto GetBasePartition() const { return base_block_partition_; }
 };
 

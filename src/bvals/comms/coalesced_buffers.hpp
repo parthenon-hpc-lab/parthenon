@@ -110,8 +110,8 @@ struct CoalescedBuffersRank {
   // map from partion id to coalesced message structure for communication
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
-  
-  // Map from MeshData partition id to the coalesced buffer associated 
+
+  // Map from MeshData partition id to the coalesced buffer associated
   // with that partition
   std::map<int, CoalescedBuffer> coalesced_bufs;
 

@@ -603,10 +603,10 @@ class MeshBlockData {
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
-  std::set<Uid_t> varUidIn_; // Uid list from which this MeshBlockData was created,
-                             // empty implies all variables were included
+  std::set<Uid_t> varUidIn_;  // Uid list from which this MeshBlockData was created,
+                              // empty implies all variables were included
   std::set<Uid_t> varUidSet_; // All variables that are included in this MeshBlockData,
-                              // including fluxes that may not have been explicitly 
+                              // including fluxes that may not have been explicitly
                               // specified.
 
   MapToVars<T> varMap_;

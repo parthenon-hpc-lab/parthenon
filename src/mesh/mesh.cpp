@@ -401,8 +401,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
-  if (grid.type == GridType::leaf) 
-    base_block_partition_ = std::make_shared<BlockListPartition>(id++, grid, block_list, this);
+  if (grid.type == GridType::leaf)
+    base_block_partition_ =
+        std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
