@@ -79,6 +79,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   is << "ox3_bc = outflow" << endl;
   is << "pack_size = 1" << endl;
   auto pin = std::make_shared<ParameterInput>();
+  pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
   auto descrip = std::make_shared<parthenon::StateDescriptor>("test");
