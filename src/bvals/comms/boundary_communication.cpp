@@ -91,14 +91,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
-  if (bnd_info.size() != nbound * nteams_per_buffer) {
-    cache.sending_non_zero_flags =
-        ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
-    cache.sending_non_zero_flags_h =
-        Kokkos::create_mirror_view(cache.sending_non_zero_flags);
-  }
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
+  if (sending_nonzero_flags.size() != (nbound * nteams_per_buffer)) {
+    sending_nonzero_flags =
+        ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
+    sending_nonzero_flags_h = Kokkos::create_mirror_view(sending_nonzero_flags);
+  }
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
