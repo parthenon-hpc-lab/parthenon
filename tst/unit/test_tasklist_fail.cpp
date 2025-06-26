@@ -34,7 +34,8 @@ TEST_CASE("Task failure handling", "[TaskList][AddTask]") {
     // create task region and add a task that returns TaskStatus::fail
     auto &region = tc.AddRegion(1);
     auto &tl = region[0];
-    tl.AddTask(TaskID{}, []{ return TaskStatus::fail; });
+    TaskID task0 = tl.AddTask(TaskID{}, []{ return TaskStatus::fail; });
+    TaskID task1 = tl.AddTask(task0, []{ return TaskStatus::complete; });
 
     // Execute the task collection
     TaskListStatus status = tc.Execute();
