@@ -141,7 +141,7 @@ class CommBuffer {
 
   void SetReceivedNull() noexcept {
     PARTHENON_REQUIRE(*comm_type_ == BuffCommType::sparse_receiver,
-                      "This doesn't make sense for a non-receiver.");
+                      "This doesn't make sense for a non-sparse_receiver.");
     *state_ = BufferState::received_null;
   }
 

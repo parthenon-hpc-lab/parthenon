@@ -119,7 +119,7 @@ class DataCollection {
                                const int &partition_id);
 
   void clear() {
-    containers.clear();
+    containers_.clear();
   }
 
  private:

@@ -378,22 +378,16 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-
+  
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
-
-  if (rebuild) {
-    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate);
-    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetNull);
-    } else {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetSet);
-    }
-  }
-
+  
+   // We should not rebuild the cache here even if it is flagged as such. When using coalesced
+   // communication, the state of the buffers associated with this MeshData partition can be 
+   // updated by TryReceives on other MeshData partitions. As a result, the buffer states and 
+   // allocation statuses can change between calls to SetBounds and ProlongateBounds. This 
+   // would trigger a rebuild of the buffer cache when the receive states are unknown (which 
+   // is a requirement for rebuilding the receive buffer cache). 
+  
   if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
