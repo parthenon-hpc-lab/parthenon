@@ -166,7 +166,7 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
-                           bool is_restart, const std::string &meshdata_name) {
+                           DumpOutputMode mode, const std::string &meshdata_name) {
   for (auto &pmb : block_list) {
     // TODO(JMM): Swap these out when swarms are allowed to exist in
     // multiple meshdata registers
@@ -174,7 +174,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
     const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
-    if (is_restart) {
+    if (mode == DumpOutputMode::RESTART) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
           FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -187,12 +187,16 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           const auto &varname = var->label();
           info.Add(varname, var);
         }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
           info.Add(varname, var);
         }
       }
-    } else {
+    } else if (mode == DumpOutputMode::DUMP) {
       for (const auto &[swarmname, varnames] : swarmnames) {
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
@@ -202,11 +206,29 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
               info.Add(varname, var);
+            } else if (swarm->Contains<std::uint64_t>(varname)) {
+              auto var = swarm->GetP<std::uint64_t>(varname);
+              info.Add(varname, var);
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
               info.Add(varname, var);
             } // else nothing
           }
+        }
+      }
+    } else { // if (mode == DumpOutputMode::CORE) {
+      const auto &swarm_map = swarm_container->GetSwarmMap();
+      for (const auto &[swarmname, swarm] : swarm_map) {
+        auto &info = all_info[swarmname];
+        info.AddOffsets(swarm);
+        for (const auto &var : swarm->GetVariableVector<int>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<Real>()) {
+          info.Add(var->label(), var);
         }
       }
     }

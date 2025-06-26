@@ -1,23 +1,31 @@
 # Changelog
 
 ## Current develop
+
 ### Added (new features/APIs/variables/...)
+- [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
+- [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
-
+- [[PR 1272]](https://github.com/parthenon-hpc-lab/parthenon/pull/1272) Remove mistakenly included pdf files in the base directory
+- [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
 
 
 ### Removed (removing behavior/API/varaibles/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 
 
