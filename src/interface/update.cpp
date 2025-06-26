@@ -19,13 +19,13 @@
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -151,8 +151,7 @@ TaskStatus SparseDealloc(MeshData<Real> *md) {
   const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
 
   auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
-  auto desc = MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(),
-                                 control_vars, {Metadata::Sparse});
+  auto desc = MakePackDescriptor(md, control_vars, {Metadata::Sparse});
   auto pack = desc.GetPack(md);
   auto packIdx = desc.GetMap();
 

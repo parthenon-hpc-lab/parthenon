@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -34,12 +34,14 @@
 
 // Parthenon
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -56,6 +58,7 @@ struct VarInfo {
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
                    // variables
   MetadataFlag where;
+  bool is_mem_aligned; // true if Metada::CellMemAligned is set.
   bool is_sparse;
   bool is_vector;
   bool is_coordinate_field;
@@ -134,6 +137,8 @@ struct VarInfo {
           bool is_vector, const IndexShape &cellbounds)
       : label(label), num_components(num_components), nx_(nx),
         tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+        is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
+                       !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
         is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
         ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
@@ -191,7 +196,7 @@ struct SwarmVarInfo {
   std::array<int, 5> n;
   int nvar, tensor_rank;
   bool vector;
-  std::string swtype; // string for xdmf. "Int" or "Float"
+  std::string swtype; // string for xdmf. "Int", "UInt" or "Float"
   SwarmVarInfo() = default;
   SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank,
                const std::string &swtype, bool vector)
@@ -208,13 +213,14 @@ struct SwarmInfo {
   SwarmInfo() = default;
   template <typename T>
   using MapToVarVec = std::map<std::string, ParticleVariableVector<T>>;
-  std::tuple<MapToVarVec<int>, MapToVarVec<Real>> vars; // SwarmVars on each meshblock
-  std::map<std::string, SwarmVarInfo> var_info;         // size of each swarmvar
-  std::size_t count_on_rank = 0;                        // per-meshblock
-  std::size_t global_offset;                            // global
-  std::size_t global_count;                             // global
-  std::vector<std::size_t> counts;                      // per-meshblock
-  std::vector<std::size_t> offsets;                     // global
+  std::tuple<MapToVarVec<int>, MapToVarVec<Real>, MapToVarVec<std::uint64_t>>
+      vars;                                     // SwarmVars on each meshblock
+  std::map<std::string, SwarmVarInfo> var_info; // size of each swarmvar
+  std::size_t count_on_rank = 0;                // per-meshblock
+  std::size_t global_offset;                    // global
+  std::size_t global_count;                     // global
+  std::vector<std::size_t> counts;              // per-meshblock
+  std::vector<std::size_t> offsets;             // global
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -229,7 +235,14 @@ struct SwarmInfo {
     bool vector = m.IsSet(Metadata::Vector);
     auto shape = m.Shape();
     int rank = shape.size();
-    std::string t = std::is_same<T, int>::value ? "Int" : "Float";
+    std::string t;
+    if (std::is_same<T, int>::value) {
+      t = "Int";
+    } else if (std::is_same<T, std::uint64_t>::value) {
+      t = "UInt";
+    } else if (std::is_same<T, Real>::value) {
+      t = "Float";
+    }
     var_info[varname] = SwarmVarInfo(var->GetDim(6), var->GetDim(5), var->GetDim(4),
                                      var->GetDim(3), var->GetDim(2), rank, t, vector);
   }
@@ -284,7 +297,7 @@ struct AllSwarmInfo {
   std::map<std::string, SwarmInfo> all_info;
   AllSwarmInfo(BlockList_t &block_list,
                const std::map<std::string, std::set<std::string>> &swarmnames,
-               bool is_restart);
+               DumpOutputMode mode, const std::string &meshdata_name = "base");
 };
 
 template <typename T, typename Function_t>
@@ -344,9 +357,6 @@ std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
-// TODO(JMM): Potentially unsafe if MPI_UNSIGNED_LONG_LONG isn't a size_t
-// however I think it's probably safe to assume we'll be on systems
-// where this is the case?
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);

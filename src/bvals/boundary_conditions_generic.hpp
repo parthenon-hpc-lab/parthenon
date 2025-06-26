@@ -24,13 +24,13 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/sparse_pack.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack.hpp"
+#include "pack/swarm_default_names.hpp"
 
 namespace parthenon {
 namespace BoundaryFunction {
@@ -137,40 +137,6 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
       });
 }
 
-namespace impl {
-using desc_key_t = std::tuple<bool, bool, TopologicalType>;
-template <class... var_ts>
-using map_bc_pack_descriptor_t =
-    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor,
-                       tuple_hash<desc_key_t>>;
-
-template <class... var_ts>
-map_bc_pack_descriptor_t<var_ts...>
-GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  std::vector<std::pair<TopologicalType, MetadataFlag>> elements{
-      {TopologicalType::Cell, Metadata::Cell},
-      {TopologicalType::Face, Metadata::Face},
-      {TopologicalType::Edge, Metadata::Edge},
-      {TopologicalType::Node, Metadata::Node}};
-  map_bc_pack_descriptor_t<var_ts...> my_map;
-  for (auto [tt, md] : elements) {
-    std::vector<MetadataFlag> flags{Metadata::FillGhost};
-    flags.push_back(md);
-    std::set<PDOpt> opts{PDOpt::Coarse};
-    my_map.emplace(std::make_pair(desc_key_t{true, false, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
-    my_map.emplace(std::make_pair(desc_key_t{false, false, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags)));
-    flags.push_back(Metadata::Fine);
-    my_map.emplace(std::make_pair(desc_key_t{true, true, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
-    my_map.emplace(std::make_pair(desc_key_t{false, true, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags)));
-  }
-  return my_map;
-}
-} // namespace impl
-
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                TopologicalElement el, Real val) {
@@ -183,10 +149,29 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
-  static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
+  const auto ttFlag = [el] {
+    const auto tt = GetTopologicalType(el);
+    switch (tt) {
+    case (TopologicalType::Cell):
+      return Metadata::Cell;
+    case (TopologicalType::Face):
+      return Metadata::Face;
+    case (TopologicalType::Edge):
+      return Metadata::Edge;
+    case (TopologicalType::Node):
+      return Metadata::Node;
+    default:
+      PARTHENON_FAIL("Unknown topological type")
+    }
+  }();
+
+  // static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
   for (auto fine : {false, true}) {
-    auto q = descriptors[impl::desc_key_t{coarse, fine, GetTopologicalType(el)}].GetPack(
-        rc.get());
+    std::vector<MetadataFlag> flags{Metadata::FillGhost, ttFlag};
+    if (fine) flags.push_back(Metadata::Fine);
+    std::set<PDOpt> opts = coarse ? std::set<PDOpt>{PDOpt::Coarse} : std::set<PDOpt>{};
+    const auto desc = MakePackDescriptor<var_ts...>(rc.get(), flags, opts);
+    auto q = desc.GetPack(rc.get());
     const int b = 0;
     const int lstart = q.GetLowerBoundHost(b);
     const int lend = q.GetUpperBoundHost(b);

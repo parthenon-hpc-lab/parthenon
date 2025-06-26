@@ -43,6 +43,7 @@ template <typename T>
 class MeshData;
 class AMRCriteria;
 class Packages_t;
+class PackDescriptorCacheBase;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -340,6 +341,10 @@ class StateDescriptor {
     return AmrTag::derefine;
   }
 
+  void CheckRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level) const {
+    if (CheckRefinementMesh != nullptr) CheckRefinementMesh(mc, delta_level);
+  }
+
   void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
     if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
   }
@@ -389,6 +394,8 @@ class StateDescriptor {
   std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 
   std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
+  std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>
+      CheckRefinementMesh = nullptr;
 
   std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
   std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
@@ -396,6 +403,10 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
   std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
+
+  // Caches for PackDescriptors associated with this StateDescriptor
+  std::unordered_map<std::string, std::shared_ptr<PackDescriptorCacheBase>>
+      pack_desc_cache_map;
 
  protected:
   // internal function to add dense/sparse fields. Private because outside classes must

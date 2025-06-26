@@ -16,10 +16,17 @@
 #include "config.hpp"
 
 #include "uniform_cartesian.hpp"
+#include "uniform_cylindrical.hpp"
+#include "uniform_spherical.hpp"
 
 namespace parthenon {
 
 using Coordinates_t = COORDINATE_TYPE;
+
+template <typename T>
+constexpr bool IsCoord() {
+  return std::is_same_v<T, Coordinates_t>;
+}
 
 } // namespace parthenon
 

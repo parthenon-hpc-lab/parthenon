@@ -1,9 +1,13 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,6 +29,11 @@
 
 namespace parthenon {
 
+// JMM: I designed this for HDF5 but in pinciple this switching could
+// also work for other output types... Any output type that is capable
+// of outputting a full dump can do this.
+enum class DumpOutputMode { DUMP, RESTART, CORE };
+
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
 //  \brief  container for parameters read from <output> block in the input file
@@ -42,6 +51,7 @@ struct OutputParameters {
   std::vector<std::string> swarm_vars;
   std::string file_type;
   std::string data_format;
+  std::string meshdata_name;
   std::vector<std::string> packages;
   Real next_time, dt;
   int next_n, dn;
