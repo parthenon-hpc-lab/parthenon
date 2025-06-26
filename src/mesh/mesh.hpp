@@ -181,6 +181,8 @@ class Mesh {
     return block_partitions_.at(grid);
   }
 
+  auto GetBasePartition() const { return base_block_partition_; }
+
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -376,9 +378,6 @@ class Mesh {
   std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
       block_partitions_;
   std::shared_ptr<BlockListPartition> base_block_partition_;
-
- public:
-  auto GetBasePartition() const { return base_block_partition_; }
 };
 
 } // namespace parthenon
