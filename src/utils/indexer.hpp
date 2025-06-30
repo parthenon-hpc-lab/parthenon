@@ -118,10 +118,7 @@ struct Indexer {
 
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto EndIdx() const {
-    std::size_t ni = N[I];
-    if constexpr (I > 0) {
-      ni = ni / N[I + 1];
-    }
+    const std::size_t ni = N[I] / GetN<I>();
     int end = ni + start[I] - 1;
     return end;
   }
