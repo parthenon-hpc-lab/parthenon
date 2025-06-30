@@ -90,16 +90,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
       pin->DoesParameterExist("parthenon/mesh", "partitions_per_rank");
-  if (pack_size_exists && num_partitions_exists) {
-    PARTHENON_THROW("Both pack_size and partitions_per_rank set! Set only one");
+  if (pack_size_exists && num_partitions_exists && (Globals::my_rank == 0)) {
+    PARTHENON_WARN("Both pack_size and partitions_per_rank set! "
+                   "For backwards compatibility, pack_size takes precedent.");
   }
-  if (pack_size_exists) {
+  if (pack_size_exists) { // it's first so it wins
     use_pack_size_ = true;
     default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size");
   } else {
     use_pack_size_ = false;
     default_num_partitions_ =
-        std::max(1, pin->GetOrAddInteger("parthenon/mesh", "partitions_per_rank", 1));
+        std::max(1, pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1));
   }
 
   // Allow for user overrides to default Parthenon functions
