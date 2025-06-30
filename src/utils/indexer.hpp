@@ -210,6 +210,7 @@ using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int,
 
 class SplitFlatIndexRangeAmongTeams {
  public:
+  KOKKOS_FORCEINLINE_FUNCTION
   SplitFlatIndexRangeAmongTeams(int nteams, int work_chunk_size, int total_work)
       : nteams(nteams), work_chunk_size(work_chunk_size), total_work(total_work) {
     n_work_units_tot =
@@ -218,14 +219,20 @@ class SplitFlatIndexRangeAmongTeams {
     n_extra_work_tot = n_work_units_tot % nteams;
   }
 
-  auto GetIdxRange(int team) {
-    int start =
-        (team * n_work_per_team + std::min(team, n_extra_work_tot)) * work_chunk_size;
-    int end = ((team + 1) * n_work_per_team + std::min(team + 1, n_extra_work_tot)) *
-              work_chunk_size;
-
-    return std::make_pair(std::min(start, total_work), std::min(end, total_work));
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetIdxRange(int team) const {
+    return std::make_pair(GetStart(team), GetEnd(team));
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetStart(int team) const {
+    return std::min((team * n_work_per_team + std::min(team, n_extra_work_tot)) *
+                        work_chunk_size,
+                    total_work);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetEnd(int team) const { return GetStart(team + 1); }
 
  private:
   int nteams;

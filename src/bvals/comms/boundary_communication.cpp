@@ -121,16 +121,12 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           const int n_units = idxer.size() / Ni;
-          SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
-                                              n_units);
-          const auto [start, end] = split.GetIdxRange(bteam);
-          if (start >= end) {
-            idx_offset += idxer.size();
-            continue;
-          }
+          const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                    n_units);
           // TODO(LFR): Finish threading index splitting through reductions
           Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, start, end),
+              Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                        split.GetEnd(bteam)),
               [&](const int idx, bool &lnon_zero) {
                 const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                 Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
@@ -322,17 +318,13 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).allocated) {
             const int n_units = idxer.size() / Ni;
-            SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
-                                                n_units);
-            const auto [start, end] = split.GetIdxRange(bteam);
-            if (start >= end) {
-              idx_offset += idxer.size();
-              continue;
-            }
-
+            const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                      n_units);
             if (bnd_info(b).buf_allocated) {
               Kokkos::parallel_for(
-                  Kokkos::TeamThreadRange<>(team_member, start, end), [&](const int idx) {
+                  Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                            split.GetEnd(bteam)),
+                  [&](const int idx) {
                     Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
                     const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                     // Have to do this because of some weird issue about structure
@@ -354,7 +346,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
             } else if (bound_type != BoundaryType::flxcor_recv) {
               const Real default_val = bnd_info(b).var.sparse_default_val;
               Kokkos::parallel_for(
-                  Kokkos::TeamThreadRange<>(team_member, start, end), [&](const int idx) {
+                  Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                            split.GetEnd(bteam)),
+                  [&](const int idx) {
                     const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                     const int tt = t;
                     const int uu = u;
