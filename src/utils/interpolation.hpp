@@ -63,7 +63,7 @@ KOKKOS_INLINE_FUNCTION void GetWeights(const Real x, const int nx,
                                        const Coordinates_t &coords, int &ix,
                                        weights_t &w) {
   PARTHENON_DEBUG_REQUIRE(
-      (std::is_same_v<Coordinates_t,UniformCartesian>),
+      (std::is_same_v<Coordinates_t, UniformCartesian>),
       "Interpolation routines currently only work for UniformCartesian");
   const Real min = coords.Xc<DIR>(0);             // assume uniform Cartesian
   const Real dx = coords.CellWidth<DIR>(0, 0, 0); // assume uniform Cartesian
