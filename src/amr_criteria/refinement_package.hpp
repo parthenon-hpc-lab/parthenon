@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include <Kokkos_ReductionIdentity.hpp>
+
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -53,5 +55,13 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
 } // namespace Refinement
 
 } // namespace parthenon
+namespace Kokkos {
+template <>
+struct reduction_identity<parthenon::AmrTag> {
+  using AmrTag = parthenon::AmrTag;
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::refine; }
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::derefine; }
+};
+} // namespace Kokkos
 
 #endif // AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_

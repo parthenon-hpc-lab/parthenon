@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include <amr_criteria/refinement_package.hpp>
 #include <coordinates/coordinates.hpp>
 #include <globals.hpp>
 #include <parthenon/package.hpp>
