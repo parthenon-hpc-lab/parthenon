@@ -532,8 +532,8 @@ finds the correct variable-boundary buffers. These routines are called once per 
 per ``MeshData``). 
 
 For the second piece, variable-boundary buffers are first filled as normal in ``SendBoundBufs``
-but the states of the ``CommBuffer``s are updated without actually calling the associated
-``MPI_Isend``s. Then ``CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type)``
+but the states of the ``CommBuffer``\ s are updated without actually calling the associated
+``MPI_Isend``\ s. Then ``CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type)``
 is called, which for each rank pair associated with ``pmd`` packs the variable-boundary buffers
 into the coalesced buffer, packs a second message containing the sparse allocation status of 
 each variable-boundary buffer, send these two messages, and then stales the associated 
