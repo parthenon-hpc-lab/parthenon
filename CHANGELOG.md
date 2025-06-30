@@ -13,6 +13,7 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
 - [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
 
 ### Infrastructure (changes irrelevant to downstream codes)
