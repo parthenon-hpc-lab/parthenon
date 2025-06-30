@@ -26,7 +26,8 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
-#include <utility> // for std::forward
+#include <unordered_map>
+#include <utility> // for std::forward, std::pair
 #include <vector>
 
 #include "config.hpp"
@@ -36,6 +37,34 @@
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
+
+enum class Providence { WithDefault, WithoutDefault, Orphan };
+struct QueryRecord {
+  std::string block_name;
+  std::string param_name;
+  std::string param_type;
+  std::string default_value;
+  std::vector<std::string> allowed_values;
+  std::string docstring;
+  Providence providence;
+  // JMM: Surely there's a way of doing this automatically?
+  template <typename T>
+  std::string GetTypeName(const T &t) {
+    if constexpr (std::is_same_v<T, int>) {
+      return "int";
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return "Real";
+    } else if constexpr (std::is_same_v<T, std::uint64_t>) {
+      return "uint64_t";
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return "bool";
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return "string";
+    } else {
+      return "other";
+    }
+  }
+};
 
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
@@ -176,6 +205,7 @@ class ParameterInput {
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
+  std::unordered_map<std::pair<std::string, std::string>, QueryRecord> queries_;
 
   InputBlock *FindOrAddBlock(const std::string &name);
   InputBlock *GetPtrToBlock(const std::string &name);
