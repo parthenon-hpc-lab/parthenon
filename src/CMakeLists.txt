@@ -213,6 +213,7 @@ add_library(parthenon
 
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp
+  pack/make_pack_descriptor.cpp
   pack/make_swarm_pack_descriptor.hpp
   pack/pack_descriptor.cpp
   pack/pack_descriptor.hpp
