@@ -54,11 +54,9 @@ class ParameterInput {
   // constructor/destructor
   ParameterInput() {
     parameters_ = toml::table();
-    origins_ = toml::table();
   }
   explicit ParameterInput(std::string input_filename) {
     parameters_ = toml::table();
-    origins_ = toml::table();
     LoadFile(input_filename);
   }
   ~ParameterInput() {}
@@ -78,10 +76,6 @@ class ParameterInput {
   void CheckRequired(const std::string &path);
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &path);
-  ParameterOrigin GetOrigin(const std::string &block, const std::string &name);
-  ParameterOrigin GetOrigin(const std::string &path);
-  std::string GetOriginFile(const std::string &block, const std::string &name);
-  std::string GetOriginFile(const std::string &path);
   toml::table Blocks();
   toml::table Blocks(const char *path);
   toml::table Blocks(std::string &path);
@@ -146,8 +140,7 @@ class ParameterInput {
   template <typename T, typename... Args>
   T SetPath(const std::string &path, const T &value, Args &&...args) {
     // Check and error
-    // Can we someday add || !parameters_.is<T>()?
-    // This is not how Parthenon previously behaved, so it's commented
+    // BSP: This is not how Parthenon previously behaved, so it's commented
     // if (!parameters_.at_path(path)) {
     //   std::stringstream msg;
     //   msg << "### FATAL ERROR in function [ParameterInput::Get]" << std::endl
@@ -157,8 +150,6 @@ class ParameterInput {
 
     // We still call AddParameter_, to overwrite the origin
     AddParameter_(parameters_, path, value, ParameterOrigin::code);
-
-    // std::cerr << "Setting " << path << " to " << ss_value.str() << std::endl;
 
     // Convert string to integer and return value
     return value;
@@ -275,7 +266,6 @@ class ParameterInput {
     if (!parameters_.at_path(path)) {
       // This mimics "AddParameter_" but specifically for arrays
       InsertOrAssignPath_(parameters_, path, toml::array());
-      InsertOrAssignPath_(origins_, path, "default");
       for (auto el : def)
         parameters_.at_path(path).as_array()->push_back(el);
     }
@@ -286,6 +276,13 @@ class ParameterInput {
  private:
   toml::table LegacyParse(std::istream &is, std::string fname = "");
   bool LegacyParseLine(std::string line, std::string &name, std::string &value);
+
+  std::string Path_(const std::string block, const std::string name);
+  void Merge(toml::table &a, const toml::table &b, bool check_dups);
+
+  void recursive_get_paths(toml::table &a, toml::path prefix,
+                                const toml::key &key, std::vector<toml::path> &paths);
+  std::vector<std::string> GetAllPaths(toml::table &a);
 
   template <typename T, template <class...> class Container_t, class... extra>
   void CheckAllowedValues_(const std::string &path, const T &val,
@@ -303,31 +300,12 @@ class ParameterInput {
       PARTHENON_THROW(msg);
     }
   }
-  std::string Path_(const std::string block, const std::string name) {
-    if (!std::count(block.begin(), block.end(), '/')) {
-      if (name == "") {
-        return block;
-      } else {
-        return block + "." + name;
-      }
-    } else {
-      std::string b(block);
-      std::replace(b.begin(), b.end(), '/', '.');
-      if (name == "") {
-        return b;
-      } else {
-        return b + "." + name;
-      }
-    }
-  }
 
   template <typename T>
   inline void recursive_merge(toml::table &a, const toml::table &b, const toml::key &key,
                               T &&el, bool check_dups) {
-    // std::cerr << a << "\ninserted:\n" << el << std::endl;
     if (b[key].is<toml::table>()) {
       a.insert(key, toml::table());
-      // std::cerr << "recurse" << std::endl;
       const toml::table &bchild = b[key].ref<toml::table>();
       toml::table &achild = a[key].ref<toml::table>();
       bchild.for_each([&](const toml::key &key, auto &&el) {
@@ -349,62 +327,6 @@ class ParameterInput {
         a.insert_or_assign(key, el);
       }
     }
-  }
-  inline void Merge(toml::table &a, const toml::table &b, bool check_dups) {
-    b.for_each([&](const toml::key &key, auto &&el) {
-      recursive_merge(a, b, key, el, check_dups);
-    });
-  }
-
-  inline void recursive_set_origin(toml::table &a, const toml::table &b,
-                                   const toml::key &key, const std::string &origin) {
-    // std::cerr << a << "\nsetorigin:\n" << origin << std::endl;
-    if (b[key].is<toml::table>()) {
-      a.insert(key, toml::table());
-      // std::cerr << "recurse" << std::endl;
-      const toml::table &bchild = b[key].ref<toml::table>();
-      toml::table &achild = a[key].ref<toml::table>();
-      bchild.for_each([&](const toml::key &key, auto &&el) {
-        recursive_set_origin(achild, bchild, key, origin);
-      });
-    } else {
-      a.insert_or_assign(key, origin);
-    }
-  }
-  inline void SetOrigin(toml::table &a, toml::table &b,
-                                const std::string origin) {
-    b.for_each([&](const toml::key &key, auto &&el) {
-      recursive_set_origin(a, b, key, origin);
-    });
-  }
-
-  inline void recursive_get_paths(toml::table &a, toml::path prefix,
-                                  const toml::key &key, std::vector<toml::path> &paths) {
-    // std::cerr << a << "\nsetorigin:\n" << origin << std::endl;
-    if (a[key].is<toml::table>()) {
-      // std::cerr << "recurse" << std::endl;
-      toml::table &achild = a[key].ref<toml::table>();
-      toml::path block = (prefix != toml::path("")) ? toml::path(prefix.append(key.str()))
-                                                    : toml::path(key.str());
-      achild.for_each([&](const toml::key &key, auto &&el) {
-        recursive_get_paths(achild, block, key, paths);
-      });
-    } else {
-      paths.push_back(toml::path(prefix.append(key.str())));
-    }
-  }
-  inline std::vector<std::string> GetAllPaths(toml::table &a) {
-    std::vector<toml::path> paths;
-    a.for_each([&](const toml::key &key, auto &&el) {
-      recursive_get_paths(a, toml::path(""), key, paths);
-    });
-    // Could have a version that returns these path objs,
-    // but probably everyone wants strings?
-    std::vector<std::string> path_strings;
-    for (auto path : paths) {
-      path_strings.push_back(path.str());
-    }
-    return path_strings;
   }
 
   template <typename T>
@@ -445,7 +367,6 @@ class ParameterInput {
         std::string v = value;
         v.erase(std::remove(v.begin(), v.end(), ' '), v.end());
         v.erase(std::remove(v.begin(), v.end(), '\''), v.end());
-        // std::cerr << "INSERTING: " << path << "=" << v << std::endl;
         if (std::count(v.begin(), v.end(), ',')) {
           // Record an array by adding the necessary TOML
           try {
@@ -463,8 +384,6 @@ class ParameterInput {
             new_tbl = toml::parse(path + " = \"" + v + "\"");
           }
         }
-        // std::cerr << "Adding new table:" << std::endl << new_tbl << std::endl;
-        // std::cerr << "To existing table:" << std::endl << tbl << std::endl;
 
         if (tbl.empty()) {
           tbl = new_tbl;
@@ -475,53 +394,24 @@ class ParameterInput {
         }
       }
     }
-
-    // Record provenance
-    switch (og) { // restart, input, cmdline, code, defaultvalue
-    case ParameterOrigin::restart:
-      InsertOrAssignPath_(origins_, path, "restart");
-      break;
-    case ParameterOrigin::cmdline:
-      InsertOrAssignPath_(origins_, path, "cmdline");
-      break;
-    case ParameterOrigin::code:
-      InsertOrAssignPath_(origins_, path, "code");
-      break;
-    case ParameterOrigin::defaultvalue:
-      InsertOrAssignPath_(origins_, path, "default");
-      break;
-    case ParameterOrigin::input:
-      InsertOrAssignPath_(origins_, path, originfile);
-      break;
-    }
   }
 
   // Alloc 1MB temporarily, to avoid ever thinking about this again
   static constexpr int max_input_filesize_ = 1024 * 1024;
-  toml::table parameters_, origins_;
-  std::vector<toml::table> parameter_lists_;
+  toml::table parameters_;
 };
 } // namespace parthenon
 
 // JMM: Believe it or not, this is the recommended way to overload hash functions
 // See: https://en.cppreference.com/w/cpp/utility/hash
 namespace std {
+// We hash the string representation of parameters_, which is what gets written,
+// and thus what needs to be consistent between ranks.
 template <>
 struct hash<parthenon::ParameterInput> {
   std::size_t operator()(const parthenon::ParameterInput &in) {
-    using parthenon::impl::hash_combine;
-    std::size_t out = 0;
-    out = hash_combine(out, in.GetAll(), in.GetAllOrigins());
-    return out;
-  }
-};
-
-// Be a little evil.  It's good for you.
-template <>
-struct hash<toml::v3::table> {
-  std::size_t operator()(const toml::v3::table &in) {
     std::stringstream ss;
-    ss << in;
+    ss << in.GetAll();
     return std::hash<std::string>()(ss.str());
   }
 };

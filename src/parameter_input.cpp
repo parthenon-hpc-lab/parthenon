@@ -67,6 +67,57 @@
 
 namespace parthenon {
 
+std::string ParameterInput::Path_(const std::string block, const std::string name) {
+  if (!std::count(block.begin(), block.end(), '/')) {
+    if (name == "") {
+      return block;
+    } else {
+      return block + "." + name;
+    }
+  } else {
+    std::string b(block);
+    std::replace(b.begin(), b.end(), '/', '.');
+    if (name == "") {
+      return b;
+    } else {
+      return b + "." + name;
+    }
+  }
+}
+
+void ParameterInput::Merge(toml::table &a, const toml::table &b, bool check_dups) {
+  b.for_each([&](const toml::key &key, auto &&el) {
+    recursive_merge(a, b, key, el, check_dups);
+  });
+}
+
+void ParameterInput::recursive_get_paths(toml::table &a, toml::path prefix,
+                                const toml::key &key, std::vector<toml::path> &paths) {
+  if (a[key].is<toml::table>()) {
+    toml::table &achild = a[key].ref<toml::table>();
+    toml::path block = (prefix != toml::path("")) ? toml::path(prefix.append(key.str()))
+                                                  : toml::path(key.str());
+    achild.for_each([&](const toml::key &key, auto &&el) {
+      recursive_get_paths(achild, block, key, paths);
+    });
+  } else {
+    paths.push_back(toml::path(prefix.append(key.str())));
+  }
+}
+std::vector<std::string> ParameterInput::GetAllPaths(toml::table &a) {
+  std::vector<toml::path> paths;
+  a.for_each([&](const toml::key &key, auto &&el) {
+    recursive_get_paths(a, toml::path(""), key, paths);
+  });
+  // Could have a version that returns these path objs,
+  // but probably everyone wants strings?
+  std::vector<std::string> path_strings;
+  for (auto path : paths) {
+    path_strings.push_back(path.str());
+  }
+  return path_strings;
+}
+
 toml::table ParameterInput::Blocks() { return parameters_; }
 toml::table ParameterInput::Blocks(const char *path) {
   return GetPath<toml::table>(path);
@@ -76,7 +127,6 @@ toml::table ParameterInput::Blocks(std::string &path) {
 }
 // Get const copies of entire contents, primarily for hashing
 const toml::table ParameterInput::GetAll() const { return parameters_; }
-const toml::table ParameterInput::GetAllOrigins() const { return origins_; }
 
 void ParameterInput::LoadFile(const std::string fname, bool check_for_overrides) {
   std::stringstream contents;
@@ -104,8 +154,7 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
   // If n(<) > n([), we're parsing an old-style file. Otherwise, TOML
   int nangle = std::count(input.begin(), input.end(), '<');
   int nsquare = std::count(input.begin(), input.end(), '[');
-  parameter_lists_.push_back(toml::table());
-  auto &new_parameters = parameter_lists_.back();
+  auto new_parameters = toml::table();
   if (nangle > nsquare) {
     is.seekg(is.beg);
     new_parameters = LegacyParse(is, fname);
@@ -114,13 +163,6 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
   }
   // Merge from different inputs, only check for overrides if asked
   Merge(parameters_, new_parameters, check_for_overrides);
-
-  // Now update origins
-  if (fname == "") {
-    SetOrigin(origins_, new_parameters, "restart");
-  } else {
-    SetOrigin(origins_, new_parameters, fname);
-  }
 }
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
@@ -169,60 +211,12 @@ int ParameterInput::DoesBlockExist(const std::string &block) {
   return parameters_.contains(Path_(block, ""));
 }
 
-ParameterOrigin ParameterInput::GetOrigin(const std::string &block,
-                                          const std::string &name) {
-  return GetOrigin(Path_(block, name));
-}
-ParameterOrigin ParameterInput::GetOrigin(const std::string &path) {
-  if (!origins_.at_path(path)) {
-    std::stringstream ss;
-    ss << std::endl
-       << "### ERROR in GetOrigin:" << std::endl
-       << "Path " << path << " does not exist in origins_!" << std::endl
-       << "This is a Parthenon issue" << std::endl;
-    std::cerr << ss.str();
-    return ParameterOrigin::restart;
-    // throw std::runtime_error(ss.str());
-  }
-  std::string origin_name = origins_.at_path(path).ref<std::string>();
-  // restart, input, cmdline, code
-  if (origin_name == "restart") {
-    return ParameterOrigin::restart;
-  } else if (origin_name == "cmdline") {
-    return ParameterOrigin::cmdline;
-  } else if (origin_name == "code") {
-    return ParameterOrigin::code;
-  } else if (origin_name == "default") {
-    return ParameterOrigin::defaultvalue;
-  } else {
-    // Otherwise this name reflects the input file
-    return ParameterOrigin::input;
-  }
-  // Technically the user can set stuff directly, handle error with ::code?
-}
-
-std::string ParameterInput::GetOriginFile(const std::string &block,
-                                          const std::string &name) {
-  return GetOriginFile(Path_(block, name));
-}
-std::string ParameterInput::GetOriginFile(const std::string &path) {
-  std::string origin_name = origins_.at_path(path).ref<std::string>();
-  // restart, input, cmdline, code
-  if (origin_name == "restart" || origin_name == "cmdline" || origin_name == "code" ||
-      origin_name == "default") {
-    // Throw
-    return "none";
-  } else {
-    return origin_name;
-  }
-}
-
 void ParameterInput::CheckRequired(const std::string &block, const std::string &name) {
   return CheckRequired(Path_(block, name));
 }
 void ParameterInput::CheckRequired(const std::string &path) {
-  bool exists =
-      DoesParameterExist(path) && (GetOrigin(path) != ParameterOrigin::defaultvalue);
+  // TODO(jmm) implement GetOrigin
+  bool exists = DoesParameterExist(path); //&& (GetOrigin(path) != ParameterOrigin::defaultvalue)
   if (!exists) {
     std::stringstream ss;
     ss << std::endl
@@ -241,7 +235,9 @@ void ParameterInput::CheckDesired(const std::string &path) {
   bool defaulted = false;
   if (DoesParameterExist(path)) {
     missing = false;
-    defaulted = (GetOrigin(path) == ParameterOrigin::defaultvalue);
+    // TODO(jmm) implement GetOrigin
+    //defaulted = (GetOrigin(path) == ParameterOrigin::defaultvalue);
+    defaulted = false;
   }
   if (missing) {
     std::cout << std::endl
@@ -343,12 +339,8 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
     if (!continuing) {
       if (param_name != "") {
         toml::table single_param = toml::table();
-        // std::cerr << "Existing table:" << std::endl << tmp_tbl;
-        // std::cerr << "Adding " << Path_(block_name, param_name) << " from file " <<
-        // fname << std::endl;
         AddParameter_(tmp_tbl, Path_(block_name, param_name), param_value,
                       ParameterOrigin::input, true, fname);
-        // std::cerr << "Added" << std::endl;
       }
     }
   }
