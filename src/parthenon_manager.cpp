@@ -121,8 +121,6 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
 
-  // pinput->ParameterDump(std::cerr);
-
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
           pinput->GetBoolean("parthenon/job", "run_only_analysis") == false,
@@ -131,7 +129,6 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       "is undefined behavior. If you don't know how this was triggered, please contact "
       "the Parthenon developers.");
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
-  pinput->ParameterDump(std::cerr);
 
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
