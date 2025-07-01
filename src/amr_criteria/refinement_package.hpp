@@ -17,8 +17,6 @@
 #include <memory>
 #include <string>
 
-#include <Kokkos_ReductionIdentity.hpp>
-
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
