@@ -85,6 +85,7 @@ void ParameterInput::LoadFile(const std::string fname, bool check_for_overrides)
   IOWrapper infile;
   infile.Open(fname.c_str(), IOWrapper::FileMode::read);
   infile.Read_all(buf, sizeof(char), max_input_filesize_);
+  infile.Close();
   contents.write(buf, max_input_filesize_);
   free(buf);
 

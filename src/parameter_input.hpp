@@ -350,11 +350,10 @@ class ParameterInput {
       }
     }
   }
-  inline toml::table &Merge(toml::table &a, const toml::table &b, bool check_dups) {
+  inline void Merge(toml::table &a, const toml::table &b, bool check_dups) {
     b.for_each([&](const toml::key &key, auto &&el) {
       recursive_merge(a, b, key, el, check_dups);
     });
-    return a;
   }
 
   inline void recursive_set_origin(toml::table &a, const toml::table &b,
@@ -372,12 +371,40 @@ class ParameterInput {
       a.insert_or_assign(key, origin);
     }
   }
-  inline toml::table &SetOrigin(toml::table &a, toml::table &b,
+  inline void SetOrigin(toml::table &a, toml::table &b,
                                 const std::string origin) {
     b.for_each([&](const toml::key &key, auto &&el) {
       recursive_set_origin(a, b, key, origin);
     });
-    return a;
+  }
+
+  inline void recursive_get_paths(toml::table &a, toml::path prefix,
+                                  const toml::key &key, std::vector<toml::path> &paths) {
+    // std::cerr << a << "\nsetorigin:\n" << origin << std::endl;
+    if (a[key].is<toml::table>()) {
+      // std::cerr << "recurse" << std::endl;
+      toml::table &achild = a[key].ref<toml::table>();
+      toml::path block = (prefix != toml::path("")) ? toml::path(prefix.append(key.str()))
+                                                    : toml::path(key.str());
+      achild.for_each([&](const toml::key &key, auto &&el) {
+        recursive_get_paths(achild, block, key, paths);
+      });
+    } else {
+      paths.push_back(toml::path(prefix.append(key.str())));
+    }
+  }
+  inline std::vector<std::string> GetAllPaths(toml::table &a) {
+    std::vector<toml::path> paths;
+    a.for_each([&](const toml::key &key, auto &&el) {
+      recursive_get_paths(a, toml::path(""), key, paths);
+    });
+    // Could have a version that returns these path objs,
+    // but probably everyone wants strings?
+    std::vector<std::string> path_strings;
+    for (auto path : paths) {
+      path_strings.push_back(path.str());
+    }
+    return path_strings;
   }
 
   template <typename T>
