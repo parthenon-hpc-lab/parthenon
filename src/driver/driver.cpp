@@ -149,7 +149,7 @@ DriverStatus EvolutionDriver::Execute() {
       }
     } // END OF MAIN INTEGRATION LOOP
       // ======================================================
-  }   // Main t < tmax loop region
+  } // Main t < tmax loop region
 
   if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
@@ -270,12 +270,13 @@ void EvolutionDriver::SetGlobalTimeStep() {
 }
 
 void EvolutionDriver::DumpInputParameters() {
-  auto archive_settings =
-      pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
-                             std::vector<std::string>{"true", "false", "timestamp"});
-  if (archive_settings != "false" && Globals::my_rank == 0) {
+  auto archive_parameters =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false);
+  auto archive_timestamp =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_timestamp", false);
+  if (archive_parameters && Globals::my_rank == 0) {
     std::ostringstream ss;
-    if (archive_settings == "timestamp") {
+    if (archive_timestamp) {
       auto itt_now =
           std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
       ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
