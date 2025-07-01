@@ -97,6 +97,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
+  pinput = std::make_unique<ParameterInput>();
   if (arg.res_flag != 0) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
@@ -106,28 +107,21 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     }
 
     // Load input stream
-    pinput = std::make_unique<ParameterInput>();
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
   // If an input file was provided
+  // TODO(BSP) loop for multiple inputs
   if (arg.input_filename != nullptr) {
-    // Modify info read from restart file
-    if (arg.res_flag != 0) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
-
-      // Populate new object for fresh simulation
-    } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
-    }
+    // Modify info with new parameters from input
+    pinput->LoadFile(arg.input_filename);
   }
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  // pinput->ParameterDump(std::cerr);
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
@@ -137,6 +131,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       "is undefined behavior. If you don't know how this was triggered, please contact "
       "the Parthenon developers.");
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
+  pinput->ParameterDump(std::cerr);
 
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);

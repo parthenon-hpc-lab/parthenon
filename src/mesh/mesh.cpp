@@ -68,16 +68,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
-      multilevel(
-          (adaptive ||
-           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-              ? true
-              : false),
-      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
-                    ? true
-                    : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
+      multilevel(adaptive ||
+                 pin->GetOrAddString("parthenon/mesh", "refinement", "none") ==
+                     "static" ||
+                 pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)),
+      multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)), nbnew(),
+      nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
       default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
       // private members:
@@ -739,10 +735,6 @@ void Mesh::FillDerived() {
   }
 }
 
-//----------------------------------------------------------------------------------------
-// \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
-// \brief  initialization before the main loop
-
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
   bool init_done = true;
@@ -1095,27 +1087,28 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     return std::pair<int, int>{lxmin, lxmax};
   };
 
-  InputBlock *pib = pin->pfirst_block;
-  while (pib != nullptr) {
-    if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
+  for (auto pib : pin->Blocks("parthenon")) {
+    std::string block_name = std::string(pib.first);
+    if (block_name.compare(0, 17, "static_refinement") == 0) {
       RegionSize ref_size;
-      ref_size.xmin(X1DIR) = pin->GetReal(pib->block_name, "x1min");
-      ref_size.xmax(X1DIR) = pin->GetReal(pib->block_name, "x1max");
+      std::string block_path = "parthenon." + block_name;
+      ref_size.xmin(X1DIR) = pin->GetReal(block_path, "x1min");
+      ref_size.xmax(X1DIR) = pin->GetReal(block_path, "x1max");
       if (ndim >= 2) {
-        ref_size.xmin(X2DIR) = pin->GetReal(pib->block_name, "x2min");
-        ref_size.xmax(X2DIR) = pin->GetReal(pib->block_name, "x2max");
+        ref_size.xmin(X2DIR) = pin->GetReal(block_path, "x2min");
+        ref_size.xmax(X2DIR) = pin->GetReal(block_path, "x2max");
       } else {
         ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
         ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
       }
       if (ndim == 3) {
-        ref_size.xmin(X3DIR) = pin->GetReal(pib->block_name, "x3min");
-        ref_size.xmax(X3DIR) = pin->GetReal(pib->block_name, "x3max");
+        ref_size.xmin(X3DIR) = pin->GetReal(block_path, "x3min");
+        ref_size.xmax(X3DIR) = pin->GetReal(block_path, "x3max");
       } else {
         ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
         ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
       }
-      int ref_lev = pin->GetInteger(pib->block_name, "level");
+      int ref_lev = pin->GetInteger(block_path, "level");
       int lrlev = ref_lev + GetLegacyTreeRootLevel();
       // range check
       if (ref_lev < 1) {
@@ -1167,7 +1160,6 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
         }
       }
     }
-    pib = pib->pnext;
   }
 }
 // Return list of locations and levels for the legacy tree
