@@ -329,8 +329,8 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
     // This pack will always be freshly built, since we only get here if sparse data
     // was allocated and hasn't been initialized, which in turn implies the cached
     // pack must be stale.
-    auto desc = parthenon::MakePackDescriptor<variable_names::any>(
-        rc->GetMeshPointer()->resolved_packages.get(), {Metadata::Sparse});
+    auto desc =
+        parthenon::MakePackDescriptor<variable_names::any>(rc, {Metadata::Sparse});
     auto v = desc.GetPack(rc);
 
     Kokkos::parallel_for(

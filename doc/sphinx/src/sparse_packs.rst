@@ -16,7 +16,7 @@ etc. within a kernel.
 
 ``SparsePack``\ s *work for all types of variables (both dense and sparse). They were originally implemented to support sparse variables and to supersede the older* ``VariablePack``\ s *and* ``VariableFluxPack``\ s *and picked up the* ``Sparse`` *modifier to differentiate them. The latter have not been removed from ``Parthenon`` because some downstream codes still rely on them, but they are deprecated and will be removed eventually.*
 
-*If you want to deal with particle fields, you will need to use* ``SwarmPack``\ s, *which are described at :ref:`swarm_packs`.*
+*If you want to deal with particle fields, you will need to use* ``SwarmPack``\ *s, which are described at* :ref:`swarm_packs`.
 
 Type-based Packing
 ------------------
@@ -64,7 +64,7 @@ Building and Using a ``SparsePack``
      return TaskStatus::complete;
    }
 
-``PackDescriptor``\ *s are somewhat expensive to build and are not currently cached. As a result, it is often beneficial to mark them as ``static`` where possible.*
+``PackDescriptor``\ s can be somewhat expensive to build because they require searching through all fields in simulation. Therefore, they are automatically cached in the ``StateDescriptor`` where possible. Additionally, it is often possible to declare ``PackDescriptors`` that are created in task functions to be ``static``.  
 
 ``PackDescriptor`` takes a ``std::set`` of ``PDOpt`` options to determine what to include in the pack:
 
