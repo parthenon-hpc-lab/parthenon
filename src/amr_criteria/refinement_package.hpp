@@ -53,15 +53,5 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int max_level_);
 
 } // namespace Refinement
-
 } // namespace parthenon
-namespace Kokkos {
-template <>
-struct reduction_identity<parthenon::AmrTag> {
-  using AmrTag = parthenon::AmrTag;
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::refine; }
-  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::derefine; }
-};
-} // namespace Kokkos
-
 #endif // AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
