@@ -145,23 +145,27 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
                              "dt and dn are enabled for the same output block, which "
                              "is not supported. Please set at most one value >= 0.");
+
     // set time of last output, time between outputs
+    op.last_time = (*plast_times)[iinput];
+    op.last_n = (*plast_ns)[iinput];
     if (tm != nullptr) {
       op.dt = dt;
       op.dn = dn;
-
-      op.last_time = (*plast_times)[iinput];
-      op.last_n = (*plast_ns)[iinput];
       // TODO(JMM): Should this be a check for pmesh->is_restart instead?
-      if (op.last_time > std::numeric_limits<Real>::lowest()) {
-        op.next_time = op.last_time + op.dt;
-      } else {
-        op.next_time = tm->time;
+      if (dt >= 0) {
+        if (op.last_time > std::numeric_limits<Real>::lowest()) {
+          op.next_time = op.last_time + dt;
+        } else {
+          op.next_time = tm->time;
+        }
       }
-      if (op.last_n > std::numeric_limits<int>::lowest()) {
-        op.next_n = op.last_n + op.dn;
-      } else {
-        op.next_n = tm->ncycle;
+      if (dn >= 0) {
+        if (op.last_n > std::numeric_limits<int>::lowest()) {
+          op.next_n = op.last_n + dn;
+        } else {
+          op.next_n = tm->ncycle;
+        }
       }
     }
 
@@ -524,12 +528,18 @@ void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
   (*pfile_numbers)[output_params.contiguous_block_index] = output_params.file_number;
   if (tm != nullptr) {
+    // JMM: Do NOT use the current time to update these, as that can
+    // cause drift because timestep is not guaranteed to align with
+    // desired output time. Instead set last time to previous next
+    // time.
+    output_params.last_n = output_params.next_n;
+    output_params.last_time = output_params.next_time;
+    (*plast_ns)[output_params.contiguous_block_index] = output_params.last_n;
+    (*plast_times)[output_params.contiguous_block_index] = output_params.last_time;
     if (output_params.dt > 0.0) {
-      (*plast_times)[output_params.contiguous_block_index] = tm->time;
       output_params.next_time += output_params.dt;
     }
     if (output_params.dn > 0) {
-      (*plast_ns)[output_params.contiguous_block_index] = tm->ncycle;
       output_params.next_n += output_params.dn;
     }
   }
