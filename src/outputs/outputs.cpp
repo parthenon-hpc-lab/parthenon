@@ -131,7 +131,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
       // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
       // written for temporal drivers.
-      const auto tlim = dn >= 0 ? -1 : tm->tlim;
+      const auto tlim = dn >= 0 ? -1.0 : tm->tlim;
       dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
     }
     // if this output is "soft-disabled" (negative value) skip processing
