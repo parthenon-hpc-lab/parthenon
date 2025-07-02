@@ -164,15 +164,14 @@ class Mesh {
       return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
                                     : default_pack_size_;
     } else {
-      return partition::partition_impl::IntCeil(block_list.size(),
-                                                default_num_partitions_);
+      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
     }
   }
   int DefaultNumPartitions() {
     if (use_pack_size_) {
       return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
     } else {
-      return std::min(default_num_partitions_, block_list.size());
+      return std::min(default_num_packs_, block_list.size());
     }
   }
 
@@ -325,7 +324,7 @@ class Mesh {
   // size of default MeshBlockPacks
   bool use_pack_size_;
   int default_pack_size_;
-  std::size_t default_num_partitions_;
+  std::size_t default_num_packs_;
 
   int gmg_min_logical_level_ = 0;
 

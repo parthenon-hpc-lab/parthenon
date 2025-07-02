@@ -89,18 +89,29 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
-      pin->DoesParameterExist("parthenon/mesh", "partitions_per_rank");
-  if (pack_size_exists && num_partitions_exists && (Globals::my_rank == 0)) {
-    PARTHENON_WARN("Both pack_size and partitions_per_rank set! "
-                   "For backwards compatibility, pack_size takes precedent.");
-  }
-  if (pack_size_exists) { // it's first so it wins
-    use_pack_size_ = true;
-    default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size");
-  } else {
+      pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
+  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
+  // pack_size existed first) so the new value should take precedent.
+  if (pack_size_exists && num_partitions_exists) {
     use_pack_size_ = false;
-    default_num_partitions_ =
-        std::max(1, pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1));
+    default_num_packs_ = pin->GetInteger("parthenon/mesh", "packs_per_rank");
+    auto pack_size = pin->GetInteger("parthenon/mesh", "pack_size");
+    bool are_both_default = (default_num_packs_ == 1) && (pack_size == -1);
+    if (!are_both_default && (Globals::my_rank == 0)) {
+      PARTHENON_WARN("Both pack_size and packs_per_rank set to non default values! "
+                     "New packs_per_rank takes precedent.");
+    }
+    // Only one or none is set
+  } else {
+    if (pack_size_exists) {
+      use_pack_size_ = true;
+      default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size");
+      // use packs_per_rank (and set default value if not set)
+    } else {
+      use_pack_size_ = false;
+      default_num_packs_ =
+          std::max(1, pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1));
+    }
   }
 
   // Allow for user overrides to default Parthenon functions
