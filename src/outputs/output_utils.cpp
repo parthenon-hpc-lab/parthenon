@@ -35,6 +35,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 #include "parameter_input.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/mpi_types.hpp"
 
 namespace parthenon {
@@ -42,7 +43,7 @@ namespace OutputUtils {
 
 // This function returns the max dimensions over all topological elements of the given
 // variable, i.e., it returns nx1+1, nx2+1, nx3+1 for a face centered variable.
-Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
+Triple_t<int> VarInfo::GetPaddedNumKJI(const IndexDomain domain) const {
   int nx3 = 1, nx2 = 1, nx1 = 1;
   // TODO(JMM): I know that this could be done by hand, but I'd rather
   // rely on the loop bounds machinery and this should be cheap.
@@ -96,13 +97,23 @@ int VarInfo::TensorSize() const {
   }
 }
 
-int VarInfo::FillSize(const IndexDomain domain) const {
+int VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
-  } else {
-    auto [n3, n2, n1] = GetNumKJI(domain);
+  }
+  if (is_padded) {
+    auto [n3, n2, n1] = GetPaddedNumKJI(domain);
     return ntop_elems * TensorSize() * n3 * n2 * n1;
   }
+  // Use raw info from topological elements (including some safety checks)
+  auto ncells = cellbounds.GetTotal(domain, topological_elements.at(0));
+  for (auto el_idx = 1; el_idx < ntop_elems; el_idx++) {
+    PARTHENON_REQUIRE_THROWS(
+        ncells == cellbounds.GetTotal(domain, topological_elements.at(el_idx)),
+        "All topological elements in a given output variable should have the same total "
+        "number of cells.");
+  }
+  return ntop_elems * TensorSize() * ncells;
 }
 
 // number of elements of data that describe variable shape
@@ -116,7 +127,7 @@ int VarInfo::GetNDim() const {
 std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
   std::vector<int> out = GetRawShape();
   if (where != MetadataFlag({Metadata::None})) {
-    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
     out[0] = nx3;
     out[1] = nx2;
     out[2] = nx1;
@@ -126,7 +137,7 @@ std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
 std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
   std::vector<int> out(rnx_.begin(), rnx_.end());
   if (where != MetadataFlag({Metadata::None})) {
-    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
     out[VNDIM - 3] = nx3;
     out[VNDIM - 2] = nx2;
     out[VNDIM - 1] = nx1;

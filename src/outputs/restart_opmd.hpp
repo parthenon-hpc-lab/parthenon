@@ -16,7 +16,6 @@
 #include "basic_types.hpp"
 #include "openPMD/Iteration.hpp"
 #include "openPMD/Series.hpp"
-#include "openPMD/backend/MeshRecordComponent.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
 
@@ -54,6 +53,11 @@ class RestartReaderOPMD : public RestartReader {
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
                   int file_output_format_version, Mesh *pmesh) const override;
+
+  //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
+  //  the buffer. OpenPMD is dense (i.e., a face centered field has dims
+  //  nx1+1, nx2, nx3 in case of the F1 field).
+  [[nodiscard]] bool BlockdataIsPadded() const override { return false; };
 
   // Gets the data from a swarm var on current rank. Assumes all
   // blocks are contiguous. Fills dataVec based on shape from swarmvar

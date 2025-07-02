@@ -315,7 +315,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
 
     max_fillsize =
-        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
+        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain),
+                                                   resfile.BlockdataIsPadded()));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -326,7 +327,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
-    const auto fill_size = v_info.FillSize(theDomain);
+    const auto fill_size = v_info.FillSize(theDomain, resfile.BlockdataIsPadded());
     const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
@@ -367,7 +368,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // TODO(pgrete) figure out what to do about versions of different outputs
       if (true || file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, resfile.HasGhost() != 0, index,
+            v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });

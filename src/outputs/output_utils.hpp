@@ -72,14 +72,16 @@ struct VarInfo {
   // whether or not topological element matters.
   bool element_matters;
 
-  Triple_t<int> GetNumKJI(const IndexDomain domain) const;
+  Triple_t<int> GetPaddedNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
   int Size() const;
   // Includes topological element shape
   int TensorSize() const;
-  // Size of region that needs to be filled with 0s if not allocated
-  int FillSize(const IndexDomain domain) const;
+  // Size of region that needs to be filled with 0s if not allocated.
+  // is_padded is set to true by default as it's the assumption in the original (HDF5)
+  // output files.
+  int FillSize(const IndexDomain domain, const bool is_padded = true) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 
@@ -93,7 +95,7 @@ struct VarInfo {
       // For nx1,nx2,nx3 find max storage required in each direction
       // accross topological elements. Unused indices will be written but
       // empty.
-      auto [nx3, nx2, nx1] = GetNumKJI(domain);
+      auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
       // fill topological element, if relevant
       if (element_matters) {
         data[0] = ntop_elems;
@@ -188,6 +190,8 @@ struct VarInfo {
  private:
   // TODO(JMM): Probably nx_ and rnx_ both not necessary... but it was
   // easiest for me to reason about it this way.
+  // Note, nx_ is usually initialized to the view dimensions (i.e., padded for face and
+  // edge centered fields).
   std::array<int, VNDIM> nx_;
   std::vector<int> rnx_;
 };
@@ -314,16 +318,19 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 
 // mirror must be provided because copying done externally
 template <typename idx_t, typename Function_t>
-void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t f) {
+void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, bool is_padded, idx_t &idx,
+                     Function_t f) {
   const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
   // shape as written to or read from. contains additional padding
   // in orthogonal directions.
   // e.g., Face1-centered var is shape (N1+1)x(N2+1)x(N3+1)
   // format is
   // topological_elems x tensor_elems x block_elems
+  // If variable is written without padding, we'll cut the indices below.
   const auto shape = info.GetPaddedShapeReversed(domain);
   // TODO(JMM): Should I hide this inside VarInfo?
   auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
+  // Adjust padded indices for variables not tied to the mesh
   if (info.where == MetadataFlag({Metadata::None})) {
     kb.s = 0;
     kb.e = std::max(0, shape[4] - 1);
@@ -333,6 +340,12 @@ void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t
     ib.e = std::max(0, shape[6] - 1);
   }
   for (int topo = 0; topo < shape[0]; ++topo) {
+    // Adjust padded indices for variables not written with padding
+    if (!is_padded) {
+      kb = info.cellbounds.GetBoundsK(domain, info.topological_elements.at(topo));
+      jb = info.cellbounds.GetBoundsJ(domain, info.topological_elements.at(topo));
+      ib = info.cellbounds.GetBoundsI(domain, info.topological_elements.at(topo));
+    }
     for (int t = 0; t < shape[1]; ++t) {
       for (int u = 0; u < shape[2]; ++u) {
         for (int v = 0; v < shape[3]; ++v) {

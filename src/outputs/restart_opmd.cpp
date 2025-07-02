@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 //! \file restart_opmd.cpp
@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -191,42 +192,40 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
     // TODO(pgrete) check if we should skip the suffix for level 0
     const auto level = pmb->loc.level() - pm->GetRootLevel();
 
-    int comp_idx = 0; // used in label for non-vector variables
-    const auto &Nt = vinfo.GetDim(6);
-    const auto &Nu = vinfo.GetDim(5);
-    const auto &Nv = vinfo.GetDim(4);
-    // loop over all components
-    for (int t = 0; t < Nt; ++t) {
-      for (int u = 0; u < Nu; ++u) {
-        for (int v = 0; v < Nv; ++v) {
-          // Get the correct record
-          const auto [record_name, comp_name] =
-              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, TopologicalElement::CC,
-                                                           comp_idx, level);
+    for (const auto &te : vinfo.topological_elements) {
+      int comp_idx = 0; // used in label for non-vector variables
+      const auto &Nt = vinfo.GetDim(6);
+      const auto &Nu = vinfo.GetDim(5);
+      const auto &Nv = vinfo.GetDim(4);
+      // loop over all components
+      for (int t = 0; t < Nt; ++t) {
+        for (int u = 0; u < Nu; ++u) {
+          for (int v = 0; v < Nv; ++v) {
+            // Get the correct record
+            const auto [record_name, comp_name] =
+                OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
 
-          PARTHENON_REQUIRE_THROWS(it->meshes.contains(record_name),
-                                   "Missing mesh record '" + record_name +
-                                       "' in restart file.");
-          auto mesh_record = it->meshes[record_name];
-          PARTHENON_REQUIRE_THROWS(mesh_record.contains(comp_name),
-                                   "Missing component'" + comp_name +
-                                       "' in mesh record '" + record_name +
-                                       "' of restart file.");
-          auto mesh_comp = mesh_record[comp_name];
+            PARTHENON_REQUIRE_THROWS(it->meshes.contains(record_name),
+                                     "Missing mesh record '" + record_name +
+                                         "' in restart file.");
+            auto mesh_record = it->meshes[record_name];
+            PARTHENON_REQUIRE_THROWS(mesh_record.contains(comp_name),
+                                     "Missing component'" + comp_name +
+                                         "' in mesh record '" + record_name +
+                                         "' of restart file.");
+            auto mesh_comp = mesh_record[comp_name];
 
-          const auto [chunk_offset, chunk_extent] =
-              OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, TopologicalElement::CC);
-          mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
-          // TODO(pgrete) check if output utils machinery can be used for non-cell
-          // centered fields, which might not be that straightforward as a global mesh
-          // is stored rather than individual blocks.
-          comp_offset += pmb->block_size.nx(X1DIR) * pmb->block_size.nx(X2DIR) *
-                         pmb->block_size.nx(X3DIR);
-          comp_idx += 1;
+            const auto [chunk_offset, chunk_extent] =
+                OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te);
+            mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
+            comp_offset += std::accumulate(chunk_extent.cbegin(), chunk_extent.cend(), 1,
+                                           std::multiplies<std::uint64_t>{});
+            comp_idx += 1;
+          }
         }
-      }
-    } // loop over components
-  }   // loop over blocks
+      } // loop over components
+    }   // loop over topological elements
+  }     // loop over blocks
 
   // Now actually read the registered chunks form disk
   it->seriesFlush();
