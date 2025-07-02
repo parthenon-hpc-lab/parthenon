@@ -58,7 +58,6 @@ class OutputType {
 
   // rule of five:
   virtual ~OutputType() = default;
-  // copy constructor and assignment operator (pnext_type, pfirst_data, etc. are shallow
   // copied)
   OutputType(const OutputType &copy_other) = default;
   OutputType &operator=(const OutputType &copy_other) = default;
@@ -68,7 +67,6 @@ class OutputType {
 
   // data
   OutputParameters output_params; // control data read from <output> block
-  OutputType *pnext_type;         // ptr to next node in singly linked list of OutputTypes
 
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
@@ -253,15 +251,13 @@ class HistogramOutput : public OutputType {
 class Outputs {
  public:
   Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
-  ~Outputs();
 
   void
   MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,
               SignalHandler::OutputSignal signal = SignalHandler::OutputSignal::none);
 
  private:
-  OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
-  // (not storing a reference to the tail node)
+  std::vector<std::shared_ptr<OutputType>> output_types_;
 };
 
 } // namespace parthenon
