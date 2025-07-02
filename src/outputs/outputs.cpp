@@ -126,7 +126,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
     if (tm != nullptr) {
-      dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
+      dn = pin->GetOrAddInteger(op.block_name, "dn", -1);
 
       // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
       // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
