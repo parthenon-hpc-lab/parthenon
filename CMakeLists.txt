@@ -76,9 +76,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 26 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 27 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=4c61a0b78a0d68c3175e506d9fc5bc46ec6e91009413125c358801e230f4d882daf0c4cff6a3017f134d7289471a93f677956c2865dd3253264a15ae96b664b6"
+  "SHA512=0049dbe7c9a21e2d42d5f67a9e3e6c351ef4a17e6b73a362b53a769104982061714ae138af9f7d0387ddb589a6542ea786db3ec4717a1785430e7b39b77966d8"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
