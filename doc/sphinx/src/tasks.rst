@@ -138,6 +138,68 @@ NOTE: Work remains to make the rest of
 Parthenon thread-safe, so it is currently required to use a ``ThreadPool``
 with one thread.
 
+Mesh data and Packing over collections of meshblocks
+-----------------------------------------------------
+
+The most common way to interact with collections of mesh blocks is the
+`MeshData` type, which collects ``MeshBlockData`` across a collection
+of blocks. It is through ``MeshData`` that sparse packs can be built,
+and multiple integrator stages, e.g., for a Runge-Kutte integrator,
+may be exposed.
+
+When building a set of task lists over a collection of mesh blocks,
+you may choose the number of blocks per task list by hand, but
+defaults can be set at runtime in one of two ways. The run time
+parameter
+
+.. code::
+
+  <parthenon/mesh>
+  pack_size = 1
+
+specifies the number of blocks per pack. For example, a value of 1
+indicates that each task list, even in synchronous regions, is over
+only 1 block. A value of -1 indicates it is all blocks per rank. You
+may choose -1 or any positive finite value.
+
+Alternatively, you may set
+
+.. code::
+
+  <parthenon/mesh>
+  packs_per_rank = 1
+
+which specifies the number of packs on a given rank. A value of 1
+indicates each task list contains all blocks on a given rank. A value
+of 2 indicates each list contains half, etc.
+
+If both of these parameters are set, then ``pack_size`` takes
+precedent. If neither are set, the default is ``pack_size=-1``, which
+is equivalent to ``packs_per_rank=1``.
+
+In a task list, you may access this information as, for example,
+
+.. code::
+
+  const int num_partitions = pmesh->DefaultNumPartitions();
+
+which will be equal to the pack size. Parthenon can automatically
+partition your list of meshblocks into smaller block lists and wrap it
+in a ``MeshData`` object with the ``GetOrAdd`` method. For example:
+
+.. code::
+
+  TaskRegion &tr = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; ++i) {
+    auto &tl = tr[i];
+    // mbase now points to the ith partition of the full block list
+    // and is the equivalent of the ``MeshData`` object named "base"
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+  }
+
+and ``GetOrAdd`` may be used on any "complete" ``MeshData`` object
+you've created on the entire block list.
+
 TaskQualifier
 -------------
 
