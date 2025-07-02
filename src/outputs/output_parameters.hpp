@@ -56,13 +56,8 @@ struct OutputParameters {
   std::string data_format;
   std::string meshdata_name;
   std::vector<std::string> packages;
-  Real last_time;
-  Real next_time = 0.0;
-  Real dt = 1.0;
-  int last_n;
-  int next_n = 0;
+  Real dt = -1.0;
   int dn = -1;
-  int file_number = 0;
   bool include_ghost_zones = false;
   bool cartesian_vector = false;
   bool single_precision_output = false;
@@ -70,6 +65,13 @@ struct OutputParameters {
   int hdf5_compression_level = 5;
   bool write_xdmf = false;
   bool write_swarm_xdmf = false;
+
+  // These change after initialization, the other parameters do not.
+  Real last_time;
+  Real next_time = 0.0;
+  int last_n;
+  int next_n = 0;
+  int file_number = 0;
 };
 
 } // namespace parthenon
