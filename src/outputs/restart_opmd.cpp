@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
+#include <functional>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -67,8 +67,23 @@ int RestartReaderOPMD::GetOutputFormatVersion() const {
 }
 
 RestartReaderOPMD::SparseInfo RestartReaderOPMD::GetSparseInfo() const {
-  // TODO(pgrete) needs impl
-  return {};
+  SparseInfo info;
+  // Only read if data exists. Otherwise return default constructed.
+  if (it->containsAttribute("SparseInfo")) {
+    auto sinfo_vec = it->getAttribute("SparseInfo").get<std::vector<int8_t>>();
+    info.labels = it->getAttribute("SparseFields").get<std::vector<std::string>>();
+    info.num_sparse = static_cast<int>(info.labels.size());
+    info.num_blocks = sinfo_vec.size() / info.num_sparse;
+    info.dealloc_count = it->getAttribute("SparseDeallocCount").get<std::vector<int>>();
+
+    // copy "vector" data to bool pointer for compatiblity between output backends
+    info.allocated.reset(new bool[sinfo_vec.size()]);
+    for (int i = 0; i < sinfo_vec.size(); i++) {
+      info.allocated[i] = sinfo_vec.at(i);
+    }
+  }
+
+  return info;
 }
 
 RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {

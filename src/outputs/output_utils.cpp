@@ -341,6 +341,8 @@ std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_loca
 // explicit template instantiation
 template std::vector<std::size_t>
 FlattendedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
+template std::vector<int8_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<int8_t> &data_local);
 template std::vector<int64_t>
 FlattendedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
 template std::vector<int> FlattendedLocalToGlobal(Mesh *pm,

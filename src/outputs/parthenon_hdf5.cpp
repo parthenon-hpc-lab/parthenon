@@ -291,7 +291,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // The dataset SparseInfo itself is a 2D array of bools. The first index is the
   // global block index and the second index is the sparse field (same order as the
   // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
-  // v is allocated on the block with index b, otherwise the value is false
+  // v is allocated on the block with index b, otherwise the value is false.
+  // If the logic here is ever updated, ensure to update the OpenPMD logic, too.
 
   std::vector<std::string> sparse_names;
   std::unordered_map<std::string, size_t> sparse_field_idx;

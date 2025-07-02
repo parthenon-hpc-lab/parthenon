@@ -477,6 +477,39 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto all_vars_info = GetAllVarsInfo(
       GetVarsToWrite(pm->block_list.front(), true, output_params.variables), bounds);
 
+  // Mirroring the SparseInfo handling in HDF5 here.
+  // Could probably made easier by just sequentially filling vectors, but better be safe
+  // than sorry.
+  //
+  // We need to add information about the sparse variables to the output file, namely:
+  // 1) Which variables are sparse
+  // 2) Is a sparse id of a particular sparse variable allocated on a given block
+  //
+  // This information is stored in the dataset called "SparseInfo". The data set
+  // contains an attribute "SparseFields" that is a vector of strings with the names
+  // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
+  // "foo_145"). The field names are in alphabetical order, which is the same order
+  // they show up in all_unique_vars (because it's a sorted set).
+  //
+  // The dataset SparseInfo itself is a 2D array of bools. The first index is the
+  // global block index and the second index is the sparse field (same order as the
+  // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
+  // v is allocated on the block with index b, otherwise the value is false.
+  // If the logic here is ever updated, ensure to update the HDF5 logic, too.
+  std::vector<std::string> sparse_names;
+  std::unordered_map<std::string, size_t> sparse_field_idx;
+  for (auto &vinfo : all_vars_info) {
+    if (vinfo.is_sparse) {
+      sparse_field_idx.insert({vinfo.label, sparse_names.size()});
+      sparse_names.push_back(vinfo.label);
+    }
+  }
+  auto num_sparse = sparse_names.size();
+  // Note, we're using int8_t here to circument the global reduction of a bool vector,
+  // which would require much more boilerplate.
+  std::vector<int8_t> sparse_allocated(num_blocks_local * num_sparse);
+  std::vector<int> sparse_dealloc_count(num_blocks_local * num_sparse);
+
   // We're currently writing (flushing) one var at a time. This saves host memory but
   // results more smaller write. Might be updated in the future.
   // Allocate space for largest size variable
@@ -508,7 +541,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           "dimensionality of the simulation.")
     }
 
-    for (auto &pmb : pm->block_list) {
+    // for each local mesh block
+    for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
+      const auto &pmb = pm->block_list[b_idx];
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
       for (const auto &te : vinfo.topological_elements) {
@@ -651,10 +686,26 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           } // loop over components
         }   // loop over topological elements
       }     // out_var->IsAllocated()
-    }       // loop over blocks
+      if (vinfo.is_sparse) {
+        auto sparse_idx = sparse_field_idx.at(vinfo.label);
+        sparse_allocated.at(b_idx * num_sparse + sparse_idx) =
+            static_cast<int8_t>(out_var->IsAllocated());
+        sparse_dealloc_count.at(b_idx * num_sparse + sparse_idx) = out_var->dealloc_count;
+      }
+    } // loop over blocks
     it.seriesFlush();
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
+
+  // -------------------------------------------------------------------------------- //
+  //   WRITING Sparse metadata                                                        //
+  // -------------------------------------------------------------------------------- //
+  auto sparse_allocated_global = FlattendedLocalToGlobal<int8_t>(pm, sparse_allocated);
+  it.setAttribute("SparseInfo", sparse_allocated_global);
+  it.setAttribute("SparseFields", sparse_names);
+  auto sparse_dealloc_count_global =
+      FlattendedLocalToGlobal<int>(pm, sparse_dealloc_count);
+  it.setAttribute("SparseDeallocCount", sparse_dealloc_count_global);
 
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
