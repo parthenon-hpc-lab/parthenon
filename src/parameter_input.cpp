@@ -549,6 +549,8 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
 
   std::string val = pl->param_value;
 
+  CheckAndUpdateQueries_<int>(block, name);
+
   // Convert string to integer and return value
   return stoi(val);
 }
@@ -580,6 +582,8 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
   }
 
   std::string val = pl->param_value;
+
+  CheckAndUpdateQueries_<Real>(block, name);
 
   // Convert string to real and return value
   return static_cast<Real>(atof(val.c_str()));
@@ -613,6 +617,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   std::string val = pl->param_value;
+  CheckAndUpdateQueries_<bool>(block, name);
   return stob(val);
 }
 

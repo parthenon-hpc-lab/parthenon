@@ -23,9 +23,12 @@
 // information on the Athena++ input file format.
 
 #include <algorithm>
+#include <any>
 #include <cstddef>
+#include <optional>
 #include <ostream>
 #include <string>
+#include <typeinfo>
 #include <unordered_map>
 #include <utility> // for std::forward, std::pair
 #include <vector>
@@ -38,18 +41,18 @@
 
 namespace parthenon {
 
-enum class Providence { WithDefault, WithoutDefault, Orphan };
 struct QueryRecord {
-  std::string block_name;
-  std::string param_name;
+  bool has_been_overwritten;
   std::string param_type;
-  std::string default_value;
-  std::vector<std::string> allowed_values;
-  std::string docstring;
-  Providence providence;
+  std::any default_value;               // std::any::has_value to check if default
+                                        // val exists
+  std::vector<std::any> allowed_values; // size to check if allowed values exist
+  std::optional<std::string> docstring; // std::optiona::has_value to check if exists
   // JMM: Surely there's a way of doing this automatically?
+  // Unfortunately the value in typeid is implementation defined, so
+  // we can't pick if it looks nice...
   template <typename T>
-  std::string GetTypeName(const T &t) {
+  static std::string GetTypeName() {
     if constexpr (std::is_same_v<T, int>) {
       return "int";
     } else if constexpr (std::is_same_v<T, Real>) {
@@ -60,9 +63,31 @@ struct QueryRecord {
       return "bool";
     } else if constexpr (std::is_same_v<T, std::string>) {
       return "string";
+    } else if constexpr (std::is_arithmetic_v<T>) {
+      if (Globals::my_rank == 0) {
+        PARTHENON_WARN("Unknown arithmetic type! Attempting to use typeid, which is "
+                       "implementation defined.");
+      }
+      T t;
+      return typeid(t).name();
+    } else if constexpr (std::is_same_v<T, std::vector<typename T::value_type>>) {
+      return "std::vector<" + GetTypeName < GetTypeName() + ">";
     } else {
-      return "other";
+      if (Globals::my_rank == 0) {
+        PARTHENON_WARN("Unknown non-arithmetic type! Attempting to use typeid, which is "
+                       "implementation defined.");
+      }
+      T t;
+      return typeid(t).name();
     }
+  }
+  template <typename T>
+  static std::string GetTypeName(const T &t) {
+    return GetTypeName<T>();
+  }
+  template <typename T>
+  void SetTypeName() {
+    param_type = GetTypeName<T>();
   }
 };
 
@@ -125,28 +150,39 @@ class ParameterInput {
   int DoesParameterExist(const std::string &block, const std::string &name);
   int DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
-  int GetInteger(const std::string &block, const std::string &name);
-  int GetOrAddInteger(const std::string &block, const std::string &name, int value);
+  int GetInteger(const std::string &block, const std::string &name,
+                 const std::optional<std::string> &docstring = std::optional<std::string>{});
+  int GetOrAddInteger(const std::string &block, const std::string &name, int value,
+                      const std::optional<std::string> &docstring = std::optional<std::string>{});
   int SetInteger(const std::string &block, const std::string &name, int value);
-  Real GetReal(const std::string &block, const std::string &name);
-  Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
+  Real GetReal(const std::string &block, const std::string &name,
+               const std::optional<std::string> &docstring = std::optional<std::string>{});
+  Real GetOrAddReal(const std::string &block, const std::string &name, Real value,
+                    const std::optional<std::string> &docstring = std::optional<std::string>{});
   Real SetReal(const std::string &block, const std::string &name, Real value);
-  bool GetBoolean(const std::string &block, const std::string &name);
-  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
+  bool GetBoolean(const std::string &block, const std::string &name,
+                  const std::optional<std::string> &docstring = std::optional<std::string>{});
+  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value,
+                       const std::optional<std::string> &docstring = std::optional<std::string>{});
   bool SetBoolean(const std::string &block, const std::string &name, bool value);
 
-  std::string GetString(const std::string &block, const std::string &name);
+  std::string GetString(const std::string &block, const std::string &name,
+                        const std::optional<std::string> &docstring = std::optional<std::string>{});
   std::string GetOrAddString(const std::string &block, const std::string &name,
-                             const std::string &value);
+                             const std::string &value,
+                             const std::optional<std::string> &docstring = std::optional<std::string>{});
   std::string SetString(const std::string &block, const std::string &name,
                         const std::string &value);
   std::string GetString(const std::string &block, const std::string &name,
-                        const std::vector<std::string> &allowed_values);
+                        const std::vector<std::string> &allowed_values,
+                        const std::optional<std::string> &docstring = std::optional<std::string>{});
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value,
-                             const std::vector<std::string> &allowed_values);
+                             const std::vector<std::string> &allowed_values,
+                             const std::optional<std::string> &docstring = std::optional<std::string>{});
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
+  void CheckOrphans();
 
   template <typename T, typename... Args>
   T GetOrAdd(const std::string &block, const std::string &name, const T &value,
@@ -174,9 +210,9 @@ class ParameterInput {
     }
   }
 
-  template <typename T, typename... Args>
+  template <typename T>
   std::vector<T> GetVector(const std::string &block, const std::string &name,
-                           Args &&...args) {
+                           const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     std::vector<std::string> fields = GetVector_(block, name);
     if constexpr (std::is_same<T, std::string>::value) return fields;
 
@@ -194,7 +230,8 @@ class ParameterInput {
   }
   template <typename T>
   std::vector<T> GetOrAddVector(const std::string &block, const std::string &name,
-                                std::vector<T> def) {
+                                std::vector<T> def,
+                                const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
     std::string cname = ConcatVector_(def);
@@ -269,6 +306,80 @@ class ParameterInput {
       ss << "," << vec[i];
     }
     return ss.str();
+  }
+
+  // JMM: Using std::optional here aggressively to simplify overload
+  // and default parameter logic logic
+  template <typename T, template <class...> class Container_t, class... extra>
+  void CheckAndUpdateQueries_(const std::string &block, const std::string &name,
+                              const std::optional<T> &defval,
+                              const Container_t<T, extra...> &allowed_vals,
+                              const std::optional<std::string> &docstring) {
+    auto key = std::make_pair(block, name);
+    if (queries_.count(key) > 0) {
+      QueryRecord &record = queries_.at(key);
+      if (defval.has_value()) {
+        // JMM: Forbid setting a default value after requesting but
+        // allow requesting without a default if a default has
+        // already been set.  I know this is unpleasantly stateful,
+        // but we do this in a few places in the code.
+        if (!record.default_value.has_value()) {
+          std::stringstream msg;
+          msg << "Input parameter " << block << "/" << name
+              << " called previously without a default value and now called with one."
+              << " If a default value is used, the first call must always set one."
+              << std::endl;
+          PARTHENON_THROW(msg);
+        } else if (defval.value() != std::any_cast<T>(record.default_value)) {
+          std::stringstream msg;
+          msg << "Input parameter " << block << "/" << name
+              << " has at least two inconsistent default values. "
+              << "The ones I detected are " << defval.value() << " and "
+              << std::any_cast<T>(record.default_value) << std::endl;
+          PARTHENON_THROW(msg);
+        }
+      }
+      // Only triggers if the container is non-empty
+      PARTHENON_REQUIRE_THROWS(allowed_vals.size() == record.allowed_values.size(),
+                               "Allowed values must be consistently shaped");
+      std::size_t i = 0;
+      for (auto &allowed : allowed_vals) {
+        PARTHENON_REQUIRE_THROWS(allowed == std::any_cast<T>(record.allowed_values[i]),
+                                 "Allowed values must be consistent");
+      }
+      // if two inconsistent docstrings exist, complain
+      if (record.docstring.has_value() && docstring.has_value() &&
+          (record.docstring.value() != docstring.value())) {
+        std::stringstream msg;
+        msg << "Input parameter " << block << "/" << name
+            << " has inconsistent docstrings. The strings are:\n"
+            << record.docstring.value() << "\nand\n"
+            << docstring.value() << std::endl;
+        PARTHENON_THROW(msg);
+      } else if (docstring.has_value()) {
+        // if the new query contains a docstring but the record does
+        // not, add the docstring
+        record.docstring = docstring; // record is a reference
+      }
+      // if the record contains a docstring but the new query does
+      // not, do nothing
+      // if neither contains a docstring, do nothing
+    } else {
+      QueryRecord record;
+      record.SetTypeName<T>();
+      record.default_value = defval; // might be empty
+      for (const auto &allowed : allowed_vals) {
+        record.allowed_values.push_back(std::any(allowed));
+      }
+      record.docstring = docstring; // might be empty
+      queries_[key] = record;
+    }
+  }
+  template <typename T>
+  void CheckAndUpdateQueries_(const std::string &block, const std::string &name,
+                              std::optional<std::string> &docstring) {
+    CheckAndUpdateQueries(block, name, std::optional<T>{}, std::vector<T>{},
+                          docstring);
   }
 };
 } // namespace parthenon
