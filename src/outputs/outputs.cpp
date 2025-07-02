@@ -39,11 +39,9 @@
 // an object of this class in the Outputs constructor at the location indicated by the
 // comment text: 'NEW_OUTPUT_TYPES'. Current summary:
 // -----------------------------------
-// - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
-// node to linked list, depending on the user-input 'variable' string.
+// - outputs.cpp
 //
-// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
-// new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
+// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile():
 // (cell-centered vs. face-centered data).
 //
 // - history.cpp: Add the relevant history quantity to your package
@@ -90,11 +88,7 @@ namespace parthenon {
 OutputType::OutputType(OutputParameters oparams)
     : output_params(oparams),
       pnext_type(), // Terminate this node in singly linked list with nullptr
-      num_vars_(),
-      // nested doubly linked list of OutputData:
-      pfirst_data_(), // Initialize head node to nullptr
-      plast_data_() { // Initialize tail node to nullptr
-}
+      num_vars_() {}
 
 //----------------------------------------------------------------------------------------
 // Outputs constructor
@@ -409,70 +403,6 @@ Outputs::~Outputs() {
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::LoadOutputData(MeshBlock *pmb)
-//  \brief Create doubly linked list of OutputData's containing requested variables
-
-void OutputType::LoadOutputData(MeshBlock *pmb) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::AppendOutputDataNode(OutputData *pod)
-//  \brief
-
-void OutputType::AppendOutputDataNode(OutputData *pnew_data) {
-  if (pfirst_data_ == nullptr) {
-    pfirst_data_ = pnew_data;
-  } else {
-    pnew_data->pprev = plast_data_;
-    plast_data_->pnext = pnew_data;
-  }
-  // make the input node the new tail node of the doubly linked list
-  plast_data_ = pnew_data;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ReplaceOutputDataNode()
-//  \brief
-
-void OutputType::ReplaceOutputDataNode(OutputData *pold, OutputData *pnew) {
-  if (pold == pfirst_data_) {
-    pfirst_data_ = pnew;
-    if (pold->pnext != nullptr) { // there is another node in the list
-      pnew->pnext = pold->pnext;
-      pnew->pnext->pprev = pnew;
-    } else { // there is only one node in the list
-      plast_data_ = pnew;
-    }
-  } else if (pold == plast_data_) {
-    plast_data_ = pnew;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-  } else {
-    pnew->pnext = pold->pnext;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-    pnew->pnext->pprev = pnew;
-  }
-  delete pold;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ClearOutputData()
-//  \brief
-
-void OutputType::ClearOutputData() {
-  OutputData *pdata = pfirst_data_;
-  while (pdata != nullptr) {
-    OutputData *pdata_old = pdata;
-    pdata = pdata->pnext;
-    delete pdata_old;
-  }
-  // reset pointers to head and tail nodes of doubly linked list:
-  pfirst_data_ = nullptr;
-  plast_data_ = nullptr;
-}
 
 //----------------------------------------------------------------------------------------
 //! \fn void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag)
