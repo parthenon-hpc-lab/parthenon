@@ -95,7 +95,7 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
     std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
       THEN("an error is thrown") {
-        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::out_of_range);
       }
     }
     WHEN(" attempting to update a key that does not exist ") {
@@ -115,7 +115,7 @@ TEST_CASE("reset is called", "[reset]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::out_of_range);
     }
   }
 }
