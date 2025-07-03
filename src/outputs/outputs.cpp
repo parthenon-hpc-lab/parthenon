@@ -39,11 +39,9 @@
 // an object of this class in the Outputs constructor at the location indicated by the
 // comment text: 'NEW_OUTPUT_TYPES'. Current summary:
 // -----------------------------------
-// - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
-// node to linked list, depending on the user-input 'variable' string.
+// - outputs.cpp
 //
-// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
-// new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
+// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile():
 // (cell-centered vs. face-centered data).
 //
 // - history.cpp: Add the relevant history quantity to your package
@@ -64,6 +62,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -87,27 +86,20 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // OutputType constructor
 
-OutputType::OutputType(OutputParameters oparams)
-    : output_params(oparams),
-      pnext_type(), // Terminate this node in singly linked list with nullptr
-      num_vars_(),
-      // nested doubly linked list of OutputData:
-      pfirst_data_(), // Initialize head node to nullptr
-      plast_data_() { // Initialize tail node to nullptr
-}
+OutputType::OutputType(OutputParameters oparams) : output_params(oparams), num_vars_() {}
 
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
 Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
-  pfirst_type_ = nullptr;
   std::stringstream msg;
-  OutputType *pnew_type;
-  OutputType *plast = pfirst_type_;
   // We should only have at most one each of these output types. Count
   // them so we can raise an error.
   int num_rst_outputs = 0;
   int num_core_outputs = 0;
+
+  // track restart outputs separately. We'll combine at the end.
+  std::vector<std::shared_ptr<OutputType>> restart_outputs;
 
   // loop over "parthenon/output" blocks located in params
   auto pkg = pm->packages.Get("Outputs");
@@ -118,7 +110,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
   auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
   for (int iinput = 0; iinput < block_names.size(); ++iinput) {
-    OutputParameters op; // define temporary OutputParameters struct
+    std::shared_ptr<OutputType> pnew_type; // the new output we will create
+    bool restart = false;                  // we track restart outputs separately so we
+                                           // need this temp variable to check
+    OutputParameters op;                   // define temporary OutputParameters struct
     op.block_name = block_names[iinput];
     op.block_number = block_numbers[iinput];
     op.contiguous_block_index = iinput;
@@ -126,12 +121,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
     if (tm != nullptr) {
-      dn = pin->GetOrAddInteger(op.block_name, "dn", -1.0);
+      dn = pin->GetOrAddInteger(op.block_name, "dn", -1);
 
       // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
       // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
       // written for temporal drivers.
-      const auto tlim = dn >= 0 ? -1 : tm->tlim;
+      const auto tlim = dn >= 0 ? -1.0 : tm->tlim;
       dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
     }
     // if this output is "soft-disabled" (negative value) skip processing
@@ -152,8 +147,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if (tm != nullptr) {
       op.dt = dt;
       op.dn = dn;
-      // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+      /*
+        JMM: Set next time/iteration to output. At startup, the
+        process looks something like this:
+        1. simulation starts at start_time
+        2. Outputs package sets last_output to numeric_limits<>::lowest
+        3. In Outputs consturctor, we detect this dummy value and set
+        the next output to now
+        4. An initial dump is created
+        5. When these vars are next updated, next output will be start_time + dt
+
+        Alternatively, we could have set last_output output to
+        start_time - dt in the outputs package rather than use a
+        signaling number. However, I think the flag is less fraught.
+      */
       if (dt >= 0) {
+        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -161,6 +170,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
+        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {
@@ -299,12 +309,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // Construct new OutputType according to file format
     // NEW_OUTPUT_TYPES: Add block to construct new types here
     if (op.file_type == "hst") {
-      pnew_type = new HistoryOutput(op);
+      pnew_type = std::make_shared<HistoryOutput>(op);
     } else if (op.file_type == "ascent") {
-      pnew_type = new AscentOutput(op);
+      pnew_type = std::make_shared<AscentOutput>(op);
     } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
-      pnew_type = new HistogramOutput(op, pin);
+      pnew_type = std::make_shared<HistogramOutput>(op, pin);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -314,7 +324,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
-      const bool restart = (op.file_type == "rst");
+      restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
       if (restart) {
         num_rst_outputs++;
@@ -326,7 +336,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-      pnew_type = new PHDF5Output(
+      pnew_type = std::make_shared<PHDF5Output>(
           op, restart ? DumpOutputMode::RESTART
                       : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
 #else
@@ -344,13 +354,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
     }
 
-    // Append type as tail node in singly linked list
-    if (pfirst_type_ == nullptr) {
-      pfirst_type_ = pnew_type;
+    // Append type
+    if (restart) {
+      restart_outputs.push_back(pnew_type);
     } else {
-      plast->pnext_type = pnew_type;
+      output_types_.push_back(pnew_type);
     }
-    plast = pnew_type;
   }
 
   // check there were no more than one restart file requested
@@ -367,111 +376,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // Move restarts to the tail end of the OutputType list, so file counters for other
   // output types are up-to-date in restart file
-  int pos = 0, found = 0;
-  OutputType *pot = pfirst_type_;
-  OutputType *prst = pot;
-  while (pot != nullptr) {
-    if (pot->output_params.file_type == "rst") {
-      prst = pot;
-      found = 1;
-      if (pot->pnext_type == nullptr) found = 2;
-      break;
-    }
-    pos++;
-    pot = pot->pnext_type;
-  }
-  if (found == 1) {
-    // remove the restarting block
-    pot = pfirst_type_;
-    if (pos == 0) { // head node/first block
-      pfirst_type_ = pfirst_type_->pnext_type;
-    } else {
-      for (int j = 0; j < pos - 1; j++) // seek the list
-        pot = pot->pnext_type;
-      pot->pnext_type = prst->pnext_type; // remove it
-    }
-    while (pot->pnext_type != nullptr)
-      pot = pot->pnext_type; // find the tail node
-    prst->pnext_type = nullptr;
-    pot->pnext_type = prst;
-  }
-  // if found == 2, do nothing; it's already at the tail node/end of the list
-}
-
-// destructor - iterates through singly linked list of OutputTypes and deletes nodes
-
-Outputs::~Outputs() {
-  OutputType *ptype = pfirst_type_;
-  while (ptype != nullptr) {
-    OutputType *ptype_old = ptype;
-    ptype = ptype->pnext_type;
-    delete ptype_old;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::LoadOutputData(MeshBlock *pmb)
-//  \brief Create doubly linked list of OutputData's containing requested variables
-
-void OutputType::LoadOutputData(MeshBlock *pmb) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::AppendOutputDataNode(OutputData *pod)
-//  \brief
-
-void OutputType::AppendOutputDataNode(OutputData *pnew_data) {
-  if (pfirst_data_ == nullptr) {
-    pfirst_data_ = pnew_data;
-  } else {
-    pnew_data->pprev = plast_data_;
-    plast_data_->pnext = pnew_data;
-  }
-  // make the input node the new tail node of the doubly linked list
-  plast_data_ = pnew_data;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ReplaceOutputDataNode()
-//  \brief
-
-void OutputType::ReplaceOutputDataNode(OutputData *pold, OutputData *pnew) {
-  if (pold == pfirst_data_) {
-    pfirst_data_ = pnew;
-    if (pold->pnext != nullptr) { // there is another node in the list
-      pnew->pnext = pold->pnext;
-      pnew->pnext->pprev = pnew;
-    } else { // there is only one node in the list
-      plast_data_ = pnew;
-    }
-  } else if (pold == plast_data_) {
-    plast_data_ = pnew;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-  } else {
-    pnew->pnext = pold->pnext;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-    pnew->pnext->pprev = pnew;
-  }
-  delete pold;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ClearOutputData()
-//  \brief
-
-void OutputType::ClearOutputData() {
-  OutputData *pdata = pfirst_data_;
-  while (pdata != nullptr) {
-    OutputData *pdata_old = pdata;
-    pdata = pdata->pnext;
-    delete pdata_old;
-  }
-  // reset pointers to head and tail nodes of doubly linked list:
-  pfirst_data_ = nullptr;
-  plast_data_ = nullptr;
+  output_types_.insert(output_types_.end(), restart_outputs.begin(),
+                       restart_outputs.end());
 }
 
 //----------------------------------------------------------------------------------------
@@ -482,8 +388,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
                           const SignalHandler::OutputSignal signal) {
   PARTHENON_INSTRUMENT
   bool first = true;
-  OutputType *ptype = pfirst_type_;
-  while (ptype != nullptr) {
+  for (auto ptype : output_types_) {
     if ((tm == nullptr) ||
         // output is not soft disabled and
         (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0)) &&
@@ -516,7 +421,6 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
-    ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
   }
 }
 
