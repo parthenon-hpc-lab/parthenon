@@ -20,6 +20,7 @@
 - [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
 
 
