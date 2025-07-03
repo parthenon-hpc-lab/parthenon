@@ -499,7 +499,10 @@ coalesced buffer into the single variable-boundary buffers. This can drastically
 number of MPI sends and increase the total amount of data sent per message, thereby
 increasing the effective bandwidth. Further, in cases where Parthenon is running on GPUs but
 GPUDirect MPI is not available, this can also minimize the number of DtoH and HtoD copies
-during communication. 
+during communication. On the other hand, using coalesced communications implies an extra
+set of copies from the variable-boundary buffers to the coalesced buffers. As a result,
+using coalesced communications can have a negative performance impact in some situations 
+(e.g. when running with large meshblocks (>~128^3) and small numbers of fields). 
 
 To use coalesced communication, your input must include: 
 
