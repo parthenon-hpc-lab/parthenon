@@ -14,6 +14,9 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
+- [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
+- [[PR 1275]](https://github.com/parthenon-hpc-lab/parthenon/pull/1275) Remove typeid from interpolation device code
+- [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
 - [[PR 1272]](https://github.com/parthenon-hpc-lab/parthenon/pull/1272) Remove mistakenly included pdf files in the base directory
 - [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
 

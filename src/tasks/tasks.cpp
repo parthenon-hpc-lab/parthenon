@@ -117,6 +117,8 @@ std::ostream &WriteTaskGraph(std::ostream &stream,
 }
 
 TaskListStatus TaskRegion::Execute(Pool_t &pool) {
+  std::atomic<bool> task_failed = false;
+
   // for now, require a pool with one thread
   PARTHENON_REQUIRE_THROWS(pool.size() == 1,
                            "Pool_t size != 1 is not currently supported.")
@@ -126,14 +128,24 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
 
   // declare this so it can call itself
   std::function<TaskStatus(Task *)> ProcessTask;
-  ProcessTask = [&pool, &ProcessTask](Task *task) -> TaskStatus {
+  ProcessTask = [&pool, &ProcessTask, &task_failed](Task *task) -> TaskStatus {
+    if (task_failed.load(std::memory_order_acquire)) {
+      return TaskStatus::fail;
+    }
+
     auto status = task->operator()();
+    if (status == TaskStatus::fail) {
+      task_failed.store(true, std::memory_order_release);
+      return status;
+    }
+
     auto next_up = task->GetDependent(status);
     for (auto t : next_up) {
       if (t->ready()) {
         pool.enqueue([t, &ProcessTask]() { return ProcessTask(t); });
       }
     }
+
     return status;
   };
 
@@ -145,11 +157,15 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
 
   // then wait until everything is done
   pool.wait();
+  pool.check_task_returns();
 
   // Check the results, so as to fire any exceptions from threads
   // Return failure if a task failed
-  return (pool.check_task_returns() == TaskStatus::complete) ? TaskListStatus::complete
-                                                             : TaskListStatus::fail;
+  if (task_failed.load(std::memory_order_acquire)) {
+    return TaskListStatus::fail;
+  } else {
+    return TaskListStatus::complete;
+  }
 }
 
 void TaskRegion::AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {

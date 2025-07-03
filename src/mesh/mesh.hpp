@@ -160,11 +160,19 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
-                                  : default_pack_size_;
+    if (use_pack_size_) {
+      return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                    : default_pack_size_;
+    } else {
+      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
+    }
   }
   int DefaultNumPartitions() {
-    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    if (use_pack_size_) {
+      return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    } else {
+      return std::min(default_num_packs_, block_list.size());
+    }
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
@@ -314,7 +322,9 @@ class Mesh {
   int lb_interval_;
 
   // size of default MeshBlockPacks
+  bool use_pack_size_;
   int default_pack_size_;
+  std::size_t default_num_packs_;
 
   int gmg_min_logical_level_ = 0;
 
