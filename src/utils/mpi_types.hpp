@@ -44,6 +44,11 @@ inline MPI_Datatype MPITypeMap<int64_t>::type() {
 }
 
 template <>
+inline MPI_Datatype MPITypeMap<int8_t>::type() {
+  return MPI_INT8_T;
+}
+
+template <>
 inline MPI_Datatype MPITypeMap<int>::type() {
   return MPI_INT;
 }
