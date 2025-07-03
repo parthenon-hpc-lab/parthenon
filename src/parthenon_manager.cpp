@@ -222,7 +222,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     }
   }
 
-  if (arg.mesh_flag) {
+  if (arg.mesh_flag || arg.narg_flag) {
     ParthenonFinalize();
     exit(0);
   }

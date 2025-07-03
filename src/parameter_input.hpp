@@ -26,16 +26,19 @@
 #include <algorithm>
 #include <any>
 #include <cstddef>
+#include <map>
 #include <optional>
 #include <ostream>
+#include <regex>
+#include <set>
 #include <string>
 #include <typeinfo>
-#include <unordered_map>
 #include <utility> // for std::forward, std::pair
 #include <vector>
 
 #include "config.hpp"
 #include "defs.hpp"
+#include "globals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "utils/hash.hpp"
 #include "utils/string_utils.hpp"
@@ -43,12 +46,17 @@
 namespace parthenon {
 
 struct QueryRecord {
-  bool has_been_overwritten;
+  // TODO(JMM): Update this with more provenance information
+  enum class OriginType { None, Input, Default, SetInCode };
+  OriginType origin_type = OriginType::Input;
   std::string param_type;
-  std::any default_value;               // std::any::has_value to check if default
-                                        // val exists
-  std::vector<std::any> allowed_values; // size to check if allowed values exist
-  std::optional<std::string> docstring; // std::optiona::has_value to check if exists
+  std::any default_value; // std::any::has_value to check if default
+                          // val exists
+  std::string
+      default_value_str; // used for output, so we don't have to mess with types later
+  std::vector<std::any> allowed_values;      // size to check if allowed values exist
+  std::vector<std::string> allowed_vals_str; // used for output
+  std::optional<std::string> docstring;      // std::optiona::has_value to check if exists
   // JMM: Surely there's a way of doing this automatically?
   // Unfortunately the value in typeid is implementation defined, so
   // we can't pick if it looks nice...
@@ -72,7 +80,7 @@ struct QueryRecord {
       T t;
       return typeid(t).name();
     } else if constexpr (std::is_same_v<T, std::vector<typename T::value_type>>) {
-      return "std::vector<" + GetTypeName < GetTypeName() + ">";
+      return "std::vector<" + GetTypeName<typename T::value_type>() + ">";
     } else {
       if (Globals::my_rank == 0) {
         PARTHENON_WARN("Unknown non-arithmetic type! Attempting to use typeid, which is "
@@ -89,6 +97,15 @@ struct QueryRecord {
   template <typename T>
   void SetTypeName() {
     param_type = GetTypeName<T>();
+  }
+  template <typename T>
+  static std::string ToString(const T &val) {
+    std::stringstream ss;
+    if constexpr (std::is_same_v<T, Real>) {
+      ss.precision(std::numeric_limits<T>::max_digits10);
+    }
+    ss << val;
+    return ss.str();
   }
 };
 
@@ -148,42 +165,61 @@ class ParameterInput {
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
+  // TODO(JMM): Make this more general?
+  void OutputParameterTable(const std::string &filename,
+                            const std::regex &block_regex) const;
+
   int DoesParameterExist(const std::string &block, const std::string &name);
   int DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
-  int GetInteger(const std::string &block, const std::string &name,
-                 const std::optional<std::string> &docstring = std::optional<std::string>{});
-  int GetOrAddInteger(const std::string &block, const std::string &name, int value,
-                      const std::optional<std::string> &docstring = std::optional<std::string>{});
-  int SetInteger(const std::string &block, const std::string &name, int value);
-  Real GetReal(const std::string &block, const std::string &name,
-               const std::optional<std::string> &docstring = std::optional<std::string>{});
-  Real GetOrAddReal(const std::string &block, const std::string &name, Real value,
-                    const std::optional<std::string> &docstring = std::optional<std::string>{});
-  Real SetReal(const std::string &block, const std::string &name, Real value);
-  bool GetBoolean(const std::string &block, const std::string &name,
-                  const std::optional<std::string> &docstring = std::optional<std::string>{});
-  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value,
-                       const std::optional<std::string> &docstring = std::optional<std::string>{});
-  bool SetBoolean(const std::string &block, const std::string &name, bool value);
+  int GetInteger(
+      const std::string &block, const std::string &name,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  int GetOrAddInteger(
+      const std::string &block, const std::string &name, int value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  int SetInteger(
+      const std::string &block, const std::string &name, int value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  Real
+  GetReal(const std::string &block, const std::string &name,
+          const std::optional<std::string> &docstring = std::optional<std::string>{});
+  Real GetOrAddReal(
+      const std::string &block, const std::string &name, Real value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  Real
+  SetReal(const std::string &block, const std::string &name, Real value,
+          const std::optional<std::string> &docstring = std::optional<std::string>{});
+  bool
+  GetBoolean(const std::string &block, const std::string &name,
+             const std::optional<std::string> &docstring = std::optional<std::string>{});
+  bool GetOrAddBoolean(
+      const std::string &block, const std::string &name, bool value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  bool
+  SetBoolean(const std::string &block, const std::string &name, bool value,
+             const std::optional<std::string> &docstring = std::optional<std::string>{});
 
-  std::string GetString(const std::string &block, const std::string &name,
-                        const std::optional<std::string> &docstring = std::optional<std::string>{});
-  std::string GetOrAddString(const std::string &block, const std::string &name,
-                             const std::string &value,
-                             const std::optional<std::string> &docstring = std::optional<std::string>{});
-  std::string SetString(const std::string &block, const std::string &name,
-                        const std::string &value);
-  std::string GetString(const std::string &block, const std::string &name,
-                        const std::vector<std::string> &allowed_values,
-                        const std::optional<std::string> &docstring = std::optional<std::string>{});
-  std::string GetOrAddString(const std::string &block, const std::string &name,
-                             const std::string &value,
-                             const std::vector<std::string> &allowed_values,
-                             const std::optional<std::string> &docstring = std::optional<std::string>{});
+  std::string
+  GetString(const std::string &block, const std::string &name,
+            const std::optional<std::string> &docstring = std::optional<std::string>{});
+  std::string GetOrAddString(
+      const std::string &block, const std::string &name, const std::string &value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
+  std::string
+  SetString(const std::string &block, const std::string &name, const std::string &value,
+            const std::optional<std::string> &docstring = std::optional<std::string>{});
+  std::string
+  GetString(const std::string &block, const std::string &name,
+            const std::vector<std::string> &allowed_values,
+            const std::optional<std::string> &docstring = std::optional<std::string>{});
+  std::string GetOrAddString(
+      const std::string &block, const std::string &name, const std::string &value,
+      const std::vector<std::string> &allowed_values,
+      const std::optional<std::string> &docstring = std::optional<std::string>{});
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
-  void CheckOrphans();
+  void CheckOrphans() const;
 
   template <typename T, typename... Args>
   T GetOrAdd(const std::string &block, const std::string &name, const T &value,
@@ -216,8 +252,9 @@ class ParameterInput {
   }
 
   template <typename T>
-  std::vector<T> GetVector(const std::string &block, const std::string &name,
-                           const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  std::vector<T>
+  GetVector(const std::string &block, const std::string &name,
+            const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     std::vector<std::string> fields = GetVector_(block, name);
     if constexpr (std::is_same<T, std::string>::value) return fields;
 
@@ -234,9 +271,9 @@ class ParameterInput {
     return ret;
   }
   template <typename T>
-  std::vector<T> GetOrAddVector(const std::string &block, const std::string &name,
-                                std::vector<T> def,
-                                const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  std::vector<T> GetOrAddVector(
+      const std::string &block, const std::string &name, std::vector<T> def,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
     std::string cname = ConcatVector_(def);
@@ -247,7 +284,9 @@ class ParameterInput {
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
-  std::unordered_map<std::pair<std::string, std::string>, QueryRecord> queries_;
+  // We will want to iterate through the record in lexicographic
+  // order, so this needs to be an ordered map
+  std::map<std::pair<std::string, std::string>, QueryRecord> queries_;
 
   InputBlock *FindOrAddBlock(const std::string &name);
   InputBlock *GetPtrToBlock(const std::string &name);
@@ -344,13 +383,22 @@ class ParameterInput {
           PARTHENON_THROW(msg);
         }
       }
-      // Only triggers if the container is non-empty
-      PARTHENON_REQUIRE_THROWS(allowed_vals.size() == record.allowed_values.size(),
-                               "Allowed values must be consistently shaped");
-      std::size_t i = 0;
-      for (auto &allowed : allowed_vals) {
-        PARTHENON_REQUIRE_THROWS(allowed == std::any_cast<T>(record.allowed_values[i]),
-                                 "Allowed values must be consistent");
+      // Allowed values are checked after a query, so this function
+      // will be called twice: once with no allowed values and once
+      // with them. This check ensures that validation for allowed
+      // values only happens if they're both active.
+      if ((allowed_vals.size() > 0) && (record.allowed_values.size() > 0)) {
+        PARTHENON_REQUIRE_THROWS(allowed_vals.size() == record.allowed_values.size(),
+                                 "Allowed values must be consistently shaped");
+        std::size_t i = 0;
+        for (const auto &allowed : allowed_vals) {
+          PARTHENON_REQUIRE_THROWS(allowed == std::any_cast<T>(record.allowed_values[i]),
+                                   "Allowed values must be consistent");
+        }
+      } else if (allowed_vals.size() > 0) {
+        for (const auto &allowed : allowed_vals) {
+          record.allowed_values.push_back(std::any(allowed));
+        }
       }
       // if two inconsistent docstrings exist, complain
       if (record.docstring.has_value() && docstring.has_value() &&
@@ -372,9 +420,13 @@ class ParameterInput {
     } else {
       QueryRecord record;
       record.SetTypeName<T>();
-      record.default_value = defval; // might be empty
+      if (defval.has_value()) {
+        record.default_value = defval.value();
+        record.default_value_str = record.ToString(defval.value());
+      }
       for (const auto &allowed : allowed_vals) {
         record.allowed_values.push_back(std::any(allowed));
+        record.allowed_vals_str.push_back(record.ToString(allowed));
       }
       record.docstring = docstring; // might be empty
       queries_[key] = record;
@@ -382,11 +434,17 @@ class ParameterInput {
   }
   template <typename T>
   void CheckAndUpdateQueries_(const std::string &block, const std::string &name,
-                              std::optional<std::string> &docstring) {
-    CheckAndUpdateQueries(block, name, std::optional<T>{}, std::vector<T>{},
-                          docstring);
+                              const std::optional<std::string> &docstring) {
+    CheckAndUpdateQueries_<T>(block, name, std::optional<T>{}, std::vector<T>{},
+                              docstring);
+  }
+  void UpdateQueryProvenance_(const std::string &block, const std::string &name,
+                              QueryRecord::OriginType origin) {
+    auto key = std::make_pair(block, name);
+    queries_.at(key).origin_type = origin;
   }
 };
+
 } // namespace parthenon
 
 // JMM: Believe it or not, this is the recommended way to overload hash functions
