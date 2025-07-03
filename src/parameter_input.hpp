@@ -142,7 +142,7 @@ class ParameterInput {
     } else if constexpr (std::is_same_v<T, Real>) {
       return GetReal(block, name, std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<T, std::string>) {
-      return GetOrAddString(block, name, value, std::forward<Args>(args)...);
+      return GetString(block, name, std::forward<Args>(args)...);
     } else if (std::is_integral_v<T>) {
       return GetInteger(block, name, std::forward<Args>(args)...);
     } else {
