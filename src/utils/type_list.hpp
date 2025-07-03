@@ -20,6 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include <Kokkos_Macros.hpp>
+
 namespace parthenon {
 
 // Convenience struct for holding a variadic pack of types
@@ -32,6 +34,7 @@ struct TypeList {
   using types = std::tuple<Args...>;
 
   static constexpr std::size_t n_types{sizeof...(Args)};
+  static constexpr std::size_t ncomp{n_types};
 
   template <std::size_t I>
   using type = typename std::tuple_element<I, types>::type;
@@ -47,6 +50,11 @@ struct TypeList {
     } else {
       return GetIdx<T, I + 1>();
     }
+  }
+
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION std::size_t GetIndex(const T &t) const {
+    return GetIdx<T>();
   }
 
   template <class F>

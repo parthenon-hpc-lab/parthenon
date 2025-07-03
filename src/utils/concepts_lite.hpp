@@ -39,6 +39,10 @@ struct is_specialization_of : public std::false_type {};
 template <template <class...> class TEMPL, class... TPARAMS>
 struct is_specialization_of<TEMPL<TPARAMS...>, TEMPL> : public std::true_type {};
 
+// this is in c++20 to remove any const & ref from a given type
+template <typename T>
+using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
+
 // This is a variadic template class that accepts any set of types
 // and is always equal to void as long as the types are well formed.
 // Although it seems simple, it is the basis of the SFINAE "void_t

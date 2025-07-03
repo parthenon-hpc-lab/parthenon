@@ -123,6 +123,53 @@ A given sparse field may or may not be allocated on each block within a pack. To
      return TaskStatus::complete;
    }
 
+Slicing into ``SparsePack``\ s with ``SubPack``\ s
+--------------------------------------------------
+
+A `SubPack` provdies a view into a slice of a `SparsePack` along a given dimension(s).
+`SubPack`\ s are constructed with a block + `kji` index to give a slice into the 
+fields at the meshblock + cell index. When a `SubPack` is constructed with the
+`Axis` template parameters then the `SubPack` also providies a view into slices
+of the `SparsePack` along the provided axes offset from the provided `kji` indices.
+
+.. code:: c++
+
+  const int ni = ib.e - ib.s + 1;
+  const int ic = ib.s + ni / 2;
+  par_for(
+      PARTHENON_AUTO_LABEL, 0, sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      KOKKOS_LAMBDA(int b, int k, int j) {
+        int ltot = 0;
+        int lo = sparse_pack.GetLowerBound(b, v3());
+        int hi = sparse_pack.GetUpperBound(b, v3());
+        auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
+
+        for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+          for (int c = 0; c <= hi - lo; ++c) {
+            Real n = i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+            // indexes into sparse_pack(b, v3(c), k, j, ic + i)
+            if (n != sub_pack(v3(c), i)) ltot += 1;
+          }
+        }
+      });
+
+For example usage see the `unit test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_sparse_pack.cpp>`
+
+Type based indexing arrays
+--------------------------
+
+It is often convenient when working with type-based packs to also be able to index into
+an array or scratchpads using the same type-based indexing used for the packs. Parthenon
+provides some objects to wrap either a `Kokkos::Array` or a `ScratchPad2D<Real>` and
+to index into these with types with the `TypeListArray` or `ScratchPack` functions.
+Users only need to provide an interface that conforms to the `PackLike` interface 
+that provides a compile time value for number of variable components to be indexed into
+and a method to determine an integer index from a type. Interfaces are provided by Parthenon
+for `SparsePacks`, `TypeList`s & `VarList`s for variables that are defined with a 
+`ncomp` property.
+
+For example usage see the `unit test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_sparse_pack.cpp>`
+
 .. [1] In practice, there are ways of selecting subsets of fields for inclusion in a given ``MeshBlockData`` instance.
 .. [2] ``ParArray``\ s are lite wrappers around ``Kokkos::View``\ s and therefore obey reference semantics.
 .. [3] Additionally, because many ``std::`` library containers don't work on device, the chain from field name through ``MeshBlockData`` to ``Variable`` to the underlying ``ParArray`` cannot be legally followed within a kernel.
