@@ -179,8 +179,11 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       PARTHENON_FAIL(msg);
     }
 
-    // If this is the first output, write header
-    if (output_params.file_number == 0) {
+    // Write the header lines once per invocation of Parthenon -- output variables may
+    // have changed, or we may be restarting in a new directory with no existing
+    // output file
+    static bool first_invocation = true;
+    if (first_invocation) {
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
       std::fprintf(pfile, "# [%d]=time    ", iout++);
@@ -193,6 +196,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
+      first_invocation = false;
     }
 
     // write history variables
