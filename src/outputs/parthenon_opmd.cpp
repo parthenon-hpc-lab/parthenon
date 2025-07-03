@@ -701,12 +701,14 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // -------------------------------------------------------------------------------- //
   //   WRITING Sparse metadata                                                        //
   // -------------------------------------------------------------------------------- //
-  auto sparse_allocated_global = FlattendedLocalToGlobal<int8_t>(pm, sparse_allocated);
-  it.setAttribute("SparseInfo", sparse_allocated_global);
-  it.setAttribute("SparseFields", sparse_names);
-  auto sparse_dealloc_count_global =
-      FlattendedLocalToGlobal<int>(pm, sparse_dealloc_count);
-  it.setAttribute("SparseDeallocCount", sparse_dealloc_count_global);
+  if (num_sparse > 0) {
+    auto sparse_allocated_global = FlattendedLocalToGlobal<int8_t>(pm, sparse_allocated);
+    it.setAttribute("SparseInfo", sparse_allocated_global);
+    it.setAttribute("SparseFields", sparse_names);
+    auto sparse_dealloc_count_global =
+        FlattendedLocalToGlobal<int>(pm, sparse_dealloc_count);
+    it.setAttribute("SparseDeallocCount", sparse_dealloc_count_global);
+  }
 
   // -------------------------------------------------------------------------------- //
   //   WRITING PARTICLE DATA                                                          //
