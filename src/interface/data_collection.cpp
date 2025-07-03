@@ -78,7 +78,7 @@ std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) {
     return Get(name, pmy_mesh_->GetBasePartition());
   } else {
     // Here we call Get with some arbitrary shared ptr
-    // since Get doesn't use the second argument when 
+    // since Get doesn't use the second argument when
     // templated on MeshBlockData. Gross, I know.
     return Get(name, std::make_shared<int>());
   }

@@ -366,6 +366,9 @@ void CoalescedBuffersRank::PackAndSend(MeshData<Real> *pmd) {
                     "Trying to send combined buffers before they have been built");
   if (coalesced_bufs.count(pmd->partition)) {
     coalesced_bufs.at(pmd->partition).PackAndSend(pmd->GetUids());
+  } else {
+    PARTHENON_FAIL("Trying to do coalesced communication using a partition that is "
+                   "unregistered (i.e. not a default partition).");
   }
 
   return;
