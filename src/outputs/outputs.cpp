@@ -147,8 +147,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if (tm != nullptr) {
       op.dt = dt;
       op.dn = dn;
-      // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+      /*
+        JMM: Set next time/iteration to output. At startup, the
+        process looks something like this:
+        1. simulation starts at start_time
+        2. Outputs package sets last_output to numeric_limits<>::lowest
+        3. In Outputs consturctor, we detect this dummy value and set
+        the next output to now
+        4. An initial dump is created
+        5. When these vars are next updated, next output will be start_time + dt
+
+        Alternatively, we could have set last_output output to
+        start_time - dt in the outputs package rather than use a
+        signaling number. However, I think the flag is less fraught.
+      */
       if (dt >= 0) {
+        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -156,6 +170,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
+        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {

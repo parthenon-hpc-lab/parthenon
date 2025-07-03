@@ -123,7 +123,11 @@ class ParameterInput {
   template <typename T, typename... Args>
   T GetOrAdd(const std::string &block, const std::string &name, const T &value,
              Args &&...args) {
-    if constexpr (std::is_same_v<T, int>) {
+    // JMM: This is slightly dangerous but helps with the pain point
+    // Adam mentioned. Will be resolved with a more flexible parser
+    // such as TOML.
+    if constexpr (std::is_same_v<T, int> || std::is_same_v<T, std::size_t> ||
+                  std::is_same_v<T, std::uint64_t>) {
       return GetOrAddInteger(block, name, value, std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<T, Real>) {
       return GetOrAddReal(block, name, value, std::forward<Args>(args)...);
