@@ -251,4 +251,15 @@ template <typename T>
 using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
 
+namespace Kokkos {
+// this specialization is needed for AmrTags to be used as the type in a
+// Kokkos::ScatterView
+template <>
+struct reduction_identity<parthenon::AmrTag> {
+  using AmrTag = parthenon::AmrTag;
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::derefine; }
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::refine; }
+};
+} // namespace Kokkos
+
 #endif // BASIC_TYPES_HPP_
