@@ -74,7 +74,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       // These will be updated later or restarted from
       active.push_back(false);
       file_numbers.push_back(0);
-      // JMM: Limits to indicate these haven't been set yet
+
+      // JMM: Limits to indicate these haven't been set yet. The reason
+      // to set these to a "signal" number, rather than to start_time
+      // is that we want to ensure a first output is performed.
       last_times.push_back(std::numeric_limits<Real>::lowest());
       last_ns.push_back(std::numeric_limits<int>::lowest());
     }
