@@ -188,7 +188,7 @@ class StateDescriptor {
     return params_.Get(key, value);
   }
 
-  const std::type_index &ParamType(const std::string &key) const {
+  const std::type_index ParamType(const std::string &key) const {
     return params_.GetType(key);
   }
 
