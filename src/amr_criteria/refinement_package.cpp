@@ -44,7 +44,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       break;
     }
     std::string method =
-        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method");
+        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method",
+                            "method to use to check for refinement");
     ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
     numcrit++;
   }

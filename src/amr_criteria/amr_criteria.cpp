@@ -26,7 +26,8 @@ namespace parthenon {
 
 AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
     : comp6(0), comp5(0), comp4(0) {
-  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+  field =
+      pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET", "Field to refine on");
   if (field == "NO FIELD WAS SET") {
     std::cerr << "Error in " << block_name << ": no field set" << std::endl;
     exit(1);
@@ -50,10 +51,15 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
                              "vector_i requires one value, e.g. vector_i = 2");
     comp4 = index[0];
   }
-  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
-  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
-  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
-  max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
+  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5,
+                                      "magnitude that triggers refinement");
+  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05,
+                                        "magnitude that triggers de-refinement");
+  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                              "maximum level of refinement globally");
+  max_level =
+      pin->GetOrAddInteger(block_name, "max_level", global_max_level,
+                           "maximum level this refinement criterion will achieve");
   if (max_level > global_max_level) {
     std::cerr << "WARNING: max_level in " << block_name
               << " exceeds numlevel (the global maximum number of levels) set in "

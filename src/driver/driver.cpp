@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -70,8 +70,9 @@ DriverStatus EvolutionDriver::Execute() {
   OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
                             ? OutputSignal::analysis
                             : OutputSignal::none;
-  int perf_cycle_offset =
-      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+  int perf_cycle_offset = pinput->GetOrAddInteger(
+      "parthenon/time", "perf_cycle_offset", 0,
+      "don't measure performance for some number of initial cycles");
 
   if (Globals::output_params_and_exit && Globals::my_rank == 0) {
     pinput->OutputParameterTable(std::cout, Globals::params_table_name,
@@ -238,8 +239,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
       tm.dt = std::min(tm.dt, pmb->NewDt());
       pmb->SetAllowedDt(std::numeric_limits<Real>::max());
     }
-    // Allow the user to enforce maximum timestep
-    tm.dt = std::min(tm.dt, dt_user);
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL
@@ -281,7 +280,8 @@ void EvolutionDriver::SetGlobalTimeStep() {
 void EvolutionDriver::DumpInputParameters() {
   auto archive_settings =
       pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
-                             std::vector<std::string>{"true", "false", "timestamp"});
+                             std::vector<std::string>{"true", "false", "timestamp"},
+                             "save input parameters in a separate file");
   if (archive_settings != "false" && Globals::my_rank == 0) {
     std::ostringstream ss;
     if (archive_settings == "timestamp") {

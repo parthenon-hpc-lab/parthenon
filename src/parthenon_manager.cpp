@@ -140,7 +140,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
 
   // Set the global number of ghost zones
-  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2,
+                                            "number of ghost zones on a block");
 
   // set sparse config
   Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
