@@ -29,6 +29,15 @@ jobs:
             pip install sphinx
             pip install sphinx-rtd-theme
             pip install sphinx-multiversion
+            sudo apt install -y --force-yes -qq build-essential
+        - name: generate csv files
+          run: |
+            echo "Repo = ${GITHUB_REPOSITORY}"
+            mkdir -p build && cd build
+            cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_DISABLE_MPI=ON ..
+            make -j4
+            make csv-tables
+            cd ..
         - name: build docs
           run: |
             echo "Repo = ${GITHUB_REPOSITORY}"
