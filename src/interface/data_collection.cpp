@@ -66,6 +66,9 @@ DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_l
 template <class T>
 const std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) const {
   if constexpr (std::is_same_v<T, MeshData<Real>>) {
+    // Here we call Get with some arbitrary shared ptr
+    // since Get doesn't use the second argument when
+    // templated on MeshBlockData. Gross, I know.
     return Get(name, pmy_mesh_->GetBasePartition());
   } else {
     return Get(name, std::make_shared<int>());
