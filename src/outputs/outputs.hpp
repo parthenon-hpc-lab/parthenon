@@ -47,20 +47,6 @@ class Mesh;
 class ParameterInput;
 
 //----------------------------------------------------------------------------------------
-//! \struct OutputData
-//  \brief container for output data and metadata; node in nested doubly linked list
-
-struct OutputData {
-  std::string type; // one of (SCALARS,VECTORS) used for vtk outputs
-  std::string name;
-  ParArrayND<Real> data; // array containing data (usually shallow copy/slice)
-  // ptrs to previous and next nodes in doubly linked list:
-  OutputData *pnext, *pprev;
-
-  OutputData() : pnext(nullptr), pprev(nullptr) {}
-};
-
-//----------------------------------------------------------------------------------------
 //  \brief abstract base class for different output types (modes/formats). Each OutputType
 //  is designed to be a node in a singly linked list created & stored in the Outputs class
 
@@ -72,7 +58,6 @@ class OutputType {
 
   // rule of five:
   virtual ~OutputType() = default;
-  // copy constructor and assignment operator (pnext_type, pfirst_data, etc. are shallow
   // copied)
   OutputType(const OutputType &copy_other) = default;
   OutputType &operator=(const OutputType &copy_other) = default;
@@ -81,15 +66,8 @@ class OutputType {
   OutputType &operator=(OutputType &&) = default;
 
   // data
-  int out_is, out_ie, out_js, out_je, out_ks, out_ke; // OutputData array start/end index
   OutputParameters output_params; // control data read from <output> block
-  OutputType *pnext_type;         // ptr to next node in singly linked list of OutputTypes
 
-  // functions
-  void LoadOutputData(MeshBlock *pmb);
-  void AppendOutputDataNode(OutputData *pdata);
-  void ReplaceOutputDataNode(OutputData *pold, OutputData *pnew);
-  void ClearOutputData();
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                const SignalHandler::OutputSignal signal) = 0;
@@ -99,9 +77,9 @@ class OutputType {
 
  protected:
   int num_vars_; // number of variables in output
-  // nested doubly linked list of OutputData nodes (of the same OutputType):
-  OutputData *pfirst_data_; // ptr to head OutputData node in doubly linked list
-  OutputData *plast_data_;  // ptr to tail OutputData node in doubly linked list
+
+  // Update book-keeping such as next output time to next output
+  void UpdateNextOutput_(Mesh *pm, SimTime *tm);
 };
 
 //----------------------------------------------------------------------------------------
@@ -273,15 +251,13 @@ class HistogramOutput : public OutputType {
 class Outputs {
  public:
   Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
-  ~Outputs();
 
   void
   MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,
               SignalHandler::OutputSignal signal = SignalHandler::OutputSignal::none);
 
  private:
-  OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
-  // (not storing a reference to the tail node)
+  std::vector<std::shared_ptr<OutputType>> output_types_;
 };
 
 } // namespace parthenon
