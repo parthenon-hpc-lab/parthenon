@@ -1,0 +1,15 @@
+/* Enable word wrap in table cells */
+/*
+.rst-content table.docutils td {
+  white-space: normal !important;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+*/
+/* Only apply word wrapping to CSV-imported tables with .csv-wrap class */
+.rst-content table.csv-wrap td {
+  white-space: normal !important;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
