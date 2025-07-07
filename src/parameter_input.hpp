@@ -42,6 +42,7 @@
 #include "outputs/io_wrapper.hpp"
 #include "utils/hash.hpp"
 #include "utils/string_utils.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -56,7 +57,7 @@ struct QueryRecord {
       default_value_str; // used for output, so we don't have to mess with types later
   std::vector<std::any> allowed_values;      // size to check if allowed values exist
   std::vector<std::string> allowed_vals_str; // used for output
-  std::optional<std::string> docstring;      // std::optiona::has_value to check if exists
+  std::optional<std::string> docstring; // std::optional::has_value to check if exists
   // JMM: Surely there's a way of doing this automatically?
   // Unfortunately the value in typeid is implementation defined, so
   // we can't pick if it looks nice...
@@ -166,7 +167,7 @@ class ParameterInput {
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
-  void OutputParameterTable(const std::string &filename,
+  void OutputParameterTable(std::ostream &os, const std::string &table_title,
                             const std::regex &block_regex) const;
 
   int DoesParameterExist(const std::string &block, const std::string &name);
@@ -423,6 +424,8 @@ class ParameterInput {
       if (defval.has_value()) {
         record.default_value = defval.value();
         record.default_value_str = record.ToString(defval.value());
+      } else {
+        record.default_value_str = "N/A";
       }
       for (const auto &allowed : allowed_vals) {
         record.allowed_values.push_back(std::any(allowed));

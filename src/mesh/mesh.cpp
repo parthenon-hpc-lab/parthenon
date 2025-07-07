@@ -192,6 +192,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
     } else {
       base_block_size.nx(dir) = mesh_size.nx(dir);
+      // JMM: Just to ensure it gets written to params
+      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir));
     }
   }
 
@@ -352,9 +354,11 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // check if there are sufficient blocks
   if (nbtotal < Globals::nranks) {
     if (mesh_test != 0) {
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
+      if ((Globals::my_rank == 0) && (!Globals::output_params_and_exit)) {
+        std::cout << "### Warning in Mesh constructor" << std::endl
+                  << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+                  << Globals::nranks << ")" << std::endl;
+      }
     }
   }
 #endif
@@ -852,13 +856,15 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == nb_before_loadbalance) {
         init_done = true;
-      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0) {
+      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0 &&
+                 !Globals::output_params_and_exit) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks decreased during AMR grid initialization."
                   << std::endl
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
-      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0) {
+      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0 &&
+          !Globals::output_params_and_exit) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks increased more than twice during "
                      "initialization."
@@ -871,7 +877,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
-  if (nbtotal < Globals::nranks) {
+  if (nbtotal < Globals::nranks && Globals::my_rank == 0 &&
+      !Globals::output_params_and_exit) {
     std::stringstream msg;
     msg << "### FATAL ERROR in Mesh Initialize" << std::endl
         << "Too few mesh blocks after initialization: nbtotal (" << nbtotal

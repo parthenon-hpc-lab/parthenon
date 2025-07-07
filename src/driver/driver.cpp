@@ -66,6 +66,19 @@ void Driver::PostExecute(DriverStatus status) {
 }
 
 DriverStatus EvolutionDriver::Execute() {
+  // JMM: I want these before output_params_and_exit so we capture as much as possible
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
+  int perf_cycle_offset =
+      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+
+  if (Globals::output_params_and_exit && Globals::my_rank == 0) {
+    pinput->OutputParameterTable(std::cout, Globals::params_table_name,
+                                 std::regex(Globals::params_block_regex));
+    return DriverStatus::complete;
+  }
+
   PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
@@ -83,13 +96,8 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
-                            ? OutputSignal::analysis
-                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
-  int perf_cycle_offset =
-      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
 
   // Output a text file of all parameters at this point
   // Defaults must be set across all ranks

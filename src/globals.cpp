@@ -21,8 +21,10 @@
 // e.g., global constants that are set once and never changed.  To prevent name collisions
 // global variables are wrapped in their own namespace.
 
-#include "globals.hpp"
+#include <string>
+
 #include "defs.hpp"
+#include "globals.hpp"
 
 namespace parthenon {
 namespace Globals {
@@ -43,6 +45,12 @@ Real receive_boundary_buffer_timeout;
 // the total time (in seconds) the current task has been running, can be used to set
 // timeouts for tasks
 Real current_task_runtime_sec;
+
+// logic for parsing and outputting params
+bool output_params_and_exit = false;
+// cpplint says global strings are bad
+char params_table_name[PARAMS_STRING_LEN];
+char params_block_regex[PARAMS_STRING_LEN];
 
 namespace refinement {
 // Communication buffers are packed into a `BndInfo` object.

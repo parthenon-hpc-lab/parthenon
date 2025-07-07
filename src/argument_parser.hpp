@@ -64,8 +64,10 @@ class ArgParse {
           invalid = invalid_arg();
           prundir = argv[++i];
           break;
-        case 'n':
-          narg_flag = 1;
+        case 'p':
+          param_flag = 1;
+          params_table_name = argv[++i];
+          params_regex = argv[++i];
           break;
         case 'm': // -m <nproc>
           invalid = invalid_arg();
@@ -89,7 +91,8 @@ class ArgParse {
             std::cout << "  -r <file>       restart with this file\n";
             std::cout << "  -a <file>       analyze/postprocess this file\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
-            std::cout << "  -n              parse input file and quit\n";
+            std::cout << "  -p <table_title> <regex> parse input file, report parameters"
+                      << " for blocks matching regex in table with title and quit\n";
             std::cout << "  -c              show configuration and quit\n";
             std::cout << "  -m <nproc>      output mesh structure and quit\n";
             std::cout << "  -t hh:mm:ss     wall time limit for final output\n";
@@ -126,9 +129,11 @@ class ArgParse {
   char *input_filename = nullptr;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
+  char *params_table_name = nullptr;
+  char *params_regex = nullptr;
   bool analysis_flag = false;
   int res_flag = 0;
-  int narg_flag = 0;
+  int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
   int exit_flag = 0;

@@ -18,6 +18,7 @@
 #include "parthenon_manager.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -222,9 +223,19 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     }
   }
 
-  if (arg.mesh_flag || arg.narg_flag) {
+  if (arg.mesh_flag) {
     ParthenonFinalize();
     exit(0);
+  }
+
+  if (arg.param_flag) {
+    Globals::output_params_and_exit = true;
+    // JMM: cpplint doesn't like strcopy. snprintf is safer because of
+    // max buffer size parameter
+    std::snprintf(Globals::params_table_name, Globals::PARAMS_STRING_LEN, "%s",
+                  arg.params_table_name);
+    std::snprintf(Globals::params_block_regex, Globals::PARAMS_STRING_LEN, "%s",
+                  arg.params_regex);
   }
 
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());

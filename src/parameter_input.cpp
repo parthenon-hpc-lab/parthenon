@@ -826,7 +826,7 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
 
 int ParameterInput::SetInteger(const std::string &block, const std::string &name,
                                int value, const std::optional<std::string> &docstring) {
-  if (!DoesParameterExist(block, name)) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
     CheckAndUpdateQueries_<int>(block, name, docstring);
   }
 
@@ -847,7 +847,7 @@ int ParameterInput::SetInteger(const std::string &block, const std::string &name
 
 Real ParameterInput::SetReal(const std::string &block, const std::string &name,
                              Real value, const std::optional<std::string> &docstring) {
-  if (!DoesParameterExist(block, name)) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
     CheckAndUpdateQueries_<Real>(block, name, docstring);
   }
 
@@ -871,7 +871,7 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
 
 bool ParameterInput::SetBoolean(const std::string &block, const std::string &name,
                                 bool value, const std::optional<std::string> &docstring) {
-  if (!DoesParameterExist(block, name)) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
     CheckAndUpdateQueries_<bool>(block, name, docstring);
   }
 
@@ -895,7 +895,7 @@ bool ParameterInput::SetBoolean(const std::string &block, const std::string &nam
 std::string ParameterInput::SetString(const std::string &block, const std::string &name,
                                       const std::string &value,
                                       const std::optional<std::string> &docstring) {
-  if (!DoesParameterExist(block, name)) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
     CheckAndUpdateQueries_<std::string>(block, name, docstring);
   }
 
@@ -993,8 +993,63 @@ void ParameterInput::ParameterDump(std::ostream &os) {
   os << "<par_end>" << std::endl; // finish with par-end (useful in restart files)
 }
 
-void ParameterInput::OutputParameterTable(const std::string &filename,
-                                          const std::regex &block_regex) const {}
+void ParameterInput::OutputParameterTable(std::ostream &os,
+                                          const std::string &table_title,
+                                          const std::regex &block_regex) const {
+  const std::size_t widths[] = {50, 50, 15, 25, 50};
+  auto header = StringPrintf(".. list-table:: %s\n"
+                             "   :widths: %d %d %d %d %d\n"
+                             "   :header-rows: 1\n"
+                             "   * - block\n"
+                             "     - parameter\n"
+                             "     - type\n"
+                             "     - default\n"
+                             "     - description",
+                             table_title.c_str(), widths[0], widths[1], widths[2],
+                             widths[3], widths[4]);
+  os << header << std::endl;
+  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
+    const std::string &block_name = pb->block_name;
+    if (std::regex_match(block_name, block_regex)) {
+      std::size_t iparam = 0;
+      for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+        const std::string &param_name = pl->param_name;
+        auto record_key = std::make_pair(block_name, param_name);
+        // This ensures the code doesn't crash for orphan parameters
+        if (queries_.count(record_key) > 0) {
+          auto record = queries_.at(record_key);
+          if (iparam == 0) { // Don't duplicate block column for params in same block
+            os << StringPrintf("   * - %s", block_name.c_str()) << std::endl;
+          } else {
+            os << "   * - " << std::endl;
+          }
+          os << StringPrintf(
+              "     - %s\n"
+              "     - %s\n"
+              "     - %s\n"
+              "     - %s",
+              param_name.c_str(), record.param_type.c_str(),
+              record.default_value_str.c_str(),
+              record.docstring.has_value() ? record.docstring.value().c_str() : "");
+          std::size_t num_allowed_vals = record.allowed_vals_str.size();
+          if (num_allowed_vals > 0) {
+            os << " Allowed values: ";
+            std::size_t ival = 0;
+            for (const auto &v : record.allowed_vals_str) {
+              os << v.c_str();
+              if (ival < num_allowed_vals - 1) {
+                os << ", ";
+              }
+              ival++;
+            }
+          }
+          os << std::endl;
+          iparam++;
+        }
+      }
+    }
+  }
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn InputLine* InputBlock::GetPtrToLine(std::string name)
