@@ -103,7 +103,8 @@ struct QueryRecord {
   static std::string ToString(const T &val) {
     std::stringstream ss;
     if constexpr (std::is_same_v<T, Real>) {
-      ss.precision(std::numeric_limits<T>::max_digits10);
+      ss.precision(8); // max digits is totally unreadable
+      // ss.precision(std::numeric_limits<T>::max_digits10);
     }
     ss << val;
     return ss.str();
@@ -167,8 +168,7 @@ class ParameterInput {
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
-  void OutputParameterTable(std::ostream &os, const std::string &table_title,
-                            const std::regex &block_regex) const;
+  void OutputParameterTable(std::ostream &os, const std::regex &block_regex) const;
 
   int DoesParameterExist(const std::string &block, const std::string &name);
   int DoesBlockExist(const std::string &block);
@@ -425,7 +425,7 @@ class ParameterInput {
         record.default_value = defval.value();
         record.default_value_str = record.ToString(defval.value());
       } else {
-        record.default_value_str = "N/A";
+        record.default_value_str = "";
       }
       for (const auto &allowed : allowed_vals) {
         record.allowed_values.push_back(std::any(allowed));

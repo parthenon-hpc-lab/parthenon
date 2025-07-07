@@ -49,7 +49,6 @@ extern Real current_task_runtime_sec;
 constexpr std::size_t PARAMS_STRING_LEN = 1024;
 extern bool output_params_and_exit;
 // cpplint says global strings are bad
-extern char params_table_name[PARAMS_STRING_LEN];
 extern char params_block_regex[PARAMS_STRING_LEN];
 
 namespace refinement {

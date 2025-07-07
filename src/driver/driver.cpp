@@ -75,8 +75,7 @@ DriverStatus EvolutionDriver::Execute() {
       "don't measure performance for some number of initial cycles");
 
   if (Globals::output_params_and_exit && Globals::my_rank == 0) {
-    pinput->OutputParameterTable(std::cout, Globals::params_table_name,
-                                 std::regex(Globals::params_block_regex));
+    pinput->OutputParameterTable(std::cout, std::regex(Globals::params_block_regex));
     return DriverStatus::complete;
   }
 

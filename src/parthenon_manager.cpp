@@ -233,8 +233,6 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     Globals::output_params_and_exit = true;
     // JMM: cpplint doesn't like strcopy. snprintf is safer because of
     // max buffer size parameter
-    std::snprintf(Globals::params_table_name, Globals::PARAMS_STRING_LEN, "%s",
-                  arg.params_table_name);
     std::snprintf(Globals::params_block_regex, Globals::PARAMS_STRING_LEN, "%s",
                   arg.params_regex);
   }

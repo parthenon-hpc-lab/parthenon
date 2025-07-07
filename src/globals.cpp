@@ -49,7 +49,6 @@ Real current_task_runtime_sec;
 // logic for parsing and outputting params
 bool output_params_and_exit = false;
 // cpplint says global strings are bad
-char params_table_name[PARAMS_STRING_LEN];
 char params_block_regex[PARAMS_STRING_LEN];
 
 namespace refinement {
