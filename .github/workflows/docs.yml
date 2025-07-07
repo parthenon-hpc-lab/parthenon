@@ -21,7 +21,7 @@ jobs:
         - name: Checkout code
           uses: actions/checkout@v2
           with:
-            fetch-depth: 0
+            submodules: 'true'
         - name: Set system to non-interactive mode
           run: export DEBIAN_FRONTEND=noninteractive
         - name: install dependencies
