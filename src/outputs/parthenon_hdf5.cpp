@@ -1,9 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,6 +42,7 @@
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
@@ -103,6 +108,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // open HDF5 file
   // Define output filename
   auto filename = GenerateFilename_(pin, tm, signal);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 
   // set file access property list
   H5P const acc_file = H5P::FromHIDCheck(HDF5::GenerateFileAccessProps());
@@ -242,18 +254,24 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // simulation, but not all variables may be allocated on all blocks
 
   auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    const VariableVector<Real> &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+    const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
+    const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
     PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
                             "There can be at most one coordinates vector");
 
     VariableVector<Real> out;
-    if (restart_) {
+    if (mode_ == DumpOutputMode::RESTART) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else {
+    } else if (mode_ == DumpOutputMode::CORE) {
+      // JMM: The VariableVector does not include flux vars. To
+      // include these, we must instead call `GetAllVariables` with
+      // `FluxRequest::Any`.
+      out = data->GetAllVariables({}, FluxRequest::Any).vars();
+    } else { // (mode_ == DUMP)
       out = GetAnyVariables(var_vec, output_params.variables);
     }
     auto coords_loc = std::find_if(out.begin(), out.end(), [](const auto &v) {
@@ -454,7 +472,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, mode_,
+                          output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data
@@ -505,6 +524,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
+    auto &uint64_vars = std::get<SwarmInfo::MapToVarVec<std::uint64_t>>(swinfo.vars);
+    for (auto &[vname, swmvarvec] : uint64_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+      SetCounts(swinfo, vinfo);
+      HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
+                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+    }
     std::vector<Real> pos_tmp; // tmp vector to (potentially) hold particle positions
     auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : rvars) {
@@ -539,9 +566,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
 
-    // If swarm does not contain an "id" object, generate a sequential
-    // one for vis.
-    if (swinfo.var_info.count("id") == 0) {
+    // If swarm does not contain the default id object, generate a sequential
+    // one for vis called "id" (to differentiate between the default one)
+    if (swinfo.var_info.count(swarm_position::id::name()) == 0) {
       std::vector<int> ids(swinfo.global_count);
       std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
       local_offset[0] = swinfo.global_offset;
@@ -589,24 +616,7 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                 << output_params.file_number;
     filename.append(file_number.str());
   }
-  filename.append(restart_ ? ".rhdf" : ".phdf");
-
-  if (signal == SignalHandler::OutputSignal::none) {
-    // After file has been opened with the current number, already advance output
-    // parameters so that for restarts the file is not immediatly overwritten again.
-    // Only applies to default time-based data dumps, so that writing "now" and "final"
-    // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
-      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-    }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
-      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
-    }
-  }
+  filename.append(FilePostfix_());
   return filename;
 }
 

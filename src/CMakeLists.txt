@@ -196,6 +196,8 @@ add_library(parthenon
   outputs/output_utils.hpp
   outputs/outputs.cpp
   outputs/outputs.hpp
+  outputs/outputs_package.cpp
+  outputs/outputs_package.hpp
   outputs/output_parameters.hpp
   outputs/parthenon_hdf5.cpp
   outputs/parthenon_hdf5_attributes.cpp
@@ -252,6 +254,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp

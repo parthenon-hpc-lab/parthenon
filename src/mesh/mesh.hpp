@@ -141,7 +141,13 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  std::map<int, BlockList_t> gmg_block_lists;
+  const BlockList_t &GetGMGBlockList(int level) const {
+    PARTHENON_REQUIRE(multigrid, "Asking for multigrid blocks on a Mesh that was created "
+                                 "without parthenon/mesh/multigrid = true set.");
+    PARTHENON_REQUIRE(gmg_block_lists_.count(level),
+                      "Asking for a multigrid level that doesn't exist.");
+    return gmg_block_lists_.at(level);
+  }
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
@@ -154,15 +160,29 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
-                                  : default_pack_size_;
+    if (use_pack_size_) {
+      return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                    : default_pack_size_;
+    } else {
+      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
+    }
   }
   int DefaultNumPartitions() {
-    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    if (use_pack_size_) {
+      return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    } else {
+      return std::min(default_num_packs_, block_list.size());
+    }
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
   GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
+    if (grid.type == GridType::two_level_composite)
+      PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
+                                   "parthenon/mesh/multigrid = false.")
+    PARTHENON_REQUIRE(
+        block_partitions_.count(grid),
+        "There isn't a block partition available for this grid for some reason.");
     return block_partitions_.at(grid);
   }
 
@@ -290,6 +310,9 @@ class Mesh {
 
   std::vector<LogicalLocation> loclist;
 
+  // Block lists for internal nodes in the tree corresponding to multigrid levels
+  std::map<int, BlockList_t> gmg_block_lists_;
+
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
 
@@ -299,7 +322,9 @@ class Mesh {
   int lb_interval_;
 
   // size of default MeshBlockPacks
+  bool use_pack_size_;
   int default_pack_size_;
+  std::size_t default_num_packs_;
 
   int gmg_min_logical_level_ = 0;
 

@@ -205,6 +205,7 @@ std::string ParticleVariable<T>::info() const {
 template class Variable<Real>;
 template class ParticleVariable<Real>;
 template class ParticleVariable<int>;
+template class ParticleVariable<std::uint64_t>;
 template class ParticleVariable<bool>;
 
 } // namespace parthenon

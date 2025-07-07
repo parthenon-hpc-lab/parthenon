@@ -40,10 +40,8 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   PARTHENON_REQUIRE(vars.size() == use_regex.size(),
                     "Vargroup names and use_regex need to be the same size.");
   auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!md.IsSet(flag)) return false;
-      }
+    for (const auto &flag : flags) {
+      if (!md.IsSet(flag)) return false;
     }
 
     if (use_regex[vidx]) {
@@ -71,10 +69,8 @@ PackDescriptor MakePackDescriptorBase(StateDescriptor *psd,
   if (optional_pd) return *optional_pd;
 
   auto selector = [&](int vidx, const VarID &id, const Metadata &md) {
-    if (flags.size() > 0) {
-      for (const auto &flag : flags) {
-        if (!md.IsSet(flag)) return false;
-      }
+    for (const auto &flag : flags) {
+      if (!md.IsSet(flag)) return false;
     }
     if (Variable<Real>::GetUniqueID(id.label()) == var_ids[vidx]) return true;
     return false;
