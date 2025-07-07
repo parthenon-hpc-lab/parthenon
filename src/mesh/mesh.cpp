@@ -89,7 +89,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       brdisp(Globals::nranks), bddisp(Globals::nranks),
       pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{
-          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", true)} {
+          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", false)} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =

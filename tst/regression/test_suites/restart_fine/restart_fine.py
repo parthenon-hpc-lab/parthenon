@@ -33,12 +33,18 @@ class TestCase(utils.test_case.TestCaseAbs):
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        else:
+        elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver",
             ]
+        else:
+           parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out0.00004.rhdf",
+                "parthenon/job/problem_id=silver_coalesced",
+                "parthenon/mesh/do_coalesced_comms=true"] 
         return parameters
 
     def Analyse(self, parameters):
@@ -63,18 +69,19 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "{}.out0.{}.rhdf".format(base, name),
                 ],
                 one=True,
+                tol=0.0
             )
 
             if delta != 0:
                 print(
-                    "ERROR: Found difference between gold and silver output '%s'."
-                    % name
+                    "ERROR: Found difference between gold and {} output {}.".format(base, name)
                 )
                 return False
 
             return True
 
         # comapre a few files throughout the simulations
-        success &= compare_files("final")
+        success &= compare_files("final", "silver")
+        success &= compare_files("final", "silver_coalesced")
 
         return success
