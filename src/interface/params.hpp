@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,7 @@
 #ifndef INTERFACE_PARAMS_HPP_
 #define INTERFACE_PARAMS_HPP_
 
+#include <any>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -51,8 +52,7 @@ class Params {
   template <typename T>
   void Add(const std::string &key, T value, Mutability mutability) {
     PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
-    myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
-    myTypes_.emplace(make_pair(key, std::type_index(typeid(value))));
+    myParams_[key] = std::make_unique<std::any>(value);
     myMutable_[key] = mutability;
   }
   template <typename T>
@@ -68,21 +68,24 @@ class Params {
     // immutable casts to false all others cast to true
     PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
                              "Parameter " + key + " must be marked as mutable");
-    PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
-                             "WRONG TYPE FOR KEY '" + key + "'");
-    myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
+    PARTHENON_REQUIRE_THROWS(std::type_index(myParams_.at(key)->type()) ==
+                                 std::type_index(typeid(T)),
+                             "Parameter " + key + " must have the relevant type");
+    myParams_[key] = std::make_unique<std::any>(value);
   }
 
   void reset() {
     myParams_.clear();
-    myTypes_.clear();
     myMutable_.clear();
   }
 
   template <typename T>
   const T &Get(const std::string &key) const {
-    auto typed_ptr = GetTypedPointer_<T>(key);
-    return *typed_ptr->pValue;
+    auto &pparam = myParams_.at(key);
+    PARTHENON_REQUIRE_THROWS(std::type_index(pparam->type()) ==
+                                 std::type_index(typeid(T)),
+                             "Parameter " + key + " must have the relevant type");
+    return *std::any_cast<T>(pparam.get());
   }
 
   // Returning a pointer feels safer than returning a non-const reference.
@@ -91,11 +94,14 @@ class Params {
   // This also avoids extraneous copies.
   template <typename T>
   T *GetMutable(const std::string &key) const {
-    auto typed_ptr = GetTypedPointer_<T>(key);
     // immutable casts to false all others cast to true
     PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
                              "Parameter " + key + " must be marked as mutable");
-    return typed_ptr->pValue.get();
+    auto &pparam = myParams_.at(key);
+    PARTHENON_REQUIRE_THROWS(std::type_index(pparam->type()) ==
+                                 std::type_index(typeid(T)),
+                             "Parameter " + key + " must have the relevant type");
+    return std::any_cast<T>(pparam.get());
   }
 
   bool hasKey(const std::string &key) const {
@@ -112,10 +118,8 @@ class Params {
     return Get<T>(key);
   }
 
-  const std::type_index &GetType(const std::string &key) const {
-    auto const it = myTypes_.find(key);
-    PARTHENON_REQUIRE_THROWS(it != myTypes_.end(), "Key " + key + " doesn't exist");
-    return it->second;
+  const std::type_index GetType(const std::string &key) const {
+    return myParams_.at(key)->type();
   }
 
   std::vector<std::string> GetKeys() const {
@@ -129,9 +133,8 @@ class Params {
   // void Params::
   void list() {
     std::cout << std::endl << "Items are:" << std::endl;
-    for (auto &x : myParams_) {
-      std::cout << "   " << x.first << ":" << x.second.get() << ":" << x.second->address()
-                << ":" << myTypes_.at(x.first).name() << std::endl;
+    for (auto &[k, v] : myParams_) {
+      std::cout << "   " << k << ":" << v.get() << ":" << v->type().name() << std::endl;
     }
     std::cout << std::endl;
   }
@@ -188,32 +191,7 @@ class Params {
 #endif // ifdef ENABLE_HDF5
 
  private:
-  // private first so that I can use the structs defined here
-  struct base_t {
-    virtual ~base_t() = default; // for whatever reason I need a virtual destructor
-    virtual const void *address() { return nullptr; } // for listing and debugging
-  };
-
-  template <typename T>
-  struct object_t : base_t {
-    std::unique_ptr<T> pValue;
-    explicit object_t(T val) : pValue(std::make_unique<T>(val)) {}
-    ~object_t() = default;
-    const void *address() { return reinterpret_cast<void *>(pValue.get()); }
-  };
-
-  template <typename T>
-  auto GetTypedPointer_(const std::string &key) const {
-    auto const it = myParams_.find(key);
-    PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
-    PARTHENON_REQUIRE_THROWS(myTypes_.at(key) == std::type_index(typeid(T)),
-                             "WRONG TYPE FOR KEY '" + key + "'");
-    auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
-    return typed_ptr;
-  }
-
-  std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
-  std::map<std::string, std::type_index> myTypes_;
+  std::map<std::string, std::unique_ptr<std::any>> myParams_;
   std::map<std::string, Mutability> myMutable_;
 };
 
