@@ -40,11 +40,12 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "parthenon/job/problem_id=silver",
             ]
         else:
-           parameters.driver_cmd_line_args = [
+            parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver_coalesced",
-                "parthenon/mesh/do_coalesced_comms=true"] 
+                "parthenon/mesh/do_coalesced_comms=true",
+            ]
         return parameters
 
     def Analyse(self, parameters):
@@ -69,12 +70,14 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "{}.out0.{}.rhdf".format(base, name),
                 ],
                 one=True,
-                tol=0.0
+                tol=0.0,
             )
 
             if delta != 0:
                 print(
-                    "ERROR: Found difference between gold and {} output {}.".format(base, name)
+                    "ERROR: Found difference between gold and {} output {}.".format(
+                        base, name
+                    )
                 )
                 return False
 
