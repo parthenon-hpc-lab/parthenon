@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -157,7 +157,7 @@ TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity che
 
       AND_WHEN("We modify both parameter inputs in the same way") {
         in1.GetOrAddReal("block3", "var5", 2.0);
-        in2.GetOrAddReal("block3", "var5", 2.0);
+        in2.GetOrAdd<parthenon::Real>("block3", "var5", 2.0);
         THEN("The hashes agree") {
           std::size_t hash1 = hasher(in1);
           std::size_t hash2 = hasher(in2);

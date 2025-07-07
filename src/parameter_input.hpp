@@ -1,9 +1,5 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Athena++ astrophysical MHD code
+// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_
 //! \file parameter_input.hpp
@@ -26,6 +27,7 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
+#include <utility> // for std::forward
 #include <vector>
 
 #include "config.hpp"
@@ -118,8 +120,39 @@ class ParameterInput {
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
 
-  template <typename T>
-  std::vector<T> GetVector(const std::string &block, const std::string &name) {
+  template <typename T, typename... Args>
+  T GetOrAdd(const std::string &block, const std::string &name, const T &value,
+             Args &&...args) {
+    if constexpr (std::is_same_v<T, bool>) {
+      return GetOrAddBoolean(block, name, value, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return GetOrAddReal(block, name, value, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return GetOrAddString(block, name, value, std::forward<Args>(args)...);
+    } else if (std::is_integral_v<T>) {
+      return GetOrAddInteger(block, name, value, std::forward<Args>(args)...);
+    } else {
+      PARTHENON_THROW("Unknown type\n");
+    }
+  }
+  template <typename T, typename... Args>
+  T Get(const std::string &block, const std::string &name, Args &&...args) {
+    if constexpr (std::is_same_v<T, bool>) {
+      return GetOrAddBoolean(block, name, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return GetReal(block, name, std::forward<Args>(args)...);
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return GetString(block, name, std::forward<Args>(args)...);
+    } else if (std::is_integral_v<T>) {
+      return GetInteger(block, name, std::forward<Args>(args)...);
+    } else {
+      PARTHENON_THROW("Unknown type\n");
+    }
+  }
+
+  template <typename T, typename... Args>
+  std::vector<T> GetVector(const std::string &block, const std::string &name,
+                           Args &&...args) {
     std::vector<std::string> fields = GetVector_(block, name);
     if constexpr (std::is_same<T, std::string>::value) return fields;
 
