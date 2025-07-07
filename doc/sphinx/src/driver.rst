@@ -47,7 +47,9 @@ More details on integrators can be found on the :ref:`integrators` page.
 Second, it defines a ``Step()`` function, which is reponsible for taking
 a timestep by looping over stages and calling the
 ``ConstructAndExecuteTaskLists`` function which builds and executes the
-tasks for each stage. Applications that derive from ``MultiStageDriver``
+tasks for each stage. The task list called here has a timeout set by the
+parameter ``parthenon/mesh/task_collection_timeout_in_seconds``, which
+defaults to a year. Applications that derive from ``MultiStageDriver``
 are responsible for defining a ``MakeTaskCollection`` function that
 makes a ``TaskCollection`` given a ``BlockList_t &`` and an integer
 stage. The advection example
