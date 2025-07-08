@@ -69,9 +69,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                    ? true
                    : false),
       multilevel(adaptive ||
-                 pin->GetOrAddString("parthenon/mesh", "refinement", "none") ==
-                     "static" ||
-                 pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)),
+           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
+           pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)),
       multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)), nbnew(),
       nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),

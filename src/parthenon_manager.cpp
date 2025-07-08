@@ -155,7 +155,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // set boundary comms buffer switch trigger
   Globals::refinement::min_num_bufs =
-      pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
+      pinput->GetOrAddInteger("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
 
   return ParthenonStatus::ok;
 }
