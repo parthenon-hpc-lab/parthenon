@@ -935,7 +935,9 @@ ParArray1D<AmrTag> &Mesh::GetAmrTags() {
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
-#ifdef MPI_PARALLEL // JMM: Not sure this ifdef is needed
+  // JMM: This machinery is only used with MPI, but I don't want these
+  // options hidden if the code is built without MPI, so there's no
+  // ifdef.
   const std::string balancer =
       pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
                           std::vector<std::string>{"default", "automatic", "manual"},
@@ -955,7 +957,6 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
   lb_interval_ = pin->GetOrAddInteger(
       "parthenon/loadbalancing", "interval", 10,
       "how frequently load balancing is performed if the mesh does not change");
-#endif // MPI_PARALLEL
 }
 
 // Create separate communicators for all variables. Needs to be done at the mesh
