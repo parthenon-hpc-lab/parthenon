@@ -364,17 +364,23 @@ class ParameterInput {
     if (queries_.count(key) > 0) {
       QueryRecord &record = queries_.at(key);
       if (defval.has_value()) {
-        // JMM: Forbid setting a default value after requesting but
-        // allow requesting without a default if a default has
-        // already been set.  I know this is unpleasantly stateful,
-        // but we do this in a few places in the code.
         if (!record.default_value.has_value()) {
-          std::stringstream msg;
-          msg << "Input parameter " << block << "/" << name
-              << " called previously without a default value and now called with one."
-              << " If a default value is used, the first call must always set one."
-              << std::endl;
-          PARTHENON_THROW(msg);
+          if (record.origin_type == QueryRecord::OriginType::SetInCode) {
+            // This was set with Set* and we should respect it. Add
+            // the new default and move on.
+            record.default_value = defval.value();
+          } else {
+            // JMM: Forbid setting a default value after requesting but
+            // allow requesting without a default if a default has
+            // already been set.  I know this is unpleasantly stateful,
+            // but we do this in a few places in the code.
+            std::stringstream msg;
+            msg << "Input parameter " << block << "/" << name
+                << " called previously without a default value and now called with one."
+                << " If a default value is used, the first call must always set one."
+                << std::endl;
+            PARTHENON_THROW(msg);
+          }
         } else if (defval.value() != std::any_cast<T>(record.default_value)) {
           std::stringstream msg;
           msg << "Input parameter " << block << "/" << name
