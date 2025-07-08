@@ -55,6 +55,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -995,15 +996,12 @@ void ParameterInput::ParameterDump(std::ostream &os) {
 
 void ParameterInput::OutputParameterTable(std::ostream &os,
                                           const std::regex &block_regex) const {
-  os << "block,parameters,type,default,description" << std::endl;
+  // Loop through once and store in a map for lexicographic ordering
+  std::map<std::string, std::map<std::string, std::string>> csvblocks;
   for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
     const std::string &block_name = pb->block_name;
     if (std::regex_match(block_name, block_regex)) {
-      // An empty row to demark blocks. Can be filtered on by a parser
-      // or grep
-      if (pb != pfirst_block) {
-        os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
-      }
+      auto &csvlines = csvblocks[block_name];
       for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
         const std::string &param_name = pl->param_name;
         auto record_key = std::make_pair(block_name, param_name);
@@ -1011,34 +1009,51 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
         /* clang-format off */
         if (queries_.count(record_key) > 0) {
           auto record = queries_.at(record_key);
-          os << "\"" << block_name << "\""
+          std::stringstream ss;
+          ss << "\"" << block_name << "\""
              << "," << "\"" << param_name << "\""
              << "," << "\"" << record.param_type << "\""
              << "," << "\"" << record.default_value_str << "\""
              << "," << "\"";
           std::size_t num_allowed_vals = record.allowed_vals_str.size();
           if (record.docstring.has_value()) {
-            os << record.docstring.value();
+            ss << record.docstring.value();
             if (num_allowed_vals > 0) {
-              os << "; ";
+              ss << "; ";
             }
           }
           if (num_allowed_vals > 0) {
-            os << "Allowed values: ";
+            ss << "Allowed values: ";
             std::size_t ival = 0;
             for (const auto &v : record.allowed_vals_str) {
-              os << v;
+              ss << v;
               if (ival < num_allowed_vals - 1) {
-                os << ", ";
+                ss << ", ";
               }
               ival++;
             }
           }
-          os << "\""
-             << std::endl;
+          ss << "\"";
           /* clang-format on */
+          csvlines[param_name] = ss.str();
         }
       }
+    }
+  }
+
+  os << "block,parameters,type,default,description" << std::endl;
+  int i = 0;
+  for (const auto &[bname, b] : csvblocks) {
+    if (b.size() > 0) { // special case for empty block
+      // An empty row to demark blocks. Can be filtered on by a parser
+      // or grep
+      if (i != 0) {
+        os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
+      }
+      for (const auto &[p, l] : b) {
+        os << l << std::endl;
+      }
+      i++;
     }
   }
 }
