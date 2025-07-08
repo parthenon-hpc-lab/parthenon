@@ -66,6 +66,9 @@ void GetInitialData(State_t &u) { GetTrueSolution(0, u); }
 template <typename T>
 auto MakeIntegrator(const std::string &integration_strategy) {
   ParameterInput in;
+  // this needs to be set here so it's consistent with the first time
+  // it's called in the driver
+  T dummy(&in);
   in.SetString("parthenon/time", "integrator", integration_strategy);
   return T(&in);
 }
