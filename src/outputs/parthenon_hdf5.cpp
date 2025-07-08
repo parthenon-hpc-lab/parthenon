@@ -39,7 +39,7 @@
 #include <vector>
 
 #include "driver/driver.hpp"
-#include "generated/provenance.hpp"
+#include "provenance.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
