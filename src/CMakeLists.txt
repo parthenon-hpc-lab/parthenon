@@ -134,9 +134,6 @@ add_library(parthenon
   driver/multistage.cpp
   driver/multistage.hpp
 
-  generated/provenance.cpp
-  generated/provenance.hpp
-
   interface/data_collection.cpp
   interface/data_collection.hpp
   interface/mesh_data.cpp
@@ -320,6 +317,10 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+
+  # Generated
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.cpp
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 
