@@ -178,42 +178,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            hyper_rectangular_constructor_selector_t)
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
-  mesh_size =
-      RegionSize({pin->GetReal("parthenon/mesh", "x1min", "minimum x1 value of domain"),
-                  pin->GetReal("parthenon/mesh", "x2min", "minimum x2 value of domain"),
-                  pin->GetReal("parthenon/mesh", "x3min", "minimum x3 value of domain")},
-                 {pin->GetReal("parthenon/mesh", "x1max", "maximum x1 value of domain"),
-                  pin->GetReal("parthenon/mesh", "x2max", "maximum x2 value of domain"),
-                  pin->GetReal("parthenon/mesh", "x3max", "maximum x3 value of domain")},
-                 {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0, "unused"),
-                  pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0, "unused"),
-                  pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0, "unused")},
-                 {pin->GetInteger("parthenon/mesh", "nx1",
-                                  "number of cells on base mesh in x1 direction"),
-                  pin->GetInteger("parthenon/mesh", "nx2",
-                                  "number of cells on base mesh in x2 direction"),
-                  pin->GetInteger("parthenon/mesh", "nx3",
-                                  "number of cells on base mesh in x3 direction")},
-                 {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
-                  pin->GetInteger("parthenon/mesh", "nx3") == 1});
+
+  std::tie(mesh_size, base_block_size) = GetRegionSizes(pin);
+
   SetBCNames_(pin);
   mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
-
-  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
-           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
-    base_block_size.xrat(dir) = mesh_size.xrat(dir);
-    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!base_block_size.symmetry(dir)) {
-      base_block_size.nx(dir) = pin->GetOrAddInteger(
-          "parthenon/meshblock", label, mesh_size.nx(dir), "logical size of a meshblock");
-    } else {
-      base_block_size.nx(dir) = mesh_size.nx(dir);
-      // JMM: Just to ensure it gets written to params
-      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir),
-                      "logical size of a meshblock");
-    }
-  }
 
   // Load balancing flag and parameters
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
@@ -244,20 +214,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   SetBCNames_(pin);
   mesh_bcs = GetBCsFromNames_(mesh_bc_names);
-  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
-           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
-    base_block_size.xrat(dir) = mesh_size.xrat(dir);
-    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!base_block_size.symmetry(dir)) {
-      base_block_size.nx(dir) = pin->GetOrAddInteger(
-          "parthenon/meshblock", label, mesh_size.nx(dir), "logical size of a meshblock");
-    } else {
-      base_block_size.nx(dir) = mesh_size.nx(dir);
-      // JMM: Just to ensure it gets written to params
-      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir),
-                      "logical size of a meshblock");
-    }
-  }
+  base_block_size = GetBaseMeshBlockSize(pin, mesh_size);
   forest_def.SetBlockSize(base_block_size);
 
   ndim = 2;
@@ -1302,6 +1259,50 @@ Mesh::GetBCsFromNames_(const std::array<std::string, BOUNDARY_NFACES> &names) co
     out[f] = GetBoundaryFlag(names[f]);
   }
   return out;
+}
+
+RegionSize Mesh::GetBaseMeshBlockSize(ParameterInput *pin, const RegionSize &mesh_size) {
+  RegionSize base_block_size;
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
+           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    if (!base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) = pin->GetOrAddInteger(
+          "parthenon/meshblock", label, mesh_size.nx(dir), "logical size of a meshblock");
+    } else {
+      base_block_size.nx(dir) = mesh_size.nx(dir);
+      // JMM: Just to ensure it gets written to params
+      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir),
+                      "logical size of a meshblock");
+    }
+  }
+  return base_block_size;
+}
+
+std::pair<RegionSize, RegionSize> Mesh::GetRegionSizes(ParameterInput *pin) {
+  RegionSize mesh_size(
+      {pin->GetReal("parthenon/mesh", "x1min", "minimum x1 value of domain"),
+       pin->GetReal("parthenon/mesh", "x2min", "minimum x2 value of domain"),
+       pin->GetReal("parthenon/mesh", "x3min", "minimum x3 value of domain")},
+      {pin->GetReal("parthenon/mesh", "x1max", "maximum x1 value of domain"),
+       pin->GetReal("parthenon/mesh", "x2max", "maximum x2 value of domain"),
+       pin->GetReal("parthenon/mesh", "x3max", "maximum x3 value of domain")},
+      {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0, "unused"),
+       pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0, "unused"),
+       pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0, "unused")},
+      {pin->GetInteger("parthenon/mesh", "nx1",
+                       "number of cells on base mesh in x1 direction"),
+       pin->GetInteger("parthenon/mesh", "nx2",
+                       "number of cells on base mesh in x2 direction"),
+       pin->GetInteger("parthenon/mesh", "nx3",
+                       "number of cells on base mesh in x3 direction")},
+      {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
+       pin->GetInteger("parthenon/mesh", "nx3") == 1});
+
+  RegionSize base_block_size = GetBaseMeshBlockSize(pin, mesh_size);
+
+  return std::make_pair(mesh_size, base_block_size);
 }
 
 } // namespace parthenon
