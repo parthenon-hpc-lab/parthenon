@@ -60,12 +60,10 @@ function(CheckGitVersion)
 
     CheckGitRead(PARTH_GIT_HASH_CACHE)
     if (NOT EXISTS ${post_configure_dir})
-        message("WHAT1")
         file(MAKE_DIRECTORY ${post_configure_dir})
     endif ()
 
     if (NOT EXISTS ${post_configure_dir}/provenance.hpp)
-        message("WHAT")
         file(COPY ${pre_configure_dir}/provenance.hpp DESTINATION ${post_configure_dir})
     endif()
 
@@ -78,9 +76,6 @@ function(CheckGitVersion)
     if (NOT ${PARTH_GIT_HASH} STREQUAL ${PARTH_GIT_HASH_CACHE} OR NOT EXISTS ${post_configure_file})
         # Set the PARTH_GIT_HASH_CACHE variable the next build won't have
         # to regenerate the source file.
-        message("should i be here")
-        message("HASH ${PARTH_GIT_HASH}")
-        message("HASH CACHE ${PARTH_GIT_HASH_CACHE}")
         CheckGitWrite(${PARTH_GIT_HASH})
 
         configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
