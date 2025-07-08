@@ -397,7 +397,7 @@ include(GNUInstallDirs)
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
-  "Path to save generated data for docs. Contents of folder are excluded from git.")
+  "Path to save generated data for docs.")
 
 add_subdirectory(src)
 add_subdirectory(example)
