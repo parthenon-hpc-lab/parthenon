@@ -1,0 +1,8 @@
+block,parameters,type,default,description
+"","","","",""
+"burgers","cfl","Real","0.8",""
+"burgers","recon","string","weno5",""
+"burgers","num_scalars","int","1",""
+"burgers","kx_fact","Real","1",""
+"burgers","ky_fact","Real","1",""
+"burgers","kz_fact","Real","1",""

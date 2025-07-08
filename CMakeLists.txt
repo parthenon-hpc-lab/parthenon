@@ -409,7 +409,7 @@ include(cmake/CheckCopyright.cmake)
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 
 if (NOT PARTHENON_DISABLE_EXAMPLES)
-  add_custom_target(csv-tables
+  add_custom_target(param-docs
     DEPENDS
     burgers-csv
     diffusion-csv)

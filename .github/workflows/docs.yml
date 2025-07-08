@@ -40,8 +40,16 @@ jobs:
                   -DBUILD_TESTING=OFF \
                   ..
             make -j4
-            make csv-tables
+            make param-docs
             cd ..
+        - name: Check generated files for this branch are up to date
+          run: |
+            if git diff --exit-code -- doc/sphinx/src/generated/; then
+              echo "Generated doc files up to date."
+            else
+              echo "Generated doc files not up to date. Run make param-docs and commit changes."
+              exit 1
+            fi
         - name: Get all git references, needed for sphinx multiversion
           run: |
             git fetch --prune --unshallow --tags
