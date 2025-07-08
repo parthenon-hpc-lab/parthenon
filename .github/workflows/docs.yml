@@ -34,10 +34,19 @@ jobs:
           run: |
             echo "Repo = ${GITHUB_REPOSITORY}"
             mkdir -p build && cd build
-            cmake -DPARTHENON_DISABLE_HDF5=ON -DPARTHENON_DISABLE_MPI=ON -DREGRESSION_GOLD_STANDARD_SYNC=OFF -DBUILD_TESTING=OFF ..
+            cmake -DPARTHENON_DISABLE_HDF5=ON \
+                  -DPARTHENON_DISABLE_MPI=ON \
+                  -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
+                  -DBUILD_TESTING=OFF \
+                  ..
             make -j4
             make csv-tables
             cd ..
+        - name: Get all git references, needed for sphinx multiversion
+          run: |
+            git fetch --prune --unshallow --tags
+            git branch -a
+            git tag --list
         - name: build docs
           run: |
             echo "Repo = ${GITHUB_REPOSITORY}"
