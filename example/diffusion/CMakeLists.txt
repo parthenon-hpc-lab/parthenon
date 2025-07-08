@@ -30,7 +30,7 @@ if( "diffusion-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     OUTPUT ${DOC_GEN_PATH}/diffusion-parth-table.csv
     COMMAND ${CMAKE_COMMAND} -E env
     bash -c
-    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion -p 'parthenon/(.*)' > ${DOC_GEN_PATH}/diffusion-parth-table.csv"
+    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion parthenon/output0/dt=-1 -p 'parthenon/(.*)' > ${DOC_GEN_PATH}/diffusion-parth-table.csv"
     DEPENDS diffusion-example parthinput.diffusion
     VERBATIM
     )
@@ -38,7 +38,7 @@ if( "diffusion-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     OUTPUT ${DOC_GEN_PATH}/diffusion-table.csv
     COMMAND ${CMAKE_COMMAND} -E env
     bash -c
-    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion -p '^(?!.*parthenon/).*' > ${DOC_GEN_PATH}/diffusion-table.csv"
+    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion parthenon/output0/dt=-1 -p '^(?!.*parthenon/).*' > ${DOC_GEN_PATH}/diffusion-table.csv"
     DEPENDS diffusion-example parthinput.diffusion
     VERBATIM
     )
