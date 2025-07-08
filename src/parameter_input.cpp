@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,37 +13,6 @@
 // itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
-//========================================================================================
-//! \file parameter_input.cpp
-//  \brief implementation of functions in class ParameterInput
-//
-// PURPOSE: Member functions of this class are used to read and parse the input file.
-//   Functionality is loosely modeled after FORTRAN namelist.
-//
-// EXAMPLE of input file in 'Athena++' format:
-//   <blockname1>      # block name; must be on a line by itself
-//                     # everything after a hash symbol is a comment and is ignored
-//   name1=value       # each parameter name must be on a line by itself
-//   name2 = value1    # whitespace around the = is optional
-//                     # blank lines are OK
-//   # my comment here   comment lines are OK
-//   # name3 = value3    values (and blocks) that are commented out are ignored
-//
-//   <blockname2>      # start new block
-//   name1 = value1    # note that same parameter names can appear in different blocks
-//   name2 = value2    # empty lines (like following) are OK
-//
-//   <blockname1>      # same blockname can re-appear, although NOT recommended
-//   name3 = value3    # this would be the 3rd parameter name in blockname1
-//   name1 = value4    # if parameter name is repeated, previous value is overwritten!
-//
-// LIMITATIONS:
-//   - parameter specification (name=val #comment) must all be on a single line
-//
-// HISTORY:
-//   - Nov 2002:  Created for Athena1.0/Cambridge release by Peter Teuben
-//   - 2003-2008: Many improvements and extensions by T. Gardiner and J.M. Stone
-//   - Jan 2014:  Rewritten in C++ for the Athena++ code by J.M. Stone
 //========================================================================================
 
 #include "parameter_input.hpp"
@@ -92,7 +61,8 @@ void ParameterInput::Merge(toml::table &a, const toml::table &b, bool check_dups
 }
 
 void ParameterInput::recursive_get_paths(toml::table &a, toml::path prefix,
-                                const toml::key &key, std::vector<toml::path> &paths) {
+                                         const toml::key &key,
+                                         std::vector<toml::path> &paths) {
   if (a[key].is<toml::table>()) {
     toml::table &achild = a[key].ref<toml::table>();
     toml::path block = (prefix != toml::path("")) ? toml::path(prefix.append(key.str()))
@@ -216,7 +186,8 @@ void ParameterInput::CheckRequired(const std::string &block, const std::string &
 }
 void ParameterInput::CheckRequired(const std::string &path) {
   // TODO(jmm) implement GetOrigin
-  bool exists = DoesParameterExist(path); //&& (GetOrigin(path) != ParameterOrigin::defaultvalue)
+  bool exists =
+      DoesParameterExist(path); //&& (GetOrigin(path) != ParameterOrigin::defaultvalue)
   if (!exists) {
     std::stringstream ss;
     ss << std::endl
@@ -236,7 +207,7 @@ void ParameterInput::CheckDesired(const std::string &path) {
   if (DoesParameterExist(path)) {
     missing = false;
     // TODO(jmm) implement GetOrigin
-    //defaulted = (GetOrigin(path) == ParameterOrigin::defaultvalue);
+    // defaulted = (GetOrigin(path) == ParameterOrigin::defaultvalue);
     defaulted = false;
   }
   if (missing) {

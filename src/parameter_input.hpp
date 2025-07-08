@@ -20,8 +20,7 @@
 //! \file parameter_input.hpp
 //  \brief definition of class ParameterInput
 // Contains data structures used to store, and functions used to access, parameters
-// read from the input file.  See comments at start of parameter_input.cpp for more
-// information on the Athena++ input file format.
+// read from the input file.
 
 #include <algorithm>
 #include <cstddef>
@@ -53,9 +52,7 @@ class ParameterInput {
 
  public:
   // constructor/destructor
-  ParameterInput() {
-    parameters_ = toml::table();
-  }
+  ParameterInput() { parameters_ = toml::table(); }
   explicit ParameterInput(std::string input_filename) {
     parameters_ = toml::table();
     LoadFile(input_filename);
@@ -281,8 +278,8 @@ class ParameterInput {
   std::string Path_(const std::string block, const std::string name);
   void Merge(toml::table &a, const toml::table &b, bool check_dups);
 
-  void recursive_get_paths(toml::table &a, toml::path prefix,
-                                const toml::key &key, std::vector<toml::path> &paths);
+  void recursive_get_paths(toml::table &a, toml::path prefix, const toml::key &key,
+                           std::vector<toml::path> &paths);
   std::vector<std::string> GetAllPaths(toml::table &a);
 
   template <typename T, template <class...> class Container_t, class... extra>
@@ -348,7 +345,6 @@ class ParameterInput {
     }
   }
 
-  // TODO(BSP) Add overload natively accepting vectors
   template <typename T>
   void AddParameter_(toml::table &tbl, const std::string &path, const T &value,
                      ParameterOrigin og, bool check_dups = false,
@@ -382,7 +378,18 @@ class ParameterInput {
           try {
             new_tbl = toml::parse(path + " = " + v);
           } catch (const toml::parse_error &err) {
-            new_tbl = toml::parse(path + " = \"" + v + "\"");
+            try {
+              // If stod would have taken this,
+              double v_parsed = std::stod(v.c_str());
+              // ...it's because of the 1.eX vs 1.0eX thing, so replace
+              v = std::regex_replace(v, std::regex("([0-9])[.]e([+-0-9])"), "$1.0e$2");
+              // then parse
+              new_tbl = toml::parse(path + " = " + v);
+            } catch (const std::invalid_argument &err) {
+              new_tbl = toml::parse(path + " = \"" + v + "\"");
+            } catch (const toml::parse_error &err) {
+              new_tbl = toml::parse(path + " = \"" + v + "\"");
+            }
           }
         }
 
