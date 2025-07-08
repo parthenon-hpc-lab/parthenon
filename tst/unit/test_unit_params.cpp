@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,6 +25,7 @@
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "parameter_input.hpp"
 
 using parthenon::Params;
 using parthenon::Real;
@@ -95,7 +96,7 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
     std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
       THEN("an error is thrown") {
-        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::out_of_range);
       }
     }
     WHEN(" attempting to update a key that does not exist ") {
@@ -115,7 +116,7 @@ TEST_CASE("reset is called", "[reset]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::out_of_range);
     }
   }
 }
