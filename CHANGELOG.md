@@ -23,6 +23,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
+- [[PR 1268]](https://github.com/parthenon-hpc-lab/parthenon/pull/1268) Adds build information to phdf output
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
 
 
