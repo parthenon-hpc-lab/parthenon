@@ -76,9 +76,15 @@ DriverStatus EvolutionDriver::Execute() {
   int perf_cycle_offset = pinput->GetOrAddInteger(
       "parthenon/time", "perf_cycle_offset", 0,
       "don't measure performance for some number of initial cycles");
-
-  if (Globals::output_params_and_exit && Globals::my_rank == 0) {
-    pinput->OutputParameterTable(std::cout, std::regex(Globals::params_block_regex));
+  const bool output_params_and_exit = pinput->GetOrAddBoolean(
+      "parthenon/job", "output_params_and_exit", false,
+      "output a description of all input parameters accessed and quit");
+  const std::string params_block_regex =
+      pinput->GetOrAddString("parthenon/job", "output_params_block_regex", "(.*)",
+                             "when outputting input parameters, this selects which input "
+                             "blocks to output; all are output by default");
+  if (output_params_and_exit && Globals::my_rank == 0) {
+    pinput->OutputParameterTable(std::cout, std::regex(params_block_regex));
     return DriverStatus::complete;
   }
 

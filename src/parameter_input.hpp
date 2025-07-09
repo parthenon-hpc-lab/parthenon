@@ -400,6 +400,7 @@ class ParameterInput {
             // This was set with Set* and we should respect it. Add
             // the new default and move on.
             record.default_value = defval.value();
+            record.default_value_str = record.ToString(defval.value());
           } else {
             // JMM: Forbid setting a default value after requesting but
             // allow requesting without a default if a default has

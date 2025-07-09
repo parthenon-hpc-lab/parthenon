@@ -142,7 +142,7 @@ class ArgParse {
   int exit_flag = 0;
 
  private:
-  char default_params_regex_[1024] = "(.*)"; // wildcard
+  char default_params_regex_[64] = "(.*)"; // wildcard
 };
 
 } // namespace parthenon

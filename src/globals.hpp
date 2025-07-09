@@ -45,12 +45,6 @@ extern SparseConfig sparse_config;
 extern Real receive_boundary_buffer_timeout;
 extern Real current_task_runtime_sec;
 
-// logic for parsing and outputting params
-constexpr std::size_t PARAMS_STRING_LEN = 1024;
-extern bool output_params_and_exit;
-// cpplint says global strings are bad
-extern char params_block_regex[PARAMS_STRING_LEN];
-
 namespace refinement {
 // Communication buffers are packed into a `BndInfo` object.
 // if the size of this object is greater than min_num_bufs,
