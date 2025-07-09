@@ -40,6 +40,17 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // global setup...
+#ifdef CATCH2_MPI_PARALLEL
+  int mpi_initialized;
+  MPI_Initialized(&mpi_initialized);
+  if (!mpi_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+    std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
+              << "MPI Initialization failed." << std::endl;
+    return -1;
+  }
+#endif // CATCH2_MPI_PARALLEL
+
   Kokkos::initialize(argc, argv);
 
   int result;
@@ -50,6 +61,12 @@ int main(int argc, char *argv[]) {
   }
 
   Kokkos::finalize();
+
+#ifdef CATCH2_MPI_PARALLEL
+  int mpi_finalized;
+  MPI_Finalized(&mpi_finalized);
+  if (!mpi_finalized) MPI_Finalize();
+#endif // CATCH2_MPI_PARALLEL
 
   return result;
 }
