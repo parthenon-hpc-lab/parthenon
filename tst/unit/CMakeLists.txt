@@ -41,36 +41,26 @@ list(APPEND unit_tests_SOURCES
     test_error_checking.cpp
     test_partitioning.cpp
     test_state_descriptor.cpp
+    test_swarm.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
 )
 
-# Catch2 unit tests that require calling MPI intialize and finalize
-list(APPEND unit_tests_mpi_SOURCES
-    test_swarm.cpp
-)
-
 add_executable(unit_tests "${unit_tests_SOURCES}")
-add_executable(unit_tests_mpi "${unit_tests_mpi_SOURCES}")
 
 target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
-target_link_libraries(unit_tests_mpi PRIVATE Parthenon::parthenon catch2_define_mpi Kokkos::kokkos)
 
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
    target_compile_definitions(unit_tests PRIVATE PARTHENON_TEST_ERROR_CHECKING)
-   target_compile_definitions(unit_tests_mpi PRIVATE PARTHENON_TEST_ERROR_CHECKING)
 endif()
 
 lint_target(unit_tests)
-lint_target(unit_tests_mpi)
 
 # separating test cases here because performance tests should (later) only be run
 # for Release build types.
 catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
 catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
-catch_discover_tests(unit_tests_mpi TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
-# catch_discover_tests(unit_tests_mpi TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 

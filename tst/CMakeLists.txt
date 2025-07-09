@@ -1,12 +1,9 @@
 
 add_library(catch2_define catch2_define.cpp)
 target_link_libraries(catch2_define PUBLIC Catch2::Catch2 Kokkos::kokkos)
-# For Catch2 unit tests that require calling MPI intialize and finalize
-add_library(catch2_define_mpi catch2_define_mpi.cpp)
-target_link_libraries(catch2_define_mpi PUBLIC Catch2::Catch2 Kokkos::kokkos)
 if (ENABLE_MPI)
-  target_link_libraries(catch2_define_mpi PUBLIC MPI::MPI_CXX)
-  target_compile_definitions(catch2_define_mpi PUBLIC CATCH2_MPI_PARALLEL)
+  target_link_libraries(catch2_define PUBLIC MPI::MPI_CXX)
+  target_compile_definitions(catch2_define PUBLIC CATCH2_MPI_PARALLEL)
 endif()
 
 if(${PARTHENON_ENABLE_UNIT_TESTS})
