@@ -705,14 +705,6 @@ int ParameterInput::GetOrAddInteger(const std::string &block, const std::string 
 
   return ret;
 }
-int ParameterInput::GetOrAddInteger(const std::string &block, const std::string &name,
-                                    const ParameterRef &value,
-                                    const std::optional<std::string> &docstring) {
-  auto defval = Get<int>(value);
-  auto ret = GetOrAddInteger(block, name, defval, docstring);
-  SetQueryDependency_(block, name, value);
-  return ret;
-}
 
 //----------------------------------------------------------------------------------------
 //! \fn Real ParameterInput::GetOrAddReal(const std::string & block, const std::string &
@@ -745,14 +737,6 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
     ret = def_value;
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
   }
-  return ret;
-}
-Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &name,
-                                  const ParameterRef &value,
-                                  const std::optional<std::string> &docstring) {
-  auto defval = Get<Real>(value);
-  auto ret = GetOrAddReal(block, name, defval, docstring);
-  SetQueryDependency_(block, name, value);
   return ret;
 }
 
@@ -793,14 +777,6 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
   }
   return ret;
 }
-bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string &name,
-                                     const ParameterRef &value,
-                                     const std::optional<std::string> &docstring) {
-  auto defval = Get<bool>(value);
-  auto ret = GetOrAddBoolean(block, name, defval, docstring);
-  SetQueryDependency_(block, name, value);
-  return ret;
-}
 
 //----------------------------------------------------------------------------------------
 //! \fn std::string ParameterInput::GetOrAddString(const std::string & block, const
@@ -833,7 +809,6 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
   }
   return ret;
 }
-
 std::string ParameterInput::GetOrAddString(const std::string &block,
                                            const std::string &name,
                                            const std::string &def_value,

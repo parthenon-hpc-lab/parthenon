@@ -3,7 +3,6 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1286]](https://github.com/parthenon-hpc-lab/parthenon/pull/1286) Add ability to properly chase parameter input dependencies
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
 - [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)

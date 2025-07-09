@@ -133,23 +133,6 @@ struct QueryRecord {
   }
 };
 
-// This can be used to tell the params infrastructure that the default
-// value of one parameter depends on another one
-class ParameterInput;
-class ParameterRef {
- public:
-  friend class ParameterInput;
-  ParameterRef(const std::string &block, const std::string &name)
-      : block_(block), name_(name) {}
-  // TODO(JMM): Change this to TOML when appropriate
-  std::string CanonicalPath() const { return block_ + "/" + name_; }
-
- private:
-  // TODO(JMM): Change this to "canonical path" when available
-  const std::string block_;
-  const std::string name_;
-};
-
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
 //  \brief  node in a singly linked list of parameters contained within 1x input block
@@ -219,9 +202,6 @@ class ParameterInput {
   int GetOrAddInteger(
       const std::string &block, const std::string &name, int value,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
-  int GetOrAddInteger(
-      const std::string &block, const std::string &name, const ParameterRef &value,
-      const std::optional<std::string> &docstring = std::optional<std::string>{});
   int SetInteger(
       const std::string &block, const std::string &name, int value,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
@@ -231,9 +211,6 @@ class ParameterInput {
   Real GetOrAddReal(
       const std::string &block, const std::string &name, Real value,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
-  Real GetOrAddReal(
-      const std::string &block, const std::string &name, const ParameterRef &value,
-      const std::optional<std::string> &docstring = std::optional<std::string>{});
   Real
   SetReal(const std::string &block, const std::string &name, Real value,
           const std::optional<std::string> &docstring = std::optional<std::string>{});
@@ -242,9 +219,6 @@ class ParameterInput {
              const std::optional<std::string> &docstring = std::optional<std::string>{});
   bool GetOrAddBoolean(
       const std::string &block, const std::string &name, bool value,
-      const std::optional<std::string> &docstring = std::optional<std::string>{});
-  bool GetOrAddBoolean(
-      const std::string &block, const std::string &name, const ParameterRef &value,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
   bool
   SetBoolean(const std::string &block, const std::string &name, bool value,
@@ -267,14 +241,6 @@ class ParameterInput {
       const std::string &block, const std::string &name, const std::string &value,
       const std::vector<std::string> &allowed_values,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
-  template <typename... Args>
-  std::string GetOrAddString(const std::string &block, const std::string &name,
-                             const ParameterRef &ref, Args... args) {
-    auto defval = Get<std::string>(ref);
-    auto ret = GetOrAddString(block, name, defval, std::forward<Args>(args)...);
-    SetQueryDependency_(block, name, ref);
-    return ret;
-  }
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;
@@ -297,7 +263,7 @@ class ParameterInput {
   template <typename T, typename... Args>
   T Get(const std::string &block, const std::string &name, Args &&...args) {
     if constexpr (std::is_same_v<T, bool>) {
-      return GetBoolean(block, name, std::forward<Args>(args)...);
+      return GetOrAddBoolean(block, name, std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<T, Real>) {
       return GetReal(block, name, std::forward<Args>(args)...);
     } else if constexpr (std::is_same_v<T, std::string>) {
@@ -307,18 +273,6 @@ class ParameterInput {
     } else {
       PARTHENON_THROW("Unknown type\n");
     }
-  }
-  template <typename T, typename... Args>
-  T Get(const ParameterRef &r, Args &&...args) {
-    return Get<T>(r.block_, r.name_, std::forward<Args>(args)...);
-  }
-  template <typename T, typename... Args>
-  T GetOrAdd(const std::string &block, const std::string &name, const ParameterRef &value,
-             Args &&...args) {
-    T ret = GetOrAdd<T>(block, name, Get<T>(value.block_, value.name_),
-                        std::forward<Args>(args)...);
-    SetQueryDependency_(block, name, value);
-    return ret;
   }
 
   template <typename T>
@@ -353,15 +307,6 @@ class ParameterInput {
     auto *pb = FindOrAddBlock(block);
     AddParameter(pb, name, cname, "# Default value added at run time");
     return def;
-  }
-  template <typename T>
-  std::vector<T> GetOrAddVector(
-      const std::string &block, const std::string &name, const ParameterRef &def,
-      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    auto defval = GetVector<T>(block, name);
-    auto ret = GetOrAddVector<T>(block, name, defval, docstring);
-    SetQueryDependency_(block, name, def);
-    return ret;
   }
 
  private:
@@ -539,11 +484,6 @@ class ParameterInput {
                               QueryRecord::OriginType origin) {
     auto key = std::make_pair(block, name);
     queries_.at(key).origin_type = origin;
-  }
-  void SetQueryDependency_(const std::string &block, const std::string &name,
-                           const ParameterRef &ref) {
-    auto &query = queries_.at(std::make_pair(ref.block_, ref.name_));
-    query.default_value_str = ref.CanonicalPath();
   }
 };
 
