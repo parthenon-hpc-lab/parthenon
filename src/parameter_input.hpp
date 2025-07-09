@@ -41,10 +41,32 @@
 #include "globals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "utils/hash.hpp"
+#include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+// We need to overload the stream operator for containers to output
+// something sensible
+// TODO(JMM): I'm pretty sure this is incredibly dangerous, even in the
+// parthenon namespace. Once we're on TOML, don't do this. Convert the
+// vector to a toml::array which already has an overloaded ostream.
+// Alternatively, we could try something insane like a printable
+// vector that automatically casts to our container type.
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::vector<T> &container) {
+  std::size_t i = 0;
+  os << "[";
+  for (const T &elem : container) {
+    os << elem;
+    if (i < container.size() - 1) {
+      os << ", ";
+    }
+  }
+  os << "]";
+  return os;
+}
 
 struct QueryRecord {
   // TODO(JMM): Update this with more provenance information
@@ -168,7 +190,8 @@ class ParameterInput {
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
-  void OutputParameterTable(std::ostream &os, const std::regex &block_regex) const;
+  void OutputParameterTable(std::ostream &os,
+                            const std::regex &block_regex = std::regex("(.*)")) const;
 
   int DoesParameterExist(const std::string &block, const std::string &name);
   int DoesBlockExist(const std::string &block);
@@ -269,12 +292,15 @@ class ParameterInput {
         ret.push_back(stob(f));
       }
     }
+    CheckAndUpdateQueries_<std::vector<T>>(block, name, docstring);
     return ret;
   }
   template <typename T>
   std::vector<T> GetOrAddVector(
       const std::string &block, const std::string &name, std::vector<T> def,
       const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    CheckAndUpdateQueries_<std::vector<T>>(block, name, def,
+                                           std::vector<std::vector<T>>{}, docstring);
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
     std::string cname = ConcatVector_(def);
@@ -358,8 +384,13 @@ class ParameterInput {
   template <typename T, template <class...> class Container_t, class... extra>
   void CheckAndUpdateQueries_(const std::string &block, const std::string &name,
                               const std::optional<T> &defval,
-                              const Container_t<T, extra...> &allowed_vals,
+                              Container_t<T, extra...> allowed_vals,
                               const std::optional<std::string> &docstring) {
+    if constexpr (is_sortable_v<decltype(allowed_vals)>) {
+      if (allowed_vals.size() > 0) {
+        std::sort(std::begin(allowed_vals), std::end(allowed_vals));
+      }
+    }
     auto key = std::make_pair(block, name);
     if (queries_.count(key) > 0) {
       QueryRecord &record = queries_.at(key);
@@ -399,7 +430,8 @@ class ParameterInput {
                                  "Allowed values must be consistently shaped");
         std::size_t i = 0;
         for (const auto &allowed : allowed_vals) {
-          PARTHENON_REQUIRE_THROWS(allowed == std::any_cast<T>(record.allowed_values[i]),
+          PARTHENON_REQUIRE_THROWS(allowed ==
+                                       std::any_cast<T>(record.allowed_values[i++]),
                                    "Allowed values must be consistent");
         }
       } else if (allowed_vals.size() > 0) {

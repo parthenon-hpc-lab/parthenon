@@ -1293,11 +1293,14 @@ std::pair<RegionSize, RegionSize> Mesh::GetRegionSizes(ParameterInput *pin) {
        pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0, "unused"),
        pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0, "unused")},
       {pin->GetInteger("parthenon/mesh", "nx1",
-                       "number of cells on base mesh in x1 direction"),
+                       "number of cells on base mesh in x1 direction; defaults to the "
+                       "logical size of the base mesh"),
        pin->GetInteger("parthenon/mesh", "nx2",
-                       "number of cells on base mesh in x2 direction"),
+                       "number of cells on base mesh in x2 direction; defaults to the "
+                       "logical size of the base mesh"),
        pin->GetInteger("parthenon/mesh", "nx3",
-                       "number of cells on base mesh in x3 direction")},
+                       "number of cells on base mesh in x3 direction; defaults to the "
+                       "logical size of the base mesh")},
       {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
        pin->GetInteger("parthenon/mesh", "nx3") == 1});
 

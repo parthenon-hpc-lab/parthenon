@@ -41,8 +41,11 @@ Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::PreExecute() {
+  bool check_orphans = pinput->GetOrAddBoolean(
+      "parthenon/job", "check_orphans", true,
+      "print a warning if any parameters are in the input deck but not used in the code");
   if (Globals::my_rank == 0) {
-    pinput->CheckOrphans();
+    if (check_orphans) pinput->CheckOrphans();
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
     std::cout << "Setup complete, executing driver...\n" << std::endl;
