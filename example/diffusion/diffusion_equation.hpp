@@ -279,14 +279,15 @@ class DiffusionEquation {
               const int joff = x2off[face] > 0 ? -1 : 0;
               const int ioff = x1off[face] > 0 ? -1 : 0;
               const int sign = x1off[face] + x2off[face] + x3off[face];
-              parthenon::par_for_inner(
-                  DEFAULT_INNER_LOOP_PATTERN, member, 0, idxer.size() - 1,
-                  [&](const int idx) {
-                    const auto [k, j, i] = idxer(idx);
-                    pack.flux(b, dir, var_t(), k, j, i) =
-                        sign * pack_mat(b, te, D_t(), k, j, i) *
-                        pack(b, var_t(), k + koff, j + joff, i + ioff) / (0.5 * coords.Dxc(dir, k, j, i));
-                  });
+              parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
+                                       idxer.size() - 1, [&](const int idx) {
+                                         const auto [k, j, i] = idxer(idx);
+                                         pack.flux(b, dir, var_t(), k, j, i) =
+                                             sign * pack_mat(b, te, D_t(), k, j, i) *
+                                             pack(b, var_t(), k + koff, j + joff,
+                                                  i + ioff) /
+                                             (0.5 * coords.Dxc(dir, k, j, i));
+                                       });
             }
             // Correct for size of neighboring zone at fine-coarse boundary when using
             // constant prolongation
