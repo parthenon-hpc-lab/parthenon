@@ -231,9 +231,9 @@ void ParameterInput::CheckDesired(const std::string &path) {
               << "### WARNING in CheckDesired:" << std::endl
               << "Parameter file missing desired field " << path << std::endl;
   }
-  if (defaulted) {
+  if (defaulted) { // Could look up the default here, but it's set to that anyway
     std::cout << std::endl
-              << "Defaulting to " << path << " = " << GetPath<std::string>(path)
+              << "Defaulting to " << path << " = " << parameters_.at_path(path)
               << std::endl;
   }
 }

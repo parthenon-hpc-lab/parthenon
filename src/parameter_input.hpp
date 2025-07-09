@@ -326,7 +326,7 @@ class ParameterInput {
     if (!parameters_.at_path(path)) {
       // This mimics "AddParameter_" but specifically for arrays
       InsertOrAssignPath_(parameters_, path, def_array);
-      queries_.at(path).origin_type = OriginType::Default;
+      UpdateQueryProvenance_(path, OriginType::Default);
     }
 
     CheckAndUpdateQueries_<toml::array>(path, def_array, std::vector<toml::array>{}, docstring);
@@ -471,14 +471,7 @@ class ParameterInput {
       }
     }
 
-    // Now update the provenance, too
-    if (queries_.count(path) > 0) {
-      queries_.at(path).origin_type = og;
-    } else {
-      QueryRecord record;
-      record.origin_type = og;
-      queries_[path] = record;
-    }
+    UpdateQueryProvenance_(path, og);
   }
 
   // JMM: Using std::optional here aggressively to simplify overload
@@ -501,20 +494,20 @@ class ParameterInput {
             // allow requesting without a default if a default has
             // already been set.  I know this is unpleasantly stateful,
             // but we do this in a few places in the code.
-            std::stringstream msg;
-            msg << "Input parameter " << path
-                << " called previously without a default value and now called with one."
-                << " If a default value is used, the first call must always set one."
-                << std::endl;
-            PARTHENON_THROW(msg);
+            // std::stringstream msg;
+            // msg << "Input parameter " << path
+            //     << " called previously without a default value and now called with one."
+            //     << " If a default value is used, the first call must always set one."
+            //     << std::endl;
+            // PARTHENON_THROW(msg);
           }
         } else if (defval.value() != std::any_cast<T>(record.default_value)) {
-          std::stringstream msg;
-          msg << "Input parameter " << path
-              << " has at least two inconsistent default values. "
-              << "The ones I detected are " << defval.value() << " and "
-              << std::any_cast<T>(record.default_value) << std::endl;
-          PARTHENON_THROW(msg);
+          // std::stringstream msg;
+          // msg << "Input parameter " << path
+          //     << " has at least two inconsistent default values. "
+          //     << "The ones I detected are " << defval.value() << " and "
+          //     << std::any_cast<T>(record.default_value) << std::endl;
+          // PARTHENON_THROW(msg);
         }
       }
       // Allowed values are checked after a query, so this function
@@ -571,6 +564,15 @@ class ParameterInput {
   void CheckAndUpdateQueries_(const std::string &path,
                               const std::optional<std::string> &docstring) {
     CheckAndUpdateQueries_<T>(path, std::optional<T>{}, std::vector<T>{}, docstring);
+  }
+  void UpdateQueryProvenance_(const std::string path, OriginType og) {
+    if (queries_.count(path) > 0) {
+      queries_.at(path).origin_type = og;
+    } else {
+      QueryRecord record;
+      record.origin_type = og;
+      queries_[path] = record;
+    }
   }
 };
 
