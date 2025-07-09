@@ -36,7 +36,8 @@ namespace OutputsPackage {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Outputs");
 
-  std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+  std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
+                                             "prefix for output files");
   std::vector<std::string> block_names;
   std::vector<int> block_numbers;
 

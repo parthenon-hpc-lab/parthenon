@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -72,6 +72,7 @@ void Driver::PreExecute() {
   DumpInputParameters();
 
   if (Globals::my_rank == 0) {
+    pinput->CheckOrphans();
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
     std::cout << "Setup complete, executing driver...\n" << std::endl;
@@ -95,6 +96,19 @@ void Driver::PostExecute(DriverStatus status) {
 }
 
 DriverStatus EvolutionDriver::Execute() {
+  // JMM: I want these before output_params_and_exit so we capture as much as possible
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
+  int perf_cycle_offset = pinput->GetOrAddInteger(
+      "parthenon/time", "perf_cycle_offset", 0,
+      "don't measure performance for some number of initial cycles");
+
+  if (Globals::output_params_and_exit && Globals::my_rank == 0) {
+    pinput->OutputParameterTable(std::cout, std::regex(Globals::params_block_regex));
+    return DriverStatus::complete;
+  }
+
   PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
@@ -112,13 +126,8 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
-                            ? OutputSignal::analysis
-                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
-  int perf_cycle_offset =
-      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
@@ -255,8 +264,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
       tm.dt = std::min(tm.dt, pmb->NewDt());
       pmb->SetAllowedDt(std::numeric_limits<Real>::max());
     }
-    // Allow the user to enforce maximum timestep
-    tm.dt = std::min(tm.dt, dt_user);
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL

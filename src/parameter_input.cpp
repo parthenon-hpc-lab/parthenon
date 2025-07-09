@@ -24,9 +24,12 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <toml.hpp>
@@ -60,11 +63,11 @@ void ParameterInput::Merge(toml::table &a, const toml::table &b, bool check_dups
   });
 }
 
-void ParameterInput::recursive_get_paths(toml::table &a, toml::path prefix,
+void ParameterInput::recursive_get_paths(const toml::table &a, toml::path prefix,
                                          const toml::key &key,
-                                         std::vector<toml::path> &paths) {
+                                         std::vector<toml::path> &paths) const {
   if (a[key].is<toml::table>()) {
-    toml::table &achild = a[key].ref<toml::table>();
+    const toml::table &achild = a[key].ref<toml::table>();
     toml::path block = (prefix != toml::path("")) ? toml::path(prefix.append(key.str()))
                                                   : toml::path(key.str());
     achild.for_each([&](const toml::key &key, auto &&el) {
@@ -74,7 +77,7 @@ void ParameterInput::recursive_get_paths(toml::table &a, toml::path prefix,
     paths.push_back(toml::path(prefix.append(key.str())));
   }
 }
-std::vector<std::string> ParameterInput::GetAllPaths(toml::table &a) {
+std::vector<std::string> ParameterInput::GetAllPaths(const toml::table &a) const {
   std::vector<toml::path> paths;
   a.for_each([&](const toml::key &key, auto &&el) {
     recursive_get_paths(a, toml::path(""), key, paths);
@@ -97,6 +100,10 @@ toml::table ParameterInput::Blocks(std::string &path) {
 }
 // Get const copies of entire contents, primarily for hashing
 const toml::table ParameterInput::GetAll() const { return parameters_; }
+
+QueryRecord::OriginType ParameterInput::GetOrigin(const std::string &path) {
+  return queries_.at(path).origin_type;
+}
 
 void ParameterInput::LoadFile(const std::string fname, bool check_for_overrides) {
   std::stringstream contents;
@@ -133,6 +140,19 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
   }
   // Merge from different inputs, only check for overrides if asked
   Merge(parameters_, new_parameters, check_for_overrides);
+  // Set all origins to this file
+  for (auto path : GetAllPaths(new_parameters)) {
+    // Now update the provenance, too
+    if (queries_.count(path) > 0) {
+      queries_.at(path).origin_type = OriginType::Input;
+      queries_.at(path).origin_file = fname;
+    } else {
+      QueryRecord record;
+      record.origin_type = OriginType::Input;
+      record.origin_file = fname;
+      queries_[path] = record;
+    }
+  }
 }
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
@@ -166,7 +186,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       }
     }
     // Commandline parameters can override anything or each other, don't check anything
-    AddParameter_(parameters_, path, value, ParameterOrigin::cmdline);
+    AddParameter_(parameters_, path, value, OriginType::CommandLine);
   }
 }
 
@@ -185,9 +205,7 @@ void ParameterInput::CheckRequired(const std::string &block, const std::string &
   return CheckRequired(Path_(block, name));
 }
 void ParameterInput::CheckRequired(const std::string &path) {
-  // TODO(jmm) implement GetOrigin
-  bool exists =
-      DoesParameterExist(path); //&& (GetOrigin(path) != ParameterOrigin::defaultvalue)
+  bool exists = DoesParameterExist(path) && (GetOrigin(path) != OriginType::Default);
   if (!exists) {
     std::stringstream ss;
     ss << std::endl
@@ -206,9 +224,7 @@ void ParameterInput::CheckDesired(const std::string &path) {
   bool defaulted = false;
   if (DoesParameterExist(path)) {
     missing = false;
-    // TODO(jmm) implement GetOrigin
-    // defaulted = (GetOrigin(path) == ParameterOrigin::defaultvalue);
-    defaulted = false;
+    defaulted = (GetOrigin(path) == OriginType::Default);
   }
   if (missing) {
     std::cout << std::endl
@@ -220,6 +236,18 @@ void ParameterInput::CheckDesired(const std::string &path) {
               << "Defaulting to " << path << " = " << GetPath<std::string>(path)
               << std::endl;
   }
+}
+
+void ParameterInput::CheckOrphans() const {
+  std::stringstream msg;
+  msg << "The following input parameters are set but unused:\n";
+  for (auto path : GetAllPaths(parameters_)) {
+    if (queries_.count(path) == 0) {
+      msg << path << "\n";
+    }
+  }
+  msg << std::endl;
+  PARTHENON_WARN(msg);
 }
 
 void ParameterInput::ParameterDump(std::ostream &os) { os << parameters_ << "\n"; }
@@ -310,8 +338,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
     if (!continuing) {
       if (param_name != "") {
         toml::table single_param = toml::table();
-        AddParameter_(tmp_tbl, Path_(block_name, param_name), param_value,
-                      ParameterOrigin::input, true, fname);
+        AddParameter_(tmp_tbl, Path_(block_name, param_name), param_value, OriginType::None, true);
       }
     }
   }
@@ -368,4 +395,67 @@ bool ParameterInput::LegacyParseLine(std::string line, std::string &name,
   return continuation;
 }
 
+void ParameterInput::OutputParameterTable(std::ostream &os,
+                                          const std::regex &block_regex) const {
+  // Loop through parameters.  Already alphabetical, just gotta split block/name
+  os << "block,parameters,type,default,description" << std::endl;
+  std::string last_block_name = "";
+  for (auto path : GetAllPaths(parameters_)) {
+    // Yeah, GetAllPaths returns strings.  Make it back into a path
+    auto toml_path = toml::path(path);
+    // if first is "parthenon" add next
+    std::string block_name;
+    std::regex block_name_regex;
+    if (toml_path.size() < 2) {
+      block_name = "";
+      // Negative anything lookahead -> never match
+      block_name_regex = std::regex("(?!.*)");
+    } else if (toml_path[0].key() == "parthenon") {
+      block_name = toml_path[0].key() + "." + toml_path[1].key();
+      block_name_regex = std::regex(toml_path[0].key() + "[.]" + toml_path[1].key() + "[.]");
+    } else {
+      block_name = toml_path[0].key();
+      block_name_regex = std::regex(toml_path[0].key() + "[.]");
+    }
+    std::string param_name = std::regex_replace(path, block_name_regex, "");
+    // Output blank lines on block change
+    if (block_name != last_block_name && last_block_name != "")
+      os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
+    last_block_name = block_name;
+    // Filter on block name fitting user regex
+    if (std::regex_match(block_name, block_regex)) {
+      /* clang-format off */
+      if (queries_.count(path) > 0) {
+        auto record = queries_.at(path);
+        std::stringstream ss;
+        ss << "\"" << block_name << "\""
+            << "," << "\"" << param_name << "\""
+            << "," << "\"" << parameters_.at(path).type() << "\""
+            << "," << "\"" << record.default_value_str << "\""
+            << "," << "\"";
+        std::size_t num_allowed_vals = record.allowed_vals_str.size();
+        if (record.docstring.has_value()) {
+          ss << record.docstring.value();
+          if (num_allowed_vals > 0) {
+            ss << "; ";
+          }
+        }
+        if (num_allowed_vals > 0) {
+          ss << "Allowed values: ";
+          std::size_t ival = 0;
+          for (const auto &v : record.allowed_vals_str) {
+            ss << v;
+            if (ival < num_allowed_vals - 1) {
+              ss << ", ";
+            }
+            ival++;
+          }
+        }
+        ss << "\"";
+        /* clang-format on */
+        os << ss.str() << std::endl;
+      }
+    }
+  }
+}
 } // namespace parthenon

@@ -18,6 +18,7 @@
 #include "parthenon_manager.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -131,7 +132,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
 
   // Set the global number of ghost zones
-  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2,
+                                            "number of ghost zones on a block");
 
   // set sparse config
   Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
@@ -217,6 +219,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   if (arg.mesh_flag) {
     ParthenonFinalize();
     exit(0);
+  }
+
+  if (arg.param_flag) {
+    Globals::output_params_and_exit = true;
+    // JMM: cpplint doesn't like strcopy. snprintf is safer because of
+    // max buffer size parameter
+    std::snprintf(Globals::params_block_regex, Globals::PARAMS_STRING_LEN, "%s",
+                  arg.params_regex);
   }
 
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
