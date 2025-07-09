@@ -32,6 +32,8 @@
 #ifdef CATCH2_MPI_PARALLEL
 template <class T>
 bool HasMPITests(const T &config) {
+  // Used to check if a given test in the suite matches the requsted
+  // test specification
   const auto &test_spec = config.testSpec();
 
   const auto &all_test_cases = Catch::getAllTestCasesSorted(config);
