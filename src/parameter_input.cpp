@@ -1005,8 +1005,8 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
       for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
         const std::string &param_name = pl->param_name;
         auto record_key = std::make_pair(block_name, param_name);
-        // This ensures the code doesn't crash for orphan parameters
         /* clang-format off */
+        // This ensures the code doesn't crash for orphan parameters
         if (queries_.count(record_key) > 0) {
           auto record = queries_.at(record_key);
           std::stringstream ss;
