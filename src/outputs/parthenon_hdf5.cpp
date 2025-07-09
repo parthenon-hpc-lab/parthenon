@@ -49,6 +49,7 @@
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
+#include "provenance.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -160,6 +161,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
+
+    // Writing build and provenance information
+    HDF5WriteAttribute("ParthenonGitHash", provenance::PARTHENON_GIT_HASH, info_group);
+    HDF5WriteAttribute("ParthenonGitBranch", provenance::PARTHENON_GIT_BRANCH,
+                       info_group);
+    HDF5WriteAttribute("ParthenonCompiler", provenance::PARTHENON_COMPILER, info_group);
+    HDF5WriteAttribute("ParthenonBuildTimestamp", provenance::PARTHENON_BUILD_TIMESTAMP,
+                       info_group);
+    HDF5WriteAttribute("ParthenonBuildArch", provenance::PARTHENON_ARCH, info_group);
+    HDF5WriteAttribute("ParthenonBuildOptLevel", provenance::PARTHENON_OPTIMIZATION,
+                       info_group);
+
+    // Pull out Kokkos config which can contain GPU information
+    std::ostringstream kokkos_config;
+    Kokkos::print_configuration(kokkos_config);
+    HDF5WriteAttribute("KokkosConfig", kokkos_config.str(), info_group);
 
     HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
     HDF5WriteAttribute("NumDims", pm->ndim, info_group);
