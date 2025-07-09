@@ -1271,14 +1271,14 @@ RegionSize Mesh::GetBaseMeshBlockSize(ParameterInput *pin, const RegionSize &mes
            {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
     base_block_size.xrat(dir) = mesh_size.xrat(dir);
     base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    // JMM: Just to ensure it gets written to params
-    ParameterRef meshref("parthenon/mesh", label);
-    base_block_size.nx(dir) = pin->GetOrAddInteger(
-        "parthenon/meshblock", label, meshref,
-        "logical size of a meshblock; defaults to the base size of the mesh");
-    if (base_block_size.symmetry(dir)) {
+    if (!base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) = pin->GetOrAddInteger(
+          "parthenon/meshblock", label, mesh_size.nx(dir), "logical size of a meshblock");
+    } else {
       base_block_size.nx(dir) = mesh_size.nx(dir);
-      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+      // JMM: Just to ensure it gets written to params
+      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir),
+                      "logical size of a meshblock");
     }
   }
   return base_block_size;
@@ -1296,11 +1296,14 @@ std::pair<RegionSize, RegionSize> Mesh::GetRegionSizes(ParameterInput *pin) {
        pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0, "unused"),
        pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0, "unused")},
       {pin->GetInteger("parthenon/mesh", "nx1",
-                       "number of cells on base mesh in x1 direction"),
+                       "number of cells on base mesh in x1 direction; defaults to the "
+                       "logical size of the base mesh"),
        pin->GetInteger("parthenon/mesh", "nx2",
-                       "number of cells on base mesh in x2 direction"),
+                       "number of cells on base mesh in x2 direction; defaults to the "
+                       "logical size of the base mesh"),
        pin->GetInteger("parthenon/mesh", "nx3",
-                       "number of cells on base mesh in x3 direction")},
+                       "number of cells on base mesh in x3 direction; defaults to the "
+                       "logical size of the base mesh")},
       {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
        pin->GetInteger("parthenon/mesh", "nx3") == 1});
 
