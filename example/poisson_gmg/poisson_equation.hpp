@@ -120,10 +120,12 @@ class PoissonEquation {
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack_mat.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
-          auto [idx2p, idx2m] = GetEffectiveInverseDx2<X1DIR>(coords, k, j, i);
-          Real diag_elem = -(pack_mat(b, TE::F1, D_t(), k, j, i) * idx2m +
-                             pack_mat(b, TE::F1, D_t(), k, j, i + 1) * idx2p) -
-                           alpha;
+          Real diag_elem = -alpha;
+          {
+            auto [idx2p, idx2m] = GetEffectiveInverseDx2<X1DIR>(coords, k, j, i);
+            diag_elem -= (pack_mat(b, TE::F1, D_t(), k, j, i) * idx2m +
+                          pack_mat(b, TE::F1, D_t(), k, j, i + 1) * idx2p);
+          }
           if (ndim > 1) {
             auto [idx2p, idx2m] = GetEffectiveInverseDx2<X2DIR>(coords, k, j, i);
             diag_elem -= (pack_mat(b, TE::F2, D_t(), k, j, i) * idx2m +
@@ -163,40 +165,37 @@ class PoissonEquation {
         "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack.GetCoordinates(b);
-          Real dx1 =
-              coords.template Xc<X1DIR>(k, j, i) - coords.template Xc<X1DIR>(k, j, i - 1);
           pack.flux(b, X1DIR, var_t(), k, j, i) =
-              pack_mat(b, TE::F1, D_t(), k, j, i) / dx1 *
+              pack_mat(b, TE::F1, D_t(), k, j, i) / coords.template Dxc<X1DIR>(k, j, i) *
               (pack(b, te, var_t(), k, j, i - 1) - pack(b, te, var_t(), k, j, i));
           if (i == ib.e)
             pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
-                pack_mat(b, TE::F1, D_t(), k, j, i + 1) / dx1 *
+                pack_mat(b, TE::F1, D_t(), k, j, i + 1) /
+                coords.template Dxc<X1DIR>(k, j, i + 1) *
                 (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j, i + 1));
 
           if (ndim > 1) {
-            Real dx2 = coords.template Xc<X2DIR>(k, j, i) -
-                       coords.template Xc<X2DIR>(k, j - 1, i);
             pack.flux(b, X2DIR, var_t(), k, j, i) =
                 pack_mat(b, TE::F2, D_t(), k, j, i) *
-                (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) / dx2;
+                (pack(b, te, var_t(), k, j - 1, i) - pack(b, te, var_t(), k, j, i)) /
+                coords.template Dxc<X2DIR>(k, j, i);
             if (j == jb.e)
               pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
                   pack_mat(b, TE::F2, D_t(), k, j + 1, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k, j + 1, i)) /
-                  dx2;
+                  coords.template Dxc<X2DIR>(k, j + 1, i);
           }
 
           if (ndim > 2) {
-            Real dx3 = coords.template Xc<X3DIR>(k, j, i) -
-                       coords.template Xc<X3DIR>(k, j - 1, i);
             pack.flux(b, X3DIR, var_t(), k, j, i) =
                 pack_mat(b, TE::F3, D_t(), k, j, i) *
-                (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) / dx3;
+                (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) /
+                coords.template Dxc<X3DIR>(k, j, i);
             if (k == kb.e)
               pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
                   pack_mat(b, TE::F3, D_t(), k + 1, j, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) /
-                  dx3;
+                  coords.template Dxc<X2DIR>(k + 1, j, i);
           }
         });
     return TaskStatus::complete;
@@ -317,18 +316,18 @@ class PoissonEquation {
           if (ndim > 1) {
             pack_out(b, te, var_t(), k, j, i) +=
                 (pack.flux(b, X2DIR, var_t(), k, j, i) *
-                     coords.template Volume<TE::F1>(k, j, i) -
+                     coords.template Volume<TE::F2>(k, j, i) -
                  pack.flux(b, X2DIR, var_t(), k, j + 1, i) *
-                     coords.template Volume<TE::F1>(k, j, i + 1)) /
+                     coords.template Volume<TE::F2>(k, j + 1, i)) /
                 coords.template Volume<TE::CC>(k, j, i);
           }
 
           if (ndim > 2) {
             pack_out(b, te, var_t(), k, j, i) +=
                 (pack.flux(b, X3DIR, var_t(), k, j, i) *
-                     coords.template Volume<TE::F1>(k, j, i) -
+                     coords.template Volume<TE::F3>(k, j, i) -
                  pack.flux(b, X3DIR, var_t(), k + 1, j, i) *
-                     coords.template Volume<TE::F1>(k, j, i + 1)) /
+                     coords.template Volume<TE::F3>(k + 1, j, i)) /
                 coords.template Volume<TE::CC>(k, j, i);
           }
         });
