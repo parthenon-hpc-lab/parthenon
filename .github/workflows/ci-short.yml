@@ -150,6 +150,7 @@ jobs:
           submodules: 'true'
       - name: Configure
         run: |
+          git config --global --add safe.directory $(pwd)
           cmake -B build \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DCMAKE_BUILD_TYPE=Release \
