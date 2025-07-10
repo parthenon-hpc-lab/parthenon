@@ -14,6 +14,7 @@
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make poisson_gmg example work for curvilinear coordinates
 - [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
 - [[PR 1275]](https://github.com/parthenon-hpc-lab/parthenon/pull/1275) Remove typeid from interpolation device code
 - [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
