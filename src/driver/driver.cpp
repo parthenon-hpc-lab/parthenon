@@ -41,9 +41,9 @@ Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::DumpInputParameters() {
-  auto archive_parameters =
+  const auto archive_parameters =
       pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false);
-  auto archive_timestamp =
+  const auto archive_timestamp =
       pinput->GetOrAddBoolean("parthenon/job", "archive_timestamp", false);
   if (archive_parameters && Globals::my_rank == 0) {
     std::ostringstream ss;
@@ -59,7 +59,7 @@ void Driver::DumpInputParameters() {
     pinput->ParameterDump(pars);
     pars.close();
   }
-  auto print_parameters =
+  const auto print_parameters =
       pinput->GetOrAddBoolean("parthenon/job", "print_parameters", false);
   if (print_parameters && Globals::my_rank == 0) {
     pinput->ParameterDump(std::cout);
@@ -71,8 +71,11 @@ void Driver::PreExecute() {
   // Optionally also dump to console
   DumpInputParameters();
 
+  bool check_orphans = pinput->GetOrAddBoolean(
+      "parthenon/job", "check_orphans", true,
+      "print a warning if any parameters are in the input deck but not used in the code");
   if (Globals::my_rank == 0) {
-    pinput->CheckOrphans();
+    if (check_orphans) pinput->CheckOrphans();
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
     std::cout << "Setup complete, executing driver...\n" << std::endl;
@@ -103,9 +106,15 @@ DriverStatus EvolutionDriver::Execute() {
   int perf_cycle_offset = pinput->GetOrAddInteger(
       "parthenon/time", "perf_cycle_offset", 0,
       "don't measure performance for some number of initial cycles");
-
-  if (Globals::output_params_and_exit && Globals::my_rank == 0) {
-    pinput->OutputParameterTable(std::cout, std::regex(Globals::params_block_regex));
+  const bool output_params_and_exit = pinput->GetOrAddBoolean(
+      "parthenon/job", "output_params_and_exit", false,
+      "output a description of all input parameters accessed and quit");
+  const std::string params_block_regex =
+      pinput->GetOrAddString("parthenon/job", "output_params_block_regex", "(.*)",
+                             "when outputting input parameters, this selects which input "
+                             "blocks to output; all are output by default");
+  if (output_params_and_exit && Globals::my_rank == 0) {
+    pinput->OutputParameterTable(std::cout, std::regex(params_block_regex));
     return DriverStatus::complete;
   }
 
@@ -184,7 +193,7 @@ DriverStatus EvolutionDriver::Execute() {
       }
     } // END OF MAIN INTEGRATION LOOP
       // ======================================================
-  } // Main t < tmax loop region
+  }   // Main t < tmax loop region
 
   if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);

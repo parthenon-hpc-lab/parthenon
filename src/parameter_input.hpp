@@ -42,10 +42,37 @@
 #include "globals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "utils/hash.hpp"
+#include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+// We need to overload the stream operator for containers to output
+// something sensible
+// TODO(JMM): I'm pretty sure this is incredibly dangerous, even in the
+// parthenon namespace. Once we're on TOML, don't do this. Convert the
+// vector to a toml::array which already has an overloaded ostream.
+// Alternatively, we could try something insane like a printable
+// vector that automatically casts to our container type.
+/*
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::vector<T> &container) {
+  std::size_t i = 0;
+  os << "[";
+  for (const T &elem : container) {
+    os << elem;
+    if (i < container.size() - 1) {
+      os << ", ";
+    }
+  }
+  os << "]";
+  return os;
+}
+*/
+
+std::string ParameterPath(const std::string block, const std::string name);
+
 struct QueryRecord {
   enum class OriginType { None, Input, Restart, Default, SetInCode, CommandLine };
   OriginType origin_type = OriginType::None; // This should never persist
@@ -67,6 +94,19 @@ struct QueryRecord {
     ss << val;
     return ss.str();
   }
+};
+
+// This can be used to tell the params infrastructure that the default
+// value of one parameter depends on another one
+class ParameterRef {
+ public:
+  ParameterRef(const std::string &block, const std::string &name)
+      : path_(ParameterPath(block, name)) {}
+  explicit ParameterRef(const std::string &path) : path_(path) {}
+  std::string CanonicalPath() const { return path_; }
+
+ private:
+  const std::string path_;
 };
 
 class ParameterInput {
@@ -95,7 +135,8 @@ class ParameterInput {
   int DoesBlockExist(const std::string &block);
 
   // TODO(JMM): Make this more general?
-  void OutputParameterTable(std::ostream &os, const std::regex &block_regex) const;
+  void OutputParameterTable(std::ostream &os,
+                            const std::regex &block_regex = std::regex("(.*)")) const;
 
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckRequired(const std::string &path);
@@ -165,11 +206,11 @@ class ParameterInput {
   template <typename T, typename... Args>
   T Set(const std::string &block, const std::string &name, const T &value,
         const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return SetPath<T>(Path_(block, name), value, docstring);
+    return SetPath<T>(ParameterPath(block, name), value, docstring);
   }
-
   template <typename T>
-  T SetPath(const std::string &path, const T &value, const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  T SetPath(const std::string &path, const T &value,
+            const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     // Check and error
     // BSP: This is not how Parthenon previously behaved, so it's commented
     // if (!parameters_.at_path(path)) {
@@ -190,12 +231,18 @@ class ParameterInput {
   }
 
   template <typename T>
-  T Get(const std::string &block, const std::string &name, const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return GetPath<T>(Path_(block, name), docstring);
+  T Get(const std::string &block, const std::string &name,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    return GetPath<T>(ParameterPath(block, name), docstring);
+  }
+  template <typename T, typename... Args>
+  T Get(const ParameterRef &r, Args &&...args) {
+    return GetPath<T>(r.CanonicalPath(), std::forward<Args>(args)...);
   }
 
   template <typename T>
-  T GetPath(const std::string &path, const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  T GetPath(const std::string &path,
+            const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     // Check and error
     // TODO(BSP) better compile-time error if type isn't supported by toml++?
     // maybe || !parameters_.is<T>() later? Maybe tweak as<T>()?
@@ -236,30 +283,34 @@ class ParameterInput {
   template <typename T>
   T GetOrAdd(const std::string &block, const std::string &name, const T &value,
              const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return GetOrAddPath<T>(Path_(block, name), value, docstring);
+    return GetOrAddPath<T>(ParameterPath(block, name), value, docstring);
   }
   template <typename T>
   T GetOrAdd(const std::string &block, const std::string &name, const T &value,
              const std::vector<T> allowed_values,
              const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return GetOrAddPath<T>(Path_(block, name), value, allowed_values, docstring);
+    return GetOrAddPath<T>(ParameterPath(block, name), value, allowed_values, docstring);
+  }
+  template<typename T, typename... Args>
+  T GetOrAdd(const std::string &block, const std::string &name, const ParameterRef &ref,
+             Args... &&args) {
+    return GetOrAddPath<T>(ParameterPath(block, name), ref, std::forward<Args>(args)...);
   }
 
   template <typename T>
-  T GetOrAddPath(const std::string &path, const T &value,
-                const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  T GetOrAddPath(
+      const std::string &path, const T &value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    CheckAndUpdateQueries_<T>(path, value, std::vector<T>{}, docstring);
     if (!parameters_.at_path(path)) {
       AddParameter_(parameters_, path, value, OriginType::Default);
     }
-
-    CheckAndUpdateQueries_<T>(path, value, std::vector<T>{}, docstring);
-
     return GetPath<T>(path);
   }
   template <typename T>
-  T GetOrAddPath(const std::string &path, const T &value,
-                const std::vector<T> allowed_values,
-                const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  T GetOrAddPath(
+      const std::string &path, const T &value, const std::vector<T> allowed_values,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     // Check allowed values if non-empty
     if (!allowed_values.empty()) CheckAllowedValues_(path, value, allowed_values);
 
@@ -268,15 +319,35 @@ class ParameterInput {
 
     return GetOrAddPath(path, value);
   }
-
   template <typename T>
-  std::vector<T> GetVector(const std::string &block, const std::string &name,
-                           const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return GetVectorPath<T>(Path_(block, name), docstring);
+  T GetOrAddPath(
+      const std::string &path, const T &value,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    CheckAndUpdateQueries_<T>(path, value, std::vector<T>{}, docstring);
+    if (!parameters_.at_path(path)) {
+      AddParameter_(parameters_, path, value, OriginType::Default);
+    }
+    return GetPath<T>(path);
+  }
+  template <typename T, typename... Args>
+  T GetOrAddPath(const std::string &path, const ParameterRef &ref, Args... &&args) {
+    auto value = GetPath<T>(ref.CanonicalPath());
+    auto ret = GetOrAddPath<T>(path, value, std::forward<Args>(args)...);
+    SetQueryDependency_(path, ref);
+    return ret;
   }
 
   template <typename T>
-  std::vector<T> GetVectorPath(const std::string &path, const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  std::vector<T>
+  GetVector(const std::string &block, const std::string &name,
+            const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    return GetVectorPath<T>(ParameterPath(block, name), docstring);
+  }
+
+  template <typename T>
+  std::vector<T> GetVectorPath(
+      const std::string &path,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     // Check and error
     // TODO(BSP) type checking of contents or singleton
     if (!parameters_.at_path(path)) {
@@ -311,17 +382,29 @@ class ParameterInput {
   }
 
   template <typename T>
-  std::vector<T> GetOrAddVector(const std::string &block, const std::string &name, std::vector<T> def,
-                                const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    return GetOrAddVectorPath<T>(Path_(block, name), def, docstring);
+  std::vector<T> GetOrAddVector(
+      const std::string &block, const std::string &name, std::vector<T> def,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    return GetOrAddVectorPath<T>(ParameterPath(block, name), def, docstring);
+  }
+  template <typename T>
+  std::vector<T> GetOrAddVector(
+      const std::string &block, const std::string &name, const ParameterRef &def,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    auto defval = GetVectorPath<T>(def.CanonicalPath());
+    auto ret = GetOrAddVector<T>(block, name, defval, docstring);
+    SetQueryDependency_(GetPath(block, name), def);
+    return ret;
   }
 
   template <typename T>
-  std::vector<T> GetOrAddVectorPath(const std::string &path, std::vector<T> def,
-                                    const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+  std::vector<T> GetOrAddVectorPath(
+      const std::string &path, std::vector<T> def,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     // Always load defaults into an array, for below
     auto def_array = toml::array();
-    for (auto el : def) def_array.push_back(el);
+    for (auto el : def)
+      def_array.push_back(el);
 
     if (!parameters_.at_path(path)) {
       // This mimics "AddParameter_" but specifically for arrays
@@ -329,9 +412,19 @@ class ParameterInput {
       UpdateQueryProvenance_(path, OriginType::Default);
     }
 
-    CheckAndUpdateQueries_<toml::array>(path, def_array, std::vector<toml::array>{}, docstring);
+    CheckAndUpdateQueries_<toml::array>(path, def_array, std::vector<toml::array>{},
+                                        docstring);
 
     return GetVectorPath<T>(path);
+  }
+  template <typename T>
+  std::vector<T> GetOrAddVectorPath(
+      const std::string &path, const ParameterRef &def,
+      const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    auto defval = GetVectorPath<T>(def.CanonicalPath());
+    auto ret = GetOrAddVectorPath<T>(path, defval, docstring);
+    SetQueryDependency_(path, def);
+    return ret;
   }
   // TODO(BSP) SetVector/Path?
 
@@ -345,7 +438,6 @@ class ParameterInput {
 
   toml::table LegacyParse(std::istream &is, std::string fname = "");
   bool LegacyParseLine(std::string line, std::string &name, std::string &value);
-  std::string Path_(const std::string block, const std::string name);
   void Merge(toml::table &a, const toml::table &b, bool check_dups);
 
   void recursive_get_paths(const toml::table &a, toml::path prefix, const toml::key &key,
@@ -403,7 +495,7 @@ class ParameterInput {
     toml::path fullpath = toml::path(path);
     toml::path parent = fullpath.parent();
     if (!tab.at_path(parent)) {
-      InsertOrAssignPath_(tab, parent.str(), toml::table());
+      InsertOrAssigPath_(tab, parent.str(), toml::table());
     }
     // Now we know parent exists (or is the root), so insert just the leaf key
     if (parent.str() == "") {
@@ -477,10 +569,14 @@ class ParameterInput {
   // JMM: Using std::optional here aggressively to simplify overload
   // and default parameter logic logic
   template <typename T, template <class...> class Container_t, class... extra>
-  void CheckAndUpdateQueries_(const std::string &path,
-                              const std::optional<T> &defval,
-                              const Container_t<T, extra...> &allowed_vals,
+  void CheckAndUpdateQueries_(const std::string &path, const std::optional<T> &defval,
+                              Container_t<T, extra...> allowed_vals,
                               const std::optional<std::string> &docstring) {
+    if constexpr (is_sortable_v<decltype(allowed_vals)>) {
+      if (allowed_vals.size() > 0) {
+        std::sort(std::begin(allowed_vals), std::end(allowed_vals));
+      }
+    }
     if (queries_.count(path) > 0) {
       QueryRecord &record = queries_.at(path);
       if (defval.has_value()) {
@@ -489,25 +585,27 @@ class ParameterInput {
             // This was set with Set* and we should respect it. Add
             // the new default and move on.
             record.default_value = defval.value();
+            record.default_value_str = record.ToString(defval.value());
           } else {
             // JMM: Forbid setting a default value after requesting but
             // allow requesting without a default if a default has
             // already been set.  I know this is unpleasantly stateful,
             // but we do this in a few places in the code.
-            // std::stringstream msg;
-            // msg << "Input parameter " << path
-            //     << " called previously without a default value and now called with one."
-            //     << " If a default value is used, the first call must always set one."
-            //     << std::endl;
-            // PARTHENON_THROW(msg);
+            std::stringstream msg;
+            msg << "Input parameter " << path
+                << " called previously without a default value and now called with
+                one."
+                << " If a default value is used, the first call must always set one."
+                << std::endl;
+            PARTHENON_THROW(msg);
           }
         } else if (defval.value() != std::any_cast<T>(record.default_value)) {
-          // std::stringstream msg;
-          // msg << "Input parameter " << path
-          //     << " has at least two inconsistent default values. "
-          //     << "The ones I detected are " << defval.value() << " and "
-          //     << std::any_cast<T>(record.default_value) << std::endl;
-          // PARTHENON_THROW(msg);
+          std::stringstream msg;
+          msg << "Input parameter " << path
+              << " has at least two inconsistent default values. "
+              << "The ones I detected are " << defval.value() << " and "
+              << std::any_cast<T>(record.default_value) << std::endl;
+          PARTHENON_THROW(msg);
         }
       }
       // Allowed values are checked after a query, so this function
@@ -519,7 +617,8 @@ class ParameterInput {
                                  "Allowed values must be consistently shaped");
         std::size_t i = 0;
         for (const auto &allowed : allowed_vals) {
-          PARTHENON_REQUIRE_THROWS(allowed == std::any_cast<T>(record.allowed_values[i]),
+          PARTHENON_REQUIRE_THROWS(allowed ==
+                                       std::any_cast<T>(record.allowed_values[i++]),
                                    "Allowed values must be consistent");
         }
       } else if (allowed_vals.size() > 0) {
@@ -566,13 +665,12 @@ class ParameterInput {
     CheckAndUpdateQueries_<T>(path, std::optional<T>{}, std::vector<T>{}, docstring);
   }
   void UpdateQueryProvenance_(const std::string path, OriginType og) {
-    if (queries_.count(path) > 0) {
-      queries_.at(path).origin_type = og;
-    } else {
-      QueryRecord record;
-      record.origin_type = og;
-      queries_[path] = record;
-    }
+    PARTHENON_REQUIRE_THROWS(queries_.count(path),
+                             "Query for path " + path + " not found.");
+    queries_.at(path).origin_type = og;
+  }
+  void SetQueryDependency_(const std::string &path, const ParameterRef &ref) {
+    queries_.at(path).default_value_str = ref.CanonicalPath();
   }
 };
 

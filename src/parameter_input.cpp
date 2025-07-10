@@ -39,7 +39,7 @@
 
 namespace parthenon {
 
-std::string ParameterInput::Path_(const std::string block, const std::string name) {
+std::string ParameterPath(const std::string block, const std::string name) {
   if (!std::count(block.begin(), block.end(), '/')) {
     if (name == "") {
       return block;
@@ -173,7 +173,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     // ('/' obviously can't be used in block names anyway if we want back-compat)
     // Alternatively we could check for '.', which would forbid '.' in old-style
     // blocks and varnames retroactively.
-    path = Path_(path, "");
+    path = ParameterPath(path, "");
     value = input_text.substr(equal_posn + 1, std::string::npos);
 
     if (!parameters_.at_path(path)) {
@@ -192,17 +192,17 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
 int ParameterInput::DoesParameterExist(const std::string &block,
                                        const std::string &name) {
-  return DoesParameterExist(Path_(block, name));
+  return DoesParameterExist(ParameterPath(block, name));
 }
 int ParameterInput::DoesParameterExist(const std::string &path) {
   return !!parameters_.at_path(path);
 }
 int ParameterInput::DoesBlockExist(const std::string &block) {
-  return parameters_.contains(Path_(block, ""));
+  return parameters_.contains(ParameterPath(block, ""));
 }
 
 void ParameterInput::CheckRequired(const std::string &block, const std::string &name) {
-  return CheckRequired(Path_(block, name));
+  return CheckRequired(ParameterPath(block, name));
 }
 void ParameterInput::CheckRequired(const std::string &path) {
   bool exists = DoesParameterExist(path) && (GetOrigin(path) != OriginType::Default);
@@ -217,7 +217,7 @@ void ParameterInput::CheckRequired(const std::string &path) {
 }
 
 void ParameterInput::CheckDesired(const std::string &block, const std::string &name) {
-  return CheckDesired(Path_(block, name));
+  return CheckDesired(ParameterPath(block, name));
 }
 void ParameterInput::CheckDesired(const std::string &path) {
   bool missing = true;
@@ -292,7 +292,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
       first_char++;
       last_char = (line.find_first_of(">", first_char));
       block_name.assign(line, first_char, last_char - 1); // extract block name
-      block_name = Path_(block_name, "");
+      block_name = ParameterPath(block_name, "");
 
       if (last_char == std::string::npos) {
         msg << "### FATAL ERROR in function [ParameterInput::LegacyParse]" << std::endl
@@ -303,7 +303,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
 
       blocks_found++;
       continue; // skip to next line if block name was found
-    } // end "a new block was found"
+    }           // end "a new block was found"
 
     // if line does not contain a block name or skippable information (comments,
     // whitespace), it must contain a parameter value
@@ -338,7 +338,8 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
     if (!continuing) {
       if (param_name != "") {
         toml::table single_param = toml::table();
-        AddParameter_(tmp_tbl, Path_(block_name, param_name), param_value, OriginType::None, true);
+        AddParameter_(tmp_tbl, ParameterPath(block_name, param_name), param_value,
+                      OriginType::None, true);
       }
     }
   }
@@ -403,27 +404,21 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
   for (auto path : GetAllPaths(parameters_)) {
     // Yeah, GetAllPaths returns strings.  Make it back into a path
     auto toml_path = toml::path(path);
-    // if first is "parthenon" add next
-    std::string block_name;
-    std::regex block_name_regex;
+    std::string block_name, param_name;
     if (toml_path.size() < 2) {
-      block_name = "";
-      // Negative anything lookahead -> never match
-      block_name_regex = std::regex("(?!.*)");
-    } else if (toml_path[0].key() == "parthenon") {
-      block_name = toml_path[0].key() + "." + toml_path[1].key();
-      block_name_regex = std::regex(toml_path[0].key() + "[.]" + toml_path[1].key() + "[.]");
+      param_name = path;
+      block_name = "root";
     } else {
-      block_name = toml_path[0].key();
-      block_name_regex = std::regex(toml_path[0].key() + "[.]");
+      std::size_t idx = toml_path.size() - 1;
+      param_name = toml_path.[idx].key();
+      block_name = toml_path.subpath(0, idx).str();
     }
-    std::string param_name = std::regex_replace(path, block_name_regex, "");
-    // Output blank lines on block change
-    if (block_name != last_block_name && last_block_name != "")
-      os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
-    last_block_name = block_name;
     // Filter on block name fitting user regex
     if (std::regex_match(block_name, block_regex)) {
+      // Output blank lines on block change
+      if (block_name != last_block_name && last_block_name != "")
+        os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
+      last_block_name = block_name;
       /* clang-format off */
       if (queries_.count(path) > 0) {
         auto record = queries_.at(path);

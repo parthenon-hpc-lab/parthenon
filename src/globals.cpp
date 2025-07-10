@@ -46,11 +46,6 @@ Real receive_boundary_buffer_timeout;
 // timeouts for tasks
 Real current_task_runtime_sec;
 
-// logic for parsing and outputting params
-bool output_params_and_exit = false;
-// cpplint says global strings are bad
-char params_block_regex[PARAMS_STRING_LEN];
-
 namespace refinement {
 // Communication buffers are packed into a `BndInfo` object.
 // if the size of this object is greater than min_num_bufs,
