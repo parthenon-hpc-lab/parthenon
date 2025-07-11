@@ -101,8 +101,8 @@ toml::table ParameterInput::Blocks(std::string &path) {
 // Get const copies of entire contents, primarily for hashing
 const toml::table ParameterInput::GetAll() const { return parameters_; }
 
-QueryRecord::OriginType ParameterInput::GetOrigin(const std::string &path) {
-  return queries_.at(path).origin_type;
+RecordOrigin ParameterInput::GetOrigin(const std::string &path) {
+  return queries_.at(path).origin;
 }
 
 void ParameterInput::LoadFile(const std::string fname, bool check_for_overrides) {
@@ -116,12 +116,12 @@ void ParameterInput::LoadFile(const std::string fname, bool check_for_overrides)
   contents.write(buf, max_input_filesize_);
   free(buf);
 
-  LoadFromStream(contents, fname, check_for_overrides);
+  LoadFromStream(contents, RecordOrigin(fname), check_for_overrides);
 
   return;
 }
 
-void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
+void ParameterInput::LoadFromStream(std::istream &is, const RecordOrigin &origin,
                                     bool check_for_overrides) {
   std::stringstream ss;
   ss << is.rdbuf();
@@ -134,27 +134,12 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
   auto new_parameters = toml::table();
   if (nangle > nsquare) {
     is.seekg(is.beg);
-    new_parameters = LegacyParse(is, fname);
+    new_parameters = LegacyParse(is, origin);
   } else {
     new_parameters = toml::parse(input);
   }
   // Merge from different inputs, only check for overrides if asked
   Merge(parameters_, new_parameters, check_for_overrides);
-  // Set all origins to this file
-  /*
-  for (auto path : GetAllPaths(new_parameters)) {
-    // Now update the provenance, too
-    if (queries_.count(path) > 0) {
-      queries_.at(path).origin_type = OriginType::Input;
-      queries_.at(path).origin_file = fname;
-    } else {
-      QueryRecord record;
-      record.origin_type = OriginType::Input;
-      record.origin_file = fname;
-      queries_[path] = record;
-    }
-  }
-  */
 }
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
@@ -188,7 +173,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       }
     }
     // Commandline parameters can override anything or each other, don't check anything
-    AddParameter_(parameters_, path, value, OriginType::CommandLine);
+    AddParameter_(parameters_, path, value, RecordOrigin(OriginType::CommandLine));
   }
 }
 
@@ -207,8 +192,7 @@ void ParameterInput::CheckRequired(const std::string &block, const std::string &
   return CheckRequired(ParameterPath(block, name));
 }
 void ParameterInput::CheckRequired(const std::string &path) {
-  /*
-  bool exists = DoesParameterExist(path) && (GetOrigin(path) != OriginType::Default);
+  bool exists = DoesParameterExist(path) && (GetOrigin(path).type != OriginType::Default);
   if (!exists) {
     std::stringstream ss;
     ss << std::endl
@@ -217,19 +201,17 @@ void ParameterInput::CheckRequired(const std::string &path) {
        << std::endl;
     throw std::runtime_error(ss.str());
   }
-  */
 }
 
 void ParameterInput::CheckDesired(const std::string &block, const std::string &name) {
   return CheckDesired(ParameterPath(block, name));
 }
 void ParameterInput::CheckDesired(const std::string &path) {
-  /*
   bool missing = true;
   bool defaulted = false;
   if (DoesParameterExist(path)) {
     missing = false;
-    defaulted = (GetOrigin(path) == OriginType::Default);
+    defaulted = (GetOrigin(path).type == OriginType::Default);
   }
   if (missing) {
     std::cout << std::endl
@@ -241,15 +223,15 @@ void ParameterInput::CheckDesired(const std::string &path) {
               << "Defaulting to " << path << " = " << parameters_.at_path(path)
               << std::endl;
   }
-  */
 }
 
 void ParameterInput::CheckOrphans() const {
   std::stringstream msg;
   msg << "The following input parameters are set but unused:\n";
   for (auto path : GetAllPaths(parameters_)) {
-    if (queries_.count(path) == 0) {
-      msg << path << "\n";
+    auto &query = queries_.at(path);
+    if (!query.requested) {
+      msg << path << ", with " << query.origin << "\n";
     }
   }
   msg << std::endl;
@@ -258,7 +240,7 @@ void ParameterInput::CheckOrphans() const {
 
 void ParameterInput::ParameterDump(std::ostream &os) { os << parameters_ << "\n"; }
 
-toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
+toml::table ParameterInput::LegacyParse(std::istream &is, const RecordOrigin &origin) {
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
   std::stringstream msg;
@@ -344,8 +326,8 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
     if (!continuing) {
       if (param_name != "") {
         toml::table single_param = toml::table();
-        AddParameter_(tmp_tbl, ParameterPath(block_name, param_name), param_value,
-                      OriginType::None, true);
+        AddParameter_(tmp_tbl, ParameterPath(block_name, param_name), param_value, origin,
+                      true);
       }
     }
   }
@@ -468,4 +450,36 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
     }
   }
 }
+
+std::ostream &operator<<(std::ostream &os, RecordOrigin::Type type) {
+  switch (type) {
+  case RecordOrigin::Type::None:
+    return os << "None";
+  case RecordOrigin::Type::InputFile:
+    return os << "InputFile";
+  case RecordOrigin::Type::Restart:
+    return os << "Restart";
+  case RecordOrigin::Type::Default:
+    return os << "Default";
+  case RecordOrigin::Type::SetInCode:
+    return os << "SetInCode";
+  case RecordOrigin::Type::CommandLine:
+    return os << "CommandLine";
+  default:
+    return os << "Unknown";
+  }
+}
+std::ostream &operator<<(std::ostream &os, const RecordOrigin &origin) {
+  os << "Origin Type: " << origin.type;
+  if (origin.HasFile()) {
+    os << ", File: \"" << origin.file << "\"";
+  }
+  return os;
+}
+std::string RecordOrigin::ToString() const {
+  std::stringstream ss;
+  ss << *this;
+  return ss.str();
+}
+
 } // namespace parthenon

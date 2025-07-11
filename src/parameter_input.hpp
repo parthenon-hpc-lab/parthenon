@@ -50,10 +50,30 @@ namespace parthenon {
 
 std::string ParameterPath(const std::string block, const std::string name);
 
+struct RecordOrigin {
+  enum class Type { None, InputFile, Restart, Default, SetInCode, CommandLine };
+  RecordOrigin() = default;
+  explicit RecordOrigin(const std::string &filename)
+      : type(Type::InputFile), file(filename) {}
+  explicit RecordOrigin(const Type origin_type) : type(origin_type) {}
+  RecordOrigin(const Type origin_type, const std::string &filename)
+      : type(origin_type), file(filename) {}
+  std::string ToString() const;
+  bool HasFile() const { return (type == Type::InputFile) || (type == Type::Restart); }
+
+  Type type = Type::None;
+  std::string file = "";
+};
+std::ostream &operator<<(std::ostream &os, RecordOrigin::Type type);
+std::ostream &operator<<(std::ostream &os, const RecordOrigin &origin);
+
 struct QueryRecord {
-  enum class OriginType { None, Input, Restart, Default, SetInCode, CommandLine };
-  OriginType origin_type = OriginType::Input;
-  std::string origin_file;
+  // JMM: This tracks whether or not this parameter has been requested
+  // in the code.  We use this, along with record origin, to track
+  // provenance and look for orphan parameters.
+  bool requested = false; // default false here is very important
+
+  RecordOrigin origin;
   std::any default_value; // std::any::has_value to check if default
                           // val exists
   std::string
@@ -88,7 +108,7 @@ class ParameterRef {
 
 class ParameterInput {
   friend class std::hash<ParameterInput>;
-  using OriginType = QueryRecord::OriginType;
+  using OriginType = RecordOrigin::Type;
 
  public:
   // constructor/destructor
@@ -100,7 +120,7 @@ class ParameterInput {
   ~ParameterInput() {}
 
   // functions
-  void LoadFromStream(std::istream &is, std::string fname = "",
+  void LoadFromStream(std::istream &is, const RecordOrigin &origin = RecordOrigin(),
                       bool check_for_overrides = false);
   void LoadFile(std::string fname, bool check_for_overrides = false);
   void ModifyFromCmdline(int argc, char *argv[]);
@@ -127,7 +147,7 @@ class ParameterInput {
   const toml::table GetAll() const;
   std::vector<std::string> GetAllPaths(const toml::table &a) const;
 
-  OriginType GetOrigin(const std::string &path);
+  RecordOrigin GetOrigin(const std::string &path);
 
   // toml++ only supports int64_t
   template <typename... Args>
@@ -193,8 +213,7 @@ class ParameterInput {
     }
 
     // We still call AddParameter_, to overwrite the origin
-    AddParameter_(parameters_, path, value, OriginType::SetInCode);
-    UpdateQueryProvenance_(path, OriginType::SetInCode);
+    AddParameter_(parameters_, path, value, RecordOrigin(OriginType::SetInCode));
 
     // Convert string to integer and return value
     return value;
@@ -300,7 +319,7 @@ class ParameterInput {
       const std::optional<std::string> &docstring = std::optional<std::string>{}) {
     CheckAndUpdateQueries_<T>(path, value, std::vector<T>{}, docstring);
     if (!parameters_.at_path(path)) {
-      AddParameter_(parameters_, path, value, OriginType::Default);
+      AddParameter_(parameters_, path, value, RecordOrigin(OriginType::Default));
     }
     return GetPath<T>(path);
   }
@@ -388,7 +407,7 @@ class ParameterInput {
 
     if (!parameters_.at_path(path)) {
       InsertOrAssignPath_(parameters_, path, def_array);
-      UpdateQueryProvenance_(path, OriginType::Default);
+      UpdateQueryProvenance_(path, RecordOrigin(OriginType::Default));
     }
     return GetVectorPath<T>(path);
   }
@@ -411,7 +430,7 @@ class ParameterInput {
   // order, so this needs to be an ordered map
   std::map<std::string, QueryRecord> queries_;
 
-  toml::table LegacyParse(std::istream &is, std::string fname = "");
+  toml::table LegacyParse(std::istream &is, const RecordOrigin &origin = RecordOrigin());
   bool LegacyParseLine(std::string line, std::string &name, std::string &value);
   void Merge(toml::table &a, const toml::table &b, bool check_dups);
 
@@ -483,13 +502,13 @@ class ParameterInput {
 
   template <typename T>
   void AddParameter_(toml::table &tbl, const std::string &path, const T &value,
-                     OriginType og, bool check_dups = false) {
+                     RecordOrigin og, bool check_dups = false) {
     // If it's already got a type, just add it
     if constexpr (!std::is_same<T, std::string>::value) {
       InsertOrAssignPath_(tbl, path, value);
     } else {
       // Anything we know is a string: the code says, so, it contains quotes...
-      if (og == OriginType::Default || og == OriginType::SetInCode ||
+      if (og.type == OriginType::Default || og.type == OriginType::SetInCode ||
           std::count(value.begin(), value.end(), '\"')) {
         InsertOrAssignPath_(tbl, path, value);
       } else {
@@ -538,8 +557,7 @@ class ParameterInput {
       }
     }
 
-    // TODO(JMM): Put this back when I've cleaned this up. For PROVENANCE
-    // UpdateQueryProvenance_(path, og);
+    UpdateQueryProvenance_(path, og);
   }
 
   // JMM: Using std::optional here aggressively to simplify overload
@@ -554,11 +572,13 @@ class ParameterInput {
         std::sort(std::begin(allowed_vals), std::end(allowed_vals));
       }
     }
-    if (queries_.count(path) > 0) {
-      QueryRecord &record = queries_.at(path);
+    // Always create, but it may or may not have been requested before
+    QueryRecord &record = queries_[path];
+
+    if (record.requested) {
       if (defval.has_value()) {
         if (!record.default_value.has_value()) {
-          if (record.origin_type == OriginType::SetInCode) {
+          if (record.origin.type == OriginType::SetInCode) {
             // This was set with Set* and we should respect it. Add
             // the new default and move on.
             record.default_value = defval.value();
@@ -620,7 +640,7 @@ class ParameterInput {
       // not, do nothing
       // if neither contains a docstring, do nothing
     } else {
-      QueryRecord record;
+      record.requested = true;
       if (defval.has_value()) {
         record.default_value = defval.value();
         record.default_value_str = record.ToString(defval.value());
@@ -632,7 +652,6 @@ class ParameterInput {
         record.allowed_vals_str.push_back(record.ToString(allowed));
       }
       record.docstring = docstring; // might be empty
-      queries_[path] = record;
     }
   }
   template <typename T>
@@ -640,13 +659,11 @@ class ParameterInput {
                               const std::optional<std::string> &docstring) {
     CheckAndUpdateQueries_<T>(path, std::optional<T>{}, std::vector<T>{}, docstring);
   }
-  void UpdateQueryProvenance_(const std::string path, OriginType og) {
-    PARTHENON_REQUIRE_THROWS(queries_.count(path),
-                             "Query for path " + path + " not found.");
-    queries_.at(path).origin_type = og;
+  void UpdateQueryProvenance_(const std::string path, RecordOrigin og) {
+    queries_[path].origin = og;
   }
   void SetQueryDependency_(const std::string &path, const ParameterRef &ref) {
-    queries_.at(path).default_value_str = ref.CanonicalPath();
+    queries_[path].default_value_str = ref.CanonicalPath();
   }
 };
 

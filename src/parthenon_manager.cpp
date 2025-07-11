@@ -110,7 +110,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     // Load input stream
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
+    pinput->LoadFromStream(
+        is, RecordOrigin(RecordOrigin::Type::Restart, arg.restart_filename));
   }
   // If an input file was provided
   // TODO(BSP) loop for multiple inputs

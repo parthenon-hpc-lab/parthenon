@@ -49,42 +49,38 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
     std::stringstream cout_cap;
     std::streambuf *cout = std::cout.rdbuf(cout_cap.rdbuf());
 
-    // TODO(JMM): fix CheckRequired
-    // WHEN("We require a paramter that has been provided") {
-    //   THEN("Nothing should happen") {
-    //     REQUIRE_NOTHROW(in.CheckRequired("block1", "var1"));
-    //     REQUIRE_NOTHROW(in.CheckRequired("block2", "var4"));
-    //     REQUIRE_NOTHROW(in.CheckRequired("block1", "var2"));
-    //   }
-    // }
-    // AND_WHEN("We require missing parameters") {
-    //   THEN("The check should throw a runtime error") {
-    //     REQUIRE_THROWS_AS(in.CheckRequired("block2", "var9"), std::runtime_error);
-    //   }
-    // }
-    // TODO(jmm) fix CheckRequired
-    // AND_WHEN("We require a parameter that is set by a code default") {
-    //   THEN("The check should throw a runtime error") {
-    //     REQUIRE_THROWS_AS(in.CheckRequired("block2", "var_default"),
-    //     std::runtime_error);
-    //   }
-    // }
-    // TODO(JMM) fix CheckDesired
-    // AND_WHEN("We desire missing parameters") {
-    //   cout_cap.clear();
-    //   THEN("The check should print warnings") {
-    //     in.CheckDesired("block2", "var2");
-    //     in.CheckDesired("block3", "var4");
-    //     std::stringstream ss;
-    //     ss << std::endl
-    //        << "### WARNING in CheckDesired:" << std::endl
-    //        << "Parameter file missing desired field block2.var2" << std::endl
-    //        << std::endl
-    //        << "### WARNING in CheckDesired:" << std::endl
-    //        << "Parameter file missing desired field block3.var4" << std::endl;
-    //     REQUIRE(cout_cap.str() == ss.str());
-    //   }
-    // }
+    WHEN("We require a paramter that has been provided") {
+      THEN("Nothing should happen") {
+        REQUIRE_NOTHROW(in.CheckRequired("block1", "var1"));
+        REQUIRE_NOTHROW(in.CheckRequired("block2", "var4"));
+        REQUIRE_NOTHROW(in.CheckRequired("block1", "var2"));
+      }
+    }
+    AND_WHEN("We require missing parameters") {
+      THEN("The check should throw a runtime error") {
+        REQUIRE_THROWS_AS(in.CheckRequired("block2", "var9"), std::runtime_error);
+      }
+    }
+    AND_WHEN("We require a parameter that is set by a code default") {
+      THEN("The check should throw a runtime error") {
+        REQUIRE_THROWS_AS(in.CheckRequired("block2", "var_default"), std::runtime_error);
+      }
+    }
+    AND_WHEN("We desire missing parameters") {
+      cout_cap.clear();
+      THEN("The check should print warnings") {
+        in.CheckDesired("block2", "var2");
+        in.CheckDesired("block3", "var4");
+        std::stringstream ss;
+        ss << std::endl
+           << "### WARNING in CheckDesired:" << std::endl
+           << "Parameter file missing desired field block2.var2" << std::endl
+           << std::endl
+           << "### WARNING in CheckDesired:" << std::endl
+           << "Parameter file missing desired field block3.var4" << std::endl;
+        REQUIRE(cout_cap.str() == ss.str());
+      }
+    }
     std::cout.rdbuf(cout);
   }
   GIVEN("An invalid input deck") {
