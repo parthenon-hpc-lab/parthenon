@@ -48,29 +48,6 @@
 
 namespace parthenon {
 
-// We need to overload the stream operator for containers to output
-// something sensible
-// TODO(JMM): I'm pretty sure this is incredibly dangerous, even in the
-// parthenon namespace. Once we're on TOML, don't do this. Convert the
-// vector to a toml::array which already has an overloaded ostream.
-// Alternatively, we could try something insane like a printable
-// vector that automatically casts to our container type.
-/*
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const std::vector<T> &container) {
-  std::size_t i = 0;
-  os << "[";
-  for (const T &elem : container) {
-    os << elem;
-    if (i < container.size() - 1) {
-      os << ", ";
-    }
-  }
-  os << "]";
-  return os;
-}
-*/
-
 std::string ParameterPath(const std::string block, const std::string name);
 
 struct QueryRecord {
