@@ -126,6 +126,12 @@ void ParameterInput::LoadFromStream(std::istream &is, const RecordOrigin &origin
   std::stringstream ss;
   ss << is.rdbuf();
   std::string input = ss.str();
+
+  // Stash this for archival use
+  PARTHENON_REQUIRE_THROWS(pre_parsed_inputs_.count(origin) == 0,
+                           "Each input must only be processed once");
+  pre_parsed_inputs_[origin] = input;
+
   // Remove all null bytes: it's faster & toml doesn't like them
   input.erase(std::remove(input.begin(), input.end(), '\00'), input.end());
   // If n(<) > n([), we're parsing an old-style file. Otherwise, TOML
@@ -144,14 +150,18 @@ void ParameterInput::LoadFromStream(std::istream &is, const RecordOrigin &origin
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
   std::string input_text, path, value;
-  std::stringstream msg;
+  std::stringstream msg, cli_record_string;
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
+
     std::size_t equal_posn = input_text.find_first_of("="); // first "=" character
 
     // Only parse arguments with '='
     if (equal_posn == std::string::npos) continue;
+
+    // stash the argument for archival purposes
+    cli_record_string << input_text << std::endl;
 
     // Sanitize block + name together, but only if there are no dots
     path = input_text.substr(0, equal_posn);
@@ -175,6 +185,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     // Commandline parameters can override anything or each other, don't check anything
     AddParameter_(parameters_, path, value, RecordOrigin(OriginType::CommandLine));
   }
+  pre_parsed_inputs_[RecordOrigin(OriginType::CommandLine)] = cli_record_string.str();
 }
 
 int ParameterInput::DoesParameterExist(const std::string &block,
@@ -455,6 +466,9 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
   }
 }
 
+bool operator<(const RecordOrigin &lhs, const RecordOrigin &rhs) {
+  return (lhs.type < rhs.type) || (lhs.type == rhs.type && lhs.file < rhs.file);
+}
 std::ostream &operator<<(std::ostream &os, RecordOrigin::Type type) {
   switch (type) {
   case RecordOrigin::Type::None:

@@ -51,7 +51,15 @@ namespace parthenon {
 std::string ParameterPath(const std::string block, const std::string name);
 
 struct RecordOrigin {
-  enum class Type { None, InputFile, Restart, Default, SetInCode, CommandLine };
+  friend class std::hash<RecordOrigin>;
+  enum class Type : std::size_t {
+    None,
+    InputFile,
+    Restart,
+    Default,
+    SetInCode,
+    CommandLine
+  };
   RecordOrigin() = default;
   explicit RecordOrigin(const std::string &filename)
       : type(Type::InputFile), file(filename) {}
@@ -64,6 +72,7 @@ struct RecordOrigin {
   Type type = Type::None;
   std::string file = "";
 };
+bool operator<(const RecordOrigin &lhs, const RecordOrigin &rhs);
 std::ostream &operator<<(std::ostream &os, RecordOrigin::Type type);
 std::ostream &operator<<(std::ostream &os, const RecordOrigin &origin);
 
@@ -126,6 +135,9 @@ class ParameterInput {
   void ModifyFromCmdline(int argc, char *argv[]);
 
   void ParameterDump(std::ostream &os);
+  const std::map<RecordOrigin, std::string> &GetPreParsedInputs() const {
+    return pre_parsed_inputs_;
+  }
 
   int DoesParameterExist(const std::string &block, const std::string &name);
   int DoesParameterExist(const std::string &path);
@@ -429,6 +441,7 @@ class ParameterInput {
   // We will want to iterate through the record in lexicographic
   // order, so this needs to be an ordered map
   std::map<std::string, QueryRecord> queries_;
+  std::map<RecordOrigin, std::string> pre_parsed_inputs_;
 
   toml::table LegacyParse(std::istream &is, const RecordOrigin &origin = RecordOrigin());
   bool LegacyParseLine(std::string line, std::string &name, std::string &value);

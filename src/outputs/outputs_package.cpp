@@ -90,6 +90,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("last_times", last_times, Params::Mutability::Restart);
   pkg->AddParam("last_ns", last_ns, Params::Mutability::Restart);
 
+  // Add the pre-parsed inputs as params also, for archival
+  // purposes. The original input deck is stashed in the restart. The
+  // command line arguments are not.
+  const auto &raw_inputs = pin->GetPreParsedInputs();
+  for (const auto &[origin, input] : raw_inputs) {
+    pkg->AddParam(origin.ToString(), input,
+                  origin.type == RecordOrigin::Type::InputFile
+                      ? Params::Mutability::Restart
+                      : Params::Mutability::Immutable);
+  }
   return pkg;
 }
 
