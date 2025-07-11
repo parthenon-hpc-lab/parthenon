@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
@@ -180,8 +181,11 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       PARTHENON_FAIL(msg);
     }
 
-    // If this is the first output, write header
-    if (output_params.file_number == 0) {
+    // Write the header lines once per distinct history file, each once
+    // per invocation of parthenon -- once a header has been output for
+    // the given file_id, ignore it.
+    static std::unordered_set<std::string> ids_output;
+    if (!ids_output.count(output_params.file_id)) {
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
       std::fprintf(pfile, "# [%d]=time    ", iout++);
@@ -194,6 +198,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
+      ids_output.insert(output_params.file_id);
     }
 
     // write history variables
