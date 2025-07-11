@@ -18,7 +18,7 @@
 # https://gitlab.com/jhamberg/cmake-examples/-/tree/master/cmake
 set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (NOT DEFINED pre_configure_dir)
-    set(pre_configure_dir ${CMAKE_PROJECT_DIR}/src)
+    set(pre_configure_dir ${PROJECT_SOURCE_DIR}/src)
 endif ()
 
 if (NOT DEFINED post_configure_dir)
