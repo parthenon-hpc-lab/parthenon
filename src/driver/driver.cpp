@@ -311,27 +311,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
   }
 }
 
-void EvolutionDriver::DumpInputParameters() {
-  auto archive_settings =
-      pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
-                             std::vector<std::string>{"true", "false", "timestamp"},
-                             "save input parameters in a separate file");
-  if (archive_settings != "false" && Globals::my_rank == 0) {
-    std::ostringstream ss;
-    if (archive_settings == "timestamp") {
-      auto itt_now =
-          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
-    } else {
-      ss << "parthinput.archive";
-    }
-    std::fstream pars;
-    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
-    pinput->ParameterDump(pars);
-    pars.close();
-  }
-}
-
 void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
   if (tm.ncycle_out != 0) {
