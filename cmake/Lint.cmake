@@ -60,8 +60,13 @@ function(lint_target TARGET_NAME)
     else()
       set(TARGET_OUTPUTS)
       foreach(SOURCE ${TARGET_SOURCES})
+        # exclude sources in generator expressions as they may or may
+        # not exist at cmake time
+        string(GENEX_STRIP ${SOURCE} no_genex)
+        if (SOURCE STREQUAL no_genex)
           lint_file(${TARGET_SOURCE_DIR} ${SOURCE} ${SOURCE}.lint)
           list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
+        endif()
       endforeach()
 
       add_custom_target(

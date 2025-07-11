@@ -18,9 +18,35 @@
 #include <string>
 #define CATCH_CONFIG_RUNNER
 
+#include <algorithm>
+#include <iostream>
+
+#ifdef CATCH2_MPI_PARALLEL
+#include <mpi.h>
+#endif // CATCH2_MPI_PARALLEL
+
 #include <catch2/catch.hpp>
 
 #include <Kokkos_Core.hpp>
+
+#ifdef CATCH2_MPI_PARALLEL
+template <class T>
+bool HasMPITests(const T &config) {
+  // Used to check if a given test in the suite matches the requsted
+  // test specification
+  const auto &test_spec = config.testSpec();
+
+  const auto &all_test_cases = Catch::getAllTestCasesSorted(config);
+  for (auto const &test_case : all_test_cases) {
+    auto &tags = test_case.getTestCaseInfo().tags;
+    if (test_spec.matches(test_case) &&
+        std::find(tags.begin(), tags.end(), "MPI") != tags.end()) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif // CATCH2_MPI_PARALLEL
 
 int main(int argc, char *argv[]) {
   // With Catch2 >2.13.4 catch_discover_tests() is used to discover tests by calling the
@@ -34,16 +60,44 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // global setup...
+  Catch::Session session;
+
+  int returnCode = session.applyCommandLine(argc, argv);
+  if (returnCode != 0) {
+    return returnCode;
+  }
+  const auto &config = session.config();
+#ifdef CATCH2_MPI_PARALLEL
+  bool mpi_initialized{false};
+  if (HasMPITests(config)) {
+    int already_initialized;
+    MPI_Initialized(&already_initialized);
+    if (!already_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+      std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
+                << "MPI Initialization failed." << std::endl;
+      return -1;
+    }
+  }
+#endif // CATCH2_MPI_PARALLEL
+
   Kokkos::initialize(argc, argv);
 
   int result;
   {
-    result = Catch::Session().run(argc, argv);
+    result = session.run();
 
     // global clean-up...
   }
 
   Kokkos::finalize();
+
+#ifdef CATCH2_MPI_PARALLEL
+  if (mpi_initialized) {
+    int mpi_finalized;
+    MPI_Finalized(&mpi_finalized);
+    if (!mpi_finalized) MPI_Finalize();
+  }
+#endif // CATCH2_MPI_PARALLEL
+
   return result;
 }

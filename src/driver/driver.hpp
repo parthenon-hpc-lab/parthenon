@@ -41,6 +41,7 @@ class Driver {
       : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
+  void DumpInputParameters();
 
   ParameterInput *pinput;
   ApplicationInput *app_input;
@@ -125,7 +126,6 @@ class EvolutionDriver : public Driver {
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
   virtual void OutputCycleDiagnostics();
-  void DumpInputParameters();
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;

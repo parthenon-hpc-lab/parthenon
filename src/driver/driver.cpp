@@ -40,10 +40,40 @@ Kokkos::Timer Driver::timer_main;
 Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
+void Driver::DumpInputParameters() {
+  auto archive_parameters =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false);
+  auto archive_timestamp =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_timestamp", false);
+  if (archive_parameters && Globals::my_rank == 0) {
+    std::ostringstream ss;
+    if (archive_timestamp) {
+      auto itt_now =
+          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
+    } else {
+      ss << "parthinput.archive";
+    }
+    std::fstream pars;
+    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
+    pinput->ParameterDump(pars);
+    pars.close();
+  }
+  auto print_parameters =
+      pinput->GetOrAddBoolean("parthenon/job", "print_parameters", false);
+  if (print_parameters && Globals::my_rank == 0) {
+    pinput->ParameterDump(std::cout);
+  }
+}
+
 void Driver::PreExecute() {
   bool check_orphans = pinput->GetOrAddBoolean(
       "parthenon/job", "check_orphans", true,
       "print a warning if any parameters are in the input deck but not used in the code");
+  // Output a text file of all parameters at this point
+  // Optionally also dump to console
+  DumpInputParameters();
+
   if (Globals::my_rank == 0) {
     if (check_orphans) pinput->CheckOrphans();
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
@@ -107,10 +137,6 @@ DriverStatus EvolutionDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
-
-  // Output a text file of all parameters at this point
-  // Defaults must be set across all ranks
-  DumpInputParameters();
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT

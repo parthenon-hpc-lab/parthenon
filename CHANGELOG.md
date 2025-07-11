@@ -13,13 +13,16 @@
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
 - [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
+- [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
 - [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
 - [[PR 1275]](https://github.com/parthenon-hpc-lab/parthenon/pull/1275) Remove typeid from interpolation device code
 - [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
 - [[PR 1272]](https://github.com/parthenon-hpc-lab/parthenon/pull/1272) Remove mistakenly included pdf files in the base directory
 - [[PR 1257]](https://github.com/parthenon-hpc-lab/parthenon/pull/1257) Clean exit with `-m`
+- [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
@@ -44,7 +47,7 @@ Date: 2025-05-19
 - [[PR 1237]](https://github.com/parthenon-hpc-lab/parthenon/pull/1237) Add selector functions to sparse packs, cache sparse packs with different block lists, reorganize files
 - [[PR 1231]](https://github.com/parthenon-hpc-lab/parthenon/pull/1231) Add support for uint8_t parameter types in hdf5 files
 - [[PR 1137]](https://github.com/parthenon-hpc-lab/parthenon/pull/1137) Add spherical and cylindrical coordinate support
-- [[PR 1182]](https://github.com/parthenon-hpc-lab/parthenon/pull/1182) Add a MeshData variant for refinement tagging 
+- [[PR 1182]](https://github.com/parthenon-hpc-lab/parthenon/pull/1182) Add a MeshData variant for refinement tagging
 - [[PR 1210]](https://github.com/parthenon-hpc-lab/parthenon/pull/1210) Add cycle based output
 - [[PR 1103]](https://github.com/parthenon-hpc-lab/parthenon/pull/1103) Add sparsity to vector wave equation test
 - [[PR 1185]](https://github.com/parthenon-hpc-lab/parthenon/pull/1185) Bugfix to particle defragmentation

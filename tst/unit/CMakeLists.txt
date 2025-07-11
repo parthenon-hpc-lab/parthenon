@@ -37,11 +37,11 @@ list(APPEND unit_tests_SOURCES
     test_output_utils.cpp
     test_pararrays.cpp
     test_sparse_pack.cpp
-    test_swarm.cpp
     test_parameter_input.cpp
     test_error_checking.cpp
     test_partitioning.cpp
     test_state_descriptor.cpp
+    test_swarm.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
 )
