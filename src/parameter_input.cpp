@@ -226,16 +226,20 @@ void ParameterInput::CheckDesired(const std::string &path) {
 }
 
 void ParameterInput::CheckOrphans() const {
+  std::size_t count = 0;
   std::stringstream msg;
   msg << "The following input parameters are set but unused:\n";
   for (auto path : GetAllPaths(parameters_)) {
     auto &query = queries_.at(path);
     if (!query.requested) {
       msg << path << ", with " << query.origin << "\n";
+      count++;
     }
   }
   msg << std::endl;
-  PARTHENON_WARN(msg);
+  if ((Globals::my_rank == 0) && (count > 0)) {
+    PARTHENON_WARN(msg);
+  }
 }
 
 void ParameterInput::ParameterDump(std::ostream &os) { os << parameters_ << "\n"; }
