@@ -10,7 +10,7 @@ normally pass), and optionally a ``regex`` to specify which blocks
 you'd like to output. Parthenon will print a valid CSV file to the
 terminal.
 
-Every call to ``ParameterInput::Get*`` optionally takes a "docustring"
+Every call to ``ParameterInput::Get*`` optionally takes a "docstring"
 as a final argument, which is the details column listed here. Default
 values are recorded if they are available.
 
