@@ -293,7 +293,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
             << "character <.  Look above this line for the error:" << std::endl
             << line << std::endl
             << std::endl;
-        PARTHENON_FAIL(msg);
+        PARTHENON_THROW(msg);
       }
       first_char++;
       last_char = (line.find_first_of(">", first_char));
@@ -304,7 +304,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
         msg << "### FATAL ERROR in function [ParameterInput::LegacyParse]" << std::endl
             << "Block name '" << block_name << "' in the input stream'"
             << "' not properly ended";
-        PARTHENON_FAIL(msg);
+        PARTHENON_THROW(msg);
       }
 
       blocks_found++;
@@ -317,7 +317,7 @@ toml::table ParameterInput::LegacyParse(std::istream &is, std::string fname) {
       msg << "### FATAL ERROR in function [ParameterInput::LegacyParse]" << std::endl
           << "Input file must specify a block name before the first"
           << " parameter = value line";
-      PARTHENON_FAIL(msg);
+      PARTHENON_THROW(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
     bool has_cont_char = LegacyParseLine(line, param_name, param_value);
@@ -404,6 +404,15 @@ bool ParameterInput::LegacyParseLine(std::string line, std::string &name,
 
 void ParameterInput::OutputParameterTable(std::ostream &os,
                                           const std::regex &block_regex) const {
+  // TOML's node-types are a bit verbose. This is simpler.
+  auto SimpleName = [](const toml::node_type tp) -> std::string {
+    if (tp == toml::node_type::integer) return "int";
+    if (tp == toml::node_type::boolean) return "bool";
+    if (tp == toml::node_type::floating_point) return "Real";
+    std::stringstream ss;
+    ss << tp;
+    return ss.str();
+  };
   // Loop through parameters.  Already alphabetical, just gotta split block/name
   os << "block,parameters,type,default,description" << std::endl;
   std::string last_block_name = "";
@@ -430,10 +439,10 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
         auto record = queries_.at(path);
         std::stringstream ss;
         ss << "\"" << block_name << "\""
-            << "," << "\"" << param_name << "\""
-            << "," << "\"" << parameters_.at(path).type() << "\""
-            << "," << "\"" << record.default_value_str << "\""
-            << "," << "\"";
+           << "," << "\"" << param_name << "\""
+           << "," << "\"" << SimpleName(GetTypePath(path)) << "\""
+           << "," << "\"" << record.default_value_str << "\""
+           << "," << "\"";
         std::size_t num_allowed_vals = record.allowed_vals_str.size();
         if (record.docstring.has_value()) {
           ss << record.docstring.value();

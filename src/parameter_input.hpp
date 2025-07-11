@@ -243,7 +243,7 @@ class ParameterInput {
       std::stringstream msg;
       msg << "### FATAL ERROR in function [ParameterInput::GetPath]" << std::endl
           << "Parameter name '" << path << "' not found";
-      PARTHENON_FAIL(msg);
+      PARTHENON_THROW(msg);
     }
 
     CheckAndUpdateQueries_<T>(path, docstring);
@@ -257,7 +257,7 @@ class ParameterInput {
             << "Parameter name '" << path << "' is of the wrong type" << std::endl
             << "Value: " << parameters_.at_path(path) << " ("
             << parameters_.at_path(path).type() << ")" << std::endl;
-        PARTHENON_FAIL(msg);
+        PARTHENON_THROW(msg);
       }
     } else {
       if (auto val = parameters_.at_path(path).value<T>(); val) {
@@ -268,9 +268,36 @@ class ParameterInput {
             << "Parameter name '" << path << "' is of the wrong type" << std::endl
             << "Value: " << parameters_.at_path(path) << " ("
             << parameters_.at_path(path).type() << ")" << std::endl;
-        PARTHENON_FAIL(msg);
+        PARTHENON_THROW(msg);
       }
     }
+  }
+
+  auto GetTypePath(const std::string &path) const {
+    if (!parameters_.at_path(path)) {
+      std::stringstream msg;
+      msg << "### FATAL ERROR in function [ParameterInput::GetTypePath]" << std::endl
+          << "Parameter name '" << path << "' not found";
+      PARTHENON_THROW(msg);
+    }
+    return parameters_.at_path(path).type();
+  }
+  auto GetType(const std::string &block, const std::string &name) const {
+    return GetTypePath(ParameterPath(block, name));
+  }
+  template <typename T>
+  bool IsTypePath(const std::string &path) const {
+    if (!parameters_.at_path(path)) {
+      std::stringstream msg;
+      msg << "### FATAL ERROR in function [ParameterInput::IsTypePath]" << std::endl
+          << "Parameter name '" << path << "' not found";
+      PARTHENON_THROW(msg);
+    }
+    return parameters_.is<T>(path);
+  }
+  template <typename T>
+  bool IsType(const std::string &block, const std::string &name) const {
+    return IsTypePath<T>(ParameterPath(block, name));
   }
 
   template <typename T>
@@ -337,7 +364,7 @@ class ParameterInput {
       std::stringstream msg;
       msg << "### FATAL ERROR in function [ParameterInput::GetVectorPath]" << std::endl
           << "Parameter name '" << path << "' not found";
-      PARTHENON_FAIL(msg);
+      PARTHENON_THROW(msg);
     }
 
     CheckAndUpdateQueries_<toml::array>(path, docstring);
