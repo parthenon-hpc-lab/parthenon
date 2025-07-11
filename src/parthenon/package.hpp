@@ -18,6 +18,7 @@
 #include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <inputs/parameter_input.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/sparse_pool.hpp>
@@ -32,7 +33,6 @@
 #include <pack/pack_descriptor.hpp>
 #include <pack/sparse_pack.hpp>
 #include <pack/swarm_pack.hpp>
-#include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
 #include <utils/index_split.hpp>
 #include <utils/partition_stl_containers.hpp>

@@ -15,8 +15,6 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "parameter_input.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -35,6 +33,7 @@
 #include <toml.hpp>
 
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

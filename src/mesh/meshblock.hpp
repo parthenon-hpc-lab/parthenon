@@ -32,6 +32,7 @@
 #include "defs.hpp"
 #include "domain.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/packages.hpp"
@@ -39,7 +40,6 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
 #include "outputs/io_wrapper.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

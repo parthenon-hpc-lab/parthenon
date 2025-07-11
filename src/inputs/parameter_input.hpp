@@ -15,8 +15,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
-#ifndef PARAMETER_INPUT_HPP_
-#define PARAMETER_INPUT_HPP_
+#ifndef INPUTS_PARAMETER_INPUT_HPP_
+#define INPUTS_PARAMETER_INPUT_HPP_
 //! \file parameter_input.hpp
 //  \brief definition of class ParameterInput
 // Contains data structures used to store, and functions used to access, parameters
@@ -697,4 +697,4 @@ struct hash<parthenon::ParameterInput> {
 };
 } // namespace std
 
-#endif // PARAMETER_INPUT_HPP_
+#endif // INPUTS_PARAMETER_INPUT_HPP_

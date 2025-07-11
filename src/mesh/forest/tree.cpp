@@ -27,11 +27,11 @@
 #include "application_input.hpp"
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "inputs/parameter_input.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
-#include "parameter_input.hpp"
 #include "utils/bit_hacks.hpp"
 #include "utils/indexer.hpp"
 

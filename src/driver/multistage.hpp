@@ -20,8 +20,8 @@
 
 #include "application_input.hpp"
 #include "driver/driver.hpp"
+#include "inputs/parameter_input.hpp"
 #include "mesh/mesh.hpp"
-#include "parameter_input.hpp"
 #include "tasks/tasks.hpp"
 #include "time_integration/staged_integrator.hpp"
 

@@ -134,6 +134,12 @@ add_library(parthenon
   driver/multistage.cpp
   driver/multistage.hpp
 
+  inputs/argument_parser.hpp
+  inputs/inputs_package.cpp
+  inputs/inputs_package.hpp
+  inputs/parameter_input.cpp
+  inputs/parameter_input.hpp
+
   interface/data_collection.cpp
   interface/data_collection.hpp
   interface/mesh_data.cpp
@@ -303,14 +309,11 @@ add_library(parthenon
   utils/unique_id.hpp
   utils/utils.hpp
 
-  argument_parser.hpp
   basic_types.hpp
   defs.hpp
   globals.cpp
   globals.hpp
   kokkos_abstraction.hpp
-  parameter_input.cpp
-  parameter_input.hpp
   parthenon_array_generic.hpp
   parthenon_arrays.cpp
   parthenon_arrays.hpp

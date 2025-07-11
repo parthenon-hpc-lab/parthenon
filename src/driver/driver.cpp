@@ -24,11 +24,11 @@
 
 #include "bvals/comms/bvals_in_one.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/utils.hpp"
 

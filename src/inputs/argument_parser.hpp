@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef ARGUMENT_PARSER_HPP_
-#define ARGUMENT_PARSER_HPP_
+#ifndef INPUTS_ARGUMENT_PARSER_HPP_
+#define INPUTS_ARGUMENT_PARSER_HPP_
 
 #include <cstdio>
 #include <iostream>
@@ -147,4 +147,4 @@ class ArgParse {
 
 } // namespace parthenon
 
-#endif // ARGUMENT_PARSER_HPP_
+#endif // INPUTS_ARGUMENT_PARSER_HPP_

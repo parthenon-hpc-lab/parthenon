@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -14,32 +18,34 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file default_pgen.cpp
-//  \brief Provides default versions of user callbacks that loop over per-package
-//  functions.
 
-// TODO(JMM): Does this file serve any purpose anymore?
+#include <limits>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
-#include "defs.hpp"
+#include "inputs/inputs_package.hpp"
 #include "inputs/parameter_input.hpp"
-#include "mesh/mesh.hpp"
-#include "mesh/meshblock.hpp"
-#include "parthenon_arrays.hpp"
+#include "interface/state_descriptor.hpp"
 
 namespace parthenon {
+namespace InputsPackage {
 
-void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
-                                               SimTime const &simtime) {
-  for (auto &package : pmesh->packages.AllPackages()) {
-    package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
+  auto pkg = std::make_shared<StateDescriptor>("Inputs");
+  // Add the pre-parsed inputs as params also, for archival
+  // purposes. The original input deck is stashed in the restart. The
+  // command line arguments are not.
+  const auto &raw_inputs = pin->GetPreParsedInputs();
+  for (const auto &[origin, input] : raw_inputs) {
+    pkg->AddParam(origin.ToString(), input,
+                  origin.type == RecordOrigin::Type::InputFile
+                      ? Params::Mutability::Restart
+                      : Params::Mutability::Immutable);
   }
+  return pkg;
 }
 
-void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
-                                                SimTime const &simtime) {
-  for (auto &package : pmesh->packages.AllPackages()) {
-    package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
-  }
-}
-
+} // namespace InputsPackage
 } // namespace parthenon

@@ -34,6 +34,8 @@
 #include "config.hpp"
 #include FS_HEADER
 #include "globals.hpp"
+#include "inputs/inputs_package.hpp"
+#include "inputs/parameter_input.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
@@ -180,6 +182,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
   packages.Add(OutputsPackage::Initialize(pinput.get()));
+  packages.Add(InputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (arg.res_flag == 0) {

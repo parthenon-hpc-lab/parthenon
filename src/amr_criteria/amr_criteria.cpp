@@ -17,10 +17,10 @@
 #include <string>
 
 #include "amr_criteria/refinement_package.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
-#include "parameter_input.hpp"
 
 namespace parthenon {
 

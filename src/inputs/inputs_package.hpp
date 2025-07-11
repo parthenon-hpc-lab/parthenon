@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -14,32 +18,22 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file default_pgen.cpp
-//  \brief Provides default versions of user callbacks that loop over per-package
-//  functions.
+#ifndef INPUTS_INPUTS_PACKAGE_HPP_
+#define INPUTS_INPUTS_PACKAGE_HPP_
 
-// TODO(JMM): Does this file serve any purpose anymore?
-
-#include "defs.hpp"
-#include "inputs/parameter_input.hpp"
-#include "mesh/mesh.hpp"
-#include "mesh/meshblock.hpp"
-#include "parthenon_arrays.hpp"
+#include <memory>
+#include <string>
 
 namespace parthenon {
 
-void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
-                                               SimTime const &simtime) {
-  for (auto &package : pmesh->packages.AllPackages()) {
-    package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
-  }
-}
+class ParameterInput;
+class StateDescriptor;
 
-void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
-                                                SimTime const &simtime) {
-  for (auto &package : pmesh->packages.AllPackages()) {
-    package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
-  }
-}
+namespace InputsPackage {
 
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+
+} // namespace InputsPackage
 } // namespace parthenon
+
+#endif // INPUTS_INPUTS_PACKAGE_HPP_

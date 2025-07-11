@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "parameter_input.hpp"
+#include "inputs/parameter_input.hpp"
 #include "staged_integrator.hpp"
 
 namespace parthenon {

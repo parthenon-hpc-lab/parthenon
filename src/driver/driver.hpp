@@ -24,9 +24,9 @@
 #include "application_input.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
 #include "tasks/tasks.hpp"
 
 namespace parthenon {

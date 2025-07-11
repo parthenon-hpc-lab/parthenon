@@ -24,7 +24,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "parameter_input.hpp"
+#include "inputs/parameter_input.hpp"
 
 using parthenon::ParameterInput;
 
