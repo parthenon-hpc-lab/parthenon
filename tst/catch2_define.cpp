@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
   }
   const auto &config = session.config();
 #ifdef CATCH2_MPI_PARALLEL
-  bool mpi_initialized{false};
-  if (HasMPITests(config)) {
+  bool running_mpi_tests = HasMPITests(config);
+  if (running_mpi_tests) {
     int already_initialized;
     MPI_Initialized(&already_initialized);
     if (!already_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
   Kokkos::finalize();
 
 #ifdef CATCH2_MPI_PARALLEL
-  if (mpi_initialized) {
+  if (running_mpi_tests) {
     int mpi_finalized;
     MPI_Finalized(&mpi_finalized);
     if (!mpi_finalized) MPI_Finalize();
