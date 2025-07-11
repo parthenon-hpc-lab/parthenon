@@ -141,6 +141,7 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
   // Merge from different inputs, only check for overrides if asked
   Merge(parameters_, new_parameters, check_for_overrides);
   // Set all origins to this file
+  /*
   for (auto path : GetAllPaths(new_parameters)) {
     // Now update the provenance, too
     if (queries_.count(path) > 0) {
@@ -153,6 +154,7 @@ void ParameterInput::LoadFromStream(std::istream &is, std::string fname,
       queries_[path] = record;
     }
   }
+  */
 }
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
@@ -205,6 +207,7 @@ void ParameterInput::CheckRequired(const std::string &block, const std::string &
   return CheckRequired(ParameterPath(block, name));
 }
 void ParameterInput::CheckRequired(const std::string &path) {
+  /*
   bool exists = DoesParameterExist(path) && (GetOrigin(path) != OriginType::Default);
   if (!exists) {
     std::stringstream ss;
@@ -214,12 +217,14 @@ void ParameterInput::CheckRequired(const std::string &path) {
        << std::endl;
     throw std::runtime_error(ss.str());
   }
+  */
 }
 
 void ParameterInput::CheckDesired(const std::string &block, const std::string &name) {
   return CheckDesired(ParameterPath(block, name));
 }
 void ParameterInput::CheckDesired(const std::string &path) {
+  /*
   bool missing = true;
   bool defaulted = false;
   if (DoesParameterExist(path)) {
@@ -236,6 +241,7 @@ void ParameterInput::CheckDesired(const std::string &path) {
               << "Defaulting to " << path << " = " << parameters_.at_path(path)
               << std::endl;
   }
+  */
 }
 
 void ParameterInput::CheckOrphans() const {
@@ -410,7 +416,7 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
       block_name = "root";
     } else {
       std::size_t idx = toml_path.size() - 1;
-      param_name = toml_path.[idx].key();
+      param_name = toml_path[idx].key();
       block_name = toml_path.subpath(0, idx).str();
     }
     // Filter on block name fitting user regex

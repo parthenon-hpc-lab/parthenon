@@ -40,7 +40,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   for (auto pib : pin->Blocks("parthenon")) {
     std::string block_name = std::string(pib.first);
     if (block_name.compare(0, 10, "refinement") == 0) {
-      std::string block_path = "parthenon."+block_name;
+      std::string block_path = "parthenon." + block_name;
       std::string method =
           pin->GetOrAddString(block_path, "method", "PLEASE SPECIFY method");
       ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_path));
