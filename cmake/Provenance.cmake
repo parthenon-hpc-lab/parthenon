@@ -18,7 +18,7 @@
 # https://gitlab.com/jhamberg/cmake-examples/-/tree/master/cmake
 set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (NOT DEFINED pre_configure_dir)
-    set(pre_configure_dir ${CMAKE_SOURCE_DIR}/src)
+    set(pre_configure_dir ${CMAKE_PROJECT_DIR}/src)
 endif ()
 
 if (NOT DEFINED post_configure_dir)
@@ -57,7 +57,8 @@ function(CheckGitVersion)
         OUTPUT_VARIABLE PARTH_GIT_BRANCH
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-
+    
+    set(PARTH_GIT_HASH_CACHE "INVALID")
     CheckGitRead(PARTH_GIT_HASH_CACHE)
     if (NOT EXISTS ${post_configure_dir})
         file(MAKE_DIRECTORY ${post_configure_dir})
@@ -66,10 +67,6 @@ function(CheckGitVersion)
     if (NOT EXISTS ${post_configure_dir}/provenance.hpp)
         file(COPY ${pre_configure_dir}/provenance.hpp DESTINATION ${post_configure_dir})
     endif()
-
-    if (NOT DEFINED PARTH_GIT_HASH_CACHE)
-        set(PARTH_GIT_HASH_CACHE "INVALID")
-    endif ()
 
     # Only update the provenance.cpp if the hash has changed. This will
     # prevent us from rebuilding the project more than we need to.
