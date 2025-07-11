@@ -23,7 +23,7 @@ block,parameters,type,default,description
 "parthenon/mesh","ox3_bc","string","outflow","global mesh boundary condition on outer X3 face"
 "parthenon/mesh","packs_per_rank","int","1","number of meshblockpacks per rank, overrides pack_size"
 "parthenon/mesh","refinement","string","none","mesh refinement mode"
-"parthenon/mesh","refinement_in_one_min_nbufs","Real","64",""
+"parthenon/mesh","refinement_in_one_min_nbufs","int","64",""
 "parthenon/mesh","x1max","Real","","maximum x1 value of domain"
 "parthenon/mesh","x1min","Real","","minimum x1 value of domain"
 "parthenon/mesh","x1rat","Real","1","unused"
