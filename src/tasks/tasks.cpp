@@ -157,7 +157,7 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
 
   // then wait until everything is done
   const TaskStatus status = pool.wait();
-  
+
   // Check the results, so as to fire any exceptions from threads
   // Return failure if a task failed
   if (status != TaskStatus::complete || task_failed.load(std::memory_order_acquire)) {
