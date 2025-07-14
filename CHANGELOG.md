@@ -16,6 +16,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1291]](https://github.com/parthenon-hpc-lab/parthenon/pull/1291) Fix provenance for downstream codes 
+- [[PR 1289]](https://github.com/parthenon-hpc-lab/parthenon/pull/1289) Fix a bug in 1214
 - [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
 - [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
 - [[PR 1275]](https://github.com/parthenon-hpc-lab/parthenon/pull/1275) Remove typeid from interpolation device code
