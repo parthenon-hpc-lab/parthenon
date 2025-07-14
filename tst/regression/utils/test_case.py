@@ -270,6 +270,7 @@ class TestManager:
                     )
                 )
             else:
+                print(err.stdout.decode())
                 self.parameters.stdouts.append(err.stdout)
         # Reset parameters
         self.parameters.coverage_status = "only-regression"

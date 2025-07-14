@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,6 +36,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
@@ -162,7 +163,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // set boundary comms buffer switch trigger
   Globals::refinement::min_num_bufs =
-      pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
+      pinput->GetOrAddInteger("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
 
   return ParthenonStatus::ok;
 }
@@ -183,6 +184,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
+  packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (arg.res_flag == 0) {
@@ -218,6 +220,11 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     for (auto &amr : ph.second->amr_criteria) {
       amr->max_level += pmesh->GetRootLevel();
     }
+  }
+
+  if (arg.mesh_flag) {
+    ParthenonFinalize();
+    exit(0);
   }
 
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
@@ -397,6 +404,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       block_index++;
     }
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 

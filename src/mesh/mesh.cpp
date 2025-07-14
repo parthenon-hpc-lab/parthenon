@@ -71,15 +71,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multilevel(
           (adaptive ||
            pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-              ? true
-              : false),
-      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
-                    ? true
-                    : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
+           pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false))),
+      multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false)), nbnew(),
+      nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
-      default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
       // private members:
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
@@ -87,6 +82,34 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks) {
+  // pack size
+  bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
+  bool num_partitions_exists =
+      pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
+  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
+  // pack_size existed first) so the new value should take precedent.
+  if (pack_size_exists && num_partitions_exists) {
+    use_pack_size_ = false;
+    default_num_packs_ = pin->GetInteger("parthenon/mesh", "packs_per_rank");
+    auto pack_size = pin->GetInteger("parthenon/mesh", "pack_size");
+    bool are_both_default = (default_num_packs_ == 1) && (pack_size == -1);
+    if (!are_both_default && (Globals::my_rank == 0)) {
+      PARTHENON_WARN("Both pack_size and packs_per_rank set to non default values! "
+                     "New packs_per_rank takes precedent.");
+    }
+    // Only one or none is set
+  } else {
+    if (pack_size_exists) {
+      use_pack_size_ = true;
+      default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size");
+      // use packs_per_rank (and set default value if not set)
+    } else {
+      use_pack_size_ = false;
+      default_num_packs_ =
+          std::max(1, pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1));
+    }
+  }
+
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;

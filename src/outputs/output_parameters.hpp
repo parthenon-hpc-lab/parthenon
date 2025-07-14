@@ -1,9 +1,13 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,11 +29,19 @@
 
 namespace parthenon {
 
+// JMM: I designed this for HDF5 but in pinciple this switching could
+// also work for other output types... Any output type that is capable
+// of outputting a full dump can do this.
+enum class DumpOutputMode { DUMP, RESTART, CORE };
+
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
 //  \brief  container for parameters read from <output> block in the input file
 struct OutputParameters {
-  int block_number;
+  OutputParameters() = default;
+
+  int block_number = 0;
+  int contiguous_block_index;
   std::string block_name;
   std::string file_basename;
   int file_number_width;
@@ -44,21 +56,22 @@ struct OutputParameters {
   std::string data_format;
   std::string meshdata_name;
   std::vector<std::string> packages;
-  Real next_time, dt;
-  int next_n, dn;
-  int file_number;
-  bool include_ghost_zones, cartesian_vector;
-  bool single_precision_output;
-  bool sparse_seed_nans;
-  int hdf5_compression_level;
-  bool write_xdmf;
-  bool write_swarm_xdmf;
-  // TODO(felker): some of the parameters in this class are not initialized in constructor
-  OutputParameters()
-      : block_number(0), next_time(0.0), dt(-1.0), next_n(0), dn(-1), file_number(0),
-        include_ghost_zones(false), cartesian_vector(false),
-        single_precision_output(false), sparse_seed_nans(false),
-        hdf5_compression_level(5), write_xdmf(false), write_swarm_xdmf(false) {}
+  Real dt = -1.0;
+  int dn = -1;
+  bool include_ghost_zones = false;
+  bool cartesian_vector = false;
+  bool single_precision_output = false;
+  bool sparse_seed_nans = false;
+  int hdf5_compression_level = 5;
+  bool write_xdmf = false;
+  bool write_swarm_xdmf = false;
+
+  // These change after initialization, the other parameters do not.
+  Real last_time;
+  Real next_time = 0.0;
+  int last_n;
+  int next_n = 0;
+  int file_number = 0;
 };
 
 } // namespace parthenon

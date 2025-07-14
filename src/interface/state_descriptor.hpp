@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,6 +31,7 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
+#include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
@@ -43,6 +44,7 @@ template <typename T>
 class MeshData;
 class AMRCriteria;
 class Packages_t;
+class PackDescriptorCacheBase;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -110,6 +112,60 @@ class StateDescriptor {
     params_.Add<T>(key, value, is_mutable);
   }
 
+  // JMM: The additional arguments here are to support additional
+  // docstring arguments for ParameterInput down the line
+  // I wish I could figure out how to do this with fewer overloads...
+  template <typename T, typename... Args>
+  void AddParamFromInput(Params::Mutability mutability, const std::string &block,
+                         const std::string &name, ParameterInput *pinput,
+                         Args &&...args) {
+    T val = pinput->template Get<T>(block, name, std::forward<Args>(args)...);
+    params_.Add(name, val, mutability);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(Params::Mutability mutability, const std::string &block,
+                         const std::string &name, const T &default_val,
+                         ParameterInput *pinput, Args &&...args) {
+    T val = pinput->template GetOrAdd<T>(block, name, default_val,
+                                         std::forward<Args>(args)...);
+    params_.Add(name, val, mutability);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(const std::string &block, const std::string &name,
+                         ParameterInput *pinput, Args &&...args) {
+    AddParamFromInput(Params::Mutability::Immutable, block, name, pinput,
+                      std::forward<Args>(args)...);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(const std::string &block, const std::string &name,
+                         const T &default_val, ParameterInput *pinput, Args &&...args) {
+    AddParamFromInput(Params::Mutability::Immutable, block, name, default_val, pinput,
+                      std::forward<Args>(args)...);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(Params::Mutability mutability, const std::string &name,
+                         ParameterInput *pinput, Args &&...args) {
+    AddParamFromInput(mutability, label(), name, pinput, std::forward<Args>(args)...);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(Params::Mutability mutability, const std::string &name,
+                         const T &default_val, ParameterInput *pinput, Args &&...args) {
+    AddParamFromInput(mutability, label(), name, default_val, pinput,
+                      std::forward<Args>(args)...);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(const std::string &name, ParameterInput *pinput,
+                         Args &&...args) {
+    AddParamFromInput(Params::Mutability::Immutable, label(), name, pinput,
+                      std::forward<Args>(args)...);
+  }
+  template <typename T, typename... Args>
+  void AddParamFromInput(const std::string &name, const T &default_val,
+                         ParameterInput *pinput, Args &&...args) {
+    AddParamFromInput(Params::Mutability::Immutable, label(), name, default_val, pinput,
+                      std::forward<Args>(args)...);
+  }
+
   template <typename T>
   void UpdateParam(const std::string &key, T value) {
     params_.Update<T>(key, value);
@@ -132,7 +188,7 @@ class StateDescriptor {
     return params_.Get(key, value);
   }
 
-  const std::type_index &ParamType(const std::string &key) const {
+  const std::type_index ParamType(const std::string &key) const {
     return params_.GetType(key);
   }
 
@@ -402,6 +458,10 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
   std::array<std::vector<SBValFunc>, BOUNDARY_NFACES> UserSwarmBoundaryFunctions;
+
+  // Caches for PackDescriptors associated with this StateDescriptor
+  std::unordered_map<std::string, std::shared_ptr<PackDescriptorCacheBase>>
+      pack_desc_cache_map;
 
  protected:
   // internal function to add dense/sparse fields. Private because outside classes must

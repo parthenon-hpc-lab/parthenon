@@ -196,6 +196,8 @@ add_library(parthenon
   outputs/output_utils.hpp
   outputs/outputs.cpp
   outputs/outputs.hpp
+  outputs/outputs_package.cpp
+  outputs/outputs_package.hpp
   outputs/output_parameters.hpp
   outputs/parthenon_hdf5.cpp
   outputs/parthenon_hdf5_attributes.cpp
@@ -211,6 +213,7 @@ add_library(parthenon
 
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp
+  pack/make_pack_descriptor.cpp
   pack/make_swarm_pack_descriptor.hpp
   pack/pack_descriptor.cpp
   pack/pack_descriptor.hpp
@@ -251,6 +254,7 @@ add_library(parthenon
   solvers/mg_solver.hpp
   solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
   tasks/tasks.cpp
   tasks/tasks.hpp
@@ -313,6 +317,10 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+
+  # Generated
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.cpp
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 

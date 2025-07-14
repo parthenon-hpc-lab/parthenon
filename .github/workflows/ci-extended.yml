@@ -34,7 +34,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda11.6-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
@@ -100,7 +100,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
             -DPARTHENON_ENABLE_ASCENT=ON \
-            -DAscent_DIR=/usr/local/ascent-develop/lib/cmake/ascent
+            -DCMAKE_CUDA_HOST_COMPILER=g++ \
+            -DAscent_DIR=/usr/local/ascent-checkout/lib/cmake/ascent
           cmake --build build-ascent
           cd example/advection/
           # Pick GPU with most available memory
@@ -131,7 +132,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm5.4.3-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -151,6 +152,7 @@ jobs:
 
       - name: Configure
         run: |
+          git config --global --add safe.directory $(pwd)
           cmake -B build \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DCMAKE_BUILD_TYPE=Release \

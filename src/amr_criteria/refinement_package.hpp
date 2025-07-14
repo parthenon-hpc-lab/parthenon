@@ -51,7 +51,5 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int max_level_);
 
 } // namespace Refinement
-
 } // namespace parthenon
-
 #endif // AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
