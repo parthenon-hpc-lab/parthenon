@@ -71,7 +71,7 @@ struct BndId {
   KOKKOS_FORCEINLINE_FUNCTION
   int &start_idx() { return data[9]; }
 
-  bool buf_allocated;
+  bool buf_allocated{false};
   buf_pool_t<Real>::weak_t buf;   // comm buffer from pool
   BufArray1D<Real> coalesced_buf; // Combined buffer
 
