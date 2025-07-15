@@ -40,7 +40,37 @@ Kokkos::Timer Driver::timer_main;
 Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
+void Driver::DumpInputParameters() {
+  auto archive_parameters =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false);
+  auto archive_timestamp =
+      pinput->GetOrAddBoolean("parthenon/job", "archive_timestamp", false);
+  if (archive_parameters && Globals::my_rank == 0) {
+    std::ostringstream ss;
+    if (archive_timestamp) {
+      auto itt_now =
+          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
+    } else {
+      ss << "parthinput.archive";
+    }
+    std::fstream pars;
+    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
+    pinput->ParameterDump(pars);
+    pars.close();
+  }
+  auto print_parameters =
+      pinput->GetOrAddBoolean("parthenon/job", "print_parameters", false);
+  if (print_parameters && Globals::my_rank == 0) {
+    pinput->ParameterDump(std::cout);
+  }
+}
+
 void Driver::PreExecute() {
+  // Output a text file of all parameters at this point
+  // Optionally also dump to console
+  DumpInputParameters();
+
   if (Globals::my_rank == 0) {
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
@@ -89,10 +119,6 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
-
-  // Output a text file of all parameters at this point
-  // Defaults must be set across all ranks
-  DumpInputParameters();
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
@@ -266,26 +292,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
   // away from tlim
   if (tm.time < tm.tlim && (tm.tlim - tm.time) < tm.dt) {
     tm.dt = tm.tlim - tm.time;
-  }
-}
-
-void EvolutionDriver::DumpInputParameters() {
-  auto archive_settings =
-      pinput->GetOrAddString("parthenon/job", "archive_parameters", "false",
-                             std::vector<std::string>{"true", "false", "timestamp"});
-  if (archive_settings != "false" && Globals::my_rank == 0) {
-    std::ostringstream ss;
-    if (archive_settings == "timestamp") {
-      auto itt_now =
-          std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-      ss << "parthinput.archive." << std::put_time(std::gmtime(&itt_now), "%FT%TZ");
-    } else {
-      ss << "parthinput.archive";
-    }
-    std::fstream pars;
-    pars.open(ss.str(), std::fstream::out | std::fstream::trunc);
-    pinput->ParameterDump(pars);
-    pars.close();
   }
 }
 

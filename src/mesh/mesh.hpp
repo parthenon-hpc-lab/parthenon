@@ -48,6 +48,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
@@ -67,6 +68,8 @@ class RestartReader;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
+// Base class to allow cacheing of different types of PackDescriptors
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -157,11 +160,19 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
-                                  : default_pack_size_;
+    if (use_pack_size_) {
+      return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                    : default_pack_size_;
+    } else {
+      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
+    }
   }
   int DefaultNumPartitions() {
-    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    if (use_pack_size_) {
+      return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    } else {
+      return std::min(default_num_packs_, block_list.size());
+    }
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
@@ -240,8 +251,7 @@ class Mesh {
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t =
-      std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
+  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
@@ -312,7 +322,9 @@ class Mesh {
   int lb_interval_;
 
   // size of default MeshBlockPacks
+  bool use_pack_size_;
   int default_pack_size_;
+  std::size_t default_num_packs_;
 
   int gmg_min_logical_level_ = 0;
 

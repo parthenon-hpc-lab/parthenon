@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -558,16 +558,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
     // parameters so that for restarts the file is not immediatly overwritten again.
     // Only applies to default time-based data dumps, so that writing "now" and "final"
     // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
-      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-    }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
-      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
-    }
+    UpdateNextOutput_(pm, tm);
   }
 }
 
