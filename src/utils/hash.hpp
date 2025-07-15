@@ -82,8 +82,25 @@ struct std::hash<std::tuple<Ts...>> {
   }
 };
 
-// This is just here for backward compatibility
 namespace parthenon {
+template <class T>
+struct WeakPtrHash {
+  std::size_t operator()(const std::weak_ptr<T> &wp) const {
+    if (auto sp = wp.lock()) {
+      return std::hash<std::shared_ptr<T>>()(sp);
+    }
+    return 0;
+  }
+};
+
+template <class T>
+struct WeakPtrEqual {
+  bool operator()(const std::weak_ptr<T> &lhs, const std::weak_ptr<T> &rhs) const {
+    return !lhs.owner_before(rhs) && !rhs.owner_before(lhs);
+  }
+};
+
+// This is just here for backward compatibility
 template <class T>
 struct tuple_hash {
   std::size_t operator()(const T &tup) const { return std::hash<T>()(tup); }
