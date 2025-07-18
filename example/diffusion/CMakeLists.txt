@@ -25,4 +25,28 @@ if( "diffusion-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   )
   target_link_libraries(diffusion-example PRIVATE Parthenon::parthenon)
   lint_target(diffusion-example)
+
+  add_custom_command(
+    OUTPUT ${DOC_GEN_PATH}/diffusion-parth-table.csv
+    COMMAND ${CMAKE_COMMAND} -E env
+    bash -c
+    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion parthenon/output0/dt=-1 -p 'parthenon/(.*)' > ${DOC_GEN_PATH}/diffusion-parth-table.csv"
+    DEPENDS diffusion-example parthinput.diffusion
+    VERBATIM
+    )
+  add_custom_command(
+    OUTPUT ${DOC_GEN_PATH}/diffusion-table.csv
+    COMMAND ${CMAKE_COMMAND} -E env
+    bash -c
+    "${CMAKE_CURRENT_BINARY_DIR}/diffusion-example -i ${CMAKE_CURRENT_LIST_DIR}/parthinput.diffusion parthenon/output0/dt=-1 -p '^(?!.*parthenon/).*' > ${DOC_GEN_PATH}/diffusion-table.csv"
+    DEPENDS diffusion-example parthinput.diffusion
+    VERBATIM
+    )
+
+  add_custom_target(diffusion-csv
+    DEPENDS
+    ${DOC_GEN_PATH}/diffusion-parth-table.csv
+    ${DOC_GEN_PATH}/diffusion-table.csv
+    )
+
 endif()

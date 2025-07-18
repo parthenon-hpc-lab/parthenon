@@ -118,10 +118,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // For lambda choose the smaller of the 3
   Real lambda = x1;
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
-    lambda = std::min(lambda, x2);
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
-    lambda = std::min(lambda, x3);
+  auto [mesh_size, meshblock_size] = Mesh::GetRegionSizes(pin);
+  if ((mesh_size.nx(X2DIR) > 1) && ang_3 != 0.0) lambda = std::min(lambda, x2);
+  if ((mesh_size.nx(X3DIR) > 1) && ang_2 != 0.0) lambda = std::min(lambda, x3);
 
   // If cos_a2 or cos_a3 = 0, need to override lambda
   if (ang_3_vert) lambda = x2;
@@ -202,9 +201,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pin->GetOrAddBoolean("Advection", "test_metadata_none", false);
   pkg->AddParam<bool>("test_metadata_none", test_metadata_none);
   if (test_metadata_none) {
-    const int nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", 1);
-    const int nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", 1);
-    const int nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", 1);
+    const int nx1 = meshblock_size.nx(X1DIR);
+    const int nx2 = meshblock_size.nx(X2DIR);
+    const int nx3 = meshblock_size.nx(X3DIR);
     std::vector<int> test_shape = {nx1 + 1, nx2 + 1, nx3 + 1, 3};
     m = Metadata({Metadata::OneCopy, Metadata::None}, test_shape);
     pkg->AddField("metadata_none_var", m);
