@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "amr_criteria/amr_criteria.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -28,7 +29,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "pack/make_pack_descriptor.hpp"
-#include "parameter_input.hpp"
 #include "utils/instrument.hpp"
 
 namespace parthenon {
@@ -37,16 +37,14 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
 
-  int numcrit = 0;
-  while (true) {
-    std::string block_name = "parthenon/refinement" + std::to_string(numcrit);
-    if (!pin->DoesBlockExist(block_name)) {
-      break;
+  for (auto pib : pin->Blocks("parthenon")) {
+    std::string block_name = std::string(pib.first);
+    if (block_name.compare(0, 10, "refinement") == 0) {
+      std::string block_path = "parthenon." + block_name;
+      std::string method =
+          pin->GetOrAddString(block_path, "method", "PLEASE SPECIFY method");
+      ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_path));
     }
-    std::string method =
-        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method");
-    ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
-    numcrit++;
   }
   return ref;
 }

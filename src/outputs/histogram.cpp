@@ -21,8 +21,8 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "kokkos_abstraction.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
 
 // Only proceed if HDF5 output enabled

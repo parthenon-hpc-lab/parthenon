@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef ARGUMENT_PARSER_HPP_
-#define ARGUMENT_PARSER_HPP_
+#ifndef INPUTS_ARGUMENT_PARSER_HPP_
+#define INPUTS_ARGUMENT_PARSER_HPP_
 
 #include <cstdio>
 #include <iostream>
@@ -64,8 +64,13 @@ class ArgParse {
           invalid = invalid_arg();
           prundir = argv[++i];
           break;
-        case 'n':
-          narg_flag = 1;
+        case 'p':
+          param_flag = 1;
+          if ((i + 1 == argc) || (argv[i + 1][0] == '-')) {
+            params_regex = default_params_regex_;
+          } else {
+            params_regex = argv[++i];
+          }
           break;
         case 'm': // -m <nproc>
           invalid = invalid_arg();
@@ -89,7 +94,9 @@ class ArgParse {
             std::cout << "  -r <file>       restart with this file\n";
             std::cout << "  -a <file>       analyze/postprocess this file\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
-            std::cout << "  -n              parse input file and quit\n";
+            std::cout << "  -p [regex]      parse input file, report parameters\n"
+                      << "                  for blocks matching regex in table and quit\n"
+                      << "                  default regex is wildcard\n";
             std::cout << "  -c              show configuration and quit\n";
             std::cout << "  -m <nproc>      output mesh structure and quit\n";
             std::cout << "  -t hh:mm:ss     wall time limit for final output\n";
@@ -126,14 +133,18 @@ class ArgParse {
   char *input_filename = nullptr;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
+  char *params_regex = nullptr;
   bool analysis_flag = false;
   int res_flag = 0;
-  int narg_flag = 0;
+  int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
   int exit_flag = 0;
+
+ private:
+  char default_params_regex_[64] = "(.*)"; // wildcard
 };
 
 } // namespace parthenon
 
-#endif // ARGUMENT_PARSER_HPP_
+#endif // INPUTS_ARGUMENT_PARSER_HPP_

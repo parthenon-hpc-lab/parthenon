@@ -25,6 +25,7 @@
 
 #include "defs.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/metadata.hpp"
 #include "interface/swarm.hpp"
 #include "interface/swarm_container.hpp"
@@ -33,7 +34,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
-#include "parameter_input.hpp"
 
 namespace parthenon {
 namespace OutputUtils {

@@ -21,7 +21,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "parameter_input.hpp"
+#include "inputs/parameter_input.hpp"
 using Real = double;
 using parthenon::ParameterInput;
 using parthenon::RegionSize;

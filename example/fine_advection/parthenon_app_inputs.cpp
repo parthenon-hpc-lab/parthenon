@@ -23,7 +23,6 @@
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
-#include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;

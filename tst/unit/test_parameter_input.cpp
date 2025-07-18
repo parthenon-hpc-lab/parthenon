@@ -24,7 +24,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "parameter_input.hpp"
+#include "inputs/parameter_input.hpp"
 
 using parthenon::ParameterInput;
 
@@ -39,11 +39,11 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
        << "<block2>" << std::endl
        << "var3 = 3" << std::endl
        << "# comment" << std::endl
-       << "var4 = 4" << std::endl
-       << "var_default = 5 # Default value added at run time" << std::endl;
+       << "var4 = 4" << std::endl;
 
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
+    in.GetOrAddInteger("block2", "var_default", 5);
 
     // capture all std::cout
     std::stringstream cout_cap;
@@ -74,10 +74,10 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
         std::stringstream ss;
         ss << std::endl
            << "### WARNING in CheckDesired:" << std::endl
-           << "Parameter file missing desired field <block2>/var2" << std::endl
+           << "Parameter file missing desired field block2.var2" << std::endl
            << std::endl
            << "### WARNING in CheckDesired:" << std::endl
-           << "Parameter file missing desired field <block3>/var4" << std::endl;
+           << "Parameter file missing desired field block3.var4" << std::endl;
         REQUIRE(cout_cap.str() == ss.str());
       }
     }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,11 +24,11 @@
 
 #include "bvals/comms/bvals_in_one.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/utils.hpp"
 
@@ -41,9 +41,9 @@ Kokkos::Timer Driver::timer_cycle;
 Kokkos::Timer Driver::timer_LBandAMR;
 
 void Driver::DumpInputParameters() {
-  auto archive_parameters =
+  const auto archive_parameters =
       pinput->GetOrAddBoolean("parthenon/job", "archive_parameters", false);
-  auto archive_timestamp =
+  const auto archive_timestamp =
       pinput->GetOrAddBoolean("parthenon/job", "archive_timestamp", false);
   if (archive_parameters && Globals::my_rank == 0) {
     std::ostringstream ss;
@@ -59,7 +59,7 @@ void Driver::DumpInputParameters() {
     pinput->ParameterDump(pars);
     pars.close();
   }
-  auto print_parameters =
+  const auto print_parameters =
       pinput->GetOrAddBoolean("parthenon/job", "print_parameters", false);
   if (print_parameters && Globals::my_rank == 0) {
     pinput->ParameterDump(std::cout);
@@ -71,7 +71,11 @@ void Driver::PreExecute() {
   // Optionally also dump to console
   DumpInputParameters();
 
+  bool check_orphans = pinput->GetOrAddBoolean(
+      "parthenon/job", "check_orphans", true,
+      "print a warning if any parameters are in the input deck but not used in the code");
   if (Globals::my_rank == 0) {
+    if (check_orphans) pinput->CheckOrphans();
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
     std::cout << "Setup complete, executing driver...\n" << std::endl;
@@ -95,6 +99,25 @@ void Driver::PostExecute(DriverStatus status) {
 }
 
 DriverStatus EvolutionDriver::Execute() {
+  // JMM: I want these before output_params_and_exit so we capture as much as possible
+  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
+                            ? OutputSignal::analysis
+                            : OutputSignal::none;
+  int perf_cycle_offset = pinput->GetOrAddInteger(
+      "parthenon/time", "perf_cycle_offset", 0,
+      "don't measure performance for some number of initial cycles");
+  const bool output_params_and_exit = pinput->GetOrAddBoolean(
+      "parthenon/job", "output_params_and_exit", false,
+      "output a description of all input parameters accessed and quit");
+  const std::string params_block_regex =
+      pinput->GetOrAddString("parthenon/job", "output_params_block_regex", "(.*)",
+                             "when outputting input parameters, this selects which input "
+                             "blocks to output; all are output by default");
+  if (output_params_and_exit && Globals::my_rank == 0) {
+    pinput->OutputParameterTable(std::cout, std::regex(params_block_regex));
+    return DriverStatus::complete;
+  }
+
   PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
@@ -112,13 +135,8 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // UserWorkBeforeLoop
 
-  OutputSignal signal = pinput->GetBoolean("parthenon/job", "run_only_analysis")
-                            ? OutputSignal::analysis
-                            : OutputSignal::none;
   pouts->MakeOutputs(pmesh, pinput, &tm, signal);
   pmesh->mbcnt = 0;
-  int perf_cycle_offset =
-      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
 
   { // Main t < tmax loop region
     PARTHENON_INSTRUMENT
@@ -255,8 +273,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
       tm.dt = std::min(tm.dt, pmb->NewDt());
       pmb->SetAllowedDt(std::numeric_limits<Real>::max());
     }
-    // Allow the user to enforce maximum timestep
-    tm.dt = std::min(tm.dt, dt_user);
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL

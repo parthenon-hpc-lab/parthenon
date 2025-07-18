@@ -32,6 +32,7 @@
 #include "defs.hpp"
 #include "domain.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/packages.hpp"
@@ -39,7 +40,6 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
 #include "outputs/io_wrapper.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -435,8 +435,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
-      new_block_dt_user_;
+  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor

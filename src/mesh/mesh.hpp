@@ -40,6 +40,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -49,7 +50,6 @@
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/pack_descriptor.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/hash.hpp"
@@ -96,6 +96,9 @@ class Mesh {
        Packages_t &packages, int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
+  static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
+                                         const RegionSize &mesh_size);
+  static std::pair<RegionSize, RegionSize> GetRegionSizes(ParameterInput *pin);
   ~Mesh();
 
   // accessors

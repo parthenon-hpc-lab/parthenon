@@ -20,16 +20,16 @@
 #include <vector>
 
 #include "application_input.hpp"
-#include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
+#include "inputs/argument_parser.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
-#include "parameter_input.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {

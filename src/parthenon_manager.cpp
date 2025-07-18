@@ -18,6 +18,7 @@
 #include "parthenon_manager.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -33,6 +34,8 @@
 #include "config.hpp"
 #include FS_HEADER
 #include "globals.hpp"
+#include "inputs/inputs_package.hpp"
+#include "inputs/parameter_input.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
@@ -97,6 +100,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
+  pinput = std::make_unique<ParameterInput>();
   if (arg.res_flag != 0) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
@@ -106,24 +110,16 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     }
 
     // Load input stream
-    pinput = std::make_unique<ParameterInput>();
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
+    pinput->LoadFromStream(
+        is, RecordOrigin(RecordOrigin::Type::Restart, arg.restart_filename));
   }
   // If an input file was provided
+  // TODO(BSP) loop for multiple inputs
   if (arg.input_filename != nullptr) {
-    // Modify info read from restart file
-    if (arg.res_flag != 0) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
-
-      // Populate new object for fresh simulation
-    } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
-    }
+    // Modify info with new parameters from input
+    pinput->LoadFile(arg.input_filename);
   }
 
   // Modify based on command line inputs
@@ -139,7 +135,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
 
   // Set the global number of ghost zones
-  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2,
+                                            "number of ghost zones on a block");
 
   // set sparse config
   Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
@@ -185,6 +182,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
   packages.Add(OutputsPackage::Initialize(pinput.get()));
+  packages.Add(InputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (arg.res_flag == 0) {
@@ -225,6 +223,11 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   if (arg.mesh_flag) {
     ParthenonFinalize();
     exit(0);
+  }
+
+  if (arg.param_flag) {
+    pinput->SetBoolean("parthenon/job", "output_params_and_exit", true);
+    pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
   pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());

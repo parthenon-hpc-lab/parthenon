@@ -268,6 +268,7 @@ if (NOT TARGET Kokkos::kokkos)
     endif()
   endif()
 endif()
+include_directories("external/tomlplusplus")
 
 # After we have imported Kokkos we can now report/check our config as Kokkos_ENABLE_XXX
 # is also availalbe when imported.
@@ -389,6 +390,7 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
   add_subdirectory(tst)
 endif()
 
+
 if (PARTHENON_ENABLE_ASCENT)
   if (PARTHENON_USE_SYSTEM_PACKAGES)
     find_package(Ascent REQUIRED)
@@ -401,6 +403,9 @@ endif()
 include(GNUInstallDirs)
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
+set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
+  "Path to save generated data for docs.")
+
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(benchmarks)
@@ -409,6 +414,13 @@ create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+
+if (NOT PARTHENON_DISABLE_EXAMPLES)
+  add_custom_target(param-docs
+    DEPENDS
+    burgers-csv
+    diffusion-csv)
+endif()
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

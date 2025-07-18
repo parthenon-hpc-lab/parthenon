@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,11 +36,11 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/pr_loops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
@@ -54,7 +54,10 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
+      deref_threshold_(
+          pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10,
+                               "number of iterations a block must "
+                               "request derefinement before it is derefined")) {
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 

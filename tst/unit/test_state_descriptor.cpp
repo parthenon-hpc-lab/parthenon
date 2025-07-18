@@ -24,12 +24,12 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/metadata.hpp"
 #include "interface/packages.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
-#include "parameter_input.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 

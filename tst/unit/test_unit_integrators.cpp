@@ -26,7 +26,7 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
-#include "parameter_input.hpp"
+#include "inputs/parameter_input.hpp"
 #include "time_integration/staged_integrator.hpp"
 
 using parthenon::ButcherIntegrator;

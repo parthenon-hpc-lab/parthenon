@@ -25,9 +25,9 @@
 #include <string>
 #include <vector>
 
+#include "inputs/parameter_input.hpp"
 #include "interface/state_descriptor.hpp"
 #include "outputs/outputs_package.hpp"
-#include "parameter_input.hpp"
 
 namespace parthenon {
 
@@ -36,7 +36,8 @@ namespace OutputsPackage {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Outputs");
 
-  std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+  std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
+                                             "prefix for output files");
   std::vector<std::string> block_names;
   std::vector<int> block_numbers;
 
@@ -45,12 +46,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::vector<Real> last_times;
   std::vector<int> last_ns;
 
-  // loop over input block names.  Find those that start with "parthenon/output", read
+  // loop over input block names.  Find those in the parthenon.output blocks, read
   // parameters, and construct singly linked list of OutputTypes.
-  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
-      std::string block_name = pib->block_name;
+  for (auto pib : pin->Blocks("parthenon")) {
+    std::string block_name = std::string(pib.first);
+    if (block_name.compare(0, 6, "output") == 0) {
+      std::string outn = block_name.substr(6); // 6 because counting starts at 0!
 
       if (pin->DoesParameterExist(block_name, "next_time")) {
         std::stringstream msg;
@@ -68,7 +69,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       }
 
       // these are used for book-keeping
-      block_names.push_back(block_name);
+      block_names.push_back("parthenon." + block_name);
       block_numbers.push_back(atoi(outn.c_str()));
 
       // These will be updated later or restarted from

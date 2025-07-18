@@ -26,12 +26,12 @@
 
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "inputs/parameter_input.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
-#include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 
