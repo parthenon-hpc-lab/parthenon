@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -44,7 +44,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       break;
     }
     std::string method =
-        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method");
+        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method",
+                            "method to use to check for refinement");
     ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
     numcrit++;
   }
