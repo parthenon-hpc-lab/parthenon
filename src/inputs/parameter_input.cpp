@@ -339,7 +339,6 @@ toml::table ParameterInput::LegacyParse(std::istream &is, const RecordOrigin &or
 
     if (!continuing) {
       if (param_name != "") {
-        toml::table single_param = toml::table();
         AddParameter_(tmp_tbl, ParameterPath(block_name, param_name), param_value, origin,
                       true);
       }
