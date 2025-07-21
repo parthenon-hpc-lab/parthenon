@@ -1,0 +1,52 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = calc_spec
+
+<parthenon/mesh>
+refinement = none
+
+nx1 = 64
+x1min = 0.0
+x1max = 1.0
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = 0.0
+x2max = 1.0
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 64
+x3min = 0.0
+x3max = 1.0
+ix3_bc = periodic
+ox3_bc = periodic
+
+num_packs = 1
+
+<parthenon/meshblock>
+nx1 = 32
+nx2 = 32
+nx3 = 32
+
+<CalcSpec>
+output_number = 23
+data_path = /home/pgrete/run-athenak-turb
+
