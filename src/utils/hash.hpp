@@ -19,6 +19,7 @@
 #define UTILS_HASH_HPP_
 
 #include <functional>
+#include <memory>
 #include <set>
 #include <tuple>
 #include <utility>
