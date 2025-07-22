@@ -29,7 +29,6 @@ class PiDriver : public Driver {
  public:
   PiDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm) : Driver(pin, fin, pm) {
     InitializeOutputs();
-    pin->CheckDesired("Pi", "radius");
   }
 
   /// MakeTaskList and MakeTasks aren't virtual routines on `Driver`,

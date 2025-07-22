@@ -175,10 +175,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
           prim(n, k, j, i) = buf[idx];
-          // PARTHENON_REQUIRE_THROWS(prim(n, k, j, i) != 0,
-          //  "No zeros allowed. Found one at " + std::to_string(n) +
-          //  " " + std::to_string(k) + " " + std::to_string(j) +
-          //  " " + std::to_string(i) + " ");
+          PARTHENON_REQUIRE_THROWS(
+              !((n == 0 || n == 4) && prim(n, k, j, i) == 0),
+              "[" + std::to_string(parthenon::Globals::my_rank) +
+                  "] No zeros allowed for densit and energy. Found one at " +
+                  std::to_string(n) + " " + std::to_string(k) + " " + std::to_string(j) +
+                  " " + std::to_string(i) + " ");
           idx++;
         }
       }
@@ -269,13 +271,18 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
   // below take the logical grid size into account. For example, the local phases at
   // level 1 should be calculated assuming a grid that is twice as large as the root
   // grid.
-  const auto root_level = pmesh->GetRootLevel();
-  auto gnx1 =
-      static_cast<int>(pmesh->mesh_size.nx(X1DIR) * std::pow(2, level - root_level));
-  auto gnx2 =
-      static_cast<int>(pmesh->mesh_size.nx(X2DIR) * std::pow(2, level - root_level));
-  auto gnx3 =
-      static_cast<int>(pmesh->mesh_size.nx(X3DIR) * std::pow(2, level - root_level));
+
+  PARTHENON_REQUIRE_THROWS(!pmesh->adaptive, "Ask Luke about the logic here.");
+  // const auto root_level = pmesh->GetRootLevel();
+  // auto gnx1 =
+  // static_cast<int>(pmesh->mesh_size.nx(X1DIR) * std::pow(2, level - root_level));
+  // auto gnx2 =
+  // static_cast<int>(pmesh->mesh_size.nx(X2DIR) * std::pow(2, level - root_level));
+  // auto gnx3 =
+  // static_cast<int>(pmesh->mesh_size.nx(X3DIR) * std::pow(2, level - root_level));
+  const auto gnx1 = pmesh->mesh_size.nx(X1DIR);
+  const auto gnx2 = pmesh->mesh_size.nx(X2DIR);
+  const auto gnx3 = pmesh->mesh_size.nx(X3DIR);
 
   heffte::box3d<> real_indexes({0, 0, 0}, {gnx1 - 1, gnx2 - 1, gnx3 - 1});
   heffte::box3d<> complex_indexes({0, 0, 0}, {
@@ -284,7 +291,6 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
                                                  gnx3 - 1,
 
                                              });
-
   // check if the complex indexes have correct dimension
   assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
@@ -323,18 +329,7 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
   std::vector<heffte::box3d<>> complex_boxes =
       heffte::split_world(complex_indexes, proc_grid);
   heffte::box3d<> const outbox = complex_boxes[parthenon::Globals::my_rank];
-  /*
-    std::cerr << "[" << parthenon::Globals::my_rank
-              << "] my complex indices are: " << outbox.low[0] << ":" << outbox.high[0]
-              << " " << outbox.low[1] << ":" << outbox.high[1] << " " << outbox.low[2]
-              << ":" << outbox.high[2] << " "
-              << " and the complex order is for idx 012: " << outbox.order[0]
-              << outbox.order[1] << outbox.order[2]
-              << " and the real order is for idx 012: " << inbox.order[0] <<
-    inbox.order[1]
-              << inbox.order[2] << "\n";
 
-    */
   // define the heffte class and the input and output geometry
   heffte::fft3d_r2c<backend_tag> fft(inbox, outbox, r2c_direction, MPI_COMM_WORLD);
 
