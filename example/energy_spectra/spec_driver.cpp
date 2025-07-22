@@ -110,13 +110,15 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
   ParArrayHost<Real> areas("areas", num_partitions);
-  TaskRegion &async_region = tc.AddRegion(num_partitions);
-  {
-    // asynchronous region where area is computed per partition
-    for (int i = 0; i < num_partitions; i++) {
-      TaskID none(0);
-      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-      auto get_area = async_region[i].AddTask(none, CalcSpec, md, areas, i);
+  for (int k = 0; k < 3; k++) {
+    TaskRegion &async_region = tc.AddRegion(num_partitions);
+    {
+      // asynchronous region where area is computed per partition
+      for (int i = 0; i < num_partitions; i++) {
+        TaskID none(0);
+        auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+        auto get_area = async_region[i].AddTask(none, CalcSpec, md, areas, k);
+      }
     }
   }
 

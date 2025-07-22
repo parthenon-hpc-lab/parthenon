@@ -73,7 +73,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
           pmb->gid, out_num);
   std::string filename = buff;
   if (fs::exists(filename)) {
-    Log("Loading " + filename);
+    // Log("Loading " + filename);
   } else {
     Log("Cannot find " + filename);
     PARTHENON_FAIL("Reading data failed.");
@@ -127,7 +127,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       << " Logical locations: " << loc[0] << " " << loc[1] << " " << loc[2] << " "
       << loc[3] << " geometry: " << geo[0] << "-" << geo[1] << " " << geo[2] << "-"
       << geo[3] << " " << geo[4] << "-" << geo[5] << "\n";
-  Log(msg.str());
+  // Log(msg.str());
 
   auto &cellbounds = pmb->cellbounds;
   auto ib = cellbounds.GetBoundsI(IndexDomain::interior);
@@ -135,9 +135,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto kb = cellbounds.GetBoundsK(IndexDomain::interior);
 
   // Sanity checks
-  auto block_size_disk =
-      (mb_idx[1] - mb_idx[0]) * (mb_idx[3] - mb_idx[2]) * (mb_idx[5] - mb_idx[4]);
-  auto block_size_mesh = (ib.e - ib.s) * (jb.e - jb.s) * (kb.e - kb.s);
+  auto block_size_disk = (mb_idx[1] - mb_idx[0] + 1) * (mb_idx[3] - mb_idx[2] + 1) *
+                         (mb_idx[5] - mb_idx[4] + 1);
+  auto block_size_mesh = (ib.e - ib.s + 1) * (jb.e - jb.s + 1) * (kb.e - kb.s + 1);
   PARTHENON_REQUIRE_THROWS(block_size_disk == block_size_mesh, "Mismatch is block size");
 
   const auto loc_mesh = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -170,6 +170,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // initializing on host
   auto prim = prim_dev.GetHostMirrorAndCopy();
   size_t idx = 0;
+  size_t num_nans = 0;
+  size_t num_zeros = 0;
   for (int n = 0; n < num_vars; n++) {
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -181,17 +183,36 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                   "] No zeros allowed for densit and energy. Found one at " +
                   std::to_string(n) + " " + std::to_string(k) + " " + std::to_string(j) +
                   " " + std::to_string(i) + " ");
+
+          if (prim(n, k, j, i) == 0.0) {
+            num_zeros += 1;
+          }
+          if (std::isnan(prim(n, k, j, i))) {
+            prim(n, k, j, i) = 0.0;
+            num_nans += 1;
+          }
+
           idx++;
         }
       }
     }
   }
+  if (num_zeros != 0 || num_nans != 0) {
+    Log("block " + std::to_string(pmb->gid) + " got " + std::to_string(num_zeros) +
+        " zeros and " + std::to_string(num_nans) + " nans");
+  }
+
+  PARTHENON_REQUIRE_THROWS(idx == buf.size(),
+                           "Mismatch in data being read and processed");
+  // Log("idx is " + std::to_string(idx) + " and vec size is " +
+  // std::to_string(buf.size()));
+
   // copy initialized vars to device
   prim_dev.DeepCopy(prim);
 }
 
 TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
-                    int i) {
+                    int spec_type) {
 
   // Check if we have a contiguous block of data (over all rank-local blocks)
   std::array local_loc_min{
@@ -347,7 +368,10 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+  // TODO(pgrete) check what's wrong with the variable pack (dealloc) -- especially when
+  // called within the for loop
   auto prim = md->PackVariables(std::vector<std::string>{"prim"});
+  // for (int spec_type = 0; spec_type < 3; spec_type++) {
   par_for(
       "Init FFT fields", 0, pmesh->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -356,9 +380,22 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
         const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
         const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
         const std::int64_t idx = (kk * nx2l + jj) * nx1l + ii;
-        input(idx) = p(1, k, j, i);
-        input(idx + fft_size_inbox) = p(2, k, j, i);
-        input(idx + 2 * fft_size_inbox) = p(3, k, j, i);
+        if (spec_type == 0) {
+          input(idx) = p(1, k, j, i);
+          input(idx + fft_size_inbox) = p(2, k, j, i);
+          input(idx + 2 * fft_size_inbox) = p(3, k, j, i);
+        } else if (spec_type == 1) {
+          const auto sqrtrho = Kokkos::sqrt(p(0, k, j, i));
+          input(idx) = sqrtrho * p(1, k, j, i);
+          input(idx + fft_size_inbox) = sqrtrho * p(2, k, j, i);
+          input(idx + 2 * fft_size_inbox) = sqrtrho * p(3, k, j, i);
+        } else if (spec_type == 2) {
+          input(idx) = p(5, k, j, i);
+          input(idx + fft_size_inbox) = p(6, k, j, i);
+          input(idx + 2 * fft_size_inbox) = p(7, k, j, i);
+        } else {
+          PARTHENON_FAIL("Unknown spec type");
+        }
       });
 
   fft.forward(n_comp, input.data(), output.data(), workspace.data());
@@ -434,8 +471,12 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
     const std::string fname("spec_" + std::to_string(out_num) + ".csv");
     // On startup, write header
     // if (tm.ncycle == 0) {
-    outfile.open(fname, std::ofstream::out);
-    outfile << "# num_bins, pos spec,...\n";
+    if (spec_type == 0) {
+      outfile.open(fname, std::ofstream::out);
+      outfile << "# num_bins, pos spec,...\n";
+    } else {
+      outfile.open(fname, std::ofstream::out | std::ofstream::app);
+    }
     // outfile << "# cycle, time, num_bins, pos spec,...\n";
     // } else {
     // outfile.open(fname, std::ofstream::out | std::ofstream::app);
@@ -453,6 +494,7 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
 
     outfile.close();
   }
+  // }
   return TaskStatus::complete;
 }
 
