@@ -282,7 +282,8 @@ TaskStatus PreCommFillDerived(T *rc) {
   PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PreCommFillDerived(rc);
+    auto status = pkg.second->PreCommFillDerived(rc);
+    if (status != TaskStatus::complete) return status;
   }
   return TaskStatus::complete;
 }
@@ -294,19 +295,22 @@ TaskStatus FillDerived(T *rc) {
   { // PreFillDerived region
     PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->PreFillDerived(rc);
+      auto status = pkg.second->PreFillDerived(rc);
+      if (status != TaskStatus::complete) return status;
     }
   } // PreFillDerived region
   { // FillDerived region
     PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->FillDerived(rc);
+      auto status = pkg.second->FillDerived(rc);
+      if (status != TaskStatus::complete) return status;
     }
   } // FillDerived region
   { // PostFillDerived region
     PARTHENON_INSTRUMENT
     for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->PostFillDerived(rc);
+      auto status = pkg.second->PostFillDerived(rc);
+      if (status != TaskStatus::complete) return status;
     }
   } // PostFillDerived region
   return TaskStatus::complete;
