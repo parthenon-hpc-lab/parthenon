@@ -358,11 +358,10 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
   int n_comp = 3;
   const auto fft_size_inbox = fft.size_inbox();
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
-  parthenon::ParArray1D<Real> inverse("fft inverse", n_comp * fft_size_inbox);
   parthenon::ParArray1D<std::complex<Real>> output("fft output",
                                                    n_comp * fft.size_outbox());
   parthenon::ParArray1D<std::complex<Real>> workspace("fft workspace",
-                                                      n_comp * fft.size_workspace());
+                                                      fft.size_workspace());
   PARTHENON_REQUIRE_THROWS(pmesh->DefaultNumPartitions() == 1,
                            "Only pack_size=-1 currently supported for heffte.")
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
@@ -398,7 +397,11 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
         }
       });
 
-  fft.forward(n_comp, input.data(), output.data(), workspace.data());
+  // Not useing a batched transform here to keep the workspace small.
+  for (int i = 0; i < 3; i++) {
+    fft.forward(input.data() + i * fft.size_inbox(),
+                output.data() + i * fft.size_outbox(), workspace.data());
+  }
 
   const auto k_max = std::sqrt(SQR(gnx1 / 2) + SQR(gnx2 / 2) + SQR(gnx3 / 2));
 
