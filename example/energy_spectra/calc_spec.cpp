@@ -226,6 +226,69 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
                     int spec_type) {
 
+  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+  auto prim = md->PackVariables(std::vector<std::string>{"prim"});
+
+  Kokkos::Array<Real, 6> sums{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+  Kokkos::parallel_reduce(
+      "Calc mean components",
+      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+          {0, kb.s, jb.s, ib.s}, {prim.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
+          {1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
+                    Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
+                    Real &lB3_sum) {
+        const auto &coords = prim.GetCoords(b);
+        lu1_sum += prim(b, 1, k, j, i) * coords.CellVolume(k, j, i);
+        lu2_sum += prim(b, 2, k, j, i) * coords.CellVolume(k, j, i);
+        lu3_sum += prim(b, 3, k, j, i) * coords.CellVolume(k, j, i);
+        lB1_sum += prim(b, 5, k, j, i) * coords.CellVolume(k, j, i);
+        lB2_sum += prim(b, 6, k, j, i) * coords.CellVolume(k, j, i);
+        lB3_sum += prim(b, 7, k, j, i) * coords.CellVolume(k, j, i);
+      },
+      sums[0], sums[1], sums[2], sums[3], sums[4], sums[5]);
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, sums.data(), 6, MPI_PARTHENON_REAL,
+                                    MPI_SUM, MPI_COMM_WORLD));
+#endif // MPI_PARALLEL
+
+  if (parthenon::Globals::my_rank == 0) {
+    std::cerr << "Mean U is " << sums[0] << " " << sums[1] << " " << sums[2]
+              << " and mean B is " << sums[3] << " " << sums[4] << " " << sums[5] << "\n";
+  }
+
+  Kokkos::Array<Real, 6> rms{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+  Kokkos::parallel_reduce(
+      "Calc mean components",
+      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+          {0, kb.s, jb.s, ib.s}, {prim.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
+          {1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
+                    Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
+                    Real &lB3_sum) {
+        const auto &coords = prim.GetCoords(b);
+        lu1_sum += SQR((prim(b, 1, k, j, i) - sums[0])) * coords.CellVolume(k, j, i);
+        lu2_sum += SQR((prim(b, 2, k, j, i) - sums[1])) * coords.CellVolume(k, j, i);
+        lu3_sum += SQR((prim(b, 3, k, j, i) - sums[2])) * coords.CellVolume(k, j, i);
+        lB1_sum += SQR((prim(b, 5, k, j, i) - sums[3])) * coords.CellVolume(k, j, i);
+        lB2_sum += SQR((prim(b, 6, k, j, i) - sums[4])) * coords.CellVolume(k, j, i);
+        lB3_sum += SQR((prim(b, 7, k, j, i) - sums[5])) * coords.CellVolume(k, j, i);
+      },
+      rms[0], rms[1], rms[2], rms[3], rms[4], rms[5]);
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, rms.data(), 6, MPI_PARTHENON_REAL,
+                                    MPI_SUM, MPI_COMM_WORLD));
+#endif // MPI_PARALLEL
+
+  if (parthenon::Globals::my_rank == 0) {
+    std::cerr << "u' RMS is " << std::sqrt(rms[0] + rms[1] + rms[2]) << " and B' rms is "
+              << std::sqrt(rms[3] + rms[4] + rms[5]) << "\n";
+  }
+
   // Check if we have a contiguous block of data (over all rank-local blocks)
   std::array local_loc_min{
       std::numeric_limits<std::int64_t>::max(),
@@ -376,12 +439,6 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
                                                       fft.size_workspace());
   PARTHENON_REQUIRE_THROWS(pmesh->DefaultNumPartitions() == 1,
                            "Only pack_size=-1 currently supported for heffte.")
-  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-  // TODO(pgrete) check what's wrong with the variable pack (dealloc) -- especially when
-  // called within the for loop
-  auto prim = md->PackVariables(std::vector<std::string>{"prim"});
   // for (int spec_type = 0; spec_type < 3; spec_type++) {
   par_for(
       "Init FFT fields", 0, pmesh->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
