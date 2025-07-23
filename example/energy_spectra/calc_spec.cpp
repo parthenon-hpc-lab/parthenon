@@ -72,17 +72,31 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   sprintf(buff, "%s/bin/rank_%08d/Turb.full_mhd_w_bcc.%05d.bin", data_path.c_str(),
           pmb->gid, out_num);
   std::string filename = buff;
-  if (fs::exists(filename)) {
-    // Log("Loading " + filename);
-  } else {
-    Log("Cannot find " + filename);
-    PARTHENON_FAIL("Reading data failed.");
-  }
+  // Don't use to reduce number of syscalls
+  // if (fs::exists(filename)) {
+  // Log("Loading " + filename);
+  // } else {
+  // Log("Cannot find " + filename);
+  // PARTHENON_FAIL("Reading data failed.");
+  // }
   // Get size of file to know how much memory to allocate
-  std::uintmax_t filesize = fs::file_size(filename);
+  // std::uintmax_t filesize = fs::file_size(filename);
 
   // Read file
-  std::ifstream data_stream(filename, std::ios::binary);
+  std::ifstream file(filename, std::ios::binary);
+  if (!file) {
+    Log("Cannot open " + filename);
+    PARTHENON_FAIL("Reading data failed.");
+  }
+  // Read entire file in one go
+  file.seekg(0, std::istream::end);
+  std::size_t size(static_cast<size_t>(file.tellg()));
+  file.seekg(0, std::istream::beg);
+  std::string file_string(size, 0);
+  file.read(&file_string[0], size);
+  // Close file
+  file.close();
+  std::istringstream data_stream(file_string);
 
   std::string line;
   // Athena binary output version=1.1
@@ -161,8 +175,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // if (data_left != 0) {
   // PARTHENON_WARN("There's data left of size: " + std::to_string(data_left));
   // }
-  // Close file
-  data_stream.close();
 
   auto &data = pmb->meshblock_data.Get();
   auto &prim_dev = data->Get("prim").data;
