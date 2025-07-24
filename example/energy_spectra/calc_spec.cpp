@@ -67,27 +67,19 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const auto out_num = pkg->Param<int>("output_number");
   // TODO(pgrete) currentl assumes dircect block to rank match
   // TODO(pgrete) use C++20 std::format eventually
-  char buff[100];
+  char buff[1000];
   auto data_path = pin->GetString("CalcSpec", "data_path");
   sprintf(buff, "%s/bin/rank_%08d/Turb.full_mhd_w_bcc.%05d.bin", data_path.c_str(),
           pmb->gid, out_num);
   std::string filename = buff;
-  // Don't use to reduce number of syscalls
-  // if (fs::exists(filename)) {
-  // Log("Loading " + filename);
-  // } else {
-  // Log("Cannot find " + filename);
-  // PARTHENON_FAIL("Reading data failed.");
-  // }
-  // Get size of file to know how much memory to allocate
-  // std::uintmax_t filesize = fs::file_size(filename);
 
-  // Read file
+  // Open file
   std::ifstream file(filename, std::ios::binary);
   if (!file) {
     Log("Cannot open " + filename);
     PARTHENON_FAIL("Reading data failed.");
   }
+  Log("Loading " + filename);
   // Read entire file in one go
   file.seekg(0, std::istream::end);
   std::size_t size(static_cast<size_t>(file.tellg()));
