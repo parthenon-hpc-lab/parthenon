@@ -201,6 +201,8 @@ add_library(parthenon
   outputs/output_utils.hpp
   outputs/outputs.cpp
   outputs/outputs.hpp
+  outputs/outputs_package.cpp
+  outputs/outputs_package.hpp
   outputs/output_parameters.hpp
   outputs/parthenon_hdf5.cpp
   outputs/parthenon_hdf5_attributes.cpp
@@ -324,6 +326,10 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+
+  # Generated
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.cpp
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 

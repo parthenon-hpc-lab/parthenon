@@ -45,6 +45,7 @@
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
+#include "provenance.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -104,6 +105,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // open HDF5 file
   // Define output filename
   auto filename = GenerateFilename_(pin, tm, signal);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 
   // set file access property list
   H5P const acc_file = H5P::FromHIDCheck(HDF5::GenerateFileAccessProps());
@@ -149,6 +157,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
+
+    // Writing build and provenance information
+    HDF5WriteAttribute("ParthenonGitHash", provenance::PARTHENON_GIT_HASH, info_group);
+    HDF5WriteAttribute("ParthenonGitBranch", provenance::PARTHENON_GIT_BRANCH,
+                       info_group);
+    HDF5WriteAttribute("ParthenonCompiler", provenance::PARTHENON_COMPILER, info_group);
+    HDF5WriteAttribute("ParthenonBuildTimestamp", provenance::PARTHENON_BUILD_TIMESTAMP,
+                       info_group);
+    HDF5WriteAttribute("ParthenonBuildArch", provenance::PARTHENON_ARCH, info_group);
+    HDF5WriteAttribute("ParthenonBuildOptLevel", provenance::PARTHENON_OPTIMIZATION,
+                       info_group);
+
+    // Pull out Kokkos config which can contain GPU information
+    std::ostringstream kokkos_config;
+    Kokkos::print_configuration(kokkos_config);
+    HDF5WriteAttribute("KokkosConfig", kokkos_config.str(), info_group);
 
     HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
     HDF5WriteAttribute("NumDims", pm->ndim, info_group);
@@ -606,23 +630,6 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
     filename.append(file_number.str());
   }
   filename.append(FilePostfix_());
-
-  if (signal == SignalHandler::OutputSignal::none) {
-    // After file has been opened with the current number, already advance output
-    // parameters so that for restarts the file is not immediatly overwritten again.
-    // Only applies to default time-based data dumps, so that writing "now" and "final"
-    // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
-      pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-    }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
-      pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
-    }
-  }
   return filename;
 }
 

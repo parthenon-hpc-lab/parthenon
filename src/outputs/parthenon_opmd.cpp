@@ -326,7 +326,13 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                          MPI_COMM_WORLD,
 #endif
                          backend_config);
-
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
@@ -751,14 +757,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   it.close();
   series.close();
 #endif // ifndef PARTHENON_ENABLE_OPENPMD
-
-  // advance output parameters if this is not a triggered (now or final) output
-  if (signal == SignalHandler::OutputSignal::none) {
-    output_params.file_number++;
-    output_params.next_time += output_params.dt;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-  }
 }
 
 } // namespace parthenon

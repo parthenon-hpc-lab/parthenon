@@ -66,6 +66,7 @@ jobs:
         # -O0 option causes compiler issue for the navi 1030 GPU at
         # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
         run: |
+          git config --global --add safe.directory $(pwd)
           cmake -B builddir \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \

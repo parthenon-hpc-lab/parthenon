@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,6 +31,7 @@
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "outputs/restart_opmd.hpp"
+#include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
 
 using parthenon::Params;
@@ -102,7 +103,7 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
     std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
       THEN("an error is thrown") {
-        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::out_of_range);
       }
     }
     WHEN(" attempting to update a key that does not exist ") {
@@ -122,7 +123,7 @@ TEST_CASE("reset is called", "[reset]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::out_of_range);
     }
   }
 }
