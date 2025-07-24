@@ -107,20 +107,21 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::CalcSpec;
   TaskCollection tc;
 
+  PARTHENON_REQUIRE_THROWS(pmesh->DefaultNumPartitions() == 1,
+                           "Only pack_size=-1 currently supported for heffte.")
   auto partitions = pmesh->GetDefaultBlockPartitions();
-  const int num_partitions = partitions.size();
-  ParArrayHost<Real> areas("areas", num_partitions);
-  for (int k = 0; k < 3; k++) {
-    TaskRegion &async_region = tc.AddRegion(num_partitions);
-    {
-      // asynchronous region where area is computed per partition
-      for (int i = 0; i < num_partitions; i++) {
-        TaskID none(0);
-        auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-        auto get_area = async_region[i].AddTask(none, CalcSpec, md, areas, k);
-      }
-    }
+  const auto num_partitions = partitions.size();
+  auto &md = pmesh->mesh_data.Add("base", partitions[0]);
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  TaskID none(0);
+  auto task_calc_stats = region[0].AddTask(none, calculate_pi::CalcStats, md);
+
+  auto task_calc_spec = none;
+  for (int spec_type = 0; spec_type < 3; spec_type++) {
+    task_calc_spec = region[0].AddTask(task_calc_spec, CalcSpec, md, spec_type);
   }
+  auto task_write_results =
+      region[0].AddTask(task_calc_spec, calculate_pi::WriteResults, md);
 
   return tc;
 }

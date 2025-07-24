@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -23,10 +24,13 @@
 namespace fs = FS_NAMESPACE;
 
 // heffte headers
-#include "globals.hpp"
 #include "heffte.h"
 
+// ADIOS2 for outputs
+#include <adios2.h>
+
 // Parthenon Includes
+#include "globals.hpp"
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/domain.hpp>
@@ -47,6 +51,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto out_num = pin->GetInteger("CalcSpec", "output_number");
   package->AddParam("output_number", out_num);
+
   std::string field_name("prim");
   Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
              std::vector<int>({8}));
@@ -215,9 +220,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   prim_dev.DeepCopy(prim);
 }
 
-TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
-                    int spec_type) {
-
+TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md) {
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
@@ -252,6 +255,10 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
               << " and mean B is " << sums[3] << " " << sums[4] << " " << sums[5] << "\n";
   }
 
+  auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
+  pkg->AddParam("u/mean", std::vector<Real>{sums[0], sums[1], sums[2]});
+  pkg->AddParam("B/mean", std::vector<Real>{sums[3], sums[4], sums[5]});
+
   Kokkos::Array<Real, 6> rms{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
   Kokkos::parallel_reduce(
       "Calc mean components",
@@ -276,10 +283,24 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
                                     MPI_SUM, MPI_COMM_WORLD));
 #endif // MPI_PARALLEL
 
+  const auto u_rms = std::sqrt(rms[0] + rms[1] + rms[2]);
+  const auto B_rms = std::sqrt(rms[3] + rms[4] + rms[5]);
   if (parthenon::Globals::my_rank == 0) {
-    std::cerr << "u' RMS is " << std::sqrt(rms[0] + rms[1] + rms[2]) << " and B' rms is "
-              << std::sqrt(rms[3] + rms[4] + rms[5]) << "\n";
+    std::cerr << "u' RMS is " << u_rms << " and B' rms is " << B_rms << "\n";
   }
+
+  pkg->AddParam("u'/rms", u_rms);
+  pkg->AddParam("u'/rms", B_rms);
+
+  return TaskStatus::complete;
+}
+
+TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type) {
+
+  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+  auto prim = md->PackVariables(std::vector<std::string>{"prim"});
 
   // Check if we have a contiguous block of data (over all rank-local blocks)
   std::array local_loc_min{
@@ -526,39 +547,77 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> area
   }
 #endif // MPI_PARALLEL
 
+  auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
+  auto spectra_h = spectra.GetHostMirrorAndCopy();
+
+  auto add_to_results = [=](const int hist_idx) {
+    std::vector<Real> outdata(num_bins);
+    for (int i = 0; i < num_bins; i++) {
+      outdata.at(i) = spectra_h(i, hist_idx);
+    }
+    return outdata;
+  };
+  std::string spec_prefix = "spec";
+  if (spec_type == 0) {
+    spec_prefix += "/u";
+  } else if (spec_type == 1) {
+    spec_prefix += "/rhoU";
+  } else if (spec_type == 2) {
+    spec_prefix += "/B";
+  } else {
+    PARTHENON_FAIL("Unknown spec_type");
+  }
+  pkg->AddParam(spec_prefix + "/en_sum", add_to_results(0));
+  pkg->AddParam(spec_prefix + "/k_sum", add_to_results(1));
+  pkg->AddParam(spec_prefix + "/count_sum", add_to_results(2));
+
+  return TaskStatus::complete;
+}
+
+TaskStatus WriteResults(std::shared_ptr<MeshData<Real>> &md) {
   if (parthenon::Globals::my_rank == 0) {
     auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
     const auto out_num = pkg->Param<int>("output_number");
-    auto spectra_h = spectra.GetHostMirrorAndCopy();
     // and write data
-    std::ofstream outfile;
-    const std::string fname("spec_" + std::to_string(out_num) + ".csv");
+    adios2::fstream oStream("spec_" + std::to_string(out_num) + ".bp",
+                            adios2::fstream::app, MPI_COMM_SELF);
+    // const auto all_params = pkg->AllParams();
+
+    oStream.write("hello", 1.0);
+    // oStream.write("KokkosView", spectra_h.data(), {}, {},
+    // {spectra_h.size()}); //, shape, start, count);
+    // const adios2::Dims shape{Nx, Ny * static_cast<std::size_t>(size)};
+    // const adios2::Dims start{0, Ny * static_cast<std::size_t>(rank)};
+    // const adios2::Dims count{Nx, Ny};
+    // std::ofstream outfile;
+    // const std::string fname("spec_" + std::to_string(out_num) + ".csv");
     // On startup, write header
     // if (tm.ncycle == 0) {
-    if (spec_type == 0) {
-      outfile.open(fname, std::ofstream::out);
-      outfile << "# num_bins, pos spec,...\n";
-    } else {
-      outfile.open(fname, std::ofstream::out | std::ofstream::app);
-    }
+    // if (spec_type == 0) {
+    // outfile.open(fname, std::ofstream::out);
+    // outfile << "# num_bins, pos spec,...\n";
+    // } else {
+    // outfile.open(fname, std::ofstream::out | std::ofstream::app);
+    // }
     // outfile << "# cycle, time, num_bins, pos spec,...\n";
     // } else {
     // outfile.open(fname, std::ofstream::out | std::ofstream::app);
     // }
 
     // outfile << tm.ncycle << "," << tm.time << "," << num_bins;
-    outfile << num_bins;
+    // outfile << num_bins;
 
-    for (int j = 0; j < 3; j++) {
-      for (int i = 0; i < num_bins; i++) {
-        outfile << "," << spectra_h(i, j);
-      }
-    }
-    outfile << std::endl;
+    // for (int j = 0; j < 3; j++) {
+    // for (int i = 0; i < num_bins; i++) {
+    // outfile << "," << spectra_h(i, j);
+    // }
+    // }
+    // outfile << std::endl;
 
-    outfile.close();
+    // outfile.close();
+    // Calling close is mandatory!
+    oStream.close();
   }
-  // }
   return TaskStatus::complete;
 }
 

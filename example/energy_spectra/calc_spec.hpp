@@ -36,8 +36,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 // All objects here have reference semantics, so capture by value is ok.
 // TODO(JMM) A std::shared_ptr might be better.
 // Computes area on a given meshpack
-parthenon::TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md,
-                               ParArrayHost<Real> areas, int i);
+parthenon::TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type);
+parthenon::TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md);
+parthenon::TaskStatus WriteResults(std::shared_ptr<MeshData<Real>> &md);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
