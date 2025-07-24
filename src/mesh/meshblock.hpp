@@ -435,8 +435,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
-      new_block_dt_user_;
+  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor
