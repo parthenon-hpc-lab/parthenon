@@ -1,4 +1,8 @@
 #=========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for detail
+#=========================================================================================
 # (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -192,6 +196,7 @@ add_library(parthenon
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
+  outputs/output_attr.hpp
   outputs/output_utils.cpp
   outputs/output_utils.hpp
   outputs/outputs.cpp
@@ -206,10 +211,14 @@ add_library(parthenon
   outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
+  outputs/parthenon_opmd.cpp
+  outputs/parthenon_opmd.hpp
   outputs/parthenon_xdmf.hpp
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
+  outputs/restart_opmd.cpp
+  outputs/restart_opmd.hpp
 
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp
@@ -351,6 +360,10 @@ endif()
 
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+  target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 
 # For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with

@@ -72,14 +72,16 @@ struct VarInfo {
   // whether or not topological element matters.
   bool element_matters;
 
-  Triple_t<int> GetNumKJI(const IndexDomain domain) const;
+  Triple_t<int> GetPaddedNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
   int Size() const;
   // Includes topological element shape
   int TensorSize() const;
-  // Size of region that needs to be filled with 0s if not allocated
-  int FillSize(const IndexDomain domain) const;
+  // Size of region that needs to be filled with 0s if not allocated.
+  // is_padded is set to true by default as it's the assumption in the original (HDF5)
+  // output files.
+  int FillSize(const IndexDomain domain, const bool is_padded = true) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 
@@ -93,7 +95,7 @@ struct VarInfo {
       // For nx1,nx2,nx3 find max storage required in each direction
       // accross topological elements. Unused indices will be written but
       // empty.
-      auto [nx3, nx2, nx1] = GetNumKJI(domain);
+      auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
       // fill topological element, if relevant
       if (element_matters) {
         data[0] = ntop_elems;
@@ -188,6 +190,8 @@ struct VarInfo {
  private:
   // TODO(JMM): Probably nx_ and rnx_ both not necessary... but it was
   // easiest for me to reason about it this way.
+  // Note, nx_ is usually initialized to the view dimensions (i.e., padded for face and
+  // edge centered fields).
   std::array<int, VNDIM> nx_;
   std::vector<int> rnx_;
 };
@@ -219,8 +223,8 @@ struct SwarmInfo {
   std::size_t count_on_rank = 0;                // per-meshblock
   std::size_t global_offset;                    // global
   std::size_t global_count;                     // global
-  std::vector<std::size_t> counts;              // per-meshblock
-  std::vector<std::size_t> offsets;             // global
+  std::vector<std::size_t> counts;              // on local meshblocks
+  std::vector<std::size_t> offsets;             // global offset for local meshblocks
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -249,7 +253,7 @@ struct SwarmInfo {
   // Copies swarmvar to host in prep for output
   template <typename T>
   std::vector<T> FillHostBuffer(const std::string vname,
-                                ParticleVariableVector<T> &swmvarvec) {
+                                const ParticleVariableVector<T> &swmvarvec) const {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
@@ -258,6 +262,7 @@ struct SwarmInfo {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              // TODO(pgrete) understand what's doing on with the blocks here...
               std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?
@@ -313,16 +318,19 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 
 // mirror must be provided because copying done externally
 template <typename idx_t, typename Function_t>
-void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t f) {
+void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, bool is_padded, idx_t &idx,
+                     Function_t f) {
   const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
   // shape as written to or read from. contains additional padding
   // in orthogonal directions.
   // e.g., Face1-centered var is shape (N1+1)x(N2+1)x(N3+1)
   // format is
   // topological_elems x tensor_elems x block_elems
+  // If variable is written without padding, we'll cut the indices below.
   const auto shape = info.GetPaddedShapeReversed(domain);
   // TODO(JMM): Should I hide this inside VarInfo?
   auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
+  // Adjust padded indices for variables not tied to the mesh
   if (info.where == MetadataFlag({Metadata::None})) {
     kb.s = 0;
     kb.e = std::max(0, shape[4] - 1);
@@ -332,6 +340,12 @@ void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t
     ib.e = std::max(0, shape[6] - 1);
   }
   for (int topo = 0; topo < shape[0]; ++topo) {
+    // Adjust padded indices for variables not written with padding
+    if (!is_padded) {
+      kb = info.cellbounds.GetBoundsK(domain, info.topological_elements.at(topo));
+      jb = info.cellbounds.GetBoundsJ(domain, info.topological_elements.at(topo));
+      ib = info.cellbounds.GetBoundsI(domain, info.topological_elements.at(topo));
+    }
     for (int t = 0; t < shape[1]; ++t) {
       for (int u = 0; u < shape[2]; ++u) {
         for (int v = 0; v < shape[3]; ++v) {
@@ -357,9 +371,25 @@ std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
 
+// Takes a vector containing flattened data of all rank local blocks and returns the
+// flattened data over all blocks.
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
+
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);
 std::size_t MPISum(std::size_t local);
+
+// Return all variables to write, i.e., for restarts all indpendent variables and ones
+// with explicit Restart flag, but also variables explicitly defined to output in the
+// input file.
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables);
+
+// Returns a sorted vector of VarInfo associated with vars
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds);
 
 void CheckParameterInputConsistent(ParameterInput *pin);
 } // namespace OutputUtils

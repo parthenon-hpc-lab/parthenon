@@ -1,6 +1,6 @@
 #========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2021 The Parthenon collaboration
+# Copyright(C) 2021-2025 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
 # (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
@@ -49,5 +49,7 @@ else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
 endif()
+
+set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
 
 set(CMAKE_CXX_FLAGS "${MACHINE_CXX_FLAGS}" CACHE STRING "Default flags for this config")

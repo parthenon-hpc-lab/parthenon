@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -34,11 +35,15 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 #include "parameter_input.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/mpi_types.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
 
-Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
+// This function returns the max dimensions over all topological elements of the given
+// variable, i.e., it returns nx1+1, nx2+1, nx3+1 for a face centered variable.
+Triple_t<int> VarInfo::GetPaddedNumKJI(const IndexDomain domain) const {
   int nx3 = 1, nx2 = 1, nx1 = 1;
   // TODO(JMM): I know that this could be done by hand, but I'd rather
   // rely on the loop bounds machinery and this should be cheap.
@@ -92,13 +97,23 @@ int VarInfo::TensorSize() const {
   }
 }
 
-int VarInfo::FillSize(const IndexDomain domain) const {
+int VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
-  } else {
-    auto [n3, n2, n1] = GetNumKJI(domain);
+  }
+  if (is_padded) {
+    auto [n3, n2, n1] = GetPaddedNumKJI(domain);
     return ntop_elems * TensorSize() * n3 * n2 * n1;
   }
+  // Use raw info from topological elements (including some safety checks)
+  auto ncells = cellbounds.GetTotal(domain, topological_elements.at(0));
+  for (auto el_idx = 1; el_idx < ntop_elems; el_idx++) {
+    PARTHENON_REQUIRE_THROWS(
+        ncells == cellbounds.GetTotal(domain, topological_elements.at(el_idx)),
+        "All topological elements in a given output variable should have the same total "
+        "number of cells.");
+  }
+  return ntop_elems * TensorSize() * ncells;
 }
 
 // number of elements of data that describe variable shape
@@ -112,7 +127,7 @@ int VarInfo::GetNDim() const {
 std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
   std::vector<int> out = GetRawShape();
   if (where != MetadataFlag({Metadata::None})) {
-    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
     out[0] = nx3;
     out[1] = nx2;
     out[2] = nx1;
@@ -122,7 +137,7 @@ std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
 std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
   std::vector<int> out(rnx_.begin(), rnx_.end());
   if (where != MetadataFlag({Metadata::None})) {
-    auto [nx3, nx2, nx1] = GetNumKJI(domain);
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
     out[VNDIM - 3] = nx3;
     out[VNDIM - 2] = nx2;
     out[VNDIM - 1] = nx1;
@@ -290,6 +305,49 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm) {
                                });
 }
 
+template <typename T>
+std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
+  const int n_blocks_global = pm->nbtotal;
+  const int n_blocks_local = static_cast<int>(pm->block_list.size());
+
+  const int n_elem = data_local.size() / n_blocks_local;
+  PARTHENON_REQUIRE_THROWS(data_local.size() % n_blocks_local == 0,
+                           "Results from flattened input vector does not evenly divide "
+                           "into number of local blocks.");
+  std::vector<T> data_global(n_elem * n_blocks_global);
+
+  std::vector<int> counts(Globals::nranks);
+  std::vector<int> offsets(Globals::nranks);
+
+  const auto &nblist = pm->GetNbList();
+  counts[0] = n_elem * nblist[0];
+  offsets[0] = 0;
+  for (int r = 1; r < Globals::nranks; r++) {
+    counts[r] = n_elem * nblist[r];
+    offsets[r] = offsets[r - 1] + counts[r - 1];
+  }
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(data_local.data(), counts[Globals::my_rank],
+                                     MPITypeMap<T>::type(), data_global.data(),
+                                     counts.data(), offsets.data(), MPITypeMap<T>::type(),
+                                     MPI_COMM_WORLD));
+#else
+  return data_local;
+#endif
+  return data_global;
+}
+
+// explicit template instantiation
+template std::vector<std::size_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
+template std::vector<int8_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<int8_t> &data_local);
+template std::vector<int64_t>
+FlattendedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
+template std::vector<int> FlattendedLocalToGlobal(Mesh *pm,
+                                                  const std::vector<int> &data_local);
+
 // TODO(JMM): I could make this use the other loop
 // functionality/high-order functions.  but it was more code than this
 // for, I think, little benefit.
@@ -359,6 +417,35 @@ std::size_t MPISum(std::size_t val) {
       MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
+}
+
+VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
+                                    const bool restart,
+                                    const std::vector<std::string> &variables) {
+  const auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+  auto vars_to_write = GetAnyVariables(var_vec, variables);
+  if (restart) {
+    // get all vars with flag Independent OR restart
+    auto restart_vars = GetAnyVariables(
+        var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+    for (auto restart_var : restart_vars) {
+      vars_to_write.emplace_back(restart_var);
+    }
+  }
+  return vars_to_write;
+}
+
+std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
+                                    const IndexShape &cellbounds) {
+  std::vector<VarInfo> all_vars_info;
+  for (auto &v : vars) {
+    all_vars_info.emplace_back(v, cellbounds);
+  }
+
+  // sort alphabetically
+  std::sort(all_vars_info.begin(), all_vars_info.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+  return all_vars_info;
 }
 
 void CheckParameterInputConsistent(ParameterInput *pin) {

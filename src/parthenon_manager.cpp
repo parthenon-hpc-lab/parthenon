@@ -40,6 +40,7 @@
 #include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "outputs/restart_opmd.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -102,6 +103,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+    } else if (fs::path(arg.restart_filename).extension() == ".bp") {
+      restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
     } else {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
@@ -279,7 +282,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Currently supports versions 3 and 4.
   const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
+  // TODO(pgrete) figure out what to do about versions of different outputs
+  if (false && file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
     std::stringstream msg;
     msg << "File format version " << file_output_format_ver << " not supported. "
         << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
@@ -319,8 +323,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                    " is marked as sparse in restart file");
     }
 
-    max_fillsize =
-        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
+    max_fillsize = std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(
+                                              theDomain, resfile.BlockdataIsPadded())));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -331,7 +335,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
-    const auto fill_size = v_info.FillSize(theDomain);
+    const auto fill_size = v_info.FillSize(theDomain, resfile.BlockdataIsPadded());
     const auto &label = v_info.label;
 
     if (Globals::my_rank == 0) {
@@ -339,7 +343,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver, &rm);
     } catch (std::exception &ex) {
       std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
                 << label << " from restart file:" << std::endl
@@ -369,9 +373,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
       // Double note that this also needs to be update in case
       // we update the HDF5 infrastructure!
-      if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
+      // TODO(pgrete) figure out what to do about versions of different outputs
+      if (true || file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, resfile.HasGhost() != 0, index,
+            v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });

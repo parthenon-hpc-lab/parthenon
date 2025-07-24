@@ -271,9 +271,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if ((op.file_type != "hst") && (op.file_type != "rst") &&
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
         (op.file_type != "histogram")) {
-      op.variables = pin->GetOrAddVector<std::string>(block_names[iinput], "variables",
-                                                      std::vector<std::string>(),
-                                                      "variables to output");
+      // differentiating here whether a block exists or not to not add an empty
+      // parameter to the input file (which might interfere with restarts)
+      if (pin->DoesParameterExist(block_names[iinput], "variables")) {
+        op.variables = pin->GetVector<std::string>(block_names[iinput], "variables",
+                                                   "variables to output");
+      } else {
+        op.variables = std::vector<std::string>();
+      }
       // JMM: If the requested var isn't present for a given swarm,
       // it is simply not output.
       op.swarms.clear(); // Not sure this is needed
@@ -322,6 +327,20 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       pnew_type = std::make_shared<HistoryOutput>(op);
     } else if (op.file_type == "ascent") {
       pnew_type = std::make_shared<AscentOutput>(op);
+    } else if (op.file_type == "openpmd") {
+#ifdef PARTHENON_ENABLE_OPENPMD
+      const auto backend_config =
+          pin->GetOrAddString(op.block_name, "backend_config", "default");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
     } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
       pnew_type = std::make_shared<HistogramOutput>(op, pin);
