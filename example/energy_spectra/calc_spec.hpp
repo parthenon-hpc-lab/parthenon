@@ -41,7 +41,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 // Computes area on a given meshpack
 parthenon::TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
                                adios2::fstream *out_stream);
-parthenon::TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md,
+parthenon::TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, bool is_mhd,
                                 adios2::fstream *out_stream);
 } // namespace calculate_pi
 

@@ -122,11 +122,18 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   TaskRegion &region = tc.AddRegion(num_partitions);
 
   TaskID none(0);
-  auto task_calc_stats =
-      region[0].AddTask(none, calculate_pi::CalcStats, md, &out_stream);
+  const auto pkg = blocks[0]->packages.Get("calculate_pi");
+  const auto is_mhd = pkg->template Param<bool>("is_mhd");
+  auto task_calc_stats_u =
+      region[0].AddTask(none, calculate_pi::CalcStats, md, false, &out_stream);
+  if (is_mhd) {
+    auto task_calc_stats_B =
+        region[0].AddTask(none, calculate_pi::CalcStats, md, true, &out_stream);
+  }
 
   auto task_calc_spec = none;
-  for (int spec_type = 0; spec_type < 3; spec_type++) {
+  int num_spec = is_mhd ? 3 : 2;
+  for (int spec_type = 0; spec_type < num_spec; spec_type++) {
     task_calc_spec =
         region[0].AddTask(task_calc_spec, CalcSpec, md, spec_type, &out_stream);
   }

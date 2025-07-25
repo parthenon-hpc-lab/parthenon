@@ -49,6 +49,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
 
+  const auto is_mhd = pin->GetBoolean("calc_spec", "is_mhd");
+  package->AddParam("is_mhd", is_mhd);
+
   const auto out_num = pin->GetInteger("calc_spec", "output_number");
   package->AddParam("output_number", out_num);
 
@@ -283,84 +286,88 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   cons_dev.DeepCopy(cons);
 }
 
-TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, adios2::fstream *out_stream) {
+TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, bool is_mhd,
+                     adios2::fstream *out_stream) {
+  auto is_hydro = !is_mhd;
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
   auto cons = md->PackVariables(std::vector<std::string>{"cons"});
 
-  Kokkos::Array<Real, 6> sums{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+  std::string outvarname = is_mhd ? "B" : "u";
+  Kokkos::Array<Real, 3> sums{{0.0, 0.0, 0.0}};
   Kokkos::parallel_reduce(
       "Calc mean components",
       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
           {0, kb.s, jb.s, ib.s}, {cons.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
           {1, 1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
-                    Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
-                    Real &lB3_sum) {
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &l1_sum,
+                    Real &l2_sum, Real &l3_sum) {
         const auto &coords = cons.GetCoords(b);
-        const auto &rho = cons(b, 0, k, j, i);
-        lu1_sum += cons(b, 1, k, j, i) / rho * coords.CellVolume(k, j, i);
-        lu2_sum += cons(b, 2, k, j, i) / rho * coords.CellVolume(k, j, i);
-        lu3_sum += cons(b, 3, k, j, i) / rho * coords.CellVolume(k, j, i);
-        lB1_sum += cons(b, 5, k, j, i) * coords.CellVolume(k, j, i);
-        lB2_sum += cons(b, 6, k, j, i) * coords.CellVolume(k, j, i);
-        lB3_sum += cons(b, 7, k, j, i) * coords.CellVolume(k, j, i);
+        if (is_hydro) {
+          const auto &rho = cons(b, 0, k, j, i);
+          l1_sum += cons(b, 1, k, j, i) / rho * coords.CellVolume(k, j, i);
+          l2_sum += cons(b, 2, k, j, i) / rho * coords.CellVolume(k, j, i);
+          l3_sum += cons(b, 3, k, j, i) / rho * coords.CellVolume(k, j, i);
+        } else {
+          l1_sum += cons(b, 5, k, j, i) * coords.CellVolume(k, j, i);
+          l2_sum += cons(b, 6, k, j, i) * coords.CellVolume(k, j, i);
+          l3_sum += cons(b, 7, k, j, i) * coords.CellVolume(k, j, i);
+        }
       },
-      sums[0], sums[1], sums[2], sums[3], sums[4], sums[5]);
+      sums[0], sums[1], sums[2]);
 
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, sums.data(), 6, MPI_PARTHENON_REAL,
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, sums.data(), 3, MPI_PARTHENON_REAL,
                                     MPI_SUM, MPI_COMM_WORLD));
 #endif // MPI_PARALLEL
 
   if (parthenon::Globals::my_rank == 0) {
-    std::cerr << "Mean U is " << sums[0] << " " << sums[1] << " " << sums[2]
-              << " and mean B is " << sums[3] << " " << sums[4] << " " << sums[5] << "\n";
+    std::cerr << "Mean " << outvarname << " is " << sums[0] << " " << sums[1] << " "
+              << sums[2] << "\n";
   }
 
   if (parthenon::Globals::my_rank == 0) {
-    out_stream->write("u/mean", sums.data(), {}, {}, {3});
-    out_stream->write("B/mean", sums.data() + 3, {}, {}, {3});
+    out_stream->write(outvarname + "/mean", sums.data(), {}, {}, {3});
   }
 
-  Kokkos::Array<Real, 6> rms{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+  Kokkos::Array<Real, 6> rms{{0.0, 0.0, 0.0}};
   Kokkos::parallel_reduce(
       "Calc mean components",
       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
           {0, kb.s, jb.s, ib.s}, {cons.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
           {1, 1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
-                    Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
-                    Real &lB3_sum) {
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &l1_sum,
+                    Real &l2_sum, Real &l3_sum) {
         const auto &coords = cons.GetCoords(b);
-        const auto &rho = cons(b, 0, k, j, i);
-        lu1_sum +=
-            SQR((cons(b, 1, k, j, i) / rho - sums[0])) * coords.CellVolume(k, j, i);
-        lu2_sum +=
-            SQR((cons(b, 2, k, j, i) / rho - sums[1])) * coords.CellVolume(k, j, i);
-        lu3_sum +=
-            SQR((cons(b, 3, k, j, i) / rho - sums[2])) * coords.CellVolume(k, j, i);
-        lB1_sum += SQR((cons(b, 5, k, j, i) - sums[3])) * coords.CellVolume(k, j, i);
-        lB2_sum += SQR((cons(b, 6, k, j, i) - sums[4])) * coords.CellVolume(k, j, i);
-        lB3_sum += SQR((cons(b, 7, k, j, i) - sums[5])) * coords.CellVolume(k, j, i);
+        if (is_hydro) {
+          const auto &rho = cons(b, 0, k, j, i);
+          l1_sum +=
+              SQR((cons(b, 1, k, j, i) / rho - sums[0])) * coords.CellVolume(k, j, i);
+          l2_sum +=
+              SQR((cons(b, 2, k, j, i) / rho - sums[1])) * coords.CellVolume(k, j, i);
+          l3_sum +=
+              SQR((cons(b, 3, k, j, i) / rho - sums[2])) * coords.CellVolume(k, j, i);
+        } else {
+          l1_sum += SQR((cons(b, 5, k, j, i) - sums[3])) * coords.CellVolume(k, j, i);
+          l2_sum += SQR((cons(b, 6, k, j, i) - sums[4])) * coords.CellVolume(k, j, i);
+          l3_sum += SQR((cons(b, 7, k, j, i) - sums[5])) * coords.CellVolume(k, j, i);
+        }
       },
-      rms[0], rms[1], rms[2], rms[3], rms[4], rms[5]);
+      rms[0], rms[1], rms[2]);
 
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, rms.data(), 6, MPI_PARTHENON_REAL,
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, rms.data(), 3, MPI_PARTHENON_REAL,
                                     MPI_SUM, MPI_COMM_WORLD));
 #endif // MPI_PARALLEL
 
-  const auto u_rms = std::sqrt(rms[0] + rms[1] + rms[2]);
-  const auto B_rms = std::sqrt(rms[3] + rms[4] + rms[5]);
+  const auto var_rms = std::sqrt(rms[0] + rms[1] + rms[2]);
   if (parthenon::Globals::my_rank == 0) {
-    std::cerr << "u' RMS is " << u_rms << " and B' rms is " << B_rms << "\n";
+    std::cerr << outvarname << "' RMS is " << var_rms << "\n";
   }
 
   if (parthenon::Globals::my_rank == 0) {
-    out_stream->write("u'/rms", u_rms);
-    out_stream->write("B'/rms", B_rms);
+    out_stream->write(outvarname + "'/rms", var_rms);
   }
 
   return TaskStatus::complete;

@@ -49,6 +49,7 @@ nx3 = 32
 <calc_spec>
 output_number = 23
 data_path = /home/pgrete/run-athenak-turb
+is_mhd = true
 input_file_format = athenak_multifile
 input_quantities = mhd_prim_vector
 input_gamma = 1.0001
