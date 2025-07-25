@@ -60,6 +60,7 @@ struct VarInfo {
   bool is_mem_aligned; // true if Metada::CellMemAligned is set.
   bool is_sparse;
   bool is_vector;
+  bool may_not_exist;
   bool is_coordinate_field;
   IndexShape cellbounds;
   std::vector<std::string> component_labels;
@@ -139,8 +140,10 @@ struct VarInfo {
         is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
                        !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
-        is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
-        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
+        is_vector(is_vector), cellbounds(cellbounds),
+        may_not_exist(metadata.IsSet(Metadata::RestartMayNotExist)),
+        rnx_(nx_.rbegin(), nx_.rend()), ntop_elems(topological_elements.size()),
+        element_matters(ntop_elems > 1),
         is_coordinate_field(metadata.IsCoordinateField()) {
     if (num_components <= 0) {
       std::stringstream msg;

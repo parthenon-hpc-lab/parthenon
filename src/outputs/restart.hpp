@@ -127,6 +127,8 @@ class RestartReader {
 
   virtual void ReadParams(const std::string &name, Params &p) = 0;
 
+  virtual bool VariableExists(const std::string &name) const = 0;
+
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();

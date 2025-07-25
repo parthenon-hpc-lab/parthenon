@@ -98,6 +98,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
   /** added to restart dump */                                                           \
   PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
+  /** additional flag to restart saying variale may not be on disk (yet) */              \
+  PARTHENON_INTERNAL_FOR_FLAG(RestartMayNotExist)                                        \
   /** is a sparse variable */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
   /** should this variable minimize buffer use during communication */                   \

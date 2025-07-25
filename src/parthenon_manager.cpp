@@ -320,8 +320,20 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
+    auto var_exists = resfile.VariableExists(label);
     if (Globals::my_rank == 0) {
-      std::cout << "Var: " << label << ":" << vlen << std::endl;
+      std::cout << "Var: " << label << ":";
+      if (var_exists)
+        std::cout << vlen << std::endl;
+      else
+        std::cout << " does not exist on disk" << std::endl;
+    }
+    if (!var_exists) {
+      // Variable explicitly allowed to not exist on disk
+      if (v_info.may_not_exist) {
+        continue;
+      }
+      PARTHENON_THROW("Variable " + label + " expected in restart file but not found.");
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {

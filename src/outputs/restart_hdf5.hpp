@@ -107,6 +107,11 @@ class RestartReaderHDF5 : public RestartReader {
 
     return handle;
   }
+
+  bool VariableExists(const std::string &name) const override {
+    // make sure dataset exists
+    return PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT));
+  }
 #endif // ENABLE_HDF5
 
  public:
