@@ -43,7 +43,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         data = phdf("particle_tracers.out0.final.phdf")
         swarm = data.GetSwarm("tracers")
-        inds = np.argsort(swarm["id"])
+        inds = np.argsort(swarm.Get("id"))
         final_data = np.vstack((swarm.x, swarm.y, swarm.z))
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0

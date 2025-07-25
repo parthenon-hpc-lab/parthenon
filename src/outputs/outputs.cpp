@@ -256,10 +256,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                   pin->GetVector<std::string>(pib->block_name, swname + "_variables");
               op.swarms[swname].insert(varnames.begin(), varnames.end());
             }
-            // Always output x, y, and z for swarms so that they work with vis tools.
-            std::vector<std::string> coords = {swarm_position::x::name(),
-                                               swarm_position::y::name(),
-                                               swarm_position::z::name()};
+            // Always output id, x, y, and z for swarms so that they work with vis tools.
+            // Note, it's fine to add the id by default (even though it might not actually
+            // exist) because only variables that do exists are actually being written.
+            std::vector<std::string> coords = {
+                swarm_position::id::name(), swarm_position::x::name(),
+                swarm_position::y::name(), swarm_position::z::name()};
             op.swarms[swname].insert(coords.begin(), coords.end());
           }
         }
@@ -293,8 +295,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef ENABLE_HDF5
         op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
         op.write_swarm_xdmf =
-            (restart) ? false
-                      : pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+            pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
         pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl

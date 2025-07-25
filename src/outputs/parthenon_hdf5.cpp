@@ -507,6 +507,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
+    auto &uint64_vars = std::get<SwarmInfo::MapToVarVec<std::uint64_t>>(swinfo.vars);
+    for (auto &[vname, swmvarvec] : uint64_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+      SetCounts(swinfo, vinfo);
+      HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
+                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+    }
     std::vector<Real> pos_tmp; // tmp vector to (potentially) hold particle positions
     auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : rvars) {
@@ -541,9 +549,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
 
-    // If swarm does not contain an "id" object, generate a sequential
-    // one for vis.
-    if (swinfo.var_info.count("id") == 0) {
+    // If swarm does not contain the default id object, generate a sequential
+    // one for vis called "id" (to differentiate between the default one)
+    if (swinfo.var_info.count(swarm_position::id::name()) == 0) {
       std::vector<int> ids(swinfo.global_count);
       std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
       local_offset[0] = swinfo.global_offset;

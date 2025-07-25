@@ -215,6 +215,11 @@ class RestartReaderHDF5 : public RestartReader {
   };
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<std::uint64_t> &dataVec) override {
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<int> &dataVec) override {
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };

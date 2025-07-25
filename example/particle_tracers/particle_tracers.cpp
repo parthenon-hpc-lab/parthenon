@@ -30,8 +30,10 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
+#include "pack/swarm_default_names.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -146,10 +148,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
-  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
+  Metadata swarm_metadata(
+      {Metadata::Provides, Metadata::None, Metadata::NoPersistentParticleIds});
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -372,7 +374,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
   auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
   auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-  auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
@@ -390,7 +391,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         y(n) = y_min + rng_gen.drand() * (y_max - y_min);
         z(n) = z_min + rng_gen.drand() * (z_max - z_min);
-        id(n) = num_tracers * gid + n;
 
         rng_pool.free_state(rng_gen);
       });

@@ -198,7 +198,7 @@ struct SwarmVarInfo {
   std::array<int, 5> n;
   int nvar, tensor_rank;
   bool vector;
-  std::string swtype; // string for xdmf. "Int" or "Float"
+  std::string swtype; // string for xdmf. "Int", "UInt" or "Float"
   SwarmVarInfo() = default;
   SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank,
                const std::string &swtype, bool vector)
@@ -215,13 +215,14 @@ struct SwarmInfo {
   SwarmInfo() = default;
   template <typename T>
   using MapToVarVec = std::map<std::string, ParticleVariableVector<T>>;
-  std::tuple<MapToVarVec<int>, MapToVarVec<Real>> vars; // SwarmVars on each meshblock
-  std::map<std::string, SwarmVarInfo> var_info;         // size of each swarmvar
-  std::size_t count_on_rank = 0;                        // per-meshblock
-  std::size_t global_offset;                            // global
-  std::size_t global_count;                             // global
-  std::vector<std::size_t> counts;                      // per-meshblock
-  std::vector<std::size_t> offsets;                     // global
+  std::tuple<MapToVarVec<int>, MapToVarVec<Real>, MapToVarVec<std::uint64_t>>
+      vars;                                     // SwarmVars on each meshblock
+  std::map<std::string, SwarmVarInfo> var_info; // size of each swarmvar
+  std::size_t count_on_rank = 0;                // per-meshblock
+  std::size_t global_offset;                    // global
+  std::size_t global_count;                     // global
+  std::vector<std::size_t> counts;              // per-meshblock
+  std::vector<std::size_t> offsets;             // global
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -236,7 +237,14 @@ struct SwarmInfo {
     bool vector = m.IsSet(Metadata::Vector);
     auto shape = m.Shape();
     int rank = shape.size();
-    std::string t = std::is_same<T, int>::value ? "Int" : "Float";
+    std::string t;
+    if (std::is_same<T, int>::value) {
+      t = "Int";
+    } else if (std::is_same<T, std::uint64_t>::value) {
+      t = "UInt";
+    } else if (std::is_same<T, Real>::value) {
+      t = "Float";
+    }
     var_info[varname] = SwarmVarInfo(var->GetDim(6), var->GetDim(5), var->GetDim(4),
                                      var->GetDim(3), var->GetDim(2), rank, t, vector);
   }
