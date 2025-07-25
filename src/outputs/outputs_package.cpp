@@ -58,14 +58,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         msg << "You have used the next_time parameter in the " << block_name
             << " output block. This parameter is deprecated. Instead change"
             << " the output cadence with dt." << std::endl;
-        PARTHENON_THROW(msg);
+        PARTHENON_WARN(msg);
       }
       if (pin->DoesParameterExist(block_name, "next_n")) {
         std::stringstream msg;
         msg << "You have used the next_n parameter in the " << block_name
             << " output block. This parameter is deprecated. Instead change"
             << " the output cadence with dn." << std::endl;
-        PARTHENON_THROW(msg);
+        PARTHENON_WARN(msg);
       }
 
       // these are used for book-keeping

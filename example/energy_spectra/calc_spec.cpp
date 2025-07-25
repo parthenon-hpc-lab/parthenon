@@ -57,25 +57,42 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   package->AddParam("input_quantities", in_quan);
 
   int num_components;
+  std::vector<std::string> cons_labels;
   // raw rho, u_x, u_y, u_z, pressure, B_x, B_y, B_z
   if (in_quan == "mhd_prim_vector") {
     num_components = 8;
+    cons_labels =
+        std::vector<std::string>{"rho", "m_1", "m_2", "m_3", "en", "B_1", "B_2", "B_3"};
     // may include hydro or mhd, and psi field and passive scalars
   } else if (in_quan == "athenapk_cons") {
     // TODO(pgrete) this needs to be more robust and flexible
     // The following assume that this is a restart (to load data) so that all the input
     // parameters are populated
+    cons_labels.emplace_back("density");
+    cons_labels.emplace_back("momentum_density_1");
+    cons_labels.emplace_back("momentum_density_2");
+    cons_labels.emplace_back("momentum_density_3");
+    cons_labels.emplace_back("total_energy_density");
     if (pin->GetString("hydro", "fluid") == "euler") {
       num_components = 5;
     } else {
       num_components = 9;
+      cons_labels.emplace_back("magnetic_field_1");
+      cons_labels.emplace_back("magnetic_field_2");
+      cons_labels.emplace_back("magnetic_field_3");
+      cons_labels.emplace_back("magnetic_psi");
     }
-    num_components += pin->GetInteger("hydro", "nscalars");
+    const auto nscalars = pin->GetInteger("hydro", "nscalars");
+    num_components += nscalars;
+
+    for (auto i = 0; i < nscalars; i++) {
+      cons_labels.emplace_back("scalar_density_" + std::to_string(i));
+    }
   }
   // Restart flag is required so that the data is actually being read for parthenon
   // output types
   Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Restart},
-             std::vector<int>({num_components}));
+             std::vector<int>({num_components}), cons_labels);
   package->AddField("cons", m);
 
   return package;

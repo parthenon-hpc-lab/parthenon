@@ -31,7 +31,7 @@ using namespace parthenon::driver::prelude;
 class PiDriver : public Driver {
  public:
   PiDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm) : Driver(pin, fin, pm) {
-    InitializeOutputs();
+    // InitializeOutputs();
   }
 
   /// MakeTaskList and MakeTasks aren't virtual routines on `Driver`,

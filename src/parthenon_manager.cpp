@@ -189,7 +189,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-  packages.Add(OutputsPackage::Initialize(pinput.get()));
+  // TODO(pgrete) temp disabled until
+  // https://github.com/parthenon-hpc-lab/parthenon/issues/1293 is fixed
+  // packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (arg.res_flag == 0) {
