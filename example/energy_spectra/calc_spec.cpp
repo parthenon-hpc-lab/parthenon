@@ -98,6 +98,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
              std::vector<int>({num_components}), cons_labels);
   package->AddField("cons", m);
 
+  const auto mesh_size = pin->GetOrAddInteger("calc_spec", "mesh_size",
+                                              pin->GetInteger("parthenon/mesh", "nx1"));
+  package->AddParam("mesh_size", mesh_size);
+
   return package;
 }
 
@@ -460,7 +464,7 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   // level 1 should be calculated assuming a grid that is twice as large as the root
   // grid.
 
-  PARTHENON_REQUIRE_THROWS(!pmesh->adaptive, "Ask Luke about the logic here.");
+  // PARTHENON_REQUIRE_THROWS(!pmesh->adaptive, "Ask Luke about the logic here.");
   // const auto root_level = pmesh->GetRootLevel();
   // auto gnx1 =
   // static_cast<int>(pmesh->mesh_size.nx(X1DIR) * std::pow(2, level - root_level));
@@ -468,9 +472,14 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   // static_cast<int>(pmesh->mesh_size.nx(X2DIR) * std::pow(2, level - root_level));
   // auto gnx3 =
   // static_cast<int>(pmesh->mesh_size.nx(X3DIR) * std::pow(2, level - root_level));
-  const auto gnx1 = pmesh->mesh_size.nx(X1DIR);
-  const auto gnx2 = pmesh->mesh_size.nx(X2DIR);
-  const auto gnx3 = pmesh->mesh_size.nx(X3DIR);
+
+  // const auto gnx1 = pmesh->mesh_size.nx(X1DIR);
+  // const auto gnx2 = pmesh->mesh_size.nx(X2DIR);
+  // const auto gnx3 = pmesh->mesh_size.nx(X3DIR);
+  auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
+  const auto gnx1 = pkg->Param<int>("mesh_size");
+  const auto gnx2 = pkg->Param<int>("mesh_size");
+  const auto gnx3 = pkg->Param<int>("mesh_size");
 
   heffte::box3d<> real_indexes({0, 0, 0}, {gnx1 - 1, gnx2 - 1, gnx3 - 1});
   heffte::box3d<> complex_indexes({0, 0, 0}, {
@@ -627,7 +636,6 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   }
 #endif // MPI_PARALLEL
 
-  auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
   auto spectra_h = spectra.GetHostMirrorAndCopy();
 
   if (parthenon::Globals::my_rank == 0) {
