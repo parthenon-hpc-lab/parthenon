@@ -49,13 +49,34 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
 
-  auto out_num = pin->GetInteger("calc_spec", "output_number");
+  const auto out_num = pin->GetInteger("calc_spec", "output_number");
   package->AddParam("output_number", out_num);
 
-  std::string field_name("prim");
-  Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-             std::vector<int>({8}));
-  package->AddField(field_name, m);
+  // TODO(pgrete): check if we should fill ghost to calc derivatives
+  const auto in_quan = pin->GetString("calc_spec", "input_quantities");
+  package->AddParam("input_quantities", in_quan);
+
+  int num_components;
+  // raw rho, u_x, u_y, u_z, pressure, B_x, B_y, B_z
+  if (in_quan == "mhd_prim_vector") {
+    num_components = 8;
+    // may include hydro or mhd, and psi field and passive scalars
+  } else if (in_quan == "athenapk_cons") {
+    // TODO(pgrete) this needs to be more robust and flexible
+    // The following assume that this is a restart (to load data) so that all the input
+    // parameters are populated
+    if (pin->GetString("hydro", "fluid") == "euler") {
+      num_components = 5;
+    } else {
+      num_components = 9;
+    }
+    num_components += pin->GetInteger("hydro", "nscalars");
+  }
+  // Restart flag is required so that the data is actually being read for parthenon
+  // output types
+  Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Restart},
+             std::vector<int>({num_components}));
+  package->AddField("cons", m);
 
   return package;
 }
@@ -174,10 +195,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // }
 
   auto &data = pmb->meshblock_data.Get();
-  auto &prim_dev = data->Get("prim").data;
+  auto &cons_dev = data->Get("cons").data;
   auto &coords = pmb->coords;
   // initializing on host
-  auto prim = prim_dev.GetHostMirrorAndCopy();
+  auto cons = cons_dev.GetHostMirrorAndCopy();
   size_t idx = 0;
   size_t num_nans = 0;
   size_t num_zeros = 0;
@@ -185,19 +206,19 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
-          prim(n, k, j, i) = buf[idx];
+          cons(n, k, j, i) = buf[idx];
           PARTHENON_REQUIRE_THROWS(
-              !((n == 0 || n == 4) && prim(n, k, j, i) == 0),
+              !((n == 0 || n == 4) && cons(n, k, j, i) == 0),
               "[" + std::to_string(parthenon::Globals::my_rank) +
                   "] No zeros allowed for densit and energy. Found one at " +
                   std::to_string(n) + " " + std::to_string(k) + " " + std::to_string(j) +
                   " " + std::to_string(i) + " ");
 
-          if (prim(n, k, j, i) == 0.0) {
+          if (cons(n, k, j, i) == 0.0) {
             num_zeros += 1;
           }
-          if (std::isnan(prim(n, k, j, i))) {
-            prim(n, k, j, i) = 0.0;
+          if (std::isnan(cons(n, k, j, i))) {
+            cons(n, k, j, i) = 0.0;
             num_nans += 1;
           }
 
@@ -213,35 +234,61 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   PARTHENON_REQUIRE_THROWS(idx == buf.size(),
                            "Mismatch in data being read and processed");
+
+  if (pkg->Param<std::string>("input_quantities") == "mhd_prim_vector") {
+    const auto gamma = pin->GetReal("calc_spec", "input_gamma");
+    // Convert prim to cons
+    for (int k = kb.s; k <= kb.e; k++) {
+      for (int j = jb.s; j <= jb.e; j++) {
+        for (int i = ib.s; i <= ib.e; i++) {
+          auto rho = cons(0, k, j, i);
+          auto u_x = cons(1, k, j, i);
+          auto u_y = cons(2, k, j, i);
+          auto u_z = cons(3, k, j, i);
+          auto pres = cons(4, k, j, i);
+          auto B_x = cons(5, k, j, i);
+          auto B_y = cons(6, k, j, i);
+          auto B_z = cons(7, k, j, i);
+          cons(1, k, j, i) = rho * u_x;
+          cons(2, k, j, i) = rho * u_y;
+          cons(3, k, j, i) = rho * u_z;
+          cons(4, k, j, i) = 0.5 * (rho * (SQR(u_x) + SQR(u_y) + SQR(u_z)) +
+                                    (SQR(B_x) + SQR(B_y) + SQR(B_z))) +
+                             pres / (gamma - 1.0);
+        }
+      }
+    }
+  }
   // Log("idx is " + std::to_string(idx) + " and vec size is " +
   // std::to_string(buf.size()));
 
   // copy initialized vars to device
-  prim_dev.DeepCopy(prim);
+  cons_dev.DeepCopy(cons);
 }
 
 TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, adios2::fstream *out_stream) {
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-  auto prim = md->PackVariables(std::vector<std::string>{"prim"});
+  auto cons = md->PackVariables(std::vector<std::string>{"cons"});
 
   Kokkos::Array<Real, 6> sums{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
   Kokkos::parallel_reduce(
       "Calc mean components",
       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-          {0, kb.s, jb.s, ib.s}, {prim.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
+          {0, kb.s, jb.s, ib.s}, {cons.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
           {1, 1, 1, ib.e + 1 - ib.s}),
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
                     Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
                     Real &lB3_sum) {
-        const auto &coords = prim.GetCoords(b);
-        lu1_sum += prim(b, 1, k, j, i) * coords.CellVolume(k, j, i);
-        lu2_sum += prim(b, 2, k, j, i) * coords.CellVolume(k, j, i);
-        lu3_sum += prim(b, 3, k, j, i) * coords.CellVolume(k, j, i);
-        lB1_sum += prim(b, 5, k, j, i) * coords.CellVolume(k, j, i);
-        lB2_sum += prim(b, 6, k, j, i) * coords.CellVolume(k, j, i);
-        lB3_sum += prim(b, 7, k, j, i) * coords.CellVolume(k, j, i);
+        const auto &coords = cons.GetCoords(b);
+        const auto &rho = cons(b, 0, k, j, i);
+        lu1_sum += cons(b, 1, k, j, i) / rho * coords.CellVolume(k, j, i);
+        lu2_sum += cons(b, 2, k, j, i) / rho * coords.CellVolume(k, j, i);
+        lu3_sum += cons(b, 3, k, j, i) / rho * coords.CellVolume(k, j, i);
+        lB1_sum += cons(b, 5, k, j, i) * coords.CellVolume(k, j, i);
+        lB2_sum += cons(b, 6, k, j, i) * coords.CellVolume(k, j, i);
+        lB3_sum += cons(b, 7, k, j, i) * coords.CellVolume(k, j, i);
       },
       sums[0], sums[1], sums[2], sums[3], sums[4], sums[5]);
 
@@ -264,18 +311,22 @@ TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, adios2::fstream *out_s
   Kokkos::parallel_reduce(
       "Calc mean components",
       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-          {0, kb.s, jb.s, ib.s}, {prim.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
+          {0, kb.s, jb.s, ib.s}, {cons.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
           {1, 1, 1, ib.e + 1 - ib.s}),
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lu1_sum,
                     Real &lu2_sum, Real &lu3_sum, Real &lB1_sum, Real &lB2_sum,
                     Real &lB3_sum) {
-        const auto &coords = prim.GetCoords(b);
-        lu1_sum += SQR((prim(b, 1, k, j, i) - sums[0])) * coords.CellVolume(k, j, i);
-        lu2_sum += SQR((prim(b, 2, k, j, i) - sums[1])) * coords.CellVolume(k, j, i);
-        lu3_sum += SQR((prim(b, 3, k, j, i) - sums[2])) * coords.CellVolume(k, j, i);
-        lB1_sum += SQR((prim(b, 5, k, j, i) - sums[3])) * coords.CellVolume(k, j, i);
-        lB2_sum += SQR((prim(b, 6, k, j, i) - sums[4])) * coords.CellVolume(k, j, i);
-        lB3_sum += SQR((prim(b, 7, k, j, i) - sums[5])) * coords.CellVolume(k, j, i);
+        const auto &coords = cons.GetCoords(b);
+        const auto &rho = cons(b, 0, k, j, i);
+        lu1_sum +=
+            SQR((cons(b, 1, k, j, i) / rho - sums[0])) * coords.CellVolume(k, j, i);
+        lu2_sum +=
+            SQR((cons(b, 2, k, j, i) / rho - sums[1])) * coords.CellVolume(k, j, i);
+        lu3_sum +=
+            SQR((cons(b, 3, k, j, i) / rho - sums[2])) * coords.CellVolume(k, j, i);
+        lB1_sum += SQR((cons(b, 5, k, j, i) - sums[3])) * coords.CellVolume(k, j, i);
+        lB2_sum += SQR((cons(b, 6, k, j, i) - sums[4])) * coords.CellVolume(k, j, i);
+        lB3_sum += SQR((cons(b, 7, k, j, i) - sums[5])) * coords.CellVolume(k, j, i);
       },
       rms[0], rms[1], rms[2], rms[3], rms[4], rms[5]);
 
@@ -304,7 +355,7 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-  auto prim = md->PackVariables(std::vector<std::string>{"prim"});
+  auto cons = md->PackVariables(std::vector<std::string>{"cons"});
 
   // Check if we have a contiguous block of data (over all rank-local blocks)
   std::array local_loc_min{
@@ -460,24 +511,24 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   par_for(
       "Init FFT fields", 0, pmesh->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &p = prim(b);
         const auto kk = k - kb.s + loc_view(b, 2) * nx3b;
         const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
         const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
         const std::int64_t idx = (kk * nx2l + jj) * nx1l + ii;
         if (spec_type == 0) {
-          input(idx) = p(1, k, j, i);
-          input(idx + fft_size_inbox) = p(2, k, j, i);
-          input(idx + 2 * fft_size_inbox) = p(3, k, j, i);
+          const auto rho = cons(b, 0, k, j, i);
+          input(idx) = cons(b, 1, k, j, i) / rho;
+          input(idx + fft_size_inbox) = cons(b, 2, k, j, i) / rho;
+          input(idx + 2 * fft_size_inbox) = cons(b, 3, k, j, i) / rho;
         } else if (spec_type == 1) {
-          const auto sqrtrho = Kokkos::sqrt(p(0, k, j, i));
-          input(idx) = sqrtrho * p(1, k, j, i);
-          input(idx + fft_size_inbox) = sqrtrho * p(2, k, j, i);
-          input(idx + 2 * fft_size_inbox) = sqrtrho * p(3, k, j, i);
+          const auto sqrtrho_inv = 1.0 / Kokkos::sqrt(cons(b, 0, k, j, i));
+          input(idx) = sqrtrho_inv * cons(b, 1, k, j, i);
+          input(idx + fft_size_inbox) = sqrtrho_inv * cons(b, 2, k, j, i);
+          input(idx + 2 * fft_size_inbox) = sqrtrho_inv * cons(b, 3, k, j, i);
         } else if (spec_type == 2) {
-          input(idx) = p(5, k, j, i);
-          input(idx + fft_size_inbox) = p(6, k, j, i);
-          input(idx + 2 * fft_size_inbox) = p(7, k, j, i);
+          input(idx) = cons(b, 5, k, j, i);
+          input(idx + fft_size_inbox) = cons(b, 6, k, j, i);
+          input(idx + 2 * fft_size_inbox) = cons(b, 7, k, j, i);
         } else {
           PARTHENON_FAIL("Unknown spec type");
         }

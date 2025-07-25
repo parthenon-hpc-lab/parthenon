@@ -37,9 +37,6 @@ int main(int argc, char *argv[]) {
 
   pman.app_input->ProcessPackages = ProcessPackages;
 
-  // This is called on each mesh block whenever the mesh changes.
-  pman.app_input->ProblemGenerator = calculate_pi::ProblemGenerator;
-
   auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
@@ -48,6 +45,10 @@ int main(int argc, char *argv[]) {
   if (manager_status == ParthenonStatus::error) {
     pman.ParthenonFinalize();
     return 1;
+  }
+
+  if (pman.pinput->GetString("calc_spec", "input_file_format") == "athenak_multifile") {
+    pman.app_input->ProblemGenerator = calculate_pi::ProblemGenerator;
   }
 
   // This needs to be scoped so that the driver object is destructed before Finalize
