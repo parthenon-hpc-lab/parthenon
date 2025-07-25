@@ -46,7 +46,7 @@ nx1 = 32
 nx2 = 32
 nx3 = 32
 
-<CalcSpec>
+<calc_specc>
 output_number = 23
 data_path = /home/pgrete/run-athenak-turb
 

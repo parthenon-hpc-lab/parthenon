@@ -49,7 +49,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
 
-  auto out_num = pin->GetInteger("CalcSpec", "output_number");
+  auto out_num = pin->GetInteger("calc_spec", "output_number");
   package->AddParam("output_number", out_num);
 
   std::string field_name("prim");
@@ -73,7 +73,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // TODO(pgrete) currentl assumes dircect block to rank match
   // TODO(pgrete) use C++20 std::format eventually
   char buff[1000];
-  auto data_path = pin->GetString("CalcSpec", "data_path");
+  auto data_path = pin->GetString("calc_spec", "data_path");
   sprintf(buff, "%s/bin/rank_%08d/Turb.full_mhd_w_bcc.%05d.bin", data_path.c_str(),
           pmb->gid, out_num);
   std::string filename = buff;
@@ -220,7 +220,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   prim_dev.DeepCopy(prim);
 }
 
-TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md, adios2::fstream *out_stream) {
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
@@ -255,9 +255,10 @@ TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md) {
               << " and mean B is " << sums[3] << " " << sums[4] << " " << sums[5] << "\n";
   }
 
-  auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
-  pkg->AddParam("u/mean", std::vector<Real>{sums[0], sums[1], sums[2]});
-  pkg->AddParam("B/mean", std::vector<Real>{sums[3], sums[4], sums[5]});
+  if (parthenon::Globals::my_rank == 0) {
+    out_stream->write("u/mean", sums.data(), {}, {}, {3});
+    out_stream->write("B/mean", sums.data() + 3, {}, {}, {3});
+  }
 
   Kokkos::Array<Real, 6> rms{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
   Kokkos::parallel_reduce(
@@ -289,13 +290,16 @@ TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md) {
     std::cerr << "u' RMS is " << u_rms << " and B' rms is " << B_rms << "\n";
   }
 
-  pkg->AddParam("u'/rms", u_rms);
-  pkg->AddParam("u'/rms", B_rms);
+  if (parthenon::Globals::my_rank == 0) {
+    out_stream->write("u'/rms", u_rms);
+    out_stream->write("B'/rms", B_rms);
+  }
 
   return TaskStatus::complete;
 }
 
-TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type) {
+TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
+                    adios2::fstream *out_stream) {
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
@@ -550,73 +554,27 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type) {
   auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
   auto spectra_h = spectra.GetHostMirrorAndCopy();
 
-  auto add_to_results = [=](const int hist_idx) {
-    std::vector<Real> outdata(num_bins);
-    for (int i = 0; i < num_bins; i++) {
-      outdata.at(i) = spectra_h(i, hist_idx);
-    }
-    return outdata;
-  };
-  std::string spec_prefix = "spec";
-  if (spec_type == 0) {
-    spec_prefix += "/u";
-  } else if (spec_type == 1) {
-    spec_prefix += "/rhoU";
-  } else if (spec_type == 2) {
-    spec_prefix += "/B";
-  } else {
-    PARTHENON_FAIL("Unknown spec_type");
-  }
-  pkg->AddParam(spec_prefix + "/en_sum", add_to_results(0));
-  pkg->AddParam(spec_prefix + "/k_sum", add_to_results(1));
-  pkg->AddParam(spec_prefix + "/count_sum", add_to_results(2));
-
-  return TaskStatus::complete;
-}
-
-TaskStatus WriteResults(std::shared_ptr<MeshData<Real>> &md) {
   if (parthenon::Globals::my_rank == 0) {
-    auto pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("calculate_pi");
-    const auto out_num = pkg->Param<int>("output_number");
-    // and write data
-    adios2::fstream oStream("spec_" + std::to_string(out_num) + ".bp",
-                            adios2::fstream::app, MPI_COMM_SELF);
-    // const auto all_params = pkg->AllParams();
-
-    oStream.write("hello", 1.0);
-    // oStream.write("KokkosView", spectra_h.data(), {}, {},
-    // {spectra_h.size()}); //, shape, start, count);
-    // const adios2::Dims shape{Nx, Ny * static_cast<std::size_t>(size)};
-    // const adios2::Dims start{0, Ny * static_cast<std::size_t>(rank)};
-    // const adios2::Dims count{Nx, Ny};
-    // std::ofstream outfile;
-    // const std::string fname("spec_" + std::to_string(out_num) + ".csv");
-    // On startup, write header
-    // if (tm.ncycle == 0) {
-    // if (spec_type == 0) {
-    // outfile.open(fname, std::ofstream::out);
-    // outfile << "# num_bins, pos spec,...\n";
-    // } else {
-    // outfile.open(fname, std::ofstream::out | std::ofstream::app);
-    // }
-    // outfile << "# cycle, time, num_bins, pos spec,...\n";
-    // } else {
-    // outfile.open(fname, std::ofstream::out | std::ofstream::app);
-    // }
-
-    // outfile << tm.ncycle << "," << tm.time << "," << num_bins;
-    // outfile << num_bins;
-
-    // for (int j = 0; j < 3; j++) {
-    // for (int i = 0; i < num_bins; i++) {
-    // outfile << "," << spectra_h(i, j);
-    // }
-    // }
-    // outfile << std::endl;
-
-    // outfile.close();
-    // Calling close is mandatory!
-    oStream.close();
+    auto add_to_results = [=](const std::string &prefix, const int hist_idx) {
+      std::vector<Real> outdata(num_bins);
+      for (int i = 0; i < num_bins; i++) {
+        outdata.at(i) = spectra_h(i, hist_idx);
+      }
+      out_stream->write(prefix, outdata.data(), {}, {}, {outdata.size()});
+    };
+    std::string spec_prefix = "spec";
+    if (spec_type == 0) {
+      spec_prefix += "/u";
+    } else if (spec_type == 1) {
+      spec_prefix += "/rhoU";
+    } else if (spec_type == 2) {
+      spec_prefix += "/B";
+    } else {
+      PARTHENON_FAIL("Unknown spec_type");
+    }
+    add_to_results(spec_prefix + "/en_sum", 0);
+    add_to_results(spec_prefix + "/k_sum", 1);
+    add_to_results(spec_prefix + "/count_sum", 2);
   }
   return TaskStatus::complete;
 }

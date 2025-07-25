@@ -84,6 +84,11 @@ parthenon::DriverStatus PiDriver::Execute() {
   PreExecute();
 
   // pouts->MakeOutputs(pmesh, pinput);
+  if (my_rank == 0) {
+    auto out_num = pinput->GetInteger("calc_spec", "output_number");
+    out_stream.open("spec_" + std::to_string(out_num) + ".bp", adios2::fstream::out,
+                    MPI_COMM_SELF);
+  }
 
   // The tasks compute pi and store it in the param "pi_val"
   ConstructAndExecuteTaskLists<>(this);
@@ -97,6 +102,7 @@ parthenon::DriverStatus PiDriver::Execute() {
 
 void PiDriver::PiPostExecute(Real pi_val) {
   if (my_rank == 0) {
+    out_stream.close();
     std::cout << "We're done here!\n";
   }
   Driver::PostExecute(DriverStatus::complete);
@@ -113,15 +119,15 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   const auto num_partitions = partitions.size();
   auto &md = pmesh->mesh_data.Add("base", partitions[0]);
   TaskRegion &region = tc.AddRegion(num_partitions);
+
   TaskID none(0);
-  auto task_calc_stats = region[0].AddTask(none, calculate_pi::CalcStats, md);
+  auto task_calc_stats =
+      region[0].AddTask(none, calculate_pi::CalcStats, md, &out_stream);
 
   auto task_calc_spec = none;
   for (int spec_type = 0; spec_type < 3; spec_type++) {
-    task_calc_spec = region[0].AddTask(task_calc_spec, CalcSpec, md, spec_type);
+    task_calc_spec =
+        region[0].AddTask(task_calc_spec, CalcSpec, md, spec_type, &out_stream);
   }
-  auto task_write_results =
-      region[0].AddTask(task_calc_spec, calculate_pi::WriteResults, md);
-
   return tc;
 }

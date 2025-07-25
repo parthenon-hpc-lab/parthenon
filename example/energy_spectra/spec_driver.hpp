@@ -17,6 +17,9 @@
 #include <memory>
 #include <vector>
 
+// ADIOS2 for outputs
+#include <adios2.h>
+
 #include <parthenon/driver.hpp>
 
 namespace pi {
@@ -39,6 +42,9 @@ class PiDriver : public Driver {
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;
+
+ private:
+  adios2::fstream out_stream;
 
  protected:
   void PiPostExecute(Real pi_val);

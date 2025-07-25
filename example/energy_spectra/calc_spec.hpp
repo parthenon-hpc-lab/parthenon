@@ -17,6 +17,9 @@
 #include <memory>
 #include <vector>
 
+// ADIOS2 for outputs
+#include <adios2.h>
+
 // Parthenon Includes
 #include <interface/state_descriptor.hpp>
 #include <parthenon/package.hpp>
@@ -36,9 +39,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 // All objects here have reference semantics, so capture by value is ok.
 // TODO(JMM) A std::shared_ptr might be better.
 // Computes area on a given meshpack
-parthenon::TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type);
-parthenon::TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md);
-parthenon::TaskStatus WriteResults(std::shared_ptr<MeshData<Real>> &md);
+parthenon::TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
+                               adios2::fstream *out_stream);
+parthenon::TaskStatus CalcStats(std::shared_ptr<MeshData<Real>> &md,
+                                adios2::fstream *out_stream);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
