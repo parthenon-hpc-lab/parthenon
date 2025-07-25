@@ -561,7 +561,8 @@ TaskStatus CalcSpec(std::shared_ptr<MeshData<Real>> &md, int spec_type,
   // Not useing a batched transform here to keep the workspace small.
   for (int i = 0; i < 3; i++) {
     fft.forward(input.data() + i * fft.size_inbox(),
-                output.data() + i * fft.size_outbox(), workspace.data());
+                output.data() + i * fft.size_outbox(), workspace.data(),
+                heffte::scale::full);
   }
 
   const auto k_max = std::sqrt(SQR(gnx1 / 2) + SQR(gnx2 / 2) + SQR(gnx3 / 2));
