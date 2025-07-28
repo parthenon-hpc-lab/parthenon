@@ -14,10 +14,7 @@
 #ifndef UTILS_DEFAULT_RETURN_FUNCTION_HPP_
 #define UTILS_DEFAULT_RETURN_FUNCTION_HPP_
 
-#include <cstddef>
-#include <vector>
-
-#include <unordered_map>
+#include <type_traits>
 
 namespace parthenon {
 template <class return_t, return_t default_ret, class... args_t>
