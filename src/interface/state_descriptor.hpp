@@ -19,6 +19,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -33,53 +34,10 @@
 #include "outputs/output_parameters.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/default_return_function.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-
-template <class T>
-class FillDerivedWrapper {
- public:
-  FillDerivedWrapper() : func_(nullptr) {}
-  FillDerivedWrapper(std::nullptr_t) : func_(nullptr) {}
-
-  template <class F>
-  explicit FillDerivedWrapper(F &&f) {
-    assign(std::forward<F>(f));
-  }
-
-  template <class F>
-  FillDerivedWrapper &operator=(F &&f) {
-    assign(std::forward<F>(f));
-    return *this;
-  }
-
-  TaskStatus operator()(T *rc) const { return func_(rc); }
-
-  // Comparison with nullptr
-  bool operator==(std::nullptr_t) const { return !func_; }
-
-  bool operator!=(std::nullptr_t) const { return static_cast<bool>(func_); }
-
-  // Explicit boolean conversion
-  explicit operator bool() const { return static_cast<bool>(func_); }
-
- private:
-  std::function<TaskStatus(T *)> func_;
-
-  template <class F>
-  void assign(F &&f) {
-    if constexpr (std::is_same_v<std::invoke_result_t<std::decay_t<F>, T *>, void>) {
-      func_ = [f](T *rc) {
-        f(rc);
-        return TaskStatus::complete;
-      };
-    } else {
-      func_ = f;
-    }
-  }
-};
-
 // Forward declarations
 template <typename T>
 class MeshBlockData;
@@ -476,14 +434,23 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  FillDerivedWrapper<MeshBlockData<Real>> PreCommFillDerivedBlock = nullptr;
-  FillDerivedWrapper<MeshData<Real>> PreCommFillDerivedMesh = nullptr;
-  FillDerivedWrapper<MeshBlockData<Real>> PreFillDerivedBlock = nullptr;
-  FillDerivedWrapper<MeshData<Real>> PreFillDerivedMesh = nullptr;
-  FillDerivedWrapper<MeshBlockData<Real>> PostFillDerivedBlock = nullptr;
-  FillDerivedWrapper<MeshData<Real>> PostFillDerivedMesh = nullptr;
-  FillDerivedWrapper<MeshBlockData<Real>> FillDerivedBlock = nullptr;
-  FillDerivedWrapper<MeshData<Real>> FillDerivedMesh = nullptr;
+  // function_t behaves like a std::function<return_t(MeshData<Real>*)>. If the
+  // function it points to returns a TaskStatus, this is passed back to the caller.
+  // If return_t is any other type, calling function_t will return TaskStatus::complete.
+  using function_t =
+      DefaultReturnFunction<TaskStatus, TaskStatus::complete, MeshData<Real> *>;
+  using function_block_t =
+      DefaultReturnFunction<TaskStatus, TaskStatus::complete, MeshBlockData<Real> *>;
+
+  function_block_t PreCommFillDerivedBlock;
+  function_t PreCommFillDerivedMesh;
+  function_block_t PreFillDerivedBlock;
+  function_t PreFillDerivedMesh;
+  function_block_t PostFillDerivedBlock;
+  function_t PostFillDerivedMesh;
+  function_block_t FillDerivedBlock;
+  function_t FillDerivedMesh;
+
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =

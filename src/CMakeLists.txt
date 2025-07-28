@@ -277,6 +277,7 @@ add_library(parthenon
   utils/communication_buffer.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
+  utils/default_return_function.hpp
   utils/error_checking.cpp
   utils/error_checking.hpp
   utils/hash.hpp
