@@ -138,6 +138,27 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       (*pactive)[iinput] = true;
     }
 
+    // JMM: Backwards compatibility hack. Don't allow this unless
+    // we're restarting from a legacy file format.
+    if (Globals::is_restart) { // should this be pmesh->is_restart?
+      bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
+      if (next_time_exists) {
+        Real next_time = pin->GetReal(op.block_name, "next_time");
+        (*plast_times)[iinput] = next_time - dt;
+        pin->RemoveParameter(op.block_name, "next_time");
+      }
+      if (next_n_exists) {
+        int next_n = pin->GetInteger(op.block_name, "next_n");
+        (*plast_ns)[iinput] = next_n - dn;
+        pin->RemoveParameter(op.block_name, "next_n");
+      }
+      if (next_time_exists || next_n_exists) {
+        (*pfile_numbers)[iinput] = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        pin->RemoveParameter(op.block_name, "file_number");
+      }
+    }
+
     PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
                              "dt and dn are enabled for the same output block, which "
                              "is not supported. Please set at most one value >= 0.");

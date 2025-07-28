@@ -73,6 +73,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                       const SignalHandler::OutputSignal signal) {
   using namespace HDF5;
   using namespace OutputUtils;
+  // modify HDF5 error handling to throw an error
+  H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
 
   if constexpr (WRITE_SINGLE_PRECISION) {
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileSinglePrec");

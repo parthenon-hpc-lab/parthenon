@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "outputs/outputs_package.hpp"
 #include "parameter_input.hpp"
@@ -53,21 +54,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
       std::string block_name = pib->block_name;
 
-      if (pin->DoesParameterExist(block_name, "next_time")) {
-        std::stringstream msg;
-        msg << "You have used the next_time parameter in the " << block_name
-            << " output block. This parameter is deprecated. Instead change"
-            << " the output cadence with dt." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      if (pin->DoesParameterExist(block_name, "next_n")) {
-        std::stringstream msg;
-        msg << "You have used the next_n parameter in the " << block_name
-            << " output block. This parameter is deprecated. Instead change"
-            << " the output cadence with dn." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-
       // these are used for book-keeping
       block_names.push_back(block_name);
       block_numbers.push_back(atoi(outn.c_str()));
@@ -81,14 +67,30 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       // is that we want to ensure a first output is performed.
       last_times.push_back(std::numeric_limits<Real>::lowest());
       last_ns.push_back(std::numeric_limits<int>::lowest());
+
+      bool next_time_exists = pin->DoesParameterExist(block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(block_name, "next_n");
+      if (next_time_exists || next_n_exists) {
+        std::stringstream msg;
+        msg << "You have used the next_time or next_n parameter in the " << block_name
+            << " output block. This parameter is deprecated. Instead change"
+            << " the output cadence with dt or dn." << std::endl;
+        if (Globals::is_restart) {
+          if (Globals::my_rank == 0) {
+            PARTHENON_WARN(msg);
+          }
+        } else {
+          PARTHENON_THROW(msg);
+        }
+      }
     }
   }
   pkg->AddParam("block_names", block_names);
   pkg->AddParam("block_numbers", block_numbers);
-  pkg->AddParam("active", active, Params::Mutability::Restart);
-  pkg->AddParam("file_numbers", file_numbers, Params::Mutability::Restart);
-  pkg->AddParam("last_times", last_times, Params::Mutability::Restart);
-  pkg->AddParam("last_ns", last_ns, Params::Mutability::Restart);
+  pkg->AddParam("active", active, Params::Mutability::MaybeRestart);
+  pkg->AddParam("file_numbers", file_numbers, Params::Mutability::MaybeRestart);
+  pkg->AddParam("last_times", last_times, Params::Mutability::MaybeRestart);
+  pkg->AddParam("last_ns", last_ns, Params::Mutability::MaybeRestart);
 
   return pkg;
 }

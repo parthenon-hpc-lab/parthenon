@@ -275,6 +275,7 @@ class ParameterInput {
     SetQueryDependency_(block, name, ref);
     return ret;
   }
+  void RemoveParameter(const std::string &block, const std::string &name);
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;

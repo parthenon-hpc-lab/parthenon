@@ -39,7 +39,12 @@ class Params {
   // Immutable is default. Mutable is it can be updated at runtime.
   // Restart is a subset of mutable. Param not only can be updated at
   // runtime, but should be read from the restart file upon restart.
-  enum class Mutability : int { Immutable = 0, Mutable = 1, Restart = 2 };
+  enum class Mutability : int {
+    Immutable = 0,
+    Mutable = 1,
+    Restart = 2,
+    MaybeRestart = 3
+  };
 
   Params() {}
 
@@ -66,7 +71,7 @@ class Params {
   void Update(const std::string &key, T value) {
     PARTHENON_REQUIRE_THROWS((hasKey(key)), "Key " + key + "missing.");
     // immutable casts to false all others cast to true
-    PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
+    PARTHENON_REQUIRE_THROWS(IsMutable(key),
                              "Parameter " + key + " must be marked as mutable");
     PARTHENON_REQUIRE_THROWS(std::type_index(myParams_.at(key)->type()) ==
                                  std::type_index(typeid(T)),
@@ -128,6 +133,16 @@ class Params {
       keys.push_back(x.first);
     }
     return keys;
+  }
+
+  auto GetMutability(const std::string &key) const { return myMutable_.at(key); }
+  bool IsMutable(const std::string &key) const {
+    return static_cast<bool>(myMutable_.at(key));
+  }
+  bool IsRestartable(const std::string &key) const {
+    auto mutability = myMutable_.at(key);
+    return (mutability == Mutability::Restart) ||
+           (mutability == Mutability::MaybeRestart);
   }
 
   // void Params::
