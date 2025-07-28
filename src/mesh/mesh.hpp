@@ -96,6 +96,9 @@ class Mesh {
        Packages_t &packages, int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
+  static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
+                                         const RegionSize &mesh_size);
+  static std::pair<RegionSize, RegionSize> GetRegionSizes(ParameterInput *pin);
   ~Mesh();
 
   // accessors
