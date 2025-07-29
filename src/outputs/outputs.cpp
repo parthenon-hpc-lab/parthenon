@@ -145,12 +145,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
       if (next_time_exists) {
         Real next_time = pin->GetReal(op.block_name, "next_time");
-        (*plast_times)[iinput] = next_time - dt;
+        (*plast_times)[iinput] = dt < 0 ? 0.0 : next_time - dt;
         pin->RemoveParameter(op.block_name, "next_time");
       }
       if (next_n_exists) {
         int next_n = pin->GetInteger(op.block_name, "next_n");
-        (*plast_ns)[iinput] = next_n - dn;
+
+        (*plast_ns)[iinput] = dn < 0 ? 0 : next_n - dn;
         pin->RemoveParameter(op.block_name, "next_n");
       }
       if (next_time_exists || next_n_exists) {
