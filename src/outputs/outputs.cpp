@@ -140,7 +140,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
     // JMM: Backwards compatibility hack. Don't allow this unless
     // we're restarting from a legacy file format.
-    if (Globals::is_restart) { // should this be pmesh->is_restart?
+    if (pm->is_restart) {
       bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
       bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
       if (next_time_exists) {

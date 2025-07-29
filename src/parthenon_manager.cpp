@@ -72,8 +72,6 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
 
-  Globals::is_restart = IsRestart();
-
   Kokkos::initialize(argc, argv);
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
@@ -98,7 +96,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
-  if (arg.res_flag != 0) {
+  if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
@@ -115,7 +113,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.res_flag != 0) {
+    if (arg.is_restart) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -186,10 +184,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-  packages.Add(OutputsPackage::Initialize(pinput.get()));
+  packages.Add(OutputsPackage::Initialize(pinput.get(), arg.is_restart));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
-  } else if (arg.res_flag == 0) {
+  } else if (!arg.is_restart) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
@@ -234,7 +232,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }

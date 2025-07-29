@@ -31,7 +31,7 @@ class StateDescriptor;
 
 namespace OutputsPackage {
 
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, bool is_restart);
 
 } // namespace OutputsPackage
 } // namespace parthenon

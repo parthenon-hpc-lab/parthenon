@@ -51,12 +51,12 @@ class ArgParse {
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           restart_filename = argv[++i];
           break;
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           analysis_flag = true;
           restart_filename = argv[++i];
           break;
@@ -135,7 +135,7 @@ class ArgParse {
   char *prundir = nullptr;
   char *params_regex = nullptr;
   bool analysis_flag = false;
-  int res_flag = 0;
+  bool is_restart = false;
   int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
