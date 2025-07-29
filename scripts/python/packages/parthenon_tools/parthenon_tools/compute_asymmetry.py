@@ -36,10 +36,19 @@ def compute_asymmetry(f, varname):
     for b in range(ylocs.shape[0]):
         bb = matches[b]
         if np.any(ylocs[b] >= 0):
-            for d in range(var_diff.shape[1]):
-                sign = -1 if (var.shape[1] == 3) and d == 1 else 1
-                var_diff[b, d] = var[b, d] - sign * np.flip(var[bb, d], axis=-2)
-                var_diff[bb, d] = var[bb, d] - sign * np.flip(var[b, d], axis=-2)
+            if len(var_diff.shape) > 5:
+                for d in range(var_diff.shape[1]):
+                    sign1 = -1 if (var.shape[1] == 3) and d == 1 else 1
+                    for dd in range(var_diff.shape[2]):
+                        sign2 = -1 if (var.shape[2] == 3) and dd == 1 else 1
+                        sign = sign1 * sign2
+                        var_diff[b, d, dd] = var[b, d, dd] - sign * np.flip(var[bb, d, dd], axis=-2)
+                        var_diff[bb, d, dd] = var[bb, d, dd] - sign * np.flip(var[b, d, dd], axis=-2)
+            else:
+                for d in range(var_diff.shape[1]):
+                    sign = -1 if (var.shape[1] == 3) and d == 1 else 1
+                    var_diff[b, d] = var[b, d] - sign * np.flip(var[bb, d], axis=-2)
+                    var_diff[bb, d] = var[bb, d] - sign * np.flip(var[b, d], axis=-2)
 
     return var_diff
 
