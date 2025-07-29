@@ -39,12 +39,7 @@ class Params {
   // Immutable is default. Mutable is it can be updated at runtime.
   // Restart is a subset of mutable. Param not only can be updated at
   // runtime, but should be read from the restart file upon restart.
-  enum class Mutability : int {
-    Immutable = 0,
-    Mutable = 1,
-    Restart = 2,
-    MaybeRestart = 3
-  };
+  enum class Mutability : int { Immutable = 0, Mutable = 1, Restart = 2 };
 
   Params() {}
 
@@ -138,11 +133,6 @@ class Params {
   auto GetMutability(const std::string &key) const { return myMutable_.at(key); }
   bool IsMutable(const std::string &key) const {
     return static_cast<bool>(myMutable_.at(key));
-  }
-  bool IsRestartable(const std::string &key) const {
-    auto mutability = myMutable_.at(key);
-    return (mutability == Mutability::Restart) ||
-           (mutability == Mutability::MaybeRestart);
   }
 
   // void Params::

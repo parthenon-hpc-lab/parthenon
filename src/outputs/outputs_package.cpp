@@ -77,6 +77,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
             << " the output cadence with dt or dn." << std::endl;
         if (Globals::is_restart) {
           if (Globals::my_rank == 0) {
+            msg << "The parameters will automatically be updated internally and the "
+                   "warning should not be shown for subsequent "
+                   "restarts.\n";
             PARTHENON_WARN(msg);
           }
         } else {
@@ -87,10 +90,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam("block_names", block_names);
   pkg->AddParam("block_numbers", block_numbers);
-  pkg->AddParam("active", active, Params::Mutability::MaybeRestart);
-  pkg->AddParam("file_numbers", file_numbers, Params::Mutability::MaybeRestart);
-  pkg->AddParam("last_times", last_times, Params::Mutability::MaybeRestart);
-  pkg->AddParam("last_ns", last_ns, Params::Mutability::MaybeRestart);
+  pkg->AddParam("active", active, Params::Mutability::Restart);
+  pkg->AddParam("file_numbers", file_numbers, Params::Mutability::Restart);
+  pkg->AddParam("last_times", last_times, Params::Mutability::Restart);
+  pkg->AddParam("last_ns", last_ns, Params::Mutability::Restart);
 
   return pkg;
 }

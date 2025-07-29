@@ -184,10 +184,9 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
     ss << "<block1>" << std::endl
        << "var1 = 0   # comment" << std::endl
        << "<block2>" << std::endl
-       << "var2 = 2"
-       << std::endl
+       << "var2 = 2" << std::endl;
 
-              std::istringstream s(ss.str());
+    std::istringstream s(ss.str());
     in.LoadFromStream(s);
 
     THEN("block1/var1 exists") { REQUIRE(in.DoesParameterExist("block1", "var1")); }

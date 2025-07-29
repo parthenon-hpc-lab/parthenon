@@ -58,25 +58,19 @@ void Params::ReadFromHDF5AllParamsOfType(const std::string &prefix,
                                          const HDF5::H5G &group) {
   for (auto &[key, pparam] : myParams_) {
     if (std::type_index(pparam->type()) == std::type_index(typeid(T)) &&
-        IsRestartable(key)) {
-      auto mutability = myMutable_.at(key);
+        GetMutability(key) == Mutability::Restart) {
       auto typed_ptr = std::any_cast<T>(pparam.get());
       auto &val = *typed_ptr;
       std::string fullpath = prefix + "/" + key;
-      if (mutability == Mutability::Restart) {
+      try {
         HDF5::HDF5ReadAttribute(group, fullpath, val);
         Update(key, val);
-      } else if (mutability == Mutability::MaybeRestart) {
-        try {
-          HDF5::HDF5ReadAttribute(group, fullpath, val);
-          Update(key, val);
-        } catch (std::runtime_error e) {
-          if (Globals::my_rank == 0) {
-            std::stringstream ss;
-            ss << "Failed to load parameter " << fullpath
-               << " from the restart file! Using default value." << std::endl;
-            PARTHENON_WARN(ss);
-          }
+      } catch (std::runtime_error e) {
+        if (Globals::my_rank == 0) {
+          std::stringstream ss;
+          ss << "Failed to load parameter " << fullpath
+             << " from the restart file! Using default value." << std::endl;
+          PARTHENON_WARN(ss);
         }
       }
     }
