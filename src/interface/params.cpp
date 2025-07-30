@@ -66,6 +66,7 @@ void Params::ReadFromHDF5AllParamsOfType(const std::string &prefix,
         HDF5::HDF5ReadAttribute(group, fullpath, val);
         Update(key, val);
       } catch (std::runtime_error e) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
         if (Globals::my_rank == 0) {
           std::stringstream ss;
           ss << "Failed to load parameter " << fullpath
