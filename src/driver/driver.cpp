@@ -67,20 +67,19 @@ void Driver::DumpInputParameters() {
 }
 
 void Driver::PreExecute() {
-  bool check_orphans =
-      pinput->GetOrAddBoolean("parthenon/job", "check_orphans", true,
-                              "Print a warning if any parameters are in the input deck "
-                              "but not used in the code. Only active for new runs.");
-  bool force_check_orphans = pinput->GetOrAddBoolean(
-      "parthenon/job", "force_check_orphans", false,
-      "Print a warning if any parameters are in the input deck "
-      "but not used in the code. Forces this output even on restart.");
+  std::string check_orphans = pinput->GetOrAddString(
+      "parthenon/job", "check_orphans", "initially",
+      std::vector<std::string>{"always", "initially", "never"},
+      "Print a warning if any parameters are in the input deck but not used in the code. "
+      "By default this check is performed for new runs, but can also be enabled for "
+      "restarts or completely disabled.");
   // Output a text file of all parameters at this point
   // Optionally also dump to console
   DumpInputParameters();
 
   if (Globals::my_rank == 0) {
-    if (force_check_orphans || (!Globals::is_restart && check_orphans)) {
+    if ((check_orphans == "always") ||
+        (!Globals::is_restart && (check_orphans == "initially"))) {
       pinput->CheckOrphans();
     }
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
