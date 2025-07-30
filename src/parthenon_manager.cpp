@@ -22,6 +22,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -334,17 +335,25 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
+    auto var_missing_on_disk = !resfile.VariableExists(label);
     if (Globals::my_rank == 0) {
-      std::cout << "Var: " << label << ":" << vlen << std::endl;
+      std::cout << "Var: " << label << ":" << vlen
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
+    }
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
     try {
       resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
-      std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
-                << label << " from restart file:" << std::endl
-                << ex.what() << std::endl;
-      continue;
+      std::stringstream msg;
+      msg << "[" << Globals::my_rank << "] WARNING: Failed to read variable " << label
+          << " from restart file:" << std::endl
+          << ex.what() << std::endl;
+      PARTHENON_THROW(msg);
     }
 
     size_t index = 0;
