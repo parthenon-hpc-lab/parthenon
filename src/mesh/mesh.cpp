@@ -89,8 +89,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
       pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
-      do_coalesced_comms{
-          pin->GetOrAddBoolean("parthenon/mesh", "do_coalesced_comms", false)} {
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =

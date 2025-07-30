@@ -9,6 +9,7 @@ block,parameters,type,default,description
 "parthenon/loadbalancing","tolerance","Real","0.5","load balancer tolerance"
 "","","","",""
 "parthenon/mesh","derefine_count","int","10","number of iterations a block must request derefinement before it is derefined"
+"parthenon/mesh","do_coalesced_comms","bool","0","Use coalesced MPI messages for inter-block communication"
 "parthenon/mesh","ix1_bc","string","outflow","global mesh boundary condition on inner X1 face"
 "parthenon/mesh","ix2_bc","string","outflow","global mesh boundary condition on inner X2 face"
 "parthenon/mesh","ix3_bc","string","outflow","global mesh boundary condition on inner X3 face"
