@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -38,6 +38,7 @@ struct SparseConfig {
 };
 
 extern int my_rank, nranks, nghost;
+extern bool is_restart;
 
 extern SparseConfig sparse_config;
 

@@ -140,7 +140,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
     // JMM: Backwards compatibility hack. Don't allow this unless
     // we're restarting from a legacy file format.
-    if (pm->is_restart) {
+    if (parthenon::Globals::is_restart) {
       bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
       bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
       if (next_time_exists) {
@@ -185,7 +185,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         signaling number. However, I think the flag is less fraught.
       */
       if (dt >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -193,7 +193,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {

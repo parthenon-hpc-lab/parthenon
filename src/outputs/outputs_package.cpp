@@ -34,7 +34,7 @@ namespace parthenon {
 
 namespace OutputsPackage {
 
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, const bool is_restart) {
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Outputs");
 
   std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
@@ -75,7 +75,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin, const bool is_r
         msg << "You have used the next_time or next_n parameter in the " << block_name
             << " output block. This parameter is deprecated. Instead change"
             << " the output cadence with dt or dn." << std::endl;
-        if (is_restart) {
+        if (parthenon::Globals::is_restart) {
           if (Globals::my_rank == 0) {
             msg << "The parameters will automatically be updated internally and the "
                    "warning should not be shown for subsequent "

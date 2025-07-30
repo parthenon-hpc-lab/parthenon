@@ -89,6 +89,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
   }
+  // Now that the input is parsed we can pass the info to globals
+  Globals::is_restart = arg.is_restart;
 
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
@@ -184,7 +186,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-  packages.Add(OutputsPackage::Initialize(pinput.get(), arg.is_restart));
+  packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (!arg.is_restart) {
