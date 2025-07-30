@@ -585,9 +585,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
 
-    // If swarm does not contain the default id object, generate a sequential
-    // one for vis called "id" (to differentiate between the default one)
-    if (swinfo.var_info.count(swarm_position::id::name()) == 0) {
+    // If swarm does not contain the default id object nor a custom one called "id",
+    // generate a sequential one for vis called "id" (to differentiate between the default
+    // one)
+    if (swinfo.var_info.count(swarm_position::id::name()) == 0 &&
+        swinfo.var_info.count("id") == 0) {
       std::vector<int> ids(swinfo.global_count);
       std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
       local_offset[0] = swinfo.global_offset;
