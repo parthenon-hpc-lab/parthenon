@@ -68,8 +68,9 @@ void Driver::DumpInputParameters() {
 
 void Driver::PreExecute() {
   bool check_orphans = pinput->GetOrAddBoolean(
-      "parthenon/job", "check_orphans", true,
-      "print a warning if any parameters are in the input deck but not used in the code");
+      "parthenon/job", "check_orphans", !Globals::is_restart,
+      "Print a warning if any parameters are in the input deck but not used in the code. "
+      "Defaults to true for new runs and false for restarts");
   // Output a text file of all parameters at this point
   // Optionally also dump to console
   DumpInputParameters();
