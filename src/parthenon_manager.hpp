@@ -81,6 +81,7 @@ class ParthenonManager {
                                   Globals::my_rank, swarmname.c_str(), varname.c_str(),
                                   ex.what())
                   << std::endl;
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
         continue;
       }
 

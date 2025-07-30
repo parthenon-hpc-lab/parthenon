@@ -392,8 +392,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
+    auto var_missing_on_disk = !resfile.VariableExists(swarmname);
     if (Globals::my_rank == 0) {
-      std::cout << "Swarm: " << swarmname << std::endl;
+      std::cout << "Swarm: " << swarmname
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
+    }
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
     }
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =

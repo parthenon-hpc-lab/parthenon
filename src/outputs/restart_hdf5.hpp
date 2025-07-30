@@ -228,6 +228,10 @@ class RestartReaderHDF5 : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
+  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+    // make sure dataset exists
+    return PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT));
+  }
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();
