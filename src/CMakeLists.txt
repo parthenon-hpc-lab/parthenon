@@ -317,6 +317,10 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+
+  # Generated
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.cpp
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 

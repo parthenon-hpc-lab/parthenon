@@ -75,6 +75,7 @@ endif()
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
+
 # regression test reference data
 set(REGRESSION_GOLD_STANDARD_VER 27 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
@@ -124,6 +125,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+
+# Provenance / build information
+include("cmake/Provenance.cmake")
+CheckGitSetup()
 
 # Require C++17's std::filesystem
 # This is fully standard, but links a separate library when using old compilers
@@ -396,6 +401,9 @@ endif()
 include(GNUInstallDirs)
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
+set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
+  "Path to save generated data for docs.")
+
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(benchmarks)
@@ -404,6 +412,13 @@ create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+
+if (NOT PARTHENON_DISABLE_EXAMPLES)
+  add_custom_target(param-docs
+    DEPENDS
+    burgers-csv
+    diffusion-csv)
+endif()
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.
