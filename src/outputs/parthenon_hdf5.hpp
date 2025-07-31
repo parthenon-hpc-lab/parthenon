@@ -47,6 +47,12 @@
 namespace parthenon {
 namespace HDF5 {
 
+inline herr_t aborting_error_handler(hid_t stack, void *client_data) {
+  H5Eprint2(stack, stderr);
+  PARTHENON_THROW("HDF5 error detected! Erroring out\n");
+  return -1;
+}
+
 hid_t GenerateFileAccessProps();
 H5G MakeGroup(hid_t file, const std::string &name);
 

@@ -138,6 +138,28 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       (*pactive)[iinput] = true;
     }
 
+    // JMM: Backwards compatibility hack. Don't allow this unless
+    // we're restarting from a legacy file format.
+    if (parthenon::Globals::is_restart) {
+      bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
+      if (next_time_exists) {
+        Real next_time = pin->GetReal(op.block_name, "next_time");
+        (*plast_times)[iinput] = dt < 0 ? 0.0 : next_time - dt;
+        pin->RemoveParameter(op.block_name, "next_time");
+      }
+      if (next_n_exists) {
+        int next_n = pin->GetInteger(op.block_name, "next_n");
+
+        (*plast_ns)[iinput] = dn < 0 ? 0 : next_n - dn;
+        pin->RemoveParameter(op.block_name, "next_n");
+      }
+      if (next_time_exists || next_n_exists) {
+        (*pfile_numbers)[iinput] = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        pin->RemoveParameter(op.block_name, "file_number");
+      }
+    }
+
     PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
                              "dt and dn are enabled for the same output block, which "
                              "is not supported. Please set at most one value >= 0.");
@@ -163,7 +185,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         signaling number. However, I think the flag is less fraught.
       */
       if (dt >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -171,7 +193,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {

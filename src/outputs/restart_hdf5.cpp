@@ -50,6 +50,8 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
       << "is required for restarts" << std::endl;
   PARTHENON_FAIL(msg);
 #else  // HDF5 enabled
+  // modify HDF5 error handling to throw an error
+  H5Eset_auto(H5E_DEFAULT, HDF5::aborting_error_handler, NULL);
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
