@@ -940,7 +940,12 @@ void ParameterInput::RemoveParameter(const std::string &block, const std::string
   bool deleted = false;
   for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
     if (name.compare(pl->param_name) == 0) {
-      plast->pnext = pl->pnext;
+      // if head of list
+      if (plast == pb->pline) {
+        pb->pline = pl->pnext;
+      } else {
+        plast->pnext = pl->pnext;
+      }
       delete pl;
       deleted = true;
       break;

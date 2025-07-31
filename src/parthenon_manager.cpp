@@ -345,6 +345,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       continue;
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
+    // because sparse variables are currently densely written for HDF5.
     try {
       resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
       // Variable does exist but could not be read. So we definitely want to fail here.
