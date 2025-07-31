@@ -325,9 +325,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // make sure we have all sparse variables that are in the restart file
   PARTHENON_REQUIRE_THROWS(
-      num_sparse == sparse_info.num_sparse,
+      num_sparse <= sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
-
   std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;

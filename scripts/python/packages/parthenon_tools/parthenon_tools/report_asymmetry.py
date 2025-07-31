@@ -18,9 +18,6 @@ from argparse import ArgumentParser
 
 import os
 
-sys.path.insert(
-    0, "../external/parthenon/scripts/python/packages/parthenon_tools/parthenon_tools"
-)
 import h5py
 from compute_asymmetry import compute_asymmetry
 
@@ -39,15 +36,15 @@ if __name__ == "__main__":
         with h5py.File(fname, "r") as f:
             print(f"Computing asymmetry in {fname} for vars...")
             for k, v in f.items():
-                # Try to exclude face- and edge-centered data
-                if (type(v) == dset_type) and ("bnd_flux" not in k):
+                if (type(v) == dset_type):
                     if len(v.shape) > 2:
                         print(f"\t...{k}:")
                         try:
                             var_diff = compute_asymmetry(f, k)
                             print(
-                                "\t\t{:14e} out of {:14e}".format(
-                                    np.max(np.abs(var_diff)), np.max(np.abs(f[k]))
+                                "\t\t{:14e} / {:14e} : {:14e}".format(
+                                    np.max(np.abs(var_diff)), np.max(np.abs(f[k])),
+                                    np.max(np.abs(var_diff)) / (np.max(np.abs(f[k])) + 1e-100),
                                 )
                             )
                         except ValueError:

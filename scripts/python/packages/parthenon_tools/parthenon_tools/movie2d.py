@@ -250,6 +250,14 @@ def plot_dump(
     qmin = qm.min()
     qmax = qm.max()
 
+    # Removes a visual quirk where matplotlib plots things at totally
+    # random colors if a field is exactly zero
+    qmin = min(qmin, -qmax)
+    qmax = max(qmax, -qmin)
+    if qmin == qmax == 0:
+        qmin = -1e-14
+        qmax = 1e-14
+
     n_blocks = q.shape[0]
     for i in range(n_blocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true/false

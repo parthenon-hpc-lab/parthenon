@@ -170,7 +170,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   FC_t flags({Metadata::Independent, Metadata::FillGhost}, true);
   // Toss in RemeshComm for this one
   const auto vars =
-      real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
+    real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true), {},
+                                       FluxRequest::Any)
           .vars();
   for (const auto &v : vars)
     vars_cc_.push_back(v);
