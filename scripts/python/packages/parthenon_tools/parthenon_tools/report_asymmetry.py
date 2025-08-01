@@ -53,5 +53,5 @@ if __name__ == "__main__":
     for k, vals in asym_fields.items():
         absdiff,absval,frac_diff = vals
         print(
-            "{:<20}:\t{:14e} / {:14e}:\t{:14e}".format(
+            "{:<50}:\t{:14e} / {:14e}:\t{:14e}".format(
                 k, absdiff, absval, frac_diff))
