@@ -152,6 +152,9 @@ class OpenPMDOutput : public OutputType {
       : OutputType(oparams), backend_config_(std::move(backend_config)) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+  template <bool WRITE_SINGLE_PRECISION>
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                           const SignalHandler::OutputSignal signal);
 
  private:
   //  path to file containing config passed to backend

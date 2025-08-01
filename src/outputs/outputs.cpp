@@ -228,26 +228,32 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
                                 (op.file_type == "corehdf5");
+    const bool is_openpmd_output = (op.file_type == "openpmd");
 
-    if (is_hdf5_output) {
+    if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+    } else {
+      op.single_precision_output = false;
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN(warn);
+        }
+      }
+    }
+
+    if (is_hdf5_output) {
       op.sparse_seed_nans =
           pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
                                "write non-allocated sparse data as NaN");
       op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
                                              "which meshdata object to write from");
     } else {
-      op.single_precision_output = false;
       op.sparse_seed_nans = false;
-
-      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-        std::stringstream warn;
-        warn << "Output option single_precision_output only applies to "
-                "HDF5 outputs or restarts. Ignoring it for output block '"
-             << op.block_name << "'";
-        PARTHENON_WARN(warn);
-      }
     }
 
     if (is_hdf5_output) {

@@ -294,7 +294,7 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 
 //----------------------------------------------------------------------------------------
 //! \fn void OpenPMDOutput:::WriteOutputFile(Mesh *pm)
-//  \brief  Expose mesh and all Cell variables for processing with Ascent
+//  \brief  Write output in OpenPMD format
 void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                     const SignalHandler::OutputSignal signal) {
 #ifndef PARTHENON_ENABLE_OPENPMD
@@ -303,6 +303,31 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                    "compiled in. Skipping this output type.");
   }
 #else
+  if (output_params.single_precision_output) {
+    this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
+  } else {
+    this->template WriteOutputFileImpl<false>(pm, pin, tm, signal);
+  }
+#endif // ifndef PARTHENON_ENABLE_OPENPMD
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void OpenPMDOutput:::WriteOutputFile(Mesh *pm)
+//  \brief  Write output in OpenPMD format
+template <bool WRITE_SINGLE_PRECISION>
+void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                        const SignalHandler::OutputSignal signal) {
+#ifndef PARTHENON_ENABLE_OPENPMD
+  if (Globals::my_rank == 0) {
+    PARTHENON_WARN("OpenPMD output requested by input file, but OpenPMD support not "
+                   "compiled in. Skipping this output type.");
+  }
+#else
+  if constexpr (WRITE_SINGLE_PRECISION) {
+    Kokkos::Profiling::pushRegion("OPMD::WriteOutputFileSinglePrec");
+  } else {
+    Kokkos::Profiling::pushRegion("OPMD::WriteOutputFileRealPrec");
+  }
   // Check that the parameter input is safe to write (i.e., consistent across ranks)
   OutputUtils::CheckParameterInputConsistent(pin);
 
@@ -329,13 +354,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                          MPI_COMM_WORLD,
 #endif
                          backend_config);
-  if (signal == SignalHandler::OutputSignal::none) {
-    // After file has been opened with the current number, already advance output
-    // parameters so that for restarts the file is not immediatly overwritten again.
-    // Only applies to default time-based data dumps, so that writing "now" and "final"
-    // outputs does not change the desired output numbering.
-    UpdateNextOutput_(pm, tm);
-  }
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
@@ -355,6 +373,14 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // TODO(pgrete) fix iteration name <-> file naming
   auto it = series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
+
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 
   auto const &first_block = *(pm->block_list.front());
 
@@ -529,10 +555,7 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     var_size_max = std::max(var_size_max, var_size);
   }
 
-  // TODO(pgrete) adjust for single prec output
-  // openPMD::Datatype dtype = openPMD::determineDatatype<Real>();
-  using OutT =
-      Real; // typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
+  using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
   std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
 
   // for each variable we write
@@ -760,7 +783,15 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // An iteration once closed cannot (yet) be reopened.
   it.close();
   series.close();
+  Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 #endif // ifndef PARTHENON_ENABLE_OPENPMD
 }
+// explicit template instantiation
+template void
+OpenPMDOutput::WriteOutputFileImpl<true>(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                         const SignalHandler::OutputSignal signal);
+template void
+OpenPMDOutput::WriteOutputFileImpl<false>(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                          const SignalHandler::OutputSignal signal);
 
 } // namespace parthenon
