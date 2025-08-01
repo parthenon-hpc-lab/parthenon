@@ -50,7 +50,7 @@ if __name__ == "__main__":
                         except ValueError:
                             print("\t\tcorrupted!")
     print("The following fields had non-trivial asymmetry:")
-    for k, vals in asym_fields:
+    for k, vals in asym_fields.items():
         absdiff,absval,frac_diff = vals
         print(
             "{} : {:14e} / {:14e} : {:14e}".format(
