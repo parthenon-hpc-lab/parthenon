@@ -18,20 +18,28 @@ import h5py
 from argparse import ArgumentParser
 
 
-def compute_asymmetry(f, varname):
+match_cache = {}
+
+def compute_asymmetry(f, varname, filename=None):
     "Computes the asymmetry of var with varname in hdf5 output file object f"
 
-    xlocs = f["Locations/x"][:]
-    ylocs = f["Locations/y"][:]
-    iylocs = -np.flip(ylocs, axis=1)
+    if filename is not None and (varname,filename) in match_cache.keys():
+        matches = match_cache[(varname,filename)]
+    else:
+        xlocs = f["Locations/x"][:]
+        ylocs = f["Locations/y"][:]
+        iylocs = -np.flip(ylocs, axis=1)
+        
+        x_diff = np.abs(xlocs[:, np.newaxis, :] - xlocs[np.newaxis, :, :])
+        y_diff = np.abs(ylocs[:, np.newaxis, :] - iylocs[np.newaxis, :, :])
+        x_match = np.all(x_diff <= 1e-10, axis=2)
+        y_match = np.all(y_diff <= 1e-10, axis=2)
+        
+        combined_match = x_match & y_match
+        matches = np.argmax(combined_match, axis=1)
 
-    x_diff = np.abs(xlocs[:, np.newaxis, :] - xlocs[np.newaxis, :, :])
-    y_diff = np.abs(ylocs[:, np.newaxis, :] - iylocs[np.newaxis, :, :])
-    x_match = np.all(x_diff <= 1e-10, axis=2)
-    y_match = np.all(y_diff <= 1e-10, axis=2)
-
-    combined_match = x_match & y_match
-    matches = np.argmax(combined_match, axis=1)
+        if filename is not None:
+            match_cache[(varname,filename)] = matches
 
     var = f[varname][:]
     var_diff = np.zeros_like(var)

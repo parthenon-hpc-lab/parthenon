@@ -28,6 +28,7 @@ parser = ArgumentParser(
     + "Only works for cell- and node-centered data.",
 )
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
+parser.add_argument("-v","--verbose",action='store_true',help="Verbose output")
 
 dset_type = h5py._hl.dataset.Dataset
 asym_fields = {}
@@ -35,20 +36,23 @@ if __name__ == "__main__":
     args = parser.parse_args()
     for fname in args.files:
         with h5py.File(fname, "r") as f:
-            print(f"Computing asymmetry in {fname} for vars...")
+            if args.verbose:
+                print(f"Computing asymmetry in {fname} for vars...")
             for k, v in f.items():
                 if (type(v) == dset_type):
                     if len(v.shape) > 2:
-                        print(f"\t...{k}:")
+                        if args.verbose:
+                            print(f"\t...{k}:")
                         try:
-                            var_diff = compute_asymmetry(f, k)
+                            var_diff = compute_asymmetry(f, k, fname)
                             absdiff = np.max(np.abs(var_diff))
                             absval = np.max(np.abs(f[k]))
                             frac_diff = absdiff / (absval + 1e-100)
                             if frac_diff > 1e-12:
                                 asym_fields[k] = (absdiff, absval, frac_diff)
                         except ValueError:
-                            print("\t\tcorrupted!")
+                            if args.verbose:
+                                print("\t\tcorrupted!")
     print("The following fields had non-trivial asymmetry:")
     for k, vals in asym_fields.items():
         absdiff,absval,frac_diff = vals
