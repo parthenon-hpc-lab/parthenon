@@ -136,7 +136,6 @@ class Params {
     return keys;
   }
 
-  auto GetMutability(const std::string &key) const { return myMutable_.at(key); }
   bool IsMutable(const std::string &key) const {
     return static_cast<bool>(myMutable_.at(key));
   }

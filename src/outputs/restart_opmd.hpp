@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 #ifndef OUTPUTS_RESTART_OPMD_HPP_
@@ -153,6 +153,10 @@ class RestartReaderOPMD : public RestartReader {
       view_h.data()[i] = flat_data[i];
     }
     Kokkos::deep_copy(view, view_h);
+  }
+  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+    // TODO(pgrete) needs impl
+    return true;
   }
   // closes out the restart file
   // perhaps belongs in a destructor?
