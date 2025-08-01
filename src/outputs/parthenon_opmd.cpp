@@ -267,24 +267,21 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
 
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
-                        const TopologicalElement te) {
+                        const TopologicalElement te, const int coarsening_factor) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
+  uint64_t nx1_eff = pmb->block_size.nx(X1DIR) / coarsening_factor;
+  uint64_t nx2_eff = pmb->block_size.nx(X2DIR) / coarsening_factor;
+  uint64_t nx3_eff = pmb->block_size.nx(X3DIR) / coarsening_factor;
   if (pm->ndim == 3) {
-    chunk_offset = {loc.lx3() * static_cast<uint64_t>(pmb->block_size.nx(X3DIR)),
-                    loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-    chunk_extent = {
-        static_cast<uint64_t>(pmb->block_size.nx(X3DIR) + TopologicalOffsetK(te)),
-        static_cast<uint64_t>(pmb->block_size.nx(X2DIR) + TopologicalOffsetJ(te)),
-        static_cast<uint64_t>(pmb->block_size.nx(X1DIR) + TopologicalOffsetI(te))};
+    chunk_offset = {loc.lx3() * nx3_eff, loc.lx2() * nx2_eff, loc.lx1() * nx1_eff};
+    chunk_extent = {nx3_eff + TopologicalOffsetK(te), nx2_eff + TopologicalOffsetJ(te),
+                    nx1_eff + TopologicalOffsetI(te)};
   } else if (pm->ndim == 2) {
-    chunk_offset = {loc.lx2() * static_cast<uint64_t>(pmb->block_size.nx(X2DIR)),
-                    loc.lx1() * static_cast<uint64_t>(pmb->block_size.nx(X1DIR))};
-    chunk_extent = {
-        static_cast<uint64_t>(pmb->block_size.nx(X2DIR) + TopologicalOffsetJ(te)),
-        static_cast<uint64_t>(pmb->block_size.nx(X1DIR) + TopologicalOffsetI(te))};
+    chunk_offset = {loc.lx2() * nx2_eff, loc.lx1() * nx1_eff};
+    chunk_extent = {static_cast<uint64_t>(nx2_eff + TopologicalOffsetJ(te)),
+                    static_cast<uint64_t>(nx1_eff + TopologicalOffsetI(te))};
   } else {
     PARTHENON_THROW("1D output for openpmd not yet supported.");
   }
@@ -440,8 +437,12 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
     it.setAttribute("BlocksPerPE", pm->GetNbList());
+    // TODO(pgrete) Add safety check for supported coarsenign factors
+    // probably already in or before ctor
+    it.setAttribute("CoarseningFactor", coarsening_factor_);
 
     // Mesh block size
+    // TODO(pgrete) Check if we potentially can modify this to restart from coarse outs
     const auto base_block_size = pm->GetDefaultBlockSize();
     it.setAttribute("MeshBlockSize",
                     std::vector<int>{base_block_size.nx(X1DIR), base_block_size.nx(X2DIR),
@@ -549,6 +550,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // We're currently writing (flushing) one var at a time. This saves host memory but
   // results more smaller write. Might be updated in the future.
   // Allocate space for largest size variable
+  // Could in principle be reduced for coarsended outputs, but lets better be safe than
+  // sorry given the edge cases with non cell centered vars.
   int var_size_max = 0;
   for (auto &vinfo : all_vars_info) {
     const auto var_size = vinfo.Size();
@@ -598,9 +601,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             auto &coords = pmb->coords;
             // For uniform Cartesian, all dxN are const across the block so we just pick
             // the first index.
-            Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0);
-            Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0);
-            Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0);
+            Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0) * coarsening_factor_;
+            Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0) * coarsening_factor_;
+            Real dx3 = coords.CellWidth<X3DIR>(0, 0, 0) * coarsening_factor_;
 
             // TODO(pgrete) check if this should be tied to the MemoryLayout
             mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
@@ -621,11 +624,17 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                   0.5 - 0.5 * TopologicalOffsetK(te), 0.5 - 0.5 * TopologicalOffsetJ(te),
                   0.5 - 0.5 * TopologicalOffsetI(te)});
               global_extent = {
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR)) * effective_nx +
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR) /
+                                             coarsening_factor_) *
+                          effective_nx +
                       TopologicalOffsetK(te),
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx +
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR) /
+                                             coarsening_factor_) *
+                          effective_nx +
                       TopologicalOffsetJ(te),
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx +
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR) /
+                                             coarsening_factor_) *
+                          effective_nx +
                       TopologicalOffsetI(te),
               };
             } else if (pm->ndim == 2) {
@@ -640,9 +649,13 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                   std::vector<Real>{0.5 - 0.5 * TopologicalOffsetJ(te),
                                     0.5 - 0.5 * TopologicalOffsetI(te)});
               global_extent = {
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR)) * effective_nx +
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR) /
+                                             coarsening_factor_) *
+                          effective_nx +
                       TopologicalOffsetJ(te),
-                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR)) * effective_nx +
+                  static_cast<std::uint64_t>(pm->mesh_size.nx(X1DIR) /
+                                             coarsening_factor_) *
+                          effective_nx +
                       TopologicalOffsetI(te),
               };
 
@@ -703,6 +716,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 for (int k = kb.s; k <= kb.e; ++k) {
                   for (int j = jb.s; j <= jb.e; ++j) {
                     for (int i = ib.s; i <= ib.e; ++i) {
+                      if (((i - ib.s) % coarsening_factor_ != 0) ||
+                          ((j - jb.s) % coarsening_factor_ != 0) ||
+                          ((k - kb.s) % coarsening_factor_ != 0)) {
+                        continue;
+                      }
                       tmp_data[tmp_offset] = static_cast<OutT>(
                           out_var_h(static_cast<int>(te) % 3, t, u, v, k, j, i));
                       tmp_offset++;
@@ -710,7 +728,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                   }
                 }
                 const auto [chunk_offset, chunk_extent] =
-                    OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te);
+                    OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te,
+                                                          coarsening_factor_);
                 mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
                                         chunk_extent);
                 comp_idx += 1;

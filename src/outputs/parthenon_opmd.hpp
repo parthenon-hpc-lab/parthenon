@@ -48,7 +48,7 @@ GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
 // TODO(pgrete) needs to be updated to properly work with Forests
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
-                        const TopologicalElement te);
+                        const TopologicalElement te, const int coarsening_factor);
 
 } // namespace OpenPMDUtils
 } // namespace parthenon

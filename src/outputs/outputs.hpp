@@ -148,8 +148,10 @@ class AscentOutput : public OutputType {
 
 class OpenPMDOutput : public OutputType {
  public:
-  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config)
-      : OutputType(oparams), backend_config_(std::move(backend_config)) {}
+  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config,
+                         int coarsening_factor)
+      : OutputType(oparams), backend_config_(std::move(backend_config)),
+        coarsening_factor_(coarsening_factor) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -159,6 +161,7 @@ class OpenPMDOutput : public OutputType {
  private:
   //  path to file containing config passed to backend
   std::string backend_config_;
+  int coarsening_factor_;
 };
 
 #ifdef ENABLE_HDF5

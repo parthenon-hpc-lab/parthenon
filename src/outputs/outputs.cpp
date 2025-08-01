@@ -359,8 +359,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef PARTHENON_ENABLE_OPENPMD
       const auto backend_config =
           pin->GetOrAddString(op.block_name, "backend_config", "default");
+      const auto coarsening_factor =
+          pin->GetOrAddInteger(op.block_name, "coarsening_factor", 1,
+                               "Output data coarsened by given factor n. Every n^dim "
+                               "data point is used, i.e., the data is not average. "
+                               "Requires even number of cells in each block dimension.");
 
-      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config);
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
