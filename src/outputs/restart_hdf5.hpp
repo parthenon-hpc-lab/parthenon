@@ -233,9 +233,13 @@ class RestartReaderHDF5 : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
-  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+  [[nodiscard]] bool VariableExists(const std::string &name,
+                                    const DataType /*data_type*/) const override {
 #ifdef ENABLE_HDF5
-    // make sure dataset exists
+    // Make sure dataset exists
+    // Our HDF5 output does not differentiate between fields and swarms. Everything is an
+    // object, so we can ignore the data_type. Note, we may eventually want to fix is as
+    // swarm and fields with the same name may cause issues.
     return PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT));
 #else
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");

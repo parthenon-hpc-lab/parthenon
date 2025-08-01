@@ -154,7 +154,8 @@ class RestartReaderOPMD : public RestartReader {
     }
     Kokkos::deep_copy(view, view_h);
   }
-  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+  [[nodiscard]] bool VariableExists(const std::string &name,
+                                    const DataType data_type) const override {
     // TODO(pgrete) needs impl
     return true;
   }

@@ -339,7 +339,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     const auto fill_size = v_info.FillSize(theDomain, resfile.BlockdataIsPadded());
     const auto &label = v_info.label;
 
-    auto var_missing_on_disk = !resfile.VariableExists(label);
+    auto var_missing_on_disk =
+        !resfile.VariableExists(label, RestartReader::DataType::Field);
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen
                 << (var_missing_on_disk ? " missing on disk\n" : "\n");
@@ -407,7 +408,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
-    auto var_missing_on_disk = !resfile.VariableExists(swarmname);
+    auto var_missing_on_disk =
+        !resfile.VariableExists(swarmname, RestartReader::DataType::Swarm);
     if (Globals::my_rank == 0) {
       std::cout << "Swarm: " << swarmname
                 << (var_missing_on_disk ? " missing on disk\n" : "\n");

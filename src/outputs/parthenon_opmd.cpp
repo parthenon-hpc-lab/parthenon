@@ -303,6 +303,9 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                    "compiled in. Skipping this output type.");
   }
 #else
+  // Check that the parameter input is safe to write (i.e., consistent across ranks)
+  OutputUtils::CheckParameterInputConsistent(pin);
+
   using openPMD::Access;
   using openPMD::Series;
 
@@ -746,7 +749,8 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     // one for vis.
     // BUT PG: this may break things in unpredicable ways
     // I'm in favor of enforcing a global id somehow. We shold discuss.
-    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count(swarm_position::id::name()) != 0,
+    PARTHENON_REQUIRE_THROWS(swinfo.var_info.count(swarm_position::id::name()) != 0 ||
+                                 swinfo.var_info.count("id") != 0,
                              "Particles should always carry a unique, persistent id!");
   }
   Kokkos::Profiling::popRegion(); // write particle data
