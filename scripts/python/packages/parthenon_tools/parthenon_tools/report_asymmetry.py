@@ -46,7 +46,7 @@ if __name__ == "__main__":
                             absval = np.max(np.abs(f[k]))
                             frac_diff = absdiff / (absval + 1e-100)
                             if frac_diff > 1e-12:
-                                asym_fields[k] = (absdfiff, absval, frac_diff)
+                                asym_fields[k] = (absdiff, absval, frac_diff)
                         except ValueError:
                             print("\t\tcorrupted!")
     print("The following fields had non-trivial asymmetry:")
