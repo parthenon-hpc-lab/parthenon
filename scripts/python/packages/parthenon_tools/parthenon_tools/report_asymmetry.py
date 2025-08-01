@@ -31,10 +31,10 @@ parser.add_argument("files", type=str, nargs="+", help="Files to compute")
 parser.add_argument("-v","--verbose",action='store_true',help="Verbose output")
 
 dset_type = h5py._hl.dataset.Dataset
-asym_fields = {}
 if __name__ == "__main__":
     args = parser.parse_args()
     for fname in args.files:
+        asym_fields = {}
         with h5py.File(fname, "r") as f:
             if args.verbose:
                 print(f"Computing asymmetry in {fname} for vars...")
@@ -53,9 +53,9 @@ if __name__ == "__main__":
                         except ValueError:
                             if args.verbose:
                                 print("\t\tcorrupted!")
-    print("The following fields had non-trivial asymmetry in {}:".format(fname))
-    for k, vals in asym_fields.items():
-        absdiff,absval,frac_diff = vals
-        print(
-            "{:<50} {:14e} / {:14e} =\t{:14e}".format(
-                k, absdiff, absval, frac_diff))
+        print("The following fields had non-trivial asymmetry in {}:".format(fname))
+        for k, vals in asym_fields.items():
+            absdiff,absval,frac_diff = vals
+            print(
+                "{:<50} {:14e} / {:14e} =\t{:14e}".format(
+                    k, absdiff, absval, frac_diff))
