@@ -50,7 +50,8 @@ if __name__ == "__main__":
                         except ValueError:
                             print("\t\tcorrupted!")
     print("The following fields had non-trivial asymmetry:")
-    for k, (absdiff,absval,frac_diff) in asym_fields:
+    for k, vals in asym_fields:
+        absdiff,absval,frac_diff = vals
         print(
             "{} : {:14e} / {:14e} : {:14e}".format(
                 k, np.max(np.abs(var_diff)), np.max(np.abs(f[k])), frac_diff))
