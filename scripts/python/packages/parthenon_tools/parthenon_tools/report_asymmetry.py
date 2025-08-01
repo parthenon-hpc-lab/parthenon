@@ -53,7 +53,7 @@ if __name__ == "__main__":
                         except ValueError:
                             if args.verbose:
                                 print("\t\tcorrupted!")
-    print("The following fields had non-trivial asymmetry:")
+    print("The following fields had non-trivial asymmetry in {}:".format(fname))
     for k, vals in asym_fields.items():
         absdiff,absval,frac_diff = vals
         print(
