@@ -30,6 +30,7 @@ parser = ArgumentParser(
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
 
 dset_type = h5py._hl.dataset.Dataset
+asym_fields = {}
 if __name__ == "__main__":
     args = parser.parse_args()
     for fname in args.files:
@@ -41,11 +42,15 @@ if __name__ == "__main__":
                         print(f"\t...{k}:")
                         try:
                             var_diff = compute_asymmetry(f, k)
-                            print(
-                                "\t\t{:14e} / {:14e} : {:14e}".format(
-                                    np.max(np.abs(var_diff)), np.max(np.abs(f[k])),
-                                    np.max(np.abs(var_diff)) / (np.max(np.abs(f[k])) + 1e-100),
-                                )
-                            )
+                            absdiff = np.max(np.abs(var_diff))
+                            absval = np.max(np.abs(f[k]))
+                            frac_diff = absdiff / (absval + 1e-100)
+                            if frac_diff > 1e-12:
+                                asym_fields[k] = (absdfiff, absval, frac_diff)
                         except ValueError:
                             print("\t\tcorrupted!")
+    print("The following fields had non-trivial asymmetry:")
+    for k, (absdiff,absval,frac_diff) in asym_fields:
+        print(
+            "{} : {:14e} / {:14e} : {:14e}".format(
+                k, np.max(np.abs(var_diff)), np.max(np.abs(f[k])), frac_diff))
