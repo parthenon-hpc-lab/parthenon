@@ -54,4 +54,4 @@ if __name__ == "__main__":
         absdiff,absval,frac_diff = vals
         print(
             "{} : {:14e} / {:14e} : {:14e}".format(
-                k, np.max(np.abs(var_diff)), np.max(np.abs(f[k])), frac_diff))
+                k, absdiff, absval, frac_diff))
