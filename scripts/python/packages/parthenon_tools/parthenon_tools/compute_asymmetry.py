@@ -64,6 +64,16 @@ def compute_asymmetry(f, varname):
                 var_diff[blk_indices,d] = diff_top
                 var_diff[partner_indices,d] = diff_bottom
 
+    # exclude outermost faces for fluxes in trivial directions
+    if 'bnd_flux' in varname:
+        print(var_diff.shape)
+        var_diff[:,0,...,-1,:,:] = 0
+        var_diff[:,0,...,:,-1,:] = 0
+        var_diff[:,1,...,-1,:,:] = 0
+        var_diff[:,1,...,:,:,-1] = 0
+        var_diff[:,2,...,:,-1,:] = 0
+        var_diff[:,2,...,:,:,-1] = 0
+
     return var_diff
 
 
