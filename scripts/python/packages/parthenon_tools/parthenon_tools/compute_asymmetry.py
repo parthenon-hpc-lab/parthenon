@@ -66,7 +66,6 @@ def compute_asymmetry(f, varname):
 
     # exclude outermost faces for fluxes in trivial directions
     if 'bnd_flux' in varname:
-        print(var_diff.shape)
         var_diff[:,0,...,-1,:,:] = 0
         var_diff[:,0,...,:,-1,:] = 0
         var_diff[:,1,...,-1,:,:] = 0
