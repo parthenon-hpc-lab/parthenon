@@ -98,9 +98,10 @@ class PoissonEquation {
 
     constexpr auto te = TopologicalElement::NN;
     const int ndim = md->GetMeshPointer()->ndim;
-    IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+    CellLevel cl = coarse ? CellLevel::coarse : CellLevel::same;
+    IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, te);
+    IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, te);
+    IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, te);
 
     std::set<PDOpt> opts{};
     if (coarse) opts.emplace(PDOpt::Coarse);

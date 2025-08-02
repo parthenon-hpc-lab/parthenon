@@ -100,6 +100,8 @@ HelmholtzEquation::SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
 
   using TE = TopologicalElement;
   const int ndim = md->GetMeshPointer()->ndim;
+  
+  CellLevel cl = coarse ? CellLevel::coarse : CellLevel::same;
 
   std::set<PDOpt> opts{};
   if (coarse) opts.emplace(PDOpt::Coarse);
@@ -110,9 +112,9 @@ HelmholtzEquation::SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
   if (ndim > 1) tes.push_back(TE::F2);
   if (ndim > 2) tes.push_back(TE::F3);
   for (auto &&te : tes) {
-    IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+    IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior, te);
+    IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior, te);
+    IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior, te);
 
     parthenon::par_for(
         "PoissonNodal::SetBoundary", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
