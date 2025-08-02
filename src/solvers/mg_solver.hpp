@@ -431,7 +431,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
         // calling Ax. That being said, at least in one case commenting this line out
         // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            set_from_finer, tl, md_u, multilevel);
+            set_from_finer, tl, md_u, multilevel, BCFunc);
         set_from_finer =
             tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
         // This should set the rhs only in blocks that correspond to interior nodes, the
@@ -514,7 +514,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
         return utils::ConstantBC<FieldTL>(md, coarse, 0.0);
       };
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-          copy_over, tl, md_res_err, multilevel);
+          copy_over, tl, md_res_err, multilevel, BCFunc);
       last_task = tl.AddTask(
           boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }
