@@ -206,7 +206,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
 
                                               const CoordinateDirection DIR) {
-  return GetTopologicalElementInDir(tt, static_cast ::<std::size_t>(DIR - 1));
+  return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }
 
 using TE = TopologicalElement;
