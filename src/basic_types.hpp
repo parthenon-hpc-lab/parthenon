@@ -194,13 +194,19 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 
 KOKKOS_FORCEINLINE_FUNCTION
 TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-                                              const CoordinateDirection DIR) {
+                                              const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (tt == TT::Cell) return TE::CC;
   if (tt == TT::Node) return TE::NN;
   const std::size_t start = static_cast<std::size_t>((tt == TT::Face) ? TE::F1 : TE::E1);
-  return static_cast<TE>(start + DIR - 1);
+  return static_cast<TE>(start + d);
+}
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+
+                                              const CoordinateDirection DIR) {
+  return GetTopologicalElementInDir(tt, static_cast ::<std::size_t>(DIR - 1));
 }
 
 using TE = TopologicalElement;
