@@ -29,6 +29,7 @@ parser = ArgumentParser(
 )
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
 parser.add_argument("-v","--verbose",action='store_true',help="Verbose output")
+parser.add_argument("-e", "--exclude", type=str, nargs='*', help="Variables to exclude")
 
 dset_type = h5py._hl.dataset.Dataset
 if __name__ == "__main__":
@@ -39,7 +40,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"Computing asymmetry in {fname} for vars...")
             for k, v in f.items():
-                if (type(v) == dset_type):
+                if (type(v) == dset_type) and k not in args.exclude:
                     if len(v.shape) > 2:
                         if args.verbose:
                             print(f"\t...{k}:")
