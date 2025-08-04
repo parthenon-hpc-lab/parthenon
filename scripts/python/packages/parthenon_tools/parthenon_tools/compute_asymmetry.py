@@ -20,26 +20,27 @@ from argparse import ArgumentParser
 
 match_cache = {}
 
+
 def compute_asymmetry(f, varname, filename=None):
     "Computes the asymmetry of var with varname in hdf5 output file object f"
 
-    if filename is not None and (varname,filename) in match_cache.keys():
-        matches = match_cache[(varname,filename)]
+    if filename is not None and (varname, filename) in match_cache.keys():
+        matches = match_cache[(varname, filename)]
     else:
         xlocs = f["Locations/x"][:]
         ylocs = f["Locations/y"][:]
         iylocs = -np.flip(ylocs, axis=1)
-        
+
         x_diff = np.abs(xlocs[:, np.newaxis, :] - xlocs[np.newaxis, :, :])
         y_diff = np.abs(ylocs[:, np.newaxis, :] - iylocs[np.newaxis, :, :])
         x_match = np.all(x_diff <= 1e-10, axis=2)
         y_match = np.all(y_diff <= 1e-10, axis=2)
-        
+
         combined_match = x_match & y_match
         matches = np.argmax(combined_match, axis=1)
 
         if filename is not None:
-            match_cache[(varname,filename)] = matches
+            match_cache[(varname, filename)] = matches
 
     var = f[varname][:]
     var_diff = np.zeros_like(var)
@@ -55,31 +56,31 @@ def compute_asymmetry(f, varname, filename=None):
 
     for d in range(ndim_outer):
         sign1 = -1 if (var.shape[1] == 3) and d == 1 else 1
-        for dd in range(ndim_inner): # maybe trivial
+        for dd in range(ndim_inner):  # maybe trivial
             vlocb = var[blk_indices, d]
             vlocbb = var[partner_indices, d]
             sign2 = -1 if (var.shape[2] == 3) and (ndim_inner > 1) and (dd == 1) else 1
             sign = sign1 * sign2
             if ndim_inner > 1:
-                vlocb = vlocb[:,dd]
-                vlocbb = vlocbb[:,dd]
-            diff_top = vlocb - sign*np.flip(vlocbb, axis=-2)
-            diff_bottom = vlocbb - sign*np.flip(vlocb, axis=-2)
+                vlocb = vlocb[:, dd]
+                vlocbb = vlocbb[:, dd]
+            diff_top = vlocb - sign * np.flip(vlocbb, axis=-2)
+            diff_bottom = vlocbb - sign * np.flip(vlocb, axis=-2)
             if ndim_inner > 1:
-                var_diff[blk_indices,d,dd] = diff_top
-                var_diff[partner_indices,d,dd] = diff_bottom
+                var_diff[blk_indices, d, dd] = diff_top
+                var_diff[partner_indices, d, dd] = diff_bottom
             else:
-                var_diff[blk_indices,d] = diff_top
-                var_diff[partner_indices,d] = diff_bottom
+                var_diff[blk_indices, d] = diff_top
+                var_diff[partner_indices, d] = diff_bottom
 
     # exclude outermost faces for fluxes in trivial directions
-    if 'bnd_flux' in varname:
-        var_diff[:,0,...,-1,:,:] = 0
-        var_diff[:,0,...,:,-1,:] = 0
-        var_diff[:,1,...,-1,:,:] = 0
-        var_diff[:,1,...,:,:,-1] = 0
-        var_diff[:,2,...,:,-1,:] = 0
-        var_diff[:,2,...,:,:,-1] = 0
+    if "bnd_flux" in varname:
+        var_diff[:, 0, ..., -1, :, :] = 0
+        var_diff[:, 0, ..., :, -1, :] = 0
+        var_diff[:, 1, ..., -1, :, :] = 0
+        var_diff[:, 1, ..., :, :, -1] = 0
+        var_diff[:, 2, ..., :, -1, :] = 0
+        var_diff[:, 2, ..., :, :, -1] = 0
 
     return var_diff
 
