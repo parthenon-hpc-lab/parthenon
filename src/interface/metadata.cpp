@@ -291,13 +291,13 @@ bool Metadata::IsValid(bool throw_on_fail) const {
     }
   }
 
-  // if (IsSet(FillGhost) && IsSet(CellMemAligned) && (!IsSet(Cell))) {
-  //   valid = false;
-  //   if (throw_on_fail) {
-  //     PARTHENON_THROW(
-  //         "Cannot communicate ghosts of non-cell fields that have cell aligned memory.");
-  //   }
-  // }
+  if (IsSet(FillGhost) && IsSet(CellMemAligned) && (!IsSet(Cell))) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW(
+          "Cannot communicate ghosts of non-cell fields that have cell aligned memory.");
+    }
+  }
 
   // Prolongation/restriction
   if (HasRefinementOps()) {
