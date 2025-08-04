@@ -16,7 +16,7 @@ import sys
 import numpy as np
 from argparse import ArgumentParser
 
-import os
+import os, re
 
 import h5py
 from compute_asymmetry import compute_asymmetry
@@ -28,8 +28,10 @@ parser = ArgumentParser(
     + "Only works for cell- and node-centered data.",
 )
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
-parser.add_argument("-v","--verbose",action='store_true',help="Verbose output")
-parser.add_argument("-e", "--exclude", type=str, nargs='*', help="Variables to exclude")
+parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+parser.add_argument(
+    "-e", "--exclude", type=str, nargs="*", default=[], help="Variables to exclude"
+)
 
 dset_type = h5py._hl.dataset.Dataset
 if __name__ == "__main__":
@@ -40,10 +42,12 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"Computing asymmetry in {fname} for vars...")
             for k, v in f.items():
-                if (type(v) == dset_type) and k not in args.exclude:
+                if (type(v) == dset_type) and not any(
+                    re.search(pattern, k) for pattern in args.exclude
+                ):
                     if len(v.shape) > 2:
                         if args.verbose:
-                            print(f"\t...{k}:")
+                            print(f"\t...{k}")
                         try:
                             var_diff = compute_asymmetry(f, k, fname)
                             absdiff = np.max(np.abs(var_diff))
@@ -56,7 +60,7 @@ if __name__ == "__main__":
                                 print("\t\tcorrupted!")
         print("The following fields had non-trivial asymmetry in {}:".format(fname))
         for k, vals in asym_fields.items():
-            absdiff,absval,frac_diff = vals
+            absdiff, absval, frac_diff = vals
             print(
-                "{:<50} {:14e} / {:14e} =\t{:14e}".format(
-                    k, absdiff, absval, frac_diff))
+                "{:<50} {:14e} / {:14e} =\t{:14e}".format(k, absdiff, absval, frac_diff)
+            )
