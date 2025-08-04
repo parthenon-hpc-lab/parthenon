@@ -71,6 +71,12 @@ parser.add_argument(
 )
 parser.add_argument("--colormap", type=str, default="plasma", help="Colormap to use")
 parser.add_argument(
+    "--colorbounds", type=float, nargs=2, default=None, help="Bounds of colorbar"
+)
+parser.add_argument(
+    "--symmetrizecolors", action="store_true", help="Force colorbar to be symmetric"
+)
+parser.add_argument(
     "--swarm",
     type=str,
     default=None,
@@ -166,6 +172,20 @@ parser.add_argument(
     default=False,
     action="store_true",
 )
+parser.add_argument(
+    "--xlim",
+    type=float,
+    help="x bounds. Defaults to whole domain.",
+    nargs=2,
+    default=None,
+)
+parser.add_argument(
+    "--ylim",
+    type=float,
+    help="y bounds. Defaults to whole domain.",
+    nargs=2,
+    default=None,
+)
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -202,6 +222,8 @@ def plot_dump(
     output_file: Path,
     colormap="viridis",
     colorbar=None,
+    colorbounds=None,
+    symmetrize_colors=False,
     with_mesh=False,
     block_ids=[],
     xi=None,
@@ -213,6 +235,8 @@ def plot_dump(
     swarmy=None,
     swarmcolor=None,
     particlesize=None,
+    xlim=None,
+    ylim=None,
 ):
     if xe is None:
         xe = xf
@@ -252,11 +276,16 @@ def plot_dump(
 
     # Removes a visual quirk where matplotlib plots things at totally
     # random colors if a field is exactly zero
-    qmin = min(qmin, -qmax)
-    qmax = max(qmax, -qmin)
     if qmin == qmax == 0:
         qmin = -1e-14
         qmax = 1e-14
+
+    if colorbounds is not None:
+        qmin, qmax = colorbounds
+
+    if symmetrize_colors:
+        qmin = min(qmin, -qmax)
+        qmax = max(qmax, -qmin)
 
     n_blocks = q.shape[0]
     for i in range(n_blocks):
@@ -301,6 +330,12 @@ def plot_dump(
                     linestyle="dashed",
                 )
                 p.add_patch(rect)
+
+    if xlim is not None:
+        plt.xlim(xlim[0], xlim[1])
+    if ylim is not None:
+        plt.ylim(ylim[0], ylim[1])
+
     if swarmx is not None and swarmy is not None:
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
     if colorbar is not None:
@@ -419,6 +454,8 @@ if __name__ == "__main__":
                         output_file,
                         args.colormap,
                         args.colorbar,
+                        args.colorbounds,
+                        args.symmetrizecolors,
                         True,
                         data.gid,
                         data.xig,
@@ -430,6 +467,8 @@ if __name__ == "__main__":
                         swarmy,
                         swarmcolor,
                         particlesize,
+                        args.xlim,
+                        args.ylim,
                     )
                 )
             else:
@@ -443,12 +482,16 @@ if __name__ == "__main__":
                         output_file,
                         args.colormap,
                         args.colorbar,
+                        args.colorbounds,
+                        args.symmetrizecolors,
                         True,
                         components=components,
                         swarmx=swarmx,
                         swarmy=swarmy,
                         swarmcolor=swarmcolor,
                         particlesize=particlesize,
+                        xlim=args.xlim,
+                        ylim=args.ylim,
                     )
                 )
         wait(futures, return_when=ALL_COMPLETED)
