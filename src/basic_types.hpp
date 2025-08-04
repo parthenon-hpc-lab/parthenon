@@ -192,6 +192,17 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
   return {TE::CC};
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                              const CoordinateDirection DIR) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (tt == TT::Cell) return TE::CC;
+  if (tt == TT::Node) return TE::NN;
+  const std::size_t start = static_cast<std::size_t>((tt == TT::Face) ? TE::F1 : TE::E1);
+  return static_cast<TE>(start + DIR - 1);
+}
+
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
