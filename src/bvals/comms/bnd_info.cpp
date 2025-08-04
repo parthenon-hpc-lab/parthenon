@@ -108,6 +108,9 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
             IndexRangeType ir_type, bool prores,
             const forest::LogicalCoordinateTransformation &lcoord_trans =
                 forest::LogicalCoordinateTransformation()) {
+  // Hack for cell mem aligned comms
+  if (v->IsSet(Metadata::CellMemAligned)) el = TopologicalElement::CC;
+
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
   const bool flux = v->IsSet(Metadata::Flux);
 
