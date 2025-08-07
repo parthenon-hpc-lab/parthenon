@@ -9,6 +9,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
 - [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
