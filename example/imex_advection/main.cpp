@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
   pman.ParthenonInitPackagesAndMesh();
   {
     // Initialize the driver
-    scalar_imex::ScalarIMEXDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+    scalar_imex::ScalarIMEXDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                         pman.pmesh.get());
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();

@@ -18,12 +18,12 @@
 
 #include <parthenon/parthenon.hpp>
 
-#define VARIABLE(ns, varname)                                                                                          \
-  struct varname : public parthenon::variable_names::base_t<false> {                                                   \
-    template <class... Ts>                                                                                             \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                                                       \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}                                       \
-    static std::string name() { return #ns "." #varname; }                                                             \
+#define VARIABLE(ns, varname)                                                            \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return #ns "." #varname; }                               \
   }
 
 #endif // SRC_UTILITIES_VARIABLE_MACRO_HPP_

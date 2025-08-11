@@ -25,7 +25,8 @@ struct IndexingData : public IndexShape {
   int ndim;
   IndexShape cellbounds;
   IndexingData(MeshData<Real> *md)
-      : ndim{md->GetMeshPointer()->ndim}, IndexShape(md->GetBlockData(0)->GetBlockPointer()->cellbounds) {}
+      : ndim{md->GetMeshPointer()->ndim},
+        IndexShape(md->GetBlockData(0)->GetBlockPointer()->cellbounds) {}
 
   KOKKOS_INLINE_FUNCTION
   auto Get3DIndexRangeWithHalo(IndexDomain id, std::array<int, 3> halo,
@@ -43,7 +44,8 @@ struct IndexingData : public IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION
-  auto Get3DIndexRange(IndexDomain id, TopologicalElement te = TopologicalElement::CC) const {
+  auto Get3DIndexRange(IndexDomain id,
+                       TopologicalElement te = TopologicalElement::CC) const {
     return Get3DIndexRangeWithHalo(id, {0, 0, 0}, te);
   }
 
@@ -54,12 +56,14 @@ struct IndexingData : public IndexShape {
 
   KOKKOS_INLINE_FUNCTION
   std::array<int, 3> GetOffsetArray(TopologicalElement flux_te) const {
-    return std::array<int, 3>{TopologicalOffsetK(flux_te) * (ndim > 2), TopologicalOffsetJ(flux_te) * (ndim > 1),
+    return std::array<int, 3>{TopologicalOffsetK(flux_te) * (ndim > 2),
+                              TopologicalOffsetJ(flux_te) * (ndim > 1),
                               TopologicalOffsetI(flux_te) * (ndim > 0)};
   }
 };
 
-inline auto Get3DIndexRangeWithHalo(MeshData<Real> *md, IndexDomain id, std::array<int, 3> halo,
+inline auto Get3DIndexRangeWithHalo(MeshData<Real> *md, IndexDomain id,
+                                    std::array<int, 3> halo,
                                     TopologicalElement te = TopologicalElement::CC) {
   const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(id, te);
@@ -74,11 +78,13 @@ inline auto Get3DIndexRangeWithHalo(MeshData<Real> *md, IndexDomain id, std::arr
   return std::make_tuple(kb, jb, ib);
 }
 
-inline auto Get3DIndexRange(MeshData<Real> *md, IndexDomain id, TopologicalElement te = TopologicalElement::CC) {
+inline auto Get3DIndexRange(MeshData<Real> *md, IndexDomain id,
+                            TopologicalElement te = TopologicalElement::CC) {
   return Get3DIndexRangeWithHalo(md, id, {0, 0, 0}, te);
 }
 
-inline CoordinateDirection PermuteDirection(CoordinateDirection base_dir, CoordinateDirection relative_dir) {
+inline CoordinateDirection PermuteDirection(CoordinateDirection base_dir,
+                                            CoordinateDirection relative_dir) {
   return static_cast<CoordinateDirection>(((base_dir - 1 + relative_dir - 1) % 3) + 1);
 }
 
@@ -90,7 +96,8 @@ inline auto GetOffsetsForDirection(MeshData<Real> *md, CoordinateDirection dir) 
   return std::make_tuple(dk, dj, di);
 }
 
-inline auto GetPermutedOffsetsForRelativeDirection(MeshData<Real> *md, CoordinateDirection base_dir,
+inline auto GetPermutedOffsetsForRelativeDirection(MeshData<Real> *md,
+                                                   CoordinateDirection base_dir,
                                                    CoordinateDirection relative_dir) {
   auto absolute_dir = PermuteDirection(base_dir, relative_dir);
   return GetOffsetsForDirection(md, absolute_dir);

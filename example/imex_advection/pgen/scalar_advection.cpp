@@ -72,18 +72,21 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   if (do_regular_advection) {
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
           const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
           const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
           const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
           if (profile_type == 0) {
             PARTHENON_FAIL("Profile type wave not implemented.");
           } else if (profile_type == 1) {
-            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
             pack(b, phi(), k, j, i) = 1. + amp * exp(-100.0 * rsq);
           } else if (profile_type == 2) {
-            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) + coords.Xc<2>(j) * coords.Xc<2>(j) +
+            Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                       coords.Xc<2>(j) * coords.Xc<2>(j) +
                        coords.Xc<3>(k) * coords.Xc<3>(k);
             pack(b, phi(), k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
@@ -98,7 +101,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F2);
     const Real x0 = 0.2;
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
           auto &coords = pack.GetCoordinates(b);
           Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
           Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);
@@ -111,7 +115,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
     jb = cellbounds.GetBoundsJ(IndexDomain::interior, TE::F3);
     kb = cellbounds.GetBoundsK(IndexDomain::interior, TE::F3);
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
           auto &coords = pack.GetCoordinates(b);
           Real xlo = coords.X<X1DIR, TE::F1>(k, j, i);
           Real xhi = coords.X<X1DIR, TE::F1>(k, j, i + 1);

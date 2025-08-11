@@ -31,8 +31,10 @@ struct ThreeVec {
   ThreeVec(Real a1, Real a2, Real a3) : vals{a1, a2, a3} {}
 
   template <class var_t, class pack_t>
-  KOKKOS_FORCEINLINE_FUNCTION ThreeVec(const pack_t &pack, int b, var_t, int k, int j, int i)
-      : vals{pack(b, var_t(0), k, j, i), pack(b, var_t(1), k, j, i), pack(b, var_t(2), k, j, i)} {}
+  KOKKOS_FORCEINLINE_FUNCTION ThreeVec(const pack_t &pack, int b, var_t, int k, int j,
+                                       int i)
+      : vals{pack(b, var_t(0), k, j, i), pack(b, var_t(1), k, j, i),
+             pack(b, var_t(2), k, j, i)} {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   Real &operator[](CoordinateDirection dir) { return vals[dir - 1]; }

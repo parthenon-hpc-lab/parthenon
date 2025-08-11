@@ -39,7 +39,8 @@ namespace scalar_imex {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
 
-  if (pin->GetOrAddBoolean("scalar_imex", "advection", true)) packages.Add(advection_package::Initialize(pin.get()));
+  if (pin->GetOrAddBoolean("scalar_imex", "advection", true))
+    packages.Add(advection_package::Initialize(pin.get()));
 
   auto app = std::make_shared<StateDescriptor>("scalar_imex_app");
   packages.Add(app);
@@ -52,7 +53,8 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-ScalarIMEXDriver::ScalarIMEXDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+ScalarIMEXDriver::ScalarIMEXDriver(ParameterInput *pin, ApplicationInput *app_in,
+                                   Mesh *pm)
     : parthenon::MultiStageDriverGeneric<IMEXRKIntegrator>(pin, app_in, pm) {
 
   // fail if these are not specified in the input file
@@ -65,9 +67,10 @@ ScalarIMEXDriver::ScalarIMEXDriver(ParameterInput *pin, ApplicationInput *app_in
   pin->CheckDesired("parthenon/mesh", "refinement");
   pin->CheckDesired("parthenon/mesh", "numlevel");
 
-  // Determine which packages to include in driver, allowing for packages to be loaded but not
-  // run in the driver
-  do_advection = pin->GetOrAddBoolean("scalar_imex", "do_advection", pin->GetBoolean("scalar_imex", "advection"));
+  // Determine which packages to include in driver, allowing for packages to be loaded but
+  // not run in the driver
+  do_advection = pin->GetOrAddBoolean("scalar_imex", "do_advection",
+                                      pin->GetBoolean("scalar_imex", "advection"));
 }
 
 // See the advection.hpp declaration for a description of how this function gets
@@ -100,7 +103,8 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
 
   using namespace advection_package::Conserved;
   static auto desc_phi = parthenon::MakePackDescriptor<phi>(
-      pmesh->resolved_packages.get(), {parthenon::Metadata::WithFluxes, parthenon::Metadata::Cell},
+      pmesh->resolved_packages.get(),
+      {parthenon::Metadata::WithFluxes, parthenon::Metadata::Cell},
       {parthenon::PDOpt::WithFluxes});
   using pack_desc_phi_t = decltype(desc_phi);
 
@@ -114,21 +118,25 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
     if (stage == 1) {
       // Copy base data into this stage, need to be careful that it is a full
       // copy
-      set_stage0 = tl.AddTask(none, WeightedSumDataAll, mbase.get(), mbase.get(), 1.0, 0.0, mc0.get());
+      set_stage0 = tl.AddTask(none, WeightedSumDataAll, mbase.get(), mbase.get(), 1.0,
+                              0.0, mc0.get());
     }
 
     // Do implicit update here to get conserved variables for the current stage
     auto implicit_update = set_stage0;
     const auto stage_dt = integrator->a(stage, stage) * dt;
     if (do_advection)
-      implicit_update = tl.AddTask(set_stage0, advection_package::ImplicitSourceUpdate, stage_dt, mc0.get(), mc0.get());
+      implicit_update = tl.AddTask(set_stage0, advection_package::ImplicitSourceUpdate,
+                                   stage_dt, mc0.get(), mc0.get());
 
     // Update state of current stage here, as this is the first place it is
     // finalized
-    auto boundaries_stage = parthenon::AddBoundaryExchangeTasks(implicit_update, tl, mc0, pmesh->multilevel);
+    auto boundaries_stage =
+        parthenon::AddBoundaryExchangeTasks(implicit_update, tl, mc0, pmesh->multilevel);
 
-    auto fill_derived_stage = tl.AddTask(boundaries_stage, parthenon::Update::FillDerived<MeshData<Real>>, mc0.get());
-    
+    auto fill_derived_stage = tl.AddTask(
+        boundaries_stage, parthenon::Update::FillDerived<MeshData<Real>>, mc0.get());
+
     // Calculate fluxes for the current stage
     using TT = parthenon::TopologicalType;
     using TE = parthenon::TopologicalElement;
@@ -138,8 +146,9 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
     auto flx = none;
     for (auto face : faces) {
       if (do_advection)
-        flx = flx | tl.AddTask(fill_derived_stage, advection_package::CalculateFluxes<pack_desc_phi_t>, desc_phi, face,
-                               parthenon::CellLevel::same, mc0.get());
+        flx = flx | tl.AddTask(fill_derived_stage,
+                               advection_package::CalculateFluxes<pack_desc_phi_t>,
+                               desc_phi, face, parthenon::CellLevel::same, mc0.get());
     }
 
     auto set_flux = parthenon::AddFluxCorrectionTasks(flx, tl, mc0, pmesh->multilevel);
@@ -147,40 +156,49 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
     auto &mdudt_F = pmesh->mesh_data.Add("dUdtF", mbase);
     auto &mdudt_R = pmesh->mesh_data.Add("dUdtR", mbase);
     auto flux_div = tl.AddTask(set_flux, StokesAll, mc0.get(), mdudt_F.get());
-    
+
     // Calculate source terms for the current stage
     auto source = set_flux;
-    if (do_advection) source = source | tl.AddTask(set_flux, advection_package::Source, mc0.get(), mdudt_R.get());
-    
+    if (do_advection)
+      source = source |
+               tl.AddTask(set_flux, advection_package::Source, mc0.get(), mdudt_R.get());
+
     // Add the contribution from this stage to the updates for subsequent stages
     auto update_stages = flux_div;
     for (int stage2 = stage + 1; stage2 <= integrator->nstages; ++stage2) {
       auto label2 = integrator->GetStageName(stage2);
-      auto &md_in = stage == 1 ? pmesh->mesh_data.Add("base", partitions[i]) : pmesh->mesh_data.Add(label2, mbase);
+      auto &md_in = stage == 1 ? pmesh->mesh_data.Add("base", partitions[i])
+                               : pmesh->mesh_data.Add(label2, mbase);
       auto &md_out = pmesh->mesh_data.Add(label2, mbase);
-      auto add_flux_div = tl.AddTask(source, WeightedSumDataAll, md_in.get(), mdudt_F.get(), 1.0,
-                                     integrator->at(stage2, stage) * dt, md_out.get());
-      auto add_source = tl.AddTask(add_flux_div, WeightedSumDataAll, md_out.get(), mdudt_R.get(), 1.0,
-                                   integrator->a(stage2, stage) * dt, md_out.get());
+      auto add_flux_div =
+          tl.AddTask(source, WeightedSumDataAll, md_in.get(), mdudt_F.get(), 1.0,
+                     integrator->at(stage2, stage) * dt, md_out.get());
+      auto add_source =
+          tl.AddTask(add_flux_div, WeightedSumDataAll, md_out.get(), mdudt_R.get(), 1.0,
+                     integrator->a(stage2, stage) * dt, md_out.get());
       update_stages = update_stages | add_source;
     }
 
     // Add this contribution to the base stage
-    auto add_flux_div = tl.AddTask(source, WeightedSumDataAll, mbase.get(), mdudt_F.get(), 1.0,
-                                   integrator->bt(stage) * dt, mbase.get());
-    auto add_source = tl.AddTask(add_flux_div, WeightedSumDataAll, mbase.get(), mdudt_R.get(), 1.0,
-                                 integrator->b(stage) * dt, mbase.get());
-    
+    auto add_flux_div = tl.AddTask(source, WeightedSumDataAll, mbase.get(), mdudt_F.get(),
+                                   1.0, integrator->bt(stage) * dt, mbase.get());
+    auto add_source =
+        tl.AddTask(add_flux_div, WeightedSumDataAll, mbase.get(), mdudt_R.get(), 1.0,
+                   integrator->b(stage) * dt, mbase.get());
+
     // Perform the last stage cleanup tasks
     if (stage == integrator->nstages) {
-      auto boundaries = parthenon::AddBoundaryExchangeTasks(add_source, tl, mbase, pmesh->multilevel);
+      auto boundaries =
+          parthenon::AddBoundaryExchangeTasks(add_source, tl, mbase, pmesh->multilevel);
 
-      auto fill_derived = tl.AddTask(boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mbase.get());
+      auto fill_derived = tl.AddTask(
+          boundaries, parthenon::Update::FillDerived<MeshData<Real>>, mbase.get());
 
       auto dealloc = tl.AddTask(fill_derived, SparseDealloc, mbase.get());
       auto new_dt = tl.AddTask(dealloc, EstimateTimestep<MeshData<Real>>, mbase.get());
       if (pmesh->adaptive) {
-        auto tag_refine = tl.AddTask(new_dt, parthenon::Refinement::Tag<MeshData<Real>>, mbase.get());
+        auto tag_refine =
+            tl.AddTask(new_dt, parthenon::Refinement::Tag<MeshData<Real>>, mbase.get());
       }
     }
   }

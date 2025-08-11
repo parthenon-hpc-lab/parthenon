@@ -30,7 +30,8 @@ class IMEXRKIntegrator {
   explicit IMEXRKIntegrator(const std::string &name);
   IMEXRKIntegrator() : IMEXRKIntegrator("SSP2-(2,2,2)") {}
   explicit IMEXRKIntegrator(ParameterInput *pin)
-      : IMEXRKIntegrator(pin->GetOrAddString("parthenon/time", "integrator", "SSP2-(2,2,2)")) {}
+      : IMEXRKIntegrator(
+            pin->GetOrAddString("parthenon/time", "integrator", "SSP2-(2,2,2)")) {}
 
   // To conform with other integrators
   int nstages;

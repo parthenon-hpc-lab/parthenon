@@ -26,9 +26,10 @@ struct ScratchPack {
   using scratch_pad_t = ScratchPad3D<Real>;
 
   template <class scratch_space_t>
-  KOKKOS_INLINE_FUNCTION ScratchPack(scratch_space_t &&scratch_space, const pack_t *ppack, int b, int nj, int ni)
-      : ppack{ppack}, block{b},
-        data(std::forward<scratch_space_t>(scratch_space), ppack->GetUpperBound(b) + 1, nj, ni) {}
+  KOKKOS_INLINE_FUNCTION ScratchPack(scratch_space_t &&scratch_space, const pack_t *ppack,
+                                     int b, int nj, int ni)
+      : ppack{ppack}, block{b}, data(std::forward<scratch_space_t>(scratch_space),
+                                     ppack->GetUpperBound(b) + 1, nj, ni) {}
 
   template <class Tin>
   KOKKOS_FORCEINLINE_FUNCTION Real &operator()(const Tin &t, int j, int i) {
@@ -40,7 +41,8 @@ struct ScratchPack {
   Real &operator()(int v, int j, int i) { return data(v, j, i); }
 
   static std::size_t get_size_in_bytes(const pack_t &pack, int nj, int ni) {
-    const int nvar = pack.GetUpperBoundHost(0) + 1; // Assuming no sparse fields for the time being
+    const int nvar =
+        pack.GetUpperBoundHost(0) + 1; // Assuming no sparse fields for the time being
     return scratch_pad_t::shmem_size(nvar, nj, ni);
   }
 
