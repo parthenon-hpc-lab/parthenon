@@ -117,7 +117,7 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
       set_stage0 = tl.AddTask(none, WeightedSumDataAll, mbase.get(), mbase.get(), 1.0, 0.0, mc0.get());
     }
 
-    // Do implicit update here
+    // Do implicit update here to get conserved variables for the current stage
     auto implicit_update = set_stage0;
     const auto stage_dt = integrator->a(stage, stage) * dt;
     if (do_advection)
@@ -128,7 +128,8 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
     auto boundaries_stage = parthenon::AddBoundaryExchangeTasks(implicit_update, tl, mc0, pmesh->multilevel);
 
     auto fill_derived_stage = tl.AddTask(boundaries_stage, parthenon::Update::FillDerived<MeshData<Real>>, mc0.get());
-
+    
+    // Calculate fluxes for the current stage
     using TT = parthenon::TopologicalType;
     using TE = parthenon::TopologicalElement;
     std::vector<TE> faces{TE::F1};
@@ -146,9 +147,12 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
     auto &mdudt_F = pmesh->mesh_data.Add("dUdtF", mbase);
     auto &mdudt_R = pmesh->mesh_data.Add("dUdtR", mbase);
     auto flux_div = tl.AddTask(set_flux, StokesAll, mc0.get(), mdudt_F.get());
+    
+    // Calculate source terms for the current stage
     auto source = set_flux;
     if (do_advection) source = source | tl.AddTask(set_flux, advection_package::Source, mc0.get(), mdudt_R.get());
-
+    
+    // Add the contribution from this stage to the updates for subsequent stages
     auto update_stages = flux_div;
     for (int stage2 = stage + 1; stage2 <= integrator->nstages; ++stage2) {
       auto label2 = integrator->GetStageName(stage2);
@@ -166,7 +170,8 @@ TaskCollection ScalarIMEXDriver::MakeTaskCollection(BlockList_t &, const int sta
                                    integrator->bt(stage) * dt, mbase.get());
     auto add_source = tl.AddTask(add_flux_div, WeightedSumDataAll, mbase.get(), mdudt_R.get(), 1.0,
                                  integrator->b(stage) * dt, mbase.get());
-
+    
+    // Perform the last stage cleanup tasks
     if (stage == integrator->nstages) {
       auto boundaries = parthenon::AddBoundaryExchangeTasks(add_source, tl, mbase, pmesh->multilevel);
 
