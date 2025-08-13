@@ -32,13 +32,21 @@ parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output
 parser.add_argument(
     "-e", "--exclude", type=str, nargs="*", default=[], help="Variables to exclude"
 )
+parser.add_argument(
+    "-q", "--quiet", action="store_true", help="Print only a maximum asymmetry"
+)
 
 dset_type = h5py._hl.dataset.Dataset
 if __name__ == "__main__":
     args = parser.parse_args()
     for fname in args.files:
         asym_fields = {}
+        t = 0
         with h5py.File(fname, "r") as f:
+            try:
+                t = f["Info"].attrs["Time"]
+            except:
+                continue
             if args.verbose:
                 print(f"Computing asymmetry in {fname} for vars...")
             for k, v in f.items():
@@ -58,9 +66,18 @@ if __name__ == "__main__":
                         except ValueError:
                             if args.verbose:
                                 print("\t\tcorrupted!")
-        print("The following fields had non-trivial asymmetry in {}:".format(fname))
-        for k, vals in asym_fields.items():
-            absdiff, absval, frac_diff = vals
-            print(
-                "{:<50} {:14e} / {:14e} =\t{:14e}".format(k, absdiff, absval, frac_diff)
-            )
+        if args.quiet:
+            max_asym = 0
+            for k, vals in asym_fields.items():
+                absdiff, absval, frac_diff = vals
+                max_asym = max(max_asym, frac_diff)
+            print("{:<50} {:<50}".format(t, max_asym))
+        else:
+            print("The following fields had non-trivial asymmetry in {}:".format(fname))
+            for k, vals in asym_fields.items():
+                absdiff, absval, frac_diff = vals
+                print(
+                    "{:<50} {:14e} / {:14e} =\t{:14e}".format(
+                        k, absdiff, absval, frac_diff
+                    )
+                )
