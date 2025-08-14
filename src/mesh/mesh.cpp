@@ -79,7 +79,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
-          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 60 * 24 * 365)),
+          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
