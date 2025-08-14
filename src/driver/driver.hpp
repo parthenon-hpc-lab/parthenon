@@ -126,7 +126,8 @@ class EvolutionDriver : public Driver {
     output_before_amr = pinput->GetOrAddBoolean(
         "parthenon/time", "output_before_amr", false,
         "Set to true to generate outputs in a step BEFORE modifying the mesh at the end "
-        "of the step. By default outputs happen AFTER remeshing if remeshing happens.");
+        "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
+        "WARNING: this will make restarts not bitwise-exact.");
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
