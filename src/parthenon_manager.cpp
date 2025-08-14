@@ -324,6 +324,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // make sure we have all sparse variables that are in the restart file
+
+  // JMM: It is possible to output with more sparse variables than you
+  // need, for example if you're outputting a core dump, so we
+  // complain only if the number of sparse varaibles required is
+  // greater than the number in the file, not if it is less.
   PARTHENON_REQUIRE_THROWS(
       num_sparse <= sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
