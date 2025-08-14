@@ -22,7 +22,7 @@ sys.path.insert(
     0, "../external/parthenon/scripts/python/packages/parthenon_tools/parthenon_tools"
 )
 import h5py
-from parthenon_tools.compute_asymmetry import compute_asymmetry
+from .compute_asymmetry import compute_asymmetry
 
 parser = ArgumentParser(
     prog="report_asymmetry.py",
