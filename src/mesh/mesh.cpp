@@ -728,11 +728,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
-          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          !(ProblemGenerator != nullptr &&
+            (nmb != 0 && block_list[0]->ProblemGenerator != nullptr)),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
       PARTHENON_REQUIRE_THROWS(
           !(PostInitialization != nullptr &&
-            block_list[0]->PostInitialization != nullptr),
+            (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
           "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
