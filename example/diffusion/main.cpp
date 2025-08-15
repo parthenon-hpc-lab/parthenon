@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();
-    success = (driver_status != parthenon::DriverStatus::complete);
+    success = (driver_status == parthenon::DriverStatus::complete);
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
