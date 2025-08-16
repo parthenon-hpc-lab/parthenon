@@ -21,7 +21,7 @@ jobs:
         - name: Checkout code
           uses: actions/checkout@v2
           with:
-            fetch-depth: 0
+            submodules: 'true'
         - name: Set system to non-interactive mode
           run: export DEBIAN_FRONTEND=noninteractive
         - name: install dependencies
@@ -29,6 +29,32 @@ jobs:
             pip install sphinx
             pip install sphinx-rtd-theme
             pip install sphinx-multiversion
+            sudo apt install -y --force-yes -qq build-essential cmake
+        - name: generate csv files
+          run: |
+            echo "Repo = ${GITHUB_REPOSITORY}"
+            mkdir -p build && cd build
+            cmake -DPARTHENON_DISABLE_HDF5=ON \
+                  -DPARTHENON_DISABLE_MPI=ON \
+                  -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
+                  -DBUILD_TESTING=OFF \
+                  ..
+            make -j4
+            make param-docs
+            cd ..
+        - name: Check generated files for this branch are up to date
+          run: |
+            if git diff --exit-code -- doc/sphinx/src/generated/; then
+              echo "Generated doc files up to date."
+            else
+              echo "Generated doc files not up to date. Run make param-docs and commit changes."
+              exit 1
+            fi
+        - name: Get all git references, needed for sphinx multiversion
+          run: |
+            git fetch --prune --unshallow --tags
+            git branch -a
+            git tag --list
         - name: build docs
           run: |
             echo "Repo = ${GITHUB_REPOSITORY}"

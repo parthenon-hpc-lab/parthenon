@@ -121,13 +121,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
     if (tm != nullptr) {
-      dn = pin->GetOrAddInteger(op.block_name, "dn", -1);
+      dn = pin->GetOrAddInteger(op.block_name, "dn", -1, "output cadence in cycles");
 
       // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
       // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
       // written for temporal drivers.
       const auto tlim = dn >= 0 ? -1.0 : tm->tlim;
-      dt = pin->GetOrAddReal(op.block_name, "dt", tlim);
+      dt =
+          pin->GetOrAddReal(op.block_name, "dt", tlim, "output cadence in physical time");
     }
     // if this output is "soft-disabled" (negative value) skip processing
     if (dt < 0.0 && dn < 0) {
@@ -135,6 +136,28 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       continue;
     } else {
       (*pactive)[iinput] = true;
+    }
+
+    // JMM: Backwards compatibility hack. Don't allow this unless
+    // we're restarting from a legacy file format.
+    if (parthenon::Globals::is_restart) {
+      bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
+      if (next_time_exists) {
+        Real next_time = pin->GetReal(op.block_name, "next_time");
+        (*plast_times)[iinput] = dt < 0 ? 0.0 : next_time - dt;
+        pin->RemoveParameter(op.block_name, "next_time");
+      }
+      if (next_n_exists) {
+        int next_n = pin->GetInteger(op.block_name, "next_n");
+
+        (*plast_ns)[iinput] = dn < 0 ? 0 : next_n - dn;
+        pin->RemoveParameter(op.block_name, "next_n");
+      }
+      if (next_time_exists || next_n_exists) {
+        (*pfile_numbers)[iinput] = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        pin->RemoveParameter(op.block_name, "file_number");
+      }
     }
 
     PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
@@ -162,7 +185,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         signaling number. However, I think the flag is less fraught.
       */
       if (dt >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -170,7 +193,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {
@@ -181,17 +204,21 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
     // set file number, basename, id, and format
     op.file_number = std::max((*pfile_numbers)[iinput], 0);
-    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
+                                           "prefix for output files");
     op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
-    op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
+    op.file_label_final = pin->GetOrAddBoolean(
+        op.block_name, "use_final_label", true,
+        "final output will use the word final instead of a number for its index");
     char define_id[10];
     std::snprintf(define_id, sizeof(define_id), "out%d",
                   op.block_number); // default id="outN"
     op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-    op.file_type = pin->GetString(op.block_name, "file_type");
+    op.file_type = pin->GetString(op.block_name, "file_type", "output type");
 
     // read ghost cell option
-    op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+    op.include_ghost_zones = pin->GetOrAddBoolean(
+        op.block_name, "ghost_zones", false, "whether or not ghost zones are output");
 
     // read cartesian mapping option
     op.cartesian_vector = false;
@@ -206,8 +233,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
       op.sparse_seed_nans =
-          pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false);
-      op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base");
+          pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
+                               "write non-allocated sparse data as NaN");
+      op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
+                                             "which meshdata object to write from");
     } else {
       op.single_precision_output = false;
       op.sparse_seed_nans = false;
@@ -265,13 +294,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
         (op.file_type != "histogram")) {
       op.variables = pin->GetOrAddVector<std::string>(block_names[iinput], "variables",
-                                                      std::vector<std::string>());
+                                                      std::vector<std::string>(),
+                                                      "variables to output");
       // JMM: If the requested var isn't present for a given swarm,
       // it is simply not output.
       op.swarms.clear(); // Not sure this is needed
       if (pin->DoesParameterExist(block_names[iinput], "swarms")) {
-        std::vector<std::string> swarmnames =
-            pin->GetVector<std::string>(block_names[iinput], "swarms");
+        std::vector<std::string> swarmnames = pin->GetVector<std::string>(
+            block_names[iinput], "swarms", "swarms to output");
         std::size_t nswarms = swarmnames.size();
         if ((pin->DoesParameterExist(block_names[iinput], "swarm_variables")) &&
             (nswarms > 1)) {
@@ -285,12 +315,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         for (const auto &swname : swarmnames) {
           if (pin->DoesParameterExist(block_names[iinput], "swarm_variables")) {
             auto varnames =
-                pin->GetVector<std::string>(block_names[iinput], "swarm_variables");
+                pin->GetVector<std::string>(block_names[iinput], "swarm_variables",
+                                            "swarm variables to output for all swarms");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
           if (pin->DoesParameterExist(block_names[iinput], swname + "_variables")) {
-            auto varnames =
-                pin->GetVector<std::string>(block_names[iinput], swname + "_variables");
+            auto varnames = pin->GetVector<std::string>(
+                block_names[iinput], swname + "_variables",
+                "swarm variables to output for a specific swarm");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
           // Always output id, x, y, and z for swarms so that they work with vis tools.

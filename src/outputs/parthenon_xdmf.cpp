@@ -249,9 +249,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
         ParticleVariableRef(pxdmf, varname, varinfo, swmname, hdfFile,
                             swminfo.global_count);
       }
-      // Write info for default (auto-generated) "id"s in case there's not native id field
-      // for the given swarm.
-      if (swminfo.var_info.count(swarm_position::id::name()) == 0) {
+      // Write info for default (auto-generated) "id"s in case there's no native id field
+      // for the given swarm nor a custom "id" field.
+      if (swminfo.var_info.count(swarm_position::id::name()) == 0 &&
+          swminfo.var_info.count("id") == 0) {
         auto swid = SwarmVarInfo(1, 1, 1, 1, 1, 0, "Int", false);
         ParticleVariableRef(pxdmf, "id", swid, swmname, hdfFile, swminfo.global_count);
       }

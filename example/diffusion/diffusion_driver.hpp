@@ -37,8 +37,6 @@ class DiffusionDriver : public EvolutionDriver {
 
   // DriverStatus Execute() override;
 
-  Real final_rms_error, final_rms_residual;
-
  private:
   LowStorageIntegrator integrator;
 };

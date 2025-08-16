@@ -28,8 +28,20 @@
 #endif
 
 #include <algorithm>
+#include <iterator>
 
 namespace parthenon {
+
+template <typename T, typename = void>
+struct is_sortable : std::false_type {};
+
+template <typename T>
+struct is_sortable<T, std::void_t<decltype(std::sort(std::begin(std::declval<T &>()),
+                                                     std::end(std::declval<T &>())))>>
+    : std::true_type {};
+
+template <typename T>
+constexpr bool is_sortable_v = is_sortable<T>::value;
 
 // Returns the upper bound (or the array size if value has not been found)
 // Could/Should be replaced with a Kokkos std version once available (currently schedule
