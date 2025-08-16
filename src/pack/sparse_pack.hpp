@@ -262,7 +262,12 @@ class SparsePack : public SparsePackBase {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx);
   }
-
+  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t, const int i) const {
+    PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
+    const int vidx = GetLowerBound(b, t) + t.idx;
+    return pack_(0, b, vidx)(i);
+  }
   KOKKOS_INLINE_FUNCTION
   Real &operator()(const int b, const int idx, const int k, const int j,
                    const int i) const {
