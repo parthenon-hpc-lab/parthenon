@@ -176,3 +176,26 @@ TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity che
     }
   }
 }
+
+TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
+  GIVEN("A ParameterInput object already populated") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl
+       << "var1 = 0   # comment" << std::endl
+       << "var2 = 0   # comment" << std::endl
+       << "<block2>" << std::endl
+       << "var2 = 2" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    THEN("block1/var1 exists") { REQUIRE(in.DoesParameterExist("block1", "var1")); }
+
+    WHEN("We delete a parameter") {
+      in.RemoveParameter("block1", "var1");
+      THEN("It no longer exists") { REQUIRE(!in.DoesParameterExist("block1", "var1")); }
+      THEN("And others still do") { REQUIRE(in.DoesParameterExist("block1", "var2")); }
+    }
+  }
+}

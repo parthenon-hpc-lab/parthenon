@@ -275,6 +275,7 @@ class ParameterInput {
     SetQueryDependency_(block, name, ref);
     return ret;
   }
+  void RemoveParameter(const std::string &block, const std::string &name);
   void CheckRequired(const std::string &block, const std::string &name);
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;
@@ -456,11 +457,12 @@ class ParameterInput {
             // the new default and move on.
             record.default_value = defval.value();
             record.default_value_str = record.ToString(defval.value());
-          } else {
+          } else if (record.origin_type != QueryRecord::OriginType::Input) {
             // JMM: Forbid setting a default value after requesting but
             // allow requesting without a default if a default has
             // already been set.  I know this is unpleasantly stateful,
             // but we do this in a few places in the code.
+            // PG: but only trigger if input does not contain the info
             std::stringstream msg;
             msg << "Input parameter " << block << "/" << name
                 << " called previously without a default value and now called with one."
