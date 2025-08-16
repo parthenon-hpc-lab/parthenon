@@ -3,10 +3,10 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1255]](https://github.com/parthenon-hpc-lab/parthenon/pull/1255) RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
 - [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
-
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
