@@ -95,9 +95,9 @@ bool LogicalLocation::Contains(const LogicalLocation &containee) const {
   return (shifted_lx1 == lx1()) && (shifted_lx2 == lx2()) && (shifted_lx3 == lx3());
 }
 
-std::array<int, 3>
+Kokkos::Array<int, 3>
 LogicalLocation::GetSameLevelOffsets(const LogicalLocation &neighbor) const {
-  std::array<int, 3> offsets;
+  Kokkos::Array<int, 3> offsets;
   const int level_shift_neigh = std::max(neighbor.level() - level(), 0);
   const int level_shift_me = std::max(level() - neighbor.level(), 0);
   for (int dir = 0; dir < 3; ++dir) {
