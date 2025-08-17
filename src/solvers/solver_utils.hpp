@@ -241,8 +241,8 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c) {
           parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e,
-              ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
+              DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+              [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
         }
       });
   return TaskStatus::complete;
@@ -335,11 +335,6 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c) {
-//<<<<<<< HEAD
-//          parthenon::seq_for(
-//              kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-//              [&](int k, int j, int i) { pack(b, te, var(c), k, j, i) = 0.0; });
-//=======
           Real *avar = &pack_a(b, te, c, kb.s, jb.s, ib.s);
           Real *bvar = &pack_b(b, te, c, kb.s, jb.s, ib.s);
           Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
