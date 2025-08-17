@@ -64,7 +64,7 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            base_constructor_selector_t)
     : // public members:
-      modified(true), is_restart(false),
+      modified(true),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
                                    std::vector<std::string>{"none", "static", "adaptive"},
                                    "mesh refinement mode") == "adaptive"
@@ -248,7 +248,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
-  is_restart = true;
   std::stringstream msg;
 
   // mesh test
