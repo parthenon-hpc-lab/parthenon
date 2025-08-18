@@ -86,6 +86,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: 'true'
+      - name: Install parthenon_tools
+        run: |
+          pip install scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           cmake -B build \
@@ -148,6 +151,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: 'true'
+      - name: Install parthenon_tools
+        run: |
+          pip install scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
