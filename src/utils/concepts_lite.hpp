@@ -49,6 +49,12 @@ struct is_specialization_of<TEMPL<TPARAMS...>, TEMPL> : public std::true_type {}
 template <class... Ts>
 using void_t = void;
 
+template <class F, class = void>
+struct is_functor : std::false_type {};
+
+template <class F>
+struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
+
 // implements is a template struct for checking if type T implements a particular
 // concept, which here simply means that it conforms to some interface.
 // (I think people call this concepts lite, since there are more
