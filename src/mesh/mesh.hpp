@@ -122,7 +122,6 @@ class Mesh {
 
   // data
   bool modified;
-  bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
 
