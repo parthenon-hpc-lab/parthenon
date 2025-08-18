@@ -264,6 +264,7 @@ class SparsePack : public SparsePackBase {
   }
 
   template <class TIn, typename... Args, REQUIRES(sizeof...(Args) > 0),
+            REQUIRES(all_implement<integral(Args...)>::value),
             REQUIRES(IncludesType<TIn, Ts...>::value)>
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t,
                                           Args &&...args) const {
