@@ -169,11 +169,11 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
           val = it->getAttribute(full_path).get<T>();
         }
         params.Update(key, val);
-      } catch (std::runtime_error e) {
+      } catch (...) {
         // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
         if (Globals::my_rank == 0) {
           std::stringstream ss;
-          ss << "Failed to load parameter " << fullpath
+          ss << "Failed to load parameter " << full_path
              << " from the restart file! Using default value." << std::endl;
           PARTHENON_WARN(ss);
         }
