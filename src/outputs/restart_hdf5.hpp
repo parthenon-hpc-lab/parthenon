@@ -115,7 +115,7 @@ class RestartReaderHDF5 : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  int file_output_format_version, Mesh *pmesh) const override;
+                  Mesh *pmesh) const override;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. For HDF5 data is padded if needed (i.e., a face centered field has tims

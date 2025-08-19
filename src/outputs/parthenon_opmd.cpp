@@ -17,7 +17,6 @@
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -31,6 +30,9 @@
 #include <utility>
 #include <vector>
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 // Parthenon headers
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
@@ -41,13 +43,6 @@
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "openPMD/Dataset.hpp"
-#include "openPMD/Datatype.hpp"
-#include "openPMD/IO/Access.hpp"
-#include "openPMD/Iteration.hpp"
-#include "openPMD/Mesh.hpp"
-#include "openPMD/ParticleSpecies.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/output_attr.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
@@ -56,11 +51,6 @@
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
-
-// OpenPMD headers
-#ifdef PARTHENON_ENABLE_OPENPMD
-#include <openPMD/openPMD.hpp>
-#endif // ifdef PARTHENON_ENABLE_OPENPMD
 
 namespace parthenon {
 
@@ -294,18 +284,11 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 //  \brief  Write output in OpenPMD format
 void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                     const SignalHandler::OutputSignal signal) {
-#ifndef PARTHENON_ENABLE_OPENPMD
-  if (Globals::my_rank == 0) {
-    PARTHENON_WARN("OpenPMD output requested by input file, but OpenPMD support not "
-                   "compiled in. Skipping this output type.");
-  }
-#else
   if (output_params.single_precision_output) {
     this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
   } else {
     this->template WriteOutputFileImpl<false>(pm, pin, tm, signal);
   }
-#endif // ifndef PARTHENON_ENABLE_OPENPMD
 }
 
 //----------------------------------------------------------------------------------------
@@ -314,12 +297,6 @@ void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 template <bool WRITE_SINGLE_PRECISION>
 void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                         const SignalHandler::OutputSignal signal) {
-#ifndef PARTHENON_ENABLE_OPENPMD
-  if (Globals::my_rank == 0) {
-    PARTHENON_WARN("OpenPMD output requested by input file, but OpenPMD support not "
-                   "compiled in. Skipping this output type.");
-  }
-#else
   if constexpr (WRITE_SINGLE_PRECISION) {
     Kokkos::Profiling::pushRegion("OPMD::WriteOutputFileSinglePrec");
   } else {
@@ -803,7 +780,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   it.close();
   series.close();
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
-#endif // ifndef PARTHENON_ENABLE_OPENPMD
 }
 // explicit template instantiation
 template void

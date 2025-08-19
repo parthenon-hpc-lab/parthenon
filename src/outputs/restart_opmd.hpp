@@ -13,9 +13,10 @@
 #include <string>
 #include <vector>
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 #include "basic_types.hpp"
-#include "openPMD/Iteration.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
 
@@ -52,7 +53,7 @@ class RestartReaderOPMD : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  int file_output_format_version, Mesh *pmesh) const override;
+                  Mesh *pmesh) const override;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. OpenPMD is dense (i.e., a face centered field has dims

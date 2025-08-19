@@ -28,8 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include <Kokkos_Core.hpp>
-
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
@@ -41,7 +39,9 @@
 #include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#ifdef PARTHENON_ENABLE_OPENPMD
 #include "outputs/restart_opmd.hpp"
+#endif
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -103,9 +103,18 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+#ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+#else // HDF5 disabled
+      PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#endif
     } else if (fs::path(arg.restart_filename).extension() == ".bp") {
+#ifdef PARTHENON_ENABLE_OPENPMD
       restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
+#else
+      PARTHENON_FAIL("Trying to restart from OpenPMD file but OpenPMD support was not "
+                     "compiled into Parthenon.");
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
     } else {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
@@ -263,9 +272,6 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
-#ifndef ENABLE_HDF5
-  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
-#else  // HDF5 enabled
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
@@ -277,19 +283,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
-  // TODO(cleanup) why is this code here and not contained in the restart reader?
   std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
-
-  // Currently supports versions 3 and 4.
-  const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  // TODO(pgrete) figure out what to do about versions of different outputs
-  if (false && file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
-    std::stringstream msg;
-    msg << "File format version " << file_output_format_ver << " not supported. "
-        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
-    PARTHENON_THROW(msg)
-  }
 
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
@@ -352,7 +347,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Read relevant data from the hdf file, this works for dense and sparse variables
     // because sparse variables are currently densely written for HDF5.
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver, &rm);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm);
       // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
       std::stringstream msg;
@@ -383,20 +378,12 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case
-      // we update the HDF5 infrastructure!
-      // TODO(pgrete) figure out what to do about versions of different outputs
-      if (true || file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
-        OutputUtils::PackOrUnpackVar(
-            v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
-            [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
-              v_h(topo, t, u, v, k, j, i) = tmp[index];
-            });
-      } else {
-        std::stringstream msg;
-        msg << "File format version " << file_output_format_ver << " not supported. "
-            << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
-        PARTHENON_THROW(msg)
-      }
+      // we update the OpenPMD/HDF5 infrastructure!
+      OutputUtils::PackOrUnpackVar(
+          v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
+          [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+            v_h(topo, t, u, v, k, j, i) = tmp[index];
+          });
 
       v->data.DeepCopy(v_h);
     }
@@ -446,7 +433,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     auto &params = pkg->AllParams();
     resfile.ReadParams(name, params);
   }
-#endif // ifdef ENABLE_HDF5
 }
 
 } // namespace parthenon

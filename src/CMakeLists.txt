@@ -211,14 +211,10 @@ add_library(parthenon
   outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
-  outputs/parthenon_opmd.cpp
-  outputs/parthenon_opmd.hpp
   outputs/parthenon_xdmf.hpp
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
-  outputs/restart_opmd.cpp
-  outputs/restart_opmd.hpp
 
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp
@@ -363,6 +359,12 @@ if (ENABLE_HDF5)
 endif()
 
 if (PARTHENON_ENABLE_OPENPMD)
+  target_sources(parthenon PRIVATE
+    outputs/parthenon_opmd.cpp
+    outputs/parthenon_opmd.hpp
+    outputs/restart_opmd.cpp
+    outputs/restart_opmd.hpp
+  )
   target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 

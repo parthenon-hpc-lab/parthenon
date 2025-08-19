@@ -15,10 +15,11 @@
 #include <string>
 #include <vector>
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 #include "basic_types.hpp"
 #include "interface/params.hpp"
-#include "openPMD/Iteration.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/output_attr.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
@@ -200,8 +201,7 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
                                    const OutputUtils::VarInfo &vinfo,
-                                   std::vector<Real> &data_vec,
-                                   int file_output_format_version, Mesh *pm) const {
+                                   std::vector<Real> &data_vec, Mesh *pm) const {
   int64_t comp_offset = 0; // offset data_vector to store component data
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0

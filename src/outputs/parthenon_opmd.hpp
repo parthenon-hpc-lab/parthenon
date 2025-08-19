@@ -8,14 +8,15 @@
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 #include <memory>
 #include <string>
 #include <tuple>
 
 #include "basic_types.hpp"
 #include "mesh/meshblock.hpp"
-#include "openPMD/Dataset.hpp"
-#include "openPMD/Iteration.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {
@@ -52,4 +53,5 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 
 } // namespace OpenPMDUtils
 } // namespace parthenon
+
 #endif // OUTPUTS_PARTHENON_OPMD_HPP_
