@@ -46,9 +46,9 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "gold.out0.00005.rhdf",
                 "parthenon/job/problem_id=bronze",
                 "parthenon/output1/file_type=hdf5",
-                "parthenon/output1/dt=0.05",
+                "parthenon/output1/dt=0.25",
                 "parthenon/output1/last_time=0.25",
-                "parthenon/output1/variables=advection.C,advection.D,advection.phi_0,advection.phi_fine"
+                "parthenon/output1/variables=advection.C",
             ]
         return parameters
 
@@ -85,12 +85,13 @@ class TestCase(utils.test_case.TestCaseAbs):
             delta = compare(
                 [
                     "bronze.out1.%s.phdf" % name,
-                    "{}.out0.{}.rhdf".format(base, name),
+                    "{}.out2.{}.phdf".format(base, name),
                 ],
                 # no need for metadata as the dynamically added output will cause
                 # different metadata and we're just interested in the right data
                 # being there.
-                one=True, check_metadata=False,
+                one=True,
+                check_metadata=False,
             )
 
             if delta != 0:

@@ -72,7 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
           PARTHENON_THROW(msg);
         }
       }
-      // It should be safe here to jsut use outn as output blocks are unique
+      // It should be safe here to just use outn as output blocks are unique
       pkg->AddParam(outn + "/file_number", file_number, Params::Mutability::Restart);
       pkg->AddParam(outn + "/last_time", last_time, Params::Mutability::Restart);
       pkg->AddParam(outn + "/last_n", last_n, Params::Mutability::Restart);
