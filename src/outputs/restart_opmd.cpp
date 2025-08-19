@@ -156,18 +156,28 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      T val;
-      if constexpr (implements<kokkos_view(T)>::value) {
-        val = params.Get<T>(key);
-        RestoreViewAttribute(full_path, val);
-      } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
-        val = params.Get<T>(key);
-        auto &view = val.KokkosView();
-        RestoreViewAttribute(full_path, view);
-      } else {
-        val = it->getAttribute(full_path).get<T>();
+      try {
+        T val;
+        if constexpr (implements<kokkos_view(T)>::value) {
+          val = params.Get<T>(key);
+          RestoreViewAttribute(full_path, val);
+        } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
+          val = params.Get<T>(key);
+          auto &view = val.KokkosView();
+          RestoreViewAttribute(full_path, view);
+        } else {
+          val = it->getAttribute(full_path).get<T>();
+        }
+        params.Update(key, val);
+      } catch (std::runtime_error e) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+        if (Globals::my_rank == 0) {
+          std::stringstream ss;
+          ss << "Failed to load parameter " << fullpath
+             << " from the restart file! Using default value." << std::endl;
+          PARTHENON_WARN(ss);
+        }
       }
-      params.Update(key, val);
     }
   }
 }
