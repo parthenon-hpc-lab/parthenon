@@ -243,7 +243,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
             // Restarting from coarsened output not supported at the moment
             const int coarsening_factor = 1;
             const auto [chunk_offset, chunk_extent] =
-                OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor);
+                OpenPMDUtils::GetChunkOffsetAndExtent(
+                    pm, pmb, te, coarsening_factor, OpenPMDUtils::SubOutputType::Restart);
             mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
             comp_offset += std::accumulate(chunk_extent.cbegin(), chunk_extent.cend(), 1,
                                            std::multiplies<std::uint64_t>{});

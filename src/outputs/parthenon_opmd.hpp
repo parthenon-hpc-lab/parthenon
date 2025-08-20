@@ -23,6 +23,8 @@ namespace parthenon {
 
 namespace OpenPMDUtils {
 
+enum class SubOutputType { Restart, X1Slice, X2Slice, X3Slice };
+
 template <typename T>
 void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);
 
@@ -49,7 +51,8 @@ GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
 // TODO(pgrete) needs to be updated to properly work with Forests
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
-                        const TopologicalElement te, const int coarsening_factor);
+                        const TopologicalElement te, const int coarsening_factor,
+                        const SubOutputType outupt_type);
 
 } // namespace OpenPMDUtils
 } // namespace parthenon

@@ -58,8 +58,6 @@ using namespace OutputUtils;
 
 namespace OpenPMDUtils {
 
-enum class SubOutputType { Restart, X1Slice, X2Slice, X3Slice };
-
 template <typename T>
 auto GetFlatHostVecFromView(T view) {
   // Take a view and return a vector containing rank and dims and a flattened (1D)
@@ -259,7 +257,8 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
 
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
-                        const TopologicalElement te, const int coarsening_factor) {
+                        const TopologicalElement te, const int coarsening_factor,
+                        const SubOutputType output_type) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -276,6 +275,18 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                     static_cast<uint64_t>(nx1_eff + TopologicalOffsetI(te))};
   } else {
     PARTHENON_THROW("1D output for openpmd not yet supported.");
+  }
+  int remove_comp = -1;
+  if (output_type == SubOutputType::X1Slice) {
+    remove_comp = 0;
+  } else if (output_type == SubOutputType::X2Slice) {
+    remove_comp = 1;
+  } else if (output_type == SubOutputType::X3Slice) {
+    remove_comp = 2;
+  }
+  if (remove_comp >= 0) {
+    chunk_extent.erase(chunk_extent.begin() + remove_comp);
+    chunk_offset.erase(chunk_offset.begin() + remove_comp);
   }
   return {chunk_offset, chunk_extent};
 }
@@ -392,6 +403,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       output_params.block_name, "output_type", "restart",
       std::vector<std::string>{"restart", "x1slice", "x2slice", "x3slice"},
       "Type of output in the file.");
+  // C++20 please
+  // using enum OpenPMDUtils::SubOutputType;
   using OpenPMDUtils::SubOutputType;
   auto output_type = SubOutputType::Restart;
   if (output_type_str == "x1slice") {
@@ -401,7 +414,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   } else if (output_type_str == "x3slice") {
     output_type = SubOutputType::X3Slice;
   }
-  const auto is_slice = output_type != SubOutputType::Restart;
+  const auto is_slice = output_type == SubOutputType::X1Slice ||
+                        output_type == SubOutputType::X2Slice ||
+                        output_type == SubOutputType::X3Slice;
   auto slice_loc = std::numeric_limits<Real>::signaling_NaN();
   if (is_slice) {
     PARTHENON_REQUIRE_THROWS(pm->ndim == 3, "Slices are only implemented in 3D");
@@ -722,6 +737,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             component_buffer_view(component_buffer.data(), nk, nj, ni);
         Kokkos::deep_copy(component_buffer_view, data);
 #endif
+        auto &coords = pmb->coords;
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
         for (const auto &te : vinfo.topological_elements) {
           auto ib = bounds.GetBoundsI(IndexDomain::interior, te);
@@ -749,15 +765,33 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                           ((k - kb.s) % coarsening_factor_ != 0)) {
                         continue;
                       }
+                      if (is_slice) {
+                        if (output_type == SubOutputType::X1Slice) {
+                          if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
+                          if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
+                            continue;
+                        } else if (output_type == SubOutputType::X2Slice) {
+                          if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
+                          if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
+                            continue;
+                        } else if (output_type == SubOutputType::X3Slice) {
+                          if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
+                          if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
+                            continue;
+                        } else {
+                          PARTHENON_FAIL("Unclear how I got here.");
+                        }
+                      }
                       tmp_data[tmp_offset] = static_cast<OutT>(
                           out_var_h(static_cast<int>(te) % 3, t, u, v, k, j, i));
+
                       tmp_offset++;
                     }
                   }
                 }
                 const auto [chunk_offset, chunk_extent] =
-                    OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te,
-                                                          coarsening_factor_);
+                    OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor_,
+                                                          output_type);
                 mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
                                         chunk_extent);
                 comp_idx += 1;
