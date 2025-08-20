@@ -64,7 +64,7 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            base_constructor_selector_t)
     : // public members:
-      modified(true), is_restart(false),
+      modified(true),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
                                    std::vector<std::string>{"none", "static", "adaptive"},
                                    "mesh refinement mode") == "adaptive"
@@ -246,7 +246,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
-  is_restart = true;
   std::stringstream msg;
 
   // mesh test
@@ -779,11 +778,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
-          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          !(ProblemGenerator != nullptr &&
+            (nmb != 0 && block_list[0]->ProblemGenerator != nullptr)),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
       PARTHENON_REQUIRE_THROWS(
           !(PostInitialization != nullptr &&
-            block_list[0]->PostInitialization != nullptr),
+            (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
           "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator

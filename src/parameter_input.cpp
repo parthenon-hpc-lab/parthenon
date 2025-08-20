@@ -934,6 +934,33 @@ std::string ParameterInput::SetString(const std::string &block, const std::strin
   return value;
 }
 
+void ParameterInput::RemoveParameter(const std::string &block, const std::string &name) {
+  InputBlock *pb = GetPtrToBlock(block);
+  InputLine *plast = pb->pline;
+  bool deleted = false;
+  for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+    if (name.compare(pl->param_name) == 0) {
+      // if head of list
+      if (plast == pb->pline) {
+        pb->pline = pl->pnext;
+      } else {
+        plast->pnext = pl->pnext;
+      }
+      delete pl;
+      deleted = true;
+      break;
+    }
+    plast = pl;
+  }
+  if (deleted) {
+    auto key = std::make_pair(block, name);
+    auto it = queries_.find(key);
+    if (it != queries_.end()) {
+      queries_.erase(it);
+    }
+  }
+}
+
 void ParameterInput::CheckRequired(const std::string &block, const std::string &name) {
   bool missing = true;
   if (DoesParameterExist(block, name)) {
