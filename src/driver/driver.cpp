@@ -174,6 +174,12 @@ DriverStatus EvolutionDriver::Execute() {
       pmesh->mbcnt += pmesh->nbtotal;
       pmesh->step_since_lb++;
 
+      // skip the final (last) output at the end of the simulation time as it happens
+      // later
+      if (output_before_amr && tm.KeepGoing()) {
+        pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+      }
+
       timer_LBandAMR.reset();
       pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
       if (pmesh->modified) InitializeBlockTimeSteps();
@@ -189,7 +195,7 @@ DriverStatus EvolutionDriver::Execute() {
 
       // skip the final (last) output at the end of the simulation time as it happens
       // later
-      if (tm.KeepGoing()) {
+      if (!output_before_amr && tm.KeepGoing()) {
         pouts->MakeOutputs(pmesh, pinput, &tm, signal);
       }
 
