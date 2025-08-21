@@ -337,9 +337,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   } else if (signal == SignalHandler::OutputSignal::final &&
              output_params.file_label_final) {
     filename.append(".final");
-  } else {
-    filename.append(".%05T");
   }
+  filename.append(".%05T");
+
   filename.append(".bp");
   Series series = Series(filename, Access::CREATE,
 #ifdef MPI_PARALLEL
