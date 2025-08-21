@@ -13,6 +13,7 @@
 #ifndef SOLVERS_BICGSTAB_SOLVER_HPP_
 #define SOLVERS_BICGSTAB_SOLVER_HPP_
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -23,29 +24,42 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "solvers/mg_solver.hpp"
+#include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
-
 #include "tasks/tasks.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
 namespace solvers {
 
+enum class Preconditioner { None, Diagonal, Multigrid };
 struct BiCGSTABParams {
   MGParams mg_params;
   int max_iters = 1000;
-  Real residual_tolerance = 1.e-12;
-  bool precondition = true;
+  std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
+  Preconditioner precondition_type = Preconditioner::Multigrid;
   bool print_per_step = false;
-
+  bool relative_residual = false;
   BiCGSTABParams() = default;
   BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
-    residual_tolerance =
-        pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
-    precondition = pin->GetOrAddBoolean(input_block, "precondition", precondition);
+    *residual_tolerance =
+        pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
+    bool precondition = pin->GetOrAddBoolean(input_block, "precondition", true);
+    std::string precondition_str =
+        pin->GetOrAddString(input_block, "preconditioner", "Multigrid");
+    if (precondition && precondition_str == "Multigrid") {
+      precondition_type = Preconditioner::Multigrid;
+    } else if (precondition && precondition_str == "Diagonal") {
+      precondition_type = Preconditioner::Diagonal;
+    } else {
+      precondition_type = Preconditioner::None;
+    }
     print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
     mg_params = MGParams(pin, input_block);
+    relative_residual =
+        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
   }
 };
 
@@ -56,131 +70,182 @@ struct BiCGSTABParams {
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class u, class rhs, class equations>
-class BiCGSTABSolver {
+template <class equations, class preconditioner_t = MGSolver<equations>>
+class BiCGSTABSolver : public SolverBase {
+  using FieldTL = typename equations::IndependentVars;
+
+  std::vector<std::string> sol_fields;
+  // Name of user defined container that should contain information required to
+  // calculate the matrix part of the matrix vector product
+  std::string container_base;
+  // User defined container in which the solution will reside, only needs to contain
+  // sol_fields
+  // TODO(LFR): Also allow for an initial guess to come in here
+  std::string container_u;
+  // User defined container containing the rhs vector, only needs to contain sol_fields
+  std::string container_rhs;
+  // Internal containers for solver which create deep copies of sol_fields
+  std::string container_rhat0, container_v, container_h, container_s;
+  std::string container_t, container_r, container_p, container_x, container_diag;
+
+  static inline std::size_t id{0};
+
  public:
-  PARTHENON_INTERNALSOLVERVARIABLE(u, rhat0);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, v);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, h);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, s);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, t);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, r);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, p);
-  PARTHENON_INTERNALSOLVERVARIABLE(u, x);
+  BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
+                 const std::string &container_rhs, ParameterInput *pin,
+                 const std::string &input_block, equations eq_in = equations())
+      : preconditioner(container_base, container_u, container_rhs, pin, input_block,
+                       eq_in),
+        container_base(container_base), container_u(container_u),
+        container_rhs(container_rhs), params_(pin, input_block), iter_counter(0),
+        eqs_(eq_in) {
+    FieldTL::IterateTypes(
+        [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
+    std::string solver_id = "bicgstab" + std::to_string(id++);
+    container_rhat0 = solver_id + "_rhat0";
+    container_v = solver_id + "_v";
+    container_h = solver_id + "_h";
+    container_s = solver_id + "_s";
+    container_t = solver_id + "_t";
+    container_r = solver_id + "_r";
+    container_p = solver_id + "_p";
+    container_x = solver_id + "_x";
+    container_diag = solver_id + "_diag";
+  }
 
-  std::vector<std::string> GetInternalVariableNames() const {
-    std::vector<std::string> names{rhat0::name(), v::name(), h::name(), s::name(),
-                                   t::name(),     r::name(), p::name(), x::name()};
-    if (params_.precondition) {
-      auto pre_names = preconditioner.GetInternalVariableNames();
-      names.insert(names.end(), pre_names.begin(), pre_names.end());
+  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
+    if (params_.precondition_type == Preconditioner::Multigrid) {
+      return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      auto partitions = pmesh->GetDefaultBlockPartitions();
+      auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
+      auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
+      return tl.AddTask(dependence, &equations::SetDiagonal, &eqs_, md, md_diag);
+    } else {
+      return dependence;
     }
-    return names;
   }
 
-  BiCGSTABSolver(StateDescriptor *pkg, BiCGSTABParams params_in,
-                 equations eq_in = equations(), std::vector<int> shape = {})
-      : preconditioner(pkg, params_in.mg_params, eq_in, shape), params_(params_in),
-        iter_counter(0), eqs_(eq_in), presidual_tolerance(nullptr) {
-    using namespace refinement_ops;
-    auto m_no_ghost =
-        Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, shape);
-    pkg->AddField(x::name(), m_no_ghost);
-    pkg->AddField(rhat0::name(), m_no_ghost);
-    pkg->AddField(v::name(), m_no_ghost);
-    pkg->AddField(h::name(), m_no_ghost);
-    pkg->AddField(s::name(), m_no_ghost);
-    pkg->AddField(t::name(), m_no_ghost);
-    pkg->AddField(r::name(), m_no_ghost);
-    pkg->AddField(p::name(), m_no_ghost);
-  }
-
-  template <class TL_t>
-  TaskID AddSetupTasks(TL_t &tl, TaskID dependence, int partition, Mesh *pmesh) {
-    return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
-  }
-
-  TaskID AddTasks(TaskList &tl, TaskID dependence, Mesh *pmesh, const int partition) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
     using namespace utils;
     TaskID none;
-    auto &md = pmesh->mesh_data.GetOrAdd("base", partition);
-    std::string label = "bicg_comm_" + std::to_string(partition);
-    auto &md_comm =
-        pmesh->mesh_data.AddShallow(label, md, std::vector<std::string>{u::name()});
+
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    // Should contain all fields necessary for applying the matrix to a give state vector,
+    // e.g. diffusion coefficients and diagonal, these will not be modified by the solvers
+    auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
+    // Container in which the solution is stored and with which the downstream user can
+    // interact. This container only requires the fields in sol_fields
+    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition], sol_fields);
+    // Container of the rhs, only requires fields in sol_fields
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
+    // Internal solver containers
+    auto &md_rhat0 = pmesh->mesh_data.Add(container_rhat0, md_u, sol_fields);
+    auto &md_v = pmesh->mesh_data.Add(container_v, md_u, sol_fields);
+    auto &md_h = pmesh->mesh_data.Add(container_h, md_u, sol_fields);
+    auto &md_s = pmesh->mesh_data.Add(container_s, md_u, sol_fields);
+    auto &md_t = pmesh->mesh_data.Add(container_t, md_u, sol_fields);
+    auto &md_r = pmesh->mesh_data.Add(container_r, md_u, sol_fields);
+    auto &md_p = pmesh->mesh_data.Add(container_p, md_u, sol_fields);
+    auto &md_x = pmesh->mesh_data.Add(container_x, md_u, sol_fields);
+    auto &md_diag = pmesh->mesh_data.Add(container_diag, md_u, sol_fields);
+
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
 
     // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    auto zero_x = tl.AddTask(dependence, TF(SetToZero<x>), md);
-    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<u>), md);
-    auto copy_r = tl.AddTask(dependence, TF(CopyData<rhs, r>), md);
-    auto copy_p = tl.AddTask(dependence, TF(CopyData<rhs, p>), md);
-    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<rhs, rhat0>), md);
-    auto get_rhat0r_init = DotProduct<rhat0, r>(dependence, tl, &rhat0r, md);
+    auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
+    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
+    auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
+    auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
+    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
+    auto get_rhat0r_init = DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r);
+    auto get_rhs2 = get_rhat0r_init;
+    if (params_.relative_residual || params_.print_per_step)
+      get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init,
+        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init | get_rhs2,
         "zero factors",
         [](BiCGSTABSolver *solver) {
-          solver->rhat0r_old = solver->rhat0r.val;
-          solver->rhat0r.val = 0.0;
-          solver->rhat0v.val = 0.0;
-          solver->ts.val = 0.0;
-          solver->tt.val = 0.0;
-          solver->residual.val = 0.0;
-          solver->iter_counter = 0;
+          solver->iter_counter = -1;
           return TaskStatus::complete;
         },
         this);
-    tl.AddTask(TaskQualifier::once_per_region, dependence, "print to screen", [&]() {
-      if (Globals::my_rank == 0 && params_.print_per_step)
-        printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-      return TaskStatus::complete;
-    });
+    tl.AddTask(
+        TaskQualifier::once_per_region, initialize, "print to screen",
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+            Mesh *pm) {
+          if (Globals::my_rank == 0 && params_.print_per_step) {
+            Real tol = relative_residual
+                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
+                           : *res_tol;
+            printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
+                   tol);
+            printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
+          }
+          return TaskStatus::complete;
+        },
+        this, params_.residual_tolerance, params_.relative_residual, pmesh);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
 
+    auto sync = itl.AddTask(TaskQualifier::local_sync, none,
+                            []() { return TaskStatus::complete; });
+    auto reset = itl.AddTask(
+        TaskQualifier::once_per_region, sync, "update values",
+        [](BiCGSTABSolver *solver) {
+          solver->rhat0r_old = solver->rhat0r.val;
+          solver->iter_counter++;
+          return TaskStatus::complete;
+        },
+        this);
+
     // 1. u <- M p
-    auto precon1 = none;
-    if (params_.precondition) {
-      auto set_rhs = itl.AddTask(precon1, TF(CopyData<p, rhs>), md);
-      auto zero_u = itl.AddTask(precon1, TF(SetToZero<u>), md);
+    auto precon1 = reset;
+    if (params_.precondition_type == Preconditioner::Multigrid) {
+      auto set_rhs = itl.AddTask(precon1, TF(CopyData<FieldTL>), md_p, md_rhs);
+      auto zero_u = itl.AddTask(precon1, TF(SetToZero<FieldTL>), md_u);
       precon1 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      precon1 = itl.AddTask(precon1, TF(ADividedByB<FieldTL>), md_p, md_diag, md_u);
     } else {
-      precon1 = itl.AddTask(none, TF(CopyData<p, u>), md);
+      precon1 = itl.AddTask(precon1, TF(CopyData<FieldTL>), md_p, md_u);
     }
 
     // 2. v <- A u
     auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_comm, multilevel);
-    auto get_v = eqs_.template Ax<u, v>(itl, comm, md);
+        AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
+    auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
-    auto get_rhat0v = DotProduct<rhat0, v>(get_v, itl, &rhat0v, md);
+    auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v);
 
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
         get_rhat0v, "h <- x + alpha u",
-        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_x,
+           std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_h) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
-          return AddFieldsAndStore<x, u, h>(md, 1.0, alpha);
+          return AddFieldsAndStore<FieldTL>(md_x, md_u, md_h, 1.0, alpha);
         },
-        this, md);
+        this, md_x, md_u, md_h);
 
     // 5. s <- r - alpha v (alpha = rhat0r_old / rhat0v)
     auto correct_s = itl.AddTask(
         get_rhat0v, "s <- r - alpha v",
-        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_r,
+           std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_s) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
-          return AddFieldsAndStore<r, v, s>(md, 1.0, -alpha);
+          return AddFieldsAndStore<FieldTL>(md_r, md_v, md_s, 1.0, -alpha);
         },
-        this, md);
+        this, md_r, md_v, md_s);
 
     // Check and print out residual
-    auto get_res = DotProduct<s, s>(correct_s, itl, &residual, md);
+    auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
 
     auto print = itl.AddTask(
         TaskQualifier::once_per_region, get_res,
@@ -194,44 +259,48 @@ class BiCGSTABSolver {
 
     // 6. u <- M s
     auto precon2 = correct_s;
-    if (params_.precondition) {
-      auto set_rhs = itl.AddTask(precon2, TF(CopyData<s, rhs>), md);
-      auto zero_u = itl.AddTask(precon2, TF(SetToZero<u>), md);
+    if (params_.precondition_type == Preconditioner::Multigrid) {
+      auto set_rhs = itl.AddTask(precon2, TF(CopyData<FieldTL>), md_s, md_rhs);
+      auto zero_u = itl.AddTask(precon2, TF(SetToZero<FieldTL>), md_u);
       precon2 =
           preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+    } else if (params_.precondition_type == Preconditioner::Diagonal) {
+      precon2 = itl.AddTask(precon2, TF(ADividedByB<FieldTL>), md_s, md_diag, md_u);
     } else {
-      precon2 = itl.AddTask(precon2, TF(CopyData<s, u>), md);
+      precon2 = itl.AddTask(precon2, TF(CopyData<FieldTL>), md_s, md_u);
     }
 
     // 7. t <- A u
     auto pre_t_comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_comm, multilevel);
-    auto get_t = eqs_.template Ax<u, t>(itl, pre_t_comm, md);
+        AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
+    auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)
-    auto get_ts = DotProduct<t, s>(get_t, itl, &ts, md);
-    auto get_tt = DotProduct<t, t>(get_t, itl, &tt, md);
+    auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s);
+    auto get_tt = DotProduct<FieldTL>(get_t, itl, &tt, md_t, md_t);
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
-        TaskQualifier::local_sync, get_tt | get_ts, "x <- h + omega u",
-        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
+        get_tt | get_ts, "x <- h + omega u",
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_h,
+           std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_x) {
           Real omega = solver->ts.val / solver->tt.val;
-          return AddFieldsAndStore<h, u, x>(md, 1.0, omega);
+          return AddFieldsAndStore<FieldTL>(md_h, md_u, md_x, 1.0, omega);
         },
-        this, md);
+        this, md_h, md_u, md_x);
 
     // 10. r <- s - omega t
     auto correct_r = itl.AddTask(
         get_tt | get_ts, "r <- s - omega t",
-        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_s,
+           std::shared_ptr<MeshData<Real>> &md_t, std::shared_ptr<MeshData<Real>> &md_r) {
           Real omega = solver->ts.val / solver->tt.val;
-          return AddFieldsAndStore<s, t, r>(md, 1.0, -omega);
+          return AddFieldsAndStore<FieldTL>(md_s, md_t, md_r, 1.0, -omega);
         },
-        this, md);
+        this, md_s, md_t, md_r);
 
     // Check and print out residual
-    auto get_res2 = DotProduct<r, r>(correct_r, itl, &residual, md);
+    auto get_res2 = DotProduct<FieldTL>(correct_r, itl, &residual, md_r, md_r);
 
     get_res2 = itl.AddTask(
         TaskQualifier::once_per_region, get_res2,
@@ -244,71 +313,60 @@ class BiCGSTABSolver {
         this, pmesh);
 
     // 11. rhat0r <- (rhat0, r)
-    auto get_rhat0r = DotProduct<rhat0, r>(correct_r, itl, &rhat0r, md);
+    auto get_rhat0r = DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r);
 
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
-        TaskQualifier::local_sync, get_rhat0r | get_res2,
-        "p <- r + beta * (p - omega * v)",
-        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md) {
+        get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
+        [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_p,
+           std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_r) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
           Real omega = solver->ts.val / solver->tt.val;
           Real beta = solver->rhat0r.val / solver->rhat0r_old * alpha / omega;
-          AddFieldsAndStore<p, v, p>(md, 1.0, -omega);
-          return AddFieldsAndStore<r, p, p>(md, 1.0, beta);
+          AddFieldsAndStore<FieldTL>(md_p, md_v, md_p, 1.0, -omega);
+          return AddFieldsAndStore<FieldTL>(md_r, md_p, md_p, 1.0, beta);
           return TaskStatus::complete;
         },
-        this, md);
+        this, md_p, md_v, md_r);
 
     // 14. rhat0r_old <- rhat0r, zero all reductions
-    Real *ptol = presidual_tolerance == nullptr ? &(params_.residual_tolerance)
-                                                : presidual_tolerance;
     auto check = itl.AddTask(
-        TaskQualifier::completion | TaskQualifier::once_per_region |
-            TaskQualifier::global_sync,
-        update_p | correct_x, "rhat0r_old <- rhat0r",
-        [](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter, Real *res_tol) {
-          solver->iter_counter++;
+        TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
+        [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
+                    std::shared_ptr<Real> res_tol, bool relative_residual) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
-          if (rms_res < *res_tol || solver->iter_counter >= max_iter) {
+          Real tol = relative_residual
+                         ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                         : *res_tol;
+          if (rms_res < tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
             solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
           }
-          solver->rhat0r_old = solver->rhat0r.val;
-          solver->rhat0r.val = 0.0;
-          solver->rhat0v.val = 0.0;
-          solver->ts.val = 0.0;
-          solver->tt.val = 0.0;
-          solver->residual.val = 0.0;
           return TaskStatus::iterate;
         },
-        this, pmesh, params_.max_iters, ptol);
+        this, pmesh, params_.max_iters, params_.residual_tolerance,
+        params_.relative_residual);
 
-    return tl.AddTask(solver_id, TF(CopyData<x, u>), md);
+    return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }
 
   Real GetSquaredResidualSum() const { return residual.val; }
   int GetCurrentIterations() const { return iter_counter; }
 
-  Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
-
-  void UpdateResidualTolerance(Real *ptol) { presidual_tolerance = ptol; }
+  BiCGSTABParams &GetParams() { return params_; }
 
  protected:
-  MGSolver<u, rhs, equations> preconditioner;
+  preconditioner_t preconditioner;
   BiCGSTABParams params_;
   int iter_counter;
-  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual;
+  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
   Real rhat0r_old;
   equations eqs_;
-  Real final_residual;
-  int final_iteration;
-  Real *presidual_tolerance;
+  std::string container_;
 };
 
 } // namespace solvers

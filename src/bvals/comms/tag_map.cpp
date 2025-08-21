@@ -15,9 +15,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "tag_map.hpp"
+#include <memory>
+
 #include "bnd_info.hpp"
 #include "bvals_utils.hpp"
+#include "tag_map.hpp"
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
@@ -43,9 +45,11 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     // returns  to reduce initializations of var
     auto *neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return &(pmb->gmg_coarser_neighbors);
+        return pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_coarser_neighbors)
+                                                          : &(pmb->gmg_leaf_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
-        return &(pmb->gmg_finer_neighbors);
+        return pmb->gmg_finer_neighbors.size() > 0 ? &(pmb->gmg_finer_neighbors)
+                                                   : &(pmb->gmg_leaf_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
         return &(pmb->gmg_finer_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)

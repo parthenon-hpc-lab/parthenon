@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <Kokkos_Core.hpp>
@@ -41,6 +42,8 @@ using Real = double;
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
+  int size() const { return e - s + 1; }
+  operator std::pair<int, int>() const { return {s, e}; }
 };
 
 // Enum speficying whether or not you requested a flux variable in
@@ -85,6 +88,15 @@ struct GridIdentifier {
   static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
   static GridIdentifier two_level_composite(int level) {
     return GridIdentifier{GridType::two_level_composite, level};
+  }
+
+  std::string label() const {
+    if (type == GridType::leaf) {
+      return "GridType::leaf";
+    } else if (type == GridType::two_level_composite) {
+      return "GridType::two_level_composite[" + std::to_string(logical_level) + "]";
+    }
+    return "GridType::none";
   }
 };
 // Add a comparator so we can store in std::map
@@ -238,5 +250,16 @@ using Dictionary = std::unordered_map<std::string, T>;
 template <typename T>
 using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
+
+namespace Kokkos {
+// this specialization is needed for AmrTags to be used as the type in a
+// Kokkos::ScatterView
+template <>
+struct reduction_identity<parthenon::AmrTag> {
+  using AmrTag = parthenon::AmrTag;
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::derefine; }
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::refine; }
+};
+} // namespace Kokkos
 
 #endif // BASIC_TYPES_HPP_

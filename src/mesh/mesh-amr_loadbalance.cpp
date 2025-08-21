@@ -1,13 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file mesh_amr.cpp
+//! \file mesh-amr_loadbalance.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
 #include <algorithm>
@@ -29,6 +29,8 @@
 #include <string>
 #include <tuple>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "parthenon_mpi.hpp"
 
@@ -52,21 +54,21 @@ namespace parthenon {
 // tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
 //       + physics(5 bits)
 
-int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
+int CreateAMRMPITag(int lid, std::optional<LogicalLocation> loc = {}) {
   // the trailing zero is used as "id" to indicate an AMR related tag
-  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
+  int tag = lid << 8;
+  if (loc) {
+    auto offsets = (*loc).GetLocationInParent();
+    tag = tag | (offsets[0] << 7) | (offsets[1] << 6) | (offsets[2] << 5) | 0;
+  }
+  return tag;
 }
 
 MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
                                   dest_rank, tag, comm, &req));
@@ -81,14 +83,10 @@ MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation 
 bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
   int test = 1;
 #ifdef MPI_PARALLEL
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
 #endif
@@ -122,6 +120,7 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
         IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb_int = cellbounds.GetBoundsK(IndexDomain::interior, te);
 
+        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
         const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
         const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
         const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
@@ -152,12 +151,7 @@ MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation 
                              Variable<Real> *var, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   if (var->IsAllocated()) {
     PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
                                   MPI_PARTHENON_REAL, dest_rank, tag, comm, &req));
@@ -173,14 +167,10 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
                          Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
                          Mesh *pmesh) {
   const int ndim = pmb->pmy_mesh->ndim;
-  const int ox1 = ((fine_loc.lx1() & 1LL) == 1LL);
-  const int ox2 = ((fine_loc.lx2() & 1LL) == 1LL);
-  const int ox3 = ((fine_loc.lx3() & 1LL) == 1LL);
-
   int test = 1;
 #ifdef MPI_PARALLEL
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, ox1, ox2, ox3);
+  int tag = CreateAMRMPITag(lid_recv, fine_loc);
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
 #endif
@@ -214,6 +204,7 @@ bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fin
         // space if fine block is on the left side of a direction. I think this
         // should work fine even if the ownership model is changed elsewhere, since
         // the fine blocks should be consistent in their shared elements at this point
+        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
         if (ox3 == 0 && ndim > 2) kb.e -= TopologicalOffsetK(te);
         if (ox2 == 0 && ndim > 1) jb.e -= TopologicalOffsetJ(te);
         if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
@@ -250,7 +241,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
                            MeshBlock *pmb, Mesh *pmesh) {
   MPI_Request req;
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
+  int tag = CreateAMRMPITag(lid_recv);
   if (var->IsAllocated()) {
     // Metadata about this field also needs to be copied from this rank to the
     // receiving rank (namely the dereference count and the dealloc_count). Not
@@ -284,8 +275,7 @@ MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
 bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlock *pmb,
                        Mesh *pmesh) {
   MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, 0, 0, 0);
-
+  int tag = CreateAMRMPITag(lid_recv);
   int test;
   MPI_Status status;
   PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
@@ -388,18 +378,16 @@ void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklis
 
 void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
                      std::vector<int> &nblist) {
-  nslist.resize(Globals::nranks);
-  nblist.resize(Globals::nranks);
+  // First count the number of blocks on each rank
+  nblist = std::vector<int>(Globals::nranks, 0);
+  for (int b = ranklist.size() - 1; b >= 0; --b)
+    nblist[ranklist[b]]++;
 
-  nslist[0] = 0;
-  int rank = 0;
-  for (int block_id = 1; block_id < ranklist.size(); block_id++) {
-    if (ranklist[block_id] != ranklist[block_id - 1]) {
-      nblist[rank] = block_id - nslist[rank];
-      nslist[++rank] = block_id;
-    }
-  }
-  nblist[rank] = ranklist.size() - nslist[rank];
+  // Then find the starting gid of the blocks, assuming they
+  // are apportioned in increasing order
+  nslist = std::vector<int>(Globals::nranks, 0);
+  for (int b = 1; b < nslist.size(); ++b)
+    nslist[b] = nslist[b - 1] + nblist[b - 1];
 }
 } // namespace
 
@@ -502,8 +490,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 
   // collect refinement flags from all the meshblocks
   // count the number of the blocks to be (de)refined
-  nref[Globals::my_rank] = 0;
-  nderef[Globals::my_rank] = 0;
+  nref[Globals::my_rank] = 0;   // n to refine. Local per rank.
+  nderef[Globals::my_rank] = 0; // n to derefine. Local per rank.
   for (auto const &pmb : block_list) {
     if (pmb->pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
     if (pmb->pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
@@ -516,7 +504,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 #endif
 
   // count the number of the blocks to be (de)refined and displacement
-  int tnref = 0, tnderef = 0;
+  int tnref = 0, tnderef = 0; // totals to refine/de-refine. Not local per rank.
   for (int n = 0; n < Globals::nranks; n++) {
     tnref += nref[n];
     tnderef += nderef[n];
@@ -542,11 +530,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
 
   // allocate memory for the location arrays
-  LogicalLocation *lref{}, *lderef{}, *clderef{};
-  if (tnref > 0) lref = new LogicalLocation[tnref];
+  std::vector<LogicalLocation> lref, lderef, clderef;
+  if (tnref > 0) lref.resize(tnref);
   if (tnderef >= nleaf) {
-    lderef = new LogicalLocation[tnderef];
-    clderef = new LogicalLocation[tnderef / nleaf];
+    lderef.resize(tnderef);
+    clderef.resize(tnderef / nleaf);
   }
 
   // collect the locations and costs
@@ -558,35 +546,32 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
     PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE,
-                                       lref, bnref.data(), brdisp.data(), MPI_BYTE,
+                                       lref.data(), bnref.data(), brdisp.data(), MPI_BYTE,
                                        MPI_COMM_WORLD));
   }
   if (tnderef >= nleaf) {
     PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE,
-                                       lderef, bnderef.data(), bddisp.data(), MPI_BYTE,
-                                       MPI_COMM_WORLD));
+                                       lderef.data(), bnderef.data(), bddisp.data(),
+                                       MPI_BYTE, MPI_COMM_WORLD));
   }
 #endif
 
   // calculate the list of the newly derefined blocks
   int ctnd = 0;
   if (tnderef >= nleaf) {
-    int lk = 0, lj = 0;
-    if (!mesh_size.symmetry(X2DIR)) lj = 1;
-    if (!mesh_size.symmetry(X3DIR)) lk = 1;
+    int lk = !mesh_size.symmetry(X3DIR);
+    int lj = !mesh_size.symmetry(X2DIR);
     for (int n = 0; n < tnderef; n++) {
-      if ((lderef[n].lx1() & 1LL) == 0LL && (lderef[n].lx2() & 1LL) == 0LL &&
-          (lderef[n].lx3() & 1LL) == 0LL) {
+      if (lderef[n].IsLowerLeftCornerOfParent()) {
         int r = n, rr = 0;
-        for (std::int64_t k = 0; k <= lk; k++) {
-          for (std::int64_t j = 0; j <= lj; j++) {
-            for (std::int64_t i = 0; i <= 1; i++) {
+        // offsets from "bottom left" corner of parent block
+        for (std::int64_t ok = 0; ok <= lk; ok++) {
+          for (std::int64_t oj = 0; oj <= lj; oj++) {
+            for (std::int64_t oi = 0; oi <= 1; oi++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1() + i) == lderef[r].lx1() &&
-                    (lderef[n].lx2() + j) == lderef[r].lx2() &&
-                    (lderef[n].lx3() + k) == lderef[r].lx3() &&
-                    lderef[n].level() == lderef[r].level())
+                if (lderef[n].GetSameLevelNeighbor(oi, oj, ok) == lderef[r]) {
                   rr++;
+                }
                 r++;
               }
             }
@@ -601,12 +586,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
   // sort the lists by level
   if (ctnd > 1) {
-    std::sort(clderef, &(clderef[ctnd - 1]),
+    std::sort(&(clderef[0]), &(clderef[ctnd - 1]),
               [](const LogicalLocation &left, const LogicalLocation &right) {
                 return left.level() > right.level();
               });
   }
-  if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
   // Start tree manipulation
@@ -614,14 +598,11 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   for (int n = 0; n < tnref; n++) {
     nnew += forest.Refine(lref[n]);
   }
-  if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
   for (int n = 0; n < ctnd; n++) {
     ndel += forest.Derefine(clderef[n]);
   }
-
-  if (tnderef >= nleaf) delete[] clderef;
 }
 
 //----------------------------------------------------------------------------------------
@@ -735,30 +716,32 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Restrict fine to coarse buffers
-  ProResCache_t restriction_cache;
-  int nrestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    auto pmb = FindMeshBlock(on);
-    if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
-  }
-  restriction_cache.Initialize(nrestrict, resolved_packages.get());
-  int irestrict = 0;
-  for (int on = onbs; on <= onbe; on++) {
-    int nn = oldtonew[on];
-    if (newloc[nn].level() < loclist[on].level()) {
+  if (block_list.size() > 0) {
+    ProResCache_t restriction_cache;
+    int nrestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
       auto pmb = FindMeshBlock(on);
-      for (auto &var : pmb->vars_cc_) {
-        restriction_cache.RegisterRegionHost(
-            irestrict++, ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var),
-            var.get(), resolved_packages.get());
+      if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
+    }
+    restriction_cache.Initialize(nrestrict, resolved_packages.get());
+    int irestrict = 0;
+    for (int on = onbs; on <= onbe; on++) {
+      int nn = oldtonew[on];
+      if (newloc[nn].level() < loclist[on].level()) {
+        auto pmb = FindMeshBlock(on);
+        for (auto &var : pmb->vars_cc_) {
+          restriction_cache.RegisterRegionHost(
+              irestrict++,
+              ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var), var.get(),
+              resolved_packages.get());
+        }
       }
     }
+    restriction_cache.CopyToDevice();
+    refinement::Restrict(resolved_packages.get(), restriction_cache,
+                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
   }
-  restriction_cache.CopyToDevice();
-  refinement::Restrict(resolved_packages.get(), restriction_cache,
-                       block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-
   Kokkos::fence();
 
 #ifdef MPI_PARALLEL
@@ -912,23 +895,26 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto pmb = FindMeshBlock(nn);
       if (newloc[nn].level() > loclist[on].level()) nprolong += pmb->vars_cc_.size();
     }
-    prolongation_cache.Initialize(nprolong, resolved_packages.get());
-    int iprolong = 0;
-    for (int nn = nbs; nn <= nbe; nn++) {
-      int on = newtoold[nn];
-      if (newloc[nn].level() > loclist[on].level()) {
-        auto pmb = FindMeshBlock(nn);
-        for (auto &var : pmb->vars_cc_) {
-          prolongation_cache.RegisterRegionHost(
-              iprolong++,
-              ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var),
-              var.get(), resolved_packages.get());
+    if (nprolong > 0) {
+      prolongation_cache.Initialize(nprolong, resolved_packages.get());
+      int iprolong = 0;
+      for (int nn = nbs; nn <= nbe; nn++) {
+        int on = newtoold[nn];
+        if (newloc[nn].level() > loclist[on].level()) {
+          auto pmb = FindMeshBlock(nn);
+          for (auto &var : pmb->vars_cc_) {
+            prolongation_cache.RegisterRegionHost(
+                iprolong++,
+                ProResInfo::GetInteriorProlongate(pmb.get(), NeighborBlock(), var),
+                var.get(), resolved_packages.get());
+          }
         }
+        prolongation_cache.CopyToDevice();
       }
-      prolongation_cache.CopyToDevice();
+      refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
+                                   block_list[0]->cellbounds,
+                                   block_list[0]->c_cellbounds);
     }
-    refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                 block_list[0]->cellbounds, block_list[0]->c_cellbounds);
 
     // update the lists
     loclist = std::move(newloc);
@@ -974,13 +960,16 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
       }
 
-      CommunicateBoundaries(noncc); // Called to make sure shared values are correct,
-                                    // ghosts of non-cell centered vars may get some junk
+      CommunicateBoundaries(
+          noncc, noncc_names); // Called to make sure shared values are correct,
+                               // ghosts of non-cell centered vars may get some junk
       // Now there is the correct data for prolongating on un-shared topological elements
       // on the new fine blocks
-      refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
-                                     block_list[0]->cellbounds,
-                                     block_list[0]->c_cellbounds);
+      if (nprolong > 0) {
+        refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
+                                       block_list[0]->cellbounds,
+                                       block_list[0]->c_cellbounds);
+      }
     }
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just

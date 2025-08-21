@@ -211,7 +211,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         if one:
             return ret_code
 
-    # Compare the names of attributes in /Info, except "Time"
+    # Compare the names of attributes in /Info, except those we know
+    # may vary safely
     f0_Info = {
         key: value
         for key, value in f0.Info.items()
@@ -219,6 +220,15 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "BoundaryConditions"
+        and key != "SwarmBoundaryConditions"
+        and key != "ParthenonGitHash"
+        and key != "ParthenonGitBranch"
+        and key != "ParthenonCompiler"
+        and key != "ParthenonBuildTimestamp"
+        and key != "ParthenonBuildArch"
+        and key != "ParthenonBuildOptLevel"
+        and key != "KokkosConfig"
     }
     f1_Info = {
         key: value
@@ -227,6 +237,15 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "BoundaryConditions"
+        and key != "SwarmBoundaryConditions"
+        and key != "ParthenonGitHash"
+        and key != "ParthenonGitBranch"
+        and key != "ParthenonCompiler"
+        and key != "ParthenonBuildTimestamp"
+        and key != "ParthenonBuildArch"
+        and key != "ParthenonBuildOptLevel"
+        and key != "KokkosConfig"
     }
     if sorted(f0_Info.keys()) != sorted(f1_Info.keys()):
         print("Names of attributes in '/Info' of differ")

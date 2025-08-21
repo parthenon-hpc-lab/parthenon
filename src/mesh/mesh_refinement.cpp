@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -54,7 +54,10 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
+      deref_threshold_(
+          pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10,
+                               "number of iterations a block must "
+                               "request derefinement before it is derefined")) {
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
@@ -66,17 +69,6 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
         << "Rerun with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::CheckRefinementCondition()
-//  \brief Check refinement criteria
-
-void MeshRefinement::CheckRefinementCondition() {
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  auto &rc = pmb->meshblock_data.Get();
-  AmrTag ret = Refinement::CheckAllRefinement(rc.get());
-  SetRefinement(ret);
 }
 
 void MeshRefinement::SetRefinement(AmrTag flag) {
@@ -98,21 +90,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
       deref_count_ = 0;
     } else {
       deref_count_++;
-      int ec = 0, js, je, ks, ke;
-      if (!pmb->block_size.symmetry(X2DIR)) {
-        js = -1;
-        je = 1;
-      } else {
-        js = 0;
-        je = 0;
-      }
-      if (!pmb->block_size.symmetry(X3DIR)) {
-        ks = -1;
-        ke = 1;
-      } else {
-        ks = 0;
-        ke = 0;
-      }
+      int ec = 0;
       for (const auto &nb : pmb->neighbors) {
         if (nb.loc.level() > pmb->loc.level()) ec++;
       }

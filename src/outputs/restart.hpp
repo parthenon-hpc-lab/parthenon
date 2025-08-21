@@ -86,7 +86,6 @@ class RestartReader {
 
   struct MeshInfo {
     int nbnew, nbdel, nbtotal, root_level, includes_ghost, n_ghost;
-    std::vector<std::string> bound_cond;
     std::vector<int> block_size;
     std::vector<Real> grid_dim;
     std::vector<int64_t> lx123;
@@ -117,6 +116,9 @@ class RestartReader {
                             const Metadata &m, std::vector<Real> &dataVec) = 0;
   virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                             const std::size_t count, const std::size_t offset,
+                            const Metadata &m, std::vector<std::uint64_t> &dataVec) = 0;
+  virtual void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                            const std::size_t count, const std::size_t offset,
                             const Metadata &m, std::vector<int> &dataVec) = 0;
 
   // Gets the counts and offsets for MPI ranks for the meshblocks set
@@ -127,6 +129,8 @@ class RestartReader {
                                                    std::vector<std::size_t> &offsets) = 0;
 
   virtual void ReadParams(const std::string &name, Params &p) = 0;
+
+  [[nodiscard]] virtual bool VariableExists(const std::string &name) const = 0;
 
   // closes out the restart file
   // perhaps belongs in a destructor?

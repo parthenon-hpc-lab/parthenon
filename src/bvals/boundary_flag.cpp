@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -35,54 +35,14 @@ namespace parthenon {
 //  condition. Typically called in Mesh() ctor and in pgen/*.cpp files.
 
 BoundaryFlag GetBoundaryFlag(const std::string &input_string) {
-  if (input_string == "reflecting") {
-    return BoundaryFlag::reflect;
-  } else if (input_string == "outflow") {
-    return BoundaryFlag::outflow;
-  } else if (input_string == "periodic") {
+  if (input_string == "periodic") {
     return BoundaryFlag::periodic;
   } else if (input_string == "none") {
     return BoundaryFlag::undef;
   } else if (input_string == "block") {
     return BoundaryFlag::block;
-  } else if (input_string == "user") {
-    return BoundaryFlag::user;
   } else {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in GetBoundaryFlag" << std::endl
-        << "Input string=" << input_string << "\n"
-        << "is an invalid boundary type" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn GetBoundaryString(BoundaryFlag input_flag)
-//  \brief Parses enumerated type BoundaryFlag internal integer representation to return
-//  string describing the boundary condition. Typicall used to format descriptive errors
-//  or diagnostics. Inverse of GetBoundaryFlag().
-
-std::string GetBoundaryString(BoundaryFlag input_flag) {
-  switch (input_flag) {
-  case BoundaryFlag::block: // -1
-    return "block";
-  case BoundaryFlag::undef: // 0
-    return "none";
-  case BoundaryFlag::reflect:
-    return "reflecting";
-  case BoundaryFlag::outflow:
-    return "outflow";
-  case BoundaryFlag::periodic:
-    return "periodic";
-  case BoundaryFlag::user:
-    return "user";
-  default:
-    std::stringstream msg;
-    msg << "### FATAL ERROR in GetBoundaryString" << std::endl
-        << "Input enum class BoundaryFlag=" << static_cast<int>(input_flag) << "\n"
-        << "is an invalid boundary type" << std::endl;
-    PARTHENON_FAIL(msg);
-    break;
+    return BoundaryFlag::user;
   }
 }
 
@@ -96,7 +56,7 @@ std::string GetBoundaryString(BoundaryFlag input_flag) {
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   std::stringstream msg;
   msg << "### FATAL ERROR in CheckBoundaryFlag" << std::endl
-      << "Attempting to set invalid MeshBlock boundary= " << GetBoundaryString(block_flag)
+      << "Attempting to set invalid MeshBlock boundary"
       << "\nin x" << dir << " direction" << std::endl;
   switch (dir) {
   case CoordinateDirection::X1DIR:

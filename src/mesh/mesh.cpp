@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,7 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,10 +39,13 @@
 #include "bvals/comms/bvals_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
+#include "amr_criteria/refinement_package.hpp"
+#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
@@ -59,29 +64,65 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            base_constructor_selector_t)
     : // public members:
-      modified(true), is_restart(false),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+      modified(true),
+      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
+                                   std::vector<std::string>{"none", "static", "adaptive"},
+                                   "mesh refinement mode") == "adaptive"
                    ? true
                    : false),
-      multilevel(
-          (adaptive ||
-           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static" ||
-           pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true")
-              ? true
-              : false),
-      multigrid(pin->GetOrAddString("parthenon/mesh", "multigrid", "false") == "true"
-                    ? true
-                    : false),
+      multilevel((adaptive ||
+                  pin->GetString("parthenon/mesh", "refinement") == "static" ||
+                  pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
+                                       "enable a multigrid mesh"))),
+      multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
+                                     "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
-      default_pack_size_(pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1)),
       // private members:
-      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      num_mesh_threads_(
+          pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
+                               "number of host threads for infrastructure; unused")),
       use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks) {
+  // pack size
+  bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
+  bool num_partitions_exists =
+      pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
+  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
+  // pack_size existed first) so the new value should take precedent.
+  if (pack_size_exists && num_partitions_exists) {
+    use_pack_size_ = false;
+    default_num_packs_ =
+        pin->GetInteger("parthenon/mesh", "packs_per_rank",
+                        "number of meshblockpacks per rank, overrides pack_size");
+    auto pack_size = pin->GetInteger(
+        "parthenon/mesh", "pack_size",
+        "default size of meshblock packs on a given rank, overwritten by packs_per_rank");
+    bool are_both_default = (default_num_packs_ == 1) && (pack_size == -1);
+    if (!are_both_default && (Globals::my_rank == 0)) {
+      PARTHENON_WARN("Both pack_size and packs_per_rank set to non default values! "
+                     "New packs_per_rank takes precedent.");
+    }
+    // Only one or none is set
+  } else {
+    if (pack_size_exists) {
+      use_pack_size_ = true;
+      default_pack_size_ = pin->GetInteger("parthenon/mesh", "pack_size",
+                                           "default size of meshblock packs on a given "
+                                           "rank, overwritten by packs_per_rank");
+      // use packs_per_rank (and set default value if not set)
+    } else {
+      use_pack_size_ = false;
+      default_num_packs_ = std::max(
+          1,
+          pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1,
+                               "number of meshblockpacks per rank, overrides pack_size"));
+    }
+  }
+
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
@@ -118,7 +159,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                     "maximum level of refinement globally") +
+                root_level - 1;
   } else {
     max_level = 63;
   }
@@ -135,48 +178,25 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            hyper_rectangular_constructor_selector_t)
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
-  mesh_size = RegionSize(
-      {pin->GetReal("parthenon/mesh", "x1min"), pin->GetReal("parthenon/mesh", "x2min"),
-       pin->GetReal("parthenon/mesh", "x3min")},
-      {pin->GetReal("parthenon/mesh", "x1max"), pin->GetReal("parthenon/mesh", "x2max"),
-       pin->GetReal("parthenon/mesh", "x3max")},
-      {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-       pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-       pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0)},
-      {pin->GetInteger("parthenon/mesh", "nx1"), pin->GetInteger("parthenon/mesh", "nx2"),
-       pin->GetInteger("parthenon/mesh", "nx3")},
-      {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
-       pin->GetInteger("parthenon/mesh", "nx3") == 1});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
-  ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
-  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
-           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
-    base_block_size.xrat(dir) = mesh_size.xrat(dir);
-    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!base_block_size.symmetry(dir)) {
-      base_block_size.nx(dir) =
-          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
-    } else {
-      base_block_size.nx(dir) = mesh_size.nx(dir);
-    }
-  }
+  std::tie(mesh_size, base_block_size) = GetRegionSizes(pin);
+
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
+  ndim = (mesh_size.nx(X3DIR) > 1) ? 3 : ((mesh_size.nx(X2DIR) > 1) ? 2 : 1);
 
   // Load balancing flag and parameters
   forest = forest::Forest::HyperRectangular(mesh_size, base_block_size, mesh_bcs);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
 
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                     "maximum level of refinement globally") +
+                root_level - 1;
   } else {
     max_level = 63;
   }
@@ -191,31 +211,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
   mesh_size =
       RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
-  mesh_bcs = {
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-      GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))};
-  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
-           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
-    base_block_size.xrat(dir) = mesh_size.xrat(dir);
-    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
-    if (!base_block_size.symmetry(dir)) {
-      base_block_size.nx(dir) =
-          pin->GetOrAddInteger("parthenon/meshblock", label, mesh_size.nx(dir));
-    } else {
-      base_block_size.nx(dir) = mesh_size.nx(dir);
-    }
-  }
+
+  SetBCNames_(pin);
+  mesh_bcs = GetBCsFromNames_(mesh_bc_names);
+  base_block_size = GetBaseMeshBlockSize(pin, mesh_size);
   forest_def.SetBlockSize(base_block_size);
 
   ndim = 2;
   // Load balancing flag and parameters
   forest = forest::Forest::Make2D(forest_def);
   root_level = forest.root_level;
-  forest.EnrollBndryFncts(app_in, resolved_packages->UserBoundaryFunctions,
+  forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
+                          resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
   BuildBlockList(pin, app_in, packages, 0);
 }
@@ -239,7 +246,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, int mesh_test)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
-  is_restart = true;
   std::stringstream msg;
 
   // mesh test
@@ -325,16 +331,15 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
+  const bool output_params_and_exit =
+      pin->GetOrAddBoolean("parthenon/job", "output_params_and_exit", false);
   if (nbtotal < Globals::nranks) {
-    if (mesh_test == 0) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-          << Globals::nranks << ")" << std::endl;
-      PARTHENON_FAIL(msg);
-    } else { // test
-      std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
-                << Globals::nranks << ")" << std::endl;
+    if (mesh_test != 0) {
+      if ((Globals::my_rank == 0) && !output_params_and_exit) {
+        std::cout << "### Warning in Mesh constructor" << std::endl
+                  << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
+                  << Globals::nranks << ")" << std::endl;
+      }
     }
   }
 #endif
@@ -356,6 +361,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
+
   // create MeshBlock list for this process
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -396,11 +402,8 @@ Mesh::~Mesh() {
 
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
-      grid.type == GridType::leaf ? block_list : gmg_block_lists[grid.logical_level],
+      grid.type == GridType::leaf ? block_list : gmg_block_lists_[grid.logical_level],
       DefaultPackSize());
-  // Account for possibly empty block_list
-  if (partition_blocklists.size() == 0)
-    partition_blocklists = std::vector<BlockList_t>(1);
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
@@ -647,7 +650,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   }
 }
 
-void Mesh::CommunicateBoundaries(std::string md_name) {
+void Mesh::CommunicateBoundaries(std::string md_name,
+                                 const std::vector<std::string> &fields) {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   constexpr std::int64_t max_it = 1e10;
@@ -659,7 +663,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_sent = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!sent[i]) {
         if (SendBoundaryBuffers(md) != TaskStatus::complete) {
           all_sent = false;
@@ -683,7 +687,7 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
   do {
     all_received = true;
     for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i]);
+      auto &md = mesh_data.Add(md_name, partitions[i], fields);
       if (!received[i]) {
         if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
           all_received = false;
@@ -699,14 +703,14 @@ void Mesh::CommunicateBoundaries(std::string md_name) {
       "Too many iterations waiting to receive boundary communication buffers.");
 
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     // unpack FillGhost variables
     SetBoundaries(md);
   }
 
   //  Now do prolongation, compute primitives, apply BCs
   for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition);
+    auto &md = mesh_data.Add(md_name, partition, fields);
     if (multilevel) {
       ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
       ProlongateBoundaries(md);
@@ -725,6 +729,8 @@ void Mesh::PreCommFillDerived() {
   }
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
+    PARTHENON_REQUIRE(partition->pmesh == this, "Bad partition mesh pointer");
+    PARTHENON_REQUIRE(md->GetParentPointer() == this, "Bad mesh pointer");
     Update::PreCommFillDerived(md.get());
   }
 }
@@ -753,6 +759,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   PARTHENON_INSTRUMENT
   bool init_done = true;
   const int nb_initial = nbtotal;
+  const bool output_params_and_exit =
+      pin->GetOrAddBoolean("parthenon/job", "output_params_and_exit", false);
+
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
@@ -769,11 +778,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
-          !(ProblemGenerator != nullptr && block_list[0]->ProblemGenerator != nullptr),
+          !(ProblemGenerator != nullptr &&
+            (nmb != 0 && block_list[0]->ProblemGenerator != nullptr)),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
       PARTHENON_REQUIRE_THROWS(
           !(PostInitialization != nullptr &&
-            block_list[0]->PostInitialization != nullptr),
+            (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
           "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
@@ -821,8 +831,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     FillDerived();
 
     if (init_problem && adaptive) {
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->pmr->CheckRefinementCondition();
+      for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        auto &md = mesh_data.Add("base", partition);
+        Refinement::Tag(md.get());
       }
       init_done = false;
       // caching nbtotal the private variable my be updated in the following function
@@ -830,13 +841,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == nb_before_loadbalance) {
         init_done = true;
-      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0) {
+      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0 &&
+                 !output_params_and_exit) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks decreased during AMR grid initialization."
                   << std::endl
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
-      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0) {
+      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0 && !output_params_and_exit) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks increased more than twice during "
                      "initialization."
@@ -847,12 +859,25 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
   } while (!init_done);
 
+#ifdef MPI_PARALLEL
+  // check if there are sufficient blocks
+  if (nbtotal < Globals::nranks && Globals::my_rank == 0 && !output_params_and_exit) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in Mesh Initialize" << std::endl
+        << "Too few mesh blocks after initialization: nbtotal (" << nbtotal
+        << ") < nranks (" << Globals::nranks << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+#endif
+
   // Initialize the "base" MeshData object
   mesh_data.Get()->Initialize(block_list, this);
 }
 
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
+  PARTHENON_REQUIRE(block_list.size() > 0,
+                    "Trying to call FindMeshBlock with empty block list");
   // Attempt to simply index into the block list.
   const int nbs = block_list[0]->gid;
   const int i = tgid - nbs;
@@ -878,33 +903,48 @@ bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 std::int64_t Mesh::GetTotalCells() {
-  auto &pmb = block_list.front();
-  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx(X1DIR) *
-         pmb->block_size.nx(X2DIR) * pmb->block_size.nx(X3DIR);
+  return static_cast<std::int64_t>(nbtotal) * GetNumberOfMeshBlockCells();
 }
 
-// TODO(JMM): Move block_size into mesh.
 int Mesh::GetNumberOfMeshBlockCells() const {
-  return block_list.front()->GetNumberOfMeshBlockCells();
+  return base_block_size.nx(X1DIR) * base_block_size.nx(X2DIR) *
+         base_block_size.nx(X3DIR);
 }
 
-const IndexShape &Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  MeshBlock *pmb = block_list[0].get();
+const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
+  auto shapes = GetIndexShapes(
+      ndim > 0 ? base_block_size.nx(X1DIR) : 0, ndim > 1 ? base_block_size.nx(X2DIR) : 0,
+      ndim > 2 ? base_block_size.nx(X3DIR) : 0, multilevel, this);
   if (level == CellLevel::same) {
-    return pmb->cellbounds;
+    return shapes[0];
   } else if (level == CellLevel::fine) {
-    return pmb->f_cellbounds;
+    return shapes[1];
   } else { // if (level == CellLevel::coarse) {
-    return pmb->c_cellbounds;
+    return shapes[2];
   }
+}
+
+ParArray1D<AmrTag> &Mesh::GetAmrTags() {
+  const int nblocks = GetNumMeshBlocksThisRank();
+  if (!amr_tags.KokkosView().is_allocated()) {
+    amr_tags.KokkosView() = Kokkos::View<AmrTag *>(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks);
+  }
+  if (amr_tags.KokkosView().size() != nblocks) {
+    Kokkos::realloc(amr_tags.KokkosView(), nblocks);
+  }
+  return amr_tags;
 }
 
 // Functionality re-used in mesh constructor
 void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
-#ifdef MPI_PARALLEL // JMM: Not sure this ifdef is needed
+  // JMM: This machinery is only used with MPI, but I don't want these
+  // options hidden if the code is built without MPI, so there's no
+  // ifdef.
   const std::string balancer =
       pin->GetOrAddString("parthenon/loadbalancing", "balancer", "default",
-                          std::vector<std::string>{"default", "automatic", "manual"});
+                          std::vector<std::string>{"default", "automatic", "manual"},
+                          "load balancing strategy");
   if (balancer == "automatic") {
     // JMM: I am disabling timing based load balancing, as it's not
     // threaded through the infrastructure. I think some thought needs
@@ -915,9 +955,11 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
   } else if (balancer == "manual") {
     lb_manual_ = true;
   }
-  lb_tolerance_ = pin->GetOrAddReal("parthenon/loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddInteger("parthenon/loadbalancing", "interval", 10);
-#endif // MPI_PARALLEL
+  lb_tolerance_ = pin->GetOrAddReal("parthenon/loadbalancing", "tolerance", 0.5,
+                                    "load balancer tolerance");
+  lb_interval_ = pin->GetOrAddInteger(
+      "parthenon/loadbalancing", "interval", 10,
+      "how frequently load balancing is performed if the mesh does not change");
 }
 
 // Create separate communicators for all variables. Needs to be done at the mesh
@@ -1168,6 +1210,103 @@ Mesh::GetLevelsAndLogicalLocationsFlat() const noexcept {
     logicalLocations.push_back(loc.lx3());
   }
   return std::make_pair(levels, logicalLocations);
+}
+
+void Mesh::SetBCNames_(ParameterInput *pin) {
+  mesh_bc_names = {
+      pin->GetOrAddString("parthenon/mesh", "ix1_bc", "outflow",
+                          "global mesh boundary condition on inner X1 face"),
+      pin->GetOrAddString("parthenon/mesh", "ox1_bc", "outflow",
+                          "global mesh boundary condition on outer X1 face"),
+      pin->GetOrAddString("parthenon/mesh", "ix2_bc", "outflow",
+                          "global mesh boundary condition on inner X2 face"),
+      pin->GetOrAddString("parthenon/mesh", "ox2_bc", "outflow",
+                          "global mesh boundary condition on outer X2 face"),
+      pin->GetOrAddString("parthenon/mesh", "ix3_bc", "outflow",
+                          "global mesh boundary condition on inner X3 face"),
+      pin->GetOrAddString("parthenon/mesh", "ox3_bc", "outflow",
+                          "global mesh boundary condition on outer X3 face")};
+  // JMM: This is needed because not all BCs are necessarily
+  // implemented for swarms
+  auto maybe = [](const std::string &s) {
+    return ((s == "outflow") || (s == "periodic")) ? s : "outflow";
+  };
+  mesh_swarm_bc_names = {
+      pin->GetOrAddString("parthenon/swarm", "ix1_bc", maybe(mesh_bc_names[0]),
+                          "global particle boundary condition on inner X1 face"),
+      pin->GetOrAddString("parthenon/swarm", "ox1_bc", maybe(mesh_bc_names[1]),
+                          "global particle boundary condition on outer X1 face"),
+      pin->GetOrAddString("parthenon/swarm", "ix2_bc", maybe(mesh_bc_names[2]),
+                          "global particle boundary condition on inner X2 face"),
+      pin->GetOrAddString("parthenon/swarm", "ox2_bc", maybe(mesh_bc_names[3]),
+                          "global particle boundary condition on outer X2 face"),
+      pin->GetOrAddString("parthenon/swarm", "ix3_bc", maybe(mesh_bc_names[4]),
+                          "global particle boundary condition on inner X3 face"),
+      pin->GetOrAddString("parthenon/swarm", "ox3_bc", maybe(mesh_bc_names[5]),
+                          "global particle boundary condition on outer X3 face")};
+  // JMM: A consequence of having only one boundary flag array but
+  // multiple boundary function arrays is that swarms *must* be
+  // periodic if the mesh is periodic but otherwise mesh and swarm
+  // boundaries are decoupled.
+  for (int i = 0; i < BOUNDARY_NFACES; ++i) {
+    if (mesh_bc_names[i] == "periodic") {
+      PARTHENON_REQUIRE(mesh_swarm_bc_names[i] == "periodic",
+                        "If the mesh is periodic, swarms must be also.");
+    }
+  }
+}
+
+std::array<BoundaryFlag, BOUNDARY_NFACES>
+Mesh::GetBCsFromNames_(const std::array<std::string, BOUNDARY_NFACES> &names) const {
+  std::array<BoundaryFlag, BOUNDARY_NFACES> out;
+  for (int f = 0; f < BOUNDARY_NFACES; ++f) {
+    out[f] = GetBoundaryFlag(names[f]);
+  }
+  return out;
+}
+
+RegionSize Mesh::GetBaseMeshBlockSize(ParameterInput *pin, const RegionSize &mesh_size) {
+  RegionSize base_block_size;
+  for (auto &[dir, label] : std::vector<std::tuple<CoordinateDirection, std::string>>{
+           {X1DIR, "nx1"}, {X2DIR, "nx2"}, {X3DIR, "nx3"}}) {
+    base_block_size.xrat(dir) = mesh_size.xrat(dir);
+    base_block_size.symmetry(dir) = mesh_size.symmetry(dir);
+    // JMM: Just to ensure it gets written to params
+    ParameterRef meshref("parthenon/mesh", label);
+    base_block_size.nx(dir) = pin->GetOrAddInteger(
+        "parthenon/meshblock", label, meshref,
+        "logical size of a meshblock; defaults to the base size of the mesh");
+    if (base_block_size.symmetry(dir)) {
+      base_block_size.nx(dir) = mesh_size.nx(dir);
+      pin->SetInteger("parthenon/meshblock", label, mesh_size.nx(dir));
+    }
+  }
+  return base_block_size;
+}
+
+std::pair<RegionSize, RegionSize> Mesh::GetRegionSizes(ParameterInput *pin) {
+  RegionSize mesh_size(
+      {pin->GetReal("parthenon/mesh", "x1min", "minimum x1 value of domain"),
+       pin->GetReal("parthenon/mesh", "x2min", "minimum x2 value of domain"),
+       pin->GetReal("parthenon/mesh", "x3min", "minimum x3 value of domain")},
+      {pin->GetReal("parthenon/mesh", "x1max", "maximum x1 value of domain"),
+       pin->GetReal("parthenon/mesh", "x2max", "maximum x2 value of domain"),
+       pin->GetReal("parthenon/mesh", "x3max", "maximum x3 value of domain")},
+      {pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0, "unused"),
+       pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0, "unused"),
+       pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0, "unused")},
+      {pin->GetInteger("parthenon/mesh", "nx1",
+                       "number of cells on base mesh in x1 direction"),
+       pin->GetInteger("parthenon/mesh", "nx2",
+                       "number of cells on base mesh in x2 direction"),
+       pin->GetInteger("parthenon/mesh", "nx3",
+                       "number of cells on base mesh in x3 direction")},
+      {false, pin->GetInteger("parthenon/mesh", "nx2") == 1,
+       pin->GetInteger("parthenon/mesh", "nx3") == 1});
+
+  RegionSize base_block_size = GetBaseMeshBlockSize(pin, mesh_size);
+
+  return std::make_pair(mesh_size, base_block_size);
 }
 
 } // namespace parthenon

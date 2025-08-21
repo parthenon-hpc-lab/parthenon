@@ -17,6 +17,7 @@ problem_id = poisson
 <parthenon/mesh>
 refinement = static
 multigrid = true 
+pack_size = 1
 
 nx1 = 64
 x1min = -1.0

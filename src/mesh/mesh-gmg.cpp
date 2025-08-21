@@ -20,11 +20,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <unordered_set>
+#include <vector>
 
 #include "parthenon_mpi.hpp"
 
@@ -115,18 +117,18 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   const int gmg_min_level = -gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
   for (int level = gmg_min_level; level <= current_level; ++level) {
-    gmg_block_lists[level] = BlockList_t();
+    gmg_block_lists_[level] = BlockList_t();
   }
 
   // Fill/create gmg block lists based on this ranks block list
   for (auto &pmb : block_list) {
     const int level = pmb->loc.level();
     // Add the leaf block to its level
-    gmg_block_lists[level].push_back(pmb);
+    gmg_block_lists_[level].push_back(pmb);
 
     // Add the leaf block to the next finer level if required
     if (level < current_level) {
-      gmg_block_lists[level + 1].push_back(pmb);
+      gmg_block_lists_[level + 1].push_back(pmb);
     }
 
     // Create internal blocks that share a Morton number with this block
@@ -137,7 +139,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
       RegionSize block_size = GetDefaultBlockSize();
       BoundaryFlag block_bcs[6];
       SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
-      gmg_block_lists[loc.level()].push_back(
+      gmg_block_lists_[loc.level()].push_back(
           MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
                           app_in, packages, resolved_packages, gflag));
       loc = loc.GetParent();
@@ -145,7 +147,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   }
 
   // Sort the gmg block lists by gid
-  for (auto &[level, bl] : gmg_block_lists) {
+  for (auto &[level, bl] : gmg_block_lists_) {
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
     BuildBlockPartitions(GridIdentifier::two_level_composite(level));
   }
@@ -155,7 +157,7 @@ void Mesh::SetGMGNeighbors() {
   if (!multigrid) return;
   const int gmg_min_level = GetGMGMinLevel();
   // Sort the gmg block lists by gid and find neighbors
-  for (auto &[level, bl] : gmg_block_lists) {
+  for (auto &[level, bl] : gmg_block_lists_) {
     for (auto &pmb : bl) {
       // Coarser neighbor
       pmb->gmg_coarser_neighbors.clear();
@@ -166,12 +168,13 @@ void Mesh::SetGMGNeighbors() {
           int leaf_gid = forest.GetLeafGid(ploc);
           pmb->gmg_coarser_neighbors.emplace_back(
               pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
-              std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 
       // Finer neighbor(s)
       pmb->gmg_finer_neighbors.clear();
+      pmb->gmg_leaf_neighbors.clear();
       if (pmb->loc.level() < current_level) {
         auto dlocs = pmb->loc.GetDaughters(ndim);
         for (auto &d : dlocs) {
@@ -179,9 +182,15 @@ void Mesh::SetGMGNeighbors() {
           if (gid >= 0) {
             int leaf_gid = forest.GetLeafGid(d);
             pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
-                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
-                                                  0, 0);
+                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
+                                                  0, 0, 0);
           }
+        }
+        if (pmb->gmg_finer_neighbors.size() == 0) {
+          // This is a leaf block, so add itself as a finer neighbor
+          pmb->gmg_leaf_neighbors.emplace_back(
+              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
         }
       }
 

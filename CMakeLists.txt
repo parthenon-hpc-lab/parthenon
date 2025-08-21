@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2024 The Parthenon collaboration
+# Copyright(C) 2020-2025 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 24.03 LANGUAGES C CXX)
+project(parthenon VERSION 25.05 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -59,14 +59,27 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
+option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
+
+option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
+if (PARTHENON_USE_SYSTEM_PACKAGES)
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    ON)
+else()
+  option(PARTHENON_IMPORT_KOKKOS
+    "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
+    OFF)
+endif()
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
+
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 24 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 27 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=e220df92a335131131e42ddb52dc221a6dbd6bb56361483b4af0292620eeb82ffb21ef3b95fd9a7c5cc158fb754da0bf1a1015bec98b5bbad05f4bceb1ee99bc"
+  "SHA512=9a1285612fe8a99861630232b1ca2cb382711b45863f9aad99fcb5e25d6daaba6c18158058c73ac61d4df3b78aee987a8f86ecf7eb61717c7932d1ef6651d100"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -112,6 +125,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+
+# Provenance / build information
+include("cmake/Provenance.cmake")
+CheckGitSetup()
 
 # Require C++17's std::filesystem
 # This is fully standard, but links a separate library when using old compilers
@@ -204,7 +221,6 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
     find_package(Kokkos 4)
@@ -281,6 +297,13 @@ if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
+
+  # Async malloc are enabled by default until Kokkos <= 4.4.1 but
+  # cause issues with IPCs and MPI,
+  # see https://github.com/parthenon-hpc-lab/athenapk/pull/114#issuecomment-2358981857
+  # Given that it's also not expected to be a significant performance gain
+  # it's hard disabled now.
+  set(Kokkos_ENABLE_IMPL_CUDA_MALLOC_ASYNC OFF CACHE BOOL "Disable Cuda async malloc (to address MPI/IPC issues)")
 endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
@@ -367,12 +390,19 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
 endif()
 
 if (PARTHENON_ENABLE_ASCENT)
-  find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  if (PARTHENON_USE_SYSTEM_PACKAGES)
+    find_package(Ascent REQUIRED)
+  else()
+    find_package(Ascent REQUIRED NO_DEFAULT_PATH)
+  endif()
 endif()
 
 # Installation configuration
 include(GNUInstallDirs)
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+
+set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
+  "Path to save generated data for docs.")
 
 add_subdirectory(src)
 add_subdirectory(example)
@@ -382,6 +412,13 @@ create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+
+if (NOT PARTHENON_DISABLE_EXAMPLES)
+  add_custom_target(param-docs
+    DEPENDS
+    burgers-csv
+    diffusion-csv)
+endif()
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

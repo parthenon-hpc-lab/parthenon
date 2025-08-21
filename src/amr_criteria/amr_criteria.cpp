@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,7 +12,9 @@
 //========================================================================================
 #include "amr_criteria/amr_criteria.hpp"
 
+#include <iostream>
 #include <memory>
+#include <string>
 
 #include "amr_criteria/refinement_package.hpp"
 #include "interface/meshblock_data.hpp"
@@ -24,7 +26,8 @@ namespace parthenon {
 
 AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
     : comp6(0), comp5(0), comp4(0) {
-  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+  field =
+      pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET", "Field to refine on");
   if (field == "NO FIELD WAS SET") {
     std::cerr << "Error in " << block_name << ": no field set" << std::endl;
     exit(1);
@@ -48,10 +51,15 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
                              "vector_i requires one value, e.g. vector_i = 2");
     comp4 = index[0];
   }
-  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
-  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
-  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
-  max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
+  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5,
+                                      "magnitude that triggers refinement");
+  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05,
+                                        "magnitude that triggers de-refinement");
+  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                              "maximum level of refinement globally");
+  max_level =
+      pin->GetOrAddInteger(block_name, "max_level", global_max_level,
+                           "maximum level this refinement criterion will achieve");
   if (max_level > global_max_level) {
     std::cerr << "WARNING: max_level in " << block_name
               << " exceeds numlevel (the global maximum number of levels) set in "
@@ -76,31 +84,44 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
                               block_name + ": " + criteria);
 }
 
-AMRBounds AMRCriteria::GetBounds(const MeshBlockData<Real> *rc) const {
-  auto ib = rc->GetBoundsI(IndexDomain::interior);
-  auto jb = rc->GetBoundsJ(IndexDomain::interior);
-  auto kb = rc->GetBoundsK(IndexDomain::interior);
-  return AMRBounds(ib, jb, kb);
+void AMRFirstDerivative::operator()(MeshData<Real> *md,
+                                    ParArray1D<AmrTag> &amr_tags) const {
+  auto ib = md->GetBoundsI(IndexDomain::interior);
+  auto jb = md->GetBoundsJ(IndexDomain::interior);
+  auto kb = md->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  auto dims = md->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
+  }
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::FirstDerivative(bnds, md, field, idx, amr_tags, refine_criteria,
+                              derefine_criteria, max_level);
 }
 
-AmrTag AMRFirstDerivative::operator()(const MeshBlockData<Real> *rc) const {
-  if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
-    return AmrTag::same;
+void AMRSecondDerivative::operator()(MeshData<Real> *md,
+                                     ParArray1D<AmrTag> &amr_tags) const {
+  auto ib = md->GetBoundsI(IndexDomain::interior);
+  auto jb = md->GetBoundsJ(IndexDomain::interior);
+  auto kb = md->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  auto dims = md->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
   }
-  auto bnds = GetBounds(rc);
-  auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
-                           Kokkos::ALL(), Kokkos::ALL());
-  return Refinement::FirstDerivative(bnds, q, refine_criteria, derefine_criteria);
-}
-
-AmrTag AMRSecondDerivative::operator()(const MeshBlockData<Real> *rc) const {
-  if (!rc->HasVariable(field) || !rc->IsAllocated(field)) {
-    return AmrTag::same;
-  }
-  auto bnds = GetBounds(rc);
-  auto q = Kokkos::subview(rc->Get(field).data, comp6, comp5, comp4, Kokkos::ALL(),
-                           Kokkos::ALL(), Kokkos::ALL());
-  return Refinement::SecondDerivative(bnds, q, refine_criteria, derefine_criteria);
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::SecondDerivative(bnds, md, field, idx, amr_tags, refine_criteria,
+                               derefine_criteria, max_level);
 }
 
 } // namespace parthenon

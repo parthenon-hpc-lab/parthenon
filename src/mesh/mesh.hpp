@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/comms/tag_map.hpp"
 #include "config.hpp"
@@ -49,6 +48,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
+#include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
@@ -59,13 +59,17 @@
 namespace parthenon {
 
 // Forward declarations
+class ApplicationInput;
 class MeshBlock;
 class MeshRefinement;
+class Packages_t;
 class ParameterInput;
 class RestartReader;
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
+
+// Base class to allow cacheing of different types of PackDescriptors
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -92,6 +96,9 @@ class Mesh {
        Packages_t &packages, int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
+  static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
+                                         const RegionSize &mesh_size);
+  static std::pair<RegionSize, RegionSize> GetRegionSizes(ParameterInput *pin);
   ~Mesh();
 
   // accessors
@@ -106,15 +113,21 @@ class Mesh {
   RegionSize GetBlockSize(const LogicalLocation &loc) const {
     return forest.GetBlockDomain(loc);
   }
-  const IndexShape &GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+  const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
+
+  ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
 
   // data
   bool modified;
-  bool is_restart;
   RegionSize mesh_size;
   RegionSize base_block_size;
+
+  BValNames_t mesh_bc_names;
+  BValNames_t mesh_swarm_bc_names;
+
+  // these are flags not boundary functions
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   int ndim; // number of dimensions
   const bool adaptive, multilevel, multigrid;
@@ -130,7 +143,13 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  std::map<int, BlockList_t> gmg_block_lists;
+  const BlockList_t &GetGMGBlockList(int level) const {
+    PARTHENON_REQUIRE(multigrid, "Asking for multigrid blocks on a Mesh that was created "
+                                 "without parthenon/mesh/multigrid = true set.");
+    PARTHENON_REQUIRE(gmg_block_lists_.count(level),
+                      "Asking for a multigrid level that doesn't exist.");
+    return gmg_block_lists_.at(level);
+  }
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_logical_level_; }
 
@@ -143,14 +162,29 @@ class Mesh {
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
-    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+    if (use_pack_size_) {
+      return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
+                                    : default_pack_size_;
+    } else {
+      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
+    }
   }
   int DefaultNumPartitions() {
-    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    if (use_pack_size_) {
+      return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
+    } else {
+      return std::min(default_num_packs_, block_list.size());
+    }
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
   GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
+    if (grid.type == GridType::two_level_composite)
+      PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
+                                   "parthenon/mesh/multigrid = false.")
+    PARTHENON_REQUIRE(
+        block_partitions_.count(grid),
+        "There isn't a block partition available for this grid for some reason.");
     return block_partitions_.at(grid);
   }
 
@@ -216,11 +250,10 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
-  using channel_key_t = std::tuple<int, int, std::string, int>;
+  using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t =
-      std::unordered_map<channel_key_t, comm_buf_t, tuple_hash<channel_key_t>>;
+  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
@@ -274,8 +307,13 @@ class Mesh {
   std::vector<int> bnref, bnderef;
   std::vector<int> brdisp, bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
+  // Refinement tags used by MeshData checks
+  ParArray1D<AmrTag> amr_tags;
 
   std::vector<LogicalLocation> loclist;
+
+  // Block lists for internal nodes in the tree corresponding to multigrid levels
+  std::map<int, BlockList_t> gmg_block_lists_;
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -286,7 +324,9 @@ class Mesh {
   int lb_interval_;
 
   // size of default MeshBlockPacks
+  bool use_pack_size_;
   int default_pack_size_;
+  std::size_t default_num_packs_;
 
   int gmg_min_logical_level_ = 0;
 
@@ -294,6 +334,10 @@ class Mesh {
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
 #endif
+
+  void SetBCNames_(ParameterInput *pin);
+  std::array<BoundaryFlag, BOUNDARY_NFACES>
+  GetBCsFromNames_(const BValNames_t &names) const;
 
   // functions
   void CheckMeshValidity() const;
@@ -327,7 +371,8 @@ class Mesh {
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
-  void CommunicateBoundaries(std::string md_name = "base");
+  void CommunicateBoundaries(std::string md_name = "base",
+                             const std::vector<std::string> &fields = {});
   void PreCommFillDerived();
   void FillDerived();
 

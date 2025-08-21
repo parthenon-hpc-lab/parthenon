@@ -15,8 +15,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include <catch2/catch.hpp>
 

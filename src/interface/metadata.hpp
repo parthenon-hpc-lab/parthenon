@@ -80,6 +80,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** uint64-t-valued quantity */                                                        \
+  PARTHENON_INTERNAL_FOR_FLAG(UInt64)                                                    \
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
@@ -120,6 +122,11 @@
   PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
+  /** Align memory of fields to cell centered memory                                     \
+      (Field will be missing one layer of ghosts if it is not cell centered) **/         \
+  PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
+  /** Particles in a Swarm will not contain a persistent, unique id field **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -170,6 +177,7 @@ class MetadataFlag {
 
   std::string const &Name() const;
 
+  int Flag() const { return flag_; }
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
   constexpr int InternalFlagValue() const { return flag_; }
@@ -325,28 +333,48 @@ class Metadata {
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
+      const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
+      const refinement::RefinementFunctions_t flux_ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+
+  Metadata(
       const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
       const std::vector<std::string> &component_labels = {},
       const std::string &associated = "",
       const refinement::RefinementFunctions_t ref_funcs_ =
           refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+      : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
       : Metadata(bits, shape, {}, associated) {}
 
-  // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
       : Metadata(bits, {1}, component_labels, associated) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
       : Metadata(bits, {1}, {}, associated) {}
 
+  std::shared_ptr<Metadata> GetSPtrFluxMetadata() {
+    PARTHENON_REQUIRE(IsSet(WithFluxes),
+                      "Asking for flux metadata from metadata that doesn't have it.");
+    return flux_metadata;
+  }
+
+ private:
+  std::shared_ptr<Metadata> flux_metadata;
+
+ public:
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
@@ -425,6 +453,8 @@ class Metadata {
       return Boolean;
     } else if (IsSet(Integer)) {
       return Integer;
+    } else if (IsSet(UInt64)) {
+      return UInt64;
     } else if (IsSet(Real)) {
       return Real;
     }
@@ -536,30 +566,16 @@ class Metadata {
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
                                                        InternalProlongationOp>();
+    // Propagate refinement operations to flux metadata for backward compatibility
+    if (IsSet(WithFluxes)) {
+      flux_metadata->refinement_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                         InternalProlongationOp>();
+    }
   }
 
   // Operators
-  bool HasSameFlags(const Metadata &b) const {
-    auto const &a = *this;
-
-    // Check extra bits are unset
-    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
-    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
-    for (auto i = min_bits; i < longer.size(); i++) {
-      if (longer[i]) {
-        // Bits are default false, so if any bit in the extraneous portion of the longer
-        // bit list is set, then it cannot be equal to a.
-        return false;
-      }
-    }
-
-    for (size_t i = 0; i < min_bits; i++) {
-      if (a.bits_[i] != b.bits_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool HasSameFlags(const Metadata &b) const;
 
   bool operator==(const Metadata &b) const {
     return HasSameFlags(b) && (shape_ == b.shape_);
@@ -688,7 +704,13 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
   return out;
 }
 } // namespace MetadataUtils
-
 } // namespace parthenon
+
+template <>
+struct std::hash<parthenon::MetadataFlag> {
+  std::size_t operator()(const parthenon::MetadataFlag &flag) const {
+    return flag.Flag();
+  }
+};
 
 #endif // INTERFACE_METADATA_HPP_

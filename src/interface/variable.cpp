@@ -13,8 +13,10 @@
 
 #include "interface/variable.hpp"
 
+#include <cstdio>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <utility>
 
@@ -203,6 +205,7 @@ std::string ParticleVariable<T>::info() const {
 template class Variable<Real>;
 template class ParticleVariable<Real>;
 template class ParticleVariable<int>;
+template class ParticleVariable<std::uint64_t>;
 template class ParticleVariable<bool>;
 
 } // namespace parthenon

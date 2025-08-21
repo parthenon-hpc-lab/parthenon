@@ -118,10 +118,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // For lambda choose the smaller of the 3
   Real lambda = x1;
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
-    lambda = std::min(lambda, x2);
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
-    lambda = std::min(lambda, x3);
+  auto [mesh_size, meshblock_size] = Mesh::GetRegionSizes(pin);
+  if ((mesh_size.nx(X2DIR) > 1) && ang_3 != 0.0) lambda = std::min(lambda, x2);
+  if ((mesh_size.nx(X3DIR) > 1) && ang_2 != 0.0) lambda = std::min(lambda, x3);
 
   // If cos_a2 or cos_a3 = 0, need to override lambda
   if (ang_3_vert) lambda = x2;
@@ -196,6 +195,20 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
   pkg->AddField("my_derived_var", m);
 
+  // Create a Metadata::None variable for IO testing purposes.
+  // Only load if test_metadata_none is specified in the Advection block
+  auto test_metadata_none =
+      pin->GetOrAddBoolean("Advection", "test_metadata_none", false);
+  pkg->AddParam<bool>("test_metadata_none", test_metadata_none);
+  if (test_metadata_none) {
+    const int nx1 = meshblock_size.nx(X1DIR);
+    const int nx2 = meshblock_size.nx(X2DIR);
+    const int nx3 = meshblock_size.nx(X3DIR);
+    std::vector<int> test_shape = {nx1 + 1, nx2 + 1, nx3 + 1, 3};
+    m = Metadata({Metadata::OneCopy, Metadata::None}, test_shape);
+    pkg->AddField("metadata_none_var", m);
+  }
+
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
   // Now we add a couple of callback functions
@@ -236,7 +249,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
   if (parthenon::Globals::my_rank == 0) {
     std::cout << "Hello from the advection package in the advection example!\n"
-              << "This run is a restart: " << pmesh->is_restart << "\n"
+              << "This run is a restart: " << parthenon::Globals::is_restart << "\n"
               << std::endl;
   }
 }
@@ -281,6 +294,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
+  const bool test_metadata_none = pkg->Param<bool>("test_metadata_none");
   bool fill_derived = pkg->Param<bool>("fill_derived");
 
   if (fill_derived) {
@@ -300,6 +314,24 @@ void PreFill(MeshBlockData<Real> *rc) {
         PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
+        });
+  }
+
+  // Fill the metadata::None var with index gymnastics.
+  if (test_metadata_none) {
+    const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::interior);
+    const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::interior);
+    const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::interior);
+
+    // packing in principle unnecessary/convoluted here and just done for demonstration
+    std::vector<std::string> vars({"metadata_none_var"});
+    PackIndexMap imap;
+    const auto &v = rc->PackVariables(vars, imap);
+
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, 2, 0, nx3, 0, nx2, 0, nx1,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          v(n, k, j, i) = n + k + j + i;
         });
   }
 }

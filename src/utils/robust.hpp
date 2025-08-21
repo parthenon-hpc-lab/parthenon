@@ -60,6 +60,18 @@ KOKKOS_INLINE_FUNCTION auto ratio(const A &a, const B &b) {
   const B sgn = b >= 0 ? 1 : -1;
   return a / (b + sgn * SMALL<B>());
 }
+
+// Return true equivalence if value and reference differ by less than precision
+// Optionally return true if reference value is close to zero
+KOKKOS_FORCEINLINE_FUNCTION
+bool SoftEquiv(const Real &val, const Real &ref,
+               const Real eps = 10. * std::numeric_limits<Real>::epsilon(),
+               const bool pass_on_small = true) {
+  const bool is_close = std::abs(val - ref) < eps * std::abs(ref);
+  const bool is_small = std::abs(ref) < std::numeric_limits<Real>::min();
+  return (is_close || (is_small && pass_on_small));
+}
+
 } // namespace robust
 } // namespace parthenon
 #endif // UTILS_ROBUST_HPP_

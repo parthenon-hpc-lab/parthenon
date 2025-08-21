@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -62,6 +62,9 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member,
                                                const Function &function) {
   parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
 }
+
+std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int nx3,
+                                         bool multilevel, const Mesh *pmesh);
 
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
@@ -179,8 +182,21 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
+  std::vector<NeighborBlock> gmg_leaf_neighbors;
 
   BoundaryFlag boundary_flag[6];
+
+  bool IsPhysicalBoundary(BoundaryFace bf) const {
+    // TODO(LFR): Should we only return true if this is set to user?
+    return boundary_flag[bf] != BoundaryFlag::block;
+  }
+
+  bool IsPhysicalBoundary() const {
+    bool is_bound = IsPhysicalBoundary(static_cast<BoundaryFace>(0));
+    for (int bf = 1; bf < 6; ++bf)
+      is_bound = is_bound || IsPhysicalBoundary(static_cast<BoundaryFace>(bf));
+    return is_bound;
+  }
 
   // functions
   // Load balancing
@@ -419,8 +435,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
-      new_block_dt_user_;
+  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor

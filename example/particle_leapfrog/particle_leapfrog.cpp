@@ -65,7 +65,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my_particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None, Metadata::Independent});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   Metadata vreal_swarmvalue_metadata({Metadata::Real, Metadata::Vector},
                                      std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
@@ -148,7 +147,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
-  const auto &ic = particles_ic;
+  const auto ic = particles_ic;
 
   const bool no_particles = pin->GetOrAddBoolean("Particles", "disable", false);
   if (no_particles) return;
@@ -177,7 +176,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
-  auto &id = swarm->Get<int>("id").Get();
+  auto &id = swarm->Get<std::uint64_t>(swarm_position::id::name()).Get();
   auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
   auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
   auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
@@ -224,16 +223,9 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           swarm_name);
   auto pack_pos = desc_pos.GetPack(md);
 
-  // Make a SwarmPack via strings to get ids
-  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
-  // the datatype associated with ids (i.e., int).  We also extract an indexing map.
-  std::vector<std::string> vars_id{"id"};
-  static auto desc_id = MakeSwarmPackDescriptor<int>(swarm_name, vars_id);
-  auto pack_id = desc_id.GetPack(md);
-  auto pack_id_map = desc_id.GetMap();
-  parthenon::PackIdx spi_id(pack_id_map["id"]);
-
   // Make a SwarmPack via strings to get v (note that v is a vector!)
+  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
+  // the datatype associated with ids (i.e., Real).  We also extract an indexing map.
   std::vector<std::string> vars_v{"v"};
   static auto desc_v = MakeSwarmPackDescriptor<Real>(swarm_name, vars_v);
   auto pack_v = desc_v.GetPack(md);
@@ -244,7 +236,6 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
       DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
       pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
         auto [b, n] = pack_pos.GetBlockParticleIndices(idx);
-        const int iid = pack_id.GetLowerBound(b, spi_id);
         const int iv = pack_v.GetLowerBound(b, spi_v);
         const auto swarm_d = pack_pos.GetContext(b);
         if (swarm_d.IsActive(n)) {

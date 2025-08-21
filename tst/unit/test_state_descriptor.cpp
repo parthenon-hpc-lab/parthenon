@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,9 +25,11 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "parameter_input.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 
@@ -117,6 +119,39 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
         REQUIRE(state.FieldMetadata("bar").getAssociated() == "foo");
         REQUIRE(state.FieldMetadata("baz").getAssociated() == "baz");
       }
+    }
+  }
+}
+
+TEST_CASE("Test GetPackDimension in StateDescriptor", "[StateDescriptor]") {
+  GIVEN("Some flags and state descriptors") {
+    StateDescriptor state("state");
+    WHEN("We add some fields with various shapes and total size") {
+      state.AddField("foo", Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4}));
+      state.AddField("bar",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4}));
+      state.AddField("baz",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4, 4}));
+      THEN("The total length is identified correctly") {
+        REQUIRE(state.GetPackDimension(Metadata::GetUserFlag("state")) == 84);
+      }
+    }
+  }
+}
+
+TEST_CASE("Test AddParamFromInput in StateDescriptor",
+          "[StateDescriptor][ParameterInput][Params]") {
+  GIVEN("A ParameterInput object containing a parameter and an empty StateDescrptor "
+        "object") {
+    parthenon::ParameterInput in1;
+    std::stringstream ss;
+    ss << "<block1>\n"
+       << "var1 = 0.0" << std::endl;
+    in1.LoadFromStream(ss);
+
+    StateDescriptor pkg("block1");
+    WHEN("We set a param from ParameterInput") {
+      pkg.AddParamFromInput("var1", 2.5, &in1);
     }
   }
 }
