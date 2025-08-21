@@ -233,7 +233,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                 (op.file_type == "corehdf5");
     const bool is_openpmd_output = (op.file_type == "openpmd");
 
-
     if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);

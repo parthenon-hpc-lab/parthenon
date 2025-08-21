@@ -278,11 +278,11 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
   }
   int remove_comp = -1;
   if (output_type == SubOutputType::X1Slice) {
-    remove_comp = 0;
+    remove_comp = 2;
   } else if (output_type == SubOutputType::X2Slice) {
     remove_comp = 1;
   } else if (output_type == SubOutputType::X3Slice) {
-    remove_comp = 2;
+    remove_comp = 0;
   }
   if (remove_comp >= 0) {
     chunk_extent.erase(chunk_extent.begin() + remove_comp);
@@ -663,11 +663,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               };
               int remove_comp = -1;
               if (output_type == SubOutputType::X1Slice) {
-                remove_comp = 0;
+                remove_comp = 2;
               } else if (output_type == SubOutputType::X2Slice) {
                 remove_comp = 1;
               } else if (output_type == SubOutputType::X3Slice) {
-                remove_comp = 2;
+                remove_comp = 0;
               }
               if (remove_comp >= 0) {
                 grid_spacing.erase(grid_spacing.begin() + remove_comp);
@@ -760,11 +760,13 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 for (int k = kb.s; k <= kb.e; ++k) {
                   for (int j = jb.s; j <= jb.e; ++j) {
                     for (int i = ib.s; i <= ib.e; ++i) {
+                      // Skip cells for coarse grained outputs
                       if (((i - ib.s) % coarsening_factor_ != 0) ||
                           ((j - jb.s) % coarsening_factor_ != 0) ||
                           ((k - kb.s) % coarsening_factor_ != 0)) {
                         continue;
                       }
+                      // Skip cells outside slices
                       if (is_slice) {
                         if (output_type == SubOutputType::X1Slice) {
                           if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
@@ -789,9 +791,14 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                     }
                   }
                 }
+                // if no data was being selected
+                if (comp_offset == tmp_offset) {
+                  continue;
+                }
                 const auto [chunk_offset, chunk_extent] =
                     OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor_,
                                                           output_type);
+
                 mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
                                         chunk_extent);
                 comp_idx += 1;
