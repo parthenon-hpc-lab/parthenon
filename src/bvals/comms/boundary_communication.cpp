@@ -401,6 +401,21 @@ ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 
+TaskID AddSwarmBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                     std::shared_ptr<MeshData<Real>> &md) {
+  auto send = tl.AddTask(dependency, SendSwarmBoundaryBuffers, md);
+  auto recv = tl.AddTask(dependency, ReceiveSwarmBoundaryBuffers, md);
+  return recv;
+}
+
+TaskID AddSwarmBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                     std::shared_ptr<MeshData<Real>> &md,
+                                     std::vector<std::string> swarm_names) {
+  auto send = tl.AddTask(dependency, SendSwarmBoundaryBuffers, md, swarm_names);
+  auto recv = tl.AddTask(dependency, ReceiveSwarmBoundaryBuffers, md, swarm_names);
+  return recv;
+}
+
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
@@ -459,4 +474,58 @@ TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
       tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
   return tl.AddTask(receive, TF(SetBounds<BoundaryType::flxcor_recv>), md);
 }
+
+TaskStatus SendSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  const int nblocks = md->NumBlocks();
+  for (int n = 0; n < nblocks; n++) {
+    auto &sc = md->GetBlockData(n)->GetSwarmData();
+    sc->ResetCommunication();
+    // TODO(BRR) remove this BoundaryCommSubset argument?
+    sc->Send(BoundaryCommSubset::all);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus SendSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md,
+                                    std::vector<std::string> swarm_names) {
+  const int nblocks = md->NumBlocks();
+  for (int n = 0; n < nblocks; n++) {
+    auto &sc = md->GetBlockData(n)->GetSwarmData();
+    sc->ResetCommunication(swarm_names);
+    sc->Send(BoundaryCommSubset::all, swarm_names);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus ReceiveSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  TaskStatus status = TaskStatus::complete;
+  const int nblocks = md->NumBlocks();
+  for (int n = 0; n < nblocks; n++) {
+    auto &sc = md->GetBlockData(n)->GetSwarmData();
+    auto local_status = sc->Receive(BoundaryCommSubset::all);
+    if (local_status == TaskStatus::incomplete) {
+      status = TaskStatus::incomplete;
+    }
+  }
+
+  return status;
+}
+
+TaskStatus ReceiveSwarmBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md,
+                                       std::vector<std::string> swarm_names) {
+  TaskStatus status = TaskStatus::complete;
+  const int nblocks = md->NumBlocks();
+  for (int n = 0; n < nblocks; n++) {
+    auto &sc = md->GetBlockData(n)->GetSwarmData();
+    auto local_status = sc->Receive(BoundaryCommSubset::all, swarm_names);
+    if (local_status == TaskStatus::incomplete) {
+      status = TaskStatus::incomplete;
+    }
+  }
+
+  return status;
+}
+
 } // namespace parthenon
