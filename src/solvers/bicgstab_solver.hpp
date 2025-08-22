@@ -88,8 +88,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
                  const std::string &input_block, equations_t eq_in = equations_t())
-      : preconditioner(container_base, container_u, container_rhs, pin, input_block,
-                       eq_in),
+      : preconditioner(container_base, container_u, container_rhs, pin, input_block),
         SolverBase(container_base, container_u, container_rhs), params_(pin, input_block),
         iter_counter(0), eqs_(eq_in) {
     FieldTL::IterateTypes(

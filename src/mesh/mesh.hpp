@@ -128,6 +128,8 @@ class Mesh {
   BValNames_t mesh_bc_names;
   BValNames_t mesh_swarm_bc_names;
 
+  SimTime* sim_time = nullptr;
+
   // these are flags not boundary functions
   std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs;
   int ndim; // number of dimensions

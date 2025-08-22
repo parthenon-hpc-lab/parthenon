@@ -522,9 +522,40 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
   // We iterate over the nodal index range since this encompasses all possible
   // active cells for every topological type, then mask out elements that aren't
   // owned/required by a given block
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+  // IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
+  // IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
+  // IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+  // const int ndim = md_a->GetMeshPointer()->ndim;
+
+  // static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  // auto pack_a = desc.GetPack(md_a.get());
+  // auto pack_b = desc.GetPack(md_b.get());
+  // Real gsum(0);
+  // parthenon::par_reduce(
+  //     parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+  //     pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  //     KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+  //       // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+  //       //            pull the loop over vars outside of the innermost loop to promote
+  //       //            vectorization.
+  //       LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c) {
+  //         const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
+  //         const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
+  //         const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
+  //         // Mask cell centered directions if loop bounds take them into ghosts
+  //         const int maski = (TopologicalOffsetI(te) || ndim < 1) ? 1 : (i < ib.e);
+  //         const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j < jb.e);
+  //         const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k < kb.e);
+  //         if (pack_a.IsOwned(b, ok, oj, oi) *
+  //             (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk)
+  //           lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+  //       });
+  //     },
+  //     Kokkos::Sum<Real>(gsum));
+  
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::CC);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::CC);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::CC);
   const int ndim = md_a->GetMeshPointer()->ndim;
 
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
@@ -533,25 +564,12 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
   Real gsum(0);
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
-      pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
-        LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c) {
-          const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
-          const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
-          const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
-          // Mask cell centered directions if loop bounds take them into ghosts
-          const int maski = (TopologicalOffsetI(te) || ndim < 1) ? 1 : (i < ib.e);
-          const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j < jb.e);
-          const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k < kb.e);
-          if (pack_a.IsOwned(b, ok, oj, oi) *
-              (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk)
-            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
-        });
+      pack_a.GetNBlocks() - 1, 0, pack_a.GetUpperBoundHost(0), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i, Real &lsum) {
+        lsum += pack_a(b, c, k, j, i) * pack_b(b, c, k, j, i);
       },
       Kokkos::Sum<Real>(gsum));
+
   adotb->val += gsum;
   return TaskStatus::complete;
 }

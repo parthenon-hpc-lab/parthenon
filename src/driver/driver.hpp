@@ -122,6 +122,7 @@ class EvolutionDriver : public Driver {
                                                    "cadence of outputs describing mesh");
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+    pm->sim_time = &tm;
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();

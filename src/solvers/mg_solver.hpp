@@ -45,7 +45,8 @@ struct MGParams {
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
   std::string prolongation = "OldLinear";
-
+  bool print_per_step = false;
+  bool relative_residual = false;
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
@@ -58,6 +59,9 @@ struct MGParams {
         pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
     max_coarsenings =
         pin->GetOrAddInteger(input_block, "max_coarsenings", max_coarsenings);
+    print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
+    relative_residual =
+        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
   }
 };
 
