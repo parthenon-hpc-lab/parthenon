@@ -44,7 +44,7 @@ jobs:
 
       - name: Install parthenon_tools
         run: |
-          pip install --user scripts/python/packages/parthenon_tools
+          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
 
       - name: Setup cache for gold standard
         uses: actions/cache@v3
@@ -154,7 +154,7 @@ jobs:
 
       - name: Install parthenon_tools
         run: |
-          pip install --user scripts/python/packages/parthenon_tools
+          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
 
       - name: Setup cache for gold standard
         uses: actions/cache@v3
