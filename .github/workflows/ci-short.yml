@@ -88,7 +88,7 @@ jobs:
           submodules: 'true'
       - name: Install parthenon_tools
         run: |
-          pip install scripts/python/packages/parthenon_tools
+          pip install --user scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           cmake -B build \
@@ -101,6 +101,8 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # make sure parthenon tools is in our python path
+          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
@@ -109,6 +111,8 @@ jobs:
           cd build
           # Pick GPU with most available memory
           export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+          # make sure parthenon tools is in our python path
+          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:particle_leapfrog
 
       # Now testing if there are no hidden memcopies between host and device.
@@ -153,7 +157,7 @@ jobs:
           submodules: 'true'
       - name: Install parthenon_tools
         run: |
-          pip install scripts/python/packages/parthenon_tools
+          pip install --user scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
@@ -167,12 +171,16 @@ jobs:
         run: |
           cmake --build build -t advection-example
           cd build
+          # make sure parthenon tools is in our python path
+          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
       # Test example with swarms
       - name: particle-leapfrog
         run: |
           cmake --build build -t particle-leapfrog
           cd build
+          # make sure parthenon tools is in our python path
+          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:particle_leapfrog
 
       - uses: actions/upload-artifact@v4
