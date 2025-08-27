@@ -42,10 +42,6 @@ jobs:
         with:
           submodules: 'true'
 
-      - name: Install parthenon_tools
-        run: |
-          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
-
       - name: Setup cache for gold standard
         uses: actions/cache@v3
         with:
@@ -82,8 +78,6 @@ jobs:
           export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
           export UBSAN_OPTIONS=print_stacktrace=0
           export LSAN_OPTIONS=detect_leaks=0
-          # make sure parthenon tools is in our python path
-          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -L performance -LE perf-reg
 
       # run regression tests
@@ -96,8 +90,6 @@ jobs:
           export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
           export UBSAN_OPTIONS=print_stacktrace=0
           export LSAN_OPTIONS=detect_leaks=0
-          # make sure parthenon tools is in our python path
-          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       # Test Ascent integration (only most complex setup with MPI and on device)
@@ -152,10 +144,6 @@ jobs:
         with:
           submodules: 'true'
 
-      - name: Install parthenon_tools
-        run: |
-          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
-
       - name: Setup cache for gold standard
         uses: actions/cache@v3
         with:
@@ -179,16 +167,12 @@ jobs:
         if: ${{ matrix.parallel == 'serial' }}
         run: |
           cd build
-          # make sure parthenon tools is in our python path
-          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -L performance -LE perf-reg
 
       # run regression tests
       - name: Regression tests
         run: |
           cd build
-          # make sure parthenon tools is in our python path
-          export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
 
       - uses: actions/upload-artifact@v4

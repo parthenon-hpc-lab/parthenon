@@ -389,7 +389,10 @@ def compare(
     # **************
     # import Reader
     # **************
-    from parthenon_tools.phdf import phdf
+    try:
+        from phdf import phdf
+    except ModuleNotFoundError:
+        from parthenon_tools.phdf import phdf
 
     # **************
     # Reader Help

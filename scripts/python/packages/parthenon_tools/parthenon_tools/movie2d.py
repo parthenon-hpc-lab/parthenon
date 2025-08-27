@@ -18,7 +18,10 @@ import re
 import os
 import logging
 import numpy as np
-from parthenon_tools.phdf import phdf
+try:
+    from phdf import phdf
+except ModuleNotFoundError:
+    from parthenon_tools.phdf import phdf
 
 from argparse import ArgumentParser
 from pathlib import Path

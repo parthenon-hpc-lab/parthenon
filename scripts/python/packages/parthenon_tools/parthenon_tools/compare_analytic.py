@@ -98,10 +98,13 @@ def compare_analytic(
     """
 
     try:
-        from parthenon_tools import phdf
+        import phdf
     except ModuleNotFoundError:
-        print("Couldn't find module to read Parthenon hdf5 files.")
-        return False
+        try:
+            parthenon_tools import phdf
+        except ModuleNotFoundError:
+            print("Couldn't find module to read Parthenon hdf5 files.")
+            return False
 
     datafile = phdf.phdf(filename)
 
