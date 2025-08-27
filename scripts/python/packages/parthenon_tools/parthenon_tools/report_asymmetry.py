@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 import os, re
 
 import h5py
-from .compute_asymmetry import compute_asymmetry
+from parthenon_tools.compute_asymmetry import compute_asymmetry
 
 parser = ArgumentParser(
     prog="report_asymmetry.py",

@@ -18,7 +18,7 @@ import re
 import os
 import logging
 import numpy as np
-from .phdf import phdf
+from parthenon_tools.phdf import phdf
 
 from argparse import ArgumentParser
 from pathlib import Path

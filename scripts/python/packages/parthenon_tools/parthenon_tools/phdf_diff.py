@@ -389,7 +389,7 @@ def compare(
     # **************
     # import Reader
     # **************
-    from .phdf import phdf
+    from parthenon_tools.phdf import phdf
 
     # **************
     # Reader Help

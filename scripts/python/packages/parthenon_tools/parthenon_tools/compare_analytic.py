@@ -98,7 +98,7 @@ def compare_analytic(
     """
 
     try:
-        from . import phdf
+        from parthenon_tools import phdf
     except ModuleNotFoundError:
         print("Couldn't find module to read Parthenon hdf5 files.")
         return False
