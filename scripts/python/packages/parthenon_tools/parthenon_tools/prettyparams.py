@@ -23,8 +23,9 @@
 import argparse
 import csv
 import shutil
-import sys
+import os, sys
 import textwrap
+import re
 from collections import OrderedDict
 
 # ---------- Shared formatting helpers ----------
@@ -60,7 +61,8 @@ def compute_widths(rows, desc_width=None, term_cols=None):
     else:
         if term_cols is None:
             term_cols = shutil.get_terminal_size(fallback=(120, 20)).columns
-        decorations = 2 + 3 * (ncols - 1) + 2  # borders & separators
+        # borders & separators: start/end + 3 separators between 5 cols
+        decorations = 2 + 3 * (ncols - 1) + 2
         candidate = term_cols - sum(fixed_widths) - decorations
         w4 = max(24, candidate)
     return fixed_widths + [w4]
@@ -99,7 +101,7 @@ def print_row(cells, widths):
 
 # ---------- Plain ASCII table mode (default) ----------
 
-def run_plain(rows, desc_width=None):
+def run_plain(rows, desc_width=None, no_header_sep=False):
     rows = strip_empty_rows(rows)
     if not rows:
         return
@@ -112,23 +114,46 @@ def run_plain(rows, desc_width=None):
 
     print(top)
     print_row(rows[0], widths)
-    print(mid)
+    print(mid if not no_header_sep else sep)
     for row in rows[1:]:
         print_row(row, widths)
         print(sep)
 
-# ---------- Curses TUI mode (collapsible groups by column 0) ----------
+# ---------- Curses TUI mode (collapsible blocks + search + highlight) ----------
 
-def build_groups(rows):
+def reattach_tty_for_curses():
     """
-    Returns OrderedDict[str, list[rows]] preserving first appearance of group (col0).
-    Assumes rows include header as rows[0]; groups are built from rows[1:].
+    Ensure sys.stdin/sys.stdout are connected to the terminal before initializing curses.
     """
-    groups = OrderedDict()
+    try:
+        # If we already have a tty, nothing to do
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            return
+
+        # Try to open /dev/tty
+        tty_in = open("/dev/tty", "rb", buffering=0)
+        tty_out = open("/dev/tty", "wb", buffering=0)
+        os.dup2(tty_in.fileno(), sys.stdin.fileno())
+        os.dup2(tty_out.fileno(), sys.stdout.fileno())
+        return
+    except Exception:
+        sys.stderr.write("Error: No TTY available for UI mode. "
+                         "If you're piping input, run like:\n"
+                         "   cat file.csv | python prettyparams.py --interactive\n"
+                         "Or pass a filename directly:\n"
+                         "   python prettyparams.py --interactive file.csv\n")
+        sys.exit(1)
+
+def build_blocks(rows):
+    """
+    Returns OrderedDict[str, list[rows]] preserving first appearance of block (col0).
+    Assumes rows include header as rows[0]; blocks are built from rows[1:].
+    """
+    blocks = OrderedDict()
     for r in rows[1:]:
         key = str(r[0] or "").strip()
-        groups.setdefault(key, []).append(r)
-    return groups
+        blocks.setdefault(key, []).append(r)
+    return blocks
 
 def row_to_wrapped_lines(row, widths):
     # Return list of physical lines (strings) for a single data row based on wrapping of description
@@ -146,14 +171,34 @@ def row_to_wrapped_lines(row, widths):
         out.append(f"{START_BORDER}{SEPARATOR_BETWEEN.join(parts)}{END_BORDER}")
     return out
 
-def rebuild_display_buffer(stdscr, header, groups, collapsed, widths):
+def filter_blocks(blocks, pattern):
+    """Filter rows in each block by regex pattern across all columns. Return new blocks dict."""
+    if not pattern:
+        return blocks, None
+    try:
+        rx = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        return None, f"Invalid regex: {e}"
+
+    filtered = OrderedDict()
+    for gkey, rows in blocks.items():
+        kept = []
+        gmatch = rx.search(gkey or "")
+        for r in rows:
+            if gmatch or any(rx.search(str(c or "")) for c in r):
+                kept.append(r)
+        if kept:
+            filtered[gkey] = kept
+    return filtered, None
+
+def rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_filter):
     """
     Build a list of tuples: (rendered_string, meta)
-    meta = dict(kind='header'|'group'|'row', group=group_key)
+    meta = dict(kind='header'|'block'|'row'|'sep'|'help', block=block_key)
+    While a filter is active, blocks are shown expanded regardless of 'collapsed'.
     """
     h, w = stdscr.getmaxyx()
-    # Help line and header consume 2 lines
-    help_line = " q:quit  ↑/↓ or j/k:move  PgUp/PgDn:scroll  TAB/ENTER:toggle block  a:toggle all "
+    help_line = " q:quit  ↑/↓ or j/k:move  PgUp/PgDn:scroll  TAB/ENTER:toggle block  a:toggle all  /:search  c:clear "
     help_line = help_line[:max(0, w-1)]
     display = [(help_line, {"kind": "help"})]
 
@@ -161,26 +206,114 @@ def rebuild_display_buffer(stdscr, header, groups, collapsed, widths):
     header_line = f"{START_BORDER}{SEPARATOR_BETWEEN.join(hc.ljust(widths[i]) for i, hc in enumerate(header))}{END_BORDER}"
     display.append((header_line, {"kind": "header"}))
 
-    # Separator (light)
+    # Separator
     sep = border_line(widths, char="-", corner="+")
     display.append((sep[:max(0, w-1)], {"kind": "sep"}))
 
-    # Groups
-    for gkey, rows in groups.items():
+    filtering = active_filter is not None and active_filter != ""
+    for gkey, rows in blocks.items():
         count = len(rows)
-        marker = "[+]" if gkey in collapsed else "[-]"
+        expanded = True if filtering else (gkey not in collapsed)
+        marker = "[-]" if expanded else "[+]"
         label = gkey if gkey else "(blank)"
-        gtext = f" {marker} {label}  ({count} row{'s' if count != 1 else ''})"
-        display.append((gtext[:max(0, w-1)], {"kind": "group", "group": gkey}))
-        if gkey not in collapsed:
-            # header separator for table body inside group
-            display.append((sep[:max(0, w-1)], {"kind": "sep", "group": gkey}))
+        suffix = f" (filter: {active_filter})" if filtering else ""
+        gtext = f" {marker} {label}  ({count} row{'s' if count != 1 else ''}){suffix if filtering else ''}"
+        display.append((gtext[:max(0, w-1)], {"kind": "block", "block": gkey}))
+        if expanded:
+            display.append((sep[:max(0, w-1)], {"kind": "sep", "block": gkey}))
             for r in rows:
                 for phys in row_to_wrapped_lines(r, widths):
-                    display.append((phys[:max(0, w-1)], {"kind": "row", "group": gkey}))
-            # trailing separator between groups
-            display.append((sep[:max(0, w-1)], {"kind": "sep", "group": gkey}))
+                    display.append((phys[:max(0, w-1)], {"kind": "row", "block": gkey}))
+            display.append((sep[:max(0, w-1)], {"kind": "sep", "block": gkey}))
     return display
+
+def prompt_input(stdscr, prompt):
+    """Simple in-line input at bottom; returns string or None if cancelled (ESC)."""
+    import curses
+    h, w = stdscr.getmaxyx()
+    y = h - 1
+    stdscr.move(y, 0)
+    stdscr.clrtoeol()
+    stdscr.addnstr(y, 0, prompt, w-1, curses.A_BOLD)
+    s = ""
+    curses.curs_set(1)
+    while True:
+        ch = stdscr.getch()
+        if ch in (10, 13):  # Enter
+            curses.curs_set(0)
+            return s
+        if ch == 27:  # ESC
+            curses.curs_set(0)
+            return None
+        if ch in (curses.KEY_BACKSPACE, 127, 8):
+            if s:
+                s = s[:-1]
+                stdscr.move(y, len(prompt))
+                stdscr.clrtoeol()
+                stdscr.addnstr(y, len(prompt), s, w - 1)
+        elif 0 <= ch < 256:
+            s += chr(ch)
+            stdscr.addnstr(y, len(prompt), s, w - 1)
+
+# --- NEW: highlighting helpers ---
+
+def compile_filter_regex(active_filter):
+    """Return compiled regex or None if no/invalid pattern."""
+    if not active_filter:
+        return None
+    try:
+        return re.compile(active_filter, re.IGNORECASE)
+    except re.error:
+        return None  # invalid patterns already surfaced elsewhere
+
+def find_spans(text, rx):
+    """Return non-overlapping (start, end) spans for matches of rx in text."""
+    if rx is None or not text:
+        return []
+    spans = []
+    for m in rx.finditer(text):
+        a, b = m.span()
+        if a < b:
+            if spans and a <= spans[-1][1]:
+                # merge overlapping/adjacent spans
+                spans[-1] = (spans[-1][0], max(spans[-1][1], b))
+            else:
+                spans.append((a, b))
+    return spans
+
+def addstr_with_highlight(stdscr, y, x, text, width, is_selected, spans, base_bold=False):
+    """Draw text with highlighted spans; respects selection inverse."""
+    import curses
+    if width <= 0:
+        return
+    maxlen = max(0, width - x - 1)
+    text = text[:maxlen]
+    idx = 0
+    ptr = 0
+    # choose base attribute
+    base_attr = curses.A_REVERSE if is_selected else curses.A_NORMAL
+    if base_bold:
+        base_attr |= curses.A_BOLD
+    hi_attr = curses.A_BOLD | curses.A_STANDOUT
+    if is_selected:
+        hi_attr |= curses.A_REVERSE
+    for (a, b) in spans:
+        if a > len(text):
+            break
+        # plain region
+        if ptr < a:
+            stdscr.addnstr(y, x + idx, text[ptr:a], maxlen - idx, base_attr)
+            idx += a - ptr
+            ptr = a
+        # highlight region
+        hb = min(b, len(text))
+        if ptr < hb:
+            stdscr.addnstr(y, x + idx, text[ptr:hb], maxlen - idx, hi_attr)
+            idx += hb - ptr
+            ptr = hb
+    # tail
+    if ptr < len(text):
+        stdscr.addnstr(y, x + idx, text[ptr:], maxlen - idx, base_attr)
 
 def run_curses(rows, desc_width=None):
     import curses
@@ -191,25 +324,39 @@ def run_curses(rows, desc_width=None):
         return
     rows = normalize_rows(rows)
     header = rows[0]
-    groups = build_groups(rows)
+    base_blocks = build_blocks(rows)
 
     def _main(stdscr):
         curses.curs_set(0)
         stdscr.nodelay(False)
         stdscr.keypad(True)
-        collapsed = set(groups.keys())  # set of group keys that are collapsed
-        top_index = 0                   # first visible line index in buffer
-        cursor = 3                      # start after help+header+sep
+
+        collapsed = set(base_blocks.keys())   # start with all blocks collapsed
+        active_filter = ""                    # regex string (empty = no filter)
+        top_index = 0                         # first visible line index in buffer
+        cursor = 3                            # initial cursor line (after help+header+sep)
+
+        def current_blocks():
+            if active_filter:
+                fg, err = filter_blocks(base_blocks, active_filter)
+                if err:
+                    return None, err
+                return fg, None
+            return base_blocks, None
+
         while True:
             h, w = stdscr.getmaxyx()
-            widths = compute_widths([header] + [r for rs in groups.values() for r in rs],
-                                    desc_width=desc_width, term_cols=w)
-            buf = rebuild_display_buffer(stdscr, header, groups, collapsed, widths)
+            blocks, ferr = current_blocks()
+            if blocks is None:  # invalid regex; show message and keep last valid state
+                blocks = base_blocks
+            # widths from all visible rows
+            all_rows = [header] + [r for rs in blocks.values() for r in rs]
+            widths = compute_widths(all_rows, desc_width=desc_width, term_cols=w)
+            buf = rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_filter)
 
             # Clamp indices
             max_idx = max(0, len(buf) - 1)
             cursor = max(0, min(cursor, max_idx))
-            # Ensure cursor is visible within window (leaving one line for status)
             view_h = max(1, h - 1)
             if cursor < top_index:
                 top_index = cursor
@@ -217,29 +364,30 @@ def run_curses(rows, desc_width=None):
                 top_index = cursor - view_h + 1
 
             stdscr.erase()
-            # Draw visible window
+
+            # Compile regex for highlighting
+            rx = compile_filter_regex(active_filter)
+
+            # Draw visible window with highlighting
             for i in range(view_h):
                 bi = top_index + i
                 if bi >= len(buf): break
                 line, meta = buf[bi]
-                if bi == cursor:
-                    stdscr.addnstr(i, 0, line, w - 1, curses.A_REVERSE)
-                else:
-                    # Slight styling for group lines
-                    attr = curses.A_BOLD if meta.get("kind") == "group" else curses.A_NORMAL
-                    stdscr.addnstr(i, 0, line, w - 1, attr)
+                is_sel = (bi == cursor)
+                kind = meta.get("kind")
+                # Header & block lines get bold base for readability
+                base_bold = kind in ("block", "header")
+                # Compute highlight spans for this line if filter is active
+                spans = find_spans(line, rx)
+                addstr_with_highlight(stdscr, i, 0, line, w, is_sel, spans, base_bold=base_bold)
 
-            # Status line: show current group and hint
-            cur_meta = buf[cursor][1] if buf else {}
+            # Status line: errors / filter state
             status = ""
-            if cur_meta.get("kind") in ("group", "row", "sep"):
-                g = cur_meta.get("group") or "(blank)"
-                folded = "hidden" if (cur_meta.get("group") in collapsed) else "visible"
-                if cur_meta.get("kind") == "group":
-                    status = f" Group: {g}  [{folded}] — press TAB or ENTER to toggle "
-                else:
-                    status = f" Group: {g}  [{folded}] — press TAB or ENTER on the group line to toggle "
-            stdscr.addnstr(h - 1, 0, status.ljust(w - 1), w - 1, curses.A_DIM)
+            if ferr:
+                status = f" {ferr}  (press / to edit, c to clear)"
+            elif active_filter:
+                status = f" filter: /{active_filter}/i — TAB/ENTER toggle blocks; 'c' clears "
+            stdscr.addnstr(h - 1, 0, status.ljust(w - 1), w - 1)
 
             ch = stdscr.getch()
             if ch in (ord('q'), ord('Q')):
@@ -248,33 +396,39 @@ def run_curses(rows, desc_width=None):
                 cursor = max(0, cursor - 1)
             elif ch in (curses.KEY_DOWN, ord('j')):
                 cursor = min(max_idx, cursor + 1)
-            elif ch == curses.KEY_PPAGE:  # Page Up
+            elif ch == curses.KEY_PPAGE:
                 cursor = max(0, cursor - (view_h - 1))
-            elif ch == curses.KEY_NPAGE:  # Page Down
+            elif ch == curses.KEY_NPAGE:
                 cursor = min(max_idx, cursor + (view_h - 1))
             elif ch in (curses.KEY_RESIZE,):
-                pass  # loop will recompute widths/buffer
-            elif ch in (9, curses.KEY_BTAB, 10, 13):  # Tab or Enter
-                # Toggle the group of the current line; if on a group line, use that group
-                meta = buf[cursor][1]
-                g = meta.get("group")
-                if meta.get("kind") == "group" and g is not None:
+                pass
+            elif ch in (ord('a'), ord('A')):  # toggle all
+                if len(collapsed) < len(base_blocks):
+                    collapsed = set(base_blocks.keys())   # collapse all
+                else:
+                    collapsed.clear()                      # expand all
+            elif ch in (9, curses.KEY_BTAB, 10, 13):  # Tab or Enter toggles nearest block
+                meta = buf[cursor][1] if buf else {}
+                g = meta.get("block")
+                if meta.get("kind") == "block" and g is not None:
                     if g in collapsed: collapsed.remove(g)
                     else: collapsed.add(g)
                 else:
-                    # Find nearest group line above
                     gi = cursor
-                    while gi >= 0 and buf[gi][1].get("kind") != "group":
+                    while gi >= 0 and buf[gi][1].get("kind") != "block":
                         gi -= 1
                     if gi >= 0:
-                        g = buf[gi][1].get("group")
+                        g = buf[gi][1].get("block")
                         if g in collapsed: collapsed.remove(g)
                         else: collapsed.add(g)
-            elif ch in (ord('a'), ord('A')):
-                if len(collapsed) < len(groups):
-                    collapsed = set(groups.keys())   # collapse all
+            elif ch == ord('/'):  # search / filter (regex)
+                s = prompt_input(stdscr, " / (regex, ESC=cancel, empty=clear): ")
+                if s is None:
+                    pass
                 else:
-                    collapsed.clear()                # expand all
+                    active_filter = s
+            elif ch in (ord('c'), ord('C')):  # clear filter
+                active_filter = ""
             # else: ignore other keys
 
     import curses
@@ -284,24 +438,27 @@ def run_curses(rows, desc_width=None):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Pretty-print parthenon params output, or browse it interactively with collapsible groups."
+        description="Pretty-print a parthenon params CSV file as an ASCII table, or browse it interactively."
     )
-    ap.add_argument("paramsfile", nargs="?", help="CSV files to load (default: stdin).")
-    ap.add_argument("--desc-width", type=int, default=None,
+    ap.add_argument("csv", nargs="?", help="CSV file (default: stdin)")
+    ap.add_argument("-w","--desc-width", type=int, default=None,
                     help="Set width of the description column (both modes).")
+    ap.add_argument("--no-header-sep", action="store_true",
+                    help="(ascii mode) Do not print a heavy separator under the header row.")
     ap.add_argument("-i", "--interactive", action="store_true",
-                    help="Launch interactive UI where params are grouped by block and can be hidden.")
+                    help="Launch interactive TUI")
     args = ap.parse_args()
 
-    rows = read_csv(args.paramsfile)
+    rows = read_csv(args.csv)
     rows = strip_empty_rows(rows)
     if not rows:
         return
 
     if args.interactive:
+        reattach_tty_for_curses()
         run_curses(rows, desc_width=args.desc_width)
     else:
-        run_plain(rows, desc_width=args.desc_width)
+        run_plain(rows, desc_width=args.desc_width, no_header_sep=args.no_header_sep)
 
 if __name__ == "__main__":
     main()
