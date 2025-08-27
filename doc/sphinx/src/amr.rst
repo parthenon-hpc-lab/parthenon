@@ -64,9 +64,8 @@ based on predefined criteria that can be enabled at runtime in the input
 file. Multiple criteria can be enabled simultaneously, in which case the
 most refined criteria wins. If ``refinement=adaptive`` has been
 specified as above, parthenon will initialize your AMR choices by
-looking for blocks with names ``<parthenon/refinement#>`` where ``#`` is
-a zero-based sequential indexing of Refinement criteria. An input file
-might looks like
+looking for blocks with names ``<parthenon/refinement*>`` where ``*`` is
+any unique string per refinement criteria. It might look like this:
 
 .. code::
 
