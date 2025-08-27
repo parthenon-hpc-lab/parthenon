@@ -105,6 +105,11 @@ The predefined refinement criteria are calculated in terms of the user
 selected variable :math:`q` as follows.
 Method:
 
+* ``magnitude``: The magnitude of the field. Note this criterion also
+  supports an additional option, which is
+  ``comparator``. ``comparator`` may be either ``greater_than`` or
+  ``lesss_than`` which determines whether you refine on a large value
+  or a small one.
 * ``derivative_order_1``: :math:`|\partial \ln q / \partial \ln x|`
 * ``derivative_order_2``:
   :math:`\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| }` 
