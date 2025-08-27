@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "amr_criteria/amr_criteria.hpp"
 #include "interface/mesh_data.hpp"

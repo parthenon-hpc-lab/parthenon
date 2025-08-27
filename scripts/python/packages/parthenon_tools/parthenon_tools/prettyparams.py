@@ -34,8 +34,10 @@ SEPARATOR_BETWEEN = " | "
 START_BORDER = "| "
 END_BORDER = " |"
 
+
 def strip_empty_rows(rows):
     return [r for r in rows if any((c or "").strip() for c in r)]
+
 
 def read_csv(path):
     if path is None:  # stdin
@@ -48,8 +50,10 @@ def read_csv(path):
         if path is not None:
             f.close()
 
+
 def normalize_rows(rows, ncols=5):
     return [row[:ncols] + [""] * (ncols - len(row)) for row in rows]
+
 
 def compute_widths(rows, desc_width=None, term_cols=None):
     # 5 columns: block, parameters, type, default, description
@@ -67,12 +71,18 @@ def compute_widths(rows, desc_width=None, term_cols=None):
         w4 = max(24, candidate)
     return fixed_widths + [w4]
 
+
 def wrap_desc(text, width):
     text = (text or "").strip()
     lines = textwrap.wrap(
-        text, width=width, break_long_words=True, break_on_hyphens=False, drop_whitespace=True
+        text,
+        width=width,
+        break_long_words=True,
+        break_on_hyphens=False,
+        drop_whitespace=True,
     )
     return lines or [""]
+
 
 def border_line(widths, char="-", corner="+"):
     parts = [corner]
@@ -80,6 +90,7 @@ def border_line(widths, char="-", corner="+"):
         parts.append(char * (w + 2))
         parts.append(corner)
     return "".join(parts)
+
 
 def print_row(cells, widths):
     # Wrap only description (col 4)
@@ -99,7 +110,9 @@ def print_row(cells, widths):
         parts.append(END_BORDER)
         print("".join(parts))
 
+
 # ---------- Plain ASCII table mode (default) ----------
+
 
 def run_plain(rows, desc_width=None, no_header_sep=False):
     rows = strip_empty_rows(rows)
@@ -119,7 +132,9 @@ def run_plain(rows, desc_width=None, no_header_sep=False):
         print_row(row, widths)
         print(sep)
 
+
 # ---------- Curses TUI mode (collapsible blocks + search + highlight) ----------
+
 
 def reattach_tty_for_curses():
     """
@@ -137,12 +152,15 @@ def reattach_tty_for_curses():
         os.dup2(tty_out.fileno(), sys.stdout.fileno())
         return
     except Exception:
-        sys.stderr.write("Error: No TTY available for UI mode. "
-                         "If you're piping input, run like:\n"
-                         "   cat file.csv | python prettyparams.py --interactive\n"
-                         "Or pass a filename directly:\n"
-                         "   python prettyparams.py --interactive file.csv\n")
+        sys.stderr.write(
+            "Error: No TTY available for UI mode. "
+            "If you're piping input, run like:\n"
+            "   cat file.csv | python prettyparams.py --interactive\n"
+            "Or pass a filename directly:\n"
+            "   python prettyparams.py --interactive file.csv\n"
+        )
         sys.exit(1)
+
 
 def build_blocks(rows):
     """
@@ -154,6 +172,7 @@ def build_blocks(rows):
         key = str(r[0] or "").strip()
         blocks.setdefault(key, []).append(r)
     return blocks
+
 
 def row_to_wrapped_lines(row, widths):
     # Return list of physical lines (strings) for a single data row based on wrapping of description
@@ -170,6 +189,7 @@ def row_to_wrapped_lines(row, widths):
             parts.append(txt.ljust(w))
         out.append(f"{START_BORDER}{SEPARATOR_BETWEEN.join(parts)}{END_BORDER}")
     return out
+
 
 def filter_blocks(blocks, pattern):
     """Filter rows in each block by regex pattern across all columns. Return new blocks dict."""
@@ -191,6 +211,7 @@ def filter_blocks(blocks, pattern):
             filtered[gkey] = kept
     return filtered, None
 
+
 def rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_filter):
     """
     Build a list of tuples: (rendered_string, meta)
@@ -199,7 +220,7 @@ def rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_fil
     """
     h, w = stdscr.getmaxyx()
     help_line = " q:quit  ↑/↓ or j/k:move  PgUp/PgDn:scroll  TAB/ENTER:toggle block  a:toggle all  /:search  c:clear "
-    help_line = help_line[:max(0, w-1)]
+    help_line = help_line[: max(0, w - 1)]
     display = [(help_line, {"kind": "help"})]
 
     # Header line
@@ -208,7 +229,7 @@ def rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_fil
 
     # Separator
     sep = border_line(widths, char="-", corner="+")
-    display.append((sep[:max(0, w-1)], {"kind": "sep"}))
+    display.append((sep[: max(0, w - 1)], {"kind": "sep"}))
 
     filtering = active_filter is not None and active_filter != ""
     for gkey, rows in blocks.items():
@@ -218,23 +239,27 @@ def rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_fil
         label = gkey if gkey else "(blank)"
         suffix = f" (filter: {active_filter})" if filtering else ""
         gtext = f" {marker} {label}  ({count} row{'s' if count != 1 else ''}){suffix if filtering else ''}"
-        display.append((gtext[:max(0, w-1)], {"kind": "block", "block": gkey}))
+        display.append((gtext[: max(0, w - 1)], {"kind": "block", "block": gkey}))
         if expanded:
-            display.append((sep[:max(0, w-1)], {"kind": "sep", "block": gkey}))
+            display.append((sep[: max(0, w - 1)], {"kind": "sep", "block": gkey}))
             for r in rows:
                 for phys in row_to_wrapped_lines(r, widths):
-                    display.append((phys[:max(0, w-1)], {"kind": "row", "block": gkey}))
-            display.append((sep[:max(0, w-1)], {"kind": "sep", "block": gkey}))
+                    display.append(
+                        (phys[: max(0, w - 1)], {"kind": "row", "block": gkey})
+                    )
+            display.append((sep[: max(0, w - 1)], {"kind": "sep", "block": gkey}))
     return display
+
 
 def prompt_input(stdscr, prompt):
     """Simple in-line input at bottom; returns string or None if cancelled (ESC)."""
     import curses
+
     h, w = stdscr.getmaxyx()
     y = h - 1
     stdscr.move(y, 0)
     stdscr.clrtoeol()
-    stdscr.addnstr(y, 0, prompt, w-1, curses.A_BOLD)
+    stdscr.addnstr(y, 0, prompt, w - 1, curses.A_BOLD)
     s = ""
     curses.curs_set(1)
     while True:
@@ -255,7 +280,9 @@ def prompt_input(stdscr, prompt):
             s += chr(ch)
             stdscr.addnstr(y, len(prompt), s, w - 1)
 
+
 # --- NEW: highlighting helpers ---
+
 
 def compile_filter_regex(active_filter):
     """Return compiled regex or None if no/invalid pattern."""
@@ -265,6 +292,7 @@ def compile_filter_regex(active_filter):
         return re.compile(active_filter, re.IGNORECASE)
     except re.error:
         return None  # invalid patterns already surfaced elsewhere
+
 
 def find_spans(text, rx):
     """Return non-overlapping (start, end) spans for matches of rx in text."""
@@ -281,9 +309,13 @@ def find_spans(text, rx):
                 spans.append((a, b))
     return spans
 
-def addstr_with_highlight(stdscr, y, x, text, width, is_selected, spans, base_bold=False):
+
+def addstr_with_highlight(
+    stdscr, y, x, text, width, is_selected, spans, base_bold=False
+):
     """Draw text with highlighted spans; respects selection inverse."""
     import curses
+
     if width <= 0:
         return
     maxlen = max(0, width - x - 1)
@@ -297,7 +329,7 @@ def addstr_with_highlight(stdscr, y, x, text, width, is_selected, spans, base_bo
     hi_attr = curses.A_BOLD | curses.A_STANDOUT
     if is_selected:
         hi_attr |= curses.A_REVERSE
-    for (a, b) in spans:
+    for a, b in spans:
         if a > len(text):
             break
         # plain region
@@ -315,6 +347,7 @@ def addstr_with_highlight(stdscr, y, x, text, width, is_selected, spans, base_bo
     if ptr < len(text):
         stdscr.addnstr(y, x + idx, text[ptr:], maxlen - idx, base_attr)
 
+
 def run_curses(rows, desc_width=None):
     import curses
 
@@ -331,10 +364,10 @@ def run_curses(rows, desc_width=None):
         stdscr.nodelay(False)
         stdscr.keypad(True)
 
-        collapsed = set(base_blocks.keys())   # start with all blocks collapsed
-        active_filter = ""                    # regex string (empty = no filter)
-        top_index = 0                         # first visible line index in buffer
-        cursor = 3                            # initial cursor line (after help+header+sep)
+        collapsed = set(base_blocks.keys())  # start with all blocks collapsed
+        active_filter = ""  # regex string (empty = no filter)
+        top_index = 0  # first visible line index in buffer
+        cursor = 3  # initial cursor line (after help+header+sep)
 
         def current_blocks():
             if active_filter:
@@ -352,7 +385,9 @@ def run_curses(rows, desc_width=None):
             # widths from all visible rows
             all_rows = [header] + [r for rs in blocks.values() for r in rs]
             widths = compute_widths(all_rows, desc_width=desc_width, term_cols=w)
-            buf = rebuild_display_buffer(stdscr, header, blocks, collapsed, widths, active_filter)
+            buf = rebuild_display_buffer(
+                stdscr, header, blocks, collapsed, widths, active_filter
+            )
 
             # Clamp indices
             max_idx = max(0, len(buf) - 1)
@@ -371,15 +406,18 @@ def run_curses(rows, desc_width=None):
             # Draw visible window with highlighting
             for i in range(view_h):
                 bi = top_index + i
-                if bi >= len(buf): break
+                if bi >= len(buf):
+                    break
                 line, meta = buf[bi]
-                is_sel = (bi == cursor)
+                is_sel = bi == cursor
                 kind = meta.get("kind")
                 # Header & block lines get bold base for readability
                 base_bold = kind in ("block", "header")
                 # Compute highlight spans for this line if filter is active
                 spans = find_spans(line, rx)
-                addstr_with_highlight(stdscr, i, 0, line, w, is_sel, spans, base_bold=base_bold)
+                addstr_with_highlight(
+                    stdscr, i, 0, line, w, is_sel, spans, base_bold=base_bold
+                )
 
             # Status line: errors / filter state
             status = ""
@@ -390,11 +428,11 @@ def run_curses(rows, desc_width=None):
             stdscr.addnstr(h - 1, 0, status.ljust(w - 1), w - 1)
 
             ch = stdscr.getch()
-            if ch in (ord('q'), ord('Q')):
+            if ch in (ord("q"), ord("Q")):
                 break
-            elif ch in (curses.KEY_UP, ord('k')):
+            elif ch in (curses.KEY_UP, ord("k")):
                 cursor = max(0, cursor - 1)
-            elif ch in (curses.KEY_DOWN, ord('j')):
+            elif ch in (curses.KEY_DOWN, ord("j")):
                 cursor = min(max_idx, cursor + 1)
             elif ch == curses.KEY_PPAGE:
                 cursor = max(0, cursor - (view_h - 1))
@@ -402,51 +440,72 @@ def run_curses(rows, desc_width=None):
                 cursor = min(max_idx, cursor + (view_h - 1))
             elif ch in (curses.KEY_RESIZE,):
                 pass
-            elif ch in (ord('a'), ord('A')):  # toggle all
+            elif ch in (ord("a"), ord("A")):  # toggle all
                 if len(collapsed) < len(base_blocks):
-                    collapsed = set(base_blocks.keys())   # collapse all
+                    collapsed = set(base_blocks.keys())  # collapse all
                 else:
-                    collapsed.clear()                      # expand all
-            elif ch in (9, curses.KEY_BTAB, 10, 13):  # Tab or Enter toggles nearest block
+                    collapsed.clear()  # expand all
+            elif ch in (
+                9,
+                curses.KEY_BTAB,
+                10,
+                13,
+            ):  # Tab or Enter toggles nearest block
                 meta = buf[cursor][1] if buf else {}
                 g = meta.get("block")
                 if meta.get("kind") == "block" and g is not None:
-                    if g in collapsed: collapsed.remove(g)
-                    else: collapsed.add(g)
+                    if g in collapsed:
+                        collapsed.remove(g)
+                    else:
+                        collapsed.add(g)
                 else:
                     gi = cursor
                     while gi >= 0 and buf[gi][1].get("kind") != "block":
                         gi -= 1
                     if gi >= 0:
                         g = buf[gi][1].get("block")
-                        if g in collapsed: collapsed.remove(g)
-                        else: collapsed.add(g)
-            elif ch == ord('/'):  # search / filter (regex)
+                        if g in collapsed:
+                            collapsed.remove(g)
+                        else:
+                            collapsed.add(g)
+            elif ch == ord("/"):  # search / filter (regex)
                 s = prompt_input(stdscr, " / (regex, ESC=cancel, empty=clear): ")
                 if s is None:
                     pass
                 else:
                     active_filter = s
-            elif ch in (ord('c'), ord('C')):  # clear filter
+            elif ch in (ord("c"), ord("C")):  # clear filter
                 active_filter = ""
             # else: ignore other keys
 
     import curses
+
     curses.wrapper(_main)
 
+
 # ---------- CLI ----------
+
 
 def main():
     ap = argparse.ArgumentParser(
         description="Pretty-print a parthenon params CSV file as an ASCII table, or browse it interactively."
     )
     ap.add_argument("csv", nargs="?", help="CSV file (default: stdin)")
-    ap.add_argument("-w","--desc-width", type=int, default=None,
-                    help="Set width of the description column (both modes).")
-    ap.add_argument("--no-header-sep", action="store_true",
-                    help="(ascii mode) Do not print a heavy separator under the header row.")
-    ap.add_argument("-i", "--interactive", action="store_true",
-                    help="Launch interactive TUI")
+    ap.add_argument(
+        "-w",
+        "--desc-width",
+        type=int,
+        default=None,
+        help="Set width of the description column (both modes).",
+    )
+    ap.add_argument(
+        "--no-header-sep",
+        action="store_true",
+        help="(ascii mode) Do not print a heavy separator under the header row.",
+    )
+    ap.add_argument(
+        "-i", "--interactive", action="store_true", help="Launch interactive TUI"
+    )
     args = ap.parse_args()
 
     rows = read_csv(args.csv)
@@ -459,6 +518,7 @@ def main():
         run_curses(rows, desc_width=args.desc_width)
     else:
         run_plain(rows, desc_width=args.desc_width, no_header_sep=args.no_header_sep)
+
 
 if __name__ == "__main__":
     main()

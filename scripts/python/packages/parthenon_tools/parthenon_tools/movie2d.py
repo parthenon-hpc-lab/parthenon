@@ -18,6 +18,7 @@ import re
 import os
 import logging
 import numpy as np
+
 try:
     from phdf import phdf
 except ModuleNotFoundError:
@@ -37,6 +38,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import is_color_like
 from matplotlib.colors import LogNorm
+
 
 def maybe_float(string):
     try:
@@ -73,8 +75,7 @@ parser.add_argument(
     "--colorbar", type=str, default=None, help="Add a colorbar with the specified label"
 )
 parser.add_argument(
-    "--logcolor", action='store_true',
-    help="Colorbar is on a log scale"
+    "--logcolor", action="store_true", help="Colorbar is on a log scale"
 )
 parser.add_argument("--colormap", type=str, default="plasma", help="Colormap to use")
 parser.add_argument(
@@ -186,12 +187,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
-parser.add_argument(
-    "--xlabel",
-    type=str,
-    help="Label for x axis",
-    default=None
-    )
+parser.add_argument("--xlabel", type=str, help="Label for x axis", default=None)
 parser.add_argument(
     "--ylim",
     type=float,
@@ -199,12 +195,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
-parser.add_argument(
-    "--ylabel",
-    type=str,
-    help="Label for y axis",
-    default=None
-    )
+parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -258,7 +249,7 @@ def plot_dump(
     xlim=None,
     xlabel=None,
     ylim=None,
-    ylabel=None
+    ylabel=None,
 ):
     if xe is None:
         xe = xf
@@ -322,8 +313,11 @@ def plot_dump(
         # but obviously no ghost data will be shown if ghost_zones = false
         if logcolor:
             pm = p.pcolormesh(
-                xf[i, :], yf[i, :], q[i, :, :], cmap=colormap,
-                norm=LogNorm(vmin=qmin, vmax=qmax)
+                xf[i, :],
+                yf[i, :],
+                q[i, :, :],
+                cmap=colormap,
+                norm=LogNorm(vmin=qmin, vmax=qmax),
             )
         else:
             pm = p.pcolormesh(
@@ -380,7 +374,7 @@ def plot_dump(
     if ylabel is not None:
         p.set_ylabel(ylabel)
 
-    fig.savefig(output_file, dpi=300,bbox_inches='tight')
+    fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig=fig)
     logger.debug(f"Saved {time_title}s time-step to {output_file}")
 

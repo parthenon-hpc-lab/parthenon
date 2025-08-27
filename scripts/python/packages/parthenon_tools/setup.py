@@ -36,5 +36,12 @@ setup(
     keywords="simulations science computing githubapp",
     packages=find_packages(),
     install_requires=["h5py", "matplotlib", "numpy", "argparse", "cython"],
-    scripts=["parthenon_tools/movie2d.py", "parthenon_tools/compute_asymmetry.py", "parthenon_tools/mergecsv.py", "parthenon_tools/phdf_diff.py", "parthenon_tools/prettyparams.py", "parthenon_tools/report_asymmetry.py"]
+    scripts=[
+        "parthenon_tools/movie2d.py",
+        "parthenon_tools/compute_asymmetry.py",
+        "parthenon_tools/mergecsv.py",
+        "parthenon_tools/phdf_diff.py",
+        "parthenon_tools/prettyparams.py",
+        "parthenon_tools/report_asymmetry.py",
+    ],
 )

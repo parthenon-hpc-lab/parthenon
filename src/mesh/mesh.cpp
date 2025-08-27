@@ -823,8 +823,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         PARTHENON_REQUIRE_THROWS(
             !(pkg->PostInitializationMesh != nullptr &&
               (pkg->PostInitializationBlock != nullptr)),
-            "Mesh and MeshBlock PostInitializations are defined for package " +
-                name + ". Please use only one.");
+            "Mesh and MeshBlock PostInitializations are defined for package " + name +
+                ". Please use only one.");
 
         // first on the mesh...
         if (pkg->PostInitializationMesh != nullptr) {

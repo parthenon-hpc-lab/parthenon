@@ -19,6 +19,7 @@ from argparse import ArgumentParser
 import os, re
 
 import h5py
+
 try:
     from compute_asymmetry import compute_asymmetry
 except ModuleNotFoundError:

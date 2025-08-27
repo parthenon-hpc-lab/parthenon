@@ -24,22 +24,19 @@ import sys
 import csv
 import argparse
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Merge CSV files, keeping header from the first file, deduplicating, and sorting rows."
     )
-    parser.add_argument(
-        "files",
-        nargs="+",
-        help="CSV files to merge"
-    )
+    parser.add_argument("files", nargs="+", help="CSV files to merge")
     args = parser.parse_args()
 
     all_rows = set()
     header = None
 
     for i, filename in enumerate(args.files):
-        with open(filename, newline='', encoding='utf-8') as f:
+        with open(filename, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             file_header = next(reader)
 
@@ -49,7 +46,7 @@ def main():
                 if file_header != header:
                     print(
                         f"Warning: Header in {filename} does not match the first file",
-                        file=sys.stderr
+                        file=sys.stderr,
                     )
 
             for row in reader:
@@ -60,6 +57,7 @@ def main():
     writer = csv.writer(sys.stdout)
     writer.writerow(header)
     writer.writerows(sorted_rows)
+
 
 if __name__ == "__main__":
     main()
