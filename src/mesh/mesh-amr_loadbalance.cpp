@@ -112,9 +112,10 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       auto &c_cellbounds =
           var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te);
-        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
-        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+        const auto te_entire = var->IsSet(Metadata::CellMemAligned) ? TE::CC : te;
+        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te_entire);
+        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te_entire);
+        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te_entire);
 
         IndexRange ib_int = cellbounds.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
