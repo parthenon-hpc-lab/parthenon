@@ -145,8 +145,6 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        // ScatterMax view will use an atomic_max to prevent race condition across k,j
-        // indices
         tags_access(b).update(flag);
       });
   amr_tags.ContributeScatter(scatter_tags);
@@ -196,8 +194,6 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        // ScatterMax view will use an atomic_max to prevent race condition across k,j
-        // indices
         tags_access(b).update(flag);
       });
   amr_tags.ContributeScatter(scatter_tags);
@@ -237,8 +233,6 @@ void Magnitude(const AMRBounds &bnds, MeshData<Real> *md, const std::string &fie
         if (maxval > sign * refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxval < sign * derefine_criteria) flag = AmrTag::derefine;
-        // ScatterMax view will use an atomic_max to prevent race condition across k,j
-        // indices
         tags_access(b).update(flag);
       });
   amr_tags.ContributeScatter(scatter_tags);
