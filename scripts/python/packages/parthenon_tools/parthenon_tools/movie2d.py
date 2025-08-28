@@ -18,6 +18,7 @@ import re
 import os
 import logging
 import numpy as np
+
 try:
     from phdf import phdf
 except ModuleNotFoundError:
