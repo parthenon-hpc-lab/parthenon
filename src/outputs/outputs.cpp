@@ -301,7 +301,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // set output variable and optional data format string used in formatted writes
     if ((op.file_type != "hst") && (op.file_type != "rst") &&
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
-        (op.file_type != "histogram")) {
+        (op.file_type != "histogram") && op.file_type != "user") {
       // Do not use GetOrAddVector because it will pollute the input parameters for
       // restarts
       if (pin->DoesParameterExist(op.block_name, "variables")) {
@@ -387,6 +387,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
+    } else if (op.file_type == "user") {
+      pnew_type = std::make_shared<UserOutput>(op);
     } else if (is_hdf5_output) {
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
