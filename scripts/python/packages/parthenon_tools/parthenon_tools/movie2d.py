@@ -379,7 +379,7 @@ def plot_dump(
     logger.debug(f"Saved {time_title}s time-step to {output_file}")
 
 
-if __name__ == "__main__":
+def main():
     ERROR_FLAG = False
     args = parser.parse_args()
     logger.setLevel(args.log_level)
@@ -559,3 +559,7 @@ if __name__ == "__main__":
             logger.debug(f"Executing ffmpeg command: {ffmpeg_cmd}")
             os.system(ffmpeg_cmd)
             logger.info(f"Movie saved to {output_filename}")
+
+
+if __name__ == "__main__":
+    main()

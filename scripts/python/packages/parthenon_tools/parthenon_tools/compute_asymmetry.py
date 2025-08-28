@@ -94,7 +94,8 @@ parser = ArgumentParser(
 parser.add_argument("field", type=str, help="Variable to compute")
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
 
-if __name__ == "__main__":
+
+def main():
     args = parser.parse_args()
     for i, fname in enumerate(args.files):
         with h5py.File(fname, "a") as f:
@@ -105,3 +106,7 @@ if __name__ == "__main__":
                 f.create_dataset(savename, data=var_diff)
             except ValueError:
                 f[savename][:] = var_diff
+
+
+if __name__ == "__main__":
+    main()

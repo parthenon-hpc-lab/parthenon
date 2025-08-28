@@ -52,6 +52,7 @@ def read_csv(path):
 
 
 def normalize_rows(rows, ncols=5):
+    "Adds empty columns to the csv data structure to ensure total number of columns is consistent"
     return [row[:ncols] + [""] * (ncols - len(row)) for row in rows]
 
 
