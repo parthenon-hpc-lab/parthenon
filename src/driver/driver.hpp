@@ -122,6 +122,12 @@ class EvolutionDriver : public Driver {
                                                    "cadence of outputs describing mesh");
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+
+    output_before_amr = pinput->GetOrAddBoolean(
+        "parthenon/time", "output_before_amr", false,
+        "Set to true to generate outputs in a step BEFORE modifying the mesh at the end "
+        "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
+        "WARNING: this will make restarts not bitwise-exact.");
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
@@ -137,6 +143,7 @@ class EvolutionDriver : public Driver {
   bool dt_init_force;
   int dt_min_count, dt_max_count;
   int dt_min_count_max, dt_max_count_max;
+  bool output_before_amr;
 
  private:
   void InitializeBlockTimeSteps();

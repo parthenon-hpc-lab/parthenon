@@ -103,20 +103,26 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // loop over "parthenon/output" blocks located in params
   auto pkg = pm->packages.Get("Outputs");
-  const auto &block_names = pkg->Param<std::vector<std::string>>("block_names");
-  const auto &block_numbers = pkg->Param<std::vector<int>>("block_numbers");
-  auto *pactive = pkg->MutableParam<std::vector<bool>>("active");
-  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
-  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
-  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
-  for (int iinput = 0; iinput < block_names.size(); ++iinput) {
+  // loop over input block names.  Find those that start with "parthenon/output", read
+  // parameters, and construct a vector of output types.
+  // PG: It could be discussed if we should work based on a vector that is initialized in
+  // the outpus packages (as before), but I don't think it's bad practice to work on
+  // `pinput` again here as we're actually processing (potentially even modifying)
+  // `pinput`.
+  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
+    if (pib->block_name.compare(0, 16, "parthenon/output") != 0) {
+      continue;
+    }
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check
     OutputParameters op;                   // define temporary OutputParameters struct
-    op.block_name = block_names[iinput];
-    op.block_number = block_numbers[iinput];
-    op.contiguous_block_index = iinput;
+    op.block_name = pib->block_name;
+    const auto outn_str = pib->block_name.substr(16); // 16 because counting starts at 0!
+    op.block_number = atoi(outn_str.c_str());
+    auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+    auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+    auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
 
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
@@ -132,10 +138,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
     // if this output is "soft-disabled" (negative value) skip processing
     if (dt < 0.0 && dn < 0) {
-      (*pactive)[iinput] = false;
       continue;
-    } else {
-      (*pactive)[iinput] = true;
     }
 
     // JMM: Backwards compatibility hack. Don't allow this unless
@@ -145,17 +148,17 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
       if (next_time_exists) {
         Real next_time = pin->GetReal(op.block_name, "next_time");
-        (*plast_times)[iinput] = dt < 0 ? 0.0 : next_time - dt;
+        *plast_time = dt < 0 ? 0.0 : next_time - dt;
         pin->RemoveParameter(op.block_name, "next_time");
       }
       if (next_n_exists) {
         int next_n = pin->GetInteger(op.block_name, "next_n");
 
-        (*plast_ns)[iinput] = dn < 0 ? 0 : next_n - dn;
+        *plast_n = dn < 0 ? 0 : next_n - dn;
         pin->RemoveParameter(op.block_name, "next_n");
       }
       if (next_time_exists || next_n_exists) {
-        (*pfile_numbers)[iinput] = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        *pfile_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
         pin->RemoveParameter(op.block_name, "file_number");
       }
     }
@@ -165,8 +168,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                              "is not supported. Please set at most one value >= 0.");
 
     // set time of last output, time between outputs
-    op.last_time = (*plast_times)[iinput];
-    op.last_n = (*plast_ns)[iinput];
+    op.last_time = *plast_time;
+    op.last_n = *plast_n;
     if (tm != nullptr) {
       op.dt = dt;
       op.dn = dn;
@@ -203,7 +206,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     // set file number, basename, id, and format
-    op.file_number = std::max((*pfile_numbers)[iinput], 0);
+    op.file_number = std::max(*pfile_number, 0);
     op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
                                            "prefix for output files");
     op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
@@ -282,8 +285,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if (op.file_type == "hst") {
       // Do not use GetOrAddVector because it will pollute the input parameters for
       // restarts
-      if (pin->DoesParameterExist(block_names[iinput], "packages")) {
-        op.packages = pin->GetVector<std::string>(block_names[iinput], "packages");
+      if (pin->DoesParameterExist(op.block_name, "packages")) {
+        op.packages = pin->GetVector<std::string>(op.block_name, "packages");
       } else {
         op.packages = std::vector<std::string>();
       }
@@ -293,35 +296,39 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if ((op.file_type != "hst") && (op.file_type != "rst") &&
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
         (op.file_type != "histogram")) {
-      op.variables = pin->GetOrAddVector<std::string>(block_names[iinput], "variables",
-                                                      std::vector<std::string>(),
-                                                      "variables to output");
+      // Do not use GetOrAddVector because it will pollute the input parameters for
+      // restarts
+      if (pin->DoesParameterExist(op.block_name, "variables")) {
+        op.variables = pin->GetVector<std::string>(op.block_name, "variables");
+      } else {
+        op.variables = std::vector<std::string>();
+      }
       // JMM: If the requested var isn't present for a given swarm,
       // it is simply not output.
       op.swarms.clear(); // Not sure this is needed
-      if (pin->DoesParameterExist(block_names[iinput], "swarms")) {
-        std::vector<std::string> swarmnames = pin->GetVector<std::string>(
-            block_names[iinput], "swarms", "swarms to output");
+      if (pin->DoesParameterExist(op.block_name, "swarms")) {
+        std::vector<std::string> swarmnames =
+            pin->GetVector<std::string>(op.block_name, "swarms", "swarms to output");
         std::size_t nswarms = swarmnames.size();
-        if ((pin->DoesParameterExist(block_names[iinput], "swarm_variables")) &&
+        if ((pin->DoesParameterExist(op.block_name, "swarm_variables")) &&
             (nswarms > 1)) {
           std::stringstream msg;
-          msg << "The swarm_variables field is set in the block '" << block_names[iinput]
+          msg << "The swarm_variables field is set in the block '" << op.block_name
               << "' however, there are " << nswarms << " swarms."
               << " All swarms will be assumed to request the vars listed in "
                  "swarm_variables.";
           PARTHENON_WARN(msg);
         }
         for (const auto &swname : swarmnames) {
-          if (pin->DoesParameterExist(block_names[iinput], "swarm_variables")) {
+          if (pin->DoesParameterExist(op.block_name, "swarm_variables")) {
             auto varnames =
-                pin->GetVector<std::string>(block_names[iinput], "swarm_variables",
+                pin->GetVector<std::string>(op.block_name, "swarm_variables",
                                             "swarm variables to output for all swarms");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
-          if (pin->DoesParameterExist(block_names[iinput], swname + "_variables")) {
+          if (pin->DoesParameterExist(op.block_name, swname + "_variables")) {
             auto varnames = pin->GetVector<std::string>(
-                block_names[iinput], swname + "_variables",
+                op.block_name, swname + "_variables",
                 "swarm variables to output for a specific swarm");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
@@ -395,7 +402,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       output_types_.push_back(pnew_type);
     }
   }
-
   // check there were no more than one restart file requested
   if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
@@ -461,10 +467,11 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
 void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   output_params.file_number++;
   auto pkg = pm->packages.Get("Outputs");
-  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
-  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
-  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
-  (*pfile_numbers)[output_params.contiguous_block_index] = output_params.file_number;
+  const auto outn_str = std::to_string(output_params.block_number);
+  auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+  auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+  auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
+  *pfile_number = output_params.file_number;
   if (tm != nullptr) {
     // JMM: Do NOT use the current time to update these, as that can
     // cause drift because timestep is not guaranteed to align with
@@ -472,8 +479,8 @@ void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
     // time.
     output_params.last_n = output_params.next_n;
     output_params.last_time = output_params.next_time;
-    (*plast_ns)[output_params.contiguous_block_index] = output_params.last_n;
-    (*plast_times)[output_params.contiguous_block_index] = output_params.last_time;
+    *plast_n = output_params.last_n;
+    *plast_time = output_params.last_time;
     if (output_params.dt > 0.0) {
       output_params.next_time += output_params.dt;
     }
