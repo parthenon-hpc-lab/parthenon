@@ -495,6 +495,7 @@ class ParameterInput {
       } else if (allowed_vals.size() > 0) {
         for (const auto &allowed : allowed_vals) {
           record.allowed_values.push_back(std::any(allowed));
+          record.allowed_values_str.push_back(record.ToString(allowed));
         }
       }
       // if two inconsistent docstrings exist, complain
