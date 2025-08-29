@@ -310,6 +310,14 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, vidx)(k, j, i);
   }
 
+  template <typename Tin, typename... Args, REQUIRES(Tin::derived)>
+  KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
+                                               const int j, const int i,
+                                               Args &&...args) const {
+    return evaluate_derived(T::dependent_vars(), b, t, k, j, i,
+                            std::forward<Args>(args)...);
+  }
+
   // flux() overloads
   template <class... Args>
   KOKKOS_INLINE_FUNCTION auto &flux(const int b, const TopologicalElement te,
@@ -369,6 +377,15 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION auto GetPtrs(const int b, const TE el, int k, int j, int i,
                                       VTs... vts) const {
     return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
+  }
+
+ private:
+  template <typename Tin, typename... Vs, typename... Args, REQUIRES(Tin::derived)>
+  KOKKOS_INLINE_FUNCTION const Real evaluate_derived(TypeList<Vs...>, const int b,
+                                                     const Tin &t, const int k,
+                                                     const int j, const int i,
+                                                     Args &&...args) const {
+    return t.evaluate((*this)(b, Vs(), k, j, i)..., std::forward<Args>(args)...);
   }
 };
 

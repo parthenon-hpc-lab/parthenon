@@ -19,6 +19,11 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "utils/concepts_lite.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/type_list.hpp"
+
 // SFINAE for block iter so that Sparse/SwarmPacks can work for MeshBlockData and MeshData
 namespace {
 template <class T, class F>
@@ -126,6 +131,7 @@ struct var_base_t {
 template <bool REGEX, int... NCOMP>
 struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
   using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
+  static constexpr bool derived = false;
 };
 // An example variable name type that selects all variables available
 // on Mesh*Data
@@ -144,6 +150,53 @@ struct any_nonautoflux : public base_t<true> {
   }
 };
 using any = any_nonautoflux;
+
+template <typename, int... NCOMP>
+struct derived_variable_t;
+
+template <template <typename...> typename TL, typename... Ts, int... NCOMP>
+struct derived_variable_t<TL<Ts...>, NCOMP...>
+    : public var_base_t<false, Real, NCOMP...> {
+  using Base_t = var_base_t<false, Real, NCOMP...>;
+  using dependent_vars = TypeList<Ts...>;
+  static constexpr bool derived = true;
+
+  // Derived variables need to implement their own evaluate method
+  // like below
+  // template <typename... Args>
+  // KOKKOS_INLINE_FUNCTION const Real evaluate(const Real v1, ..., Args &&...args) const
+  // {
+  //   PARTHENON_FAIL("Need to implement your own evaluate method.")
+  //   return 0.;
+  // }
+};
+
+namespace impl {
+template <typename T, REQUIRES(T::dependent_vars)>
+auto AllDependentVariables(T) {
+  return AllDependentVariables(T::dependent_vars());
+}
+
+template <template <typename...> typename TL, typename... Ts>
+auto AllDependentVariables(TL<Ts...>) {
+  return AllDependentVariables(Ts()...);
+}
+
+template <typename T>
+auto AllDependentVariables(T) {
+  return TypeList<T>();
+}
+
+template <typename T, typename... Ts>
+auto AllDependentVariables(T, Ts...) {
+  return concatenate_type_lists_t<T, decltype(AllDependentVariables(Ts()...))>();
+}
+} // namespace impl
+
+// Get a TypeList of all the non-derived variables that make up the requested types.
+template <typename... Ts>
+using all_dependent_variables_t = decltype(impl::AllDependentVariables(Ts()...));
+
 } // namespace variable_names
 
 // Namespace in which to put swarm variable name types that are used for indexing into

@@ -25,7 +25,9 @@
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "pack/pack_descriptor.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -62,7 +64,7 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                             options);
 }
 
-template <class... Ts, class MT>
+template <class... Ts, class MT, REQUIRES(!Ts::derived && ...)>
 inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   const std::vector<std::string> vars{Ts::name()...};
@@ -71,7 +73,7 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags =
       MakePackDescriptor(pmd, vars, use_regex, flags, options)));
 }
 
-template <class... Ts, class MT>
+template <class... Ts, class MT, REQUIRES(!Ts::derived && ...)>
 inline auto MakePackDescriptor(SparsePack<Ts...> pack, MT *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
@@ -108,6 +110,13 @@ inline auto MakePackDescriptorFromTypeList(TL<Types...>, Args &&...args) {
 template <class TL, class... Args>
 inline auto MakePackDescriptorFromTypeList(Args &&...args) {
   return MakePackDescriptorFromTypeList(TL(), std::forward<Args>(args)...);
+}
+
+template <class... Ts, class MT>
+inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptorFromTypeList(
+      variable_names::all_dependent_variables_t<Ts...>(), flags, options);
 }
 
 struct PackDescriptorCacheBase {
