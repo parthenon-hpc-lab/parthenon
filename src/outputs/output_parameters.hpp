@@ -41,7 +41,6 @@ struct OutputParameters {
   OutputParameters() = default;
 
   int block_number = 0;
-  int contiguous_block_index;
   std::string block_name;
   std::string file_basename;
   int file_number_width;
