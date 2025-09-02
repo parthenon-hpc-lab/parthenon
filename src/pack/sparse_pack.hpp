@@ -19,6 +19,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "pack/block_selector.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
@@ -310,11 +311,12 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, vidx)(k, j, i);
   }
 
-  template <typename Tin, typename... Args, REQUIRES(Tin::derived)>
+  template <typename Tin, typename... Args,
+            REQUIRES(variable_names::dependent_variable_v<Tin>)>
   KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
                                                const int j, const int i,
                                                Args &&...args) const {
-    return evaluate_derived(T::dependent_vars(), b, t, k, j, i,
+    return evaluate_derived(typename Tin::dependent_vars(), b, t, k, j, i,
                             std::forward<Args>(args)...);
   }
 
@@ -380,7 +382,8 @@ class SparsePack : public SparsePackBase {
   }
 
  private:
-  template <typename Tin, typename... Vs, typename... Args, REQUIRES(Tin::derived)>
+  template <typename Tin, typename... Vs, typename... Args,
+            REQUIRES(variable_names::derived_variable_v<Tin, Args...>)>
   KOKKOS_INLINE_FUNCTION const Real evaluate_derived(TypeList<Vs...>, const int b,
                                                      const Tin &t, const int k,
                                                      const int j, const int i,

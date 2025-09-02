@@ -64,7 +64,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
                             options);
 }
 
-template <class... Ts, class MT, REQUIRES(!Ts::derived && ...)>
+template <class... Ts, class MT,
+          REQUIRES(!variable_names::dependent_variable_v<Ts> && ...)>
 inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   const std::vector<std::string> vars{Ts::name()...};
@@ -73,7 +74,8 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags =
       MakePackDescriptor(pmd, vars, use_regex, flags, options)));
 }
 
-template <class... Ts, class MT, REQUIRES(!Ts::derived && ...)>
+template <class... Ts, class MT,
+          REQUIRES(!variable_names::dependent_variable_v<Ts> && ...)>
 inline auto MakePackDescriptor(SparsePack<Ts...> pack, MT *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
@@ -112,11 +114,12 @@ inline auto MakePackDescriptorFromTypeList(Args &&...args) {
   return MakePackDescriptorFromTypeList(TL(), std::forward<Args>(args)...);
 }
 
-template <class... Ts, class MT>
+template <class... Ts, class MT,
+          REQUIRES(variable_names::dependent_variable_v<Ts> || ...)>
 inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   return MakePackDescriptorFromTypeList(
-      variable_names::all_dependent_variables_t<Ts...>(), flags, options);
+      variable_names::all_dependent_variables_t<Ts...>(), pmd, flags, options);
 }
 
 struct PackDescriptorCacheBase {

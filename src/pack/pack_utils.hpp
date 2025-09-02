@@ -131,7 +131,6 @@ struct var_base_t {
 template <bool REGEX, int... NCOMP>
 struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
   using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
-  static constexpr bool derived = false;
 };
 // An example variable name type that selects all variables available
 // on Mesh*Data
@@ -159,7 +158,6 @@ struct derived_variable_t<TL<Ts...>, NCOMP...>
     : public var_base_t<false, Real, NCOMP...> {
   using Base_t = var_base_t<false, Real, NCOMP...>;
   using dependent_vars = TypeList<Ts...>;
-  static constexpr bool derived = true;
 
   // Derived variables need to implement their own evaluate method
   // like below
@@ -171,31 +169,62 @@ struct derived_variable_t<TL<Ts...>, NCOMP...>
   // }
 };
 
-namespace impl {
-template <typename T, REQUIRES(T::dependent_vars)>
-auto AllDependentVariables(T) {
-  return AllDependentVariables(T::dependent_vars());
-}
-
-template <template <typename...> typename TL, typename... Ts>
-auto AllDependentVariables(TL<Ts...>) {
-  return AllDependentVariables(Ts()...);
-}
+// Concept to state that a typed-field is dependent on other
+// fields, and is not itself an actual indexable field.
+struct DependentVariable {
+  template <typename T>
+  auto requires_(T) -> void_t<typename T::dependent_vars>;
+};
 
 template <typename T>
-auto AllDependentVariables(T) {
-  return TypeList<T>();
-}
+constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
-template <typename T, typename... Ts>
-auto AllDependentVariables(T, Ts...) {
-  return concatenate_type_lists_t<T, decltype(AllDependentVariables(Ts()...))>();
-}
+struct DerivedVariable {
+  // template <typename T, template <typename...> typename TL, typename... Vs,
+  //           typename... Args>
+  // auto requires_(T &&x, TL<Vs...>, Args &&...args)
+  //     -> void_t<decltype(x.evaluate(process_real(Vs())..., args...))>;
+  template <typename T>
+  // auto requires_(T &&x) -> void_t<decltype(&T::evaluate)>;
+  auto requires_(T &&x)
+      -> void_t<ENABLEIF(std::is_member_function_pointer_v<decltype(&T::evaluate)>)>;
+
+  template <typename T>
+  const Real process_real(T);
+};
+
+template <typename T, typename... Args>
+constexpr bool derived_variable_v = implements<DerivedVariable(T)>::value;
+
+namespace impl {
+
+struct AllDependentVariables {
+  template <typename T, REQUIRES(!dependent_variable_v<T>)>
+  static auto get(T) {
+    return TypeList<T>();
+  }
+
+  template <template <typename...> typename TL, typename... Ts>
+  static auto get(TL<Ts...>) {
+    return AllDependentVariables::get(Ts()...);
+  }
+
+  template <typename T, REQUIRES(dependent_variable_v<T>)>
+  static auto get(T) {
+    return AllDependentVariables::get(typename T::dependent_vars());
+  }
+
+  template <typename T, typename... Ts>
+  static auto get(T, Ts...) {
+    return concatenate_type_lists_t<decltype(AllDependentVariables::get(T())),
+                                    decltype(AllDependentVariables::get(Ts()...))>();
+  }
+};
 } // namespace impl
 
 // Get a TypeList of all the non-derived variables that make up the requested types.
 template <typename... Ts>
-using all_dependent_variables_t = decltype(impl::AllDependentVariables(Ts()...));
+using all_dependent_variables_t = decltype(impl::AllDependentVariables::get(Ts()...));
 
 } // namespace variable_names
 

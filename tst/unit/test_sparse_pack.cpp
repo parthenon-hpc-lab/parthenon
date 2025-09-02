@@ -25,10 +25,12 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
 #include "pack/make_pack_descriptor.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
+#include "utils/type_list.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
@@ -84,6 +86,16 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
       : parthenon::variable_names::base_t<false, ANYDIM, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v7"; }
+};
+
+struct d1
+    : public parthenon::variable_names::derived_variable_t<parthenon::TypeList<v1, v5>> {
+  static std::string name() { return "d1"; }
+
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Real &var1, const Real &var5,
+                                             const Real &x) const {
+    return var1 * var5 + x;
+  }
 };
 
 } // namespace
@@ -421,6 +433,54 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
         // so there should only be two packs in the cache
         REQUIRE(mesh_data.GetSparsePackCache().size() == 2);
+      }
+    }
+  }
+  GIVEN("A pair of fields on a mesh") {
+    const std::vector<int> scalar_shape{N, N, N};
+    Metadata m({Metadata::Independent}, scalar_shape);
+
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddField(v1::name(), m);
+    pkg->AddField(v5::name(), m);
+    BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
+
+    MeshData<Real> mesh_data("base");
+    mesh_data.Initialize(block_list, nullptr);
+    auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+    auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+    auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+
+    WHEN("We get a sparse pack for a derived variable dependent on "
+         "our pair of fields.") {
+      auto desc = parthenon::MakePackDescriptor<d1>(pkg.get());
+      auto pack = desc.GetPack(&mesh_data);
+
+      THEN("We can initialize the dependent fields with "
+           "the pack on the derived field") {
+        par_for(
+            "initialize d1", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              Real n = b + k * j * i;
+              Real m = i * i + j * j + k * k + b * b;
+              pack(b, v1(), k, j, i) = n;
+              pack(b, v5(), k, j, i) = m;
+            });
+      }
+
+      THEN("We can correctly evaluate the derived field.") {
+        int nwrong = 0;
+        par_reduce(
+            "check derived", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              const Real x = 3.8;
+              const Real answer = pack(b, v1(), k, j, i) * pack(b, v5(), k, j, i) + x;
+              if (pack(b, d1(), k, j, i, x) != answer) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
       }
     }
   }
