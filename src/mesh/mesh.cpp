@@ -665,7 +665,7 @@ void Mesh::CommunicateBoundaries(std::string md_name,
   }
   TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
   PARTHENON_REQUIRE(status == TaskListStatus::complete,
-                    "Boundary communication called internall by mesh failed.");
+                    "Boundary communication called internal by mesh failed.");
 }
 
 void Mesh::PreCommFillDerived() {
