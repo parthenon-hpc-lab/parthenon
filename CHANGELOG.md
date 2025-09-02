@@ -19,6 +19,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
 - [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
 - [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) Backward compatibility fixes (`last_/next_` output package, restart with new `Restart` vars, `is_restart`)
 - [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against block_list access when nmb==0
@@ -33,6 +34,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292_ Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
 - [[PR 1268]](https://github.com/parthenon-hpc-lab/parthenon/pull/1268) Adds build information to phdf output
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
