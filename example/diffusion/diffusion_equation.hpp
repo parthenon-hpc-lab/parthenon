@@ -269,10 +269,7 @@ class DiffusionEquation {
           const auto &coords = pack.GetCoordinates(b);
           const int gid = pack.GetGID(b);
           const int level = pack.GetLevel(b, 0, 0, 0);
-          const Real dxs[3]{coords.template Dxc<X1DIR>(), coords.template Dxc<X2DIR>(),
-                            coords.template Dxc<X3DIR>()};
           for (int face = 0; face < ndim * 2; ++face) {
-            const Real dx = dxs[dirs[face] - 1];
             const auto &idxer = idxers[face];
             const auto dir = dirs[face];
             const auto te = tes[face];
@@ -282,14 +279,15 @@ class DiffusionEquation {
               const int joff = x2off[face] > 0 ? -1 : 0;
               const int ioff = x1off[face] > 0 ? -1 : 0;
               const int sign = x1off[face] + x2off[face] + x3off[face];
-              parthenon::par_for_inner(
-                  DEFAULT_INNER_LOOP_PATTERN, member, 0, idxer.size() - 1,
-                  [&](const int idx) {
-                    const auto [k, j, i] = idxer(idx);
-                    pack.flux(b, dir, var_t(), k, j, i) =
-                        sign * pack_mat(b, te, D_t(), k, j, i) *
-                        pack(b, var_t(), k + koff, j + joff, i + ioff) / (0.5 * dx);
-                  });
+              parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
+                                       idxer.size() - 1, [&](const int idx) {
+                                         const auto [k, j, i] = idxer(idx);
+                                         pack.flux(b, dir, var_t(), k, j, i) =
+                                             sign * pack_mat(b, te, D_t(), k, j, i) *
+                                             pack(b, var_t(), k + koff, j + joff,
+                                                  i + ioff) /
+                                             (0.5 * coords.Dxc(dir, k, j, i));
+                                       });
             }
             // Correct for size of neighboring zone at fine-coarse boundary when using
             // constant prolongation
