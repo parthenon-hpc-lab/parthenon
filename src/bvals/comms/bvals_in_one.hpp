@@ -63,6 +63,8 @@ inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md);
+template <BoundaryType bound_type>
+TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md);
 inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return ProlongateBounds<BoundaryType::any>(md);
 }
@@ -83,6 +85,47 @@ static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 // Adds all relevant flux correction tasks to a single task list
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel);
+
+using BValOnMDFunc_t = std::function<TaskStatus(std::shared_ptr<MeshData<Real>> &, bool)>;
+using BValOnMDTasks_t = std::function<TaskID(TaskID, TaskList *, std::shared_ptr<MeshData<Real>>, bool)>;
+bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md);
+
+// Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds = BoundaryType::any>
+TaskID AddBoundaryExchangeTasks(
+    TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+    BValOnMDTasks_t ApplyBCs) {
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
+
+  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
+  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
+  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
+
+  auto pro = set;
+  if (IsMeshMultilevel(md)) {
+    auto cbound = ApplyBCs(set, &tl, md, true);
+    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+  }
+  auto fbound = ApplyBCs(pro, &tl, md, false);
+  if (IsMeshMultilevel(md)) {
+    // Need to prolongate internal bounds after setting physical boundary 
+    // conditions, since the internal prolongation uses the values of the 
+    // normal buffer on shared elements (rather than values in the coarse)
+    // buffer for prolongation.
+    fbound = tl.AddTask(fbound, TF(ProlongateInternalBounds<bounds>), md);
+  }
+  return fbound;
+}
+
+template <BoundaryType bounds = BoundaryType::any>
+TaskID AddBoundaryExchangeTasks(
+    TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+    BValOnMDFunc_t ApplyBCs = ApplyBoundaryConditionsOnCoarseOrFineMD) {
+  return AddBoundaryExchangeTasks(dependency, tl, md, multilevel, 
+    [&](TaskID id, TaskList *tl, std::shared_ptr<MeshData<Real>> md, bool coarse){
+      return tl->AddTask(id, TF(ApplyBCs), md, coarse);
+  });
+}
 
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

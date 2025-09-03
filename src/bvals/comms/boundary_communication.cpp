@@ -407,8 +407,52 @@ template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+
+template <BoundaryType bound_type>
+TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
+
+  auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
+
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
+  }
+
+  if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
+    auto pmb = md->GetBlockData(0)->GetBlockPointer();
+    StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+
+    // Prolongate from coarse buffer
+    refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                                   pmb->c_cellbounds);
+  }
+  return TaskStatus::complete;
+}
 template TaskStatus
-ProlongateBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+ProlongateInternalBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+
+
+bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
+  return md->GetMeshPointer()->multilevel;
+}
 
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel) {

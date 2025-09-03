@@ -652,70 +652,14 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
-  const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  constexpr std::int64_t max_it = 1e10;
-  std::vector<bool> sent(num_partitions, false);
-  bool all_sent;
-  std::int64_t send_iters = 0;
+  TaskCollection tc;
+  TaskID none(0);
 
   auto partitions = GetDefaultBlockPartitions();
-  do {
-    all_sent = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!sent[i]) {
-        if (SendBoundaryBuffers(md) != TaskStatus::complete) {
-          all_sent = false;
-        } else {
-          sent[i] = true;
-        }
-      }
-    }
-    send_iters++;
-  } while (!all_sent && send_iters < max_it);
-  PARTHENON_REQUIRE(
-      send_iters < max_it,
-      "Too many iterations waiting to send boundary communication buffers.");
-
-  // wait to receive FillGhost variables
-  // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
-  // https://github.com/lanl/parthenon/issues/418
-  std::vector<bool> received(num_partitions, false);
-  bool all_received;
-  std::int64_t receive_iters = 0;
-  do {
-    all_received = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!received[i]) {
-        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-          all_received = false;
-        } else {
-          received[i] = true;
-        }
-      }
-    }
-    receive_iters++;
-  } while (!all_received && receive_iters < max_it);
-  PARTHENON_REQUIRE(
-      receive_iters < max_it,
-      "Too many iterations waiting to receive boundary communication buffers.");
-
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    // unpack FillGhost variables
-    SetBoundaries(md);
-  }
-
-  //  Now do prolongation, compute primitives, apply BCs
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    if (multilevel) {
-      ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
-      ProlongateBoundaries(md);
-    }
-    ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
+  TaskRegion &region = tc.AddRegion(partitions.size());
+  for (int i = 0; i < partitions.size(); i++) {
+    auto &md = mesh_data.Add(md_name, partitions[i], fields);
+    AddBoundaryExchangeTasks(none, region[i], md, multilevel);
   }
 }
 
