@@ -1,7 +1,6 @@
 block,parameters,type,default,description
 "parthenon/job","output_params_and_exit","bool","0","output a description of all input parameters accessed and quit"
 "parthenon/job","output_params_block_regex","string","(.*)","when outputting input parameters, this selects which input blocks to output; all are output by default"
-"parthenon/job","problem_id","string","parthenon","prefix for output files"
 "parthenon/job","run_only_analysis","bool","",""
 "","","","",""
 "parthenon/loadbalancing","balancer","string","default","load balancing strategy"
@@ -75,6 +74,7 @@ block,parameters,type,default,description
 "parthenon/time","ncycle_out","int","1","cadence of outputs to stdout"
 "parthenon/time","ncycle_out_mesh","int","0","cadence of outputs describing mesh"
 "parthenon/time","nlim","int","-1","maximum number of iterations, only limiting if non-negative"
+"parthenon/time","output_before_amr","bool","0","Set to true to generate outputs in a step BEFORE modifying the mesh at the end of the step. By default outputs happen AFTER remeshing if remeshing happens. WARNING: this will make restarts not bitwise-exact."
 "parthenon/time","perf_cycle_offset","int","0","don't measure performance for some number of initial cycles"
 "parthenon/time","recv_bdry_buf_timeout_sec","Real","-1",""
 "parthenon/time","start_time","Real","0","physical time at which to start the simulation"

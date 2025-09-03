@@ -27,7 +27,7 @@ using namespace parthenon::driver::prelude;
 class PoissonDriver : public Driver {
  public:
   PoissonDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : Driver(pin, app_in, pm) {
+      : Driver(pin, app_in, pm), final_rms_error(0.0), final_rms_residual(0.0) {
     InitializeOutputs();
   }
   // This next function essentially defines the driver.

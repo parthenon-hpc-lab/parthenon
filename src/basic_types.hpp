@@ -201,12 +201,20 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalElement GetTopologicalElement(TopologicalType tt, std::size_t idx) {
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                              const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
-  PARTHENON_DEBUG_REQUIRE(idx < GetNumberOfElements(tt),
-                          "Asking for topological element that doesn't exist.");
-  return static_cast<TE>(static_cast<std::size_t>(tt) + idx);
+  if (tt == TT::Cell) return TE::CC;
+  if (tt == TT::Node) return TE::NN;
+  const std::size_t start = static_cast<std::size_t>((tt == TT::Face) ? TE::F1 : TE::E1);
+  return static_cast<TE>(start + d);
+}
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+
+                                              const CoordinateDirection DIR) {
+  return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }
 
 using TE = TopologicalElement;
