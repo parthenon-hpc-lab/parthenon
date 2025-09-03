@@ -446,9 +446,8 @@ template TaskStatus
 ProlongateInternalBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateInternalBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus
-ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
-
+template TaskStatus ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(
+    std::shared_ptr<MeshData<Real>> &);
 
 bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
   return md->GetMeshPointer()->multilevel;
