@@ -55,7 +55,7 @@ TEST_CASE("TaskCollection timeout", "[TaskList][AddTask]") {
     parthenon::TaskRegion &region = tc.AddRegion(1);
     region[0].AddTask(TaskID(0), []() { return TaskStatus::incomplete; });
     const std::size_t timeout_in_seconds = 4;
-    tc.Execute(timeout_in_seconds);
-    REQUIRE(true);
+    parthenon::TaskListStatus status = tc.Execute(timeout_in_seconds);
+    REQUIRE(status == parthenon::TaskListStatus::fail);
   }
 }
