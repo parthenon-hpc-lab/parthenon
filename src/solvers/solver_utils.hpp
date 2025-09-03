@@ -34,7 +34,7 @@ KOKKOS_FORCEINLINE_FUNCTION void LoopOverBlockVarsAndTEs(const int b, pack_t &pa
     const auto tt = pack.GetTopologicalType(b, c);
     const auto nel = GetNumberOfElements(tt);
     for (int el = 0; el < nel; ++el) {
-      const auto te = GetTopologicalElement(tt, el);
+      const auto te = GetTopologicalElementInDir(tt, el);
       func(te, c);
     }
   }
