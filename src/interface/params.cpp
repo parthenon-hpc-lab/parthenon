@@ -11,10 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <sstream>
 #include <string>
 
 #include "utils/error_checking.hpp"
 
+#include "globals.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -31,12 +33,10 @@ namespace parthenon {
 template <typename T>
 void Params::WriteToHDF5AllParamsOfType(const std::string &prefix,
                                         const HDF5::H5G &group) const {
-  for (const auto &p : myParams_) {
-    const auto &key = p.first;
-    const auto type = myTypes_.at(key);
-    if (type == std::type_index(typeid(T))) {
-      auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-      HDF5::HDF5WriteAttribute(prefix + "/" + key, *typed_ptr->pValue, group);
+  for (const auto &[key, pparam] : myParams_) {
+    if (std::type_index(pparam->type()) == std::type_index(typeid(T))) {
+      auto typed_ptr = std::any_cast<T>(pparam.get());
+      HDF5::HDF5WriteAttribute(prefix + "/" + key, *typed_ptr, group);
     }
   }
 }
@@ -56,15 +56,24 @@ void Params::WriteToHDF5AllParamsOfTypeOrVec(const std::string &prefix,
 template <typename T>
 void Params::ReadFromHDF5AllParamsOfType(const std::string &prefix,
                                          const HDF5::H5G &group) {
-  for (auto &p : myParams_) {
-    auto &key = p.first;
-    auto type = myTypes_.at(key);
-    auto mutability = myMutable_.at(key);
-    if (type == std::type_index(typeid(T)) && mutability == Mutability::Restart) {
-      auto typed_ptr = dynamic_cast<Params::object_t<T> *>((p.second).get());
-      auto &val = *(typed_ptr->pValue);
-      HDF5::HDF5ReadAttribute(group, prefix + "/" + key, val);
-      Update(key, val);
+  for (auto &[key, pparam] : myParams_) {
+    if (std::type_index(pparam->type()) == std::type_index(typeid(T)) &&
+        GetMutability(key) == Mutability::Restart) {
+      auto typed_ptr = std::any_cast<T>(pparam.get());
+      auto &val = *typed_ptr;
+      std::string fullpath = prefix + "/" + key;
+      try {
+        HDF5::HDF5ReadAttribute(group, fullpath, val);
+        Update(key, val);
+      } catch (std::runtime_error e) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+        if (Globals::my_rank == 0) {
+          std::stringstream ss;
+          ss << "Failed to load parameter " << fullpath
+             << " from the restart file! Using default value." << std::endl;
+          PARTHENON_WARN(ss);
+        }
+      }
     }
   }
 }

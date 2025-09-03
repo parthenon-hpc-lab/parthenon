@@ -16,11 +16,14 @@
 #include <algorithm>
 #include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <vector>
 
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/var_id.hpp"
+#include "utils/hash.hpp"
 #include "utils/unique_id.hpp"
 
 namespace parthenon {

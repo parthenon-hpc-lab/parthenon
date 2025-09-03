@@ -241,8 +241,8 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
         const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c) {
           parthenon::par_for_inner(
-              parthenon::inner_loop_pattern_simdfor_tag, member, kb.s, kb.e, jb.s, jb.e,
-              ib.s, ib.e, [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
+              DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+              [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
         }
       });
   return TaskStatus::complete;

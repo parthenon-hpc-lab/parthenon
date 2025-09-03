@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -41,6 +41,7 @@ class Driver {
       : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
+  void DumpInputParameters();
 
   ParameterInput *pinput;
   ApplicationInput *app_input;
@@ -64,59 +65,85 @@ class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : Driver(pin, app_in, pm) {
-    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
+    Real start_time =
+        pinput->GetOrAddReal("parthenon/time", "start_time", 0.0,
+                             "physical time at which to start the simulation");
     Real tstop = pinput->GetOrAddReal("parthenon/time", "tlim",
-                                      std::numeric_limits<Real>::infinity());
+                                      std::numeric_limits<Real>::infinity(),
+                                      "physical time at which to end the simulation");
     Real dt =
-        pinput->GetOrAddReal("parthenon/time", "dt", std::numeric_limits<Real>::max());
-    dt_min = pinput->GetOrAddReal("parthenon/time", "dt_min",
-                                  std::numeric_limits<Real>::min());
-    dt_max = pinput->GetOrAddReal("parthenon/time", "dt_max",
-                                  std::numeric_limits<Real>::max());
-    dt_init = pinput->GetOrAddReal("parthenon/time", "dt_init",
-                                   std::numeric_limits<Real>::max());
-    dt_init_force = pinput->GetOrAddBoolean("parthenon/time", "dt_init_force", false);
+        pinput->GetOrAddReal("parthenon/time", "dt", std::numeric_limits<Real>::max(),
+                             "initial value of time step before constraining via cfl");
+    dt_min =
+        pinput->GetOrAddReal("parthenon/time", "dt_min", std::numeric_limits<Real>::min(),
+                             "if timestep falls below this level for dt_min_count_max "
+                             "iterations, parthenon throws an error");
+    dt_max =
+        pinput->GetOrAddReal("parthenon/time", "dt_max", std::numeric_limits<Real>::max(),
+                             "if timestep is above this level for dt_max_count_max "
+                             "iterations, parthenon throws an error");
+    dt_init = pinput->GetOrAddReal(
+        "parthenon/time", "dt_init", std::numeric_limits<Real>::max(),
+        "the first time step will be at least as small as dt_init");
+    dt_init_force = pinput->GetOrAddBoolean(
+        "parthenon/time", "dt_init_force", false,
+        "if set to true, the first time step will be exactly dt_init");
 
-    dt_user = pinput->GetOrAddReal("parthenon/time", "dt_user",
-                                   std::numeric_limits<Real>::max());
     dt_force = pinput->GetOrAddReal("parthenon/time", "dt_force",
-                                    std::numeric_limits<Real>::lowest());
+                                    std::numeric_limits<Real>::lowest(),
+                                    "if set manually enforces this time step exactly");
     dt_floor = pinput->GetOrAddReal("parthenon/time", "dt_floor",
-                                    std::numeric_limits<Real>::min());
+                                    std::numeric_limits<Real>::min(),
+                                    "minimum allowed timestep");
     dt_ceil = pinput->GetOrAddReal("parthenon/time", "dt_ceil",
-                                   std::numeric_limits<Real>::max());
+                                   std::numeric_limits<Real>::max(),
+                                   "maximum allowed timestep");
     dt_min_count_max =
-        pinput->GetOrAddInteger("parthenon/time", "dt_min_cycle_limit", 10);
-    dt_max_count_max = pinput->GetOrAddInteger("parthenon/time", "dt_max_cycle_limit", 1);
+        pinput->GetOrAddInteger("parthenon/time", "dt_min_cycle_limit", 10,
+                                "number of cycles where dt < dt_min before error");
+    dt_max_count_max =
+        pinput->GetOrAddInteger("parthenon/time", "dt_max_cycle_limit", 1,
+                                "number of cycles where dt > dt_max before error");
     dt_min_count = 0;
     dt_max_count = 0;
 
-    dt_factor = pinput->GetOrAddReal("parthenon/time", "dt_factor", 2.0);
+    dt_factor = pinput->GetOrAddReal("parthenon/time", "dt_factor", 2.0,
+                                     "maximum relative change in dt per timestep");
 
-    const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
-    const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
-    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+    const auto ncycle =
+        pinput->GetOrAddInteger("parthenon/time", "ncycle", 0, "initial iteration count");
+    const auto nmax = pinput->GetOrAddInteger(
+        "parthenon/time", "nlim", -1,
+        "maximum number of iterations, only limiting if non-negative");
+    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1,
+                                              "cadence of outputs to stdout");
     // disable mesh output by default
-    const auto nout_mesh =
-        pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0);
+    const auto nout_mesh = pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0,
+                                                   "cadence of outputs describing mesh");
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+
+    output_before_amr = pinput->GetOrAddBoolean(
+        "parthenon/time", "output_before_amr", false,
+        "Set to true to generate outputs in a step BEFORE modifying the mesh at the end "
+        "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
+        "WARNING: this will make restarts not bitwise-exact.");
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
   virtual void OutputCycleDiagnostics();
-  void DumpInputParameters();
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;
 
  protected:
   void PostExecute(DriverStatus status) override;
-  Real dt_user, dt_force, dt_init, dt_min, dt_max, dt_floor, dt_ceil;
+  Real dt_force, dt_init, dt_min, dt_max, dt_floor, dt_ceil;
   Real dt_factor;
   bool dt_init_force;
   int dt_min_count, dt_max_count;
   int dt_min_count_max, dt_max_count_max;
+  bool output_before_amr;
 
  private:
   void InitializeBlockTimeSteps();

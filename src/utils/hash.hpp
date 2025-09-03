@@ -19,50 +19,92 @@
 #define UTILS_HASH_HPP_
 
 #include <functional>
+#include <memory>
+#include <set>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 namespace parthenon {
-namespace impl {
-template <class T, typename... Rest>
-std::size_t hash_combine(std::size_t lhs, const T &v, Rest &&...rest) {
-  std::size_t rhs = std::hash<T>()(v);
-  // The boost hash combine function
-  lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
-  if constexpr (sizeof...(Rest) > 0) {
-    return hash_combine(lhs, std::forward<Rest>(rest)...);
-  }
-  return lhs;
-}
-
-template <class Tup, std::size_t I = std::tuple_size<Tup>::value - 1>
-struct TupHash {
-  static std::size_t val(const Tup &tup, std::size_t seed = 0) {
-    seed = TupHash<Tup, I - 1>::val(tup, seed);
-    return hash_combine(seed, std::get<I>(tup));
-  }
-};
-
-template <class Tup>
-struct TupHash<Tup, 0> {
-  static std::size_t val(const Tup &tup, std::size_t seed) {
-    return hash_combine(seed, std::get<0>(tup));
-  }
-};
-} // namespace impl
 
 // A hash struct that can be used as a template class in
 // std::unordered_map, etc. to
 // hash a tuple by hashing each of its elements then combining the
 // hashes into a single hash using hash_combine. May or may not be
 // optimal way of hashing, but it certainly works.
+namespace impl {
+inline void boost_hash_combine(std::size_t &lhs, std::size_t rhs) {
+  lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
+}
+
+template <class... Ts>
+inline std::size_t hash_combine(const Ts &...ts) {
+  std::size_t h{0};
+  (boost_hash_combine(h, std::hash<Ts>()(ts)), ...);
+  return h;
+}
+} // namespace impl
+} // namespace parthenon
+
+template <class T, class _Alloc>
+struct std::hash<std::vector<T, _Alloc>> {
+  std::size_t operator()(const std::vector<T, _Alloc> &vec) const {
+    std::size_t h{0};
+    for (auto &&t : vec)
+      parthenon::impl::boost_hash_combine(h, hash<T>()(t));
+    return h;
+  }
+};
+
+template <class T, int N>
+struct std::hash<std::array<T, N>> {
+  std::size_t operator()(const std::array<T, N> &arr) const {
+    std::size_t h{0};
+    for (auto &&t : arr)
+      parthenon::impl::boost_hash_combine(h, hash<T>()(t));
+    return h;
+  }
+};
+
+template <class T>
+struct std::hash<std::set<T>> {
+  std::size_t operator()(const std::set<T> &vec) const {
+    std::size_t h{0};
+    for (auto &&t : vec)
+      parthenon::impl::boost_hash_combine(h, hash<T>()(t));
+    return h;
+  }
+};
+
+template <class... Ts>
+struct std::hash<std::tuple<Ts...>> {
+  std::size_t operator()(const std::tuple<Ts...> &tup) const {
+    return std::apply(parthenon::impl::hash_combine<Ts...>, tup);
+  }
+};
+
+namespace parthenon {
+template <class T>
+struct WeakPtrHash {
+  std::size_t operator()(const std::weak_ptr<T> &wp) const {
+    if (auto sp = wp.lock()) {
+      return std::hash<std::shared_ptr<T>>()(sp);
+    }
+    return 0;
+  }
+};
+
+template <class T>
+struct WeakPtrEqual {
+  bool operator()(const std::weak_ptr<T> &lhs, const std::weak_ptr<T> &rhs) const {
+    return !lhs.owner_before(rhs) && !rhs.owner_before(lhs);
+  }
+};
+
+// This is just here for backward compatibility
 template <class T>
 struct tuple_hash {
-  using argument_type = T;
-  using result_type = std::size_t;
-  std::size_t operator()(const argument_type &tup) const {
-    return parthenon::impl::TupHash<argument_type>::val(tup);
-  }
+  std::size_t operator()(const T &tup) const { return std::hash<T>()(tup); }
 };
 } // namespace parthenon
 

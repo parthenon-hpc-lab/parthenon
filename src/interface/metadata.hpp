@@ -177,6 +177,7 @@ class MetadataFlag {
 
   std::string const &Name() const;
 
+  int Flag() const { return flag_; }
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
   constexpr int InternalFlagValue() const { return flag_; }
@@ -704,5 +705,12 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
 }
 } // namespace MetadataUtils
 } // namespace parthenon
+
+template <>
+struct std::hash<parthenon::MetadataFlag> {
+  std::size_t operator()(const parthenon::MetadataFlag &flag) const {
+    return flag.Flag();
+  }
+};
 
 #endif // INTERFACE_METADATA_HPP_

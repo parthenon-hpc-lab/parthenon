@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -157,7 +157,7 @@ TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity che
 
       AND_WHEN("We modify both parameter inputs in the same way") {
         in1.GetOrAddReal("block3", "var5", 2.0);
-        in2.GetOrAddReal("block3", "var5", 2.0);
+        in2.GetOrAdd<parthenon::Real>("block3", "var5", 2.0);
         THEN("The hashes agree") {
           std::size_t hash1 = hasher(in1);
           std::size_t hash2 = hasher(in2);
@@ -173,6 +173,29 @@ TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity che
           }
         }
       }
+    }
+  }
+}
+
+TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
+  GIVEN("A ParameterInput object already populated") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl
+       << "var1 = 0   # comment" << std::endl
+       << "var2 = 0   # comment" << std::endl
+       << "<block2>" << std::endl
+       << "var2 = 2" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    THEN("block1/var1 exists") { REQUIRE(in.DoesParameterExist("block1", "var1")); }
+
+    WHEN("We delete a parameter") {
+      in.RemoveParameter("block1", "var1");
+      THEN("It no longer exists") { REQUIRE(!in.DoesParameterExist("block1", "var1")); }
+      THEN("And others still do") { REQUIRE(in.DoesParameterExist("block1", "var2")); }
     }
   }
 }

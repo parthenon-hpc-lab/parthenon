@@ -59,7 +59,7 @@ void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
 
-TEST_CASE("Swarm memory management", "[Swarm]") {
+TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   std::stringstream is;
   is << "<parthenon/mesh>" << endl;
   is << "x1min = -0.5" << endl;

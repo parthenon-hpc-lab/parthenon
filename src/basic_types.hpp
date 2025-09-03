@@ -192,6 +192,23 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
   return {TE::CC};
 }
 
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                              const std::size_t d) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (tt == TT::Cell) return TE::CC;
+  if (tt == TT::Node) return TE::NN;
+  const std::size_t start = static_cast<std::size_t>((tt == TT::Face) ? TE::F1 : TE::E1);
+  return static_cast<TE>(start + d);
+}
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+
+                                              const CoordinateDirection DIR) {
+  return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
+}
+
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
@@ -250,5 +267,16 @@ using Dictionary = std::unordered_map<std::string, T>;
 template <typename T>
 using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
+
+namespace Kokkos {
+// this specialization is needed for AmrTags to be used as the type in a
+// Kokkos::ScatterView
+template <>
+struct reduction_identity<parthenon::AmrTag> {
+  using AmrTag = parthenon::AmrTag;
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::derefine; }
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::refine; }
+};
+} // namespace Kokkos
 
 #endif // BASIC_TYPES_HPP_

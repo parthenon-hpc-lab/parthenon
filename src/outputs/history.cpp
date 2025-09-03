@@ -1,9 +1,9 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,9 +14,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file history.cpp
-//  \brief writes history output data, volume-averaged quantities that are output
-//         frequently in time to trace their history.
+// Athena++ astrophysical MHD code
+// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 
 #include <algorithm>
 #include <cstdio>
@@ -29,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
@@ -179,8 +181,11 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       PARTHENON_FAIL(msg);
     }
 
-    // If this is the first output, write header
-    if (output_params.file_number == 0) {
+    // Write the header lines once per distinct history file, each once
+    // per invocation of parthenon -- once a header has been output for
+    // the given file_id, ignore it.
+    static std::unordered_set<std::string> ids_output;
+    if (!ids_output.count(output_params.file_id)) {
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
       std::fprintf(pfile, "# [%d]=time    ", iout++);
@@ -193,6 +198,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
+      ids_output.insert(output_params.file_id);
     }
 
     // write history variables
@@ -210,16 +216,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
 
   // advance output parameters
-  output_params.file_number++;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  if (output_params.dt > 0.0) {
-    output_params.next_time += output_params.dt;
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-  }
-  if (output_params.dn > 0) {
-    output_params.next_n += output_params.dn;
-    pin->SetInteger(output_params.block_name, "next_n", output_params.next_n);
-  }
+  UpdateNextOutput_(pm, tm);
 }
 
 } // namespace parthenon

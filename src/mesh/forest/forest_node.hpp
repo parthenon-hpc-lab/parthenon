@@ -25,6 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "utils/hash.hpp"
 
 namespace parthenon {
 namespace forest {
@@ -41,7 +42,8 @@ class Node {
 
   std::uint32_t id;
   std::array<Real, NDIM> x;
-  std::unordered_set<std::shared_ptr<Face>> associated_faces;
+  std::unordered_set<std::weak_ptr<Face>, WeakPtrHash<Face>, WeakPtrEqual<Face>>
+      associated_faces;
   bool on_physical_boundary;
 };
 } // namespace forest

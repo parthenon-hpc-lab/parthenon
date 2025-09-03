@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -44,7 +44,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       break;
     }
     std::string method =
-        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method");
+        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method",
+                            "method to use to check for refinement");
     ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
     numcrit++;
   }
@@ -101,8 +102,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
                      const int &idx, ParArray1D<AmrTag> &amr_tags,
                      const Real refine_criteria_, const Real derefine_criteria_,
                      const int max_level_) {
-  const auto desc =
-      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  const auto desc = MakePackDescriptor(md, {field});
   auto pack = desc.GetPack(md);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
@@ -156,8 +156,7 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int &idx, ParArray1D<AmrTag> &amr_tags,
                       const Real refine_criteria_, const Real derefine_criteria_,
                       const int max_level_) {
-  const auto desc =
-      MakePackDescriptor(md->GetMeshPointer()->resolved_packages.get(), {field});
+  const auto desc = MakePackDescriptor(md, {field});
   auto pack = desc.GetPack(md);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nvars = pack.GetMaxNumberOfVars();
