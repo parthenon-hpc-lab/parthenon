@@ -33,18 +33,18 @@ class TestCase(utils.test_case.TestCaseAbs):
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        elif step == 3:
+        elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver",
             ]
-        elif step == 2:
+        elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver_coalesced",
-                "parthenon/mesh/do_coalesced_comms=true",
+                "parthenon/mesh/do_coalesced_comms=false",
             ]
         # check that we can dynamically enable outputs
         else:
