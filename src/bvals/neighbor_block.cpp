@@ -43,7 +43,7 @@ NeighborBlock::NeighborBlock()
       offsets(0, 0, 0), ownership(true) {}
 
 NeighborBlock::NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc,
-                             int rank, int gid, std::array<int, 3> offsets_in, int bid,
+                             int rank, int gid, Kokkos::Array<int, 3> offsets_in, int bid,
                              int target_id, int fi1, int fi2)
     : rank{rank}, gid{gid}, bufid{bid}, targetid{target_id}, loc{loc},
       origin_loc{origin_loc}, fi1{fi1}, fi2{fi2}, block_size(mesh->GetBlockSize(loc)),

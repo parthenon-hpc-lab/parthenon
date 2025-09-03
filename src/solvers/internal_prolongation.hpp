@@ -135,6 +135,7 @@ class ProlongationBlockInteriorZeroDirichlet {
         md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    if (pack.GetNBlocks() == 0) return TaskStatus::complete;
 
     parthenon::par_for(
         "Prolongate", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),

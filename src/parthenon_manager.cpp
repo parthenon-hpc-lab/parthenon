@@ -22,6 +22,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -72,8 +73,6 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
 
-  Globals::is_restart = IsRestart();
-
   Kokkos::initialize(argc, argv);
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
@@ -91,6 +90,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
   }
+  // Now that the input is parsed we can pass the info to globals
+  Globals::is_restart = arg.is_restart;
 
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
@@ -98,7 +99,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
-  if (arg.res_flag != 0) {
+  if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
@@ -115,7 +116,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.res_flag != 0) {
+    if (arg.is_restart) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -189,7 +190,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
-  } else if (arg.res_flag == 0) {
+  } else if (!arg.is_restart) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
@@ -234,7 +235,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
@@ -324,27 +325,40 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // make sure we have all sparse variables that are in the restart file
-  PARTHENON_REQUIRE_THROWS(
-      num_sparse == sparse_info.num_sparse,
-      "Mismatch between sparse fields in simulation and restart file");
 
+  // JMM: It is possible to output with more sparse variables than you
+  // need, for example if you're outputting a core dump, so we
+  // complain only if the number of sparse varaibles required is
+  // greater than the number in the file, not if it is less.
+  PARTHENON_REQUIRE_THROWS(
+      num_sparse <= sparse_info.num_sparse,
+      "Mismatch between sparse fields in simulation and restart file");
   std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
     const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
+    auto var_missing_on_disk = !resfile.VariableExists(label);
     if (Globals::my_rank == 0) {
-      std::cout << "Var: " << label << ":" << vlen << std::endl;
+      std::cout << "Var: " << label << ":" << vlen
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
+    }
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
     }
     // Read relevant data from the hdf file, this works for dense and sparse variables
+    // because sparse variables are currently densely written for HDF5.
     try {
       resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
-      std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
-                << label << " from restart file:" << std::endl
-                << ex.what() << std::endl;
-      continue;
+      std::stringstream msg;
+      msg << "[" << Globals::my_rank << "] WARNING: Failed to read variable " << label
+          << " from restart file:" << std::endl
+          << ex.what() << std::endl;
+      PARTHENON_THROW(msg);
     }
 
     size_t index = 0;
@@ -392,8 +406,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
+    auto var_missing_on_disk = !resfile.VariableExists(swarmname);
     if (Globals::my_rank == 0) {
-      std::cout << "Swarm: " << swarmname << std::endl;
+      std::cout << "Swarm: " << swarmname
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
+    }
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
     }
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =

@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2021-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -51,12 +55,12 @@ class ArgParse {
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           restart_filename = argv[++i];
           break;
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           analysis_flag = true;
           restart_filename = argv[++i];
           break;
@@ -135,7 +139,7 @@ class ArgParse {
   char *prundir = nullptr;
   char *params_regex = nullptr;
   bool analysis_flag = false;
-  int res_flag = 0;
+  bool is_restart = false;
   int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
