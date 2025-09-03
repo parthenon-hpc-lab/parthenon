@@ -661,6 +661,7 @@ void Mesh::CommunicateBoundaries(std::string md_name,
     auto &md = mesh_data.Add(md_name, partitions[i], fields);
     AddBoundaryExchangeTasks(none, region[i], md, multilevel);
   }
+  tc.Execute();
 }
 
 void Mesh::PreCommFillDerived() {
