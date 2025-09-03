@@ -4,12 +4,14 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option of specifying number of teams used to fill each boundary buffer
+- [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
+- [[PR 1255]](https://github.com/parthenon-hpc-lab/parthenon/pull/1255) RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
 - [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
-
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
 - [[PR 1242]](https://github.com/parthenon-hpc-lab/parthenon/pull/1242) Move to Kokkos 4.6.01 (for AMD APU support)
@@ -17,6 +19,10 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
+- [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
+- [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) Backward compatibility fixes (`last_/next_` output package, restart with new `Restart` vars, `is_restart`)
+- [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against block_list access when nmb==0
 - [[PR 1291]](https://github.com/parthenon-hpc-lab/parthenon/pull/1291) Fix provenance for downstream codes 
 - [[PR 1289]](https://github.com/parthenon-hpc-lab/parthenon/pull/1289) Fix a bug in 1214
 - [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
@@ -28,6 +34,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292_ Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
 - [[PR 1268]](https://github.com/parthenon-hpc-lab/parthenon/pull/1268) Adds build information to phdf output
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
@@ -38,6 +45,7 @@
 
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
+- [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) `pmesh->is_restart` removed in favor of `Globals::is_restart`
 
 
 

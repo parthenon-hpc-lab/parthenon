@@ -69,8 +69,8 @@ struct NeighborBlock {
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,
-                int gid, std::array<int, 3> offsets, int bid, int target_id, int ifi1,
-                int ifi2);
+                int gid, Kokkos::Array<int, 3> offsets_in, int bid, int target_id,
+                int fi1, int fi2);
 };
 
 //----------------------------------------------------------------------------------------
