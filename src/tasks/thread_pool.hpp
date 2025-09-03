@@ -81,7 +81,7 @@ class ThreadQueue {
       complete = false;
       waiting = false;
     }
-    if (!timeout) signal_kill();
+    if (timeout) signal_kill();
     return timeout;
   }
 
