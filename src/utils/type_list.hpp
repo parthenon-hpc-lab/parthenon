@@ -95,6 +95,27 @@ auto ConcatenateTypeLists(TypeList<Args1...>, TypeList<Args2...>, Args...) {
   return ConcatenateTypeLists(TypeList<Args1..., Args2...>(), Args()...);
 }
 
+template <typename, typename, typename...>
+struct UnionTypeLists {};
+
+template <typename... Ts>
+struct UnionTypeLists<TypeList<Ts...>, TypeList<>> {
+  using type = TypeList<Ts...>;
+};
+
+template <typename... Ts, typename V, typename... Vs>
+struct UnionTypeLists<TypeList<Ts...>, TypeList<V, Vs...>> {
+  using TL = TypeList<Ts...>;
+  using type = std::conditional_t<
+      TL::template IsIn<V>(), TL,
+      typename UnionTypeLists<TypeList<Ts..., V>, TypeList<Vs...>>::type>;
+};
+
+template <typename T, typename U, typename V, typename... Args>
+struct UnionTypeLists<T, U, V, Args...> {
+  using type = typename UnionTypeLists<typename UnionTypeLists<T, U>::type, V>::type;
+};
+
 template <class T, std::size_t I, class... Ts>
 static auto InsertTypeImpl(TypeList<Ts...>) {
   if constexpr (I == 0) {
@@ -113,6 +134,9 @@ static auto InsertTypeImpl(TypeList<Ts...>) {
 template <class... TLs>
 using concatenate_type_lists_t =
     decltype(impl::ConcatenateTypeLists(std::declval<TLs>()...));
+
+template <typename... TLs>
+using union_type_lists_t = typename impl::UnionTypeLists<TLs...>::type;
 
 template <class T, class TL, std::size_t I = TL::n_types>
 using insert_type_list_t = decltype(impl::InsertTypeImpl<T, I>(TL()));

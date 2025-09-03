@@ -158,15 +158,6 @@ struct derived_variable_t<TL<Ts...>, NCOMP...>
     : public var_base_t<false, Real, NCOMP...> {
   using Base_t = var_base_t<false, Real, NCOMP...>;
   using dependent_vars = TypeList<Ts...>;
-
-  // Derived variables need to implement their own evaluate method
-  // like below
-  // template <typename... Args>
-  // KOKKOS_INLINE_FUNCTION const Real evaluate(const Real v1, ..., Args &&...args) const
-  // {
-  //   PARTHENON_FAIL("Need to implement your own evaluate method.")
-  //   return 0.;
-  // }
 };
 
 // Concept to state that a typed-field is dependent on other
@@ -180,12 +171,7 @@ template <typename T>
 constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
 struct DerivedVariable {
-  // template <typename T, template <typename...> typename TL, typename... Vs,
-  //           typename... Args>
-  // auto requires_(T &&x, TL<Vs...>, Args &&...args)
-  //     -> void_t<decltype(x.evaluate(process_real(Vs())..., args...))>;
   template <typename T>
-  // auto requires_(T &&x) -> void_t<decltype(&T::evaluate)>;
   auto requires_(T &&x)
       -> void_t<ENABLEIF(std::is_member_function_pointer_v<decltype(&T::evaluate)>)>;
 
@@ -216,13 +202,13 @@ struct AllDependentVariables {
 
   template <typename T, typename... Ts>
   static auto get(T, Ts...) {
-    return concatenate_type_lists_t<decltype(AllDependentVariables::get(T())),
-                                    decltype(AllDependentVariables::get(Ts()...))>();
+    return union_type_lists_t<decltype(AllDependentVariables::get(T())),
+                              decltype(AllDependentVariables::get(Ts()...))>();
   }
 };
 } // namespace impl
 
-// Get a TypeList of all the non-derived variables that make up the requested types.
+// Get a TypeList of all the non-dependent variables that make up the requested types.
 template <typename... Ts>
 using all_dependent_variables_t = decltype(impl::AllDependentVariables::get(Ts()...));
 
