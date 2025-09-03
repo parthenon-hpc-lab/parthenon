@@ -44,7 +44,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver_coalesced",
-                "parthenon/mesh/do_coalesced_comms=false",
+                "parthenon/mesh/do_coalesced_comms=true",
             ]
         # check that we can dynamically enable outputs
         else:

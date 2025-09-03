@@ -520,6 +520,10 @@ bool CoalescedComms::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
     }
   }
   return all_received;
+#else
+  // There are no coalesced comms without MPI, so all buffers
+  // are automatically received
+  return true;
 #endif
 }
 } // namespace parthenon
