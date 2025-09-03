@@ -192,7 +192,7 @@ class PoissonEquation {
                 (pack(b, te, var_t(), k - 1, j, i) - pack(b, te, var_t(), k, j, i)) /
                 coords.template Dxc<X3DIR>(k, j, i);
             if (k == kb.e)
-              pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
+              pack.flux(b, X3DIR, var_t(), k + 1, j, i) =
                   pack_mat(b, TE::F3, D_t(), k + 1, j, i) *
                   (pack(b, te, var_t(), k, j, i) - pack(b, te, var_t(), k + 1, j, i)) /
                   coords.template Dxc<X3DIR>(k + 1, j, i);
